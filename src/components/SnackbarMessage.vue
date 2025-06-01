@@ -3,10 +3,9 @@
     v-for="(msg, index) in messages"
     :key="msg.id"
     v-model="msg.visible"
-    variant="outlined"
     location="top"
     :timeout="msg.timeout"
-    :color="getSnackbarColor(msg.type)"
+    :timer="getSnackbarColor(msg.type)"
     :style="{ transform: `translateY(${index * 60}px)` }">
     {{ msg.text }}
     <template #actions>
@@ -85,7 +84,8 @@ function removeMessage(id: string) {
 watch(
   () => props.message,
   (newMessage) => {
-    if (newMessage) {
+    console.log('Received new message:', props.message);
+    if (newMessage && newMessage.text && newMessage.text.length > 0) {
       addMessage(newMessage);
     }
   },
