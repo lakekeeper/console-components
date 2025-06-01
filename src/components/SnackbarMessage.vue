@@ -100,3 +100,20 @@ defineExpose({
   },
 });
 </script>
+
+<style>
+.v-snackbar--active {
+  & ~ & {
+    transform: translateY(60px);
+  }
+  & ~ & ~ & {
+    transform: translateY(120px);
+  }
+  & ~ & ~ & ~ & {
+    transform: translateY(180px);
+  }
+  & ~ & ~ & ~ & ~ & {
+    transform: translateY(240px);
+  }
+}
+</style>
