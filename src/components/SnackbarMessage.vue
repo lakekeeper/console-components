@@ -1,12 +1,13 @@
 <template>
   <v-snackbar
     v-for="(msg, index) in messages"
-    :key="index"
+    :key="msg.id"
     v-model="msg.visible"
     variant="outlined"
     location="top"
     :timeout="msg.timeout"
-    :color="getSnackbarColor(msg.type)">
+    :color="getSnackbarColor(msg.type)"
+    :style="{ transform: `translateY(${index * 60}px)` }">
     {{ msg.text }}
     <template #actions>
       <v-btn :color="msg.type" @click="removeMessage(msg.id)">Close</v-btn>
@@ -100,20 +101,3 @@ defineExpose({
   },
 });
 </script>
-
-<style>
-.v-snackbar--active {
-  & ~ & {
-    transform: translateY(60px);
-  }
-  & ~ & ~ & {
-    transform: translateY(120px);
-  }
-  & ~ & ~ & ~ & {
-    transform: translateY(180px);
-  }
-  & ~ & ~ & ~ & ~ & {
-    transform: translateY(240px);
-  }
-}
-</style>
