@@ -1,5 +1,5 @@
 <template>
-  <v-breadcrumbs :items="breadcrumbs">
+  <v-breadcrumbs :items="breadcrumbs" :loading="isLoading">
     <template #divider>
       <v-icon icon="mdi-chevron-right"></v-icon>
     </template>
@@ -7,7 +7,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject } from 'vue';
+import { inject, ref, watch, onMounted } from 'vue';
 import { AppFunctions, FUNCTIONS_INJECTION_KEY } from '../types/functions';
 
 export interface Breadcrumb {
@@ -19,7 +19,6 @@ export interface Breadcrumb {
 interface Props {
   url: string;
   basePrefix?: string;
-  getWarehouse?: (id: string) => Promise<{ name: string }>;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -28,14 +27,31 @@ const props = withDefaults(defineProps<Props>(), {
 
 const functions = inject<AppFunctions>(FUNCTIONS_INJECTION_KEY);
 
+if (!functions) {
+  throw new Error(
+    'Functions not provided. Make sure to provide functions in the parent component.',
+  );
+}
+
 const emit = defineEmits<{
   breadcrumbsChanged: [breadcrumbs: Breadcrumb[]];
 }>();
 
-const breadcrumbs = computed<Breadcrumb[]>(() => {
+// Reactive state
+const isLoading = ref(false);
+const breadcrumbs = ref<Breadcrumb[]>([]);
+
+// Load breadcrumbs based on URL
+async function loadBreadcrumbs(url: string) {
+  if (!url) {
+    breadcrumbs.value = [];
+    return;
+  }
+
+  isLoading.value = true;
   try {
     const result: Breadcrumb[] = [];
-    const paths = props.url.split('/').filter(Boolean);
+    const paths = url.split('/').filter(Boolean);
 
     let currentPath = props.basePrefix;
 
@@ -45,13 +61,23 @@ const breadcrumbs = computed<Breadcrumb[]>(() => {
 
       let title = segment;
 
-      // First path segment - warehouse
-      if (index === 1 && functions?.getWarehouseById) {
-        // Note: This would need to be async, but computed can't be async
-        // The parent component should handle fetching warehouse names
-        title = segment; // Keep ID as fallback
+      if (index === 1) {
+        // Warehouse segment - try to get warehouse name
+        if (functions!.getWarehouse) {
+          try {
+            const warehouse = await functions!.getWarehouse(segment);
+            title = warehouse?.name || segment;
+          } catch (error) {
+            console.warn(`Failed to fetch warehouse name for ${segment}:`, error);
+            title = segment; // Use segment as fallback
+          }
+        }
+        result.push({
+          title,
+          href: currentPath,
+        });
       } else if (index === 2 || index === 4) {
-        // Skip certain segments
+        // Skip intermediate segments (e.g., 'namespace', 'table')
         continue;
       } else if (index === 3) {
         // Handle namespace paths with special encoding
@@ -62,36 +88,48 @@ const breadcrumbs = computed<Breadcrumb[]>(() => {
         const previousBreadcrumb = result[result.length - 1];
         const namespacePath = `${previousBreadcrumb?.href || currentPath}/namespace`;
         const nsPreviousPath: string[] = [];
-        let path = '';
 
-        nsId.forEach((p) => {
+        for (const p of nsId) {
           nsPreviousPath.push(p);
-          path = `${namespacePath}/${nsPreviousPath.join(String.fromCharCode(0x1f))}`;
+          const path = `${namespacePath}/${nsPreviousPath.join(String.fromCharCode(0x1f))}`;
 
           result.push({
             title: p,
             href: decodeURIComponent(path),
           });
+        }
+      } else {
+        // Other segments
+        result.push({
+          title,
+          href: currentPath,
         });
-        continue;
       }
-
-      result.push({
-        title,
-        href: currentPath,
-      });
     }
 
-    return result;
+    breadcrumbs.value = result;
   } catch (error) {
     console.error('Error generating breadcrumbs:', error);
-    return [];
+    breadcrumbs.value = [];
+  } finally {
+    isLoading.value = false;
   }
-});
+}
+
+// Watch for URL changes
+watch(() => props.url, loadBreadcrumbs, { immediate: true });
 
 // Emit breadcrumbs when they change
-computed(() => {
-  emit('breadcrumbsChanged', breadcrumbs.value);
-  return breadcrumbs.value;
+watch(
+  breadcrumbs,
+  (newBreadcrumbs) => {
+    emit('breadcrumbsChanged', newBreadcrumbs);
+  },
+  { deep: true },
+);
+
+// Initialize on mount
+onMounted(() => {
+  loadBreadcrumbs(props.url);
 });
 </script>

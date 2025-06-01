@@ -9,6 +9,7 @@ export interface AppFunctions {
   setWarehouseManagedAccess?: (id: string, managed: boolean) => Promise<any>;
   setNamespaceManagedAccess?: (id: string, managed: boolean) => Promise<any>;
   getWarehouseById?: (id: string) => Promise<any>;
+  getWarehouse?: (name: string) => Promise<any>; // Get warehouse by name/identifier
   getNamespaceById?: (id: string) => Promise<any>;
 }
 
