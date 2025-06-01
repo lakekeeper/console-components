@@ -2,9 +2,22 @@
 import {
   PermissionManager,
   PermissionAssignDialog,
+  AppFooter,
+  AppBar,
+  NavigationBar,
+  WarningBanner,
+  SnackbarMessage,
+  BreadcrumbsFromUrl,
+  DialogDelete,
+  ServerInformation,
+  UserManager,
+  UserRenameDialog,
+  ProjectDialog,
+  AddNamespaceDialog,
+  RoleDialog,
   AppFunctions,
   FUNCTIONS_INJECTION_KEY,
-} from './dist/index.js';
+} from './dist/console-components.es.js';
 
 console.log('✅ Exports verification:');
 console.log('PermissionManager:', PermissionManager ? '✅ Available' : '❌ Missing');
