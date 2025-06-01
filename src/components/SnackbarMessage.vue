@@ -3,12 +3,13 @@
     v-for="(msg, index) in messages"
     :key="index"
     v-model="msg.visible"
+    variant="outlined"
     location="top"
     :timeout="msg.timeout"
     :color="getSnackbarColor(msg.type)">
     {{ msg.text }}
     <template #actions>
-      <v-btn :color="msg.type" @click="msg.visible = false">Close</v-btn>
+      <v-btn :color="msg.type" @click="removeMessage(msg.id)">Close</v-btn>
     </template>
   </v-snackbar>
 </template>
@@ -36,6 +37,7 @@ const messages = ref<Array<SnackbarMessage & { visible: boolean; id: string }>>(
 
 const emit = defineEmits<{
   messageDismissed: [id: string];
+  close: [id: string];
 }>();
 
 function getSnackbarColor(type: MessageType): string {
@@ -74,6 +76,7 @@ function removeMessage(id: string) {
   if (index > -1) {
     messages.value.splice(index, 1);
     emit('messageDismissed', id);
+    emit('close', id);
   }
 }
 
