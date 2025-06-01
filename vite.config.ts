@@ -25,6 +25,7 @@ export default defineConfig({
     rollupOptions: {
       external: ['vue', 'vuetify', /^vuetify\//],
       output: {
+        exports: 'named',
         globals: {
           vue: 'Vue',
           vuetify: 'Vuetify',

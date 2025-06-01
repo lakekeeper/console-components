@@ -3,7 +3,10 @@
     <div class="text-caption text-disabled" style="position: absolute; right: 16px">
       &copy; {{ new Date().getFullYear() }}
       <span class="d-none d-sm-inline-block">
-        <a href="https://lakekeeper.io">Lakekeeper<slot name="suffix"></slot></a>
+        <a href="https://lakekeeper.io">Lakekeeper</a>
+        <span class="ml-2">
+          <slot name="suffix"></slot>
+        </span>
       </span>
     </div>
   </v-footer>
