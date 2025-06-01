@@ -110,9 +110,6 @@ export interface MenuItem {
   disabled?: boolean;
 }
 
-export type HelpAction = 'goToDocumentation' | 'openIssue' | 'goToSupport';
-export type UserAction = 'goToUserProfile' | 'getNewToken';
-
 interface Props {
   title?: string;
   navBarShow?: boolean;
@@ -156,8 +153,6 @@ const emit = defineEmits<{
   openIssue: [];
   goToSupport: [];
   getNewToken: [];
-  helpAction: [action: HelpAction];
-  userAction: [action: UserAction];
 }>();
 
 // Computed properties
@@ -236,38 +231,11 @@ const handleLogout = () => {
 };
 
 const handleHelpAction = (action: string) => {
-  const helpAction = action as HelpAction;
-
-  // Emit both specific and generic events
-  switch (helpAction) {
-    case 'goToDocumentation':
-      emit('goToDocumentation');
-      break;
-    case 'openIssue':
-      emit('openIssue');
-      break;
-    case 'goToSupport':
-      emit('goToSupport');
-      break;
-  }
-
-  emit('helpAction', helpAction);
+  emit(action as any);
 };
 
 const handleUserAction = (action: string) => {
-  const userAction = action as UserAction;
-
-  // Emit both specific and generic events
-  switch (userAction) {
-    case 'goToUserProfile':
-      emit('goToUserProfile');
-      break;
-    case 'getNewToken':
-      emit('getNewToken');
-      break;
-  }
-
-  emit('userAction', userAction);
+  emit(action as any);
 };
 </script>
 
