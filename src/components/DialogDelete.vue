@@ -1,123 +1,183 @@
 <template>
   <v-dialog v-model="isDialogActive" max-width="500">
     <template #activator="{ props: activatorProps }">
-      <slot name="activator" :props="activatorProps">
-        <v-btn
-          v-bind="activatorProps"
-          color="error"
-          size="small"
-          :text="`Delete ${capitalize(itemType)}`"
-          variant="outlined"></v-btn>
-      </slot>
+      <v-btn v-bind="activatorProps" rounded="pill" variant="flat">
+        <v-icon color="error">mdi-delete-outline</v-icon>
+      </v-btn>
     </template>
 
-    <v-card :title="`Delete ${capitalize(itemType)}`">
+    <v-card :title="`Confirm deletion of ${props.type}`">
       <v-card-text>
-        <p>Are you sure you want to delete this {{ itemType }}?</p>
-
+        <div class="ma-2">Please enter the name "{{ props.name }}" to confirm the deletion</div>
         <v-text-field
           v-model="deleteName"
-          :label="`Type '${itemName}' to confirm`"
-          placeholder="Confirm deletion"
-          variant="outlined"
-          class="mt-4"></v-text-field>
+          :label="`Type ${capitalize(props.type)} Name`"
+          maxlength="500"
+          :placeholder="$props.name"></v-text-field>
 
-        <v-row v-if="documentationUrl" align="center" class="mt-2">
+        <v-row class="mt-6 mb-2">
           <v-col cols="auto">
-            <v-icon color="info" size="small" @click="expanded = !expanded">
+            <span>Delete Options:</span>
+            <v-icon class="ml-2" color="info" style="cursor: pointer" @click="expanded = !expanded">
               mdi-information-box-outline
             </v-icon>
           </v-col>
           <v-col class="text-left">
+            <!-- Ensures text is aligned to the left -->
             <span v-if="expanded" class="mt-2">
               More information
-              <a v-if="documentationUrl" :href="documentationUrl" target="_blank">here</a>
+              <a
+                href="https://docs.lakekeeper.io/docs/nightly/concepts/#protection-and-deletion-mechanisms-in-lakekeeper"
+                target="_blank"
+                style="color: inherit">
+                here
+              </a>
             </span>
           </v-col>
         </v-row>
-
-        <v-row v-if="showDeleteOptions && expanded">
-          <v-col>
-            <v-checkbox
-              v-model="purgeRequested"
-              :disabled="!allowPurge"
-              :label="purgeLabel"
-              :messages="purgeMessage"></v-checkbox>
-          </v-col>
-        </v-row>
+        <span v-if="props.type === 'namespace'">
+          <v-switch v-model="optionsNamespace.force" class="ml-4" color="info" density="compact">
+            <template #label>
+              <div>
+                <span>{{ optionsNamespace.force ? 'Force activated' : 'Force deactivated' }}</span>
+                <div v-if="optionsNamespace.force" class="text-caption text-error">
+                  Bypass Protection and skip Soft-Deletion
+                </div>
+              </div>
+            </template>
+          </v-switch>
+          <v-switch
+            v-model="optionsNamespace.recursive"
+            class="ml-4"
+            color="info"
+            density="compact">
+            <template #label>
+              <div>
+                <span>
+                  {{ optionsNamespace.recursive ? 'Recursive activated' : 'Recursive deactivated' }}
+                </span>
+                <div v-if="optionsNamespace.recursive" class="text-caption text-error">
+                  Recursive deletion of all objects in the namespace
+                </div>
+              </div>
+            </template>
+          </v-switch>
+          <v-switch v-model="optionsNamespace.purge" class="ml-4" color="info" density="compact">
+            <template #label>
+              <div>
+                <span>
+                  {{ optionsNamespace.purge ? 'Purge activated' : 'Purge deactivated' }}
+                </span>
+                <div v-if="optionsNamespace.purge" class="text-caption text-error">
+                  Purge deletes table and view data
+                </div>
+              </div>
+            </template>
+          </v-switch>
+        </span>
+        <span v-else-if="props.type === 'table'">
+          <v-switch v-model="optionsTable.force" class="ml-4" color="info" density="compact">
+            <template #label>
+              <div>
+                <span>{{ optionsTable.force ? 'Force activated' : 'Force deactivated' }}</span>
+                <div v-if="optionsTable.force" class="text-caption text-error">
+                  Bypass Protection and Skip Soft-Deletion
+                </div>
+              </div>
+            </template>
+          </v-switch>
+          <v-switch
+            v-model="optionsTable.purgeRequested"
+            class="ml-4"
+            color="info"
+            density="compact">
+            <template #label>
+              <div>
+                <span>
+                  {{ optionsTable.purgeRequested ? 'Purge activated' : 'Purge deactivated' }}
+                </span>
+                <div v-if="optionsTable.purgeRequested" class="text-caption text-error">
+                  Purge the underlying table's data and metadata
+                </div>
+              </div>
+            </template>
+          </v-switch>
+        </span>
+        <span v-else-if="props.type === 'view'">
+          <v-switch v-model="optionsView.force" class="ml-4" color="info" density="compact">
+            <template #label>
+              <div>
+                <span>{{ optionsView.force ? 'Force activated' : 'Force deactivated' }}</span>
+                <div v-if="optionsView.force" class="text-caption text-error">
+                  Bypass Protection and Skip Soft-Deletion
+                </div>
+              </div>
+            </template>
+          </v-switch>
+        </span>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="error" :disabled="!isDeleteEnabled" @click="confirmDelete">Delete</v-btn>
-        <v-btn color="grey" @click="cancelDelete">Cancel</v-btn>
+
+        <v-btn
+          color="success"
+          :disabled="deleteName != $props.name"
+          text="Confirm"
+          @click="confirm"></v-btn>
+        <v-btn color="error" text="Cancel" @click="reject"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
 
-<script setup lang="ts">
-import { computed, ref, watch } from 'vue';
+<script lang="ts" setup>
+import { defineEmits, defineProps, ref, reactive } from 'vue';
 
-interface Props {
-  itemType: string;
-  itemName: string;
-  showDeleteOptions?: boolean;
-  allowPurge?: boolean;
-  purgeLabel?: string;
-  purgeMessage?: string;
-  documentationUrl?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  showDeleteOptions: false,
-  allowPurge: false,
-  purgeLabel: 'Purge permanently',
-  purgeMessage: 'This action cannot be undone',
-  documentationUrl: '',
+const deleteName = ref('');
+const expanded = ref(false);
+const optionsNamespace = reactive({
+  force: false,
+  recursive: false,
+  purge: false,
 });
 
+const optionsTable = reactive({
+  force: false,
+  purgeRequested: false,
+});
+
+const optionsView = reactive({
+  force: false,
+});
+
+const props = defineProps<{
+  type: string;
+  name: string;
+}>();
+
 const emit = defineEmits<{
-  delete: [options: { purge: boolean }];
-  cancel: [];
+  (e: 'deleteWithOptions', options: { force: boolean; recursive: boolean; purge: boolean }): void;
+  (e: 'deleteTableWithOptions', options: { force: boolean; purgeRequested: boolean }): void;
+  (e: 'deleteViewWithOptions', options: { force: boolean }): void;
 }>();
 
 const isDialogActive = ref(false);
-const deleteName = ref('');
-const expanded = ref(false);
-const purgeRequested = ref(false);
 
-const isDeleteEnabled = computed(() => {
-  return deleteName.value === props.itemName;
-});
-
+function confirm() {
+  if (props.type === 'namespace') {
+    emit('deleteWithOptions', optionsNamespace);
+  } else if (props.type === 'table') {
+    emit('deleteTableWithOptions', optionsTable);
+  } else if (props.type === 'view') {
+    emit('deleteViewWithOptions', optionsView);
+  }
+  isDialogActive.value = false;
+}
+function reject() {
+  isDialogActive.value = false;
+}
 function capitalize(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
-
-function confirmDelete() {
-  emit('delete', { purge: purgeRequested.value });
-  resetDialog();
-}
-
-function cancelDelete() {
-  emit('cancel');
-  resetDialog();
-}
-
-function resetDialog() {
-  isDialogActive.value = false;
-  deleteName.value = '';
-  expanded.value = false;
-  purgeRequested.value = false;
-}
-
-// Reset form when dialog opens
-watch(isDialogActive, (newValue) => {
-  if (newValue) {
-    deleteName.value = '';
-    expanded.value = false;
-    purgeRequested.value = false;
-  }
-});
 </script>

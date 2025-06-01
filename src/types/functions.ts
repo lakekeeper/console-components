@@ -1,4 +1,10 @@
-import { User, Role } from '@/gen/management/types.gen';
+import {
+  User,
+  Role,
+  CreateWarehouseRequest,
+  CreateWarehouseResponse,
+  GetWarehouseResponse,
+} from '@/gen/management/types.gen';
 
 export interface AppFunctions {
   getUser(id: string): Promise<User>;
@@ -8,9 +14,13 @@ export interface AppFunctions {
   // Optional warehouse/namespace functions with flexible signatures
   setWarehouseManagedAccess?: (id: string, managed: boolean) => Promise<any>;
   setNamespaceManagedAccess?: (id: string, managed: boolean) => Promise<any>;
-  getWarehouseById?: (id: string) => Promise<any>;
-  getWarehouse?: (name: string) => Promise<any>; // Get warehouse by name/identifier
+  getWarehouseById?: (id: string) => Promise<GetWarehouseResponse>;
+  getWarehouse?: (name: string) => Promise<GetWarehouseResponse>; // Get warehouse by name/identifier
   getNamespaceById?: (id: string) => Promise<any>;
+  createWarehouse?: (request: CreateWarehouseRequest) => Promise<CreateWarehouseResponse>;
+  // Additional utility functions
+  copyToClipboard?: (text: string) => void;
+  icebergCatalogUrlSuffixed?: () => string;
 }
 
 export const FUNCTIONS_INJECTION_KEY = Symbol('functions');

@@ -9,6 +9,11 @@ import ProjectDialog from './components/ProjectDialog.vue';
 import AddNamespaceDialog from './components/AddNamespaceDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
 import AddOrEditProjectNameDialog from './components/AddOrEditProjectNameDialog.vue';
+import AuthenticationDisabledWarningBanner from './components/AuthenticationDisabledWarningBanner.vue';
+import RenameWarehouseDialog from './components/RenameWarehouseDialog.vue';
+import WarehouseActionsMenu from './components/WarehouseActionsMenu.vue';
+import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
+
 // Import navigation components
 import AppBar from './components/AppBar.vue';
 import NavigationBar from './components/NavigationBar.vue';
@@ -20,6 +25,9 @@ import BreadcrumbsFromUrl from './components/BreadcrumbsFromUrl.vue';
 import DialogDelete from './components/DialogDelete.vue';
 import ServerInformation from './components/ServerInformation.vue';
 import UserManager from './components/UserManager.vue';
+import StatisticsDialog from './components/StatisticsDialog.vue';
+import StatisticsProject from './components/StatisticsProject.vue';
+import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
 
 // Export individual components
 export {
@@ -39,6 +47,13 @@ export {
   ServerInformation,
   UserManager,
   AddOrEditProjectNameDialog,
+  AuthenticationDisabledWarningBanner,
+  RenameWarehouseDialog,
+  WarehouseActionsMenu,
+  WarehouseAddDialog,
+  StatisticsDialog,
+  StatisticsProject,
+  ComputeConnectDialog,
 };
 
 export * from './types';
@@ -61,6 +76,13 @@ const components = {
   DialogDelete,
   ServerInformation,
   UserManager,
+  AuthenticationDisabledWarningBanner,
+  RenameWarehouseDialog,
+  WarehouseActionsMenu,
+  WarehouseAddDialog,
+  StatisticsDialog,
+  StatisticsProject,
+  ComputeConnectDialog,
 };
 
 // Create the plugin

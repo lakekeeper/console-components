@@ -1,24 +1,21 @@
 <template>
   <v-dialog v-model="isDialogActive" max-width="500">
     <template #activator="{ props: activatorProps }">
-      <slot name="activator" :props="activatorProps">
-        <v-btn
-          v-bind="activatorProps"
-          :color="actionType === 'add' ? 'info' : 'warning'"
-          size="small"
-          :text="`${actionType} Role`"
-          :variant="actionType === 'add' ? 'flat' : 'outlined'"></v-btn>
-      </slot>
+      <v-btn
+        v-bind="activatorProps"
+        :color="actionType == 'add' ? 'info' : 'warning'"
+        size="small"
+        :text="`${props.actionType} Role`"
+        :variant="actionType == 'add' ? 'flat' : 'outlined'"></v-btn>
     </template>
 
-    <v-card :title="actionType === 'add' ? 'New Role' : 'Edit Role'">
+    <v-card :title="$props.actionType == 'add' ? 'New Role' : 'Edit Role'">
       <v-card-text>
         <v-text-field
           v-model="roleData.name"
           label="Role Name"
           placeholder="my-role"
-          :rules="[roleRule]"
-          :disabled="actionType === 'edit'"></v-text-field>
+          :rules="[roleRule]"></v-text-field>
         <v-textarea
           v-model="roleData.description"
           label="Role description"
@@ -30,86 +27,58 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
-        <v-btn color="success" :disabled="!isValid" @click="handleSubmit">
-          {{ actionType === 'add' ? 'Add' : 'Update' }}
+        <v-btn
+          color="success"
+          :disabled="roleData.name == '' || roleData.name.length < 3"
+          @click="createRole">
+          save role
         </v-btn>
-        <v-btn color="error" @click="handleCancel">Cancel</v-btn>
+        <v-btn color="error" text="Cancel" @click="cancelRoleInput"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
 
-<script setup lang="ts">
-import { computed, ref, reactive, watch } from 'vue';
-
-export interface RoleData {
-  id: string;
-  name: string;
-  description: string;
-}
-
-interface Props {
-  actionType: 'add' | 'edit';
-  existingRole?: RoleData;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  existingRole: () => ({ id: '', name: '', description: '' }),
-});
-
-const emit = defineEmits<{
-  submit: [data: RoleData];
-  cancel: [];
-}>();
+<script lang="ts" setup>
+import { defineEmits, defineProps, reactive, onMounted, ref } from 'vue';
 
 const isDialogActive = ref(false);
-const roleData = reactive<RoleData>({
-  id: '',
+const emit = defineEmits<{
+  (e: 'roleInput', role: { name: string; description: string }): void;
+}>();
+
+const props = defineProps<{
+  actionType: 'add' | 'edit';
+  role?: {
+    name: { type: string; default: '' };
+    description: { type: string; default: '' };
+  };
+}>();
+
+const roleData = reactive({
   name: '',
   description: '',
 });
 
-const isValid = computed(() => {
-  return roleData.name.trim().length > 0 && roleData.description.trim().length > 0;
-});
+const roleRule = (value: string) =>
+  value.length >= 3 || 'Namespace must be at least 3 characters long';
 
-const roleRule = (value: string) => {
-  return value.trim().length > 0 || 'This field is required';
-};
-
-function handleSubmit() {
-  if (isValid.value) {
-    emit('submit', {
-      id: roleData.id,
-      name: roleData.name.trim(),
-      description: roleData.description.trim(),
-    });
-    resetDialog();
-  }
+function createRole() {
+  emit('roleInput', { name: roleData.name, description: roleData.description });
+  cancelRoleInput();
 }
 
-function handleCancel() {
-  emit('cancel');
-  resetDialog();
-}
-
-function resetDialog() {
+function cancelRoleInput() {
+  if (props.actionType === 'add') initRoleInput();
   isDialogActive.value = false;
-  roleData.id = '';
+}
+
+function initRoleInput() {
   roleData.name = '';
   roleData.description = '';
 }
 
-// Load existing role data when dialog opens or props change
-watch([isDialogActive, () => props.existingRole], ([isOpen, existingRole]) => {
-  if (isOpen && existingRole) {
-    roleData.id = existingRole.id || '';
-    roleData.name = existingRole.name || '';
-    roleData.description = existingRole.description || '';
-  } else if (isOpen) {
-    roleData.id = '';
-    roleData.name = '';
-    roleData.description = '';
-  }
+onMounted(() => {
+  Object.assign(roleData, props.role);
 });
 </script>
