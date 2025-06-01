@@ -71,7 +71,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, reactive, computed, ref, inject } from 'vue';
+import { onMounted, reactive, computed, ref, inject, watch } from 'vue';
 
 import { AssignmentCollection, Header, RelationType } from '../types/interfaces';
 import { StatusIntent } from '../types/enums';
@@ -86,7 +86,7 @@ if (!functions) {
   );
 }
 
-const isManagedAccess = computed(() => props.isManagedAccess);
+const isManagedAccess = ref(false);
 const isManagedAccessInherited = ref(false);
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
@@ -126,6 +126,17 @@ const props = defineProps<{
   existingPermissionsFromObj: AssignmentCollection;
   isManagedAccess?: boolean;
 }>();
+
+// Watch for prop changes and sync with local ref
+watch(
+  () => props.isManagedAccess,
+  (newValue) => {
+    if (newValue !== undefined) {
+      isManagedAccess.value = newValue;
+    }
+  },
+  { immediate: true },
+);
 
 const emit = defineEmits<{
   (
