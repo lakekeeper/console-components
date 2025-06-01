@@ -8,7 +8,7 @@ import UserRenameDialog from './components/UserRenameDialog.vue';
 import ProjectDialog from './components/ProjectDialog.vue';
 import AddNamespaceDialog from './components/AddNamespaceDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
-
+import AddOrEditProjectNameDialog from './components/AddOrEditProjectNameDialog.vue';
 // Import navigation components
 import AppBar from './components/AppBar.vue';
 import NavigationBar from './components/NavigationBar.vue';
@@ -38,6 +38,7 @@ export {
   DialogDelete,
   ServerInformation,
   UserManager,
+  AddOrEditProjectNameDialog,
 };
 
 export * from './types';
@@ -50,6 +51,7 @@ const components = {
   UserRenameDialog,
   ProjectDialog,
   AddNamespaceDialog,
+  AddOrEditProjectNameDialog,
   RoleDialog,
   AppBar,
   NavigationBar,
