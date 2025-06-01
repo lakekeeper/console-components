@@ -131,7 +131,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineEmits, defineProps, reactive, ref, onMounted, computed, watch } from 'vue';
+import { defineEmits, defineProps, reactive, ref, onMounted, computed, watch, inject } from 'vue';
 import {
   NamespaceRelation,
   ProjectRelation,
@@ -146,6 +146,15 @@ import {
 
 import { AssignmentCollection, RelationType } from '../types/interfaces';
 import { StatusIntent } from '../types/enums';
+import { AppFunctions, FUNCTIONS_INJECTION_KEY } from '../types/functions';
+
+const functions = inject<AppFunctions>(FUNCTIONS_INJECTION_KEY);
+
+if (!functions) {
+  throw new Error(
+    'Functions not provided. Make sure to provide functions in the parent component.',
+  );
+}
 
 const byIdActivated = ref(false);
 const items = reactive<any[]>([]);
@@ -274,10 +283,10 @@ async function searchMember(search: string) {
     if (search === '') return;
 
     if (searchForType.value === 'user') {
-      const userSearchOutput = await functions.searchUser(search);
+      const userSearchOutput = await functions!.searchUser(search);
       Object.assign(items, userSearchOutput);
     } else {
-      const roleSearchOutput = await functions.searchRole(search);
+      const roleSearchOutput = await functions!.searchRole(search);
 
       const roleSearchOutputFiltered = roleSearchOutput.filter((it: Role) => {
         return it.id !== props.obj.id;
@@ -297,7 +306,7 @@ async function searchMemberById(idSearchUserOrRolePar: string) {
     if (idSearchUserOrRolePar === null) return;
 
     if (searchForType.value === 'user') {
-      const userSearchOutput = await functions.getUser(idSearchUserOrRolePar);
+      const userSearchOutput = await functions!.getUser(idSearchUserOrRolePar);
 
       Object.assign(selectedItem, userSearchOutput);
 
@@ -314,7 +323,7 @@ async function searchMemberById(idSearchUserOrRolePar: string) {
 
       idSearchUserOrRole.value = '';
     } else {
-      const roleSearchOutput = await functions.getRole(idSearchUserOrRolePar);
+      const roleSearchOutput = await functions!.getRole(idSearchUserOrRolePar);
 
       Object.assign(selectedItem, roleSearchOutput);
 
@@ -455,8 +464,8 @@ async function init() {
       Object.assign(
         selectedItem,
         assignee.user
-          ? await functions.getUser(assignee.user)
-          : await functions.getRole(assignee.role),
+          ? await functions!.getUser(assignee.user)
+          : await functions!.getRole(assignee.role),
       );
     }
   } catch (error) {

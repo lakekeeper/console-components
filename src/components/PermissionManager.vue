@@ -71,11 +71,20 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, reactive, computed, ref } from 'vue';
+import { onMounted, reactive, computed, ref, inject } from 'vue';
 
 import { AssignmentCollection, Header, RelationType } from '../types/interfaces';
 import { StatusIntent } from '../types/enums';
+import { AppFunctions, FUNCTIONS_INJECTION_KEY } from '../types/functions';
 import PermissionAssignDialog from './PermissionAssignDialog.vue';
+
+const functions = inject<AppFunctions>(FUNCTIONS_INJECTION_KEY);
+
+if (!functions) {
+  throw new Error(
+    'Functions not provided. Make sure to provide functions in the parent component.',
+  );
+}
 
 const isManagedAccess = computed(() => props.isManagedAccess);
 const isManagedAccessInherited = ref(false);
@@ -171,10 +180,10 @@ async function init() {
   //   await loadManagedAccess();
 
   for (const permission of props.existingPermissionsFromObj) {
-    const serachUser: any = permission;
+    const searchUser: any = permission;
 
-    if (serachUser.user) {
-      const user = await functions.getUser(serachUser.user);
+    if (searchUser.user) {
+      const user = await functions!.getUser(searchUser.user);
       const idx = permissionRows.findIndex((a) => a.id === user.id);
       if (user) {
         if (idx === -1) {
@@ -190,7 +199,7 @@ async function init() {
         }
       }
     } else {
-      const role = await functions.getRole(serachUser.role);
+      const role = await functions!.getRole(searchUser.role);
       const idx = permissionRows.findIndex((a) => a.id === role.id);
 
       if (role) {
