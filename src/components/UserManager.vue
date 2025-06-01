@@ -79,7 +79,7 @@ const emit = defineEmits<{
   (e: 'renameUserName', user: { name: string; id: string }): void;
 }>();
 
-async function init() {
+function init() {
   users.splice(0, users.length);
   Object.assign(users, props.loadedUsers);
 
@@ -93,14 +93,14 @@ async function init() {
   }
 }
 
-async function deleteUser(user: User) {
+function deleteUser(user: User) {
   try {
     emit('deleteUser', user.id);
   } catch (error) {
     console.error(error);
   }
 }
-async function copyToClipboard(userId: string) {
+function copyToClipboard(userId: string) {
   try {
     emit('copyToClipboard', userId);
   } catch (error) {
@@ -108,8 +108,8 @@ async function copyToClipboard(userId: string) {
   }
 }
 
-onMounted(async () => {
-  await init();
+onMounted(() => {
+  init();
 });
 
 function renameUser(user: { name: string; id: string }) {

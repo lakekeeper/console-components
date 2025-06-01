@@ -1,9 +1,23 @@
 import type { App, Plugin } from 'vue';
-import * as components from './components';
 
-// Export all components
-export * from './components';
+// Import all components
+import AppFooter from './components/AppFooter.vue';
+import UserManager from './components/UserManager.vue';
+import UserRenameDialog from './components/UserRenameDialog.vue';
+import ServerInformation from './components/ServerInformation.vue';
+
+// Export individual components
+export { AppFooter, UserManager, UserRenameDialog, ServerInformation };
+
 export * from './types';
+
+// Register all components in an object
+const components = {
+  AppFooter,
+  UserManager,
+  UserRenameDialog,
+  ServerInformation,
+};
 
 // Create the plugin
 const ConsoleComponentsPlugin: Plugin = {
