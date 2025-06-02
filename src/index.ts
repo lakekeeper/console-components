@@ -10,7 +10,7 @@ import AddNamespaceDialog from './components/AddNamespaceDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
 import AddOrEditProjectNameDialog from './components/AddOrEditProjectNameDialog.vue';
 import AuthenticationDisabledWarningBanner from './components/AuthenticationDisabledWarningBanner.vue';
-import RenameWarehouseDialog from './components/RenameWarehouseDialog.vue';
+import RenameWarehouseDialog from './components/WarehouseRenameDialog.vue';
 import WarehouseActionsMenu from './components/WarehouseActionsMenu.vue';
 import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
 

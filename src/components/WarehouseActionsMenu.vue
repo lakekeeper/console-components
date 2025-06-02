@@ -5,7 +5,7 @@
     </template>
 
     <v-list activatable>
-      <RenameWarehouseDialog :warehouse-name="warehouse.name" @rename-warehouse="emitRename" />
+      <WarehouseRenameDialog :warehouse-name="warehouse.name" @rename-warehouse="emitRename" />
 
       <WarehouseAddDialog
         :project-id="projectId"
@@ -58,7 +58,7 @@ import {
 import { User } from '../types/interfaces';
 import { ref, onMounted } from 'vue';
 import { Intent, ObjectType } from '../types/enums';
-import RenameWarehouseDialog from './RenameWarehouseDialog.vue';
+import WarehouseRenameDialog from './WarehouseRenameDialog.vue';
 import WarehouseAddDialog from './WarehouseAddDialog.vue';
 import ComputeConnectDialog from './ComputeConnectDialog.vue';
 
