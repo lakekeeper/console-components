@@ -36,16 +36,7 @@
         {{ item.name }}
       </span>
     </template>
-    <!--template v-slot:item.kind="{ item }">
-      <td>
-        <span class="icon-text">
-          <v-icon class="mr-2" v-if="item.kind == 'user'"
-            >mdi-account-circle-outline</v-icon
-          >
-          <v-icon class="mr-2" v-else>mdi-account-box-multiple-outline</v-icon>
-        </span>
-      </td>
-    </template-->
+
     <template #item.type="{ item }">
       <PermissionAssignDialog
         :status="props.status"

@@ -6,9 +6,10 @@ import PermissionManager from './components/PermissionManager.vue';
 import PermissionAssignDialog from './components/PermissionAssignDialog.vue';
 import UserRenameDialog from './components/UserRenameDialog.vue';
 import ProjectDialog from './components/ProjectDialog.vue';
+import ProjectManager from './components/ProjectManager.vue';
 import AddNamespaceDialog from './components/AddNamespaceDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
-import AddOrEditProjectNameDialog from './components/AddOrEditProjectNameDialog.vue';
+import ProjectNameAddOrEditDialog from './components/ProjectNameAddOrEditDialog.vue';
 import AuthenticationDisabledWarningBanner from './components/AuthenticationDisabledWarningBanner.vue';
 import RenameWarehouseDialog from './components/WarehouseRenameDialog.vue';
 import WarehouseActionsMenu from './components/WarehouseActionsMenu.vue';
@@ -46,7 +47,7 @@ export {
   DialogDelete,
   ServerInformation,
   UserManager,
-  AddOrEditProjectNameDialog,
+  ProjectNameAddOrEditDialog,
   AuthenticationDisabledWarningBanner,
   RenameWarehouseDialog,
   WarehouseActionsMenu,
@@ -54,6 +55,7 @@ export {
   StatisticsDialog,
   StatisticsProject,
   ComputeConnectDialog,
+  ProjectManager,
 };
 
 export * from './types';
@@ -66,7 +68,7 @@ const components = {
   UserRenameDialog,
   ProjectDialog,
   AddNamespaceDialog,
-  AddOrEditProjectNameDialog,
+  ProjectNameAddOrEditDialog,
   RoleDialog,
   AppBar,
   NavigationBar,
@@ -83,6 +85,7 @@ const components = {
   StatisticsDialog,
   StatisticsProject,
   ComputeConnectDialog,
+  ProjectManager,
 };
 
 // Create the plugin
