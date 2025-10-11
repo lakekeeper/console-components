@@ -292,7 +292,6 @@ function onBlur() {
   }
 }
 
-
 async function searchMemberById(idSearchUserOrRolePar: string) {
   try {
     if (idSearchUserOrRolePar === '') return;
@@ -369,7 +368,9 @@ function selectedObject() {
 
   searchFor.value = '';
   items.splice(0, items.length);
-  setTimeout(() => { isSelecting.value = false; }, 100);
+  setTimeout(() => {
+    isSelecting.value = false;
+  }, 100);
 }
 
 function sendAssignment(value: any) {
