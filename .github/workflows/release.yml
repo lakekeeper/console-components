@@ -5,7 +5,6 @@ on:
     branches:
       - main
       - main-*
-  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -62,4 +61,3 @@ jobs:
           name: dist
           path: dist
           if-no-files-found: error
-
