@@ -1,6 +1,7 @@
 # @lakekeeper/console-components
 
 A shared Vue 3 component library for Lakekeeper console applications. This library provides reusable UI components, composables, stores, and utilities built with Vue 3, Vuetify 3, and TypeScript.
+It needs a backeend server of Lakekeeper https://github.com/lakekeeper/lakekeeper
 
 ## 📦 What's Included
 
