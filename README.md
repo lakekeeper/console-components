@@ -301,7 +301,7 @@ This library is designed to be shared across multiple Lakekeeper console applica
 
 ## 📄 License
 
-MIT
+Apache-2.0
 
 ## 🔗 Links
 
@@ -312,5 +312,5 @@ MIT
 
 ## License
 
-MIT
+Apache-2.0
 ```
