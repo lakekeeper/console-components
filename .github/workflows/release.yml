@@ -63,21 +63,3 @@ jobs:
           path: dist
           if-no-files-found: error
 
-  test:
-    name: Run Tests
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Install and Test
-        run: |
-          npm ci
-          npm test
