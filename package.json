@@ -39,7 +39,7 @@
     "console"
   ],
   "author": "Lakekeeper",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "peerDependencies": {
     "vue": "^3.5.16",
     "vuetify": "^3.8.7"

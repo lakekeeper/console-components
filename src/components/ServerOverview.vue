@@ -47,9 +47,9 @@
                     :color="projectInfo.bootstrapped ? 'success' : 'warning'"
                     size="small"
                     variant="flat">
-                    <v-icon start>{{
-                      projectInfo.bootstrapped ? 'mdi-check' : 'mdi-alert'
-                    }}</v-icon>
+                    <v-icon start>
+                      {{ projectInfo.bootstrapped ? 'mdi-check' : 'mdi-alert' }}
+                    </v-icon>
                     {{ projectInfo.bootstrapped ? 'Bootstrapped' : 'Not Bootstrapped' }}
                   </v-chip>
                 </v-list-item-subtitle>
@@ -77,9 +77,9 @@
                 </template>
                 <v-list-item-title>Authorization Backend</v-list-item-title>
                 <v-list-item-subtitle>
-                  <v-chip size="small" color="info">{{
-                    projectInfo['authz-backend'] || 'N/A'
-                  }}</v-chip>
+                  <v-chip size="small" color="info">
+                    {{ projectInfo['authz-backend'] || 'N/A' }}
+                  </v-chip>
                 </v-list-item-subtitle>
               </v-list-item>
             </v-list>
@@ -108,9 +108,13 @@
                     :color="projectInfo['license-status']['valid'] ? 'success' : 'error'"
                     size="small"
                     variant="flat">
-                    <v-icon start>{{
-                      projectInfo['license-status']['valid'] ? 'mdi-check-circle' : 'mdi-alert-circle'
-                    }}</v-icon>
+                    <v-icon start>
+                      {{
+                        projectInfo['license-status']['valid']
+                          ? 'mdi-check-circle'
+                          : 'mdi-alert-circle'
+                      }}
+                    </v-icon>
                     {{ projectInfo['license-status']['valid'] ? 'Valid' : 'Invalid' }}
                   </v-chip>
                 </v-list-item-subtitle>
@@ -153,9 +157,9 @@
                   <v-icon>mdi-account-tie</v-icon>
                 </template>
                 <v-list-item-title>Customer</v-list-item-title>
-                <v-list-item-subtitle>{{
-                  projectInfo['license-status']['customer']
-                }}</v-list-item-subtitle>
+                <v-list-item-subtitle>
+                  {{ projectInfo['license-status']['customer'] }}
+                </v-list-item-subtitle>
               </v-list-item>
 
               <!-- Audience -->
@@ -164,9 +168,9 @@
                   <v-icon>mdi-account-group</v-icon>
                 </template>
                 <v-list-item-title>Audience</v-list-item-title>
-                <v-list-item-subtitle>{{
-                  projectInfo['license-status']['audience']
-                }}</v-list-item-subtitle>
+                <v-list-item-subtitle>
+                  {{ projectInfo['license-status']['audience'] }}
+                </v-list-item-subtitle>
               </v-list-item>
 
               <!-- Issuer -->
@@ -175,9 +179,9 @@
                   <v-icon>mdi-domain</v-icon>
                 </template>
                 <v-list-item-title>Issuer</v-list-item-title>
-                <v-list-item-subtitle>{{
-                  projectInfo['license-status']['issuer']
-                }}</v-list-item-subtitle>
+                <v-list-item-subtitle>
+                  {{ projectInfo['license-status']['issuer'] }}
+                </v-list-item-subtitle>
               </v-list-item>
 
               <!-- Expiration -->
