@@ -211,9 +211,6 @@ const auth = useAuth();
 const config = useConfig();
 const warehouseId = computed(() => 'my-warehouse');
 const { canUpdate, canDelete } = useWarehousePermissions(warehouseId);
-
-console.log('Is authenticated:', auth.isAuthenticated.value);
-console.log('Can update warehouse:', canUpdate.value);
 </script>
 ```
 
