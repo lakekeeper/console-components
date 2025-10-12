@@ -72,10 +72,6 @@ const auth = useAuth();
 const config = useConfig();
 
 async function login() {
-  console.log('Login button clicked');
-  console.log('Authentication enabled:', config.enabledAuthentication.value);
-  console.log('Auth available:', !!auth);
-
   if (!config.enabledAuthentication.value) {
     console.warn('Authentication is disabled in config');
     return;
@@ -87,17 +83,10 @@ async function login() {
   }
 
   try {
-    console.log('Calling auth.initUser()');
     await auth.initUser();
-    console.log('auth.initUser() completed');
 
     // After initUser, check if user is now authenticated with valid token and redirect
-    if (userStore.isAuthenticated && userStore.user.access_token) {
-      console.log('User authenticated, redirecting to home');
-      router.push('/');
-    } else {
-      console.log('User not authenticated after initUser - should have redirected to IDP');
-    }
+    if (userStore.isAuthenticated && userStore.user.access_token) router.push('/');
   } catch (error) {
     console.error('Login error:', error);
   }

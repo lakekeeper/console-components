@@ -88,8 +88,6 @@ export function createAuth(config: AuthConfig) {
       // Debug: Log token updates (hide most of the token for security)
       const newRefreshToken = mappedUser.refresh_token;
 
-      // ...removed console.log
-
       useUserStore().setUser(mappedUser);
       accessToken.value = mappedUser.access_token;
       isAuthenticated.value = true;
@@ -100,13 +98,11 @@ export function createAuth(config: AuthConfig) {
         const freshUser = await userManager.getUser();
         if (freshUser && freshUser.refresh_token && freshUser.refresh_token !== newRefreshToken) {
           console.warn('[userLoaded] Refresh token mismatch! Event has stale token.');
-          // ...removed console.log
+
           const correctedUser = mapOidcUserToUser(freshUser);
           if (correctedUser) {
             useUserStore().setUser(correctedUser);
           }
-        } else if (freshUser) {
-          // ...removed console.log
         }
       } catch (e) {
         console.error('[userLoaded] Failed to verify token from storage:', e);
@@ -115,7 +111,6 @@ export function createAuth(config: AuthConfig) {
 
     // Only throttle console logging to prevent spam
     if (now - lastUserLoadedTime >= THROTTLE_MS) {
-      // ...removed console.log
       lastUserLoadedTime = now;
     }
   });
@@ -128,18 +123,6 @@ export function createAuth(config: AuthConfig) {
       return;
     }
     lastExpiringNotification = now;
-
-    // ...removed console.log
-
-    // Debug: Check what refresh token OIDC library has before renewal
-    try {
-      const currentUser = await userManager.getUser();
-      if (currentUser) {
-        // ...removed console.log
-      }
-    } catch (e) {
-      console.error('[BEFORE RENEWAL] Failed to get current user:', e);
-    }
   });
 
   // Event fired when token has expired
@@ -168,7 +151,6 @@ export function createAuth(config: AuthConfig) {
   });
 
   userManager.events.addUserSignedOut(async () => {
-    // ...removed console.log
     accessToken.value = '';
     isAuthenticated.value = false;
     useUserStore().unsetUser();
@@ -180,12 +162,9 @@ export function createAuth(config: AuthConfig) {
   // Helper functions
   const initUser = async () => {
     try {
-      // ...removed console.log
       const user = await userManager.getUser();
-      // ...removed console.log
 
       if (user && !user.expired) {
-        // ...removed console.log
         const mappedUser = mapOidcUserToUser(user);
         if (mappedUser) {
           useUserStore().setUser(mappedUser);
@@ -193,7 +172,6 @@ export function createAuth(config: AuthConfig) {
           isAuthenticated.value = true;
         }
       } else {
-        // ...removed console.log
         await signIn();
       }
     } catch (error) {
@@ -203,10 +181,7 @@ export function createAuth(config: AuthConfig) {
 
   const signIn = async () => {
     try {
-      // ...removed console.log
-      // ...removed console.log
       await userManager.signinRedirect();
-      // ...removed console.log
     } catch (error) {
       console.error('OIDC sign-in failed', error);
     }
@@ -225,14 +200,12 @@ export function createAuth(config: AuthConfig) {
   async function refreshToken(): Promise<User | undefined> {
     // If refresh is already in progress, return the existing promise
     if (refreshPromise) {
-      // ...removed console.log
       return refreshPromise;
     }
 
     // Create new refresh promise
     refreshPromise = (async () => {
       try {
-        // ...removed console.log
         const user = await userManager.signinSilent();
         const newUser = mapOidcUserToUser(user);
 
@@ -250,7 +223,6 @@ export function createAuth(config: AuthConfig) {
         try {
           const currentUser = await userManager.getUser();
           if (currentUser && !currentUser.expired) {
-            // ...removed console.log
             return mapOidcUserToUser(currentUser);
           }
         } catch (getUserError) {

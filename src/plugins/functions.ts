@@ -139,7 +139,7 @@ function parseErrorText(errorText: string): { message: string; code: number } {
 
 function handleError(error: any, functionError: Error) {
   try {
-    console.log('Handling error:', error);
+    console.error('Handling error:', error);
     if (error === 'invalid HTTP header (authorization)') return;
     const functionName =
       functionError.stack?.split('\n')[1]?.trim()?.split(' ')[1]?.replace('Object.', '') ||
@@ -2326,7 +2326,7 @@ async function getNewToken(auth: any) {
 
     // Get current user token instead of forcing a refresh
     const user = await auth.refreshToken(); //userStore.getUser();
-    console.log('Got new token', user);
+
     if (user?.access_token) {
       const expiresAt = user.token_expires_at
         ? new Date(user.token_expires_at * 1000).toLocaleString()
