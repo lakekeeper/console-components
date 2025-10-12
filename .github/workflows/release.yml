@@ -19,7 +19,8 @@ jobs:
   # Update release PR
   release_please:
     name: Release Please
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNS_ON__AMD_XS || 'ubuntu-latest' }}
+    if: ${{ vars.RELEASE_PLEASE_ACTIVATED != '' }}
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       tag_name: ${{ steps.release.outputs['tag_name'] }}
@@ -33,12 +34,12 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please/release-please-config.json
           manifest-file: release-please/.release-please-manifest.json
-          target-branch: ${{ vars.RELEASE_PLEASE_TARGET_BRANCH }}
+          target-branch: main
 
   # Build and publish only when a release is created
   build:
     name: Build and Publish
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.RUNS_ON__AMD_S || 'ubuntu-latest' }}
     needs: release_please
     if: ${{ needs.release_please.outputs.releases_created == 'true' }}
 
