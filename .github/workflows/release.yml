@@ -56,7 +56,8 @@ jobs:
 
       - name: Install Packages and Build Library
         run: |
-          npm ci
+          rm -rf node_modules package-lock.json
+          npm install --force
           npm run build
 
       - name: Upload dist to Release
