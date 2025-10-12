@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/lakekeeper/console-components/compare/v0.1.0...v0.1.1) (2025-10-12)
+
+
+### Bug Fixes
+
+* use npm install --force to handle optional dependencies in CI ([5f89caf](https://github.com/lakekeeper/console-components/commit/5f89caf872c8ebeea74cfd15620231f746820f87))
+
 ## [0.1.0](https://github.com/lakekeeper/console-components/compare/v0.0.1...v0.1.0) (2025-10-12)
 
 
