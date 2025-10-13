@@ -36,11 +36,6 @@
           <v-list-item-title>
             {{ userStorage.user.given_name }}
             {{ userStorage.user.family_name }}
-            <v-btn
-              :icon="themeLight ? 'mdi-lightbulb-off' : 'mdi-lightbulb-on'"
-              size="x-small"
-              variant="text"
-              @click="toggleTheme"></v-btn>
           </v-list-item-title>
         </v-list-item>
 
@@ -67,6 +62,12 @@
         </v-list-item>
       </v-list>
     </v-menu>
+    <v-btn
+      :icon="visual.themeLight ? 'mdi-moon-waning-crescent' : 'mdi-white-balance-sunny'"
+      size="small"
+      class="ml-2"
+      variant="text"
+      @click="toggleTheme"></v-btn>
   </v-app-bar>
 </template>
 
@@ -89,12 +90,9 @@ const auth = inject<any>('auth', null);
 const userStorage = useUserStore();
 
 const theme = useTheme();
-const themeLight = computed(() => {
-  return visual.themeLight;
-});
 
 const themeText = computed(() => {
-  return themeLight.value ? 'light' : 'dark';
+  return visual.themeLight ? 'light' : 'dark';
 });
 
 const navIcon = computed(() => {
