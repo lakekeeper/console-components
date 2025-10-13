@@ -64,9 +64,9 @@
     </v-menu>
     <v-btn
       :icon="visual.themeLight ? 'mdi-moon-waning-crescent' : 'mdi-white-balance-sunny'"
-      size="x-small"
+      size="small"
       class="ml-2"
-      variant="outlined"
+      variant="text"
       @click="toggleTheme"></v-btn>
   </v-app-bar>
 </template>
