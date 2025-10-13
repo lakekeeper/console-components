@@ -68,7 +68,7 @@
       </v-list>
     </v-menu>
     <v-btn
-      :icon="!themeLight ? 'mdi-moon-waning-crescent' : 'mdi-weather-sunny'"
+      :icon="themeLight ? 'mdi-weather-sunny' : 'mdi-moon-waning-crescent'"
       size="x-small"
       variant="outlined"
       @click="toggleTheme"></v-btn>
