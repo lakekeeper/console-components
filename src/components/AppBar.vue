@@ -68,7 +68,6 @@
       </v-list>
     </v-menu>
     <v-button
-      v-else
       :icon="themeLight ? 'mdi-lightbulb-off' : 'mdi-lightbulb-on'"
       size="x-small"
       variant="text"
