@@ -15,7 +15,15 @@
           <div class="text-center mb-6">
             <div class="logo-container mb-4">
               <img
+                v-if="visual.themeLight"
                 src="../assets/LAKEKEEPER_IMAGE_TEXT.svg"
+                alt="Lakekeeper"
+                class="logo-image-svg"
+                style="max-width: 200px !important; width: 200px !important" />
+
+              <img
+                v-else
+                src="../assets/LAKEKEEPER_IMAGE_TEXT_WHITE.svg"
                 alt="Lakekeeper"
                 class="logo-image-svg"
                 style="max-width: 200px !important; width: 200px !important" />

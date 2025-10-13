@@ -10,7 +10,16 @@ export const useVisualStore = defineStore(
   () => {
     const currentUrl = ref('');
     const showAppOrNavBar = ref(true);
-    const themeLight = ref(true);
+
+    // Initialize theme based on system preferences
+    const getSystemTheme = () => {
+      if (typeof window !== 'undefined' && window.matchMedia) {
+        return window.matchMedia('(prefers-color-scheme: light)').matches;
+      }
+      return true; // Default to light if unable to detect
+    };
+
+    const themeLight = ref(getSystemTheme());
     const navBarShow = ref(true);
     const whId = ref('');
     const wahrehouseName = ref('');
