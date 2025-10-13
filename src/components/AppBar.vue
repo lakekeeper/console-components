@@ -63,7 +63,7 @@
       </v-list>
     </v-menu>
     <v-btn
-      :icon="visual.themeLight ? 'mdi-moon-waning-crescent' : 'mdi-weather-sunny'"
+      :icon="visual.themeLight ? 'mdi-moon-waning-crescent' : 'mdi-white-balance-sunny'"
       size="x-small"
       class="ml-2"
       variant="outlined"
