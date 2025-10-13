@@ -36,11 +36,6 @@
           <v-list-item-title>
             {{ userStorage.user.given_name }}
             {{ userStorage.user.family_name }}
-            <v-btn
-              :icon="themeLight ? 'mdi-lightbulb-off' : 'mdi-lightbulb-on'"
-              size="x-small"
-              variant="text"
-              @click="toggleTheme"></v-btn>
           </v-list-item-title>
         </v-list-item>
 
@@ -70,6 +65,7 @@
     <v-btn
       :icon="themeLight ? 'mdi-moon-waning-crescent' : 'mdi-weather-sunny'"
       size="x-small"
+      class="ml-2"
       variant="outlined"
       @click="toggleTheme"></v-btn>
   </v-app-bar>
