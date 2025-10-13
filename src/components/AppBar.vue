@@ -63,7 +63,7 @@
       </v-list>
     </v-menu>
     <v-btn
-      :icon="themeLight ? 'mdi-moon-waning-crescent' : 'mdi-weather-sunny'"
+      :icon="visual.themeLight ? 'mdi-moon-waning-crescent' : 'mdi-weather-sunny'"
       size="x-small"
       class="ml-2"
       variant="outlined"
@@ -90,12 +90,9 @@ const auth = inject<any>('auth', null);
 const userStorage = useUserStore();
 
 const theme = useTheme();
-const themeLight = computed(() => {
-  return visual.themeLight;
-});
 
 const themeText = computed(() => {
-  return themeLight.value ? 'light' : 'dark';
+  return visual.themeLight ? 'light' : 'dark';
 });
 
 const navIcon = computed(() => {
