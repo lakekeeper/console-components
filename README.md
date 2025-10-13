@@ -14,6 +14,7 @@ This library exports:
 - **Theme**: Custom Vuetify light theme
 - **Utilities**: Common interfaces, enums, and helper functions
 - **OpenAPI Client**: Auto-generated API client for Lakekeeper management and catalog services
+- **Loads browser default theme**: App loads default theme of browaser but can be changed in app bar
 
 ## 🚀 Installation
 
