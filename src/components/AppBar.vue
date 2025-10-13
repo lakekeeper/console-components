@@ -67,11 +67,11 @@
         </v-list-item>
       </v-list>
     </v-menu>
-    <v-button
+    <v-btn
       :icon="themeLight ? 'mdi-lightbulb-off' : 'mdi-lightbulb-on'"
       size="x-small"
       variant="text"
-      @click="toggleTheme"></v-button>
+      @click="toggleTheme"></v-btn>
   </v-app-bar>
 </template>
 
