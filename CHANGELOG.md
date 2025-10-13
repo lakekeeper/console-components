@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.2](https://github.com/lakekeeper/console-components/compare/v0.1.1...v0.1.2) (2025-10-13)
+
+
+### Bug Fixes
+
+* add dark mode theme support with OS preference detection ([5b40894](https://github.com/lakekeeper/console-components/commit/5b4089439c69e66d8ed9fabb642f0261a700706d))
+
 ## [0.1.1](https://github.com/lakekeeper/console-components/compare/v0.1.0...v0.1.1) (2025-10-12)
 
 
