@@ -48,15 +48,20 @@ const loading = ref(false);
 async function loadNamespaces() {
   loading.value = true;
   try {
-    const namespaces = await functions.listNamespaces(props.warehouseId);
-    treeItems.value = namespaces.namespaces.map((ns: any) => ({
-      id: `ns-${ns.namespace.join('.')}`,
-      name: ns.namespace.join('.'),
-      type: 'namespace' as const,
-      warehouseId: props.warehouseId,
-      namespaceId: ns.namespace.join('.'),
-      children: [],
-    }));
+    const response = await functions.listNamespaces(props.warehouseId);
+    const namespaces = response.namespaces || [];
+    
+    treeItems.value = namespaces.map((nsArray: string[]) => {
+      const namespaceStr = nsArray.join('.');
+      return {
+        id: `ns-${namespaceStr}`,
+        name: namespaceStr,
+        type: 'namespace' as const,
+        warehouseId: props.warehouseId,
+        namespaceId: namespaceStr,
+        children: [],
+      };
+    });
   } catch (error) {
     console.error('Failed to load namespaces:', error);
     treeItems.value = [];
@@ -69,9 +74,11 @@ async function loadChildren(item: TreeItem) {
   if (item.type !== 'namespace' || !item.namespaceId) return;
 
   try {
-    // Load tables
+    // Load tables and views
     const tablesResponse = await functions.listTables(props.warehouseId, item.namespaceId);
-    const tables = tablesResponse.identifiers
+    const identifiers = tablesResponse.identifiers || [];
+    
+    const tables = identifiers
       .filter((id: any) => id.type === 'TABLE')
       .map((table: any) => ({
         id: `table-${item.namespaceId}-${table.name}`,
@@ -81,8 +88,7 @@ async function loadChildren(item: TreeItem) {
         namespaceId: item.namespaceId,
       }));
 
-    // Load views
-    const views = tablesResponse.identifiers
+    const views = identifiers
       .filter((id: any) => id.type === 'VIEW')
       .map((view: any) => ({
         id: `view-${item.namespaceId}-${view.name}`,
