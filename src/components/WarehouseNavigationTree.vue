@@ -85,38 +85,51 @@ async function loadChildrenForNamespace(item: TreeItem) {
     // Load child namespaces first
     const childNsResponse = await functions.listNamespaces(props.warehouseId, item.namespaceId);
     const childNamespaces = (childNsResponse.namespaces || []).map((nsArray: string[]) => {
-      const nsName = nsArray[nsArray.length - 1]; // Get just the last part
+      // nsArray is the full path like ['finance', 'products1']
+      // We want just the last part for display, but full path for namespaceId
+      const fullPath = nsArray.join('.');
+      const displayName = nsArray[nsArray.length - 1];
       return {
-        id: `ns-${item.namespaceId}.${nsName}`,
-        name: nsName,
+        id: `ns-${fullPath}`,
+        name: displayName,
         type: 'namespace' as const,
         warehouseId: props.warehouseId,
-        namespaceId: `${item.namespaceId}.${nsName}`,
+        namespaceId: fullPath, // Use the full path like 'finance.products1'
         children: [],
         loaded: false,
       };
     });
     
-    // Load tables (identifiers returns mixed items, we need to check which are tables/views)
-    const identifiersResponse = await functions.listTables(props.warehouseId, item.namespaceId);
-    const identifiers = identifiersResponse.identifiers || [];
+    // Load tables
+    const tablesResponse = await functions.listTables(props.warehouseId, item.namespaceId);
+    const tableIdentifiers = tablesResponse.identifiers || [];
     
-    console.log(`Found ${childNamespaces.length} child namespaces and ${identifiers.length} identifiers in ${item.namespaceId}`);
+    // Load views separately
+    const viewsResponse = await functions.listViews(props.warehouseId, item.namespaceId);
+    const viewIdentifiers = viewsResponse.identifiers || [];
     
-    // The API doesn't distinguish between tables and views in listTables
-    // We'll treat all identifiers as tables for now and mark them appropriately
-    const tables = identifiers.map((id: any) => ({
+    console.log(`Found ${childNamespaces.length} child namespaces, ${tableIdentifiers.length} tables, ${viewIdentifiers.length} views in ${item.namespaceId}`);
+    
+    const tables = tableIdentifiers.map((id: any) => ({
       id: `table-${item.namespaceId}-${id.name}`,
       name: id.name,
-      type: 'table' as const, // We can't distinguish without additional API calls
+      type: 'table' as const,
       warehouseId: props.warehouseId,
       namespaceId: item.namespaceId,
     }));
 
-    item.children = [...childNamespaces, ...tables];
+    const views = viewIdentifiers.map((id: any) => ({
+      id: `view-${item.namespaceId}-${id.name}`,
+      name: id.name,
+      type: 'view' as const,
+      warehouseId: props.warehouseId,
+      namespaceId: item.namespaceId,
+    }));
+
+    item.children = [...childNamespaces, ...tables, ...views];
     item.loaded = true;
     
-    console.log(`Loaded ${childNamespaces.length} namespaces and ${tables.length} tables/views`);
+    console.log(`Loaded ${childNamespaces.length} namespaces, ${tables.length} tables, and ${views.length} views`);
     
     // Force reactivity update
     treeItems.value = [...treeItems.value];
