@@ -45,6 +45,7 @@ import TableOverview from './components/TableOverview.vue';
 import TableRaw from './components/TableRaw.vue';
 import TableBranch from './components/TableBranch.vue';
 import WarehouseSqlQuery from './components/WarehouseSqlQuery.vue';
+import WarehouseNavigationTree from './components/WarehouseNavigationTree.vue';
 import ViewHeader from './components/ViewHeader.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
@@ -197,6 +198,7 @@ const components = {
   TableRaw,
   TableBranch,
   WarehouseSqlQuery,
+  WarehouseNavigationTree,
   ViewHeader,
   ViewHistoryTab,
   ViewOverview,
