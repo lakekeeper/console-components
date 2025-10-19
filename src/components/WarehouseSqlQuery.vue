@@ -2,7 +2,7 @@
   <v-container fluid class="pa-0">
     <v-row no-gutters style="height: calc(100vh - 200px)">
       <!-- Left: Navigation Tree -->
-      <v-col cols="3" style="border-right: 1px solid #e0e0e0; height: 100%; overflow: hidden">
+      <v-col cols="3" style="border-right: 1px solid #e0e0e0; height: 100%; overflow: visible">
         <WarehouseNavigationTree
           :warehouse-id="warehouseId"
           @item-selected="handleTableSelected" />
