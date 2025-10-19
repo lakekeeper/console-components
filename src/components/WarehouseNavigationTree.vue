@@ -3,35 +3,37 @@
     <div class="tree-header text-subtitle-2 py-2 px-3">Warehouse Navigation</div>
     <v-divider></v-divider>
     <div class="tree-scroll-area">
-      <v-treeview
-        v-model:opened="openedItems"
-        :items="treeItems"
-        item-value="id"
-        density="compact"
-        open-on-click
-        class="tree-view pa-2"
-      >
-        <template v-slot:prepend="{ item }">
-          <v-icon size="small" v-if="item.type === 'namespace'">
-            mdi-folder-outline
-          </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'table'">
-            mdi-table
-          </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'view'">
-            mdi-eye-outline
-          </v-icon>
-        </template>
-        <template v-slot:title="{ item }">
-          <span 
-            @click="handleItemClick(item)"
-            class="tree-item-title text-caption"
-            :title="item.name"
-          >
-            {{ item.name }}
-          </span>
-        </template>
-      </v-treeview>
+      <div class="tree-content">
+        <v-treeview
+          v-model:opened="openedItems"
+          :items="treeItems"
+          item-value="id"
+          density="compact"
+          open-on-click
+          class="tree-view pa-2"
+        >
+          <template v-slot:prepend="{ item }">
+            <v-icon size="small" v-if="item.type === 'namespace'">
+              mdi-folder-outline
+            </v-icon>
+            <v-icon size="small" v-else-if="item.type === 'table'">
+              mdi-table
+            </v-icon>
+            <v-icon size="small" v-else-if="item.type === 'view'">
+              mdi-eye-outline
+            </v-icon>
+          </template>
+          <template v-slot:title="{ item }">
+            <div 
+              @click="handleItemClick(item)"
+              class="tree-item-title text-caption"
+              :title="item.name"
+            >
+              {{ item.name }}
+            </div>
+          </template>
+        </v-treeview>
+      </div>
     </div>
   </div>
 </template>
@@ -56,25 +58,21 @@ interface TreeItem {
   type: 'namespace' | 'table' | 'view'
   children?: TreeItem[]
   warehouseId: string
-  namespaceId?: string // Full namespace path with dots (e.g., 'finance.sub')
+  namespaceId?: string
   loaded?: boolean
 }
 
 const treeItems = ref<TreeItem[]>([])
 const openedItems = ref<string[]>([])
 
-// Helper function to convert namespace array to API format
-// Iceberg REST API expects namespace parts separated by Unit Separator (%1F)
 function namespaceToApiFormat(nsArray: string[]): string {
   return nsArray.join('\x1F')
 }
 
-// Helper function to convert namespace path with dots to API format
 function namespacePathToApiFormat(nsPath: string): string {
   return nsPath.split('.').join('\x1F')
 }
 
-// Load root namespaces on mount
 async function loadNamespaces() {
   console.log('Loading root namespaces for warehouse:', props.warehouseId)
   try {
@@ -86,11 +84,11 @@ async function loadNamespaces() {
         const fullPath = nsArray.join('.')
         return {
           id: `ns-${fullPath}`,
-          name: nsArray[nsArray.length - 1], // Display only the last part
+          name: nsArray[nsArray.length - 1],
           type: 'namespace' as const,
           children: [],
           warehouseId: props.warehouseId,
-          namespaceId: fullPath, // Store full path with dots for display
+          namespaceId: fullPath,
           loaded: false
         }
       })
@@ -101,26 +99,21 @@ async function loadNamespaces() {
   }
 }
 
-// Load children (sub-namespaces, tables, views) for a namespace when expanded
 async function loadChildrenForNamespace(item: TreeItem) {
   if (item.loaded || item.type !== 'namespace') return
   
   console.log('Loading children for namespace:', item.namespaceId)
   
   try {
-    // Convert namespace path to API format (replace dots with Unit Separator)
     const apiNamespace = namespacePathToApiFormat(item.namespaceId!)
     console.log('API namespace format:', apiNamespace, 'from:', item.namespaceId)
     
-    // Load child namespaces
     const namespacesResponse = await functions.listNamespaces(props.warehouseId, apiNamespace)
     console.log('Child namespaces response:', namespacesResponse)
     
-    // Load tables
     const tablesResponse = await functions.listTables(props.warehouseId, apiNamespace)
     console.log('Tables response:', tablesResponse)
     
-    // Load views
     const viewsResponse = await functions.listViews(props.warehouseId, apiNamespace)
     console.log('Views response:', viewsResponse)
     
@@ -132,14 +125,11 @@ async function loadChildrenForNamespace(item: TreeItem) {
     
     const children: TreeItem[] = []
     
-    // Add child namespaces
-    // nsArray is the full path like ['finance', 'products1']
-    // We need to join it to get the full path for API calls
     childNamespaces.forEach((nsArray: string[]) => {
-      const fullPath = nsArray.join('.') // Full path with dots
+      const fullPath = nsArray.join('.')
       children.push({
         id: `ns-${fullPath}`,
-        name: nsArray[nsArray.length - 1], // Display only the last segment
+        name: nsArray[nsArray.length - 1],
         type: 'namespace',
         children: [],
         warehouseId: props.warehouseId,
@@ -148,7 +138,6 @@ async function loadChildrenForNamespace(item: TreeItem) {
       })
     })
     
-    // Add tables
     tables.forEach((table: { name: string }) => {
       children.push({
         id: `table-${item.namespaceId}-${table.name}`,
@@ -159,7 +148,6 @@ async function loadChildrenForNamespace(item: TreeItem) {
       })
     })
     
-    // Add views
     views.forEach((view: { name: string }) => {
       children.push({
         id: `view-${item.namespaceId}-${view.name}`,
@@ -178,15 +166,12 @@ async function loadChildrenForNamespace(item: TreeItem) {
   }
 }
 
-// Watch for opened items changes and load children
 watch(openedItems, async (newOpened, oldOpened) => {
   console.log('Opened items changed:', newOpened)
   
-  // Find newly opened items
   const newlyOpened = newOpened.filter(id => !oldOpened.includes(id))
   
   for (const itemId of newlyOpened) {
-    // Find the item in the tree
     const item = findItemById(treeItems.value, itemId)
     if (item && item.type === 'namespace' && !item.loaded) {
       await loadChildrenForNamespace(item)
@@ -194,7 +179,6 @@ watch(openedItems, async (newOpened, oldOpened) => {
   }
 })
 
-// Helper to find item by ID in tree
 function findItemById(items: TreeItem[], id: string): TreeItem | null {
   for (const item of items) {
     if (item.id === id) return item
@@ -229,6 +213,7 @@ onMounted(() => {
   background: white;
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  position: relative;
 }
 
 .tree-header {
@@ -239,38 +224,46 @@ onMounted(() => {
 
 .tree-scroll-area {
   flex: 1;
-  overflow-x: auto;
-  overflow-y: auto;
+  overflow: auto;
   min-height: 0;
+  position: relative;
+}
+
+.tree-content {
+  min-width: max-content;
+  width: 100%;
 }
 
 .tree-view {
   font-size: 0.75rem;
-  min-width: max-content;
 }
 
-/* Prevent text wrapping in tree items */
+/* Override Vuetify's default styles to prevent wrapping */
+.tree-view :deep(.v-list-item) {
+  white-space: nowrap !important;
+}
+
+.tree-view :deep(.v-list-item__content) {
+  white-space: nowrap !important;
+}
+
 .tree-view :deep(.v-treeview-item) {
-  white-space: nowrap;
+  white-space: nowrap !important;
 }
 
 .tree-view :deep(.v-treeview-item__content) {
-  white-space: nowrap;
-}
-
-.tree-view :deep(.v-list-item) {
-  min-width: max-content;
+  white-space: nowrap !important;
 }
 
 .tree-view :deep(.v-list-item-title) {
   white-space: nowrap !important;
-  overflow: visible !important;
+  text-overflow: clip !important;
 }
 
 .tree-item-title {
   cursor: pointer;
   user-select: none;
-  white-space: nowrap;
+  white-space: nowrap !important;
   display: inline-block;
 }
 
@@ -278,20 +271,20 @@ onMounted(() => {
   text-decoration: underline;
 }
 
-/* Customize scrollbar */
+/* Visible scrollbars */
 .tree-scroll-area::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 10px;
+  height: 10px;
 }
 
 .tree-scroll-area::-webkit-scrollbar-track {
   background: #f1f1f1;
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
 .tree-scroll-area::-webkit-scrollbar-thumb {
   background: #888;
-  border-radius: 3px;
+  border-radius: 5px;
 }
 
 .tree-scroll-area::-webkit-scrollbar-thumb:hover {
@@ -300,7 +293,7 @@ onMounted(() => {
 
 /* Firefox */
 .tree-scroll-area {
-  scrollbar-width: thin;
+  scrollbar-width: auto;
   scrollbar-color: #888 #f1f1f1;
 }
 </style>
