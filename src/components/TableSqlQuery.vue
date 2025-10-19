@@ -160,6 +160,8 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
 import type { QueryResult } from '../composables/useDuckDB';
+import { useFunctions } from '../plugins/functions';
+import { useUserStore } from '../stores/user';
 
 interface Props {
   warehouseId?: string;
@@ -168,7 +170,7 @@ interface Props {
   tableName?: string;
   tableMetadata?: any;
   catalogUrl?: string;
-  accessToken?: string;
+  useFreshToken?: boolean;
 }
 
 const props = defineProps<Props>();
@@ -259,19 +261,32 @@ onMounted(async () => {
   try {
     await icebergDB.initialize();
     
-    // Configure catalog if URL and token are provided
-    if (props.catalogUrl && props.accessToken && props.warehouseName) {
-      await icebergDB.configureCatalog({
-        catalogName: props.warehouseName.replace(/-/g, '_'),  // Replace hyphens for SQL identifiers
-        restUri: props.catalogUrl,
-        accessToken: props.accessToken,
-        warehouseId: props.warehouseId,
-      });
+    // Configure catalog if URL is provided
+    if (props.catalogUrl && props.warehouseName) {
+      let accessToken = '';
       
-      console.log('Iceberg catalog configured successfully');
-      console.log(`Tables can now be queried using: ${props.warehouseName.replace(/-/g, '_')}.${props.namespaceId}.${props.tableName}`);
+      if (props.useFreshToken) {
+        // Get current token from user store (automatically refreshed by auth system)
+        const userStore = useUserStore();
+        accessToken = userStore.user.access_token;
+        console.log('Using current access token for Iceberg catalog');
+      }
+      
+      if (accessToken) {
+        await icebergDB.configureCatalog({
+          catalogName: props.warehouseName.replace(/-/g, '_'),  // Replace hyphens for SQL identifiers
+          restUri: props.catalogUrl,
+          accessToken: accessToken,
+          warehouseId: props.warehouseId,
+        });
+        
+        console.log('Iceberg catalog configured successfully');
+        console.log(`Tables can now be queried using: ${props.warehouseName.replace(/-/g, '_')}.${props.namespaceId}.${props.tableName}`);
+      } else {
+        console.warn('No access token available for catalog configuration');
+      }
     } else {
-      console.warn('Catalog not configured - catalogUrl, accessToken, or warehouseId missing');
+      console.warn('Catalog not configured - catalogUrl or warehouseName missing');
       console.log('You can still run queries on manually loaded tables');
     }
   } catch (e) {
