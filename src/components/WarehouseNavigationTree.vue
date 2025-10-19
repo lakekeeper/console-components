@@ -86,10 +86,13 @@ async function loadChildrenForNamespace(item: TreeItem) {
     const tablesResponse = await functions.listTables(props.warehouseId, item.namespaceId);
     const identifiers = tablesResponse.identifiers || [];
     
-    console.log(`Found ${identifiers.length} identifiers in ${item.namespaceId}`);
+    console.log(`Found ${identifiers.length} identifiers in ${item.namespaceId}:`, identifiers);
     
     const tables = identifiers
-      .filter((id: any) => id.type === 'TABLE')
+      .filter((id: any) => {
+        console.log(`Identifier: name=${id.name}, type=${id.type}`);
+        return id.type === 'TABLE';
+      })
       .map((table: any) => ({
         id: `table-${item.namespaceId}-${table.name}`,
         name: table.name,
@@ -108,10 +111,23 @@ async function loadChildrenForNamespace(item: TreeItem) {
         namespaceId: item.namespaceId,
       }));
 
-    item.children = [...tables, ...views];
+    // Also check for nested namespaces (type === 'NAMESPACE')
+    const childNamespaces = identifiers
+      .filter((id: any) => id.type === 'NAMESPACE')
+      .map((ns: any) => ({
+        id: `ns-${item.namespaceId}.${ns.name}`,
+        name: ns.name,
+        type: 'namespace' as const,
+        warehouseId: props.warehouseId,
+        namespaceId: `${item.namespaceId}.${ns.name}`,
+        children: [],
+        loaded: false,
+      }));
+
+    item.children = [...childNamespaces, ...tables, ...views];
     item.loaded = true;
     
-    console.log(`Loaded ${tables.length} tables and ${views.length} views`);
+    console.log(`Loaded ${childNamespaces.length} namespaces, ${tables.length} tables, and ${views.length} views`);
     
     // Force reactivity update
     treeItems.value = [...treeItems.value];
