@@ -20,7 +20,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
-import { useFunctions } from '../composables';
+import { useFunctions } from '@/plugins/functions';
 
 interface TreeItem {
   id: string;
