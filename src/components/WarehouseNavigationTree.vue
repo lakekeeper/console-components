@@ -1,39 +1,38 @@
 <template>
-  <v-card class="tree-card d-flex flex-column" height="100%">
-    <v-card-title class="text-subtitle-2 py-2 flex-shrink-0">Warehouse Navigation</v-card-title>
-    <v-card-text class="tree-content pa-2 flex-grow-1">
-      <div class="tree-wrapper">
-        <v-treeview
-          v-model:opened="openedItems"
-          :items="treeItems"
-          item-value="id"
-          density="compact"
-          open-on-click
-          class="tree-view"
-        >
-          <template v-slot:prepend="{ item }">
-            <v-icon size="small" v-if="item.type === 'namespace'">
-              mdi-folder-outline
-            </v-icon>
-            <v-icon size="small" v-else-if="item.type === 'table'">
-              mdi-table
-            </v-icon>
-            <v-icon size="small" v-else-if="item.type === 'view'">
-              mdi-eye-outline
-            </v-icon>
-          </template>
-          <template v-slot:title="{ item }">
-            <span 
-              @click="handleItemClick(item)"
-              class="tree-item-title text-caption"
-              :title="item.name"
-            >
-              {{ item.name }}
-            </span>
-          </template>
-        </v-treeview>
-      </div>
-    </v-card-text>
+  <v-card class="tree-card" height="100%">
+    <v-card-title class="text-subtitle-2 py-2">Warehouse Navigation</v-card-title>
+    <v-divider></v-divider>
+    <div class="tree-scroll-container">
+      <v-treeview
+        v-model:opened="openedItems"
+        :items="treeItems"
+        item-value="id"
+        density="compact"
+        open-on-click
+        class="tree-view pa-2"
+      >
+        <template v-slot:prepend="{ item }">
+          <v-icon size="small" v-if="item.type === 'namespace'">
+            mdi-folder-outline
+          </v-icon>
+          <v-icon size="small" v-else-if="item.type === 'table'">
+            mdi-table
+          </v-icon>
+          <v-icon size="small" v-else-if="item.type === 'view'">
+            mdi-eye-outline
+          </v-icon>
+        </template>
+        <template v-slot:title="{ item }">
+          <span 
+            @click="handleItemClick(item)"
+            class="tree-item-title text-caption"
+            :title="item.name"
+          >
+            {{ item.name }}
+          </span>
+        </template>
+      </v-treeview>
+    </div>
   </v-card>
 </template>
 
@@ -224,30 +223,34 @@ onMounted(() => {
 
 <style scoped>
 .tree-card {
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
 }
 
-.tree-content {
-  height: 0; /* Important for flex-grow to work properly */
-  overflow: hidden;
-  padding: 8px !important;
-}
-
-.tree-wrapper {
-  height: 100%;
+.tree-scroll-container {
+  flex: 1;
   overflow-x: auto;
   overflow-y: auto;
+  position: relative;
 }
 
 .tree-view {
   font-size: 0.75rem;
-  width: max-content;
-  min-width: 100%;
 }
 
-/* Force tree items to not wrap */
+/* Prevent text wrapping in tree items */
+.tree-view :deep(.v-treeview-item) {
+  white-space: nowrap;
+}
+
 .tree-view :deep(.v-treeview-item__content) {
   white-space: nowrap;
+}
+
+.tree-view :deep(.v-list-item-title) {
+  white-space: nowrap !important;
+  overflow: visible !important;
 }
 
 .tree-item-title {
@@ -255,6 +258,7 @@ onMounted(() => {
   user-select: none;
   white-space: nowrap;
   display: inline-block;
+  overflow: visible;
 }
 
 .tree-item-title:hover {
@@ -262,27 +266,27 @@ onMounted(() => {
 }
 
 /* Customize scrollbar for better appearance */
-.tree-wrapper::-webkit-scrollbar {
+.tree-scroll-container::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.tree-wrapper::-webkit-scrollbar-track {
+.tree-scroll-container::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
 }
 
-.tree-wrapper::-webkit-scrollbar-thumb {
+.tree-scroll-container::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
 }
 
-.tree-wrapper::-webkit-scrollbar-thumb:hover {
+.tree-scroll-container::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
 }
 
 /* Firefox scrollbar styling */
-.tree-wrapper {
+.tree-scroll-container {
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
 }
