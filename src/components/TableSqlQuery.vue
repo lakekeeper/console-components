@@ -163,9 +163,12 @@ import type { QueryResult } from '../composables/useDuckDB';
 
 interface Props {
   warehouseId?: string;
+  warehouseName?: string;
   namespaceId?: string;
   tableName?: string;
   tableMetadata?: any;
+  catalogUrl?: string;
+  accessToken?: string;
 }
 
 const props = defineProps<Props>();
@@ -257,24 +260,19 @@ onMounted(async () => {
     await icebergDB.initialize();
     
     // Configure catalog if URL and token are provided
-    if (props.catalogUrl && props.accessToken && props.warehouseId) {
+    if (props.catalogUrl && props.accessToken && props.warehouseName) {
       await icebergDB.configureCatalog({
-        catalogName: props.warehouseId.replace(/-/g, '_'),  // Replace hyphens for SQL identifiers
+        catalogName: props.warehouseName.replace(/-/g, '_'),  // Replace hyphens for SQL identifiers
         restUri: props.catalogUrl,
         accessToken: props.accessToken,
         warehouseId: props.warehouseId,
       });
       
       console.log('Iceberg catalog configured successfully');
-    }
-    
-    // Auto-load the table if props are provided
-    if (props.warehouseId && props.namespaceId && props.tableName) {
-      await icebergDB.registerIcebergTable({
-        warehouseId: props.warehouseId,
-        namespaceId: props.namespaceId,
-        tableName: props.tableName,
-      });
+      console.log(`Tables can now be queried using: ${props.warehouseName.replace(/-/g, '_')}.${props.namespaceId}.${props.tableName}`);
+    } else {
+      console.warn('Catalog not configured - catalogUrl, accessToken, or warehouseId missing');
+      console.log('You can still run queries on manually loaded tables');
     }
   } catch (e) {
     error.value = 'Failed to initialize DuckDB WASM';
