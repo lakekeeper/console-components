@@ -41,6 +41,8 @@ export default defineConfig({
         'date-fns',
         'vue-json-pretty',
         /^vue-json-pretty\/.*$/,
+        '@duckdb/duckdb-wasm',
+        'apache-arrow',
       ],
       output: {
         exports: 'named',
@@ -50,6 +52,8 @@ export default defineConfig({
           'vue-router': 'VueRouter',
           pinia: 'Pinia',
           'oidc-client-ts': 'OidcClient',
+          '@duckdb/duckdb-wasm': 'DuckDB',
+          'apache-arrow': 'Arrow',
         },
         manualChunks: undefined,
         generatedCode: {
@@ -64,5 +68,8 @@ export default defineConfig({
   esbuild: {
     keepNames: false,
     minifyIdentifiers: true,
+  },
+  optimizeDeps: {
+    exclude: ['@duckdb/duckdb-wasm'],
   },
 });

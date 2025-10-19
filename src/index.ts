@@ -44,6 +44,7 @@ import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
 import TableOverview from './components/TableOverview.vue';
 import TableRaw from './components/TableRaw.vue';
 import TableBranch from './components/TableBranch.vue';
+import TableSqlQuery from './components/TableSqlQuery.vue';
 import ViewHeader from './components/ViewHeader.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
@@ -195,6 +196,7 @@ const components = {
   TableOverview,
   TableRaw,
   TableBranch,
+  TableSqlQuery,
   ViewHeader,
   ViewHistoryTab,
   ViewOverview,
@@ -233,3 +235,7 @@ export { myCustomLightTheme } from './theme';
 export { default as LoginPage } from './components/LoginPage.vue';
 export { default as LogoutPage } from './components/LogoutPage.vue';
 export { default as CallbackPage } from './components/CallbackPage.vue';
+
+// Export DuckDB composable
+export { useDuckDB } from './composables/useDuckDB';
+export type { QueryResult } from './composables/useDuckDB';
