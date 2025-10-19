@@ -9,25 +9,17 @@
         item-value="id"
         density="compact"
         open-on-click
-        class="tree-view pa-2"
-      >
+        class="tree-view pa-2">
         <template v-slot:prepend="{ item }">
-          <v-icon size="small" v-if="item.type === 'namespace'">
-            mdi-folder-outline
-          </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'table'">
-            mdi-table
-          </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'view'">
-            mdi-eye-outline
-          </v-icon>
+          <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
+          <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
+          <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
         </template>
         <template v-slot:title="{ item }">
-          <span 
+          <span
             @click="handleItemClick(item)"
             class="tree-item-title text-caption"
-            :title="item.name"
-          >
+            :title="item.name">
             {{ item.name }}
           </span>
         </template>
@@ -37,53 +29,47 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useFunctions } from '@/plugins/functions'
+import { ref, onMounted, watch } from 'vue';
+import { useFunctions } from '@/plugins/functions';
 
-const functions = useFunctions()
+const functions = useFunctions();
 
 const props = defineProps<{
-  warehouseId: string
-}>()
+  warehouseId: string;
+}>();
 
 const emit = defineEmits<{
-  (e: 'item-selected', item: { type: string, namespaceId?: string, name: string }): void
-}>()
+  (e: 'item-selected', item: { type: string; namespaceId?: string; name: string }): void;
+}>();
 
 interface TreeItem {
-  id: string
-  name: string
-  type: 'namespace' | 'table' | 'view'
-  children?: TreeItem[]
-  warehouseId: string
-  namespaceId?: string // Full namespace path with dots (e.g., 'finance.sub')
-  loaded?: boolean
+  id: string;
+  name: string;
+  type: 'namespace' | 'table' | 'view';
+  children?: TreeItem[];
+  warehouseId: string;
+  namespaceId?: string; // Full namespace path with dots (e.g., 'finance.sub')
+  loaded?: boolean;
 }
 
-const treeItems = ref<TreeItem[]>([])
-const openedItems = ref<string[]>([])
-
-// Helper function to convert namespace array to API format
-// Iceberg REST API expects namespace parts separated by Unit Separator (%1F)
-function namespaceToApiFormat(nsArray: string[]): string {
-  return nsArray.join('\x1F')
-}
+const treeItems = ref<TreeItem[]>([]);
+const openedItems = ref<string[]>([]);
 
 // Helper function to convert namespace path with dots to API format
 function namespacePathToApiFormat(nsPath: string): string {
-  return nsPath.split('.').join('\x1F')
+  return nsPath.split('.').join('\x1F');
 }
 
 // Load root namespaces on mount
 async function loadNamespaces() {
-  console.log('Loading root namespaces for warehouse:', props.warehouseId)
+  console.log('Loading root namespaces for warehouse:', props.warehouseId);
   try {
-    const response = await functions.listNamespaces(props.warehouseId)
-    console.log('Root namespaces response:', response)
-    
+    const response = await functions.listNamespaces(props.warehouseId);
+    console.log('Root namespaces response:', response);
+
     if (response.namespaces && Array.isArray(response.namespaces)) {
       treeItems.value = response.namespaces.map((nsArray: string[]) => {
-        const fullPath = nsArray.join('.')
+        const fullPath = nsArray.join('.');
         return {
           id: `ns-${fullPath}`,
           name: nsArray[nsArray.length - 1], // Display only the last part
@@ -91,52 +77,54 @@ async function loadNamespaces() {
           children: [],
           warehouseId: props.warehouseId,
           namespaceId: fullPath, // Store full path with dots for display
-          loaded: false
-        }
-      })
-      console.log('Created tree items:', treeItems.value)
+          loaded: false,
+        };
+      });
+      console.log('Created tree items:', treeItems.value);
     }
   } catch (error) {
-    console.error('Error loading namespaces:', error)
+    console.error('Error loading namespaces:', error);
   }
 }
 
 // Load children (sub-namespaces, tables, views) for a namespace when expanded
 async function loadChildrenForNamespace(item: TreeItem) {
-  if (item.loaded || item.type !== 'namespace') return
-  
-  console.log('Loading children for namespace:', item.namespaceId)
-  
+  if (item.loaded || item.type !== 'namespace') return;
+
+  console.log('Loading children for namespace:', item.namespaceId);
+
   try {
     // Convert namespace path to API format (replace dots with Unit Separator)
-    const apiNamespace = namespacePathToApiFormat(item.namespaceId!)
-    console.log('API namespace format:', apiNamespace, 'from:', item.namespaceId)
-    
+    const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
+    console.log('API namespace format:', apiNamespace, 'from:', item.namespaceId);
+
     // Load child namespaces
-    const namespacesResponse = await functions.listNamespaces(props.warehouseId, apiNamespace)
-    console.log('Child namespaces response:', namespacesResponse)
-    
+    const namespacesResponse = await functions.listNamespaces(props.warehouseId, apiNamespace);
+    console.log('Child namespaces response:', namespacesResponse);
+
     // Load tables
-    const tablesResponse = await functions.listTables(props.warehouseId, apiNamespace)
-    console.log('Tables response:', tablesResponse)
-    
+    const tablesResponse = await functions.listTables(props.warehouseId, apiNamespace);
+    console.log('Tables response:', tablesResponse);
+
     // Load views
-    const viewsResponse = await functions.listViews(props.warehouseId, apiNamespace)
-    console.log('Views response:', viewsResponse)
-    
-    const childNamespaces = namespacesResponse.namespaces || []
-    const tables = tablesResponse.identifiers || []
-    const views = viewsResponse.identifiers || []
-    
-    console.log(`Found ${childNamespaces.length} child namespaces, ${tables.length} tables, and ${views.length} views in ${item.namespaceId}`)
-    
-    const children: TreeItem[] = []
-    
+    const viewsResponse = await functions.listViews(props.warehouseId, apiNamespace);
+    console.log('Views response:', viewsResponse);
+
+    const childNamespaces = namespacesResponse.namespaces || [];
+    const tables = tablesResponse.identifiers || [];
+    const views = viewsResponse.identifiers || [];
+
+    console.log(
+      `Found ${childNamespaces.length} child namespaces, ${tables.length} tables, and ${views.length} views in ${item.namespaceId}`,
+    );
+
+    const children: TreeItem[] = [];
+
     // Add child namespaces
     // nsArray is the full path like ['finance', 'products1']
     // We need to join it to get the full path for API calls
     childNamespaces.forEach((nsArray: string[]) => {
-      const fullPath = nsArray.join('.') // Full path with dots
+      const fullPath = nsArray.join('.'); // Full path with dots
       children.push({
         id: `ns-${fullPath}`,
         name: nsArray[nsArray.length - 1], // Display only the last segment
@@ -144,10 +132,10 @@ async function loadChildrenForNamespace(item: TreeItem) {
         children: [],
         warehouseId: props.warehouseId,
         namespaceId: fullPath,
-        loaded: false
-      })
-    })
-    
+        loaded: false,
+      });
+    });
+
     // Add tables
     tables.forEach((table: { name: string }) => {
       children.push({
@@ -155,10 +143,10 @@ async function loadChildrenForNamespace(item: TreeItem) {
         name: table.name,
         type: 'table',
         warehouseId: props.warehouseId,
-        namespaceId: item.namespaceId
-      })
-    })
-    
+        namespaceId: item.namespaceId,
+      });
+    });
+
     // Add views
     views.forEach((view: { name: string }) => {
       children.push({
@@ -166,44 +154,44 @@ async function loadChildrenForNamespace(item: TreeItem) {
         name: view.name,
         type: 'view',
         warehouseId: props.warehouseId,
-        namespaceId: item.namespaceId
-      })
-    })
-    
-    item.children = children
-    item.loaded = true
-    console.log('Loaded children:', children)
+        namespaceId: item.namespaceId,
+      });
+    });
+
+    item.children = children;
+    item.loaded = true;
+    console.log('Loaded children:', children);
   } catch (error) {
-    console.error('Error loading children for namespace:', item.namespaceId, error)
+    console.error('Error loading children for namespace:', item.namespaceId, error);
   }
 }
 
 // Watch for opened items changes and load children
 watch(openedItems, async (newOpened, oldOpened) => {
-  console.log('Opened items changed:', newOpened)
-  
+  console.log('Opened items changed:', newOpened);
+
   // Find newly opened items
-  const newlyOpened = newOpened.filter(id => !oldOpened.includes(id))
-  
+  const newlyOpened = newOpened.filter((id) => !oldOpened.includes(id));
+
   for (const itemId of newlyOpened) {
     // Find the item in the tree
-    const item = findItemById(treeItems.value, itemId)
+    const item = findItemById(treeItems.value, itemId);
     if (item && item.type === 'namespace' && !item.loaded) {
-      await loadChildrenForNamespace(item)
+      await loadChildrenForNamespace(item);
     }
   }
-})
+});
 
 // Helper to find item by ID in tree
 function findItemById(items: TreeItem[], id: string): TreeItem | null {
   for (const item of items) {
-    if (item.id === id) return item
+    if (item.id === id) return item;
     if (item.children) {
-      const found = findItemById(item.children, id)
-      if (found) return found
+      const found = findItemById(item.children, id);
+      if (found) return found;
     }
   }
-  return null
+  return null;
 }
 
 function handleItemClick(item: TreeItem) {
@@ -211,14 +199,14 @@ function handleItemClick(item: TreeItem) {
     emit('item-selected', {
       type: item.type,
       namespaceId: item.namespaceId,
-      name: item.name
-    })
+      name: item.name,
+    });
   }
 }
 
 onMounted(() => {
-  loadNamespaces()
-})
+  loadNamespaces();
+});
 </script>
 
 <style scoped>
@@ -228,7 +216,7 @@ onMounted(() => {
   flex-direction: column;
   background: white;
   border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .tree-header {

@@ -3,9 +3,7 @@
     <v-row no-gutters style="height: calc(100vh - 200px)">
       <!-- Left: Navigation Tree -->
       <v-col cols="3" style="border-right: 1px solid #e0e0e0; height: 100%; overflow: visible">
-        <WarehouseNavigationTree
-          :warehouse-id="warehouseId"
-          @item-selected="handleTableSelected" />
+        <WarehouseNavigationTree :warehouse-id="warehouseId" @item-selected="handleTableSelected" />
       </v-col>
 
       <!-- Right: SQL Query Interface -->
@@ -35,7 +33,8 @@
                   <!-- Selected Table Info -->
                   <v-alert v-if="selectedTable" type="success" variant="tonal" class="mb-4">
                     <div class="text-body-2">
-                      <strong>Selected:</strong> {{ selectedTable.type === 'table' ? 'Table' : 'View' }} - 
+                      <strong>Selected:</strong>
+                      {{ selectedTable.type === 'table' ? 'Table' : 'View' }} -
                       <code>{{ selectedTable.namespaceId }}.{{ selectedTable.name }}</code>
                     </div>
                   </v-alert>
@@ -43,8 +42,9 @@
                   <!-- Info Alert -->
                   <v-alert type="info" variant="tonal" class="mb-4">
                     <div class="text-body-2">
-                      <strong>DuckDB WASM Query Interface</strong> - Run SQL queries on your Iceberg tables and views. 
-                      Select a table/view from the left panel or query directly using the catalog.
+                      <strong>DuckDB WASM Query Interface</strong>
+                      - Run SQL queries on your Iceberg tables and views. Select a table/view from
+                      the left panel or query directly using the catalog.
                     </div>
                   </v-alert>
 
@@ -52,7 +52,11 @@
                   <v-textarea
                     v-model="sqlQuery"
                     label="SQL Query"
-                    :placeholder="selectedTable ? `SELECT * FROM ${warehouseName}.${selectedTable.namespaceId}.${selectedTable.name} LIMIT 10;` : 'SELECT * FROM catalog.namespace.table LIMIT 10;'"
+                    :placeholder="
+                      selectedTable
+                        ? `SELECT * FROM ${warehouseName}.${selectedTable.namespaceId}.${selectedTable.name} LIMIT 10;`
+                        : 'SELECT * FROM catalog.namespace.table LIMIT 10;'
+                    "
                     rows="8"
                     variant="outlined"
                     auto-grow
@@ -100,7 +104,12 @@
                   </div>
 
                   <!-- Error Display -->
-                  <v-alert v-if="error" type="error" closable @click:close="error = null" class="mb-4">
+                  <v-alert
+                    v-if="error"
+                    type="error"
+                    closable
+                    @click:close="error = null"
+                    class="mb-4">
                     <div class="font-weight-bold">Query Error:</div>
                     <pre class="text-caption mt-2">{{ error }}</pre>
                   </v-alert>
@@ -210,15 +219,20 @@ const exampleQueries = computed(() => {
   ];
 });
 
-function handleTableSelected(item: { type: string; warehouseId: string; namespaceId: string; name: string }) {
+function handleTableSelected(item: {
+  type: string;
+  warehouseId?: string;
+  namespaceId?: string;
+  name: string;
+}) {
   selectedTable.value = {
     type: item.type,
-    namespaceId: item.namespaceId,
+    namespaceId: item.namespaceId || '',
     name: item.name,
   };
-  
+
   // Auto-populate query with selected table
-  if (props.warehouseName) {
+  if (props.warehouseName && item.namespaceId) {
     sqlQuery.value = `SELECT * FROM ${props.warehouseName}.${item.namespaceId}.${item.name} LIMIT 10;`;
   }
 }
