@@ -46,7 +46,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: 'item-selected', item: { type: string, namespace?: string, name: string }): void
+  (e: 'item-selected', item: { type: string, namespaceId?: string, name: string }): void
 }>()
 
 interface TreeItem {
@@ -209,7 +209,7 @@ function handleItemClick(item: TreeItem) {
   if (item.type === 'table' || item.type === 'view') {
     emit('item-selected', {
       type: item.type,
-      namespace: item.namespaceId,
+      namespaceId: item.namespaceId,
       name: item.name
     })
   }
@@ -225,23 +225,26 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  overflow: hidden;
 }
 
 .tree-content {
   flex: 1;
-  overflow-x: auto;
-  overflow-y: auto;
+  overflow: auto;
   min-height: 0;
+  min-width: 0;
 }
 
 .tree-view {
   font-size: 0.75rem;
+  min-width: max-content;
 }
 
 .tree-item-title {
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
+  display: inline-block;
 }
 
 .tree-item-title:hover {
