@@ -3,12 +3,12 @@
     <v-progress-linear v-if="loading" indeterminate color="primary" />
     <v-treeview
       v-if="!loading"
+      v-model:opened="openedNodes"
       :items="treeItems"
       item-title="name"
       item-value="id"
       density="compact"
       activatable
-      @update:opened="handleNodeExpanded"
       @update:activated="handleItemClick">
       <template #prepend="{ item }">
         <v-icon v-if="item.type === 'namespace'" size="small">mdi-folder-outline</v-icon>
@@ -46,6 +46,7 @@ const emit = defineEmits<{
 const functions = useFunctions();
 const treeItems = ref<TreeItem[]>([]);
 const loading = ref(false);
+const openedNodes = ref<string[]>([]);
 
 async function loadNamespaces() {
   loading.value = true;
@@ -65,21 +66,13 @@ async function loadNamespaces() {
         loaded: false,
       };
     });
+    
+    console.log('Loaded namespaces:', treeItems.value.length);
   } catch (error) {
     console.error('Failed to load namespaces:', error);
     treeItems.value = [];
   } finally {
     loading.value = false;
-  }
-}
-
-async function handleNodeExpanded(openedIds: string[]) {
-  // Find newly opened namespaces that haven't been loaded yet
-  for (const itemId of openedIds) {
-    const item = findItemById(treeItems.value, itemId);
-    if (item && item.type === 'namespace' && !item.loaded) {
-      await loadChildrenForNamespace(item);
-    }
   }
 }
 
@@ -119,10 +112,13 @@ async function loadChildrenForNamespace(item: TreeItem) {
     item.loaded = true;
     
     console.log(`Loaded ${tables.length} tables and ${views.length} views`);
+    
+    // Force reactivity update
+    treeItems.value = [...treeItems.value];
   } catch (error) {
     console.error('Failed to load tables/views:', error);
     item.children = [];
-    item.loaded = true; // Mark as loaded even on error to prevent retry loops
+    item.loaded = true;
   }
 }
 
@@ -134,13 +130,24 @@ function handleItemClick(items: string[]) {
   
   console.log('Item clicked:', item);
   
-  if (item && item.type !== 'namespace') {
-    emit('itemSelected', {
-      type: item.type,
-      warehouseId: props.warehouseId,
-      namespaceId: item.namespaceId!,
-      name: item.name,
-    });
+  if (item) {
+    if (item.type === 'namespace') {
+      // Toggle namespace expansion when clicked
+      const index = openedNodes.value.indexOf(itemId);
+      if (index === -1) {
+        openedNodes.value.push(itemId);
+      } else {
+        openedNodes.value.splice(index, 1);
+      }
+    } else {
+      // Emit event for table/view selection
+      emit('itemSelected', {
+        type: item.type,
+        warehouseId: props.warehouseId,
+        namespaceId: item.namespaceId!,
+        name: item.name,
+      });
+    }
   }
 }
 
@@ -154,6 +161,21 @@ function findItemById(items: TreeItem[], id: string): TreeItem | null {
   }
   return null;
 }
+
+// Watch for nodes being opened
+watch(openedNodes, async (newOpened, oldOpened) => {
+  console.log('Opened nodes changed:', newOpened);
+  
+  // Find newly opened nodes
+  const newlyOpened = newOpened.filter(id => !oldOpened.includes(id));
+  
+  for (const itemId of newlyOpened) {
+    const item = findItemById(treeItems.value, itemId);
+    if (item && item.type === 'namespace' && !item.loaded) {
+      await loadChildrenForNamespace(item);
+    }
+  }
+});
 
 onMounted(() => {
   loadNamespaces();
