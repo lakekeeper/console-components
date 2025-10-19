@@ -29,7 +29,6 @@ export function useDuckDB() {
       const baseUrl = window.location.origin;
       
       // Manual bundle configuration to use local files
-      // We'll use the EH (Exception Handling) bundle for better error messages
       const DUCKDB_BUNDLES: duckdb.DuckDBBundles = {
         mvp: {
           mainModule: `${baseUrl}/duckdb/duckdb-mvp.wasm`,
@@ -43,14 +42,30 @@ export function useDuckDB() {
 
       // Select the best bundle for the current browser
       const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
+      
+      console.log('DuckDB bundle selected:', bundle);
 
       const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
-      workerInstance = new Worker(bundle.mainWorker!);
+      
+      // Create worker with absolute URL
+      const workerUrl = bundle.mainWorker!;
+      console.log('Creating worker with URL:', workerUrl);
+      workerInstance = new Worker(workerUrl);
+      
+      // Listen for worker errors
+      workerInstance.onerror = (e) => {
+        console.error('Worker error event:', e);
+      };
+      
       dbInstance = new duckdb.AsyncDuckDB(logger, workerInstance);
       
-      // Pass the base URL to the worker so it can resolve WASM file paths
+      console.log('Instantiating DuckDB with module:', bundle.mainModule);
+      
+      // The worker needs to know where to find the WASM file
+      // We pass it as the first parameter to instantiate
       await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
 
+      console.log('DuckDB initialized successfully');
       isInitialized.value = true;
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to initialize DuckDB';
