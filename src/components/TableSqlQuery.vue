@@ -7,17 +7,25 @@
             <v-icon class="mr-2">mdi-database-search</v-icon>
             SQL Query
             <v-spacer />
-            <v-chip v-if="duckDB.isInitialized.value" color="success" size="small">
+            <v-chip v-if="icebergDB.isInitialized.value" color="success" size="small">
               <v-icon start>mdi-check-circle</v-icon>
               DuckDB Ready
             </v-chip>
-            <v-chip v-else-if="duckDB.isInitializing.value" color="info" size="small">
+            <v-chip v-else-if="icebergDB.isInitializing.value || icebergDB.isLoadingTable.value" color="info" size="small">
               <v-icon start>mdi-loading mdi-spin</v-icon>
               Initializing...
             </v-chip>
           </v-card-title>
 
           <v-card-text>
+            <!-- Info Alert -->
+            <v-alert type="info" variant="tonal" class="mb-4">
+              <div class="text-body-2">
+                <strong>DuckDB WASM Query Interface</strong> - Run SQL queries on your Iceberg table data.
+                The table is automatically loaded as <code>iceberg_table</code> when you open this tab.
+              </div>
+            </v-alert>
+
             <!-- SQL Editor -->
             <v-textarea
               v-model="sqlQuery"
@@ -72,6 +80,16 @@
               >
                 <v-icon start>mdi-close</v-icon>
                 Clear
+              </v-btn>
+              <v-spacer />
+              <v-btn
+                variant="outlined"
+                color="info"
+                :loading="icebergDB.isLoadingTable.value"
+                @click="reloadTable"
+              >
+                <v-icon start>mdi-refresh</v-icon>
+                Reload Table
               </v-btn>
             </div>
 
@@ -140,7 +158,8 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, onBeforeUnmount } from 'vue';
-import { useDuckDB, type QueryResult } from '../composables/useDuckDB';
+import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
+import type { QueryResult } from '../composables/useDuckDB';
 
 interface Props {
   warehouseId?: string;
@@ -151,7 +170,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const duckDB = useDuckDB();
+const icebergDB = useIcebergDuckDB();
 const sqlQuery = ref('');
 const queryResult = ref<QueryResult | null>(null);
 const isExecuting = ref(false);
@@ -173,11 +192,11 @@ const exampleQueries = [
   },
   {
     title: 'Group by example',
-    query: 'SELECT column_name, COUNT(*) as count FROM iceberg_table GROUP BY column_name LIMIT 10;',
+    query: 'SELECT name, COUNT(*) as count FROM iceberg_table GROUP BY name;',
   },
   {
-    title: 'Aggregation example',
-    query: 'SELECT MIN(column_name) as min_val, MAX(column_name) as max_val, AVG(column_name) as avg_val FROM iceberg_table;',
+    title: 'Show all tables',
+    query: 'SHOW TABLES;',
   },
 ];
 
@@ -189,7 +208,7 @@ async function executeQuery() {
   queryResult.value = null;
 
   try {
-    const result = await duckDB.executeQuery(sqlQuery.value);
+    const result = await icebergDB.executeQuery(sqlQuery.value);
     queryResult.value = result;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'An error occurred while executing the query';
@@ -219,10 +238,32 @@ function formatCell(value: any): string {
   return String(value);
 }
 
+async function reloadTable() {
+  if (!props.warehouseId || !props.namespaceId || !props.tableName) {
+    error.value = 'Missing table information';
+    return;
+  }
+
+  await icebergDB.registerIcebergTable({
+    warehouseId: props.warehouseId,
+    namespaceId: props.namespaceId,
+    tableName: props.tableName,
+  });
+}
+
 onMounted(async () => {
-  // Initialize DuckDB when component is mounted
+  // Initialize DuckDB and load the Iceberg table
   try {
-    await duckDB.initialize();
+    await icebergDB.initialize();
+    
+    // Auto-load the table if props are provided
+    if (props.warehouseId && props.namespaceId && props.tableName) {
+      await icebergDB.registerIcebergTable({
+        warehouseId: props.warehouseId,
+        namespaceId: props.namespaceId,
+        tableName: props.tableName,
+      });
+    }
   } catch (e) {
     error.value = 'Failed to initialize DuckDB WASM';
     console.error('DuckDB initialization failed:', e);
@@ -231,7 +272,7 @@ onMounted(async () => {
 
 onBeforeUnmount(async () => {
   // Cleanup DuckDB resources
-  await duckDB.cleanup();
+  await icebergDB.cleanup();
 });
 </script>
 

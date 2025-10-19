@@ -239,3 +239,7 @@ export { default as CallbackPage } from './components/CallbackPage.vue';
 // Export DuckDB composable
 export { useDuckDB } from './composables/useDuckDB';
 export type { QueryResult } from './composables/useDuckDB';
+
+// Export Iceberg DuckDB integration
+export { useIcebergDuckDB } from './composables/useIcebergDuckDB';
+export type { IcebergTableInfo } from './composables/useIcebergDuckDB';
