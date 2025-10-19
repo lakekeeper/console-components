@@ -14,14 +14,18 @@
           <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
           <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
+          <v-icon size="small" v-else-if="item.type === 'field'" color="grey">mdi-code-braces</v-icon>
         </template>
         <template v-slot:title="{ item }">
-          <div 
+          <div
             class="tree-item-container"
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
             <span class="tree-item-title text-caption" :title="item.name">
               {{ item.name }}
+              <span v-if="item.type === 'field' && item.fieldType" class="field-type-badge">
+                {{ item.fieldType }}
+              </span>
             </span>
             <v-btn
               v-if="item.type === 'table' || item.type === 'view'"
@@ -58,11 +62,14 @@ const emit = defineEmits<{
 interface TreeItem {
   id: string;
   name: string;
-  type: 'namespace' | 'table' | 'view';
+  type: 'namespace' | 'table' | 'view' | 'field';
   children?: TreeItem[];
   warehouseId: string;
   namespaceId?: string; // Full namespace path with dots (e.g., 'finance.sub')
   loaded?: boolean;
+  fieldType?: string; // For field items: int, string, float, etc.
+  parentType?: 'table' | 'view'; // For field items: parent's type
+  parentName?: string; // For field items: parent table/view name
 }
 
 const treeItems = ref<TreeItem[]>([]);
@@ -158,6 +165,8 @@ async function loadChildrenForNamespace(item: TreeItem) {
         type: 'table',
         warehouseId: props.warehouseId,
         namespaceId: item.namespaceId,
+        children: [],
+        loaded: false,
       });
     });
 
@@ -169,6 +178,8 @@ async function loadChildrenForNamespace(item: TreeItem) {
         type: 'view',
         warehouseId: props.warehouseId,
         namespaceId: item.namespaceId,
+        children: [],
+        loaded: false,
       });
     });
 
@@ -177,6 +188,56 @@ async function loadChildrenForNamespace(item: TreeItem) {
     console.log('Loaded children:', children);
   } catch (error) {
     console.error('Error loading children for namespace:', item.namespaceId, error);
+  }
+}
+
+// Load fields for a table or view when expanded
+async function loadFieldsForTableOrView(item: TreeItem) {
+  if (item.loaded || (item.type !== 'table' && item.type !== 'view')) return;
+
+  console.log(`Loading fields for ${item.type}:`, item.name);
+
+  try {
+    const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
+    
+    // Load table or view metadata
+    const metadata: any = item.type === 'table' 
+      ? await functions.loadTable(props.warehouseId, apiNamespace, item.name)
+      : await functions.loadView(props.warehouseId, apiNamespace, item.name);
+    
+    console.log(`${item.type} metadata:`, metadata);
+
+    // Extract fields from the current schema
+    const fields: TreeItem[] = [];
+    if (metadata && metadata['metadata'] && metadata['metadata']['schemas']) {
+      const schemas = metadata['metadata']['schemas'];
+      const currentSchemaId = metadata['metadata']['current-schema-id'] || 0;
+      
+      // Find the current schema
+      const currentSchema = schemas.find((s: any) => s['schema-id'] === currentSchemaId);
+      
+      if (currentSchema && currentSchema.fields) {
+        currentSchema.fields.forEach((field: any) => {
+          const fieldType = typeof field.type === 'string' ? field.type : JSON.stringify(field.type);
+          fields.push({
+            id: `field-${item.id}-${field.id}`,
+            name: field.name,
+            type: 'field',
+            fieldType: fieldType,
+            warehouseId: props.warehouseId,
+            namespaceId: item.namespaceId,
+            parentType: item.type as 'table' | 'view',
+            parentName: item.name,
+          });
+        });
+      }
+    }
+
+    item.children = fields;
+    item.loaded = true;
+    console.log(`Loaded ${fields.length} fields for ${item.type} ${item.name}`);
+  } catch (error) {
+    console.error(`Error loading fields for ${item.type}:`, item.name, error);
   }
 }
 
@@ -190,8 +251,12 @@ watch(openedItems, async (newOpened, oldOpened) => {
   for (const itemId of newlyOpened) {
     // Find the item in the tree
     const item = findItemById(treeItems.value, itemId);
-    if (item && item.type === 'namespace' && !item.loaded) {
-      await loadChildrenForNamespace(item);
+    if (item && !item.loaded) {
+      if (item.type === 'namespace') {
+        await loadChildrenForNamespace(item);
+      } else if (item.type === 'table' || item.type === 'view') {
+        await loadFieldsForTableOrView(item);
+      }
     }
   }
 });
@@ -315,5 +380,16 @@ onMounted(() => {
   position: relative;
   scrollbar-width: thin;
   scrollbar-color: #888 #f1f1f1;
+}
+
+.field-type-badge {
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: #e3f2fd;
+  color: #1976d2;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: lowercase;
 }
 </style>
