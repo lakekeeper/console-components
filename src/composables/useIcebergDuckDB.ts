@@ -24,28 +24,17 @@ export function useIcebergDuckDB() {
         await duckDB.initialize();
       }
 
-      // Install and load the Iceberg extension and httpfs
-      const resultsInstall = await duckDB.executeQuery(`INSTALL iceberg; LOAD iceberg;`);
-      console.log('Iceberg extension installation results:', resultsInstall);
-
-      const resultsSet = await duckDB.executeQuery(`SET builtin_httpfs = false; LOAD httpfs;`);
-      console.log('Iceberg extension initialization results:', resultsSet);
-      // await duckDB.executeQuery(`INSTALL httpfs; LOAD httpfs;`);
-
-      // Create Iceberg secret with OAuth token
-      const resultsSecret = await duckDB.executeQuery(`
+      // Execute all setup commands in correct order
+      const setupQuery = `
+        SET builtin_httpfs = false;
+        INSTALL httpfs;
+        LOAD httpfs;
+        INSTALL iceberg;
+        LOAD iceberg;
         CREATE OR REPLACE SECRET iceberg_secret (
           TYPE iceberg,
           TOKEN '${config.accessToken}'
         );
-      `);
-      console.log('Iceberg secret creation results:', resultsSecret);
-
-      // Attach the Iceberg catalog
-      console.log('DEBUG: Original restUri:', config.restUri);
-      console.log('DEBUG: catalogName:', config.catalogName);
-
-      const attachQuery = `
         ATTACH '${config.catalogName}' AS ${config.catalogName} (
           TYPE iceberg,
           SECRET iceberg_secret,
@@ -53,10 +42,12 @@ export function useIcebergDuckDB() {
         );
       `;
 
-      console.log('DEBUG: Full attach query:', attachQuery);
+      console.log('DEBUG: Original restUri:', config.restUri);
+      console.log('DEBUG: catalogName:', config.catalogName);
+      console.log('DEBUG: Full setup query:', setupQuery);
 
-      const resultsAttach = await duckDB.executeQuery(attachQuery);
-      console.log('Iceberg catalog attach results:', resultsAttach);
+      const results = await duckDB.executeQuery(setupQuery);
+      console.log('Iceberg catalog setup results:', results);
 
       catalogConfigured.value = true;
       console.log(`Iceberg catalog '${config.catalogName}' configured successfully`);
