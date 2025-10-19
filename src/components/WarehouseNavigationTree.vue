@@ -1,36 +1,38 @@
 <template>
-  <v-card class="tree-card" height="100%">
-    <v-card-title class="text-subtitle-2 py-2">Warehouse Navigation</v-card-title>
-    <v-card-text class="tree-content pa-2">
-      <v-treeview
-        v-model:opened="openedItems"
-        :items="treeItems"
-        item-value="id"
-        density="compact"
-        open-on-click
-        class="tree-view"
-      >
-        <template v-slot:prepend="{ item }">
-          <v-icon size="small" v-if="item.type === 'namespace'">
-            mdi-folder-outline
-          </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'table'">
-            mdi-table
-          </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'view'">
-            mdi-eye-outline
-          </v-icon>
-        </template>
-        <template v-slot:title="{ item }">
-          <span 
-            @click="handleItemClick(item)"
-            class="tree-item-title text-caption"
-            :title="item.name"
-          >
-            {{ item.name }}
-          </span>
-        </template>
-      </v-treeview>
+  <v-card class="tree-card d-flex flex-column" height="100%">
+    <v-card-title class="text-subtitle-2 py-2 flex-shrink-0">Warehouse Navigation</v-card-title>
+    <v-card-text class="tree-content pa-2 flex-grow-1">
+      <div class="tree-wrapper">
+        <v-treeview
+          v-model:opened="openedItems"
+          :items="treeItems"
+          item-value="id"
+          density="compact"
+          open-on-click
+          class="tree-view"
+        >
+          <template v-slot:prepend="{ item }">
+            <v-icon size="small" v-if="item.type === 'namespace'">
+              mdi-folder-outline
+            </v-icon>
+            <v-icon size="small" v-else-if="item.type === 'table'">
+              mdi-table
+            </v-icon>
+            <v-icon size="small" v-else-if="item.type === 'view'">
+              mdi-eye-outline
+            </v-icon>
+          </template>
+          <template v-slot:title="{ item }">
+            <span 
+              @click="handleItemClick(item)"
+              class="tree-item-title text-caption"
+              :title="item.name"
+            >
+              {{ item.name }}
+            </span>
+          </template>
+        </v-treeview>
+      </div>
     </v-card-text>
   </v-card>
 </template>
@@ -222,22 +224,30 @@ onMounted(() => {
 
 <style scoped>
 .tree-card {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
   overflow: hidden;
 }
 
 .tree-content {
-  flex: 1;
-  overflow: auto;
-  min-height: 0;
-  min-width: 0;
+  height: 0; /* Important for flex-grow to work properly */
+  overflow: hidden;
+  padding: 8px !important;
+}
+
+.tree-wrapper {
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: auto;
 }
 
 .tree-view {
   font-size: 0.75rem;
-  min-width: max-content;
+  width: max-content;
+  min-width: 100%;
+}
+
+/* Force tree items to not wrap */
+.tree-view :deep(.v-treeview-item__content) {
+  white-space: nowrap;
 }
 
 .tree-item-title {
@@ -252,22 +262,28 @@ onMounted(() => {
 }
 
 /* Customize scrollbar for better appearance */
-.tree-content::-webkit-scrollbar {
+.tree-wrapper::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.tree-content::-webkit-scrollbar-track {
+.tree-wrapper::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.05);
   border-radius: 4px;
 }
 
-.tree-content::-webkit-scrollbar-thumb {
+.tree-wrapper::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 4px;
 }
 
-.tree-content::-webkit-scrollbar-thumb:hover {
+.tree-wrapper::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.3);
+}
+
+/* Firefox scrollbar styling */
+.tree-wrapper {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
 }
 </style>
