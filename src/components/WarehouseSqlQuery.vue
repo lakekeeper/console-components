@@ -30,15 +30,6 @@
                 </v-card-title>
 
                 <v-card-text>
-                  <!-- Selected Table Info -->
-                  <v-alert v-if="selectedTable" type="success" variant="tonal" class="mb-4">
-                    <div class="text-body-2">
-                      <strong>Selected:</strong>
-                      {{ selectedTable.type === 'table' ? 'Table' : 'View' }} -
-                      <code>{{ selectedTable.namespaceId }}.{{ selectedTable.name }}</code>
-                    </div>
-                  </v-alert>
-
                   <!-- Info Alert -->
                   <v-alert type="info" variant="tonal" class="mb-4">
                     <div class="text-body-2">
@@ -62,29 +53,6 @@
                     auto-grow
                     class="font-monospace"
                     :disabled="isExecuting" />
-
-                  <!-- Quick Examples -->
-                  <v-expansion-panels v-model="examplesPanel" class="mb-4">
-                    <v-expansion-panel>
-                      <v-expansion-panel-title>
-                        <v-icon class="mr-2">mdi-lightbulb-outline</v-icon>
-                        Example Queries
-                      </v-expansion-panel-title>
-                      <v-expansion-panel-text>
-                        <v-list density="compact">
-                          <v-list-item
-                            v-for="(example, idx) in exampleQueries"
-                            :key="idx"
-                            @click="loadExample(example.query)">
-                            <v-list-item-title>{{ example.title }}</v-list-item-title>
-                            <v-list-item-subtitle class="font-monospace text-caption">
-                              {{ example.query }}
-                            </v-list-item-subtitle>
-                          </v-list-item>
-                        </v-list>
-                      </v-expansion-panel-text>
-                    </v-expansion-panel>
-                  </v-expansion-panels>
 
                   <!-- Action Buttons -->
                   <div class="d-flex gap-2 mb-4">
