@@ -25,15 +25,15 @@ export function useDuckDB() {
     error.value = null;
 
     try {
-      // Select the appropriate bundle based on browser capabilities
+      // Use local WASM files from public directory
       const DUCKDB_CONFIG = await duckdb.selectBundle({
         mvp: {
-          mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/dist/duckdb-mvp.wasm',
-          mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/dist/duckdb-browser-mvp.worker.js',
+          mainModule: '/duckdb/duckdb-mvp.wasm',
+          mainWorker: '/duckdb/duckdb-browser-mvp.worker.js',
         },
         eh: {
-          mainModule: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/dist/duckdb-eh.wasm',
-          mainWorker: 'https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/dist/duckdb-browser-eh.worker.js',
+          mainModule: '/duckdb/duckdb-eh.wasm',
+          mainWorker: '/duckdb/duckdb-browser-eh.worker.js',
         },
       });
 
