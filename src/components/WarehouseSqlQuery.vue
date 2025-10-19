@@ -1,13 +1,40 @@
 <template>
   <v-container fluid class="pa-0">
-    <v-row no-gutters style="height: calc(100vh - 200px)">
+    <div style="display: flex; height: calc(100vh - 200px); position: relative;">
       <!-- Left: Navigation Tree -->
-      <v-col cols="3" style="border-right: 1px solid #e0e0e0; height: 100%; overflow: visible">
-        <WarehouseNavigationTree :warehouse-id="warehouseId" @item-selected="handleTableSelected" />
-      </v-col>
+      <div 
+        :style="{ 
+          width: leftWidth + 'px', 
+          minWidth: '200px',
+          maxWidth: '800px',
+          height: '100%',
+          overflow: 'visible',
+          borderRight: '1px solid #e0e0e0'
+        }"
+      >
+        <WarehouseNavigationTree 
+          :warehouse-id="warehouseId" 
+          @item-selected="handleTableSelected" 
+        />
+      </div>
+
+      <!-- Resizable Divider -->
+      <div
+        @mousedown="startResize"
+        style="
+          width: 5px;
+          cursor: col-resize;
+          user-select: none;
+          flex-shrink: 0;
+          transition: background 0.2s;
+        "
+        :style="{ background: dividerHover || isResizing ? '#2196F3' : '#e0e0e0' }"
+        @mouseenter="dividerHover = true"
+        @mouseleave="dividerHover = false"
+      ></div>
 
       <!-- Right: SQL Query Interface -->
-      <v-col cols="9" style="height: 100%; overflow-y: auto">
+      <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0;">
         <v-container fluid>
           <v-row>
             <v-col cols="12">
@@ -128,8 +155,8 @@
             </v-col>
           </v-row>
         </v-container>
-      </v-col>
-    </v-row>
+      </div>
+    </div>
   </v-container>
 </template>
 
@@ -156,6 +183,37 @@ const isExecuting = ref(false);
 const error = ref<string | null>(null);
 const examplesPanel = ref<number | undefined>(undefined);
 const selectedTable = ref<{ type: string; namespaceId: string; name: string } | null>(null);
+
+// Resizable layout state
+const leftWidth = ref(300); // Initial width in pixels
+const dividerHover = ref(false);
+const isResizing = ref(false);
+
+function startResize(e: MouseEvent) {
+  isResizing.value = true;
+  const startX = e.clientX;
+  const startWidth = leftWidth.value;
+
+  function onMouseMove(e: MouseEvent) {
+    const delta = e.clientX - startX;
+    const newWidth = startWidth + delta;
+    // Constrain between 200px and 800px
+    leftWidth.value = Math.max(200, Math.min(800, newWidth));
+  }
+
+  function onMouseUp() {
+    isResizing.value = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
 
 const exampleQueries = computed(() => {
   if (selectedTable.value && props.warehouseName) {
