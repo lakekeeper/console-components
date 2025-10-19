@@ -25,22 +25,31 @@ export function useDuckDB() {
     error.value = null;
 
     try {
-      // Use local WASM files from public directory
-      const DUCKDB_CONFIG = await duckdb.selectBundle({
+      // Get the base URL for the current page
+      const baseUrl = window.location.origin;
+      
+      // Manual bundle configuration to use local files
+      // We'll use the EH (Exception Handling) bundle for better error messages
+      const DUCKDB_BUNDLES: duckdb.DuckDBBundles = {
         mvp: {
-          mainModule: '/duckdb/duckdb-mvp.wasm',
-          mainWorker: '/duckdb/duckdb-browser-mvp.worker.js',
+          mainModule: `${baseUrl}/duckdb/duckdb-mvp.wasm`,
+          mainWorker: `${baseUrl}/duckdb/duckdb-browser-mvp.worker.js`,
         },
         eh: {
-          mainModule: '/duckdb/duckdb-eh.wasm',
-          mainWorker: '/duckdb/duckdb-browser-eh.worker.js',
+          mainModule: `${baseUrl}/duckdb/duckdb-eh.wasm`,
+          mainWorker: `${baseUrl}/duckdb/duckdb-browser-eh.worker.js`,
         },
-      });
+      };
 
-      const logger = new duckdb.ConsoleLogger();
-      workerInstance = new Worker(DUCKDB_CONFIG.mainWorker!);
+      // Select the best bundle for the current browser
+      const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
+
+      const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
+      workerInstance = new Worker(bundle.mainWorker!);
       dbInstance = new duckdb.AsyncDuckDB(logger, workerInstance);
-      await dbInstance.instantiate(DUCKDB_CONFIG.mainModule);
+      
+      // Pass the base URL to the worker so it can resolve WASM file paths
+      await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
 
       isInitialized.value = true;
     } catch (e) {
