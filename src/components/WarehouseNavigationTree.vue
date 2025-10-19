@@ -14,7 +14,9 @@
           <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
           <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'field'" color="grey">mdi-code-braces</v-icon>
+          <v-icon size="small" v-else-if="item.type === 'field'" color="grey">
+            mdi-code-braces
+          </v-icon>
         </template>
         <template v-slot:title="{ item }">
           <div
@@ -23,9 +25,14 @@
             @mouseleave="hoveredItem = null">
             <span class="tree-item-title text-caption" :title="item.name">
               {{ item.name }}
-              <span v-if="item.type === 'field' && item.fieldType" class="field-type-badge">
-                {{ item.fieldType }}
-              </span>
+              <v-icon 
+                v-if="item.type === 'field' && item.fieldType" 
+                :icon="getTypeIcon(item.fieldType)"
+                :color="getTypeColor(item.fieldType)"
+                size="x-small"
+                class="field-type-icon"
+                :title="item.fieldType">
+              </v-icon>
             </span>
             <v-btn
               v-if="item.type === 'table' || item.type === 'view'"
@@ -36,6 +43,17 @@
               :style="{ opacity: hoveredItem === item.id ? 1 : 0, transition: 'opacity 0.2s ease' }"
               @click.stop="handleItemClick(item)"
               :title="`Insert ${item.type} path into query`">
+              <v-icon size="small">mdi-plus-circle-outline</v-icon>
+            </v-btn>
+            <v-btn
+              v-if="item.type === 'field'"
+              icon
+              size="x-small"
+              variant="text"
+              class="tree-item-insert-btn"
+              :style="{ opacity: hoveredItem === item.id ? 1 : 0, transition: 'opacity 0.2s ease' }"
+              @click.stop="handleFieldClick(item)"
+              :title="`Insert field name`">
               <v-icon size="small">mdi-plus-circle-outline</v-icon>
             </v-btn>
           </div>
@@ -199,12 +217,13 @@ async function loadFieldsForTableOrView(item: TreeItem) {
 
   try {
     const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
-    
+
     // Load table or view metadata
-    const metadata: any = item.type === 'table' 
-      ? await functions.loadTable(props.warehouseId, apiNamespace, item.name)
-      : await functions.loadView(props.warehouseId, apiNamespace, item.name);
-    
+    const metadata: any =
+      item.type === 'table'
+        ? await functions.loadTable(props.warehouseId, apiNamespace, item.name)
+        : await functions.loadView(props.warehouseId, apiNamespace, item.name);
+
     console.log(`${item.type} metadata:`, metadata);
 
     // Extract fields from the current schema
@@ -212,13 +231,14 @@ async function loadFieldsForTableOrView(item: TreeItem) {
     if (metadata && metadata['metadata'] && metadata['metadata']['schemas']) {
       const schemas = metadata['metadata']['schemas'];
       const currentSchemaId = metadata['metadata']['current-schema-id'] || 0;
-      
+
       // Find the current schema
       const currentSchema = schemas.find((s: any) => s['schema-id'] === currentSchemaId);
-      
+
       if (currentSchema && currentSchema.fields) {
         currentSchema.fields.forEach((field: any) => {
-          const fieldType = typeof field.type === 'string' ? field.type : JSON.stringify(field.type);
+          const fieldType =
+            typeof field.type === 'string' ? field.type : JSON.stringify(field.type);
           fields.push({
             id: `field-${item.id}-${field.id}`,
             name: field.name,
@@ -271,6 +291,89 @@ function findItemById(items: TreeItem[], id: string): TreeItem | null {
     }
   }
   return null;
+}
+
+// Get icon for field type
+function getTypeIcon(fieldType: string): string {
+  const type = fieldType.toLowerCase();
+  
+  // Numeric types
+  if (type.includes('int') || type.includes('long') || type.includes('short') || type.includes('byte')) {
+    return 'mdi-numeric';
+  }
+  // Float/Double types
+  if (type.includes('float') || type.includes('double') || type.includes('decimal')) {
+    return 'mdi-decimal';
+  }
+  // String types
+  if (type.includes('string') || type.includes('char') || type.includes('varchar')) {
+    return 'mdi-format-text';
+  }
+  // Boolean
+  if (type.includes('bool')) {
+    return 'mdi-checkbox-marked-circle-outline';
+  }
+  // Date/Time types
+  if (type.includes('date') || type.includes('time') || type.includes('timestamp')) {
+    return 'mdi-calendar-clock';
+  }
+  // Binary
+  if (type.includes('binary') || type.includes('bytes')) {
+    return 'mdi-file-code';
+  }
+  // UUID
+  if (type.includes('uuid')) {
+    return 'mdi-identifier';
+  }
+  // Struct/Map/List (complex types)
+  if (type.includes('struct') || type.includes('map') || type.includes('list') || type.includes('array')) {
+    return 'mdi-code-json';
+  }
+  
+  // Default
+  return 'mdi-help-circle-outline';
+}
+
+// Get color for field type
+function getTypeColor(fieldType: string): string {
+  const type = fieldType.toLowerCase();
+  
+  if (type.includes('int') || type.includes('long') || type.includes('short') || type.includes('byte')) {
+    return 'blue';
+  }
+  if (type.includes('float') || type.includes('double') || type.includes('decimal')) {
+    return 'cyan';
+  }
+  if (type.includes('string') || type.includes('char') || type.includes('varchar')) {
+    return 'green';
+  }
+  if (type.includes('bool')) {
+    return 'orange';
+  }
+  if (type.includes('date') || type.includes('time') || type.includes('timestamp')) {
+    return 'purple';
+  }
+  if (type.includes('binary') || type.includes('bytes')) {
+    return 'grey';
+  }
+  if (type.includes('uuid')) {
+    return 'indigo';
+  }
+  if (type.includes('struct') || type.includes('map') || type.includes('list') || type.includes('array')) {
+    return 'amber';
+  }
+  
+  return 'grey';
+}
+
+function handleFieldClick(item: TreeItem) {
+  if (item.type === 'field') {
+    emit('item-selected', {
+      type: item.type,
+      namespaceId: item.namespaceId,
+      name: item.name,
+    });
+  }
 }
 
 function handleItemClick(item: TreeItem) {
@@ -382,14 +485,8 @@ onMounted(() => {
   scrollbar-color: #888 #f1f1f1;
 }
 
-.field-type-badge {
-  margin-left: 8px;
-  padding: 2px 6px;
-  background: #e3f2fd;
-  color: #1976d2;
-  border-radius: 3px;
-  font-size: 0.65rem;
-  font-weight: 500;
-  text-transform: lowercase;
+.field-type-icon {
+  margin-left: 4px;
+  vertical-align: middle;
 }
 </style>

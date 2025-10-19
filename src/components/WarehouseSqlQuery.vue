@@ -264,21 +264,29 @@ function handleTableSelected(item: {
     name: item.name,
   };
 
-  // Insert table path at cursor position or at the end
-  if (props.warehouseName && item.namespaceId) {
-    const tablePath = `${props.warehouseName}.${item.namespaceId}.${item.name}`;
+  let textToInsert = '';
+  
+  // For fields, just insert the field name
+  if (item.type === 'field') {
+    textToInsert = item.name;
+  }
+  // For tables/views, insert the full path
+  else if ((item.type === 'table' || item.type === 'view') && props.warehouseName && item.namespaceId) {
+    textToInsert = `${props.warehouseName}.${item.namespaceId}.${item.name}`;
+  }
 
+  if (textToInsert) {
     if (!sqlQuery.value) {
-      // If textarea is empty, just set the table path
-      sqlQuery.value = tablePath;
+      // If textarea is empty, just set the text
+      sqlQuery.value = textToInsert;
     } else {
       // Insert at cursor position
       const before = sqlQuery.value.substring(0, cursorPosition.value);
       const after = sqlQuery.value.substring(cursorPosition.value);
-      sqlQuery.value = before + tablePath + after;
+      sqlQuery.value = before + textToInsert + after;
 
       // Update cursor position to after the inserted text
-      cursorPosition.value = cursorPosition.value + tablePath.length;
+      cursorPosition.value = cursorPosition.value + textToInsert.length;
 
       // Focus and set cursor position in the textarea
       setTimeout(() => {
