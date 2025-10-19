@@ -215,8 +215,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   background: white;
-  border-radius: 4px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  
+  
 }
 
 .tree-header {
@@ -226,6 +226,7 @@ onMounted(() => {
 }
 
 .tree-scroll-area {
+  position: relative;
   flex: 1;
   overflow-x: auto;
   overflow-y: auto;
@@ -288,6 +289,7 @@ onMounted(() => {
 
 /* Firefox */
 .tree-scroll-area {
+  position: relative;
   scrollbar-width: thin;
   scrollbar-color: #888 #f1f1f1;
 }
