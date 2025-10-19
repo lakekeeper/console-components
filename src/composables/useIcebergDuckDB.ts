@@ -5,7 +5,6 @@ export interface IcebergCatalogConfig {
   catalogName: string;
   restUri: string;
   accessToken: string;
-  warehouseId?: string;
 }
 
 export function useIcebergDuckDB() {
