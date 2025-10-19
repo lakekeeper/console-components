@@ -25,7 +25,7 @@ export function useIcebergDuckDB() {
       }
 
       // Install and load the Iceberg extension and httpfs
-      await duckDB.executeQuery(`INSTALL iceberg; LOAD iceberg;`);
+      await duckDB.executeQuery(`INSTALL iceberg; LOAD iceberg; SET builtin_httpfs = false; `);
       // await duckDB.executeQuery(`INSTALL httpfs; LOAD httpfs;`);
 
       // Create Iceberg secret with OAuth token
