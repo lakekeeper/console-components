@@ -28,7 +28,8 @@ export function useDuckDB() {
       // Get the base URL for the current page
       const baseUrl = window.location.origin;
       
-      // Manual bundle configuration to use local files
+      // We'll use MVP bundle which is most compatible
+      // and doesn't require exception handling support
       const DUCKDB_BUNDLES: duckdb.DuckDBBundles = {
         mvp: {
           mainModule: `${baseUrl}/duckdb/duckdb-mvp.wasm`,
@@ -40,14 +41,15 @@ export function useDuckDB() {
         },
       };
 
-      // Select the best bundle for the current browser
+      // Select the bundle - prefer MVP for compatibility
       const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
       
       console.log('DuckDB bundle selected:', bundle);
 
-      const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
+      // Use less verbose logging
+      const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.ERROR);
       
-      // Create worker with absolute URL
+      // Create worker
       const workerUrl = bundle.mainWorker!;
       console.log('Creating worker with URL:', workerUrl);
       workerInstance = new Worker(workerUrl);
@@ -55,15 +57,22 @@ export function useDuckDB() {
       // Listen for worker errors
       workerInstance.onerror = (e) => {
         console.error('Worker error event:', e);
+        console.error('Worker error message:', e.message);
+        console.error('Worker error filename:', e.filename);
+        console.error('Worker error lineno:', e.lineno);
+      };
+      
+      workerInstance.onmessageerror = (e) => {
+        console.error('Worker message error:', e);
       };
       
       dbInstance = new duckdb.AsyncDuckDB(logger, workerInstance);
       
       console.log('Instantiating DuckDB with module:', bundle.mainModule);
       
-      // The worker needs to know where to find the WASM file
-      // We pass it as the first parameter to instantiate
-      await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
+      // Instantiate with the WASM module URL
+      // The second parameter is the pthread worker (only for COI bundle)
+      await dbInstance.instantiate(bundle.mainModule);
 
       console.log('DuckDB initialized successfully');
       isInitialized.value = true;
