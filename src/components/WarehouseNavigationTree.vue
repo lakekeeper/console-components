@@ -16,12 +16,23 @@
           <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
         </template>
         <template v-slot:title="{ item }">
-          <span
-            @click="handleItemClick(item)"
-            class="tree-item-title text-caption"
-            :title="item.name">
-            {{ item.name }}
-          </span>
+          <div class="tree-item-container">
+            <span
+              class="tree-item-title text-caption"
+              :title="item.name">
+              {{ item.name }}
+            </span>
+            <v-btn
+              v-if="item.type === 'table' || item.type === 'view'"
+              icon
+              size="x-small"
+              variant="text"
+              class="tree-item-insert-btn"
+              @click.stop="handleItemClick(item)"
+              :title="`Insert ${item.type} path into query`">
+              <v-icon size="small">mdi-plus-circle-outline</v-icon>
+            </v-btn>
+          </div>
         </template>
       </v-treeview>
     </div>
@@ -248,11 +259,28 @@ onMounted(() => {
   overflow-x: auto !important;
 }
 
+.tree-item-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+
 .tree-item-title {
-  cursor: pointer;
   user-select: none;
   white-space: nowrap;
-  display: inline-block;
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-item-insert-btn {
+  opacity: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.tree-item-container:hover .tree-item-insert-btn {
+  opacity: 1;
 }
 
 .tree-item-title:hover {
