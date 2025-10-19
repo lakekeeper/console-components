@@ -1,21 +1,17 @@
 <template>
   <v-container fluid class="pa-0">
-    <div style="display: flex; height: calc(100vh - 200px); position: relative;">
+    <div style="display: flex; height: calc(100vh - 200px); position: relative">
       <!-- Left: Navigation Tree -->
-      <div 
-        :style="{ 
-          width: leftWidth + 'px', 
+      <div
+        :style="{
+          width: leftWidth + 'px',
           minWidth: '200px',
           maxWidth: '800px',
           height: '100%',
           overflow: 'visible',
-          borderRight: '1px solid #e0e0e0'
-        }"
-      >
-        <WarehouseNavigationTree 
-          :warehouse-id="warehouseId" 
-          @item-selected="handleTableSelected" 
-        />
+          borderRight: '1px solid #e0e0e0',
+        }">
+        <WarehouseNavigationTree :warehouse-id="warehouseId" @item-selected="handleTableSelected" />
       </div>
 
       <!-- Resizable Divider -->
@@ -30,11 +26,10 @@
         "
         :style="{ background: dividerHover || isResizing ? '#2196F3' : '#e0e0e0' }"
         @mouseenter="dividerHover = true"
-        @mouseleave="dividerHover = false"
-      ></div>
+        @mouseleave="dividerHover = false"></div>
 
       <!-- Right: SQL Query Interface -->
-      <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0;">
+      <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
         <v-container fluid>
           <v-row>
             <v-col cols="12">
@@ -272,7 +267,7 @@ function handleTableSelected(item: {
   // Insert table path at cursor position or at the end
   if (props.warehouseName && item.namespaceId) {
     const tablePath = `${props.warehouseName}.${item.namespaceId}.${item.name}`;
-    
+
     if (!sqlQuery.value) {
       // If textarea is empty, just set the table path
       sqlQuery.value = tablePath;
@@ -281,10 +276,10 @@ function handleTableSelected(item: {
       const before = sqlQuery.value.substring(0, cursorPosition.value);
       const after = sqlQuery.value.substring(cursorPosition.value);
       sqlQuery.value = before + tablePath + after;
-      
+
       // Update cursor position to after the inserted text
       cursorPosition.value = cursorPosition.value + tablePath.length;
-      
+
       // Focus and set cursor position in the textarea
       setTimeout(() => {
         if (sqlTextarea.value && sqlTextarea.value.$el) {
