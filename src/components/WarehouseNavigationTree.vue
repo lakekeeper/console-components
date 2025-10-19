@@ -82,52 +82,41 @@ async function loadChildrenForNamespace(item: TreeItem) {
   try {
     console.log(`Loading children for namespace: ${item.namespaceId}`);
     
-    // Load tables and views
-    const tablesResponse = await functions.listTables(props.warehouseId, item.namespaceId);
-    const identifiers = tablesResponse.identifiers || [];
-    
-    console.log(`Found ${identifiers.length} identifiers in ${item.namespaceId}:`, identifiers);
-    
-    const tables = identifiers
-      .filter((id: any) => {
-        console.log(`Identifier: name=${id.name}, type=${id.type}`);
-        return id.type === 'TABLE';
-      })
-      .map((table: any) => ({
-        id: `table-${item.namespaceId}-${table.name}`,
-        name: table.name,
-        type: 'table' as const,
-        warehouseId: props.warehouseId,
-        namespaceId: item.namespaceId,
-      }));
-
-    const views = identifiers
-      .filter((id: any) => id.type === 'VIEW')
-      .map((view: any) => ({
-        id: `view-${item.namespaceId}-${view.name}`,
-        name: view.name,
-        type: 'view' as const,
-        warehouseId: props.warehouseId,
-        namespaceId: item.namespaceId,
-      }));
-
-    // Also check for nested namespaces (type === 'NAMESPACE')
-    const childNamespaces = identifiers
-      .filter((id: any) => id.type === 'NAMESPACE')
-      .map((ns: any) => ({
-        id: `ns-${item.namespaceId}.${ns.name}`,
-        name: ns.name,
+    // Load child namespaces first
+    const childNsResponse = await functions.listNamespaces(props.warehouseId, item.namespaceId);
+    const childNamespaces = (childNsResponse.namespaces || []).map((nsArray: string[]) => {
+      const nsName = nsArray[nsArray.length - 1]; // Get just the last part
+      return {
+        id: `ns-${item.namespaceId}.${nsName}`,
+        name: nsName,
         type: 'namespace' as const,
         warehouseId: props.warehouseId,
-        namespaceId: `${item.namespaceId}.${ns.name}`,
+        namespaceId: `${item.namespaceId}.${nsName}`,
         children: [],
         loaded: false,
-      }));
+      };
+    });
+    
+    // Load tables (identifiers returns mixed items, we need to check which are tables/views)
+    const identifiersResponse = await functions.listTables(props.warehouseId, item.namespaceId);
+    const identifiers = identifiersResponse.identifiers || [];
+    
+    console.log(`Found ${childNamespaces.length} child namespaces and ${identifiers.length} identifiers in ${item.namespaceId}`);
+    
+    // The API doesn't distinguish between tables and views in listTables
+    // We'll treat all identifiers as tables for now and mark them appropriately
+    const tables = identifiers.map((id: any) => ({
+      id: `table-${item.namespaceId}-${id.name}`,
+      name: id.name,
+      type: 'table' as const, // We can't distinguish without additional API calls
+      warehouseId: props.warehouseId,
+      namespaceId: item.namespaceId,
+    }));
 
-    item.children = [...childNamespaces, ...tables, ...views];
+    item.children = [...childNamespaces, ...tables];
     item.loaded = true;
     
-    console.log(`Loaded ${childNamespaces.length} namespaces, ${tables.length} tables, and ${views.length} views`);
+    console.log(`Loaded ${childNamespaces.length} namespaces and ${tables.length} tables/views`);
     
     // Force reactivity update
     treeItems.value = [...treeItems.value];
