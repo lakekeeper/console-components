@@ -68,6 +68,9 @@
 
                   <!-- SQL Editor -->
                   <v-textarea
+                    ref="sqlTextarea"
+                    @click="updateCursorPosition"
+                    @keyup="updateCursorPosition"
                     v-model="sqlQuery"
                     label="SQL Query"
                     :placeholder="
@@ -187,6 +190,8 @@ const selectedTable = ref<{ type: string; namespaceId: string; name: string } | 
 // Resizable layout state
 const leftWidth = ref(300); // Initial width in pixels
 const dividerHover = ref(false);
+const sqlTextarea = ref<any>(null);
+const cursorPosition = ref(0);
 const isResizing = ref(false);
 
 function startResize(e: MouseEvent) {
@@ -245,6 +250,13 @@ const exampleQueries = computed(() => {
   ];
 });
 
+function updateCursorPosition(event: Event) {
+  const target = event.target as HTMLTextAreaElement;
+  if (target) {
+    cursorPosition.value = target.selectionStart || 0;
+  }
+}
+
 function handleTableSelected(item: {
   type: string;
   warehouseId?: string;
@@ -257,9 +269,33 @@ function handleTableSelected(item: {
     name: item.name,
   };
 
-  // Auto-populate query with selected table
+  // Insert table path at cursor position or at the end
   if (props.warehouseName && item.namespaceId) {
-    sqlQuery.value = `SELECT * FROM ${props.warehouseName}.${item.namespaceId}.${item.name} LIMIT 10;`;
+    const tablePath = `${props.warehouseName}.${item.namespaceId}.${item.name}`;
+    
+    if (!sqlQuery.value) {
+      // If textarea is empty, just set the table path
+      sqlQuery.value = tablePath;
+    } else {
+      // Insert at cursor position
+      const before = sqlQuery.value.substring(0, cursorPosition.value);
+      const after = sqlQuery.value.substring(cursorPosition.value);
+      sqlQuery.value = before + tablePath + after;
+      
+      // Update cursor position to after the inserted text
+      cursorPosition.value = cursorPosition.value + tablePath.length;
+      
+      // Focus and set cursor position in the textarea
+      setTimeout(() => {
+        if (sqlTextarea.value && sqlTextarea.value.$el) {
+          const textarea = sqlTextarea.value.$el.querySelector('textarea');
+          if (textarea) {
+            textarea.focus();
+            textarea.setSelectionRange(cursorPosition.value, cursorPosition.value);
+          }
+        }
+      }, 0);
+    }
   }
 }
 
