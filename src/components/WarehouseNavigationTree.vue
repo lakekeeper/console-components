@@ -1,8 +1,8 @@
 <template>
-  <v-card class="tree-card" height="100%">
-    <v-card-title class="text-subtitle-2 py-2">Warehouse Navigation</v-card-title>
+  <div class="tree-container">
+    <div class="tree-header text-subtitle-2 py-2 px-3">Warehouse Navigation</div>
     <v-divider></v-divider>
-    <div class="tree-scroll-container">
+    <div class="tree-scroll-area">
       <v-treeview
         v-model:opened="openedItems"
         :items="treeItems"
@@ -33,7 +33,7 @@
         </template>
       </v-treeview>
     </div>
-  </v-card>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -222,21 +222,31 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.tree-card {
+.tree-container {
+  height: 100%;
   display: flex;
   flex-direction: column;
-  position: relative;
+  background: white;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.tree-scroll-container {
+.tree-header {
+  flex-shrink: 0;
+  font-weight: 500;
+  background: #f5f5f5;
+}
+
+.tree-scroll-area {
   flex: 1;
   overflow-x: auto;
   overflow-y: auto;
-  position: relative;
+  min-height: 0;
 }
 
 .tree-view {
   font-size: 0.75rem;
+  min-width: max-content;
 }
 
 /* Prevent text wrapping in tree items */
@@ -246,6 +256,10 @@ onMounted(() => {
 
 .tree-view :deep(.v-treeview-item__content) {
   white-space: nowrap;
+}
+
+.tree-view :deep(.v-list-item) {
+  min-width: max-content;
 }
 
 .tree-view :deep(.v-list-item-title) {
@@ -258,36 +272,35 @@ onMounted(() => {
   user-select: none;
   white-space: nowrap;
   display: inline-block;
-  overflow: visible;
 }
 
 .tree-item-title:hover {
   text-decoration: underline;
 }
 
-/* Customize scrollbar for better appearance */
-.tree-scroll-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Customize scrollbar */
+.tree-scroll-area::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
 
-.tree-scroll-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 4px;
+.tree-scroll-area::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
 }
 
-.tree-scroll-container::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+.tree-scroll-area::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
 }
 
-.tree-scroll-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+.tree-scroll-area::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
-/* Firefox scrollbar styling */
-.tree-scroll-container {
+/* Firefox */
+.tree-scroll-area {
   scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
+  scrollbar-color: #888 #f1f1f1;
 }
 </style>
