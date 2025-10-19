@@ -11,9 +11,7 @@ export interface IcebergTableInfo {
 export interface IcebergCatalogConfig {
   catalogName: string;
   restUri: string;
-  accessToken?: string;
-  clientId?: string;
-  clientSecret?: string;
+  accessToken: string;
   warehouseId?: string;
 }
 
@@ -34,41 +32,31 @@ export function useIcebergDuckDB() {
         await duckDB.initialize();
       }
 
-      // Install and load the Iceberg extension
+      // Install and load the Iceberg extension and httpfs
       await duckDB.executeQuery(`INSTALL iceberg; LOAD iceberg;`);
+      await duckDB.executeQuery(`INSTALL httpfs; LOAD httpfs;`);
 
-      // Create secret with OAuth token or client credentials
-      if (config.accessToken) {
-        // Use OAuth token (recommended for LakeKeeper)
-        await duckDB.executeQuery(`
-          CREATE OR REPLACE SECRET iceberg_rest_secret (
-            TYPE BEARER,
-            TOKEN '${config.accessToken}'
-          );
-        `);
-      } else if (config.clientId && config.clientSecret) {
-        // Use client credentials flow
-        await duckDB.executeQuery(`
-          CREATE OR REPLACE SECRET iceberg_rest_secret (
-            TYPE OAUTH,
-            PROVIDER TOKEN,
-            CLIENT_ID '${config.clientId}',
-            CLIENT_SECRET '${config.clientSecret}',
-            GRANT_TYPE 'client_credentials'
-          );
-        `);
-      }
+      // Create Iceberg secret with OAuth token
+      await duckDB.executeQuery(`
+        CREATE OR REPLACE SECRET iceberg_secret (
+          TYPE iceberg,
+          TOKEN '${config.accessToken}'
+        );
+      `);
 
       // Attach the Iceberg catalog
       const attachQuery = `
-        ATTACH '${config.restUri}' AS ${config.catalogName} (TYPE ICEBERG_REST);
+        LOAD httpfs;
+        ATTACH '${config.restUri}' AS ${config.catalogName} (
+          TYPE iceberg,
+          SECRET iceberg_secret
+        );
       `;
-      
+
       await duckDB.executeQuery(attachQuery);
-      
+
       catalogConfigured.value = true;
       console.log(`Iceberg catalog '${config.catalogName}' configured successfully`);
-      
     } catch (e) {
       console.error('Failed to configure Iceberg catalog:', e);
       throw e;
@@ -91,7 +79,6 @@ export function useIcebergDuckDB() {
 
       // Tables can now be queried directly using: catalog.namespace.table
       // No additional registration needed
-      
     } catch (e) {
       loadError.value = e instanceof Error ? e.message : 'Failed to register Iceberg table';
       console.error('Failed to register Iceberg table:', e);
@@ -112,17 +99,17 @@ export function useIcebergDuckDB() {
 
       // Install httpfs extension for reading from HTTP/S3
       await duckDB.executeQuery(`INSTALL httpfs; LOAD httpfs;`);
-      
+
       // Create table from Parquet files
       if (parquetUrls.length === 1) {
         await duckDB.executeQuery(
-          `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet('${parquetUrls[0]}');`
+          `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet('${parquetUrls[0]}');`,
         );
       } else {
         // Multiple Parquet files - use array syntax
-        const urlsArray = parquetUrls.map(url => `'${url}'`).join(', ');
+        const urlsArray = parquetUrls.map((url) => `'${url}'`).join(', ');
         await duckDB.executeQuery(
-          `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet([${urlsArray}]);`
+          `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet([${urlsArray}]);`,
         );
       }
     } catch (e) {
