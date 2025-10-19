@@ -4,30 +4,32 @@
       Warehouse Navigation
     </div>
     <v-divider></v-divider>
-    <div style="flex: 1; overflow: auto; min-height: 0;">
-      <v-treeview
-        v-model:opened="openedItems"
-        :items="treeItems"
-        item-value="id"
-        density="compact"
-        open-on-click
-        style="font-size: 0.75rem; padding: 8px;"
-      >
-        <template v-slot:prepend="{ item }">
-          <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
-        </template>
-        <template v-slot:title="{ item }">
-          <div 
-            @click="handleItemClick(item)"
-            style="cursor: pointer; user-select: none; white-space: nowrap; font-size: 0.75rem;"
-            :title="item.name"
-          >
-            {{ item.name }}
-          </div>
-        </template>
-      </v-treeview>
+    <div style="flex: 1; min-height: 0; position: relative;">
+      <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: auto;">
+        <v-treeview
+          v-model:opened="openedItems"
+          :items="treeItems"
+          item-value="id"
+          density="compact"
+          open-on-click
+          style="font-size: 0.75rem; padding: 8px;"
+        >
+          <template v-slot:prepend="{ item }">
+            <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
+            <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
+            <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
+          </template>
+          <template v-slot:title="{ item }">
+            <div 
+              @click="handleItemClick(item)"
+              style="cursor: pointer; user-select: none; white-space: nowrap; font-size: 0.75rem;"
+              :title="item.name"
+            >
+              {{ item.name }}
+            </div>
+          </template>
+        </v-treeview>
+      </div>
     </div>
   </div>
 </template>
@@ -173,20 +175,3 @@ onMounted(() => {
   loadNamespaces()
 })
 </script>
-
-<style>
-/* Global unscoped styles to override Vuetify with maximum specificity */
-.v-treeview .v-list-item {
-  white-space: nowrap !important;
-}
-
-.v-treeview .v-list-item__content {
-  white-space: nowrap !important;
-}
-
-.v-treeview .v-list-item-title {
-  white-space: nowrap !important;
-  overflow: visible !important;
-  text-overflow: clip !important;
-}
-</style>
