@@ -37,6 +37,9 @@ export function useIcebergDuckDB() {
       `);
 
       // Attach the Iceberg catalog
+      console.log('DEBUG: Original restUri:', config.restUri);
+      console.log('DEBUG: catalogName:', config.catalogName);
+
       const attachQuery = `
         ATTACH '${config.catalogName}' AS ${config.catalogName} (
           TYPE iceberg,
@@ -44,6 +47,8 @@ export function useIcebergDuckDB() {
           ENDPOINT '${config.restUri}'
         );
       `;
+
+      console.log('DEBUG: Full attach query:', attachQuery);
 
       await duckDB.executeQuery(attachQuery);
 
