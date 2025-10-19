@@ -14,8 +14,11 @@
           <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
           <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'field'" color="grey">
-            mdi-code-braces
+          <v-icon 
+            v-else-if="item.type === 'field' && item.fieldType" 
+            :icon="getTypeIcon(item.fieldType)"
+            :color="getTypeColor(item.fieldType)"
+            size="small">
           </v-icon>
         </template>
         <template v-slot:title="{ item }">
@@ -23,16 +26,8 @@
             class="tree-item-container"
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
-            <span class="tree-item-title text-caption" :title="item.name">
+            <span class="tree-item-title text-caption" :title="item.fieldType || item.name">
               {{ item.name }}
-              <v-icon 
-                v-if="item.type === 'field' && item.fieldType" 
-                :icon="getTypeIcon(item.fieldType)"
-                :color="getTypeColor(item.fieldType)"
-                size="x-small"
-                class="field-type-icon"
-                :title="item.fieldType">
-              </v-icon>
             </span>
             <v-btn
               v-if="item.type === 'table' || item.type === 'view'"
@@ -483,10 +478,5 @@ onMounted(() => {
   position: relative;
   scrollbar-width: thin;
   scrollbar-color: #888 #f1f1f1;
-}
-
-.field-type-icon {
-  margin-left: 4px;
-  vertical-align: middle;
 }
 </style>
