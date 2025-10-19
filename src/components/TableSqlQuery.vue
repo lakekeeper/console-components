@@ -241,14 +241,14 @@ onMounted(async () => {
 
       if (accessToken) {
         await icebergDB.configureCatalog({
-          catalogName: props.warehouseName.replace(/-/g, '_'), // Replace hyphens for SQL identifiers
+          catalogName: props.warehouseName, // Replace hyphens for SQL identifiers
           restUri: props.catalogUrl,
           accessToken: accessToken,
         });
 
         console.log('Iceberg catalog configured successfully');
         console.log(
-          `Tables can now be queried using: ${props.warehouseName.replace(/-/g, '_')}.${props.namespaceId}.${props.tableName}`,
+          `Tables can now be queried using: ${props.warehouseName}.${props.namespaceId}.${props.tableName}`,
         );
       } else {
         console.warn('No access token available for catalog configuration');
