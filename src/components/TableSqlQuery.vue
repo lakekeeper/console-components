@@ -80,14 +80,6 @@
                 Clear
               </v-btn>
               <v-spacer />
-              <v-btn
-                variant="outlined"
-                color="info"
-                :loading="icebergDB.isLoadingTable.value"
-                @click="reloadTable">
-                <v-icon start>mdi-refresh</v-icon>
-                Reload Table
-              </v-btn>
             </div>
 
             <!-- Error Display -->
@@ -231,19 +223,6 @@ function formatCell(value: any): string {
   return String(value);
 }
 
-async function reloadTable() {
-  if (!props.warehouseId || !props.namespaceId || !props.tableName) {
-    error.value = 'Missing table information';
-    return;
-  }
-
-  await icebergDB.registerIcebergTable({
-    warehouseId: props.warehouseId,
-    namespaceId: props.namespaceId,
-    tableName: props.tableName,
-  });
-}
-
 onMounted(async () => {
   // Initialize DuckDB and configure Iceberg catalog
   try {
@@ -265,7 +244,6 @@ onMounted(async () => {
           catalogName: props.warehouseName.replace(/-/g, '_'), // Replace hyphens for SQL identifiers
           restUri: props.catalogUrl,
           accessToken: accessToken,
-          warehouseId: props.warehouseId,
         });
 
         console.log('Iceberg catalog configured successfully');
