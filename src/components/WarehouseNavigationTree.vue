@@ -210,15 +210,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.tree-container {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  background: white;
-  
-  
-}
-
 .tree-header {
   flex-shrink: 0;
   font-weight: 500;
@@ -248,12 +239,13 @@ onMounted(() => {
 }
 
 .tree-view :deep(.v-list-item) {
+  overflow-x: auto !important;
   min-width: max-content;
 }
 
 .tree-view :deep(.v-list-item-title) {
   white-space: nowrap !important;
-  overflow: visible !important;
+  overflow-x: auto !important;
 }
 
 .tree-item-title {
