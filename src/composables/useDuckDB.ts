@@ -25,8 +25,12 @@ export function useDuckDB() {
     error.value = null;
 
     try {
-      // Get the base URL for the current page
-      const baseUrl = window.location.origin;
+      // Get the base URL for the current page including any base path (e.g., /ui/)
+      const origin = window.location.origin;
+      // Extract base path from pathname (e.g., /ui/ from /ui/warehouses/...)
+      const pathname = window.location.pathname;
+      const basePath = pathname.split('/').slice(0, 2).join('/');  // Gets /ui or empty
+      const baseUrl = basePath ? `${origin}${basePath}` : origin;
       
       // We'll use MVP bundle which is most compatible
       // and doesn't require exception handling support
