@@ -25,10 +25,11 @@ export function useIcebergDuckDB() {
       }
 
       // Install and load the Iceberg extension and httpfs
-      const resultsInit = await duckDB.executeQuery(
-        `INSTALL iceberg; LOAD iceberg; SET builtin_httpfs = false; `,
-      );
-      console.log('Iceberg extension installation results:', resultsInit);
+      const resultsInstall = await duckDB.executeQuery(`INSTALL iceberg; LOAD iceberg;`);
+      console.log('Iceberg extension installation results:', resultsInstall);
+
+      const resultsSet = await duckDB.executeQuery(`SET builtin_httpfs = false;`);
+      console.log('Iceberg extension initialization results:', resultsSet);
       // await duckDB.executeQuery(`INSTALL httpfs; LOAD httpfs;`);
 
       // Create Iceberg secret with OAuth token
