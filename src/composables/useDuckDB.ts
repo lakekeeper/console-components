@@ -49,10 +49,16 @@ export function useDuckDB() {
       // Use less verbose logging
       const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.ERROR);
       
-      // Create worker
+      // Create worker with importScripts wrapper (required for DuckDB WASM)
+      // See: https://github.com/duckdb/duckdb-wasm/blob/main/examples/plain-html/index.html
       const workerUrl = bundle.mainWorker!;
       console.log('Creating worker with URL:', workerUrl);
-      workerInstance = new Worker(workerUrl);
+      
+      const worker_url = URL.createObjectURL(
+        new Blob([`importScripts("${workerUrl}");`], {type: "text/javascript"})
+      );
+      workerInstance = new Worker(worker_url);
+      URL.revokeObjectURL(worker_url);
       
       // Listen for worker errors
       workerInstance.onerror = (e) => {
@@ -67,7 +73,7 @@ export function useDuckDB() {
       };
       
       dbInstance = new duckdb.AsyncDuckDB(logger, workerInstance);
-      
+
       console.log('Instantiating DuckDB with module:', bundle.mainModule);
       
       // Instantiate with the WASM module URL
