@@ -25,16 +25,20 @@ export function useIcebergDuckDB() {
       }
 
       // Install and load the Iceberg extension and httpfs
-      await duckDB.executeQuery(`INSTALL iceberg; LOAD iceberg; SET builtin_httpfs = false; `);
+      const resultsInit = await duckDB.executeQuery(
+        `INSTALL iceberg; LOAD iceberg; SET builtin_httpfs = false; `,
+      );
+      console.log('Iceberg extension installation results:', resultsInit);
       // await duckDB.executeQuery(`INSTALL httpfs; LOAD httpfs;`);
 
       // Create Iceberg secret with OAuth token
-      await duckDB.executeQuery(`
+      const resultsSecret = await duckDB.executeQuery(`
         CREATE OR REPLACE SECRET iceberg_secret (
           TYPE iceberg,
           TOKEN '${config.accessToken}'
         );
       `);
+      console.log('Iceberg secret creation results:', resultsSecret);
 
       // Attach the Iceberg catalog
       console.log('DEBUG: Original restUri:', config.restUri);
@@ -50,7 +54,8 @@ export function useIcebergDuckDB() {
 
       console.log('DEBUG: Full attach query:', attachQuery);
 
-      await duckDB.executeQuery(attachQuery);
+      const resultsAttach = await duckDB.executeQuery(attachQuery);
+      console.log('Iceberg catalog attach results:', resultsAttach);
 
       catalogConfigured.value = true;
       console.log(`Iceberg catalog '${config.catalogName}' configured successfully`);
