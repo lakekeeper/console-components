@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue';
+import { ref } from 'vue';
 import { useDuckDB } from './useDuckDB';
 
 export interface IcebergTableInfo {
@@ -8,43 +8,89 @@ export interface IcebergTableInfo {
   metadataLocation?: string;
 }
 
+export interface IcebergCatalogConfig {
+  catalogName: string;
+  restUri: string;
+  accessToken?: string;
+  clientId?: string;
+  clientSecret?: string;
+  warehouseId?: string;
+}
+
 export function useIcebergDuckDB() {
   const duckDB = useDuckDB();
   const isLoadingTable = ref(false);
   const loadError = ref<string | null>(null);
+  const catalogConfigured = ref(false);
 
   /**
-   * Register an Iceberg table in DuckDB by loading Parquet files
-   * This is a simplified version - in production you'd fetch actual metadata
+   * Configure Iceberg REST catalog in DuckDB
+   * Based on: https://duckdb.org/docs/stable/core_extensions/iceberg/iceberg_rest_catalogs
    */
-  async function registerIcebergTable(tableInfo: IcebergTableInfo): Promise<void> {
-    isLoadingTable.value = true;
-    loadError.value = null;
-
+  async function configureCatalog(config: IcebergCatalogConfig): Promise<void> {
     try {
       // Initialize DuckDB if not already done
       if (!duckDB.isInitialized.value) {
         await duckDB.initialize();
       }
 
-      // TODO: In a real implementation, you would:
-      // 1. Fetch the Iceberg table metadata from the API
-      // 2. Parse the metadata to get Parquet file locations
-      // 3. Register each Parquet file with DuckDB
-      // 4. Create a view that unions all the files
-      
-      // For now, we'll create a simple example table
-      // Users can manually query their data by providing Parquet URLs
-      
-      const exampleQuery = `
-        -- Example: Create a sample table for demonstration
-        CREATE OR REPLACE TABLE iceberg_table AS 
-        SELECT 1 as id, 'example' as name, 'This is a demo table' as description
-        UNION ALL
-        SELECT 2 as id, 'data' as name, 'Real data will be loaded from Parquet files' as description;
+      // Install and load the Iceberg extension
+      await duckDB.executeQuery(`INSTALL iceberg; LOAD iceberg;`);
+
+      // Create secret with OAuth token or client credentials
+      if (config.accessToken) {
+        // Use OAuth token (recommended for LakeKeeper)
+        await duckDB.executeQuery(`
+          CREATE OR REPLACE SECRET iceberg_rest_secret (
+            TYPE BEARER,
+            TOKEN '${config.accessToken}'
+          );
+        `);
+      } else if (config.clientId && config.clientSecret) {
+        // Use client credentials flow
+        await duckDB.executeQuery(`
+          CREATE OR REPLACE SECRET iceberg_rest_secret (
+            TYPE OAUTH,
+            PROVIDER TOKEN,
+            CLIENT_ID '${config.clientId}',
+            CLIENT_SECRET '${config.clientSecret}',
+            GRANT_TYPE 'client_credentials'
+          );
+        `);
+      }
+
+      // Attach the Iceberg catalog
+      const attachQuery = `
+        ATTACH '${config.restUri}' AS ${config.catalogName} (TYPE ICEBERG_REST);
       `;
       
-      await duckDB.executeQuery(exampleQuery);
+      await duckDB.executeQuery(attachQuery);
+      
+      catalogConfigured.value = true;
+      console.log(`Iceberg catalog '${config.catalogName}' configured successfully`);
+      
+    } catch (e) {
+      console.error('Failed to configure Iceberg catalog:', e);
+      throw e;
+    }
+  }
+
+  /**
+   * Register an Iceberg table in DuckDB
+   * After catalog is configured, tables can be queried directly
+   */
+  async function registerIcebergTable(tableInfo: IcebergTableInfo): Promise<void> {
+    isLoadingTable.value = true;
+    loadError.value = null;
+
+    try {
+      // Ensure catalog is configured
+      if (!catalogConfigured.value) {
+        throw new Error('Iceberg catalog not configured. Call configureCatalog() first.');
+      }
+
+      // Tables can now be queried directly using: catalog.namespace.table
+      // No additional registration needed
       
     } catch (e) {
       loadError.value = e instanceof Error ? e.message : 'Failed to register Iceberg table';
@@ -56,7 +102,7 @@ export function useIcebergDuckDB() {
   }
 
   /**
-   * Load Parquet files from URLs (can be S3, HTTP, etc.)
+   * Load Parquet files from URLs (fallback for non-catalog access)
    */
   async function loadParquetFiles(tableName: string, parquetUrls: string[]): Promise<void> {
     try {
@@ -89,6 +135,8 @@ export function useIcebergDuckDB() {
     ...duckDB,
     isLoadingTable,
     loadError,
+    catalogConfigured,
+    configureCatalog,
     registerIcebergTable,
     loadParquetFiles,
   };

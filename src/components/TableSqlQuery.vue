@@ -252,9 +252,21 @@ async function reloadTable() {
 }
 
 onMounted(async () => {
-  // Initialize DuckDB and load the Iceberg table
+  // Initialize DuckDB and configure Iceberg catalog
   try {
     await icebergDB.initialize();
+    
+    // Configure catalog if URL and token are provided
+    if (props.catalogUrl && props.accessToken && props.warehouseId) {
+      await icebergDB.configureCatalog({
+        catalogName: props.warehouseId.replace(/-/g, '_'),  // Replace hyphens for SQL identifiers
+        restUri: props.catalogUrl,
+        accessToken: props.accessToken,
+        warehouseId: props.warehouseId,
+      });
+      
+      console.log('Iceberg catalog configured successfully');
+    }
     
     // Auto-load the table if props are provided
     if (props.warehouseId && props.namespaceId && props.tableName) {
