@@ -16,10 +16,11 @@
           <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
         </template>
         <template v-slot:title="{ item }">
-          <div class="tree-item-container">
-            <span
-              class="tree-item-title text-caption"
-              :title="item.name">
+          <div 
+            class="tree-item-container"
+            @mouseenter="hoveredItem = item.id"
+            @mouseleave="hoveredItem = null">
+            <span class="tree-item-title text-caption" :title="item.name">
               {{ item.name }}
             </span>
             <v-btn
@@ -28,6 +29,7 @@
               size="x-small"
               variant="text"
               class="tree-item-insert-btn"
+              :style="{ opacity: hoveredItem === item.id ? 1 : 0, transition: 'opacity 0.2s ease' }"
               @click.stop="handleItemClick(item)"
               :title="`Insert ${item.type} path into query`">
               <v-icon size="small">mdi-plus-circle-outline</v-icon>
@@ -65,6 +67,7 @@ interface TreeItem {
 
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
+const hoveredItem = ref<string | null>(null);
 
 // Helper function to convert namespace path with dots to API format
 function namespacePathToApiFormat(nsPath: string): string {
@@ -274,13 +277,13 @@ onMounted(() => {
 }
 
 .tree-item-insert-btn {
-  opacity: 0;
-  transition: opacity 0.2s;
+  opacity: 0 !important;
+  transition: opacity 0.2s ease;
   flex-shrink: 0;
 }
 
 .tree-item-container:hover .tree-item-insert-btn {
-  opacity: 1;
+  opacity: 1 !important;
 }
 
 .tree-item-title:hover {
