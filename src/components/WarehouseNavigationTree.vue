@@ -1,13 +1,14 @@
 <template>
   <v-card class="pa-2" elevation="0" style="height: 100%; overflow-y: auto">
+    <v-progress-linear v-if="loading" indeterminate color="primary" />
     <v-treeview
+      v-if="!loading"
       :items="treeItems"
-      :load-children="loadChildren"
       item-title="name"
       item-value="id"
       density="compact"
-      :open-on-click="true"
       activatable
+      @update:opened="handleNodeExpanded"
       @update:activated="handleItemClick">
       <template #prepend="{ item }">
         <v-icon v-if="item.type === 'namespace'" size="small">mdi-folder-outline</v-icon>
@@ -29,6 +30,7 @@ interface TreeItem {
   children?: TreeItem[];
   warehouseId?: string;
   namespaceId?: string;
+  loaded?: boolean;
 }
 
 interface Props {
@@ -60,6 +62,7 @@ async function loadNamespaces() {
         warehouseId: props.warehouseId,
         namespaceId: namespaceStr,
         children: [],
+        loaded: false,
       };
     });
   } catch (error) {
@@ -70,13 +73,27 @@ async function loadNamespaces() {
   }
 }
 
-async function loadChildren(item: TreeItem) {
-  if (item.type !== 'namespace' || !item.namespaceId) return;
+async function handleNodeExpanded(openedIds: string[]) {
+  // Find newly opened namespaces that haven't been loaded yet
+  for (const itemId of openedIds) {
+    const item = findItemById(treeItems.value, itemId);
+    if (item && item.type === 'namespace' && !item.loaded) {
+      await loadChildrenForNamespace(item);
+    }
+  }
+}
+
+async function loadChildrenForNamespace(item: TreeItem) {
+  if (item.type !== 'namespace' || !item.namespaceId || item.loaded) return;
 
   try {
+    console.log(`Loading children for namespace: ${item.namespaceId}`);
+    
     // Load tables and views
     const tablesResponse = await functions.listTables(props.warehouseId, item.namespaceId);
     const identifiers = tablesResponse.identifiers || [];
+    
+    console.log(`Found ${identifiers.length} identifiers in ${item.namespaceId}`);
     
     const tables = identifiers
       .filter((id: any) => id.type === 'TABLE')
@@ -99,9 +116,13 @@ async function loadChildren(item: TreeItem) {
       }));
 
     item.children = [...tables, ...views];
+    item.loaded = true;
+    
+    console.log(`Loaded ${tables.length} tables and ${views.length} views`);
   } catch (error) {
     console.error('Failed to load tables/views:', error);
     item.children = [];
+    item.loaded = true; // Mark as loaded even on error to prevent retry loops
   }
 }
 
@@ -110,6 +131,8 @@ function handleItemClick(items: string[]) {
   
   const itemId = items[0];
   const item = findItemById(treeItems.value, itemId);
+  
+  console.log('Item clicked:', item);
   
   if (item && item.type !== 'namespace') {
     emit('itemSelected', {
