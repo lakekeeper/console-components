@@ -38,7 +38,7 @@ export function useIcebergDuckDB() {
 
       // Attach the Iceberg catalog
       const attachQuery = `
-        ATTACH 'warehouse' AS ${config.catalogName} (
+        ATTACH '${config.catalogName}' AS ${config.catalogName} (
           TYPE iceberg,
           SECRET iceberg_secret,
           ENDPOINT '${config.restUri}'
