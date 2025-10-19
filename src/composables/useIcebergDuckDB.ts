@@ -28,7 +28,7 @@ export function useIcebergDuckDB() {
       const resultsInstall = await duckDB.executeQuery(`INSTALL iceberg; LOAD iceberg;`);
       console.log('Iceberg extension installation results:', resultsInstall);
 
-      const resultsSet = await duckDB.executeQuery(`SET builtin_httpfs = false;`);
+      const resultsSet = await duckDB.executeQuery(`SET builtin_httpfs = false; LOAD httpfs;`);
       console.log('Iceberg extension initialization results:', resultsSet);
       // await duckDB.executeQuery(`INSTALL httpfs; LOAD httpfs;`);
 
