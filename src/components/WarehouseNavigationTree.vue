@@ -14,12 +14,11 @@
           <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
           <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
-          <v-icon 
-            v-else-if="item.type === 'field' && item.fieldType" 
+          <v-icon
+            v-else-if="item.type === 'field' && item.fieldType"
             :icon="getTypeIcon(item.fieldType)"
             :color="getTypeColor(item.fieldType)"
-            size="small">
-          </v-icon>
+            size="small"></v-icon>
         </template>
         <template v-slot:title="{ item }">
           <div
@@ -223,28 +222,68 @@ async function loadFieldsForTableOrView(item: TreeItem) {
 
     // Extract fields from the current schema
     const fields: TreeItem[] = [];
-    if (metadata && metadata['metadata'] && metadata['metadata']['schemas']) {
-      const schemas = metadata['metadata']['schemas'];
-      const currentSchemaId = metadata['metadata']['current-schema-id'] || 0;
+    
+    if (item.type === 'view') {
+      // For views, use current-version-id to find the correct version, then get its schema
+      if (metadata && metadata['metadata'] && metadata['metadata']['versions']) {
+        const currentVersionId = metadata['metadata']['current-version-id'];
+        console.log(`View current version ID: ${currentVersionId}`);
+        
+        // Find the current version
+        const currentVersion = metadata['metadata']['versions'].find((v: any) => v['version-id'] === currentVersionId);
+        
+        if (currentVersion && currentVersion['schema-id'] !== undefined) {
+          const schemaId = currentVersion['schema-id'];
+          console.log(`View schema ID from version: ${schemaId}`);
+          
+          // Now find the schema by schema-id
+          const schemas = metadata['metadata']['schemas'];
+          const currentSchema = schemas?.find((s: any) => s['schema-id'] === schemaId);
+          
+          if (currentSchema && currentSchema.fields) {
+            currentSchema.fields.forEach((field: any) => {
+              const fieldType =
+                typeof field.type === 'string' ? field.type : JSON.stringify(field.type);
+              fields.push({
+                id: `field-${item.id}-${field.id}`,
+                name: field.name,
+                type: 'field',
+                fieldType: fieldType,
+                warehouseId: props.warehouseId,
+                namespaceId: item.namespaceId,
+                parentType: item.type as 'table' | 'view',
+                parentName: item.name,
+              });
+            });
+          }
+        }
+      }
+    } else {
+      // For tables, use current-schema-id directly
+      if (metadata && metadata['metadata'] && metadata['metadata']['schemas']) {
+        const schemas = metadata['metadata']['schemas'];
+        const currentSchemaId = metadata['metadata']['current-schema-id'] || 0;
+        console.log(`Table current schema ID: ${currentSchemaId}`);
 
-      // Find the current schema
-      const currentSchema = schemas.find((s: any) => s['schema-id'] === currentSchemaId);
-
-      if (currentSchema && currentSchema.fields) {
-        currentSchema.fields.forEach((field: any) => {
-          const fieldType =
-            typeof field.type === 'string' ? field.type : JSON.stringify(field.type);
-          fields.push({
-            id: `field-${item.id}-${field.id}`,
-            name: field.name,
-            type: 'field',
-            fieldType: fieldType,
-            warehouseId: props.warehouseId,
-            namespaceId: item.namespaceId,
-            parentType: item.type as 'table' | 'view',
-            parentName: item.name,
+        // Find the current schema
+        const currentSchema = schemas.find((s: any) => s['schema-id'] === currentSchemaId);
+        
+        if (currentSchema && currentSchema.fields) {
+          currentSchema.fields.forEach((field: any) => {
+            const fieldType =
+              typeof field.type === 'string' ? field.type : JSON.stringify(field.type);
+            fields.push({
+              id: `field-${item.id}-${field.id}`,
+              name: field.name,
+              type: 'field',
+              fieldType: fieldType,
+              warehouseId: props.warehouseId,
+              namespaceId: item.namespaceId,
+              parentType: item.type as 'table' | 'view',
+              parentName: item.name,
+            });
           });
-        });
+        }
       }
     }
 
@@ -254,9 +293,7 @@ async function loadFieldsForTableOrView(item: TreeItem) {
   } catch (error) {
     console.error(`Error loading fields for ${item.type}:`, item.name, error);
   }
-}
-
-// Watch for opened items changes and load children
+}// Watch for opened items changes and load children
 watch(openedItems, async (newOpened, oldOpened) => {
   console.log('Opened items changed:', newOpened);
 
@@ -291,9 +328,14 @@ function findItemById(items: TreeItem[], id: string): TreeItem | null {
 // Get icon for field type
 function getTypeIcon(fieldType: string): string {
   const type = fieldType.toLowerCase();
-  
+
   // Numeric types
-  if (type.includes('int') || type.includes('long') || type.includes('short') || type.includes('byte')) {
+  if (
+    type.includes('int') ||
+    type.includes('long') ||
+    type.includes('short') ||
+    type.includes('byte')
+  ) {
     return 'mdi-numeric';
   }
   // Float/Double types
@@ -321,10 +363,15 @@ function getTypeIcon(fieldType: string): string {
     return 'mdi-identifier';
   }
   // Struct/Map/List (complex types)
-  if (type.includes('struct') || type.includes('map') || type.includes('list') || type.includes('array')) {
+  if (
+    type.includes('struct') ||
+    type.includes('map') ||
+    type.includes('list') ||
+    type.includes('array')
+  ) {
     return 'mdi-code-json';
   }
-  
+
   // Default
   return 'mdi-help-circle-outline';
 }
@@ -332,8 +379,13 @@ function getTypeIcon(fieldType: string): string {
 // Get color for field type
 function getTypeColor(fieldType: string): string {
   const type = fieldType.toLowerCase();
-  
-  if (type.includes('int') || type.includes('long') || type.includes('short') || type.includes('byte')) {
+
+  if (
+    type.includes('int') ||
+    type.includes('long') ||
+    type.includes('short') ||
+    type.includes('byte')
+  ) {
     return 'blue';
   }
   if (type.includes('float') || type.includes('double') || type.includes('decimal')) {
@@ -354,10 +406,15 @@ function getTypeColor(fieldType: string): string {
   if (type.includes('uuid')) {
     return 'indigo';
   }
-  if (type.includes('struct') || type.includes('map') || type.includes('list') || type.includes('array')) {
+  if (
+    type.includes('struct') ||
+    type.includes('map') ||
+    type.includes('list') ||
+    type.includes('array')
+  ) {
     return 'amber';
   }
-  
+
   return 'grey';
 }
 

@@ -265,13 +265,17 @@ function handleTableSelected(item: {
   };
 
   let textToInsert = '';
-  
+
   // For fields, just insert the field name
   if (item.type === 'field') {
     textToInsert = item.name;
   }
   // For tables/views, insert the full path
-  else if ((item.type === 'table' || item.type === 'view') && props.warehouseName && item.namespaceId) {
+  else if (
+    (item.type === 'table' || item.type === 'view') &&
+    props.warehouseName &&
+    item.namespaceId
+  ) {
     textToInsert = `${props.warehouseName}.${item.namespaceId}.${item.name}`;
   }
 
