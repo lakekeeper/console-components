@@ -38,7 +38,7 @@
               <v-card>
                 <v-card-title class="d-flex align-center">
                   <v-icon class="mr-2">mdi-database-search</v-icon>
-                  Browser Query Engine Execution
+                  Browser SQL Playground
                   <v-spacer />
                   <v-chip v-if="icebergDB.isInitialized.value" color="success" size="small">
                     <v-icon start>mdi-check-circle</v-icon>
