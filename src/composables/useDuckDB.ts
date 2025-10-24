@@ -29,9 +29,9 @@ export function useDuckDB() {
       const origin = window.location.origin;
       // Extract base path from pathname (e.g., /ui/ from /ui/warehouses/...)
       const pathname = window.location.pathname;
-      const basePath = pathname.split('/').slice(0, 2).join('/');  // Gets /ui or empty
+      const basePath = pathname.split('/').slice(0, 2).join('/'); // Gets /ui or empty
       const baseUrl = basePath ? `${origin}${basePath}` : origin;
-      
+
       // We'll use MVP bundle which is most compatible
       // and doesn't require exception handling support
       const DUCKDB_BUNDLES: duckdb.DuckDBBundles = {
@@ -47,23 +47,20 @@ export function useDuckDB() {
 
       // Select the bundle - prefer MVP for compatibility
       const bundle = await duckdb.selectBundle(DUCKDB_BUNDLES);
-      
-      console.log('DuckDB bundle selected:', bundle);
 
       // Use less verbose logging
       const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.ERROR);
-      
+
       // Create worker with importScripts wrapper (required for DuckDB WASM)
       // See: https://github.com/duckdb/duckdb-wasm/blob/main/examples/plain-html/index.html
       const workerUrl = bundle.mainWorker!;
-      console.log('Creating worker with URL:', workerUrl);
-      
+
       const worker_url = URL.createObjectURL(
-        new Blob([`importScripts("${workerUrl}");`], {type: "text/javascript"})
+        new Blob([`importScripts("${workerUrl}");`], { type: 'text/javascript' }),
       );
       workerInstance = new Worker(worker_url);
       URL.revokeObjectURL(worker_url);
-      
+
       // Listen for worker errors
       workerInstance.onerror = (e) => {
         console.error('Worker error event:', e);
@@ -71,20 +68,17 @@ export function useDuckDB() {
         console.error('Worker error filename:', e.filename);
         console.error('Worker error lineno:', e.lineno);
       };
-      
+
       workerInstance.onmessageerror = (e) => {
         console.error('Worker message error:', e);
       };
-      
+
       dbInstance = new duckdb.AsyncDuckDB(logger, workerInstance);
 
-      console.log('Instantiating DuckDB with module:', bundle.mainModule);
-      
       // Instantiate with the WASM module URL
       // The second parameter is the pthread worker (only for COI bundle)
       await dbInstance.instantiate(bundle.mainModule);
 
-      console.log('DuckDB initialized successfully');
       isInitialized.value = true;
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Failed to initialize DuckDB';
@@ -108,11 +102,11 @@ export function useDuckDB() {
     try {
       conn = await dbInstance.connect();
       const result = await conn.query(sql);
-      
+
       // Convert Arrow table to plain JSON structure
-      const columns = result.schema.fields.map(f => f.name);
+      const columns = result.schema.fields.map((f) => f.name);
       const rows: any[][] = [];
-      
+
       for (let i = 0; i < result.numRows; i++) {
         const row: any[] = [];
         for (let j = 0; j < result.numCols; j++) {
@@ -146,7 +140,9 @@ export function useDuckDB() {
     const conn = await dbInstance.connect();
     try {
       // Register a Parquet file as a table
-      await conn.query(`CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet('${url}')`);
+      await conn.query(
+        `CREATE OR REPLACE TABLE ${tableName} AS SELECT * FROM read_parquet('${url}')`,
+      );
     } finally {
       await conn.close();
     }

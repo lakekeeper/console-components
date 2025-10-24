@@ -42,15 +42,9 @@ export function useIcebergDuckDB() {
         );
       `;
 
-      console.log('DEBUG: Original restUri:', config.restUri);
-      console.log('DEBUG: catalogName:', config.catalogName);
-      console.log('DEBUG: Full setup query:', setupQuery);
-
       const results = await duckDB.executeQuery(setupQuery);
-      console.log('Iceberg catalog setup results:', results);
 
       catalogConfigured.value = true;
-      console.log(`Iceberg catalog '${config.catalogName}' configured successfully`);
     } catch (e) {
       console.error('Failed to configure Iceberg catalog:', e);
       throw e;

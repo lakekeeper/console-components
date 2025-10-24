@@ -251,13 +251,6 @@ const isSqlAvailable = computed(() => {
     return { available: false, reason: 'Invalid catalog URL format' };
   }
 
-  console.log('SQL Availability Check:', {
-    catalogUrl: props.catalogUrl,
-    protocol: url.protocol,
-    hostname: url.hostname,
-    storageType: props.storageType,
-  });
-
   // Check if storage type is supported (currently only S3)
   if (props.storageType && props.storageType.toLowerCase() !== 's3') {
     console.warn('Unsupported storage type:', props.storageType);
@@ -267,7 +260,6 @@ const isSqlAvailable = computed(() => {
     };
   }
 
-  console.log('SQL queries are available');
   return { available: true, reason: null };
 });
 
@@ -439,7 +431,6 @@ onMounted(async () => {
         // Get current token from user store (automatically refreshed by auth system)
         const userStore = useUserStore();
         accessToken = userStore.user.access_token;
-        console.log('Using current access token for Iceberg catalog');
       }
 
       if (accessToken) {
@@ -448,14 +439,11 @@ onMounted(async () => {
           restUri: props.catalogUrl,
           accessToken: accessToken,
         });
-
-        console.log('Iceberg catalog configured successfully');
       } else {
         console.warn('No access token available for catalog configuration');
       }
     } else {
       console.warn('Catalog not configured - catalogUrl or warehouseName missing');
-      console.log('You can still run queries on manually loaded tables');
     }
   } catch (e) {
     error.value = 'Failed to initialize DuckDB WASM';

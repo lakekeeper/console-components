@@ -95,10 +95,8 @@ function namespacePathToApiFormat(nsPath: string): string {
 
 // Load root namespaces on mount
 async function loadNamespaces() {
-  console.log('Loading root namespaces for warehouse:', props.warehouseId);
   try {
     const response = await functions.listNamespaces(props.warehouseId);
-    console.log('Root namespaces response:', response);
 
     if (response.namespaces && Array.isArray(response.namespaces)) {
       treeItems.value = response.namespaces.map((nsArray: string[]) => {
@@ -113,7 +111,6 @@ async function loadNamespaces() {
           loaded: false,
         };
       });
-      console.log('Created tree items:', treeItems.value);
     }
   } catch (error) {
     console.error('Error loading namespaces:', error);
@@ -124,32 +121,22 @@ async function loadNamespaces() {
 async function loadChildrenForNamespace(item: TreeItem) {
   if (item.loaded || item.type !== 'namespace') return;
 
-  console.log('Loading children for namespace:', item.namespaceId);
-
   try {
     // Convert namespace path to API format (replace dots with Unit Separator)
     const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
-    console.log('API namespace format:', apiNamespace, 'from:', item.namespaceId);
 
     // Load child namespaces
     const namespacesResponse = await functions.listNamespaces(props.warehouseId, apiNamespace);
-    console.log('Child namespaces response:', namespacesResponse);
 
     // Load tables
     const tablesResponse = await functions.listTables(props.warehouseId, apiNamespace);
-    console.log('Tables response:', tablesResponse);
 
     // Load views
     const viewsResponse = await functions.listViews(props.warehouseId, apiNamespace);
-    console.log('Views response:', viewsResponse);
 
     const childNamespaces = namespacesResponse.namespaces || [];
     const tables = tablesResponse.identifiers || [];
     const views = viewsResponse.identifiers || [];
-
-    console.log(
-      `Found ${childNamespaces.length} child namespaces, ${tables.length} tables, and ${views.length} views in ${item.namespaceId}`,
-    );
 
     const children: TreeItem[] = [];
 
@@ -197,7 +184,6 @@ async function loadChildrenForNamespace(item: TreeItem) {
 
     item.children = children;
     item.loaded = true;
-    console.log('Loaded children:', children);
   } catch (error) {
     console.error('Error loading children for namespace:', item.namespaceId, error);
   }
@@ -206,8 +192,6 @@ async function loadChildrenForNamespace(item: TreeItem) {
 // Load fields for a table or view when expanded
 async function loadFieldsForTableOrView(item: TreeItem) {
   if (item.loaded || (item.type !== 'table' && item.type !== 'view')) return;
-
-  console.log(`Loading fields for ${item.type}:`, item.name);
 
   try {
     const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
@@ -218,8 +202,6 @@ async function loadFieldsForTableOrView(item: TreeItem) {
         ? await functions.loadTable(props.warehouseId, apiNamespace, item.name)
         : await functions.loadView(props.warehouseId, apiNamespace, item.name);
 
-    console.log(`${item.type} metadata:`, metadata);
-
     // Extract fields from the current schema
     const fields: TreeItem[] = [];
 
@@ -227,8 +209,6 @@ async function loadFieldsForTableOrView(item: TreeItem) {
       // For views, use current-version-id to find the correct version, then get its schema
       if (metadata && metadata['metadata'] && metadata['metadata']['versions']) {
         const currentVersionId = metadata['metadata']['current-version-id'];
-        console.log(`View current version ID: ${currentVersionId}`);
-
         // Find the current version
         const currentVersion = metadata['metadata']['versions'].find(
           (v: any) => v['version-id'] === currentVersionId,
@@ -236,7 +216,6 @@ async function loadFieldsForTableOrView(item: TreeItem) {
 
         if (currentVersion && currentVersion['schema-id'] !== undefined) {
           const schemaId = currentVersion['schema-id'];
-          console.log(`View schema ID from version: ${schemaId}`);
 
           // Now find the schema by schema-id
           const schemas = metadata['metadata']['schemas'];
@@ -265,7 +244,6 @@ async function loadFieldsForTableOrView(item: TreeItem) {
       if (metadata && metadata['metadata'] && metadata['metadata']['schemas']) {
         const schemas = metadata['metadata']['schemas'];
         const currentSchemaId = metadata['metadata']['current-schema-id'] || 0;
-        console.log(`Table current schema ID: ${currentSchemaId}`);
 
         // Find the current schema
         const currentSchema = schemas.find((s: any) => s['schema-id'] === currentSchemaId);
@@ -291,14 +269,11 @@ async function loadFieldsForTableOrView(item: TreeItem) {
 
     item.children = fields;
     item.loaded = true;
-    console.log(`Loaded ${fields.length} fields for ${item.type} ${item.name}`);
   } catch (error) {
     console.error(`Error loading fields for ${item.type}:`, item.name, error);
   }
 } // Watch for opened items changes and load children
 watch(openedItems, async (newOpened, oldOpened) => {
-  console.log('Opened items changed:', newOpened);
-
   // Find newly opened items
   const newlyOpened = newOpened.filter((id) => !oldOpened.includes(id));
 
