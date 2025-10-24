@@ -1,9 +1,8 @@
 <template>
   <v-container fluid class="pa-0">
     <div style="display: flex; height: calc(100vh - 200px); position: relative">
-      <!-- Left: Navigation Tree (only show if SQL is available) -->
+      <!-- Left: Navigation Tree -->
       <div
-        v-if="isSqlAvailable.available"
         :style="{
           width: leftWidth + 'px',
           minWidth: '200px',
@@ -12,12 +11,18 @@
           overflow: 'visible',
           borderRight: '1px solid #e0e0e0',
         }">
-        <WarehouseNavigationTree :warehouse-id="warehouseId" @item-selected="handleTableSelected" />
+        <WarehouseNavigationTree
+          v-if="warehouseId && props.warehouseName"
+          :warehouse-id="warehouseId"
+          @item-selected="handleTableSelected" />
+        <div v-else class="pa-4 text-center text-grey">
+          <v-progress-circular indeterminate size="32" class="mb-2" />
+          <div class="text-caption">Loading warehouse...</div>
+        </div>
       </div>
 
-      <!-- Resizable Divider (only show if SQL is available) -->
+      <!-- Resizable Divider -->
       <div
-        v-if="isSqlAvailable.available"
         @mousedown="startResize"
         style="
           width: 5px;
