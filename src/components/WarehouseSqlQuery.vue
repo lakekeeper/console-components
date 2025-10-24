@@ -152,27 +152,25 @@
                       </v-chip>
                     </v-card-title>
                     <v-card-text class="pa-0">
-                      <div style="max-height: 500px; overflow: auto">
-                        <v-table density="compact" fixed-header>
-                          <thead>
-                            <tr>
-                              <th
-                                v-for="column in queryResult.columns"
-                                :key="column"
-                                class="text-left font-weight-bold">
-                                {{ column }}
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr v-for="(row, rowIdx) in queryResult.rows" :key="rowIdx">
-                              <td v-for="(cell, colIdx) in row" :key="colIdx">
-                                {{ formatCell(cell) }}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </v-table>
-                      </div>
+                      <v-table density="compact" fixed-header height="30vh">
+                        <thead>
+                          <tr>
+                            <th
+                              v-for="column in queryResult.columns"
+                              :key="column"
+                              class="text-left font-weight-bold">
+                              {{ column }}
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr v-for="(row, rowIdx) in queryResult.rows" :key="rowIdx">
+                            <td v-for="(cell, colIdx) in row" :key="colIdx">
+                              {{ formatCell(cell) }}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </v-table>
                     </v-card-text>
                   </v-card>
 
