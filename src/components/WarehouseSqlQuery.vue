@@ -40,7 +40,15 @@
                   <v-icon class="mr-2">mdi-database-search</v-icon>
                   Browser SQL Playground
                   <v-spacer />
-                  <v-chip v-if="icebergDB.isInitialized.value" color="success" size="small">
+                  <v-chip v-if="isCheckingWarehouse" color="info" size="small">
+                    <v-icon start>mdi-loading mdi-spin</v-icon>
+                    Checking Warehouse...
+                  </v-chip>
+                  <v-chip v-else-if="warehouseError" color="warning" size="small">
+                    <v-icon start>mdi-alert</v-icon>
+                    Warehouse Not Ready
+                  </v-chip>
+                  <v-chip v-else-if="icebergDB.isInitialized.value" color="success" size="small">
                     <v-icon start>mdi-check-circle</v-icon>
                     DuckDB Ready
                   </v-chip>
@@ -100,6 +108,7 @@
                     rows="8"
                     variant="outlined"
                     auto-grow
+                    clearable
                     class="font-monospace"
                     :disabled="isExecuting || !isSqlAvailable.available" />
 
@@ -205,6 +214,8 @@ const sqlQuery = ref('');
 const queryResult = ref<QueryResult | null>(null);
 const isExecuting = ref(false);
 const error = ref<string | null>(null);
+const isCheckingWarehouse = ref(false);
+const warehouseError = ref<string | null>(null);
 
 const selectedTable = ref<{ type: string; namespaceId: string; name: string } | null>(null);
 
@@ -217,6 +228,16 @@ const isResizing = ref(false);
 
 // Check if SQL querying is available based on storage and protocol
 const isSqlAvailable = computed(() => {
+  // Check if warehouse is still being verified
+  if (isCheckingWarehouse.value) {
+    return { available: false, reason: 'Checking warehouse status...' };
+  }
+
+  // Check if warehouse had an error during initialization
+  if (warehouseError.value) {
+    return { available: false, reason: warehouseError.value };
+  }
+
   if (!props.catalogUrl) {
     return { available: false, reason: 'No catalog URL provided' };
   }
@@ -383,34 +404,95 @@ function formatCell(value: any): string {
   return String(value);
 }
 
+/**
+ * Try to configure the catalog with retries
+ * Returns true if successful, false otherwise
+ */
+async function configureCatalogWithRetry(): Promise<boolean> {
+  if (!props.catalogUrl || !props.warehouseName) {
+    return false;
+  }
+
+  const maxAttempts = 10; // 10 attempts
+  const delayMs = 3000; // 3 seconds between attempts
+
+  let accessToken = '';
+  if (props.useFreshToken) {
+    const userStore = useUserStore();
+    accessToken = userStore.user.access_token;
+  }
+
+  if (!accessToken) {
+    console.warn('No access token available for catalog configuration');
+    return false;
+  }
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      await icebergDB.configureCatalog({
+        catalogName: props.warehouseName,
+        restUri: props.catalogUrl,
+        accessToken: accessToken,
+      });
+      // Success!
+      return true;
+    } catch (catalogError) {
+      const errorMessage =
+        catalogError instanceof Error ? catalogError.message : String(catalogError);
+
+      // Check if this is a "catalog does not exist" error
+      if (errorMessage.includes('Catalog') && errorMessage.includes('does not exist')) {
+        console.warn(
+          `Catalog not ready yet (attempt ${attempt + 1}/${maxAttempts}). Retrying in ${delayMs / 1000}s...`,
+        );
+
+        // If this is not the last attempt, wait and retry
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        } else {
+          // Last attempt failed
+          warehouseError.value =
+            'Warehouse catalog is not available yet. The warehouse may still be initializing. Please wait and refresh the page.';
+          return false;
+        }
+      } else {
+        // Some other error - don't retry
+        warehouseError.value = `Failed to configure catalog: ${errorMessage}`;
+        console.error('Catalog configuration error:', catalogError);
+        return false;
+      }
+    }
+  }
+
+  return false;
+}
+
 onMounted(async () => {
   // Initialize DuckDB and configure Iceberg catalog
   try {
     await icebergDB.initialize();
 
-    // Configure catalog if URL is provided
-    if (props.catalogUrl && props.warehouseName) {
-      let accessToken = '';
-
-      if (props.useFreshToken) {
-        // Get current token from user store (automatically refreshed by auth system)
-        const userStore = useUserStore();
-        accessToken = userStore.user.access_token;
-      }
-
-      if (accessToken) {
-        await icebergDB.configureCatalog({
-          catalogName: props.warehouseName,
-          restUri: props.catalogUrl,
-          accessToken: accessToken,
-        });
-      } else {
-        console.warn('No access token available for catalog configuration');
-      }
-    } else {
+    // Check if catalog configuration is possible
+    if (!props.catalogUrl || !props.warehouseName) {
       console.warn('Catalog not configured - catalogUrl or warehouseName missing');
+      return;
+    }
+
+    // Try to configure catalog with retries
+    isCheckingWarehouse.value = true;
+    warehouseError.value = null;
+
+    const success = await configureCatalogWithRetry();
+
+    isCheckingWarehouse.value = false;
+
+    if (!success) {
+      // Error message already set by configureCatalogWithRetry
+      console.warn('Failed to configure catalog after retries');
     }
   } catch (e) {
+    isCheckingWarehouse.value = false;
     error.value = 'Failed to initialize DuckDB WASM';
     console.error('DuckDB initialization failed:', e);
   }
