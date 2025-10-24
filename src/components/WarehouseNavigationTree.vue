@@ -222,24 +222,26 @@ async function loadFieldsForTableOrView(item: TreeItem) {
 
     // Extract fields from the current schema
     const fields: TreeItem[] = [];
-    
+
     if (item.type === 'view') {
       // For views, use current-version-id to find the correct version, then get its schema
       if (metadata && metadata['metadata'] && metadata['metadata']['versions']) {
         const currentVersionId = metadata['metadata']['current-version-id'];
         console.log(`View current version ID: ${currentVersionId}`);
-        
+
         // Find the current version
-        const currentVersion = metadata['metadata']['versions'].find((v: any) => v['version-id'] === currentVersionId);
-        
+        const currentVersion = metadata['metadata']['versions'].find(
+          (v: any) => v['version-id'] === currentVersionId,
+        );
+
         if (currentVersion && currentVersion['schema-id'] !== undefined) {
           const schemaId = currentVersion['schema-id'];
           console.log(`View schema ID from version: ${schemaId}`);
-          
+
           // Now find the schema by schema-id
           const schemas = metadata['metadata']['schemas'];
           const currentSchema = schemas?.find((s: any) => s['schema-id'] === schemaId);
-          
+
           if (currentSchema && currentSchema.fields) {
             currentSchema.fields.forEach((field: any) => {
               const fieldType =
@@ -267,7 +269,7 @@ async function loadFieldsForTableOrView(item: TreeItem) {
 
         // Find the current schema
         const currentSchema = schemas.find((s: any) => s['schema-id'] === currentSchemaId);
-        
+
         if (currentSchema && currentSchema.fields) {
           currentSchema.fields.forEach((field: any) => {
             const fieldType =
@@ -293,7 +295,7 @@ async function loadFieldsForTableOrView(item: TreeItem) {
   } catch (error) {
     console.error(`Error loading fields for ${item.type}:`, item.name, error);
   }
-}// Watch for opened items changes and load children
+} // Watch for opened items changes and load children
 watch(openedItems, async (newOpened, oldOpened) => {
   console.log('Opened items changed:', newOpened);
 

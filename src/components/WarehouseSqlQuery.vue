@@ -1,8 +1,9 @@
 <template>
   <v-container fluid class="pa-0">
     <div style="display: flex; height: calc(100vh - 200px); position: relative">
-      <!-- Left: Navigation Tree -->
+      <!-- Left: Navigation Tree (only show if SQL is available) -->
       <div
+        v-if="isSqlAvailable.available"
         :style="{
           width: leftWidth + 'px',
           minWidth: '200px',
@@ -14,8 +15,9 @@
         <WarehouseNavigationTree :warehouse-id="warehouseId" @item-selected="handleTableSelected" />
       </div>
 
-      <!-- Resizable Divider -->
+      <!-- Resizable Divider (only show if SQL is available) -->
       <div
+        v-if="isSqlAvailable.available"
         @mousedown="startResize"
         style="
           width: 5px;
@@ -52,8 +54,31 @@
                 </v-card-title>
 
                 <v-card-text>
+                  <!-- Warning when SQL is not available -->
+                  <v-alert
+                    v-if="!isSqlAvailable.available"
+                    type="warning"
+                    variant="tonal"
+                    prominent
+                    class="mb-4">
+                    <div class="text-body-1 font-weight-bold mb-2">
+                      <v-icon class="mr-2">mdi-alert</v-icon>
+                      SQL Queries Not Available
+                    </div>
+                    <div class="text-body-2">
+                      {{ isSqlAvailable.reason }}
+                    </div>
+                    <div class="text-body-2 mt-3">
+                      <strong>Requirements for DuckDB WASM:</strong>
+                      <ul class="mt-2">
+                        <li>Warehouse must use S3-compatible storage</li>
+                        <li>Catalog must use HTTPS protocol (or localhost for development)</li>
+                      </ul>
+                    </div>
+                  </v-alert>
+
                   <!-- Info Alert -->
-                  <v-alert type="info" variant="tonal" class="mb-4">
+                  <v-alert type="info" variant="tonal" class="mb-4" v-else>
                     <div class="text-body-2">
                       <strong>DuckDB WASM Query Interface</strong>
                       - Run SQL queries on your Iceberg tables and views. Select a table/view from
@@ -77,14 +102,14 @@
                     variant="outlined"
                     auto-grow
                     class="font-monospace"
-                    :disabled="isExecuting" />
+                    :disabled="isExecuting || !isSqlAvailable.available" />
 
                   <!-- Action Buttons -->
                   <div class="d-flex gap-2 mb-4">
                     <v-btn
                       color="primary"
                       :loading="isExecuting"
-                      :disabled="!sqlQuery.trim() || isExecuting"
+                      :disabled="!sqlQuery.trim() || isExecuting || !isSqlAvailable.available"
                       @click="executeQuery">
                       <v-icon start>mdi-play</v-icon>
                       Execute Query
@@ -170,6 +195,7 @@ interface Props {
   warehouseName?: string;
   catalogUrl?: string;
   useFreshToken?: boolean;
+  storageType?: string; // 's3', 'gcs', 'azure', etc.
 }
 
 const props = defineProps<Props>();
@@ -188,6 +214,34 @@ const dividerHover = ref(false);
 const sqlTextarea = ref<any>(null);
 const cursorPosition = ref(0);
 const isResizing = ref(false);
+
+// Check if SQL querying is available based on storage and protocol
+const isSqlAvailable = computed(() => {
+  if (!props.catalogUrl) {
+    return { available: false, reason: 'No catalog URL provided' };
+  }
+
+  const url = new URL(props.catalogUrl);
+
+  // Check if using HTTP instead of HTTPS
+  if (url.protocol === 'http:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+    return {
+      available: false,
+      reason:
+        'DuckDB WASM requires HTTPS for remote catalogs. HTTP is only supported for localhost development.',
+    };
+  }
+
+  // Check if storage type is supported (currently only S3)
+  if (props.storageType && props.storageType.toLowerCase() !== 's3') {
+    return {
+      available: false,
+      reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`,
+    };
+  }
+
+  return { available: true, reason: null };
+});
 
 function startResize(e: MouseEvent) {
   isResizing.value = true;
