@@ -205,7 +205,7 @@ const sqlQuery = ref('');
 const queryResult = ref<QueryResult | null>(null);
 const isExecuting = ref(false);
 const error = ref<string | null>(null);
-const examplesPanel = ref<number | undefined>(undefined);
+
 const selectedTable = ref<{ type: string; namespaceId: string; name: string } | null>(null);
 
 // Resizable layout state
@@ -247,7 +247,7 @@ const isSqlAvailable = computed(() => {
   try {
     url = new URL(props.catalogUrl);
   } catch (e) {
-    console.error('Invalid catalog URL:', props.catalogUrl, e);
+    console.error('Invalid catalog URL:', url, props.catalogUrl, e);
     return { available: false, reason: 'Invalid catalog URL format' };
   }
 
@@ -288,36 +288,6 @@ function startResize(e: MouseEvent) {
   document.body.style.cursor = 'col-resize';
   document.body.style.userSelect = 'none';
 }
-
-const exampleQueries = computed(() => {
-  if (selectedTable.value && props.warehouseName) {
-    const fullName = `${props.warehouseName}.${selectedTable.value.namespaceId}.${selectedTable.value.name}`;
-    return [
-      {
-        title: 'Select all rows (limited)',
-        query: `SELECT * FROM ${fullName} LIMIT 10;`,
-      },
-      {
-        title: 'Count rows',
-        query: `SELECT COUNT(*) as total_rows FROM ${fullName};`,
-      },
-      {
-        title: 'Show table schema',
-        query: `DESCRIBE ${fullName};`,
-      },
-    ];
-  }
-  return [
-    {
-      title: 'Show all tables',
-      query: 'SHOW TABLES;',
-    },
-    {
-      title: 'List catalogs',
-      query: 'SELECT * FROM information_schema.schemata;',
-    },
-  ];
-});
 
 function updateCursorPosition(event: Event) {
   const target = event.target as HTMLTextAreaElement;
@@ -396,11 +366,6 @@ async function executeQuery() {
   } finally {
     isExecuting.value = false;
   }
-}
-
-function loadExample(query: string) {
-  sqlQuery.value = query;
-  examplesPanel.value = undefined; // Close the panel
 }
 
 function clearResults() {

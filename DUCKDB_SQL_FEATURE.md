@@ -9,6 +9,7 @@ The console-components library now includes a SQL query interface powered by Duc
 ### TableSqlQuery
 
 A Vue component that provides an interactive SQL query interface with:
+
 - SQL text editor with syntax highlighting
 - Query execution with loading states
 - Results display in a data table
@@ -18,11 +19,7 @@ A Vue component that provides an interactive SQL query interface with:
 **Usage:**
 
 ```vue
-<TableSqlQuery
-  :warehouse-id="warehouseId"
-  :namespace-id="namespaceId"
-  :table-name="tableName"
-/>
+<TableSqlQuery :warehouse-id="warehouseId" :namespace-id="namespaceId" :table-name="tableName" />
 ```
 
 ### Composables
@@ -63,9 +60,7 @@ await icebergDB.registerIcebergTable({
 });
 
 // Load Parquet files
-await icebergDB.loadParquetFiles('my_table', [
-  'https://example.com/data.parquet',
-]);
+await icebergDB.loadParquetFiles('my_table', ['https://example.com/data.parquet']);
 
 // Execute queries
 const result = await icebergDB.executeQuery('SELECT COUNT(*) FROM my_table');
@@ -95,6 +90,7 @@ cp node_modules/@duckdb/duckdb-wasm/dist/*worker.js public/duckdb/
 ```
 
 The following files should be copied:
+
 - `duckdb-mvp.wasm` (~37MB)
 - `duckdb-eh.wasm` (~32MB)
 - `duckdb-coi.wasm` (~32MB)
@@ -113,15 +109,14 @@ In your table detail page, add a new tab for SQL queries:
     <v-tab value="overview">Overview</v-tab>
     <v-tab value="sql">SQL</v-tab>
   </v-tabs>
-  
+
   <v-tabs-window v-model="tab">
     <v-tabs-window-item value="sql">
       <TableSqlQuery
         v-if="tab === 'sql'"
         :warehouse-id="warehouseId"
         :namespace-id="namespaceId"
-        :table-name="tableName"
-      />
+        :table-name="tableName" />
     </v-tabs-window-item>
   </v-tabs-window>
 </template>
@@ -132,6 +127,7 @@ In your table detail page, add a new tab for SQL queries:
 ### Example Queries
 
 The component includes pre-built example queries:
+
 - `SELECT * FROM iceberg_table LIMIT 10` - View sample data
 - `SELECT COUNT(*) FROM iceberg_table` - Count total rows
 - `DESCRIBE iceberg_table` - Show table schema
@@ -140,6 +136,7 @@ The component includes pre-built example queries:
 ### Query Results
 
 Query results are displayed in a scrollable table with:
+
 - Column headers
 - Row data with proper formatting
 - NULL value handling
@@ -154,6 +151,7 @@ SQL errors are displayed with full error messages to help debug queries.
 ### DuckDB WASM Initialization
 
 The library uses DuckDB's bundle selection to choose the appropriate WASM variant based on browser capabilities:
+
 - **MVP**: Minimum viable product, widest compatibility
 - **EH**: Exception handling, better error messages
 - **COI**: Cross-origin isolation, best performance (requires specific headers)
@@ -192,11 +190,13 @@ const result = await icebergDB.executeQuery('SELECT * FROM iceberg_table LIMIT 1
 ## Browser Compatibility
 
 DuckDB WASM requires:
+
 - Modern browsers with WebAssembly support
 - Web Workers support
 - Sufficient memory for data processing
 
 Tested browsers:
+
 - Chrome 90+
 - Firefox 89+
 - Safari 14+
@@ -207,6 +207,7 @@ Tested browsers:
 ### CORS Errors
 
 If you see CORS errors when loading WASM files, ensure:
+
 1. WASM files are in the `public/duckdb/` directory
 2. Files are served from the same origin as your app
 3. Your dev server properly serves static files
@@ -218,6 +219,7 @@ Web Workers must be same-origin. The library uses relative paths (`/duckdb/...`)
 ### Memory Issues
 
 For large datasets, consider:
+
 - Using LIMIT clauses in queries
 - Implementing pagination
 - Filtering data before loading into DuckDB
@@ -225,6 +227,7 @@ For large datasets, consider:
 ## Future Enhancements
 
 Potential improvements:
+
 - Monaco Editor for better SQL editing experience
 - Query history and saved queries
 - Direct Iceberg metadata parsing

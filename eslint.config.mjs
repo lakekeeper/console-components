@@ -61,6 +61,10 @@ export default [
       'debug/',
       '*.pdb',
       '.env.azure',
+      'public/**',
+      '**/duckdb-worker-wrapper.js',
+      '**/duckdb*.js',
+      '**/duckdb*.wasm',
     ],
   },
   {

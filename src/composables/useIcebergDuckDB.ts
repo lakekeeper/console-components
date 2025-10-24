@@ -42,7 +42,7 @@ export function useIcebergDuckDB() {
         );
       `;
 
-      const results = await duckDB.executeQuery(setupQuery);
+      await duckDB.executeQuery(setupQuery);
 
       catalogConfigured.value = true;
     } catch (e) {
