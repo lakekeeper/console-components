@@ -37,24 +37,6 @@
         @mouseenter="dividerHover = true"
         @mouseleave="dividerHover = false"></div>
 
-      <!-- Collapse/Expand Button -->
-      <v-btn
-        icon
-        size="small"
-        variant="text"
-        @click="toggleNavigation"
-        style="
-          position: absolute;
-          left: 0;
-          top: 10px;
-          z-index: 10;
-          background: white;
-          border: 1px solid #e0e0e0;
-        "
-        :style="{ left: isNavigationCollapsed ? '5px' : leftWidth + 'px' }">
-        <v-icon>{{ isNavigationCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
-      </v-btn>
-
       <!-- Right: SQL Query Interface -->
       <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
         <v-container fluid>
@@ -62,7 +44,17 @@
             <v-col cols="12">
               <v-card>
                 <v-card-title class="d-flex align-center">
-                  <v-icon class="mr-2">mdi-database-search</v-icon>
+                  <!-- Collapse/Expand Button -->
+                  <v-btn
+                    icon
+                    size="small"
+                    variant="text"
+                    @click="toggleNavigation"
+                    class="mr-2">
+                    <v-icon>{{
+                      isNavigationCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left'
+                    }}</v-icon>
+                  </v-btn>
                   Browser SQL Playground
                   <v-spacer />
                   <v-chip v-if="isCheckingWarehouse" color="info" size="small">
