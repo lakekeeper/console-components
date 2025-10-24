@@ -221,10 +221,29 @@ const isSqlAvailable = computed(() => {
     return { available: false, reason: 'No catalog URL provided' };
   }
 
-  const url = new URL(props.catalogUrl);
+  let url;
+  try {
+    url = new URL(props.catalogUrl);
+  } catch (e) {
+    console.error('Invalid catalog URL:', props.catalogUrl, e);
+    return { available: false, reason: 'Invalid catalog URL format' };
+  }
 
-  // Check if using HTTP instead of HTTPS
-  if (url.protocol === 'http:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') {
+  console.log('SQL Availability Check:', {
+    catalogUrl: props.catalogUrl,
+    protocol: url.protocol,
+    hostname: url.hostname,
+    storageType: props.storageType,
+  });
+
+  // Check if using HTTP instead of HTTPS (allow localhost/127.0.0.1)
+  const isLocalhost = 
+    url.hostname === 'localhost' || 
+    url.hostname === '127.0.0.1' || 
+    url.hostname === '0.0.0.0';
+    
+  if (url.protocol === 'http:' && !isLocalhost) {
+    console.warn('HTTP protocol not allowed for remote catalog:', url.hostname);
     return {
       available: false,
       reason:
@@ -234,12 +253,14 @@ const isSqlAvailable = computed(() => {
 
   // Check if storage type is supported (currently only S3)
   if (props.storageType && props.storageType.toLowerCase() !== 's3') {
+    console.warn('Unsupported storage type:', props.storageType);
     return {
       available: false,
       reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`,
     };
   }
 
+  console.log('SQL queries are available');
   return { available: true, reason: null };
 });
 
