@@ -193,7 +193,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
 import type { QueryResult } from '../composables/useDuckDB';
 import { useUserStore } from '../stores/user';
@@ -216,6 +216,7 @@ const isExecuting = ref(false);
 const error = ref<string | null>(null);
 const isCheckingWarehouse = ref(false);
 const warehouseError = ref<string | null>(null);
+const hasInitialized = ref(false);
 
 const selectedTable = ref<{ type: string; namespaceId: string; name: string } | null>(null);
 
@@ -228,6 +229,11 @@ const isResizing = ref(false);
 
 // Check if SQL querying is available based on storage and protocol
 const isSqlAvailable = computed(() => {
+  // Check if warehouse name is still loading
+  if (!props.warehouseName) {
+    return { available: false, reason: 'Loading warehouse information...' };
+  }
+
   // Check if warehouse is still being verified
   if (isCheckingWarehouse.value) {
     return { available: false, reason: 'Checking warehouse status...' };
@@ -468,16 +474,21 @@ async function configureCatalogWithRetry(): Promise<boolean> {
   return false;
 }
 
-onMounted(async () => {
+async function initializeDuckDB() {
+  // Don't initialize if already done
+  if (hasInitialized.value) {
+    return;
+  }
+
+  // Don't initialize if required props are missing
+  if (!props.catalogUrl || !props.warehouseName) {
+    return;
+  }
+
   // Initialize DuckDB and configure Iceberg catalog
   try {
     await icebergDB.initialize();
-
-    // Check if catalog configuration is possible
-    if (!props.catalogUrl || !props.warehouseName) {
-      console.warn('Catalog not configured - catalogUrl or warehouseName missing');
-      return;
-    }
+    hasInitialized.value = true;
 
     // Try to configure catalog with retries
     isCheckingWarehouse.value = true;
@@ -496,7 +507,21 @@ onMounted(async () => {
     error.value = 'Failed to initialize DuckDB WASM';
     console.error('DuckDB initialization failed:', e);
   }
+}
+
+// Initialize on mount if props are already available
+onMounted(() => {
+  initializeDuckDB();
 });
+
+// Watch for props to become available (in case they're loaded asynchronously)
+watch(
+  () => [props.catalogUrl, props.warehouseName],
+  () => {
+    initializeDuckDB();
+  },
+  { immediate: false },
+);
 
 onBeforeUnmount(async () => {
   // Cleanup DuckDB resources
