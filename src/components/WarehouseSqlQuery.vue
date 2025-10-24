@@ -3,6 +3,7 @@
     <div style="display: flex; height: calc(100vh - 200px); position: relative">
       <!-- Left: Navigation Tree -->
       <div
+        v-if="!isNavigationCollapsed"
         :style="{
           width: leftWidth + 'px',
           minWidth: '200px',
@@ -23,6 +24,7 @@
 
       <!-- Resizable Divider -->
       <div
+        v-if="!isNavigationCollapsed"
         @mousedown="startResize"
         style="
           width: 5px;
@@ -34,6 +36,24 @@
         :style="{ background: dividerHover || isResizing ? '#2196F3' : '#e0e0e0' }"
         @mouseenter="dividerHover = true"
         @mouseleave="dividerHover = false"></div>
+
+      <!-- Collapse/Expand Button -->
+      <v-btn
+        icon
+        size="small"
+        variant="text"
+        @click="toggleNavigation"
+        style="
+          position: absolute;
+          left: 0;
+          top: 10px;
+          z-index: 10;
+          background: white;
+          border: 1px solid #e0e0e0;
+        "
+        :style="{ left: isNavigationCollapsed ? '5px' : leftWidth + 'px' }">
+        <v-icon>{{ isNavigationCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left' }}</v-icon>
+      </v-btn>
 
       <!-- Right: SQL Query Interface -->
       <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
@@ -272,6 +292,7 @@ const dividerHover = ref(false);
 const sqlTextarea = ref<any>(null);
 const cursorPosition = ref(0);
 const isResizing = ref(false);
+const isNavigationCollapsed = ref(false);
 
 // Resizable table height state
 const tableHeight = ref(400); // Initial height in pixels
@@ -401,6 +422,10 @@ function startTableResize(e: MouseEvent) {
   document.addEventListener('mouseup', onMouseUp);
   document.body.style.cursor = 'row-resize';
   document.body.style.userSelect = 'none';
+}
+
+function toggleNavigation() {
+  isNavigationCollapsed.value = !isNavigationCollapsed.value;
 }
 
 function updateCursorPosition(event: Event) {
