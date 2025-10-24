@@ -45,15 +45,10 @@
               <v-card>
                 <v-card-title class="d-flex align-center">
                   <!-- Collapse/Expand Button -->
-                  <v-btn
-                    icon
-                    size="small"
-                    variant="text"
-                    @click="toggleNavigation"
-                    class="mr-2">
-                    <v-icon>{{
-                      isNavigationCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left'
-                    }}</v-icon>
+                  <v-btn icon size="small" variant="text" @click="toggleNavigation" class="mr-2">
+                    <v-icon>
+                      {{ isNavigationCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left' }}
+                    </v-icon>
                   </v-btn>
                   Browser SQL Playground
                   <v-spacer />
