@@ -173,7 +173,7 @@
                       </v-chip>
                     </v-card-title>
                     <v-card-text class="pa-0">
-                      <v-table density="compact" fixed-header height="30vh">
+                      <v-table density="compact" fixed-header :height="tableHeight + 'px'">
                         <thead>
                           <tr>
                             <th
@@ -193,6 +193,33 @@
                         </tbody>
                       </v-table>
                     </v-card-text>
+
+                    <!-- Resizable Handle for Table Height -->
+                    <div
+                      @mousedown="startTableResize"
+                      style="
+                        height: 5px;
+                        cursor: row-resize;
+                        user-select: none;
+                        transition: background 0.2s;
+                        border-top: 1px solid #e0e0e0;
+                      "
+                      :style="{
+                        background: tableResizeHover || isResizingTable ? '#2196F3' : 'transparent',
+                      }"
+                      @mouseenter="tableResizeHover = true"
+                      @mouseleave="tableResizeHover = false">
+                      <div
+                        style="
+                          text-align: center;
+                          font-size: 10px;
+                          color: #999;
+                          line-height: 5px;
+                          user-select: none;
+                        ">
+                        ⋮
+                      </div>
+                    </div>
                   </v-card>
 
                   <!-- Empty State -->
@@ -245,6 +272,11 @@ const dividerHover = ref(false);
 const sqlTextarea = ref<any>(null);
 const cursorPosition = ref(0);
 const isResizing = ref(false);
+
+// Resizable table height state
+const tableHeight = ref(400); // Initial height in pixels
+const isResizingTable = ref(false);
+const tableResizeHover = ref(false);
 
 // Check if we're in a loading/initializing state
 const isInitializingState = computed(() => {
@@ -342,6 +374,32 @@ function startResize(e: MouseEvent) {
   document.addEventListener('mousemove', onMouseMove);
   document.addEventListener('mouseup', onMouseUp);
   document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+
+function startTableResize(e: MouseEvent) {
+  isResizingTable.value = true;
+  const startY = e.clientY;
+  const startHeight = tableHeight.value;
+
+  function onMouseMove(e: MouseEvent) {
+    const delta = e.clientY - startY;
+    const newHeight = startHeight + delta;
+    // Constrain between 200px and 800px
+    tableHeight.value = Math.max(200, Math.min(800, newHeight));
+  }
+
+  function onMouseUp() {
+    isResizingTable.value = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+  document.body.style.cursor = 'row-resize';
   document.body.style.userSelect = 'none';
 }
 
