@@ -62,9 +62,25 @@
                 </v-card-title>
 
                 <v-card-text>
-                  <!-- Warning when SQL is not available -->
+                  <!-- Loading/Initializing State -->
                   <v-alert
-                    v-if="!isSqlAvailable.available"
+                    v-if="isInitializingState"
+                    type="info"
+                    variant="tonal"
+                    prominent
+                    class="mb-4">
+                    <div class="text-body-1 font-weight-bold mb-2">
+                      <v-icon class="mr-2">mdi-loading mdi-spin</v-icon>
+                      Initializing SQL Environment
+                    </div>
+                    <div class="text-body-2">
+                      {{ isSqlAvailable.reason }}
+                    </div>
+                  </v-alert>
+
+                  <!-- Warning when SQL is not available (actual errors) -->
+                  <v-alert
+                    v-else-if="!isSqlAvailable.available"
                     type="warning"
                     variant="tonal"
                     prominent
@@ -85,8 +101,8 @@
                     </div>
                   </v-alert>
 
-                  <!-- Info Alert -->
-                  <v-alert type="info" variant="tonal" class="mb-4" v-else>
+                  <!-- Ready State Info -->
+                  <v-alert v-else type="info" variant="tonal" class="mb-4">
                     <div class="text-body-2">
                       <strong>DuckDB WASM SQL</strong>
                       - Select a table from the left panel or query directly using the catalog.
@@ -224,6 +240,16 @@ const dividerHover = ref(false);
 const sqlTextarea = ref<any>(null);
 const cursorPosition = ref(0);
 const isResizing = ref(false);
+
+// Check if we're in a loading/initializing state
+const isInitializingState = computed(() => {
+  return (
+    !props.warehouseName ||
+    isCheckingWarehouse.value ||
+    icebergDB.isInitializing.value ||
+    icebergDB.isLoadingTable.value
+  );
+});
 
 // Check if SQL querying is available based on storage and protocol
 const isSqlAvailable = computed(() => {
