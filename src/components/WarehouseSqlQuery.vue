@@ -38,7 +38,7 @@
               <v-card>
                 <v-card-title class="d-flex align-center">
                   <v-icon class="mr-2">mdi-database-search</v-icon>
-                  SQL Query
+                  SQL Browser Query
                   <v-spacer />
                   <v-chip v-if="icebergDB.isInitialized.value" color="success" size="small">
                     <v-icon start>mdi-check-circle</v-icon>
@@ -80,9 +80,9 @@
                   <!-- Info Alert -->
                   <v-alert type="info" variant="tonal" class="mb-4" v-else>
                     <div class="text-body-2">
-                      <strong>DuckDB WASM Query Interface</strong>
-                      - Run SQL queries on your Iceberg tables and views. Select a table/view from
-                      the left panel or query directly using the catalog.
+                      <strong>DuckDB WASM</strong>
+                      - Run SQL queries on your Browser. Select a table from the left panel or query
+                      directly using the catalog.
                     </div>
                   </v-alert>
 
@@ -110,6 +110,7 @@
                       color="primary"
                       :loading="isExecuting"
                       :disabled="!sqlQuery.trim() || isExecuting || !isSqlAvailable.available"
+                      clearable
                       @click="executeQuery">
                       <v-icon start>mdi-play</v-icon>
                       Execute Query
