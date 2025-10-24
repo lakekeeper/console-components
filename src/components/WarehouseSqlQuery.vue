@@ -72,7 +72,7 @@
                       <strong>Requirements for DuckDB WASM:</strong>
                       <ul class="mt-2">
                         <li>Warehouse must use S3-compatible storage</li>
-                        <li>Catalog must use HTTPS protocol (or localhost for development)</li>
+                        <li>Catalog must use HTTPS protocol</li>
                       </ul>
                     </div>
                   </v-alert>
@@ -221,6 +221,28 @@ const isSqlAvailable = computed(() => {
     return { available: false, reason: 'No catalog URL provided' };
   }
 
+  // Check if catalog URL starts with http:// (not https://)
+  if (props.catalogUrl.startsWith('http://')) {
+    // Allow HTTP only for localhost
+    // const isLocalUrl =
+    //   props.catalogUrl.includes('://localhost') ||
+    //   props.catalogUrl.includes('://127.0.0.1') ||
+    //   props.catalogUrl.includes('://0.0.0.0');
+
+    // if (!isLocalUrl) {
+    //   console.warn('HTTP protocol not allowed for remote catalog:', props.catalogUrl);
+    //   return {
+    //     available: false,
+    //     reason: 'DuckDB WASM requires HTTPS for remote catalogs. HTTP is only supported for localhost development.',
+    //   };
+    // }
+    return {
+      available: false,
+      reason:
+        'DuckDB WASM requires HTTPS for remote catalogs. HTTP is only supported for localhost development.',
+    };
+  }
+
   let url;
   try {
     url = new URL(props.catalogUrl);
@@ -235,21 +257,6 @@ const isSqlAvailable = computed(() => {
     hostname: url.hostname,
     storageType: props.storageType,
   });
-
-  // Check if using HTTP instead of HTTPS (allow localhost/127.0.0.1)
-  const isLocalhost = 
-    url.hostname === 'localhost' || 
-    url.hostname === '127.0.0.1' || 
-    url.hostname === '0.0.0.0';
-    
-  if (url.protocol === 'http:' && !isLocalhost) {
-    console.warn('HTTP protocol not allowed for remote catalog:', url.hostname);
-    return {
-      available: false,
-      reason:
-        'DuckDB WASM requires HTTPS for remote catalogs. HTTP is only supported for localhost development.',
-    };
-  }
 
   // Check if storage type is supported (currently only S3)
   if (props.storageType && props.storageType.toLowerCase() !== 's3') {
