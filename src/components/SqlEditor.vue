@@ -155,29 +155,10 @@ onMounted(async () => {
         },
       }),
       readOnlyCompartment.of(EditorState.readOnly.of(props.disabled)),
-      EditorView.theme({
-        '&': {
-          minHeight: props.minHeight,
-          fontSize: '14px',
-          border: '1px solid rgba(0, 0, 0, 0.23)',
-          borderRadius: '4px',
-        },
-        '&.cm-focused': {
-          outline: '2px solid #1976d2',
-          outlineOffset: '0px',
-        },
-        '.cm-scroller': {
-          fontFamily: '"Courier New", Courier, monospace',
-          overflow: 'auto',
-        },
-        '.cm-content': {
-          padding: '8px',
-        },
-        '.cm-placeholder': {
-          color: '#999',
-          fontStyle: 'italic',
-        },
-      }),
+      themeCompartment.of([
+        createThemeExtension(isDark.value),
+        syntaxHighlighting(isDark.value ? darkHighlightStyle : lightHighlightStyle),
+      ]),
       EditorView.editorAttributes.of({
         'aria-label': 'SQL Query Editor',
       }),
@@ -211,6 +192,18 @@ watch(
     }
   },
 );
+
+// Watch for theme changes and reconfigure editor
+watch(isDark, (dark) => {
+  if (editorView) {
+    editorView.dispatch({
+      effects: themeCompartment.reconfigure([
+        createThemeExtension(dark),
+        syntaxHighlighting(dark ? darkHighlightStyle : lightHighlightStyle),
+      ]),
+    });
+  }
+});
 
 onUnmounted(() => {
   editorView?.destroy();
