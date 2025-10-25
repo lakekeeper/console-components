@@ -103,7 +103,6 @@ async function loadPreview() {
     warehouseName.value = wh.name;
 
     // Initialize DuckDB
-    await icebergDB.initialize();
 
     // Configure Iceberg catalog
     await icebergDB.configureCatalog({
