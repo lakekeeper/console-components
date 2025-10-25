@@ -107,13 +107,13 @@ async function loadPreview() {
 
     // Configure Iceberg catalog
     await icebergDB.configureCatalog({
-      catalogName: props.warehouseId,
+      catalogName: warehouseName.value,
       restUri: catalogUrl.value,
       accessToken: userStore.user.access_token,
     });
 
     // Execute preview query
-    const query = `SELECT * FROM ${props.warehouseId}.${props.namespaceId}.${props.tableName} LIMIT 1000`;
+    const query = `SELECT * FROM ${warehouseName.value}.${props.namespaceId}.${props.tableName} LIMIT 1000`;
     console.log('Executing preview query:', query);
     
     const results = await icebergDB.executeQuery(query);
