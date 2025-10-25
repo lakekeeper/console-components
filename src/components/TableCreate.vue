@@ -275,16 +275,8 @@ const showS3HttpWarning = computed(() => {
 
 // Check if table creation is available based on storage type
 const isCreateAvailable = computed(() => {
-  // Storage type must be defined
-  if (!props.storageType) {
-    return {
-      available: false,
-      reason: "Storage type information is not available. Please wait for warehouse data to load."
-    };
-  }
-
   // Check if storage type is supported (currently only S3)
-  if (props.storageType.toLowerCase() !== "s3") {
+  if (props.storageType && props.storageType.toLowerCase() !== 's3') {
     return {
       available: false,
       reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`
@@ -293,6 +285,7 @@ const isCreateAvailable = computed(() => {
 
   return { available: true, reason: null };
 });
+
 const sqlPreview = computed(() => {
   if (!tableName.value || fields.value.length === 0) return '';
 
