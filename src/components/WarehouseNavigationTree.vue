@@ -1,8 +1,10 @@
 <template>
-  <div class="tree-container">
-    <div class="tree-header text-subtitle-2 py-2 px-3">Warehouse Navigation</div>
+  <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden;">
+    <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0" color="grey-lighten-4">
+      Warehouse Navigation
+    </v-sheet>
     <v-divider></v-divider>
-    <div class="tree-scroll-area">
+    <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto;">
       <v-treeview
         v-model:opened="openedItems"
         :items="treeItems"
@@ -53,8 +55,8 @@
           </div>
         </template>
       </v-treeview>
-    </div>
-  </div>
+    </v-sheet>
+  </v-sheet>
 </template>
 
 <script setup lang="ts">
@@ -421,20 +423,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.tree-header {
-  flex-shrink: 0;
-  font-weight: 500;
-  background: #f5f5f5;
-}
-
-.tree-scroll-area {
-  position: relative;
-  flex: 1;
-  overflow-x: auto;
-  overflow-y: auto;
-  min-height: 0;
-}
-
 .tree-view {
   font-size: 0.75rem;
   min-width: max-content;
@@ -487,30 +475,5 @@ onMounted(() => {
   text-decoration: underline;
 }
 
-/* Customize scrollbar */
-.tree-scroll-area::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-.tree-scroll-area::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 3px;
-}
-
-.tree-scroll-area::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 3px;
-}
-
-.tree-scroll-area::-webkit-scrollbar-thumb:hover {
-  background: #555;
-}
-
-/* Firefox */
-.tree-scroll-area {
-  position: relative;
-  scrollbar-width: thin;
-  scrollbar-color: #888 #f1f1f1;
-}
+/* Vuetify v-sheet handles scrolling natively */
 </style>
