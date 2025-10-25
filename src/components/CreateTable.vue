@@ -99,16 +99,6 @@
                     @click="removeField(index)"></v-btn>
                 </v-col>
 
-                <!-- Documentation -->
-                <v-col cols="12">
-                  <v-text-field
-                    v-model="field.doc"
-                    label="Description (optional)"
-                    placeholder="Field description"
-                    variant="outlined"
-                    density="compact"
-                    hide-details></v-text-field>
-                </v-col>
               </v-row>
             </v-list-item>
           </v-list>
@@ -178,7 +168,6 @@ interface Field {
   name: string;
   type: string;
   nullable: boolean;
-  doc: string;
 }
 
 const props = defineProps<Props>();
@@ -240,8 +229,8 @@ const sqlPreview = computed(() => {
   const fieldDefinitions = fields.value
     .map((f) => {
       const nullable = f.nullable ? '' : ' NOT NULL';
-      const doc = f.doc ? ` COMMENT '${f.doc.replace(/'/g, "''")}'` : '';
-      return `  ${f.name} ${f.type}${nullable}${doc}`;
+      return `  ${f.name} ${f.type}${nullable}`;
+      return `  ${f.name} ${f.type}${nullable}`;
     })
     .join(',\n');
 
@@ -254,7 +243,6 @@ function addField() {
     name: '',
     type: 'string',
     nullable: true,
-    doc: '',
   });
 }
 
