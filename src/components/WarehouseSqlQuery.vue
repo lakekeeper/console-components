@@ -345,7 +345,7 @@ const isSqlAvailable = computed(() => {
     //   };
     // }
     return {
-      available: false,
+      available: true,
       reason:
         'DuckDB WASM requires HTTPS for remote catalogs. HTTP is only supported for localhost development.',
     };
