@@ -3,6 +3,7 @@
     <template #activator="{ props: dialogProps }">
       <v-btn
         v-bind="dialogProps"
+        size="small"
         color="primary"
         variant="elevated"
         prepend-icon="mdi-table-plus">
@@ -31,8 +32,11 @@
         <!-- Namespace Info -->
         <v-alert type="info" variant="tonal" class="mb-4">
           <div class="text-body-2">
-            <strong>Catalog:</strong> {{ warehouseName }}<br>
-            <strong>Namespace:</strong> {{ namespaceId }}
+            <strong>Catalog:</strong>
+            {{ warehouseName }}
+            <br />
+            <strong>Namespace:</strong>
+            {{ namespaceId }}
           </div>
         </v-alert>
 
@@ -40,11 +44,7 @@
         <div class="mb-4">
           <div class="d-flex justify-space-between align-center mb-2">
             <span class="text-h6">Schema</span>
-            <v-btn
-              color="primary"
-              size="small"
-              prepend-icon="mdi-plus"
-              @click="addField">
+            <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="addField">
               Add Field
             </v-btn>
           </div>
@@ -98,7 +98,6 @@
                     variant="text"
                     @click="removeField(index)"></v-btn>
                 </v-col>
-
               </v-row>
             </v-list-item>
           </v-list>
@@ -136,9 +135,7 @@
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn variant="text" @click="closeDialog" :disabled="isCreating">
-          Cancel
-        </v-btn>
+        <v-btn variant="text" @click="closeDialog" :disabled="isCreating">Cancel</v-btn>
         <v-btn
           color="primary"
           variant="elevated"
@@ -211,7 +208,8 @@ const success = ref(false);
 const rules = {
   required: (v: string) => !!v || 'Required',
   validIdentifier: (v: string) =>
-    /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v) || 'Must be a valid identifier (letters, numbers, underscore)',
+    /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v) ||
+    'Must be a valid identifier (letters, numbers, underscore)',
 };
 
 // Computed properties
