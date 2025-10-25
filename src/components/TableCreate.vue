@@ -29,17 +29,12 @@
           class="mb-4"
           autofocus></v-text-field>
 
-
         <!-- S3 + HTTP Warning -->
-        <v-alert
-          v-if="showS3HttpWarning"
-          type="warning"
-          variant="tonal"
-          class="mb-4"
-          closable>
+        <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
           <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
           <div class="text-body-2">
-            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for security.
+            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for
+            security.
           </div>
         </v-alert>
 
@@ -193,7 +188,7 @@ interface Props {
   warehouseId: string;
   namespaceId: string;
   catalogUrl: string;
-  storageType?: string;  // Storage type: s3, adls, gcs, etc.
+  storageType?: string; // Storage type: s3, adls, gcs, etc.
 }
 
 interface Field {
@@ -258,13 +253,6 @@ const canCreate = computed(() => {
 });
 
 // Check if we should show S3 + HTTP warning
-
-  console.log("TableCreate storage check:", {
-    storageType: props.storageType,
-    storageTypeLower: props.storageType?.toLowerCase(),
-    isS3: props.storageType?.toLowerCase() === 's3',
-    isCreateAvailable: isCreateAvailable.value
-  });
 const showS3HttpWarning = computed(() => {
   return (
     props.storageType?.toLowerCase() === 's3' &&
@@ -275,15 +263,31 @@ const showS3HttpWarning = computed(() => {
 
 // Check if table creation is available based on storage type
 const isCreateAvailable = computed(() => {
-  // Check if storage type is supported (currently only S3)
-  if (props.storageType && props.storageType.toLowerCase() !== 's3') {
+  // Storage type must be defined
+  if (!props.storageType) {
     return {
       available: false,
-      reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`
+      reason: 'Storage type information is not available. Please wait for warehouse data to load.',
+    };
+  }
+
+  // Check if storage type is supported (currently only S3)
+  if (props.storageType.toLowerCase() !== 's3') {
+    return {
+      available: false,
+      reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`,
     };
   }
 
   return { available: true, reason: null };
+});
+
+// Debug logging
+console.log('TableCreate storage check:', {
+  storageType: props.storageType,
+  storageTypeLower: props.storageType?.toLowerCase(),
+  isS3: props.storageType?.toLowerCase() === 's3',
+  isCreateAvailable: isCreateAvailable.value,
 });
 
 const sqlPreview = computed(() => {
@@ -300,9 +304,9 @@ const sqlPreview = computed(() => {
   // DuckDB Iceberg expects: catalog.namespace.table
   const fullTablePath = `${warehouseName.value}.${props.namespaceId}.${tableName.value}`;
 
-  console.log("TableCreate SQL generation:", {
+  console.log('TableCreate SQL generation:', {
     namespaceId: props.namespaceId,
-    fullTablePath
+    fullTablePath,
   });
 
   return `CREATE TABLE ${fullTablePath} (
