@@ -2,40 +2,6 @@
   <v-container fluid>
     <v-card>
       <v-card-text>
-        <!-- S3 + HTTP Warning -->
-        <v-alert
-          v-if="showS3HttpWarning"
-          type="warning"
-          variant="tonal"
-          class="mb-4"
-          closable>
-          <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
-          <div class="text-body-2">
-            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for security.
-          </div>
-
-        <!-- Preview Not Available Warning -->
-        <v-alert
-          v-if="!isPreviewAvailable.available"
-          type="warning"
-          variant="tonal"
-          prominent
-          class="mb-4">
-          <div class="text-body-1 font-weight-bold mb-2">
-            <v-icon class="mr-2">mdi-alert</v-icon>
-            Table Preview Not Available
-          </div>
-          <div class="text-body-2">{{ isPreviewAvailable.reason }}</div>
-          <div class="text-body-2 mt-3">
-            <strong>Requirements for DuckDB WASM:</strong>
-            <ul class="mt-2">
-              <li>Warehouse must use S3-compatible storage</li>
-              <li>Catalog must use HTTPS protocol</li>
-            </ul>
-          </div>
-        </v-alert>
-        </v-alert>
-
         <!-- Loading/Initializing State -->
         <v-alert v-if="isLoading" type="info" variant="tonal" class="mb-4">
           <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
@@ -87,7 +53,6 @@ interface Props {
   namespaceId: string;
   tableName: string;
   catalogUrl: string;  // Now required from parent
-  storageType?: string;  // Storage type: s3, adls, gcs, etc.
 }
 
 const props = defineProps<Props>();
@@ -102,13 +67,6 @@ const queryResults = ref<any>(null);
 const warehouseName = ref<string | undefined>(undefined);
 
 // Compute headers from results
-
-  console.log("TablePreview storage check:", {
-    storageType: props.storageType,
-    storageTypeLower: props.storageType?.toLowerCase(),
-    isS3: props.storageType?.toLowerCase() === 's3',
-    isPreviewAvailable: isPreviewAvailable.value
-  });
 const tableHeaders = computed(() => {
   if (!queryResults.value?.columns) return [];
   return queryResults.value.columns.map((col: string) => ({
@@ -119,28 +77,6 @@ const tableHeaders = computed(() => {
 });
 
 // Compute rows from results
-// Check if we should show S3 + HTTP warning
-const showS3HttpWarning = computed(() => {
-  return (
-    props.storageType?.toLowerCase() === 's3' &&
-    props.catalogUrl &&
-    props.catalogUrl.startsWith('http://')
-  );
-});
-
-
-// Check if preview is available based on storage type
-const isPreviewAvailable = computed(() => {
-  // Check if storage type is supported (currently only S3)
-  if (props.storageType && props.storageType.toLowerCase() !== 's3') {
-    return {
-      available: false,
-      reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`
-    };
-  }
-
-  return { available: true, reason: null };
-});
 const tableRows = computed(() => {
   if (!queryResults.value?.rows) return [];
   return queryResults.value.rows.map((row: any[]) => {
@@ -154,11 +90,6 @@ const tableRows = computed(() => {
 
 async function loadPreview() {
   isLoading.value = true;
-  // Check if preview is available before proceeding
-  if (!isPreviewAvailable.value.available) {
-    isLoading.value = false;
-    return;
-  }
   error.value = null;
 
   try {
