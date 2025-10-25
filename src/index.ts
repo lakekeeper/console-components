@@ -44,6 +44,7 @@ import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
 import TableOverview from './components/TableOverview.vue';
 import TableRaw from './components/TableRaw.vue';
 import TableBranch from './components/TableBranch.vue';
+import TablePreview from './components/TablePreview.vue';
 import WarehouseSqlQuery from './components/WarehouseSqlQuery.vue';
 import WarehouseNavigationTree from './components/WarehouseNavigationTree.vue';
 import ViewHeader from './components/ViewHeader.vue';
@@ -196,6 +197,7 @@ const components = {
   TableSnapshotDetails,
   TableOverview,
   TableRaw,
+  TablePreview,
   TableBranch,
   WarehouseSqlQuery,
   WarehouseNavigationTree,
@@ -245,4 +247,3 @@ export type { QueryResult } from './composables/useDuckDB';
 // Export Iceberg DuckDB integration
 export { useIcebergDuckDB } from './composables/useIcebergDuckDB';
 export type { IcebergTableInfo } from './composables/useIcebergDuckDB';
-export { default as TablePreview } from './components/TablePreview.vue';
