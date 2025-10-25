@@ -256,6 +256,12 @@ const sqlPreview = computed(() => {
 
   // Split namespace into parts and quote each part separately for Iceberg multi-level namespaces
   const namespaceParts = props.namespaceId.split(".").map(part => `"${part}"`).join(".");
+
+  console.log("TableCreate namespace parts:", {
+    namespaceId: props.namespaceId,
+    namespaceParts,
+    fullTablePath
+  });
   const fullTablePath = `"${warehouseName.value}".${namespaceParts}."${tableName.value}"`;
 
   return `CREATE TABLE ${fullTablePath} (
