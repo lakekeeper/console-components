@@ -255,7 +255,7 @@ const sqlPreview = computed(() => {
     })
     .join(',\n');
 
-  return `CREATE TABLE ${warehouseName.value}.${props.namespaceId}.${tableName.value} (\n${fieldDefinitions}\n);`;
+  return `CREATE TABLE "${warehouseName.value}"."${props.namespaceId}"."${tableName.value}" (\n${fieldDefinitions}\n);`;
 });
 
 // Methods
