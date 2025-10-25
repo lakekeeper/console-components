@@ -29,6 +29,19 @@
           class="mb-4"
           autofocus></v-text-field>
 
+
+        <!-- S3 + HTTP Warning -->
+        <v-alert
+          v-if="showS3HttpWarning"
+          type="warning"
+          variant="tonal"
+          class="mb-4"
+          closable>
+          <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
+          <div class="text-body-2">
+            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for security.
+          </div>
+        </v-alert>
         <!-- Namespace Info -->
         <v-alert type="info" variant="tonal" class="mb-4">
           <div class="text-body-2">
@@ -159,6 +172,7 @@ interface Props {
   warehouseId: string;
   namespaceId: string;
   catalogUrl: string;
+  storageType?: string;  // Storage type: s3, adls, gcs, etc.
 }
 
 interface Field {
@@ -218,6 +232,15 @@ const canCreate = computed(() => {
     tableName.value.trim() !== '' &&
     fields.value.length > 0 &&
     fields.value.every((f) => f.name.trim() !== '' && f.type.trim() !== '')
+  );
+});
+
+// Check if we should show S3 + HTTP warning
+const showS3HttpWarning = computed(() => {
+  return (
+    props.storageType?.toLowerCase() === 's3' &&
+    props.catalogUrl &&
+    props.catalogUrl.startsWith('http://')
   );
 });
 

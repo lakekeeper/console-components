@@ -2,6 +2,19 @@
   <v-container fluid>
     <v-card>
       <v-card-text>
+        <!-- S3 + HTTP Warning -->
+        <v-alert
+          v-if="showS3HttpWarning"
+          type="warning"
+          variant="tonal"
+          class="mb-4"
+          closable>
+          <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
+          <div class="text-body-2">
+            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for security.
+          </div>
+        </v-alert>
+
         <!-- Loading/Initializing State -->
         <v-alert v-if="isLoading" type="info" variant="tonal" class="mb-4">
           <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
@@ -53,6 +66,7 @@ interface Props {
   namespaceId: string;
   tableName: string;
   catalogUrl: string;  // Now required from parent
+  storageType?: string;  // Storage type: s3, adls, gcs, etc.
 }
 
 const props = defineProps<Props>();
@@ -77,6 +91,15 @@ const tableHeaders = computed(() => {
 });
 
 // Compute rows from results
+// Check if we should show S3 + HTTP warning
+const showS3HttpWarning = computed(() => {
+  return (
+    props.storageType?.toLowerCase() === 's3' &&
+    props.catalogUrl &&
+    props.catalogUrl.startsWith('http://')
+  );
+});
+
 const tableRows = computed(() => {
   if (!queryResults.value?.rows) return [];
   return queryResults.value.rows.map((row: any[]) => {
