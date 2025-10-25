@@ -52,6 +52,7 @@ interface Props {
   warehouseId: string;
   namespaceId: string;
   tableName: string;
+  catalogUrl: string;  // Now required from parent
 }
 
 const props = defineProps<Props>();
@@ -64,12 +65,6 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 const queryResults = ref<any>(null);
 const warehouseName = ref<string | undefined>(undefined);
-
-// Get catalog URL from environment variable (same as warehouse page)
-const catalogUrl = computed(() => {
-  const baseUrl = import.meta.env.VITE_APP_ICEBERG_CATALOG_URL || 'http://localhost:8181';
-  return `${baseUrl}/catalog`;
-});
 
 // Compute headers from results
 const tableHeaders = computed(() => {
@@ -105,7 +100,7 @@ async function loadPreview() {
     // Configure Iceberg catalog (this initializes DuckDB if needed)
     await icebergDB.configureCatalog({
       catalogName: warehouseName.value,
-      restUri: catalogUrl.value,
+      restUri: props.catalogUrl,
       accessToken: userStore.user.access_token,
     });
 
@@ -116,7 +111,7 @@ async function loadPreview() {
       ATTACH IF NOT EXISTS '${warehouseName.value}' AS ${warehouseName.value} (
         TYPE iceberg,
         SECRET iceberg_secret,
-        ENDPOINT '${catalogUrl.value}'
+        ENDPOINT '${props.catalogUrl}'
       );
       
       -- Query the table
