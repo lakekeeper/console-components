@@ -15,7 +15,9 @@
     <!-- Results Display -->
     <div v-else-if="results">
       <div class="d-flex justify-space-between align-center mb-4">
-        <div class="text-h6">Preview: {{ warehouseId }}.{{ namespaceId }}.{{ tableName }}</div>
+        <div class="text-h6">
+          Preview: {{ warehouseId }}.{{ namespaceId }}.{{ tableName }}
+        </div>
         <v-chip color="primary" variant="flat">
           {{ results.rows.length }} rows (limited to 1000)
         </v-chip>
@@ -102,7 +104,7 @@ async function loadPreview() {
   error.value = null;
 
   try {
-    // Get warehouse details to build catalog URL
+    // Get warehouse details
     const warehouse = await functions.getWarehouse(props.warehouseId);
     if (!warehouse) {
       throw new Error('Warehouse not found');
@@ -113,27 +115,22 @@ async function loadPreview() {
       throw new Error('Catalog URL not configured');
     }
 
-    // Initialize DuckDB with Iceberg catalog
-    const available = await icebergDB.initialize({
-      catalogUrl,
-      warehouseName: props.warehouseId,
+    // Initialize DuckDB (no parameters)
+    await icebergDB.initialize();
+
+    // Configure Iceberg catalog
+    await icebergDB.configureCatalog({
+      catalogName: props.warehouseId,
+      restUri: catalogUrl,
       accessToken: userStore.user.access_token,
     });
-
-    if (!available.available) {
-      throw new Error(available.error || 'DuckDB not available');
-    }
 
     // Execute preview query with LIMIT 1000
     const tableFQN = `${props.warehouseId}.${props.namespaceId}.${props.tableName}`;
     const query = `SELECT * FROM ${tableFQN} LIMIT 1000`;
-
+    
     console.log('Executing preview query:', query);
     const queryResults = await icebergDB.executeQuery(query);
-
-    if (queryResults.error) {
-      throw new Error(queryResults.error);
-    }
 
     results.value = queryResults;
   } catch (err: any) {
