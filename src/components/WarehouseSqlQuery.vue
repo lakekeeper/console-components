@@ -122,23 +122,19 @@
                   </v-alert>
 
                   <!-- SQL Editor -->
-                  <v-textarea
-                    ref="sqlTextarea"
-                    @click="updateCursorPosition"
-                    @keyup="updateCursorPosition"
-                    v-model="sqlQuery"
-                    label="SQL Query"
-                    :placeholder="
-                      selectedTable
-                        ? `SELECT * FROM ${warehouseName}.${selectedTable.namespaceId}.${selectedTable.name} LIMIT 10;`
-                        : 'SELECT * FROM catalog.namespace.table LIMIT 10;'
-                    "
-                    rows="8"
-                    variant="outlined"
-                    auto-grow
-                    clearable
-                    class="font-monospace"
-                    :disabled="isExecuting || !isSqlAvailable.available" />
+                  <SqlEditor
+                      ref="sqlTextarea"
+                      v-model="sqlQuery"
+                      @click="updateCursorPosition"
+                      @keyup="updateCursorPosition"
+                      :placeholder="
+                        selectedTable
+                          ? `SELECT * FROM ${warehouseName}.${selectedTable.namespaceId}.${selectedTable.name} LIMIT 10;`
+                          : 'SELECT * FROM catalog.namespace.table LIMIT 10;'
+                      "
+                      :disabled="isExecuting || !isSqlAvailable.available"
+                      min-height="200px"
+                    />
 
                   <!-- Action Buttons -->
                   <div class="d-flex gap-2 mb-4">
@@ -251,6 +247,7 @@ import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
 import type { QueryResult } from '../composables/useDuckDB';
 import { useUserStore } from '../stores/user';
 import WarehouseNavigationTree from './WarehouseNavigationTree.vue';
+import SqlEditor from './SqlEditor.vue';
 
 interface Props {
   warehouseId: string;
@@ -415,10 +412,9 @@ function toggleNavigation() {
   isNavigationCollapsed.value = !isNavigationCollapsed.value;
 }
 
-function updateCursorPosition(event: Event) {
-  const target = event.target as HTMLTextAreaElement;
-  if (target) {
-    cursorPosition.value = target.selectionStart || 0;
+function updateCursorPosition() {
+  if (sqlTextarea.value && typeof sqlTextarea.value.getCursorPosition === 'function') {
+    cursorPosition.value = sqlTextarea.value.getCursorPosition();
   }
 }
 
@@ -462,16 +458,13 @@ function handleTableSelected(item: {
       // Update cursor position to after the inserted text
       cursorPosition.value = cursorPosition.value + textToInsert.length;
 
-      // Focus and set cursor position in the textarea
-      setTimeout(() => {
-        if (sqlTextarea.value && sqlTextarea.value.$el) {
-          const textarea = sqlTextarea.value.$el.querySelector('textarea');
-          if (textarea) {
-            textarea.focus();
-            textarea.setSelectionRange(cursorPosition.value, cursorPosition.value);
+      // Focus and insert at cursor using SqlEditor's method
+        setTimeout(() => {
+          if (sqlTextarea.value && typeof sqlTextarea.value.insertAtCursor === 'function') {
+            // Text already inserted, just update cursor position
+            cursorPosition.value = cursorPosition.value + textToInsert.length;
           }
-        }
-      }, 0);
+        }, 0);
     }
   }
 }
