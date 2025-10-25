@@ -123,24 +123,24 @@
 
                   <!-- SQL Editor -->
                   <SqlEditor
-                      ref="sqlTextarea"
-                      v-model="sqlQuery"
-                      @click="updateCursorPosition"
-                      @keyup="updateCursorPosition"
-                      :placeholder="
-                        selectedTable
-                          ? `SELECT * FROM ${warehouseName}.${selectedTable.namespaceId}.${selectedTable.name} LIMIT 10;`
-                          : 'SELECT * FROM catalog.namespace.table LIMIT 10;'
-                      "
-                      :disabled="isExecuting || !isSqlAvailable.available"
-                      min-height="200px"
-                      clearable
-                    />
+                    ref="sqlTextarea"
+                    v-model="sqlQuery"
+                    @click="updateCursorPosition"
+                    @keyup="updateCursorPosition"
+                    :placeholder="
+                      selectedTable
+                        ? `SELECT * FROM ${warehouseName}.${selectedTable.namespaceId}.${selectedTable.name} LIMIT 10;`
+                        : 'SELECT * FROM catalog.namespace.table LIMIT 10;'
+                    "
+                    :disabled="isExecuting || !isSqlAvailable.available"
+                    min-height="200px"
+                    clearable />
 
                   <!-- Action Buttons -->
                   <div class="d-flex gap-2 mb-4">
                     <v-btn
                       color="primary"
+                      size="small"
                       :loading="isExecuting"
                       :disabled="!sqlQuery.trim() || isExecuting || !isSqlAvailable.available"
                       clearable
@@ -148,10 +148,24 @@
                       <v-icon start>mdi-play</v-icon>
                       Execute Query
                     </v-btn>
-                    <v-btn variant="outlined" :disabled="!queryResult" @click="clearResults">
+                    <v-btn
+                      variant="outlined"
+                      :disabled="!queryResult"
+                      size="small"
+                      @click="clearResults">
                       <v-icon start>mdi-close</v-icon>
-                      Clear
+                      Clear results
                     </v-btn>
+                    <v-btn
+                      color="secondary"
+                      variant="outlined"
+                      :disabled="!queryResult"
+                      size="small"
+                      @click="sqlTextarea.value.clearContent()">
+                      <v-icon start>mdi-close</v-icon>
+                      Clear SQL
+                    </v-btn>
+
                     <v-spacer />
                   </div>
 
@@ -460,12 +474,12 @@ function handleTableSelected(item: {
       cursorPosition.value = cursorPosition.value + textToInsert.length;
 
       // Focus and insert at cursor using SqlEditor's method
-        setTimeout(() => {
-          if (sqlTextarea.value && typeof sqlTextarea.value.insertAtCursor === 'function') {
-            // Text already inserted, just update cursor position
-            cursorPosition.value = cursorPosition.value + textToInsert.length;
-          }
-        }, 0);
+      setTimeout(() => {
+        if (sqlTextarea.value && typeof sqlTextarea.value.insertAtCursor === 'function') {
+          // Text already inserted, just update cursor position
+          cursorPosition.value = cursorPosition.value + textToInsert.length;
+        }
+      }, 0);
     }
   }
 }

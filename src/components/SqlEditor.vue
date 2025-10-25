@@ -1,16 +1,6 @@
 <template>
   <div class="sql-editor-wrapper" :class="{ disabled: disabled }">
     <div ref="editorContainer" class="sql-editor"></div>
-    <v-btn
-      v-if="clearable && modelValue"
-      icon
-      size="x-small"
-      variant="text"
-      class="clear-button"
-      @click="clearContent"
-      :disabled="disabled">
-      <v-icon size="small">mdi-close</v-icon>
-    </v-btn>
   </div>
 </template>
 
