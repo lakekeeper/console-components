@@ -251,13 +251,17 @@ const sqlPreview = computed(() => {
     .map((f) => {
       const nullable = f.nullable ? '' : ' NOT NULL';
       return `  ${f.name} ${f.type}${nullable}`;
-      return `  ${f.name} ${f.type}${nullable}`;
     })
     .join(',\n');
 
-  return `CREATE TABLE "${warehouseName.value}"."${props.namespaceId}"."${tableName.value}" (\n${fieldDefinitions}\n);`;
-});
+  // Split namespace into parts and quote each part separately for Iceberg multi-level namespaces
+  const namespaceParts = props.namespaceId.split(".").map(part => `"${part}"`).join(".");
+  const fullTablePath = `"${warehouseName.value}".${namespaceParts}."${tableName.value}"`;
 
+  return `CREATE TABLE ${fullTablePath} (
+${fieldDefinitions}
+);`;
+});
 // Methods
 function addField() {
   fields.value.push({
