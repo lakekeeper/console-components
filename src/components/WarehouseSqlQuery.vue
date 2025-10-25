@@ -140,6 +140,7 @@
                   <div class="d-flex gap-2 mb-4">
                     <v-btn
                       color="primary"
+                      class="mr-2"
                       size="small"
                       :loading="isExecuting"
                       :disabled="!sqlQuery.trim() || isExecuting || !isSqlAvailable.available"
@@ -149,21 +150,21 @@
                       Execute Query
                     </v-btn>
                     <v-btn
+                      color="secondary"
+                      variant="outlined"
+                      class="mr-2"
+                      size="small"
+                      @click="sqlTextarea.value.clearContent()">
+                      <v-icon start>mdi-close</v-icon>
+                      Clear SQL
+                    </v-btn>
+                    <v-btn
                       variant="outlined"
                       :disabled="!queryResult"
                       size="small"
                       @click="clearResults">
                       <v-icon start>mdi-close</v-icon>
                       Clear results
-                    </v-btn>
-                    <v-btn
-                      color="secondary"
-                      variant="outlined"
-                      :disabled="!queryResult"
-                      size="small"
-                      @click="sqlTextarea.value.clearContent()">
-                      <v-icon start>mdi-close</v-icon>
-                      Clear SQL
                     </v-btn>
 
                     <v-spacer />
