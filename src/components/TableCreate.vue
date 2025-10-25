@@ -254,13 +254,12 @@ const sqlPreview = computed(() => {
     })
     .join(',\n');
 
-  // Split namespace into parts and quote each part separately for Iceberg multi-level namespaces
-  const namespaceParts = props.namespaceId.split(".").map(part => `"${part}"`).join(".");
-  const fullTablePath = `"${warehouseName.value}".${namespaceParts}."${tableName.value}"`;
+  // For Iceberg, use simple dot-separated unquoted identifiers
+  // DuckDB Iceberg expects: catalog.namespace.table
+  const fullTablePath = `${warehouseName.value}.${props.namespaceId}.${tableName.value}`;
 
   console.log("TableCreate SQL generation:", {
     namespaceId: props.namespaceId,
-    namespaceParts,
     fullTablePath
   });
 
