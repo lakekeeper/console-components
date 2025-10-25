@@ -137,40 +137,36 @@
                     clearable />
 
                   <!-- Action Buttons -->
-                  <div class="d-flex gap-2 mb-4">
-                    <v-row>
-                      <v-col>
-                        <v-btn
-                          color="primary"
-                          class="mr-2"
-                          size="small"
-                          :loading="isExecuting"
-                          :disabled="!sqlQuery.trim() || isExecuting || !isSqlAvailable.available"
-                          clearable
-                          @click="executeQuery">
-                          <v-icon start>mdi-play</v-icon>
-                          Execute Query
-                        </v-btn>
-                        <v-btn
-                          color="secondary"
-                          variant="outlined"
-                          class="mr-2"
-                          size="small"
-                          @click="sqlTextarea.clearContent()">
-                          <v-icon start>mdi-close</v-icon>
-                          Clear SQL
-                        </v-btn>
-                        <v-spacer />
-                        <v-btn
-                          variant="outlined"
-                          :disabled="!queryResult"
-                          size="small"
-                          @click="clearResults">
-                          <v-icon start>mdi-close</v-icon>
-                          empty results
-                        </v-btn>
-                      </v-col>
-                    </v-row>
+                  <div class="d-flex gap-2 mb-4 align-center">
+                    <v-btn
+                      color="primary"
+                      class="mr-2"
+                      size="small"
+                      :loading="isExecuting"
+                      :disabled="!sqlQuery.trim() || isExecuting || !isSqlAvailable.available"
+                      clearable
+                      @click="executeQuery">
+                      <v-icon start>mdi-play</v-icon>
+                      Execute Query
+                    </v-btn>
+                    <v-btn
+                      color="secondary"
+                      variant="outlined"
+                      class="mr-2"
+                      size="small"
+                      @click="sqlTextarea.clearContent()">
+                      <v-icon start>mdi-close</v-icon>
+                      Clear SQL
+                    </v-btn>
+                    <v-spacer />
+                    <v-btn
+                      variant="outlined"
+                      :disabled="!queryResult"
+                      size="small"
+                      @click="clearResults">
+                      <v-icon start>mdi-close</v-icon>
+                      empty results
+                    </v-btn>
                   </div>
 
                   <!-- Error Display -->
