@@ -246,4 +246,4 @@ export type { QueryResult } from './composables/useDuckDB';
 
 // Export Iceberg DuckDB integration
 export { useIcebergDuckDB } from './composables/useIcebergDuckDB';
-export type { IcebergTableInfo } from './composables/useIcebergDuckDB';
+export type {} from './composables/useIcebergDuckDB';
