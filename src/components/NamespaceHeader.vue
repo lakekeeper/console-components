@@ -13,14 +13,6 @@
       <v-icon>mdi-folder-open</v-icon>
     </template>
     <v-spacer></v-spacer>
-    
-    <!-- Create Table Button -->
-    <CreateTable
-      :warehouse-id="warehouseId"
-      :namespace-id="namespacePath"
-      :catalog-url="catalogUrl"
-      class="mr-2" />
-    
     <v-btn
       prepend-icon="mdi-magnify"
       class="mr-2"
@@ -41,7 +33,6 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 import SearchTabular from './SearchTabular.vue';
-import CreateTable from './CreateTable.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -55,12 +46,6 @@ const namespace = ref<GetNamespaceResponse>({ namespace: [] });
 const namespaceName = computed(() => {
   const ns = namespace.value.namespace;
   return ns && ns.length > 0 ? ns[ns.length - 1] : '';
-});
-
-// Get catalog URL from environment variable
-const catalogUrl = computed(() => {
-  const baseUrl = import.meta.env.VITE_APP_ICEBERG_CATALOG_URL || 'http://localhost:8181';
-  return `${baseUrl}/catalog`;
 });
 
 onMounted(loadNamespaceMetadata);
