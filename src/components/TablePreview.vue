@@ -102,6 +102,13 @@ const queryResults = ref<any>(null);
 const warehouseName = ref<string | undefined>(undefined);
 
 // Compute headers from results
+
+  console.log("TablePreview storage check:", {
+    storageType: props.storageType,
+    storageTypeLower: props.storageType?.toLowerCase(),
+    isS3: props.storageType?.toLowerCase() === 's3',
+    isPreviewAvailable: isPreviewAvailable.value
+  });
 const tableHeaders = computed(() => {
   if (!queryResults.value?.columns) return [];
   return queryResults.value.columns.map((col: string) => ({

@@ -258,6 +258,13 @@ const canCreate = computed(() => {
 });
 
 // Check if we should show S3 + HTTP warning
+
+  console.log("TableCreate storage check:", {
+    storageType: props.storageType,
+    storageTypeLower: props.storageType?.toLowerCase(),
+    isS3: props.storageType?.toLowerCase() === 's3',
+    isCreateAvailable: isCreateAvailable.value
+  });
 const showS3HttpWarning = computed(() => {
   return (
     props.storageType?.toLowerCase() === 's3' &&
