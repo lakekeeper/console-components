@@ -53,9 +53,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
-import { useUserStore } from '../stores/user';
-import { useFunctions } from '../composables/useFunctions';
+import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
+import { useUserStore } from '@/stores/user';
+import { useFunctions } from '@/plugins/functions';
 
 interface Props {
   warehouseId: string;
