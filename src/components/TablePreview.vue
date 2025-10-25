@@ -108,7 +108,7 @@ async function loadPreview() {
       throw new Error('Warehouse not found');
     }
 
-    const catalogUrl = import.meta.env.VITE_ICEBERG_CATALOG_URL;
+    const catalogUrl = import.meta.env.VITE_APP_ICEBERG_CATALOG_URL;
     if (!catalogUrl) {
       throw new Error('Catalog URL not configured');
     }
