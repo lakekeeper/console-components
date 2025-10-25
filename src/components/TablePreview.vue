@@ -102,19 +102,28 @@ async function loadPreview() {
     const wh = await functions.getWarehouse(props.warehouseId);
     warehouseName.value = wh.name;
 
-    // Initialize DuckDB
-
-    // Configure Iceberg catalog
+    // Configure Iceberg catalog (this initializes DuckDB if needed)
     await icebergDB.configureCatalog({
       catalogName: warehouseName.value,
       restUri: catalogUrl.value,
       accessToken: userStore.user.access_token,
     });
 
-    // Execute preview query
-    const query = `SELECT * FROM ${warehouseName.value}.${props.namespaceId}.${props.tableName} LIMIT 1000`;
-    console.log('Executing preview query:', query);
+    // Execute preview query - include ATTACH in same connection
+    // This ensures the catalog is available for the SELECT query
+    const query = `
+      -- Attach catalog on this connection
+      ATTACH IF NOT EXISTS '${warehouseName.value}' AS ${warehouseName.value} (
+        TYPE iceberg,
+        SECRET iceberg_secret,
+        ENDPOINT '${catalogUrl.value}'
+      );
+      
+      -- Query the table
+      SELECT * FROM ${warehouseName.value}.${props.namespaceId}.${props.tableName} LIMIT 1000;
+    `;
     
+    console.log('Executing preview query:', query);
     const results = await icebergDB.executeQuery(query);
     queryResults.value = results;
 
