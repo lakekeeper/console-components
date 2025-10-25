@@ -134,6 +134,7 @@
                       "
                       :disabled="isExecuting || !isSqlAvailable.available"
                       min-height="200px"
+                      clearable
                     />
 
                   <!-- Action Buttons -->

@@ -1,26 +1,43 @@
 <template>
-  <div ref="editorContainer" class="sql-editor" :class="{ disabled: disabled }"></div>
+  <div class="sql-editor-wrapper" :class="{ disabled: disabled }">
+    <div ref="editorContainer" class="sql-editor"></div>
+    <v-btn
+      v-if="clearable && modelValue"
+      icon
+      size="x-small"
+      variant="text"
+      class="clear-button"
+      @click="clearContent"
+      :disabled="disabled">
+      <v-icon size="small">mdi-close</v-icon>
+    </v-btn>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue';
 import { EditorView, basicSetup } from 'codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { EditorState, Compartment } from '@codemirror/state';
 import { keymap } from '@codemirror/view';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
+import { tags } from '@lezer/highlight';
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { useTheme } from 'vuetify';
 
 interface Props {
   modelValue: string;
   placeholder?: string;
   disabled?: boolean;
   minHeight?: string;
+  clearable?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   placeholder: '',
   disabled: false,
   minHeight: '200px',
+  clearable: false,
 });
 
 const emit = defineEmits<{
@@ -32,6 +49,92 @@ const emit = defineEmits<{
 const editorContainer = ref<HTMLElement>();
 let editorView: EditorView | null = null;
 const readOnlyCompartment = new Compartment();
+const themeCompartment = new Compartment();
+
+// Detect Vuetify theme (dark/light mode)
+const theme = useTheme();
+const isDark = computed(() => theme.global.current.value.dark);
+
+// Custom SQL syntax highlighting for light mode
+const lightHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: '#0000FF' }, // Blue for SQL keywords
+  { tag: tags.string, color: '#067D17' }, // Green for strings
+  { tag: tags.number, color: '#098658' }, // Teal for numbers
+  { tag: tags.comment, color: '#6A9955', fontStyle: 'italic' }, // Green italic for comments
+  { tag: tags.operator, color: '#000000' }, // Black for operators
+  { tag: tags.variableName, color: '#001080' }, // Dark blue for identifiers
+  { tag: tags.typeName, color: '#267F99' }, // Cyan for types
+  { tag: tags.function(tags.variableName), color: '#795E26' }, // Brown for functions
+]);
+
+// Custom SQL syntax highlighting for dark mode
+const darkHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: '#569CD6' }, // Light blue for SQL keywords
+  { tag: tags.string, color: '#CE9178' }, // Orange/tan for strings
+  { tag: tags.number, color: '#B5CEA8' }, // Light green for numbers
+  { tag: tags.comment, color: '#6A9955', fontStyle: 'italic' }, // Green italic for comments
+  { tag: tags.operator, color: '#D4D4D4' }, // Light gray for operators
+  { tag: tags.variableName, color: '#9CDCFE' }, // Light cyan for identifiers
+  { tag: tags.typeName, color: '#4EC9B0' }, // Turquoise for types
+  { tag: tags.function(tags.variableName), color: '#DCDCAA' }, // Yellow for functions
+]);
+
+// Create theme extension based on dark/light mode
+const createThemeExtension = (dark: boolean) => {
+  return EditorView.theme(
+    {
+      '&': {
+        minHeight: props.minHeight,
+        fontSize: '14px',
+        border: dark ? '1px solid rgba(255, 255, 255, 0.23)' : '1px solid rgba(0, 0, 0, 0.23)',
+        borderRadius: '4px',
+        backgroundColor: dark ? '#1E1E1E' : '#FFFFFF',
+        color: dark ? '#D4D4D4' : '#000000',
+      },
+      '&.cm-focused': {
+        outline: dark ? '2px solid #90CAF9' : '2px solid #1976d2',
+        outlineOffset: '0px',
+        borderColor: dark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.5)',
+      },
+      '.cm-scroller': {
+        fontFamily: '"Courier New", Courier, monospace',
+        overflow: 'auto',
+      },
+      '.cm-content': {
+        padding: '8px',
+        caretColor: dark ? '#FFFFFF' : '#000000',
+      },
+      '.cm-placeholder': {
+        color: dark ? '#858585' : '#999',
+        fontStyle: 'italic',
+      },
+      '.cm-line': {
+        color: dark ? '#D4D4D4' : '#000000',
+      },
+      '.cm-cursor': {
+        borderLeftColor: dark ? '#FFFFFF' : '#000000',
+      },
+      '.cm-selectionBackground, ::selection': {
+        backgroundColor: dark ? 'rgba(144, 202, 249, 0.3)' : 'rgba(25, 118, 210, 0.2)',
+      },
+      '&.cm-focused .cm-selectionBackground, &.cm-focused ::selection': {
+        backgroundColor: dark ? 'rgba(144, 202, 249, 0.3)' : 'rgba(25, 118, 210, 0.2)',
+      },
+      '.cm-activeLine': {
+        backgroundColor: dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+      },
+      '.cm-gutters': {
+        backgroundColor: dark ? '#1E1E1E' : '#F3F3F3',
+        color: dark ? '#858585' : '#999',
+        border: 'none',
+      },
+      '.cm-activeLineGutter': {
+        backgroundColor: dark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.03)',
+      },
+    },
+    { dark },
+  );
+};
 
 onMounted(async () => {
   await nextTick();
@@ -139,18 +242,46 @@ const insertAtCursor = (text: string) => {
   editorView.focus();
 };
 
+// Clear the editor content
+const clearContent = () => {
+  if (!editorView) return;
+  editorView.dispatch({
+    changes: { from: 0, to: editorView.state.doc.length, insert: '' },
+  });
+  emit('update:modelValue', '');
+  editorView.focus();
+};
+
 defineExpose({
   getCursorPosition,
   insertAtCursor,
+  clearContent,
 });
 </script>
 
 <style scoped>
+.sql-editor-wrapper {
+  position: relative;
+  width: 100%;
+}
+
 .sql-editor {
   width: 100%;
 }
 
-.sql-editor.disabled {
+.clear-button {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.clear-button:hover {
+  background-color: rgba(255, 255, 255, 1) !important;
+}
+
+.sql-editor-wrapper.disabled {
   opacity: 0.6;
   pointer-events: none;
 }
