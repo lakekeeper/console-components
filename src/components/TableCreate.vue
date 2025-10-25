@@ -42,6 +42,27 @@
             You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for security.
           </div>
         </v-alert>
+
+        <!-- Table Creation Not Available Warning -->
+        <v-alert
+          v-if="!isCreateAvailable.available"
+          type="warning"
+          variant="tonal"
+          prominent
+          class="mb-4">
+          <div class="text-body-1 font-weight-bold mb-2">
+            <v-icon class="mr-2">mdi-alert</v-icon>
+            Table Creation Not Available
+          </div>
+          <div class="text-body-2">{{ isCreateAvailable.reason }}</div>
+          <div class="text-body-2 mt-3">
+            <strong>Requirements for DuckDB WASM:</strong>
+            <ul class="mt-2">
+              <li>Warehouse must use S3-compatible storage</li>
+              <li>Catalog must use HTTPS protocol</li>
+            </ul>
+          </div>
+        </v-alert>
         <!-- Namespace Info -->
         <v-alert type="info" variant="tonal" class="mb-4">
           <div class="text-body-2">
@@ -229,6 +250,7 @@ const rules = {
 // Computed properties
 const canCreate = computed(() => {
   return (
+    isCreateAvailable.value.available &&
     tableName.value.trim() !== '' &&
     fields.value.length > 0 &&
     fields.value.every((f) => f.name.trim() !== '' && f.type.trim() !== '')
@@ -242,6 +264,19 @@ const showS3HttpWarning = computed(() => {
     props.catalogUrl &&
     props.catalogUrl.startsWith('http://')
   );
+});
+
+// Check if table creation is available based on storage type
+const isCreateAvailable = computed(() => {
+  // Check if storage type is supported (currently only S3)
+  if (props.storageType && props.storageType.toLowerCase() !== 's3') {
+    return {
+      available: false,
+      reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`
+    };
+  }
+
+  return { available: true, reason: null };
 });
 
 const sqlPreview = computed(() => {
