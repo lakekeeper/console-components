@@ -1,63 +1,52 @@
 <template>
-  <v-card class="pa-4">
-    <!-- Loading State -->
-    <div v-if="loading" class="d-flex justify-center align-center pa-8">
-      <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-      <span class="ml-4 text-h6">Loading table preview...</span>
-    </div>
+  <v-container fluid>
+    <v-card>
+      <v-card-text>
+        <!-- Loading/Initializing State -->
+        <v-alert v-if="isLoading" type="info" variant="tonal" class="mb-4">
+          <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
+          Loading table preview...
+        </v-alert>
 
-    <!-- Error State -->
-    <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
-      <div class="text-h6">Failed to load preview</div>
-      <div>{{ error }}</div>
-    </v-alert>
+        <!-- Error State -->
+        <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
+          <div class="text-body-1 font-weight-bold mb-2">Failed to load preview</div>
+          <div class="text-body-2">{{ error }}</div>
+        </v-alert>
 
-    <!-- Results Display -->
-    <div v-else-if="results">
-      <div class="d-flex justify-space-between align-center mb-4">
-        <div class="text-h6">
-          Preview: {{ warehouseId }}.{{ namespaceId }}.{{ tableName }}
-        </div>
-        <v-chip color="primary" variant="flat">
-          {{ results.rows.length }} rows (limited to 1000)
-        </v-chip>
-      </div>
-
-      <!-- Results Table -->
-      <v-data-table
-        :headers="tableHeaders"
-        :items="tableRows"
-        :items-per-page="50"
-        :items-per-page-options="[25, 50, 100, 200]"
-        density="compact"
-        class="elevation-1"
-        fixed-header
-        height="600px">
-        <template #bottom>
-          <div class="text-center pa-2">
-            <v-pagination
-              v-if="results.rows.length > 50"
-              v-model="page"
-              :length="Math.ceil(results.rows.length / itemsPerPage)"
-              :total-visible="7"></v-pagination>
+        <!-- Results -->
+        <div v-else-if="queryResults">
+          <div class="d-flex justify-space-between align-center mb-4">
+            <div class="text-h6">
+              Preview: {{ warehouseId }}.{{ namespaceId }}.{{ tableName }}
+            </div>
+            <v-chip color="primary" variant="flat">
+              {{ queryResults.rows.length }} rows
+            </v-chip>
           </div>
-        </template>
-      </v-data-table>
-    </div>
 
-    <!-- Empty State -->
-    <v-alert v-else type="info" variant="tonal">
-      <div class="text-h6">No data available</div>
-      <div>The table appears to be empty</div>
-    </v-alert>
-  </v-card>
+          <!-- Results Table -->
+          <v-data-table
+            :headers="tableHeaders"
+            :items="tableRows"
+            :items-per-page="50"
+            :items-per-page-options="[25, 50, 100, 200]"
+            density="compact"
+            class="elevation-1"
+            fixed-header
+            height="600px">
+          </v-data-table>
+        </div>
+      </v-card-text>
+    </v-card>
+  </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
-import { useUserStore } from '@/stores/user';
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { useUserStore } from '@/stores/user';
+import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
 
 interface Props {
   warehouseId: string;
@@ -67,20 +56,25 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const loading = ref(true);
-const error = ref<string | null>(null);
-const results = ref<any>(null);
-const page = ref(1);
-const itemsPerPage = ref(50);
-
-const userStore = useUserStore();
 const functions = useFunctions();
+const userStore = useUserStore();
 const icebergDB = useIcebergDuckDB();
+
+const isLoading = ref(true);
+const error = ref<string | null>(null);
+const queryResults = ref<any>(null);
+const warehouseName = ref<string | undefined>(undefined);
+
+// Get catalog URL from environment variable (same as warehouse page)
+const catalogUrl = computed(() => {
+  const baseUrl = import.meta.env.VITE_APP_ICEBERG_CATALOG_URL || 'http://localhost:8181';
+  return `${baseUrl}/catalog`;
+});
 
 // Compute headers from results
 const tableHeaders = computed(() => {
-  if (!results.value?.columns) return [];
-  return results.value.columns.map((col: string) => ({
+  if (!queryResults.value?.columns) return [];
+  return queryResults.value.columns.map((col: string) => ({
     title: col,
     key: col,
     sortable: true,
@@ -89,10 +83,10 @@ const tableHeaders = computed(() => {
 
 // Compute rows from results
 const tableRows = computed(() => {
-  if (!results.value?.rows) return [];
-  return results.value.rows.map((row: any[]) => {
+  if (!queryResults.value?.rows) return [];
+  return queryResults.value.rows.map((row: any[]) => {
     const obj: Record<string, any> = {};
-    results.value.columns.forEach((col: string, index: number) => {
+    queryResults.value.columns.forEach((col: string, index: number) => {
       obj[col] = row[index];
     });
     return obj;
@@ -100,49 +94,45 @@ const tableRows = computed(() => {
 });
 
 async function loadPreview() {
-  loading.value = true;
+  isLoading.value = true;
   error.value = null;
 
   try {
-    // Get warehouse details
-    const warehouse = await functions.getWarehouse(props.warehouseId);
-    if (!warehouse) {
-      throw new Error('Warehouse not found');
-    }
+    // Load warehouse
+    const wh = await functions.getWarehouse(props.warehouseId);
+    warehouseName.value = wh.name;
 
-    const catalogUrl = import.meta.env.VITE_APP_ICEBERG_CATALOG_URL;
-    if (!catalogUrl) {
-      throw new Error('Catalog URL not configured');
-    }
-
-    // Initialize DuckDB (no parameters)
+    // Initialize DuckDB
     await icebergDB.initialize();
 
     // Configure Iceberg catalog
     await icebergDB.configureCatalog({
       catalogName: props.warehouseId,
-      restUri: catalogUrl,
+      restUri: catalogUrl.value,
       accessToken: userStore.user.access_token,
     });
 
-    // Execute preview query with LIMIT 1000
-    const tableFQN = `${props.warehouseId}.${props.namespaceId}.${props.tableName}`;
-    const query = `SELECT * FROM ${tableFQN} LIMIT 1000`;
-    
+    // Execute preview query
+    const query = `SELECT * FROM ${props.warehouseId}.${props.namespaceId}.${props.tableName} LIMIT 1000`;
     console.log('Executing preview query:', query);
-    const queryResults = await icebergDB.executeQuery(query);
+    
+    const results = await icebergDB.executeQuery(query);
+    queryResults.value = results;
 
-    results.value = queryResults;
   } catch (err: any) {
     console.error('Failed to load table preview:', err);
     error.value = err.message || 'Unknown error occurred';
   } finally {
-    loading.value = false;
+    isLoading.value = false;
   }
 }
 
 onMounted(() => {
   loadPreview();
+});
+
+onBeforeUnmount(async () => {
+  await icebergDB.cleanup();
 });
 </script>
 
