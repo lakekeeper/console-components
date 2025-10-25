@@ -24,6 +24,14 @@ export function useIcebergDuckDB() {
         await duckDB.initialize();
       }
 
+      // Log the exact configuration being used
+      console.log('🔍 [DuckDB Iceberg] Configuration received:', {
+        catalogName: config.catalogName,
+        restUri: config.restUri,
+        restUriLength: config.restUri.length,
+        restUriChars: Array.from(config.restUri).map((c, i) => `${i}: '${c}' (${c.charCodeAt(0)})`),
+      });
+
       // Execute all setup commands in correct order
       const setupQuery = `
         SET builtin_httpfs = false;
@@ -42,11 +50,23 @@ export function useIcebergDuckDB() {
         );
       `;
 
+      console.log('📝 [DuckDB Iceberg] SQL Query to execute:');
+      console.log(setupQuery);
+
       await duckDB.executeQuery(setupQuery);
 
+      console.log('✅ [DuckDB Iceberg] Catalog configured successfully');
       catalogConfigured.value = true;
     } catch (e) {
-      console.error('Failed to configure Iceberg catalog:', e);
+      console.error('❌ [DuckDB Iceberg] Failed to configure catalog:', e);
+      console.error('❌ [DuckDB Iceberg] Error details:', {
+        message: e instanceof Error ? e.message : String(e),
+        stack: e instanceof Error ? e.stack : undefined,
+        config: {
+          catalogName: config.catalogName,
+          restUri: config.restUri,
+        },
+      });
       throw e;
     }
   }
