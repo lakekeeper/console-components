@@ -12,21 +12,21 @@
 
         <!-- Preview Not Available Warning -->
         <v-alert
-          v-if="storageValidation.shouldShowUnsupportedWarning"
+          v-if="props.storageType && props.storageType.toLowerCase() !== 's3' && props.storageType.toLowerCase() !== 'gcs'"
           type="warning"
           variant="tonal"
           prominent
           class="mb-4">
           <div class="text-body-1 font-weight-bold mb-2">
             <v-icon class="mr-2">mdi-alert</v-icon>
-            DEBUG: Unsupported Storage Alert (Should not show for S3/GCS)
+            Preview Not Available
           </div>
-          <div class="text-body-2">{{ storageValidation.unsupportedStorageReason }}</div>
+          <div class="text-body-2">DuckDB WASM currently only supports S3 and GCS storage. Your warehouse uses {{ props.storageType }}.</div>
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
-              <li>{{ storageValidation.storageRequirement }}</li>
-              <li>{{ storageValidation.protocolRequirement }}</li>
+              <li>Warehouse must use S3 or GCS storage</li>
+              <li>Catalog must use HTTPS protocol</li>
             </ul>
           </div>
         </v-alert>
