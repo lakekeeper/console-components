@@ -56,8 +56,7 @@
           <v-data-table
             :headers="tableHeaders"
             :items="tableRows"
-            :items-per-page="50"
-            :items-per-page-options="[1000]"
+            :items-per-page="1000"
             density="compact"
             class="elevation-1"
             fixed-header
