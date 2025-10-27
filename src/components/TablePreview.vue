@@ -86,6 +86,7 @@ const props = defineProps<Props>();
 const functions = useFunctions();
 const userStore = useUserStore();
 const icebergDB = useIcebergDuckDB();
+console.log('🔍 TablePreview props:', { storageType: props.storageType, catalogUrl: props.catalogUrl });
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl),
