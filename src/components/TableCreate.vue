@@ -29,12 +29,11 @@
           class="mb-4"
           autofocus></v-text-field>
 
-        <!-- S3 + HTTP Warning -->
+        <!-- S3/GCS + HTTP Warning -->
         <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
           <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
           <div class="text-body-2">
-            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for
-            security.
+            {{ storageValidation.httpWarningMessage }}
           </div>
         </v-alert>
 
@@ -53,8 +52,8 @@
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
-              <li>Warehouse must use S3-compatible storage</li>
-              <li>Catalog must use HTTPS protocol</li>
+              <li>{{ storageValidation.requirementsText.value.storageRequirement }}</li>
+              <li>{{ storageValidation.requirementsText.value.protocolRequirement }}</li>
             </ul>
           </div>
         </v-alert>
@@ -179,10 +178,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, toRef } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
+import { useStorageValidation } from '@/composables/useStorageValidation';
 
 interface Props {
   warehouseId: string;
@@ -205,6 +205,10 @@ const emit = defineEmits<{
 const functions = useFunctions();
 const userStore = useUserStore();
 const icebergDB = useIcebergDuckDB();
+const storageValidation = useStorageValidation(
+  toRef(() => props.storageType),
+  toRef(() => props.catalogUrl),
+);
 
 // Iceberg primitive types
 const icebergDataTypes = [
@@ -252,41 +256,19 @@ const canCreate = computed(() => {
   );
 });
 
-// Check if we should show S3 + HTTP warning
-const showS3HttpWarning = computed(() => {
-  return (
-    props.storageType?.toLowerCase() === 's3' &&
-    props.catalogUrl &&
-    props.catalogUrl.startsWith('http://')
-  );
-});
+const isCreateAvailable = computed(() => ({
+  available: storageValidation.isOperationAvailable.value.available,
+  reason: storageValidation.isOperationAvailable.value.reason,
+}));
 
-// Check if table creation is available based on storage type
-const isCreateAvailable = computed(() => {
-  // Storage type must be defined
-  if (!props.storageType) {
-    return {
-      available: false,
-      reason: 'Storage type information is not available. Please wait for warehouse data to load.',
-    };
-  }
-
-  // Check if storage type is supported (currently only S3)
-  if (props.storageType.toLowerCase() !== 's3') {
-    return {
-      available: false,
-      reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`,
-    };
-  }
-
-  return { available: true, reason: null };
-});
+// Check if we should show S3/GCS + HTTP warning
+const showS3HttpWarning = storageValidation.shouldShowHttpWarning;
 
 // Debug logging
 console.log('TableCreate storage check:', {
   storageType: props.storageType,
   storageTypeLower: props.storageType?.toLowerCase(),
-  isS3: props.storageType?.toLowerCase() === 's3',
+  supportedTypes: storageValidation.supportedStorageTypes,
   isCreateAvailable: isCreateAvailable.value,
 });
 

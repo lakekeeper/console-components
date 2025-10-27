@@ -6,8 +6,7 @@
         <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
           <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
           <div class="text-body-2">
-            You are using cloud storage (S3/GCS) with an HTTP catalog URL. HTTPS is strongly
-            recommended for security.
+            {{ storageValidation.httpWarningMessage }}
           </div>
         </v-alert>
 
@@ -26,8 +25,8 @@
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
-              <li>Warehouse must use S3 or GCS storage</li>
-              <li>Catalog must use HTTPS protocol</li>
+              <li>{{ storageValidation.requirementsText.value.storageRequirement }}</li>
+              <li>{{ storageValidation.requirementsText.value.protocolRequirement }}</li>
             </ul>
           </div>
         </v-alert>
@@ -68,10 +67,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, toRef } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
+import { useStorageValidation } from '@/composables/useStorageValidation';
 
 interface Props {
   warehouseId: string;
@@ -86,6 +86,10 @@ const props = defineProps<Props>();
 const functions = useFunctions();
 const userStore = useUserStore();
 const icebergDB = useIcebergDuckDB();
+const storageValidation = useStorageValidation(
+  toRef(() => props.storageType),
+  toRef(() => props.catalogUrl),
+);
 
 const isLoading = ref(true);
 const error = ref<string | null>(null);
@@ -115,38 +119,22 @@ const tableRows = computed(() => {
 });
 
 // Check if preview is available based on storage type and protocol
-const isPreviewAvailable = computed(() => {
-  // Check if storage type is supported (currently S3 and GCS)
-  if (
-    props.storageType &&
-    props.storageType.toLowerCase() !== 's3' &&
-    props.storageType.toLowerCase() !== 'gcs'
-  ) {
-    console.warn('Unsupported storage type:', props.storageType);
-    return {
-      available: false,
-      reason: `DuckDB WASM currently only supports S3 and GCS storage. Your warehouse uses ${props.storageType}.`,
-    };
-  }
-
-  return { available: true, reason: null };
-});
+const isPreviewAvailable = computed(() => ({
+  available: storageValidation.isOperationAvailable.value,
+  reason: storageValidation.isOperationAvailable.value
+    ? null
+    : storageValidation.requirementsText.value,
+}));
 
 // Check if we should show S3/GCS + HTTP warning
-const showS3HttpWarning = computed(() => {
-  return (
-    (props.storageType?.toLowerCase() === 's3' || props.storageType?.toLowerCase() === 'gcs') &&
-    props.catalogUrl &&
-    props.catalogUrl.startsWith('http://')
-  );
-});
+const showS3HttpWarning = storageValidation.shouldShowHttpWarning;
 
 async function loadPreview() {
   isLoading.value = true;
   error.value = null;
 
   // Check if preview is available before attempting to load
-  if (!isPreviewAvailable.value.available) {
+  if (!storageValidation.isOperationAvailable.value) {
     isLoading.value = false;
     return;
   }

@@ -74,6 +74,19 @@
                 </v-card-title>
 
                 <v-card-text>
+                  <!-- S3/GCS + HTTP Warning -->
+                  <v-alert
+                    v-if="storageValidation.shouldShowHttpWarning"
+                    type="warning"
+                    variant="tonal"
+                    class="mb-4"
+                    closable>
+                    <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
+                    <div class="text-body-2">
+                      {{ storageValidation.httpWarningMessage }}
+                    </div>
+                  </v-alert>
+
                   <!-- Loading/Initializing State -->
                   <v-alert
                     v-if="isInitializingState"
@@ -107,8 +120,8 @@
                     <div class="text-body-2 mt-3">
                       <strong>Requirements for DuckDB WASM:</strong>
                       <ul class="mt-2">
-                        <li>Warehouse must use S3-compatible storage</li>
-                        <li>Catalog must use HTTPS protocol</li>
+                        <li>{{ storageValidation.requirementsText.value.storageRequirement }}</li>
+                        <li>{{ storageValidation.requirementsText.value.protocolRequirement }}</li>
                       </ul>
                     </div>
                   </v-alert>
@@ -257,10 +270,11 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch, toRef } from 'vue';
 import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
 import type { QueryResult } from '../composables/useDuckDB';
 import { useUserStore } from '../stores/user';
+import { useStorageValidation } from '@/composables/useStorageValidation';
 import WarehouseNavigationTree from './WarehouseNavigationTree.vue';
 import SqlEditor from './SqlEditor.vue';
 
@@ -275,6 +289,10 @@ interface Props {
 const props = defineProps<Props>();
 
 const icebergDB = useIcebergDuckDB();
+const storageValidation = useStorageValidation(
+  toRef(() => props.storageType),
+  toRef(() => props.catalogUrl || ''),
+);
 const sqlQuery = ref('');
 const queryResult = ref<QueryResult | null>(null);
 const isExecuting = ref(false);
@@ -329,42 +347,19 @@ const isSqlAvailable = computed(() => {
     return { available: false, reason: 'No catalog URL provided' };
   }
 
-  // Check if catalog URL starts with http:// (not https://)
-  if (props.catalogUrl.startsWith('http://')) {
-    // Allow HTTP only for localhost
-    // const isLocalUrl =
-    //   props.catalogUrl.includes('://localhost') ||
-    //   props.catalogUrl.includes('://127.0.0.1') ||
-    //   props.catalogUrl.includes('://0.0.0.0');
-
-    // if (!isLocalUrl) {
-    //   console.warn('HTTP protocol not allowed for remote catalog:', props.catalogUrl);
-    //   return {
-    //     available: false,
-    //     reason: 'DuckDB WASM requires HTTPS for remote catalogs. HTTP is only supported for localhost development.',
-    //   };
-    // }
-    return {
-      available: true,
-      reason:
-        'DuckDB WASM requires HTTPS for remote catalogs. HTTP is only supported for localhost development.',
-    };
-  }
-
-  let url;
+  // Check URL format
   try {
-    url = new URL(props.catalogUrl);
+    new URL(props.catalogUrl);
   } catch (e) {
-    console.error('Invalid catalog URL:', url, props.catalogUrl, e);
+    console.error('Invalid catalog URL:', props.catalogUrl, e);
     return { available: false, reason: 'Invalid catalog URL format' };
   }
 
-  // Check if storage type is supported (currently only S3)
-  if (props.storageType && props.storageType.toLowerCase() !== 's3') {
-    console.warn('Unsupported storage type:', props.storageType);
+  // Use composable for storage validation
+  if (!storageValidation.isOperationAvailable.value.available) {
     return {
       available: false,
-      reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`,
+      reason: storageValidation.isOperationAvailable.value.reason,
     };
   }
 
