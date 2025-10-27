@@ -87,10 +87,13 @@ export function useStorageValidation(
    * Check if we should show unsupported storage warning (only when storage type is known and unsupported)
    */
   const shouldShowUnsupportedWarning = computed(() => {
-    if (!storageType.value) return false; // Don't show warning while loading
-
-    const lowerStorageType = storageType.value.toLowerCase();
-    return !supportedStorageTypes.includes(lowerStorageType);
+    const result = !storageType.value ? false : !supportedStorageTypes.includes(storageType.value.toLowerCase());
+    console.log('shouldShowUnsupportedWarning:', {
+      storageType: storageType.value,
+      supportedTypes: supportedStorageTypes,
+      result
+    });
+    return result;
   });
 
   /**
