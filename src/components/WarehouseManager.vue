@@ -92,6 +92,10 @@ import { VIcon, VImg } from 'vuetify/components';
 import WarehouseAddDialog from './WarehouseAddDialog.vue';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 
+// Import SVG assets
+import s3Icon from '@/assets/s3.svg';
+import cfIcon from '@/assets/cf.svg';
+
 const router = useRouter();
 const functions = useFunctions();
 const visual = useVisualStore();
@@ -157,7 +161,7 @@ function getStorageIcon(item: GetWarehouseResponseExtended) {
     if (profile.endpoint?.includes('cloudflarestorage')) {
       return h(VImg, {
         class: 'mb-2 mr-2',
-        src: '/src/assets/cf.svg',
+        src: cfIcon,
         width: 24,
       });
     }
@@ -165,7 +169,7 @@ function getStorageIcon(item: GetWarehouseResponseExtended) {
     // Generic S3
     return h(VImg, {
       class: 'mb-2 mr-2',
-      src: '/src/assets/s3.svg',
+      src: s3Icon,
       width: 24,
     });
   }
