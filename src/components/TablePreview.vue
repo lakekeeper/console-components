@@ -1,70 +1,64 @@
 <template>
   <v-container fluid>
-    <v-card>
-      <v-card-text>
-        <!-- S3/GCS + HTTP Warning -->
-        <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
-          <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
-          <div class="text-body-2">
-            {{ storageValidation.httpWarningMessage }}
-          </div>
-        </v-alert>
+    <!-- S3/GCS + HTTP Warning -->
+    <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
+      <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
+      <div class="text-body-2">
+        {{ storageValidation.httpWarningMessage }}
+      </div>
+    </v-alert>
 
-        <!-- Preview Not Available Warning -->
-        <v-alert
-          v-if="!isPreviewAvailable.available"
-          type="warning"
-          variant="tonal"
-          prominent
-          class="mb-4">
-          <div class="text-body-1 font-weight-bold mb-2">
-            <v-icon class="mr-2">mdi-alert</v-icon>
-            Preview Not Available
-          </div>
-          <div class="text-body-2">{{ isPreviewAvailable.reason }}</div>
-          <div class="text-body-2 mt-3">
-            <strong>Requirements for DuckDB WASM:</strong>
-            <ul class="mt-2">
-              <li>{{ storageValidation.storageRequirement }}</li>
-              <li>{{ storageValidation.protocolRequirement }}</li>
-            </ul>
-          </div>
-        </v-alert>
+    <!-- Preview Not Available Warning -->
+    <v-alert
+      v-if="!isPreviewAvailable.available"
+      type="warning"
+      variant="tonal"
+      prominent
+      class="mb-4">
+      <div class="text-body-1 font-weight-bold mb-2">
+        <v-icon class="mr-2">mdi-alert</v-icon>
+        Preview Not Available
+      </div>
+      <div class="text-body-2">{{ isPreviewAvailable.reason }}</div>
+      <div class="text-body-2 mt-3">
+        <strong>Requirements for DuckDB WASM:</strong>
+        <ul class="mt-2">
+          <li>{{ storageValidation.storageRequirement }}</li>
+          <li>{{ storageValidation.protocolRequirement }}</li>
+        </ul>
+      </div>
+    </v-alert>
 
-        <!-- Loading/Initializing State -->
-        <v-alert v-if="isLoading" type="info" variant="tonal" class="mb-4">
-          <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
-          Loading table preview...
-        </v-alert>
+    <!-- Loading/Initializing State -->
+    <v-alert v-if="isLoading" type="info" variant="tonal" class="mb-4">
+      <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
+      Loading table preview...
+    </v-alert>
 
-        <!-- Error State -->
-        <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
-          <div class="text-body-1 font-weight-bold mb-2">Failed to load preview</div>
-          <div class="text-body-2">{{ error }}</div>
-        </v-alert>
+    <!-- Error State -->
+    <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
+      <div class="text-body-1 font-weight-bold mb-2">Failed to load preview</div>
+      <div class="text-body-2">{{ error }}</div>
+    </v-alert>
 
-        <!-- Results -->
-        <div v-else-if="queryResults">
-          <div class="d-flex justify-space-between align-center mb-4">
-            <div class="text-h6">
-              Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}
-            </div>
-            <v-chip color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
-          </div>
+    <!-- Results -->
+    <div v-else-if="queryResults">
+      <div class="d-flex justify-space-between align-center mb-4">
+        <div class="text-h6">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
+        <v-chip color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
+      </div>
 
-          <!-- Results Table -->
-          <v-data-table
-            :headers="tableHeaders"
-            :items="tableRows"
-            :items-per-page="1000"
-            :items-per-page-options="[1000]"
-            density="compact"
-            class="elevation-1"
-            fixed-header
-            height="600px"></v-data-table>
-        </div>
-      </v-card-text>
-    </v-card>
+      <!-- Results Table -->
+      <v-data-table
+        :headers="tableHeaders"
+        :items="tableRows"
+        :items-per-page="1000"
+        :items-per-page-options="[1000]"
+        density="compact"
+        class="elevation-1"
+        fixed-header
+        height="600px"></v-data-table>
+    </div>
   </v-container>
 </template>
 
