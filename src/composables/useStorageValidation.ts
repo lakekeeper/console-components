@@ -16,9 +16,8 @@ export function useStorageValidation(
   const isStorageSupported = computed(() => {
     if (!storageType.value) {
       return {
-        supported: false,
-        reason:
-          'Storage type information is not available. Please wait for warehouse data to load.',
+        supported: true, // Allow operation while storage type is loading
+        reason: null,
       };
     }
 
@@ -66,6 +65,16 @@ export function useStorageValidation(
   });
 
   /**
+   * Check if we should show unsupported storage warning (only when storage type is known and unsupported)
+   */
+  const shouldShowUnsupportedWarning = computed(() => {
+    if (!storageType.value) return false; // Don't show warning while loading
+    
+    const lowerStorageType = storageType.value.toLowerCase();
+    return !supportedStorageTypes.includes(lowerStorageType);
+  });
+
+  /**
    * Check if an operation is available (combines storage and other checks)
    */
   const isOperationAvailable = computed(() => {
@@ -78,6 +87,7 @@ export function useStorageValidation(
   return {
     isStorageSupported,
     shouldShowHttpWarning,
+    shouldShowUnsupportedWarning,
     httpWarningMessage,
     requirementsText,
     isOperationAvailable,

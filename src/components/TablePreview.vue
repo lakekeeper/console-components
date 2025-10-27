@@ -12,7 +12,7 @@
 
         <!-- Preview Not Available Warning -->
         <v-alert
-          v-if="!isPreviewAvailable.available"
+          v-if="storageValidation.shouldShowUnsupportedWarning"
           type="warning"
           variant="tonal"
           prominent
@@ -21,7 +21,7 @@
             <v-icon class="mr-2">mdi-alert</v-icon>
             Preview Not Available
           </div>
-          <div class="text-body-2">{{ isPreviewAvailable.reason }}</div>
+          <div class="text-body-2">{{ storageValidation.isStorageSupported.value.reason }}</div>
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
