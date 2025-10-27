@@ -57,7 +57,7 @@
             :headers="tableHeaders"
             :items="tableRows"
             :items-per-page="50"
-            :items-per-page-options="[25, 50, 100, 200]"
+            :items-per-page-options="[1000]"
             density="compact"
             class="elevation-1"
             fixed-header
