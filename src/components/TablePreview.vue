@@ -134,7 +134,7 @@ async function loadPreview() {
   error.value = null;
 
   // Check if preview is available before attempting to load
-  if (!storageValidation.isOperationAvailable.value) {
+  if (!storageValidation.isOperationAvailable.value.available) {
     isLoading.value = false;
     return;
   }
