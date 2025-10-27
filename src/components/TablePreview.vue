@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, toRef } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, toRef, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
@@ -142,8 +142,15 @@ async function loadPreview() {
   isLoading.value = true;
   error.value = null;
 
-  // Check if preview is available before attempting to load
-  if (!storageValidation.isOperationAvailable.value.available) {
+  // Wait for storage type to be available, then check if it's supported
+  if (!props.storageType) {
+    // Storage type not loaded yet, wait
+    isLoading.value = false;
+    return;
+  }
+
+  // Only allow S3 and GCS storage types
+  if (props.storageType.toLowerCase() !== 's3' && props.storageType.toLowerCase() !== 'gcs') {
     isLoading.value = false;
     return;
   }
@@ -190,6 +197,19 @@ async function loadPreview() {
 onMounted(() => {
   loadPreview();
 });
+
+// Watch for storage type changes and reload preview when it becomes available and supported
+watch(
+  () => props.storageType,
+  (newStorageType) => {
+    if (
+      newStorageType &&
+      (newStorageType.toLowerCase() === 's3' || newStorageType.toLowerCase() === 'gcs')
+    ) {
+      loadPreview();
+    }
+  },
+);
 
 onBeforeUnmount(async () => {
   await icebergDB.cleanup();
