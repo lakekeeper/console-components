@@ -45,6 +45,8 @@ export function useIcebergDuckDB() {
         );
         ATTACH '${config.catalogName}' AS ${config.catalogName} (
           TYPE iceberg,
+          SUPPORT_NESTED_NAMESPACES true,
+          SUPPORT_STAGE_CREATE true,
           SECRET iceberg_secret,
           ENDPOINT '${config.restUri}'
         );
