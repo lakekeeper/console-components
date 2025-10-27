@@ -120,10 +120,8 @@ const tableRows = computed(() => {
 
 // Check if preview is available based on storage type and protocol
 const isPreviewAvailable = computed(() => ({
-  available: storageValidation.isOperationAvailable.value,
-  reason: storageValidation.isOperationAvailable.value
-    ? null
-    : storageValidation.requirementsText.value,
+  available: storageValidation.isOperationAvailable.value.available,
+  reason: storageValidation.isOperationAvailable.value.reason,
 }));
 
 // Check if we should show S3/GCS + HTTP warning
