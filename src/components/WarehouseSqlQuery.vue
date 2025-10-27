@@ -74,19 +74,6 @@
                 </v-card-title>
 
                 <v-card-text>
-                  <!-- S3/GCS + HTTP Warning -->
-                  <v-alert
-                    v-if="storageValidation.shouldShowHttpWarning"
-                    type="warning"
-                    variant="tonal"
-                    class="mb-4"
-                    closable>
-                    <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
-                    <div class="text-body-2">
-                      {{ storageValidation.httpWarningMessage }}
-                    </div>
-                  </v-alert>
-
                   <!-- Loading/Initializing State -->
                   <v-alert
                     v-if="isInitializingState"
