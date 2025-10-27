@@ -1,7 +1,20 @@
 import { computed, type Ref } from 'vue';
 
 /**
- * Composable for validating storage types and catalog URLs for DuckDB WASM operations
+ * Composable for validating storage type  const shouldShowUnsupportedWarning = computed(() => {
+    // Only show warning if we have a storage type AND it's not supported
+    if (!storageType.value) return false;
+    
+    const isSupported = supportedStorageTypes.includes(storageType.value.toLowerCase());
+    console.log('shouldShowUnsupportedWarning:', {
+      storageType: storageType.value,
+      supportedTypes: supportedStorageTypes,
+      isSupported,
+      result: !isSupported
+    });
+    
+    return !isSupported;
+  });og URLs for DuckDB WASM operations
  */
 export function useStorageValidation(
   storageType: Ref<string | undefined>,
