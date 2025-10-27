@@ -2,11 +2,11 @@
   <v-container fluid>
     <v-card>
       <v-card-text>
-        <!-- S3 + HTTP Warning -->
+        <!-- S3/GCS + HTTP Warning -->
         <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
           <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
           <div class="text-body-2">
-            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for
+            You are using cloud storage (S3/GCS) with an HTTP catalog URL. HTTPS is strongly recommended for
             security.
           </div>
         </v-alert>
@@ -26,7 +26,7 @@
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
-              <li>Warehouse must use S3-compatible storage</li>
+              <li>Warehouse must use S3 or GCS storage</li>
               <li>Catalog must use HTTPS protocol</li>
             </ul>
           </div>
@@ -116,25 +116,26 @@ const tableRows = computed(() => {
 
 // Check if preview is available based on storage type and protocol
 const isPreviewAvailable = computed(() => {
-  // Check if storage type is supported (currently only S3)
+  // Check if storage type is supported (currently S3 and GCS)
   if (
     props.storageType &&
-    (props.storageType.toLowerCase() !== 's3' || props.storageType?.toLowerCase() === 'gcs')
+    props.storageType.toLowerCase() !== 's3' &&
+    props.storageType.toLowerCase() !== 'gcs'
   ) {
     console.warn('Unsupported storage type:', props.storageType);
     return {
       available: false,
-      reason: `DuckDB WASM currently only supports S3 storage. Your warehouse uses ${props.storageType}.`,
+      reason: `DuckDB WASM currently only supports S3 and GCS storage. Your warehouse uses ${props.storageType}.`,
     };
   }
 
   return { available: true, reason: null };
 });
 
-// Check if we should show S3 + HTTP warning
+// Check if we should show S3/GCS + HTTP warning
 const showS3HttpWarning = computed(() => {
   return (
-    props.storageType?.toLowerCase() === 's3' &&
+    (props.storageType?.toLowerCase() === 's3' || props.storageType?.toLowerCase() === 'gcs') &&
     props.catalogUrl &&
     props.catalogUrl.startsWith('http://')
   );
