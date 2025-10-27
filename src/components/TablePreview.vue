@@ -12,7 +12,7 @@
 
         <!-- Preview Not Available Warning -->
         <v-alert
-          v-if="storageValidation.shouldShowUnsupportedWarning"
+          v-if="!isPreviewAvailable.available"
           type="warning"
           variant="tonal"
           prominent
@@ -21,7 +21,7 @@
             <v-icon class="mr-2">mdi-alert</v-icon>
             Preview Not Available
           </div>
-          <div class="text-body-2">{{ storageValidation.unsupportedStorageReason }}</div>
+          <div class="text-body-2">{{ isPreviewAvailable.reason }}</div>
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
@@ -122,11 +122,23 @@ const tableRows = computed(() => {
   });
 });
 
-// Check if preview is available based on storage type and protocol
-const isPreviewAvailable = computed(() => ({
-  available: storageValidation.isOperationAvailable.value.available,
-  reason: storageValidation.isOperationAvailable.value.reason,
-}));
+// Check if preview is available - following same logic as WarehouseSqlQuery
+const isPreviewAvailable = computed(() => {
+  // Wait for storage type to be loaded first
+  if (!props.storageType) {
+    return { available: false, reason: 'Loading warehouse information...' };
+  }
+
+  // Use composable for storage validation (same as WarehouseSqlQuery)
+  if (!storageValidation.isOperationAvailable.value.available) {
+    return {
+      available: false,
+      reason: storageValidation.isOperationAvailable.value.reason,
+    };
+  }
+
+  return { available: true, reason: null };
+});
 
 // Check if we should show S3/GCS + HTTP warning
 const showS3HttpWarning = storageValidation.shouldShowHttpWarning;
