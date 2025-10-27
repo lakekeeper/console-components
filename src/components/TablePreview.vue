@@ -12,11 +12,7 @@
 
         <!-- Preview Not Available Warning -->
         <v-alert
-          v-if="
-            props.storageType &&
-            props.storageType.toLowerCase() !== 's3' &&
-            props.storageType.toLowerCase() !== 'gcs'
-          "
+          v-if="storageValidation.shouldShowUnsupportedWarning"
           type="warning"
           variant="tonal"
           prominent
@@ -25,15 +21,12 @@
             <v-icon class="mr-2">mdi-alert</v-icon>
             Preview Not Available
           </div>
-          <div class="text-body-2">
-            DuckDB WASM currently only supports S3 and GCS storage. Your warehouse uses
-            {{ props.storageType }}.
-          </div>
+          <div class="text-body-2">{{ storageValidation.unsupportedStorageReason }}</div>
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
-              <li>Warehouse must use S3 or GCS storage</li>
-              <li>Catalog must use HTTPS protocol</li>
+              <li>{{ storageValidation.storageRequirement }}</li>
+              <li>{{ storageValidation.protocolRequirement }}</li>
             </ul>
           </div>
         </v-alert>
@@ -142,19 +135,18 @@ async function loadPreview() {
   isLoading.value = true;
   error.value = null;
 
-  // Wait for storage type to be available, then check if it's supported
+  // Wait for storage type to be available, then check if it's supported using composable
   if (!props.storageType) {
     // Storage type not loaded yet, wait
     isLoading.value = false;
     return;
   }
 
-  // Only allow S3 and GCS storage types
-  if (props.storageType.toLowerCase() !== 's3' && props.storageType.toLowerCase() !== 'gcs') {
+  // Use composable to check if operation is available
+  if (!storageValidation.isOperationAvailable.value.available) {
     isLoading.value = false;
     return;
   }
-
   try {
     // Load warehouse
     const wh = await functions.getWarehouse(props.warehouseId);
@@ -201,11 +193,8 @@ onMounted(() => {
 // Watch for storage type changes and reload preview when it becomes available and supported
 watch(
   () => props.storageType,
-  (newStorageType) => {
-    if (
-      newStorageType &&
-      (newStorageType.toLowerCase() === 's3' || newStorageType.toLowerCase() === 'gcs')
-    ) {
+  () => {
+    if (props.storageType && storageValidation.isOperationAvailable.value.available) {
       loadPreview();
     }
   },

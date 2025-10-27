@@ -3,24 +3,10 @@ import { computed, type Ref } from 'vue';
 /**
  * Composable for validating storage type  const shouldShowUnsupportedWarning = computed(() => {
     // Only show warning if we have a storage type AND it's not supported
-    if (!storageType.value) {
-      console.log('shouldShowUnsupportedWarning: no storage type, returning false');
-      return false;
-    }
+    if (!storageType.value) return false;
     
     const lowerStorageType = storageType.value.toLowerCase();
-    const isSupported = supportedStorageTypes.includes(lowerStorageType);
-    const result = !isSupported;
-    
-    console.log('🚨 shouldShowUnsupportedWarning DEBUG:', {
-      original: storageType.value,
-      lower: lowerStorageType,
-      supportedTypes: supportedStorageTypes,
-      isSupported,
-      result
-    });
-    
-    return result;
+    return !supportedStorageTypes.includes(lowerStorageType);
   });og URLs for DuckDB WASM operations
  */
 export function useStorageValidation(
