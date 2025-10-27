@@ -165,12 +165,14 @@ async function loadPreview() {
       -- Attach catalog on this connection
       ATTACH IF NOT EXISTS '${warehouseName.value}' AS ${warehouseName.value} (
         TYPE iceberg,
+        SUPPORT_NESTED_NAMESPACES true,
+        SUPPORT_STAGE_CREATE true,
         SECRET iceberg_secret,
         ENDPOINT '${props.catalogUrl}'
       );
       
       -- Query the table
-      SELECT * FROM ${warehouseName.value}.${props.namespaceId}.${props.tableName} LIMIT 1000;
+      SELECT * FROM "${warehouseName.value}"."${props.namespaceId}"."${props.tableName}" LIMIT 1000;
     `;
 
     console.log('Executing preview query:', query);
