@@ -21,12 +21,12 @@
             <v-icon class="mr-2">mdi-alert</v-icon>
             Preview Not Available
           </div>
-          <div class="text-body-2">{{ storageValidation.isStorageSupported.value.reason }}</div>
+          <div class="text-body-2">{{ storageValidation.unsupportedStorageReason }}</div>
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
-              <li>{{ storageValidation.requirementsText.value.storageRequirement }}</li>
-              <li>{{ storageValidation.requirementsText.value.protocolRequirement }}</li>
+              <li>{{ storageValidation.storageRequirement }}</li>
+              <li>{{ storageValidation.protocolRequirement }}</li>
             </ul>
           </div>
         </v-alert>

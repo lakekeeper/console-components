@@ -65,11 +65,30 @@ export function useStorageValidation(
   });
 
   /**
+   * Get individual requirement texts (flattened for easier template usage)
+   */
+  const storageRequirement = computed(() => {
+    const storageTypes = supportedStorageTypes.map((type) => type.toUpperCase()).join(' or ');
+    return `Warehouse must use ${storageTypes} storage`;
+  });
+
+  const protocolRequirement = computed(() => 'Catalog must use HTTPS protocol');
+
+  const unsupportedStorageReason = computed(() => {
+    if (!storageType.value) return null;
+    const lowerStorageType = storageType.value.toLowerCase();
+    if (!supportedStorageTypes.includes(lowerStorageType)) {
+      return `DuckDB WASM currently only supports ${supportedStorageTypes.join(' and ').toUpperCase()} storage. Your warehouse uses ${storageType.value}.`;
+    }
+    return null;
+  });
+
+  /**
    * Check if we should show unsupported storage warning (only when storage type is known and unsupported)
    */
   const shouldShowUnsupportedWarning = computed(() => {
     if (!storageType.value) return false; // Don't show warning while loading
-    
+
     const lowerStorageType = storageType.value.toLowerCase();
     return !supportedStorageTypes.includes(lowerStorageType);
   });
@@ -90,6 +109,9 @@ export function useStorageValidation(
     shouldShowUnsupportedWarning,
     httpWarningMessage,
     requirementsText,
+    storageRequirement,
+    protocolRequirement,
+    unsupportedStorageReason,
     isOperationAvailable,
     supportedStorageTypes,
   };
