@@ -3,15 +3,11 @@
     <v-card>
       <v-card-text>
         <!-- S3 + HTTP Warning -->
-        <v-alert
-          v-if="showS3HttpWarning"
-          type="warning"
-          variant="tonal"
-          class="mb-4"
-          closable>
+        <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
           <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
           <div class="text-body-2">
-            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for security.
+            You are using S3 storage with an HTTP catalog URL. HTTPS is strongly recommended for
+            security.
           </div>
         </v-alert>
 
@@ -51,12 +47,8 @@
         <!-- Results -->
         <div v-else-if="queryResults">
           <div class="d-flex justify-space-between align-center mb-4">
-            <div class="text-h6">
-              Preview: {{ warehouseId }}.{{ namespaceId }}.{{ tableName }}
-            </div>
-            <v-chip color="primary" variant="flat">
-              {{ queryResults.rows.length }} rows
-            </v-chip>
+            <div class="text-h6">Preview: {{ warehouseId }}.{{ namespaceId }}.{{ tableName }}</div>
+            <v-chip color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
           </div>
 
           <!-- Results Table -->
@@ -68,8 +60,7 @@
             density="compact"
             class="elevation-1"
             fixed-header
-            height="600px">
-          </v-data-table>
+            height="600px"></v-data-table>
         </div>
       </v-card-text>
     </v-card>
@@ -86,8 +77,8 @@ interface Props {
   warehouseId: string;
   namespaceId: string;
   tableName: string;
-  catalogUrl: string;  // Now required from parent
-  storageType?: string;  // Storage type: s3, adls, gcs, etc.
+  catalogUrl: string; // Now required from parent
+  storageType?: string; // Storage type: s3, adls, gcs, etc.
 }
 
 const props = defineProps<Props>();
@@ -181,11 +172,10 @@ async function loadPreview() {
       -- Query the table
       SELECT * FROM ${warehouseName.value}.${props.namespaceId}.${props.tableName} LIMIT 1000;
     `;
-    
+
     console.log('Executing preview query:', query);
     const results = await icebergDB.executeQuery(query);
     queryResults.value = results;
-
   } catch (err: any) {
     console.error('Failed to load table preview:', err);
     error.value = err.message || 'Unknown error occurred';

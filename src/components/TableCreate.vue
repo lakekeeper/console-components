@@ -302,7 +302,7 @@ const sqlPreview = computed(() => {
 
   // For Iceberg, use simple dot-separated unquoted identifiers
   // DuckDB Iceberg expects: catalog.namespace.table
-  const fullTablePath = `${warehouseName.value}.${props.namespaceId}.${tableName.value}`;
+  const fullTablePath = `"${warehouseName.value}"."${props.namespaceId}"."${tableName.value}"`;
 
   console.log('TableCreate SQL generation:', {
     namespaceId: props.namespaceId,
