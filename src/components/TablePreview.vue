@@ -19,7 +19,7 @@
           class="mb-4">
           <div class="text-body-1 font-weight-bold mb-2">
             <v-icon class="mr-2">mdi-alert</v-icon>
-            Preview Not Available
+            DEBUG: Unsupported Storage Alert (Should not show for S3/GCS)
           </div>
           <div class="text-body-2">{{ storageValidation.unsupportedStorageReason }}</div>
           <div class="text-body-2 mt-3">
