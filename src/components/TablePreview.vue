@@ -6,8 +6,8 @@
         <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
           <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
           <div class="text-body-2">
-            You are using cloud storage (S3/GCS) with an HTTP catalog URL. HTTPS is strongly recommended for
-            security.
+            You are using cloud storage (S3/GCS) with an HTTP catalog URL. HTTPS is strongly
+            recommended for security.
           </div>
         </v-alert>
 
@@ -119,8 +119,9 @@ const isPreviewAvailable = computed(() => {
   // Check if storage type is supported (currently S3 and GCS)
   if (
     props.storageType &&
-    props.storageType.toLowerCase() !== 's3' &&
-    props.storageType.toLowerCase() !== 'gcs'
+    props.storageType.toLowerCase() !== 's3'
+    // &&
+    // props.storageType.toLowerCase() !== 'gcs'
   ) {
     console.warn('Unsupported storage type:', props.storageType);
     return {
@@ -135,7 +136,8 @@ const isPreviewAvailable = computed(() => {
 // Check if we should show S3/GCS + HTTP warning
 const showS3HttpWarning = computed(() => {
   return (
-    (props.storageType?.toLowerCase() === 's3' || props.storageType?.toLowerCase() === 'gcs') &&
+    //props.storageType?.toLowerCase() === 'gcs' ||
+    props.storageType?.toLowerCase() === 's3' &&
     props.catalogUrl &&
     props.catalogUrl.startsWith('http://')
   );
