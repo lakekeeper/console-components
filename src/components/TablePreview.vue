@@ -53,7 +53,7 @@
         :headers="tableHeaders"
         :items="tableRows"
         :items-per-page="1000"
-        :items-per-page-options="[1000]"
+        hide-default-footer
         density="compact"
         class="elevation-1"
         fixed-header
