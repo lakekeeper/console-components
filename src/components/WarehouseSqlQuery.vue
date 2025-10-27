@@ -31,7 +31,7 @@
           cursor: col-resize;
           user-select: none;
           flex-shrink: 0;
-          transition: background 0.2s;
+          transition: background 0.5s;
         "
         :style="{ background: dividerHover || isResizing ? '#2196F3' : '#e0e0e0' }"
         @mouseenter="dividerHover = true"
