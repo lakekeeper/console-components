@@ -46,7 +46,9 @@
         <!-- Results -->
         <div v-else-if="queryResults">
           <div class="d-flex justify-space-between align-center mb-4">
-            <div class="text-h6">Preview: {{ warehouseId }}.{{ namespaceId }}.{{ tableName }}</div>
+            <div class="text-h6">
+              Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}
+            </div>
             <v-chip color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
           </div>
 
