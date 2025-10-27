@@ -119,9 +119,8 @@ const isPreviewAvailable = computed(() => {
   // Check if storage type is supported (currently S3 and GCS)
   if (
     props.storageType &&
-    props.storageType.toLowerCase() !== 's3'
-    // &&
-    // props.storageType.toLowerCase() !== 'gcs'
+    props.storageType.toLowerCase() !== 's3' &&
+    props.storageType.toLowerCase() !== 'gcs'
   ) {
     console.warn('Unsupported storage type:', props.storageType);
     return {
@@ -136,8 +135,7 @@ const isPreviewAvailable = computed(() => {
 // Check if we should show S3/GCS + HTTP warning
 const showS3HttpWarning = computed(() => {
   return (
-    //props.storageType?.toLowerCase() === 'gcs' ||
-    props.storageType?.toLowerCase() === 's3' &&
+    (props.storageType?.toLowerCase() === 's3' || props.storageType?.toLowerCase() === 'gcs') &&
     props.catalogUrl &&
     props.catalogUrl.startsWith('http://')
   );
