@@ -57,7 +57,7 @@
         density="compact"
         class="elevation-1"
         fixed-header
-        height="600px"></v-data-table>
+        height="50vh"></v-data-table>
     </div>
   </v-container>
 </template>
