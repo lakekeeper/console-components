@@ -117,7 +117,10 @@ const tableRows = computed(() => {
 // Check if preview is available based on storage type and protocol
 const isPreviewAvailable = computed(() => {
   // Check if storage type is supported (currently only S3)
-  if (props.storageType && props.storageType.toLowerCase() !== 's3') {
+  if (
+    (props.storageType && props.storageType.toLowerCase() !== 's3') ||
+    props.storageType?.toLowerCase() === 'gcs'
+  ) {
     console.warn('Unsupported storage type:', props.storageType);
     return {
       available: false,
