@@ -12,7 +12,11 @@
 
         <!-- Preview Not Available Warning -->
         <v-alert
-          v-if="props.storageType && props.storageType.toLowerCase() !== 's3' && props.storageType.toLowerCase() !== 'gcs'"
+          v-if="
+            props.storageType &&
+            props.storageType.toLowerCase() !== 's3' &&
+            props.storageType.toLowerCase() !== 'gcs'
+          "
           type="warning"
           variant="tonal"
           prominent
@@ -21,7 +25,10 @@
             <v-icon class="mr-2">mdi-alert</v-icon>
             Preview Not Available
           </div>
-          <div class="text-body-2">DuckDB WASM currently only supports S3 and GCS storage. Your warehouse uses {{ props.storageType }}.</div>
+          <div class="text-body-2">
+            DuckDB WASM currently only supports S3 and GCS storage. Your warehouse uses
+            {{ props.storageType }}.
+          </div>
           <div class="text-body-2 mt-3">
             <strong>Requirements for DuckDB WASM:</strong>
             <ul class="mt-2">
@@ -86,7 +93,10 @@ const props = defineProps<Props>();
 const functions = useFunctions();
 const userStore = useUserStore();
 const icebergDB = useIcebergDuckDB();
-console.log('🔍 TablePreview props:', { storageType: props.storageType, catalogUrl: props.catalogUrl });
+console.log('🔍 TablePreview props:', {
+  storageType: props.storageType,
+  catalogUrl: props.catalogUrl,
+});
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl),
