@@ -20,7 +20,8 @@
       placeholder="AKIAIOSFODNN7EXAMPLE"
       :rules="[rules.requiredForAccessKey]"
       :error="isAccessKeyIdInvalid"
-      :color="isAccessKeyIdInvalid ? 'error' : 'primary'"></v-text-field>
+      :color="isAccessKeyIdInvalid ? 'error' : 'primary'"
+      :style="isAccessKeyIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
     <v-text-field
       v-if="warehouseObjectData['storage-credential']['credential-type'] === 'access-key'"
       v-model="warehouseObjectData['storage-credential']['aws-secret-access-key']"
@@ -32,6 +33,7 @@
       :type="showPassword ? 'text' : 'password'"
       :error="isSecretKeyInvalid"
       :color="isSecretKeyInvalid ? 'error' : 'primary'"
+      :style="isSecretKeyInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
       @click:append-inner="showPassword = !showPassword"></v-text-field>
 
     <div v-if="warehouseObjectData['storage-credential']['credential-type'] === 'cloudflare-r2'">
@@ -42,7 +44,8 @@
         placeholder="AKIAIOSFODNN7EXAMPLE"
         :rules="[rules.required]"
         :error="isR2AccessKeyInvalid"
-        :color="isR2AccessKeyInvalid ? 'error' : 'primary'"></v-text-field>
+        :color="isR2AccessKeyInvalid ? 'error' : 'primary'"
+        :style="isR2AccessKeyInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
       <v-text-field
         v-model="warehouseObjectData['storage-credential']['secret-access-key']"
         :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
@@ -53,6 +56,7 @@
         :type="showPassword ? 'text' : 'password'"
         :error="isR2SecretKeyInvalid"
         :color="isR2SecretKeyInvalid ? 'error' : 'primary'"
+        :style="isR2SecretKeyInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
         @click:append-inner="showPassword = !showPassword"></v-text-field>
       <v-text-field
         v-model="warehouseObjectData['storage-credential'].token"
@@ -64,6 +68,7 @@
         :type="showPassword ? 'text' : 'password'"
         :error="isR2TokenInvalid"
         :color="isR2TokenInvalid ? 'error' : 'primary'"
+        :style="isR2TokenInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
         @click:append-inner="showPassword = !showPassword"></v-text-field>
 
       <v-text-field
@@ -73,7 +78,8 @@
         placeholder="123456aaaaa1111"
         :rules="[rules.required]"
         :error="isR2AccountIdInvalid"
-        :color="isR2AccountIdInvalid ? 'error' : 'primary'"></v-text-field>
+        :color="isR2AccountIdInvalid ? 'error' : 'primary'"
+        :style="isR2AccountIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
     </div>
 
     <!-- AWS System Identity Fields -->
@@ -119,7 +125,8 @@
             "
             :rules="[rules.required]"
             :error="isFlavorInvalid"
-            :color="isFlavorInvalid ? 'error' : 'primary'">
+            :color="isFlavorInvalid ? 'error' : 'primary'"
+            :style="isFlavorInvalid ? 'color: rgb(var(--v-theme-error));' : ''">
             <template #item="{ props: itemProps, item }">
               <v-list-item v-bind="itemProps" :subtitle="item.raw.code"></v-list-item>
             </template>
@@ -138,7 +145,8 @@
             placeholder="eu-central-1"
             :rules="[rules.requiredForAws]"
             :error="isRegionInvalid"
-            :color="isRegionInvalid ? 'error' : 'primary'"></v-combobox>
+            :color="isRegionInvalid ? 'error' : 'primary'"
+            :style="isRegionInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-combobox>
         </v-col>
         <v-col>
           <v-text-field
@@ -188,7 +196,8 @@
         placeholder="my-bucket"
         :rules="[rules.required]"
         :error="isBucketInvalid"
-        :color="isBucketInvalid ? 'error' : 'primary'"></v-text-field>
+        :color="isBucketInvalid ? 'error' : 'primary'"
+        :style="isBucketInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
       <v-text-field
         v-model="warehouseObjectData['storage-profile']['key-prefix']"
         label="Key Prefix"
@@ -604,6 +613,16 @@ const emitNewCredentials = () => {
       'credential-type': 'aws-system-identity',
       'external-id': warehouseObjectData['storage-credential']['external-id'] || null, // Optional
     } as S3Credential & { type: 's3' };
+  } else if (credentialType === 'cloudflare-r2') {
+    // Handle 'cloudflare-r2' type
+    credentials = {
+      type: 's3' as const,
+      'credential-type': 'cloudflare-r2',
+      'access-key-id': warehouseObjectData['storage-credential']['access-key-id'],
+      'secret-access-key': warehouseObjectData['storage-credential']['secret-access-key'],
+      token: warehouseObjectData['storage-credential'].token,
+      'account-id': warehouseObjectData['storage-credential']['account-id'],
+    } as S3Credential & { type: 's3' };
   }
 
   emit('updateCredentials', credentials);
@@ -634,6 +653,16 @@ const emitNewProfile = () => {
       type: 's3' as const,
       'credential-type': 'aws-system-identity',
       'external-id': warehouseObjectData['storage-credential']['external-id'] || null, // Optional
+    } as S3Credential & { type: 's3' };
+  } else if (credentialType === 'cloudflare-r2') {
+    // Handle 'cloudflare-r2' type
+    credentials = {
+      type: 's3' as const,
+      'credential-type': 'cloudflare-r2',
+      'access-key-id': warehouseObjectData['storage-credential']['access-key-id'],
+      'secret-access-key': warehouseObjectData['storage-credential']['secret-access-key'],
+      token: warehouseObjectData['storage-credential'].token,
+      'account-id': warehouseObjectData['storage-credential']['account-id'],
     } as S3Credential & { type: 's3' };
   }
   const newProfile = {
