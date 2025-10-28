@@ -75,11 +75,13 @@ const createThemeExtension = (dark: boolean) => {
     {
       '&': {
         minHeight: props.minHeight,
+        maxHeight: '30vh',
         fontSize: '14px',
         border: dark ? '1px solid rgba(255, 255, 255, 0.23)' : '1px solid rgba(0, 0, 0, 0.23)',
         borderRadius: '4px',
         backgroundColor: dark ? '#1E1E1E' : '#FFFFFF',
         color: dark ? '#D4D4D4' : '#000000',
+        overflow: 'hidden',
       },
       '&.cm-focused': {
         outline: dark ? '2px solid #90CAF9' : '2px solid #1976d2',
@@ -89,6 +91,7 @@ const createThemeExtension = (dark: boolean) => {
       '.cm-scroller': {
         fontFamily: '"Courier New", Courier, monospace',
         overflow: 'auto',
+        maxHeight: '30vh',
       },
       '.cm-content': {
         padding: '8px',
@@ -246,10 +249,14 @@ defineExpose({
 .sql-editor-wrapper {
   position: relative;
   width: 100%;
+  max-height: 30vh;
+  overflow-y: auto;
 }
 
 .sql-editor {
   width: 100%;
+  max-height: 30vh;
+  overflow-y: auto;
 }
 
 .clear-button {
