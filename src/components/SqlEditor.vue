@@ -1,5 +1,5 @@
 <template>
-  <div class="sql-editor-wrapper" :class="{ disabled: disabled }">
+  <div class="sql-editor-wrapper" :class="{ disabled: disabled }" style="max-height: 30vh">
     <div ref="editorContainer" class="sql-editor"></div>
   </div>
 </template>
