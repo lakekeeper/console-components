@@ -1,7 +1,7 @@
 <template>
   <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden">
     <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0" color="grey-lighten-4">
-      Warehouse Navigation
+      Warehouse: {{ warehouseName }}
     </v-sheet>
     <v-divider></v-divider>
     <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
@@ -67,6 +67,7 @@ const functions = useFunctions();
 
 const props = defineProps<{
   warehouseId: string;
+  warehouseName: string;
 }>();
 
 const emit = defineEmits<{

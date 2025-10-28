@@ -15,6 +15,7 @@
         <WarehouseNavigationTree
           v-if="warehouseId && props.warehouseName"
           :warehouse-id="warehouseId"
+          :warehouse-name="props.warehouseName"
           @item-selected="handleTableSelected" />
         <div v-else class="pa-4 text-center text-grey">
           <v-progress-circular indeterminate size="32" class="mb-2" />
