@@ -112,140 +112,142 @@
                       </ul>
                     </div>
                   </v-alert>
-
-                  <!-- Ready State Info -->
-                  <v-alert v-else type="info" variant="tonal" class="mb-4">
-                    <div class="text-body-2">
-                      <strong>DuckDB WASM SQL</strong>
-                      - Select a table from the left panel or query directly using the catalog.
-                    </div>
-                  </v-alert>
-
-                  <!-- SQL Editor -->
-                  <SqlEditor
-                    ref="sqlTextarea"
-                    v-model="sqlQuery"
-                    @click="updateCursorPosition"
-                    @keyup="updateCursorPosition"
-                    :placeholder="
-                      selectedTable
-                        ? `SELECT * FROM ${warehouseName}.${selectedTable.namespaceId}.${selectedTable.name} LIMIT 10;`
-                        : 'SELECT * FROM catalog.namespace.table LIMIT 10;'
-                    "
-                    :disabled="isExecuting || !isSqlAvailable.available"
-                    min-height="200px"
-                    clearable />
-
-                  <!-- Action Buttons -->
-                  <div class="d-flex gap-2 mb-4 align-center">
-                    <v-btn
-                      color="primary"
-                      class="mr-2"
-                      size="small"
-                      :loading="isExecuting"
-                      :disabled="!sqlQuery.trim() || isExecuting || !isSqlAvailable.available"
-                      clearable
-                      @click="executeQuery">
-                      <v-icon start>mdi-play</v-icon>
-                      Execute Query
-                    </v-btn>
-                    <v-btn
-                      color="secondary"
-                      variant="outlined"
-                      class="mr-2"
-                      size="small"
-                      @click="sqlTextarea.clearContent()">
-                      <v-icon start>mdi-close</v-icon>
-                      Clear SQL
-                    </v-btn>
-                    <v-spacer />
-                    <v-btn
-                      variant="outlined"
-                      :disabled="!queryResult"
-                      size="small"
-                      @click="clearResults">
-                      <v-icon start>mdi-close</v-icon>
-                      empty results
-                    </v-btn>
-                  </div>
-
-                  <!-- Error Display -->
-                  <v-alert
-                    v-if="error"
-                    type="error"
-                    closable
-                    @click:close="error = null"
-                    class="mb-4">
-                    <div class="font-weight-bold">Query Error:</div>
-                    <pre class="text-caption mt-2">{{ error }}</pre>
-                  </v-alert>
-
-                  <!-- Query Results -->
-                  <v-card v-if="queryResult" variant="outlined">
-                    <v-card-title class="d-flex align-center bg-grey-lighten-4">
-                      <v-icon class="mr-2">mdi-table</v-icon>
-                      Query Results
-                      <v-spacer />
-                      <v-chip size="small">
-                        {{ queryResult.rowCount }} row{{ queryResult.rowCount !== 1 ? 's' : '' }}
-                      </v-chip>
-                    </v-card-title>
-                    <v-card-text class="pa-0">
-                      <v-table density="compact" fixed-header :height="tableHeight + 'px'">
-                        <thead>
-                          <tr>
-                            <th
-                              v-for="column in queryResult.columns"
-                              :key="column"
-                              class="text-left font-weight-bold">
-                              {{ column }}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr v-for="(row, rowIdx) in queryResult.rows" :key="rowIdx">
-                            <td v-for="(cell, colIdx) in row" :key="colIdx">
-                              {{ formatCell(cell) }}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </v-table>
-                    </v-card-text>
-
-                    <!-- Resizable Handle for Table Height -->
-                    <div
-                      @mousedown="startTableResize"
-                      style="
-                        height: 5px;
-                        cursor: row-resize;
-                        user-select: none;
-                        transition: background 0.2s;
-                        border-top: 1px solid #e0e0e0;
-                      "
-                      :style="{
-                        background: tableResizeHover || isResizingTable ? '#2196F3' : 'transparent',
-                      }"
-                      @mouseenter="tableResizeHover = true"
-                      @mouseleave="tableResizeHover = false">
-                      <div
-                        style="
-                          text-align: center;
-                          font-size: 10px;
-                          color: #999;
-                          line-height: 5px;
-                          user-select: none;
-                        ">
-                        ⋮
+                  <span v-else>
+                    <!-- Ready State Info -->
+                    <v-alert type="info" variant="tonal" class="mb-4">
+                      <div class="text-body-2">
+                        <strong>DuckDB WASM SQL</strong>
+                        - Select a table from the left panel or query directly using the catalog.
                       </div>
-                    </div>
-                  </v-card>
+                    </v-alert>
 
-                  <!-- Empty State -->
-                  <v-card v-else variant="outlined" class="text-center pa-8">
-                    <v-icon size="64" color="grey-lighten-1">mdi-database-off-outline</v-icon>
-                    <div class="text-h6 mt-4 text-grey">No Results</div>
-                    <div class="text-body-2 text-grey">Execute a query to see results here</div>
-                  </v-card>
+                    <!-- SQL Editor -->
+                    <SqlEditor
+                      ref="sqlTextarea"
+                      v-model="sqlQuery"
+                      @click="updateCursorPosition"
+                      @keyup="updateCursorPosition"
+                      :placeholder="
+                        selectedTable
+                          ? `SELECT * FROM ${warehouseName}.${selectedTable.namespaceId}.${selectedTable.name} LIMIT 10;`
+                          : 'SELECT * FROM catalog.namespace.table LIMIT 10;'
+                      "
+                      :disabled="isExecuting || !isSqlAvailable.available"
+                      min-height="200px"
+                      clearable />
+
+                    <!-- Action Buttons -->
+                    <div class="d-flex gap-2 mb-4 align-center">
+                      <v-btn
+                        color="primary"
+                        class="mr-2"
+                        size="small"
+                        :loading="isExecuting"
+                        :disabled="!sqlQuery.trim() || isExecuting || !isSqlAvailable.available"
+                        clearable
+                        @click="executeQuery">
+                        <v-icon start>mdi-play</v-icon>
+                        Execute Query
+                      </v-btn>
+                      <v-btn
+                        color="secondary"
+                        variant="outlined"
+                        class="mr-2"
+                        size="small"
+                        @click="sqlTextarea.clearContent()">
+                        <v-icon start>mdi-close</v-icon>
+                        Clear SQL
+                      </v-btn>
+                      <v-spacer />
+                      <v-btn
+                        variant="outlined"
+                        :disabled="!queryResult"
+                        size="small"
+                        @click="clearResults">
+                        <v-icon start>mdi-close</v-icon>
+                        empty results
+                      </v-btn>
+                    </div>
+
+                    <!-- Error Display -->
+                    <v-alert
+                      v-if="error"
+                      type="error"
+                      closable
+                      @click:close="error = null"
+                      class="mb-4">
+                      <div class="font-weight-bold">Query Error:</div>
+                      <pre class="text-caption mt-2">{{ error }}</pre>
+                    </v-alert>
+
+                    <!-- Query Results -->
+                    <v-card v-if="queryResult" variant="outlined">
+                      <v-card-title class="d-flex align-center bg-grey-lighten-4">
+                        <v-icon class="mr-2">mdi-table</v-icon>
+                        Query Results
+                        <v-spacer />
+                        <v-chip size="small">
+                          {{ queryResult.rowCount }} row{{ queryResult.rowCount !== 1 ? 's' : '' }}
+                        </v-chip>
+                      </v-card-title>
+                      <v-card-text class="pa-0">
+                        <v-table density="compact" fixed-header :height="tableHeight + 'px'">
+                          <thead>
+                            <tr>
+                              <th
+                                v-for="column in queryResult.columns"
+                                :key="column"
+                                class="text-left font-weight-bold">
+                                {{ column }}
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr v-for="(row, rowIdx) in queryResult.rows" :key="rowIdx">
+                              <td v-for="(cell, colIdx) in row" :key="colIdx">
+                                {{ formatCell(cell) }}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </v-table>
+                      </v-card-text>
+
+                      <!-- Resizable Handle for Table Height -->
+                      <div
+                        @mousedown="startTableResize"
+                        style="
+                          height: 5px;
+                          cursor: row-resize;
+                          user-select: none;
+                          transition: background 0.2s;
+                          border-top: 1px solid #e0e0e0;
+                        "
+                        :style="{
+                          background:
+                            tableResizeHover || isResizingTable ? '#2196F3' : 'transparent',
+                        }"
+                        @mouseenter="tableResizeHover = true"
+                        @mouseleave="tableResizeHover = false">
+                        <div
+                          style="
+                            text-align: center;
+                            font-size: 10px;
+                            color: #999;
+                            line-height: 5px;
+                            user-select: none;
+                          ">
+                          ⋮
+                        </div>
+                      </div>
+                    </v-card>
+
+                    <!-- Empty State -->
+                    <v-card v-else variant="outlined" class="text-center pa-8">
+                      <v-icon size="64" color="grey-lighten-1">mdi-database-off-outline</v-icon>
+                      <div class="text-h6 mt-4 text-grey">No Results</div>
+                      <div class="text-body-2 text-grey">Execute a query to see results here</div>
+                    </v-card>
+                  </span>
                 </v-card-text>
               </v-card>
             </v-col>
