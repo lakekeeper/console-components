@@ -134,7 +134,7 @@
                           : 'SELECT * FROM catalog.namespace.table LIMIT 10;'
                       "
                       :disabled="isExecuting || !isSqlAvailable.available"
-                      min-height="200px"
+                      max-height="30vh"
                       clearable />
 
                     <!-- Action Buttons -->
