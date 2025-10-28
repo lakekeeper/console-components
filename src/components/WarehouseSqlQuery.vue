@@ -186,9 +186,18 @@
                         <v-icon class="mr-2">mdi-table</v-icon>
                         Query Results
                         <v-spacer />
-                        <v-chip size="small">
+                        <v-chip size="small" class="mr-2">
                           {{ queryResult.rowCount }} row{{ queryResult.rowCount !== 1 ? 's' : '' }}
                         </v-chip>
+                        <v-btn
+                          size="small"
+                          variant="outlined"
+                          color="primary"
+                          @click="downloadCSV"
+                          :disabled="!csvDownload.isDownloadAvailable(queryResult)">
+                          <v-icon start>mdi-download</v-icon>
+                          CSV
+                        </v-btn>
                       </v-card-title>
                       <v-card-text class="pa-0">
                         <v-table density="compact" fixed-header :height="tableHeight + 'px'">
@@ -264,6 +273,7 @@ import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
 import type { QueryResult } from '../composables/useDuckDB';
 import { useUserStore } from '../stores/user';
 import { useStorageValidation } from '@/composables/useStorageValidation';
+import { useCsvDownload } from '@/composables/useCsvDownload';
 import WarehouseNavigationTree from './WarehouseNavigationTree.vue';
 import SqlEditor from './SqlEditor.vue';
 
@@ -278,6 +288,7 @@ interface Props {
 const props = defineProps<Props>();
 
 const icebergDB = useIcebergDuckDB();
+const csvDownload = useCsvDownload();
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl || ''),
@@ -489,6 +500,12 @@ async function executeQuery() {
 function clearResults() {
   queryResult.value = null;
   error.value = null;
+}
+
+function downloadCSV() {
+  csvDownload.downloadCSV(queryResult.value, {
+    baseFilename: 'query_results',
+  });
 }
 
 function formatCell(value: any): string {

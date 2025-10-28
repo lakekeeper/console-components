@@ -45,7 +45,18 @@
     <div v-else-if="queryResults">
       <div class="d-flex justify-space-between align-center mb-4">
         <div class="text-h6">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
-        <v-chip color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
+        <div class="d-flex align-center gap-2">
+          <v-chip color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
+          <v-btn
+            size="small"
+            variant="outlined"
+            color="primary"
+            @click="downloadCSV"
+            :disabled="!csvDownload.isDownloadAvailable(queryResults)">
+            <v-icon start>mdi-download</v-icon>
+            CSV
+          </v-btn>
+        </div>
       </div>
 
       <!-- Results Table -->
@@ -68,6 +79,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
 import { useStorageValidation } from '@/composables/useStorageValidation';
+import { useCsvDownload } from '@/composables/useCsvDownload';
 
 interface Props {
   warehouseId: string;
@@ -82,6 +94,8 @@ const props = defineProps<Props>();
 const functions = useFunctions();
 const userStore = useUserStore();
 const icebergDB = useIcebergDuckDB();
+const csvDownload = useCsvDownload();
+
 console.log('🔍 TablePreview props:', {
   storageType: props.storageType,
   catalogUrl: props.catalogUrl,
@@ -192,6 +206,12 @@ async function loadPreview() {
   } finally {
     isLoading.value = false;
   }
+}
+
+function downloadCSV() {
+  csvDownload.downloadCSV(queryResults.value, {
+    baseFilename: `${props.tableName}_preview`,
+  });
 }
 
 onMounted(() => {
