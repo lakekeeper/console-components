@@ -32,6 +32,56 @@ export function useIcebergDuckDB() {
         restUriChars: Array.from(config.restUri).map((c, i) => `${i}: '${c}' (${c.charCodeAt(0)})`),
       });
 
+      // FIRST: Test the catalog URL directly with fetch to catch CORS errors
+      // This will fail fast before DuckDB tries to connect
+      console.log('🔍 [DuckDB Iceberg] Testing catalog connectivity...');
+      const testUrl = `${config.restUri}/v1/config?warehouse=${config.catalogName}`;
+
+      try {
+        const response = await fetch(testUrl, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${config.accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          console.warn(`⚠️ [DuckDB Iceberg] Catalog config endpoint returned ${response.status}`);
+          // Don't fail here - let DuckDB try anyway
+        } else {
+          console.log('✅ [DuckDB Iceberg] Catalog connectivity test passed');
+        }
+      } catch (fetchError) {
+        const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        console.error('❌ [DuckDB Iceberg] Catalog connectivity test failed:', errorMsg);
+
+        // Check if this is a CORS error
+        if (
+          errorMsg.includes('Failed to fetch') ||
+          errorMsg.includes('NetworkError') ||
+          errorMsg.includes('CORS') ||
+          errorMsg.toLowerCase().includes('network')
+        ) {
+          throw new Error(
+            `CORS Error: Cannot connect to the catalog server at ${config.restUri}\n\n` +
+              `The server is blocking requests from ${window.location.origin}.\n\n` +
+              `The catalog server needs to:\n` +
+              `1. Allow cross-origin requests by setting Access-Control-Allow-Origin header\n` +
+              `2. Include 'authorization' and 'content-type' in Access-Control-Allow-Headers\n` +
+              `3. Allow the 'x-user-agent' header that DuckDB sends\n\n` +
+              `Please contact your administrator to configure CORS headers on the catalog server.\n\n` +
+              `Technical details:\n` +
+              `- Test URL: ${testUrl}\n` +
+              `- Origin: ${window.location.origin}\n` +
+              `- Error: ${errorMsg}`,
+          );
+        }
+
+        // Re-throw other errors
+        throw fetchError;
+      }
+
       // Execute all setup commands in correct order
       const setupQuery = `
         SET builtin_httpfs = false;
@@ -57,77 +107,7 @@ export function useIcebergDuckDB() {
 
       await duckDB.executeQuery(setupQuery);
 
-      console.log('✅ [DuckDB Iceberg] Catalog ATTACH command completed');
-
-      // Verify the catalog is actually accessible by running a test query
-      // This will trigger an actual HTTP request to the catalog server
-      console.log('🔍 [DuckDB Iceberg] Verifying catalog accessibility...');
-
-      // Set up console.error interception to catch CORS errors
-      let corsErrorDetected = false;
-      const originalConsoleError = console.error;
-      const errorInterceptor = (...args: any[]) => {
-        const errorString = args.join(' ');
-        if (
-          errorString.includes('CORS') ||
-          errorString.includes('Access-Control-Allow') ||
-          errorString.includes('cross-origin') ||
-          errorString.includes('not allowed by Access-Control-Allow-Headers') ||
-          errorString.includes('blocked by CORS policy')
-        ) {
-          corsErrorDetected = true;
-        }
-        originalConsoleError.apply(console, args);
-      };
-      console.error = errorInterceptor;
-
-      try {
-        // Try to query the catalog config - this will definitely make an HTTP call
-        const testQuery = `SHOW DATABASES`;
-        await duckDB.executeQuery(testQuery);
-
-        // Wait a bit for async CORS errors to appear in console
-        await new Promise((resolve) => setTimeout(resolve, 500));
-
-        // Restore original console.error
-        console.error = originalConsoleError;
-
-        if (corsErrorDetected) {
-          throw new Error('CORS policy: Request blocked by CORS policy');
-        }
-
-        console.log('✅ [DuckDB Iceberg] Catalog verification successful - connection is working');
-      } catch (verifyError) {
-        // Restore original console.error
-        console.error = originalConsoleError;
-
-        const errorMsg = verifyError instanceof Error ? verifyError.message : String(verifyError);
-        console.error('❌ [DuckDB Iceberg] Catalog verification failed:', errorMsg);
-
-        // Check if this is a CORS error (it will appear in the error message or console)
-        if (
-          corsErrorDetected ||
-          errorMsg.includes('CORS') ||
-          errorMsg.includes('Access-Control-Allow') ||
-          errorMsg.includes('cross-origin') ||
-          errorMsg.includes('XMLHttpRequest') ||
-          errorMsg.includes('not allowed by Access-Control-Allow-Headers') ||
-          errorMsg.includes('blocked by CORS policy')
-        ) {
-          throw new Error(
-            `CORS Error: The catalog server at ${config.restUri} is blocking requests.\n\n` +
-              `The server needs to:\n` +
-              `1. Allow cross-origin requests from ${window.location.origin}\n` +
-              `2. Include 'x-user-agent' in Access-Control-Allow-Headers\n` +
-              `3. Include appropriate Access-Control-Allow-Origin headers\n\n` +
-              `Please contact your administrator to configure CORS headers on the catalog server.\n\n` +
-              `Technical details: The catalog server must respond to preflight OPTIONS requests with appropriate CORS headers.`,
-          );
-        }
-        // Re-throw other errors
-        throw new Error(`Failed to verify catalog connection: ${errorMsg}`);
-      }
-
+      console.log('✅ [DuckDB Iceberg] Catalog configured successfully');
       catalogConfigured.value = true;
     } catch (e) {
       console.error('❌ [DuckDB Iceberg] Failed to configure catalog:', e);
