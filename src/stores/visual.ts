@@ -34,9 +34,11 @@ export const useVisualStore = defineStore(
     const namespacePath = ref('');
     const savedSqlQuery = ref(''); // Store last SQL query (deprecated - use sqlTabs)
 
-    // Multi-tab SQL editor state
-    const sqlTabs = ref<SqlTab[]>([]);
-    const activeSqlTabId = ref<string>('');
+    // Multi-tab SQL editor state - warehouse-specific
+    // Key: warehouseId, Value: array of SqlTab
+    const warehouseSqlTabs = ref<Record<string, SqlTab[]>>({});
+    // Key: warehouseId, Value: active tab ID for that warehouse
+    const warehouseActiveSqlTabId = ref<Record<string, string>>({});
 
     const serverInfo = reactive<ServerInfo>({
       version: '0.0.0',
@@ -109,7 +111,7 @@ export const useVisualStore = defineStore(
       return savedSqlQuery.value;
     }
 
-    // SQL Tabs Management
+    // SQL Tabs Management - Warehouse-specific
     function generateTabName(timestamp: number): string {
       const date = new Date(timestamp);
       const year = date.getFullYear();
@@ -121,7 +123,7 @@ export const useVisualStore = defineStore(
       return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
 
-    function createSqlTab(content: string = ''): SqlTab {
+    function createSqlTab(warehouseId: string, content: string = ''): SqlTab {
       const timestamp = Date.now();
       const id = `tab-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
       const name = generateTabName(timestamp);
@@ -133,69 +135,93 @@ export const useVisualStore = defineStore(
         createdAt: timestamp,
       };
 
-      sqlTabs.value.push(newTab);
-      activeSqlTabId.value = id;
+      // Initialize warehouse tabs array if it doesn't exist
+      if (!warehouseSqlTabs.value[warehouseId]) {
+        warehouseSqlTabs.value[warehouseId] = [];
+      }
+
+      warehouseSqlTabs.value[warehouseId].push(newTab);
+      warehouseActiveSqlTabId.value[warehouseId] = id;
 
       return newTab;
     }
 
-    function addSqlTab(): SqlTab {
-      return createSqlTab('');
+    function addSqlTab(warehouseId: string): SqlTab {
+      return createSqlTab(warehouseId, '');
     }
 
-    function removeSqlTab(tabId: string) {
-      const index = sqlTabs.value.findIndex((tab) => tab.id === tabId);
+    function removeSqlTab(warehouseId: string, tabId: string) {
+      const tabs = warehouseSqlTabs.value[warehouseId];
+      if (!tabs) return;
+
+      const index = tabs.findIndex((tab: SqlTab) => tab.id === tabId);
       if (index === -1) return;
 
-      sqlTabs.value.splice(index, 1);
+      tabs.splice(index, 1);
 
       // If we removed the active tab, switch to another tab
-      if (activeSqlTabId.value === tabId) {
-        if (sqlTabs.value.length > 0) {
+      if (warehouseActiveSqlTabId.value[warehouseId] === tabId) {
+        if (tabs.length > 0) {
           // Switch to the previous tab, or the first one if we removed the first tab
           const newIndex = Math.max(0, index - 1);
-          activeSqlTabId.value = sqlTabs.value[newIndex].id;
+          warehouseActiveSqlTabId.value[warehouseId] = tabs[newIndex].id;
         } else {
           // No tabs left, create a new one
-          createSqlTab('');
+          createSqlTab(warehouseId, '');
         }
       }
     }
 
-    function updateSqlTabContent(tabId: string, content: string) {
-      const tab = sqlTabs.value.find((t) => t.id === tabId);
+    function updateSqlTabContent(warehouseId: string, tabId: string, content: string) {
+      const tabs = warehouseSqlTabs.value[warehouseId];
+      if (!tabs) return;
+
+      const tab = tabs.find((t: SqlTab) => t.id === tabId);
       if (tab) {
         tab.content = content;
       }
     }
 
-    function renameSqlTab(tabId: string, newName: string) {
-      const tab = sqlTabs.value.find((t) => t.id === tabId);
+    function renameSqlTab(warehouseId: string, tabId: string, newName: string) {
+      const tabs = warehouseSqlTabs.value[warehouseId];
+      if (!tabs) return;
+
+      const tab = tabs.find((t: SqlTab) => t.id === tabId);
       if (tab && newName.trim()) {
         tab.name = newName.trim();
       }
     }
 
-    function setActiveSqlTab(tabId: string) {
-      if (sqlTabs.value.find((t) => t.id === tabId)) {
-        activeSqlTabId.value = tabId;
+    function setActiveSqlTab(warehouseId: string, tabId: string) {
+      const tabs = warehouseSqlTabs.value[warehouseId];
+      if (tabs && tabs.find((t: SqlTab) => t.id === tabId)) {
+        warehouseActiveSqlTabId.value[warehouseId] = tabId;
       }
     }
 
-    function getActiveSqlTab(): SqlTab | undefined {
-      return sqlTabs.value.find((t) => t.id === activeSqlTabId.value);
+    function getActiveSqlTab(warehouseId: string): SqlTab | undefined {
+      const tabs = warehouseSqlTabs.value[warehouseId];
+      if (!tabs) return undefined;
+
+      const activeId = warehouseActiveSqlTabId.value[warehouseId];
+      return tabs.find((t: SqlTab) => t.id === activeId);
     }
 
-    function getSqlTabs() {
-      return sqlTabs.value;
+    function getSqlTabs(warehouseId: string): SqlTab[] {
+      return warehouseSqlTabs.value[warehouseId] || [];
     }
 
-    function initializeSqlTabs() {
-      // Create first tab if none exist
-      if (sqlTabs.value.length === 0) {
-        // Migrate old savedSqlQuery if it exists
+    function initializeSqlTabs(warehouseId: string) {
+      // Initialize warehouse tabs array if it doesn't exist
+      if (!warehouseSqlTabs.value[warehouseId]) {
+        warehouseSqlTabs.value[warehouseId] = [];
+      }
+
+      // Create first tab if none exist for this warehouse
+      if (warehouseSqlTabs.value[warehouseId].length === 0) {
+        // Migrate old savedSqlQuery if it exists (only for first initialization)
         const initialContent = savedSqlQuery.value || '';
-        createSqlTab(initialContent);
+        createSqlTab(warehouseId, initialContent);
       }
     }
 
@@ -208,8 +234,8 @@ export const useVisualStore = defineStore(
       themeLight,
       navBarShow,
       savedSqlQuery,
-      sqlTabs,
-      activeSqlTabId,
+      warehouseSqlTabs,
+      warehouseActiveSqlTabId,
       projectList,
       projectSelected,
       snackbarMsg,

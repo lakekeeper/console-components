@@ -130,7 +130,7 @@
                       density="compact"
                       show-arrows>
                       <v-tab
-                        v-for="(tab, index) in visualStore.sqlTabs"
+                        v-for="(tab, index) in currentWarehouseTabs"
                         :key="tab.id"
                         :value="index"
                         @click="handleTabClick(tab.id)">
@@ -435,6 +435,12 @@ const activeQueryName = computed(() => {
   return lastExecutedTabName.value || '';
 });
 
+// Computed property for current warehouse tabs
+const currentWarehouseTabs = computed(() => {
+  if (!props.warehouseId) return [];
+  return visualStore.getSqlTabs(props.warehouseId);
+});
+
 // Check if SQL querying is available based on storage and protocol
 const isSqlAvailable = computed(() => {
   // Check if warehouse name is still loading
@@ -590,15 +596,17 @@ function handleTableSelected(item: {
 
 // Tab Management Functions
 function handleAddTab() {
-  visualStore.addSqlTab();
-  activeTabIndex.value = visualStore.sqlTabs.length - 1;
+  if (!props.warehouseId) return;
+  visualStore.addSqlTab(props.warehouseId);
+  activeTabIndex.value = currentWarehouseTabs.value.length - 1;
   // Clear the editor for the new tab
   sqlQuery.value = '';
 }
 
 function handleCloseTab(tabId: string) {
+  if (!props.warehouseId) return;
   // Find the tab to close
-  const tab = visualStore.sqlTabs.find((t) => t.id === tabId);
+  const tab = currentWarehouseTabs.value.find((t) => t.id === tabId);
   if (!tab) return;
 
   // Show confirmation dialog
@@ -612,14 +620,14 @@ function cancelCloseTab() {
 }
 
 function confirmCloseTab() {
-  if (!tabToClose.value) return;
+  if (!tabToClose.value || !props.warehouseId) return;
 
-  visualStore.removeSqlTab(tabToClose.value.id);
+  visualStore.removeSqlTab(props.warehouseId, tabToClose.value.id);
 
   // Update active tab index after removal
-  const activeTab = visualStore.getActiveSqlTab();
+  const activeTab = visualStore.getActiveSqlTab(props.warehouseId);
   if (activeTab) {
-    activeTabIndex.value = visualStore.sqlTabs.findIndex((t) => t.id === activeTab.id);
+    activeTabIndex.value = currentWarehouseTabs.value.findIndex((t) => t.id === activeTab.id);
     sqlQuery.value = activeTab.content;
   }
 
@@ -643,10 +651,10 @@ function cancelRename() {
 }
 
 function confirmRename() {
-  if (!tabToRename.value || !newTabName.value.trim()) return;
+  if (!tabToRename.value || !newTabName.value.trim() || !props.warehouseId) return;
 
   // Check for duplicates (excluding the current tab being renamed)
-  const isDuplicate = visualStore.sqlTabs.some(
+  const isDuplicate = currentWarehouseTabs.value.some(
     (tab) => tab.id !== tabToRename.value && tab.name === newTabName.value.trim(),
   );
 
@@ -655,7 +663,7 @@ function confirmRename() {
     return;
   }
 
-  visualStore.renameSqlTab(tabToRename.value, newTabName.value);
+  visualStore.renameSqlTab(props.warehouseId, tabToRename.value, newTabName.value);
 
   // Close dialog
   showRenameDialog.value = false;
@@ -665,38 +673,40 @@ function confirmRename() {
 }
 
 function handleTabClick(tabId: string) {
+  if (!props.warehouseId) return;
   // Save current tab's content before switching
-  const currentTab = visualStore.getActiveSqlTab();
+  const currentTab = visualStore.getActiveSqlTab(props.warehouseId);
   if (currentTab) {
-    visualStore.updateSqlTabContent(currentTab.id, sqlQuery.value);
+    visualStore.updateSqlTabContent(props.warehouseId, currentTab.id, sqlQuery.value);
   }
 
   // Switch to new tab
-  visualStore.setActiveSqlTab(tabId);
-  const newTab = visualStore.getActiveSqlTab();
+  visualStore.setActiveSqlTab(props.warehouseId, tabId);
+  const newTab = visualStore.getActiveSqlTab(props.warehouseId);
   if (newTab) {
     sqlQuery.value = newTab.content;
-    activeTabIndex.value = visualStore.sqlTabs.findIndex((t) => t.id === tabId);
+    activeTabIndex.value = currentWarehouseTabs.value.findIndex((t) => t.id === tabId);
   }
 }
 
 // Watch sqlQuery changes to auto-save to active tab
 watch(sqlQuery, (newValue) => {
-  const activeTab = visualStore.getActiveSqlTab();
+  if (!props.warehouseId) return;
+  const activeTab = visualStore.getActiveSqlTab(props.warehouseId);
   if (activeTab) {
-    visualStore.updateSqlTabContent(activeTab.id, newValue);
+    visualStore.updateSqlTabContent(props.warehouseId, activeTab.id, newValue);
   }
 });
 
 async function executeQuery() {
-  if (!sqlQuery.value.trim()) return;
+  if (!sqlQuery.value.trim() || !props.warehouseId) return;
 
   isExecuting.value = true;
   error.value = null;
   queryResult.value = null;
 
   // Capture the name of the tab executing this query
-  const activeTab = visualStore.getActiveSqlTab();
+  const activeTab = visualStore.getActiveSqlTab(props.warehouseId);
   if (activeTab) {
     lastExecutedTabName.value = activeTab.name;
   }
@@ -871,14 +881,16 @@ async function initializeDuckDB() {
 
 // Initialize on mount if props are already available
 onMounted(() => {
-  // Initialize SQL tabs
-  visualStore.initializeSqlTabs();
+  if (!props.warehouseId) return;
+
+  // Initialize SQL tabs for this warehouse
+  visualStore.initializeSqlTabs(props.warehouseId);
 
   // Load the active tab content
-  const activeTab = visualStore.getActiveSqlTab();
+  const activeTab = visualStore.getActiveSqlTab(props.warehouseId);
   if (activeTab) {
     sqlQuery.value = activeTab.content;
-    activeTabIndex.value = visualStore.sqlTabs.findIndex((t) => t.id === activeTab.id);
+    activeTabIndex.value = currentWarehouseTabs.value.findIndex((t) => t.id === activeTab.id);
   }
 
   initializeDuckDB();
