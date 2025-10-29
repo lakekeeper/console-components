@@ -218,8 +218,7 @@
                       <v-card-title class="d-flex align-center bg-grey-lighten-4">
                         <v-icon class="mr-2">mdi-table</v-icon>
                         <div class="d-flex flex-column align-start">
-                          <span>Query Results</span>
-                          <span class="text-caption text-grey">{{ activeQueryName }}</span>
+                          <span>Query {{ activeQueryName }} Results</span>
                         </div>
                         <v-spacer />
                         <v-chip size="small" class="mr-2">
@@ -639,6 +638,19 @@ function cancelRename() {
 
 function confirmRename() {
   if (!tabToRename.value || !newTabName.value.trim()) return;
+
+  // Check for duplicates (excluding the current tab being renamed)
+  const isDuplicate = visualStore.sqlTabs.some(
+    (tab) => tab.id !== tabToRename.value && tab.name === newTabName.value.trim(),
+  );
+
+  if (isDuplicate) {
+    // Show error - you could also use a snackbar message here
+    alert(
+      `A query with the name "${newTabName.value.trim()}" already exists. Please choose a different name.`,
+    );
+    return;
+  }
 
   visualStore.renameSqlTab(tabToRename.value, newTabName.value);
 
