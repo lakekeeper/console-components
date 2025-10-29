@@ -34,7 +34,8 @@ export function useIcebergDuckDB() {
 
       // FIRST: Test the catalog URL directly with fetch to catch CORS errors
       // This will fail fast before DuckDB tries to connect
-      console.log('🔍 [DuckDB Iceberg] Testing catalog connectivity...');
+      // We need to test with the SAME headers that DuckDB will use, including x-user-agent
+      console.log('🔍 [DuckDB Iceberg] Testing catalog connectivity with DuckDB headers...');
       const testUrl = `${config.restUri}/v1/config?warehouse=${config.catalogName}`;
 
       try {
@@ -43,6 +44,8 @@ export function useIcebergDuckDB() {
           headers: {
             Authorization: `Bearer ${config.accessToken}`,
             'Content-Type': 'application/json',
+            // This is the header that DuckDB sends and often causes CORS issues
+            'x-user-agent': 'duckdb-wasm',
           },
         });
 
@@ -50,7 +53,9 @@ export function useIcebergDuckDB() {
           console.warn(`⚠️ [DuckDB Iceberg] Catalog config endpoint returned ${response.status}`);
           // Don't fail here - let DuckDB try anyway
         } else {
-          console.log('✅ [DuckDB Iceberg] Catalog connectivity test passed');
+          console.log(
+            '✅ [DuckDB Iceberg] Catalog connectivity test passed - CORS is properly configured',
+          );
         }
       } catch (fetchError) {
         const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
