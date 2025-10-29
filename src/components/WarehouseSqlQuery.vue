@@ -393,6 +393,7 @@ const error = ref<string | null>(null);
 const isCheckingWarehouse = ref(false);
 const warehouseError = ref<string | null>(null);
 const hasInitialized = ref(false);
+const lastExecutedTabName = ref<string>(''); // Track which tab executed the last query
 
 // SQL Tabs
 const activeTabIndex = ref(0);
@@ -430,8 +431,8 @@ const isInitializingState = computed(() => {
 
 // Computed property for active query name
 const activeQueryName = computed(() => {
-  const activeTab = visualStore.getActiveSqlTab();
-  return activeTab ? activeTab.name : '';
+  // Return the name of the tab that executed the last query
+  return lastExecutedTabName.value || '';
 });
 
 // Check if SQL querying is available based on storage and protocol
@@ -693,6 +694,12 @@ async function executeQuery() {
   isExecuting.value = true;
   error.value = null;
   queryResult.value = null;
+
+  // Capture the name of the tab executing this query
+  const activeTab = visualStore.getActiveSqlTab();
+  if (activeTab) {
+    lastExecutedTabName.value = activeTab.name;
+  }
 
   try {
     const result = await icebergDB.executeQuery(sqlQuery.value);
