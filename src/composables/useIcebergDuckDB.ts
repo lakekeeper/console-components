@@ -38,54 +38,55 @@ export function useIcebergDuckDB() {
       console.log('🔍 [DuckDB Iceberg] Testing catalog connectivity with DuckDB headers...');
       const testUrl = `${config.restUri}/v1/config?warehouse=${config.catalogName}`;
 
-      try {
-        const response = await fetch(testUrl, {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${config.accessToken}`,
-            'Content-Type': 'application/json',
-            // This is the header that DuckDB sends and often causes CORS issues
-            'x-user-agent': 'duckdb-wasm',
-          },
-        });
+      //cors
+      // try {
+      //   const response = await fetch(testUrl, {
+      //     method: 'GET',
+      //     headers: {
+      //       Authorization: `Bearer ${config.accessToken}`,
+      //       'Content-Type': 'application/json',
+      //       // This is the header that DuckDB sends and often causes CORS issues
+      //       'x-user-agent': 'duckdb-wasm',
+      //     },
+      //   });
 
-        if (!response.ok) {
-          console.warn(`⚠️ [DuckDB Iceberg] Catalog config endpoint returned ${response.status}`);
-          // Don't fail here - let DuckDB try anyway
-        } else {
-          console.log(
-            '✅ [DuckDB Iceberg] Catalog connectivity test passed - CORS is properly configured',
-          );
-        }
-      } catch (fetchError) {
-        const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
-        console.error('❌ [DuckDB Iceberg] Catalog connectivity test failed:', errorMsg);
+      //   if (!response.ok) {
+      //     console.warn(`⚠️ [DuckDB Iceberg] Catalog config endpoint returned ${response.status}`);
+      //     // Don't fail here - let DuckDB try anyway
+      //   } else {
+      //     console.log(
+      //       '✅ [DuckDB Iceberg] Catalog connectivity test passed - CORS is properly configured',
+      //     );
+      //   }
+      // } catch (fetchError) {
+      //   const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+      //   console.error('❌ [DuckDB Iceberg] Catalog connectivity test failed:', errorMsg);
 
-        // Check if this is a CORS error
-        if (
-          errorMsg.includes('Failed to fetch') ||
-          errorMsg.includes('NetworkError') ||
-          errorMsg.includes('CORS') ||
-          errorMsg.toLowerCase().includes('network')
-        ) {
-          throw new Error(
-            `CORS Error: Cannot connect to the catalog server at ${config.restUri}\n\n` +
-              `The server is blocking requests from ${window.location.origin}.\n\n` +
-              `The catalog server needs to:\n` +
-              `1. Allow cross-origin requests by setting Access-Control-Allow-Origin header\n` +
-              `2. Include 'authorization' and 'content-type' in Access-Control-Allow-Headers\n` +
-              `3. Allow the 'x-user-agent' header that DuckDB sends\n\n` +
-              `Please contact your administrator to configure CORS headers on the catalog server.\n\n` +
-              `Technical details:\n` +
-              `- Test URL: ${testUrl}\n` +
-              `- Origin: ${window.location.origin}\n` +
-              `- Error: ${errorMsg}`,
-          );
-        }
+      //   // Check if this is a CORS error
+      //   if (
+      //     errorMsg.includes('Failed to fetch') ||
+      //     errorMsg.includes('NetworkError') ||
+      //     errorMsg.includes('CORS') ||
+      //     errorMsg.toLowerCase().includes('network')
+      //   ) {
+      //     throw new Error(
+      //       `CORS Error: Cannot connect to the catalog server at ${config.restUri}\n\n` +
+      //         `The server is blocking requests from ${window.location.origin}.\n\n` +
+      //         `The catalog server needs to:\n` +
+      //         `1. Allow cross-origin requests by setting Access-Control-Allow-Origin header\n` +
+      //         `2. Include 'authorization' and 'content-type' in Access-Control-Allow-Headers\n` +
+      //         `3. Allow the 'x-user-agent' header that DuckDB sends\n\n` +
+      //         `Please contact your administrator to configure CORS headers on the catalog server.\n\n` +
+      //         `Technical details:\n` +
+      //         `- Test URL: ${testUrl}\n` +
+      //         `- Origin: ${window.location.origin}\n` +
+      //         `- Error: ${errorMsg}`,
+      //     );
+      //   }
 
-        // Re-throw other errors
-        throw fetchError;
-      }
+      //   // Re-throw other errors
+      //   throw fetchError;
+      // }
 
       // Execute all setup commands in correct order
       const setupQuery = `
