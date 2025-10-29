@@ -13,6 +13,12 @@ export interface SqlTab {
   createdAt: number;
 }
 
+// Warehouse SQL data structure
+export interface WarehouseSqlData {
+  activeTabId: string;
+  tabs: SqlTab[];
+}
+
 export const useVisualStore = defineStore(
   'visual',
   () => {
@@ -32,13 +38,11 @@ export const useVisualStore = defineStore(
     const whId = ref('');
     const wahrehouseName = ref('');
     const namespacePath = ref('');
-    const savedSqlQuery = ref(''); // Store last SQL query (deprecated - use sqlTabs)
+    const savedSqlQuery = ref(''); // Store last SQL query (deprecated - use warehouseSqlData)
 
     // Multi-tab SQL editor state - warehouse-specific
-    // Key: warehouseId, Value: array of SqlTab
-    const warehouseSqlTabs = ref<Record<string, SqlTab[]>>({});
-    // Key: warehouseId, Value: active tab ID for that warehouse
-    const warehouseActiveSqlTabId = ref<Record<string, string>>({});
+    // Key: warehouseId, Value: { activeTabId, tabs[] }
+    const warehouseSqlData = ref<Record<string, WarehouseSqlData>>({});
 
     const serverInfo = reactive<ServerInfo>({
       version: '0.0.0',
@@ -135,13 +139,16 @@ export const useVisualStore = defineStore(
         createdAt: timestamp,
       };
 
-      // Initialize warehouse tabs array if it doesn't exist
-      if (!warehouseSqlTabs.value[warehouseId]) {
-        warehouseSqlTabs.value[warehouseId] = [];
+      // Initialize warehouse data if it doesn't exist
+      if (!warehouseSqlData.value[warehouseId]) {
+        warehouseSqlData.value[warehouseId] = {
+          activeTabId: '',
+          tabs: [],
+        };
       }
 
-      warehouseSqlTabs.value[warehouseId].push(newTab);
-      warehouseActiveSqlTabId.value[warehouseId] = id;
+      warehouseSqlData.value[warehouseId].tabs.push(newTab);
+      warehouseSqlData.value[warehouseId].activeTabId = id;
 
       return newTab;
     }
@@ -151,20 +158,20 @@ export const useVisualStore = defineStore(
     }
 
     function removeSqlTab(warehouseId: string, tabId: string) {
-      const tabs = warehouseSqlTabs.value[warehouseId];
-      if (!tabs) return;
+      const data = warehouseSqlData.value[warehouseId];
+      if (!data) return;
 
-      const index = tabs.findIndex((tab: SqlTab) => tab.id === tabId);
+      const index = data.tabs.findIndex((tab: SqlTab) => tab.id === tabId);
       if (index === -1) return;
 
-      tabs.splice(index, 1);
+      data.tabs.splice(index, 1);
 
       // If we removed the active tab, switch to another tab
-      if (warehouseActiveSqlTabId.value[warehouseId] === tabId) {
-        if (tabs.length > 0) {
+      if (data.activeTabId === tabId) {
+        if (data.tabs.length > 0) {
           // Switch to the previous tab, or the first one if we removed the first tab
           const newIndex = Math.max(0, index - 1);
-          warehouseActiveSqlTabId.value[warehouseId] = tabs[newIndex].id;
+          data.activeTabId = data.tabs[newIndex].id;
         } else {
           // No tabs left, create a new one
           createSqlTab(warehouseId, '');
@@ -173,52 +180,54 @@ export const useVisualStore = defineStore(
     }
 
     function updateSqlTabContent(warehouseId: string, tabId: string, content: string) {
-      const tabs = warehouseSqlTabs.value[warehouseId];
-      if (!tabs) return;
+      const data = warehouseSqlData.value[warehouseId];
+      if (!data) return;
 
-      const tab = tabs.find((t: SqlTab) => t.id === tabId);
+      const tab = data.tabs.find((t: SqlTab) => t.id === tabId);
       if (tab) {
         tab.content = content;
       }
     }
 
     function renameSqlTab(warehouseId: string, tabId: string, newName: string) {
-      const tabs = warehouseSqlTabs.value[warehouseId];
-      if (!tabs) return;
+      const data = warehouseSqlData.value[warehouseId];
+      if (!data) return;
 
-      const tab = tabs.find((t: SqlTab) => t.id === tabId);
+      const tab = data.tabs.find((t: SqlTab) => t.id === tabId);
       if (tab && newName.trim()) {
         tab.name = newName.trim();
       }
     }
 
     function setActiveSqlTab(warehouseId: string, tabId: string) {
-      const tabs = warehouseSqlTabs.value[warehouseId];
-      if (tabs && tabs.find((t: SqlTab) => t.id === tabId)) {
-        warehouseActiveSqlTabId.value[warehouseId] = tabId;
+      const data = warehouseSqlData.value[warehouseId];
+      if (data && data.tabs.find((t: SqlTab) => t.id === tabId)) {
+        data.activeTabId = tabId;
       }
     }
 
     function getActiveSqlTab(warehouseId: string): SqlTab | undefined {
-      const tabs = warehouseSqlTabs.value[warehouseId];
-      if (!tabs) return undefined;
+      const data = warehouseSqlData.value[warehouseId];
+      if (!data) return undefined;
 
-      const activeId = warehouseActiveSqlTabId.value[warehouseId];
-      return tabs.find((t: SqlTab) => t.id === activeId);
+      return data.tabs.find((t: SqlTab) => t.id === data.activeTabId);
     }
 
     function getSqlTabs(warehouseId: string): SqlTab[] {
-      return warehouseSqlTabs.value[warehouseId] || [];
+      return warehouseSqlData.value[warehouseId]?.tabs || [];
     }
 
     function initializeSqlTabs(warehouseId: string) {
-      // Initialize warehouse tabs array if it doesn't exist
-      if (!warehouseSqlTabs.value[warehouseId]) {
-        warehouseSqlTabs.value[warehouseId] = [];
+      // Initialize warehouse data if it doesn't exist
+      if (!warehouseSqlData.value[warehouseId]) {
+        warehouseSqlData.value[warehouseId] = {
+          activeTabId: '',
+          tabs: [],
+        };
       }
 
       // Create first tab if none exist for this warehouse
-      if (warehouseSqlTabs.value[warehouseId].length === 0) {
+      if (warehouseSqlData.value[warehouseId].tabs.length === 0) {
         // Migrate old savedSqlQuery if it exists (only for first initialization)
         const initialContent = savedSqlQuery.value || '';
         createSqlTab(warehouseId, initialContent);
@@ -234,8 +243,7 @@ export const useVisualStore = defineStore(
       themeLight,
       navBarShow,
       savedSqlQuery,
-      warehouseSqlTabs,
-      warehouseActiveSqlTabId,
+      warehouseSqlData,
       projectList,
       projectSelected,
       snackbarMsg,
