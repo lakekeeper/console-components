@@ -338,7 +338,9 @@
             variant="outlined"
             density="comfortable"
             hint="Press Enter to save, Esc to cancel"
-            persistent-hint />
+            persistent-hint
+            :error="!!renameError"
+            :error-messages="renameError" />
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -399,6 +401,7 @@ const tabToClose = ref<{ id: string; name: string } | null>(null);
 const showRenameDialog = ref(false);
 const tabToRename = ref<string | null>(null);
 const newTabName = ref('');
+const renameError = ref('');
 
 const selectedTable = ref<{ type: string; namespaceId: string; name: string } | null>(null);
 
@@ -627,6 +630,7 @@ function confirmCloseTab() {
 function startRenameTab(tabId: string, currentName: string) {
   tabToRename.value = tabId;
   newTabName.value = currentName;
+  renameError.value = '';
   showRenameDialog.value = true;
 }
 
@@ -634,6 +638,7 @@ function cancelRename() {
   showRenameDialog.value = false;
   tabToRename.value = null;
   newTabName.value = '';
+  renameError.value = '';
 }
 
 function confirmRename() {
@@ -645,10 +650,7 @@ function confirmRename() {
   );
 
   if (isDuplicate) {
-    // Show error - you could also use a snackbar message here
-    alert(
-      `A query with the name "${newTabName.value.trim()}" already exists. Please choose a different name.`,
-    );
+    renameError.value = `A query with the name "${newTabName.value.trim()}" already exists. Please choose a different name.`;
     return;
   }
 
@@ -658,6 +660,7 @@ function confirmRename() {
   showRenameDialog.value = false;
   tabToRename.value = null;
   newTabName.value = '';
+  renameError.value = '';
 }
 
 function handleTabClick(tabId: string) {
