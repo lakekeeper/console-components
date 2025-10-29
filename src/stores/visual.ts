@@ -110,17 +110,21 @@ export const useVisualStore = defineStore(
     }
 
     // SQL Tabs Management
-    function generateTabName(index: number, timestamp: number): string {
+    function generateTabName(timestamp: number): string {
       const date = new Date(timestamp);
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
       const hours = date.getHours().toString().padStart(2, '0');
       const minutes = date.getMinutes().toString().padStart(2, '0');
-      return `Query ${index + 1} - ${hours}:${minutes}`;
+      const seconds = date.getSeconds().toString().padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
     }
 
     function createSqlTab(content: string = ''): SqlTab {
       const timestamp = Date.now();
       const id = `tab-${timestamp}-${Math.random().toString(36).substr(2, 9)}`;
-      const name = generateTabName(sqlTabs.value.length, timestamp);
+      const name = generateTabName(timestamp);
 
       const newTab: SqlTab = {
         id,
@@ -162,6 +166,13 @@ export const useVisualStore = defineStore(
       const tab = sqlTabs.value.find((t) => t.id === tabId);
       if (tab) {
         tab.content = content;
+      }
+    }
+
+    function renameSqlTab(tabId: string, newName: string) {
+      const tab = sqlTabs.value.find((t) => t.id === tabId);
+      if (tab && newName.trim()) {
+        tab.name = newName.trim();
       }
     }
 
@@ -217,6 +228,7 @@ export const useVisualStore = defineStore(
       addSqlTab,
       removeSqlTab,
       updateSqlTabContent,
+      renameSqlTab,
       setActiveSqlTab,
       getActiveSqlTab,
       getSqlTabs,

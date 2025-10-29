@@ -134,8 +134,19 @@
                         :key="tab.id"
                         :value="index"
                         @click="handleTabClick(tab.id)">
-                        <span class="text-caption">{{ tab.name }}</span>
-                        <v-icon size="x-small" class="ml-2" @click.stop="handleCloseTab(tab.id)">
+                        <span
+                          class="text-caption"
+                          @dblclick.stop="startRenameTab(tab.id, tab.name)"
+                          style="cursor: pointer">
+                          {{ tab.name }}
+                        </span>
+                        <v-icon
+                          size="x-small"
+                          class="ml-1 mr-1"
+                          @click.stop="startRenameTab(tab.id, tab.name)">
+                          mdi-pencil
+                        </v-icon>
+                        <v-icon size="x-small" class="ml-1" @click.stop="handleCloseTab(tab.id)">
                           mdi-close
                         </v-icon>
                       </v-tab>
@@ -206,7 +217,10 @@
                     <v-card v-if="queryResult" variant="outlined">
                       <v-card-title class="d-flex align-center bg-grey-lighten-4">
                         <v-icon class="mr-2">mdi-table</v-icon>
-                        Query Results
+                        <div class="d-flex flex-column align-start">
+                          <span>Query Results</span>
+                          <span class="text-caption text-grey">{{ activeQueryName }}</span>
+                        </div>
                         <v-spacer />
                         <v-chip size="small" class="mr-2">
                           {{ queryResult.rowCount }} row{{ queryResult.rowCount !== 1 ? 's' : '' }}
@@ -286,6 +300,60 @@
         </v-container>
       </div>
     </div>
+
+    <!-- Confirm Close Tab Dialog -->
+    <v-dialog v-model="showCloseTabDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
+          Close Query Tab?
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-2">Are you sure you want to close "{{ tabToClose?.name }}"?</p>
+          <p class="text-body-2 text-grey mb-0">
+            The SQL query in this tab will be permanently deleted and cannot be recovered.
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="cancelCloseTab">Cancel</v-btn>
+          <v-btn color="error" variant="elevated" @click="confirmCloseTab">Delete Tab</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Rename Tab Dialog -->
+    <v-dialog v-model="showRenameDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="primary" class="mr-2">mdi-pencil</v-icon>
+          Rename Query
+        </v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="newTabName"
+            label="Query Name"
+            autofocus
+            @keyup.enter="confirmRename"
+            @keyup.esc="cancelRename"
+            variant="outlined"
+            density="comfortable"
+            hint="Press Enter to save, Esc to cancel"
+            persistent-hint />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="cancelRename">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            variant="elevated"
+            @click="confirmRename"
+            :disabled="!newTabName.trim()">
+            Rename
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -327,6 +395,11 @@ const hasInitialized = ref(false);
 
 // SQL Tabs
 const activeTabIndex = ref(0);
+const showCloseTabDialog = ref(false);
+const tabToClose = ref<{ id: string; name: string } | null>(null);
+const showRenameDialog = ref(false);
+const tabToRename = ref<string | null>(null);
+const newTabName = ref('');
 
 const selectedTable = ref<{ type: string; namespaceId: string; name: string } | null>(null);
 
@@ -351,6 +424,12 @@ const isInitializingState = computed(() => {
     icebergDB.isInitializing.value ||
     icebergDB.isLoadingTable.value
   );
+});
+
+// Computed property for active query name
+const activeQueryName = computed(() => {
+  const activeTab = visualStore.getActiveSqlTab();
+  return activeTab ? activeTab.name : '';
 });
 
 // Check if SQL querying is available based on storage and protocol
@@ -515,13 +594,58 @@ function handleAddTab() {
 }
 
 function handleCloseTab(tabId: string) {
-  visualStore.removeSqlTab(tabId);
+  // Find the tab to close
+  const tab = visualStore.sqlTabs.find((t) => t.id === tabId);
+  if (!tab) return;
+
+  // Show confirmation dialog
+  tabToClose.value = { id: tab.id, name: tab.name };
+  showCloseTabDialog.value = true;
+}
+
+function cancelCloseTab() {
+  showCloseTabDialog.value = false;
+  tabToClose.value = null;
+}
+
+function confirmCloseTab() {
+  if (!tabToClose.value) return;
+
+  visualStore.removeSqlTab(tabToClose.value.id);
+
   // Update active tab index after removal
   const activeTab = visualStore.getActiveSqlTab();
   if (activeTab) {
     activeTabIndex.value = visualStore.sqlTabs.findIndex((t) => t.id === activeTab.id);
     sqlQuery.value = activeTab.content;
   }
+
+  // Close dialog
+  showCloseTabDialog.value = false;
+  tabToClose.value = null;
+}
+
+function startRenameTab(tabId: string, currentName: string) {
+  tabToRename.value = tabId;
+  newTabName.value = currentName;
+  showRenameDialog.value = true;
+}
+
+function cancelRename() {
+  showRenameDialog.value = false;
+  tabToRename.value = null;
+  newTabName.value = '';
+}
+
+function confirmRename() {
+  if (!tabToRename.value || !newTabName.value.trim()) return;
+
+  visualStore.renameSqlTab(tabToRename.value, newTabName.value);
+
+  // Close dialog
+  showRenameDialog.value = false;
+  tabToRename.value = null;
+  newTabName.value = '';
 }
 
 function handleTabClick(tabId: string) {
