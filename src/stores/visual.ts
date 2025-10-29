@@ -24,6 +24,7 @@ export const useVisualStore = defineStore(
     const whId = ref('');
     const wahrehouseName = ref('');
     const namespacePath = ref('');
+    const savedSqlQuery = ref(''); // Store last SQL query
     const serverInfo = reactive<ServerInfo>({
       version: '0.0.0',
       bootstrapped: true,
@@ -87,6 +88,14 @@ export const useVisualStore = defineStore(
       return snackbarMsg;
     }
 
+    function setSavedSqlQuery(query: string) {
+      savedSqlQuery.value = query;
+    }
+
+    function getSavedSqlQuery() {
+      return savedSqlQuery.value;
+    }
+
     return {
       currentUrl,
       showAppOrNavBar,
@@ -95,6 +104,7 @@ export const useVisualStore = defineStore(
       namespacePath,
       themeLight,
       navBarShow,
+      savedSqlQuery,
       projectList,
       projectSelected,
       snackbarMsg,
@@ -107,6 +117,8 @@ export const useVisualStore = defineStore(
       setSnackbarMsg,
       getSnackbarMsg,
       setProjectSelected,
+      setSavedSqlQuery,
+      getSavedSqlQuery,
     };
   },
   {

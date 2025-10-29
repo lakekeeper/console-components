@@ -14,6 +14,7 @@ import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { tags } from '@lezer/highlight';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { useTheme } from 'vuetify';
+import { useVisualStore } from '@/stores/visual';
 
 interface Props {
   modelValue: string;
@@ -36,6 +37,7 @@ const emit = defineEmits<{
   (e: 'keyup'): void;
 }>();
 
+const visualStore = useVisualStore();
 const editorContainer = ref<HTMLElement>();
 let editorView: EditorView | null = null;
 const readOnlyCompartment = new Compartment();
@@ -133,15 +135,21 @@ onMounted(async () => {
   await nextTick();
   if (!editorContainer.value) return;
 
+  // Load saved query from store if modelValue is empty
+  const initialContent = props.modelValue || visualStore.getSavedSqlQuery();
+
   const startState = EditorState.create({
-    doc: props.modelValue || '',
+    doc: initialContent,
     extensions: [
       basicSetup,
       sql(),
       keymap.of([...defaultKeymap, indentWithTab]),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
-          emit('update:modelValue', update.state.doc.toString());
+          const newValue = update.state.doc.toString();
+          emit('update:modelValue', newValue);
+          // Save to store whenever content changes
+          visualStore.setSavedSqlQuery(newValue);
         }
         if (update.transactions.some((tr) => tr.selection)) {
           emit('click');
@@ -172,6 +180,11 @@ onMounted(async () => {
     state: startState,
     parent: editorContainer.value,
   });
+
+  // Emit the initial content if it was loaded from store
+  if (initialContent && !props.modelValue) {
+    emit('update:modelValue', initialContent);
+  }
 });
 
 watch(
@@ -235,6 +248,7 @@ const clearContent = () => {
     changes: { from: 0, to: editorView.state.doc.length, insert: '' },
   });
   emit('update:modelValue', '');
+  visualStore.setSavedSqlQuery(''); // Clear from store
   editorView.focus();
 };
 
