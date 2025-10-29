@@ -122,6 +122,28 @@
                       </div>
                     </v-alert>
 
+                    <!-- SQL Tabs -->
+                    <v-tabs
+                      v-model="activeTabIndex"
+                      color="primary"
+                      class="mb-2"
+                      density="compact"
+                      show-arrows>
+                      <v-tab
+                        v-for="(tab, index) in visualStore.sqlTabs"
+                        :key="tab.id"
+                        :value="index"
+                        @click="handleTabClick(tab.id)">
+                        <span class="text-caption">{{ tab.name }}</span>
+                        <v-icon size="x-small" class="ml-2" @click.stop="handleCloseTab(tab.id)">
+                          mdi-close
+                        </v-icon>
+                      </v-tab>
+                      <v-btn icon size="x-small" variant="text" class="ml-2" @click="handleAddTab">
+                        <v-icon>mdi-plus</v-icon>
+                      </v-btn>
+                    </v-tabs>
+
                     <!-- SQL Editor -->
                     <SqlEditor
                       ref="sqlTextarea"
@@ -272,6 +294,7 @@ import { ref, onMounted, onBeforeUnmount, computed, watch, toRef } from 'vue';
 import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
 import type { QueryResult } from '../composables/useDuckDB';
 import { useUserStore } from '../stores/user';
+import { useVisualStore } from '../stores/visual';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 import WarehouseNavigationTree from './WarehouseNavigationTree.vue';
@@ -289,6 +312,7 @@ const props = defineProps<Props>();
 
 const icebergDB = useIcebergDuckDB();
 const csvDownload = useCsvDownload();
+const visualStore = useVisualStore();
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl || ''),
@@ -300,6 +324,9 @@ const error = ref<string | null>(null);
 const isCheckingWarehouse = ref(false);
 const warehouseError = ref<string | null>(null);
 const hasInitialized = ref(false);
+
+// SQL Tabs
+const activeTabIndex = ref(0);
 
 const selectedTable = ref<{ type: string; namespaceId: string; name: string } | null>(null);
 
@@ -479,6 +506,48 @@ function handleTableSelected(item: {
   }
 }
 
+// Tab Management Functions
+function handleAddTab() {
+  visualStore.addSqlTab();
+  activeTabIndex.value = visualStore.sqlTabs.length - 1;
+  // Clear the editor for the new tab
+  sqlQuery.value = '';
+}
+
+function handleCloseTab(tabId: string) {
+  visualStore.removeSqlTab(tabId);
+  // Update active tab index after removal
+  const activeTab = visualStore.getActiveSqlTab();
+  if (activeTab) {
+    activeTabIndex.value = visualStore.sqlTabs.findIndex((t) => t.id === activeTab.id);
+    sqlQuery.value = activeTab.content;
+  }
+}
+
+function handleTabClick(tabId: string) {
+  // Save current tab's content before switching
+  const currentTab = visualStore.getActiveSqlTab();
+  if (currentTab) {
+    visualStore.updateSqlTabContent(currentTab.id, sqlQuery.value);
+  }
+
+  // Switch to new tab
+  visualStore.setActiveSqlTab(tabId);
+  const newTab = visualStore.getActiveSqlTab();
+  if (newTab) {
+    sqlQuery.value = newTab.content;
+    activeTabIndex.value = visualStore.sqlTabs.findIndex((t) => t.id === tabId);
+  }
+}
+
+// Watch sqlQuery changes to auto-save to active tab
+watch(sqlQuery, (newValue) => {
+  const activeTab = visualStore.getActiveSqlTab();
+  if (activeTab) {
+    visualStore.updateSqlTabContent(activeTab.id, newValue);
+  }
+});
+
 async function executeQuery() {
   if (!sqlQuery.value.trim()) return;
 
@@ -656,6 +725,16 @@ async function initializeDuckDB() {
 
 // Initialize on mount if props are already available
 onMounted(() => {
+  // Initialize SQL tabs
+  visualStore.initializeSqlTabs();
+
+  // Load the active tab content
+  const activeTab = visualStore.getActiveSqlTab();
+  if (activeTab) {
+    sqlQuery.value = activeTab.content;
+    activeTabIndex.value = visualStore.sqlTabs.findIndex((t) => t.id === activeTab.id);
+  }
+
   initializeDuckDB();
 });
 
