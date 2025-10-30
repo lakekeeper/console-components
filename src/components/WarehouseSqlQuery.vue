@@ -149,15 +149,17 @@
                           <v-list density="compact">
                             <v-list-item @click="startRenameTab(tab.id, tab.name)">
                               <template v-slot:prepend>
-                                <v-icon size="small">mdi-pencil</v-icon>
+                                <v-icon size="x-small">mdi-pencil</v-icon>
                               </template>
-                              <v-list-item-title>Rename</v-list-item-title>
+                              <v-list-item-title class="text-subtitle-2">Rename</v-list-item-title>
                             </v-list-item>
                             <v-list-item @click="handleCloseOtherTabs(tab.id)">
                               <template v-slot:prepend>
-                                <v-icon size="small">mdi-close-box-multiple</v-icon>
+                                <v-icon size="x-small">mdi-close-box-multiple</v-icon>
                               </template>
-                              <v-list-item-title>Close Other Tabs</v-list-item-title>
+                              <v-list-item-title class="text-subtitle-2">
+                                Close Other Tabs
+                              </v-list-item-title>
                             </v-list-item>
                           </v-list>
                         </v-menu>
