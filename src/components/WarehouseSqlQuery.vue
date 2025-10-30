@@ -140,12 +140,27 @@
                           style="cursor: pointer">
                           {{ tab.name }}
                         </span>
-                        <v-icon
-                          size="x-small"
-                          class="ml-1 mr-1"
-                          @click.stop="startRenameTab(tab.id, tab.name)">
-                          mdi-pencil
-                        </v-icon>
+                        <v-menu>
+                          <template v-slot:activator="{ props: menuProps }">
+                            <v-icon size="x-small" class="ml-1 mr-1" v-bind="menuProps" @click.stop>
+                              mdi-dots-horizontal
+                            </v-icon>
+                          </template>
+                          <v-list density="compact">
+                            <v-list-item @click="startRenameTab(tab.id, tab.name)">
+                              <template v-slot:prepend>
+                                <v-icon size="small">mdi-pencil</v-icon>
+                              </template>
+                              <v-list-item-title>Rename</v-list-item-title>
+                            </v-list-item>
+                            <v-list-item @click="handleCloseOtherTabs(tab.id)">
+                              <template v-slot:prepend>
+                                <v-icon size="small">mdi-close-box-multiple</v-icon>
+                              </template>
+                              <v-list-item-title>Close Other Tabs</v-list-item-title>
+                            </v-list-item>
+                          </v-list>
+                        </v-menu>
                         <v-icon size="x-small" class="ml-1" @click.stop="handleCloseTab(tab.id)">
                           mdi-close
                         </v-icon>
@@ -355,6 +370,32 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Close Other Tabs Confirmation Dialog -->
+    <v-dialog v-model="showCloseOtherTabsDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
+          Close Other Tabs?
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-2">
+            Are you sure you want to close all tabs except "{{ tabToKeep?.name }}"?
+          </p>
+          <p class="text-body-2 text-grey mb-0">
+            {{ otherTabsCount }} tab{{ otherTabsCount !== 1 ? 's' : '' }} will be permanently
+            deleted and cannot be recovered.
+          </p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="cancelCloseOtherTabs">Cancel</v-btn>
+          <v-btn color="error" variant="elevated" @click="confirmCloseOtherTabs">
+            Close Other Tabs
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -403,6 +444,8 @@ const showRenameDialog = ref(false);
 const tabToRename = ref<string | null>(null);
 const newTabName = ref('');
 const renameError = ref('');
+const showCloseOtherTabsDialog = ref(false);
+const tabToKeep = ref<{ id: string; name: string } | null>(null);
 
 const selectedTable = ref<{ type: string; namespaceId: string; name: string } | null>(null);
 
@@ -439,6 +482,12 @@ const activeQueryName = computed(() => {
 const currentWarehouseTabs = computed(() => {
   if (!props.warehouseId) return [];
   return visualStore.getSqlTabs(props.warehouseId);
+});
+
+// Computed property for count of other tabs
+const otherTabsCount = computed(() => {
+  if (!tabToKeep.value) return 0;
+  return currentWarehouseTabs.value.length - 1;
 });
 
 // Check if SQL querying is available based on storage and protocol
@@ -670,6 +719,46 @@ function confirmRename() {
   tabToRename.value = null;
   newTabName.value = '';
   renameError.value = '';
+}
+
+function handleCloseOtherTabs(tabId: string) {
+  if (!props.warehouseId) return;
+  // Find the tab to keep
+  const tab = currentWarehouseTabs.value.find((t) => t.id === tabId);
+  if (!tab) return;
+
+  // Show confirmation dialog
+  tabToKeep.value = { id: tab.id, name: tab.name };
+  showCloseOtherTabsDialog.value = true;
+}
+
+function cancelCloseOtherTabs() {
+  showCloseOtherTabsDialog.value = false;
+  tabToKeep.value = null;
+}
+
+function confirmCloseOtherTabs() {
+  if (!tabToKeep.value || !props.warehouseId) return;
+
+  // Get all tabs except the one to keep
+  const tabsToClose = currentWarehouseTabs.value.filter((t) => t.id !== tabToKeep.value!.id);
+
+  // Close all other tabs
+  tabsToClose.forEach((tab) => {
+    visualStore.removeSqlTab(props.warehouseId, tab.id);
+  });
+
+  // Set the kept tab as active
+  visualStore.setActiveSqlTab(props.warehouseId, tabToKeep.value.id);
+  const activeTab = visualStore.getActiveSqlTab(props.warehouseId);
+  if (activeTab) {
+    sqlQuery.value = activeTab.content;
+    activeTabIndex.value = 0; // Will be the only tab
+  }
+
+  // Close dialog
+  showCloseOtherTabsDialog.value = false;
+  tabToKeep.value = null;
 }
 
 function handleTabClick(tabId: string) {
