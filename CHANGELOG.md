@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/lakekeeper/console-components/compare/v0.1.2...v0.2.0) (2025-11-01)
+
+
+### Features
+
+* DuckDB browser query  ([#16](https://github.com/lakekeeper/console-components/issues/16)) ([68ea6e5](https://github.com/lakekeeper/console-components/commit/68ea6e5819508d3a825027228985fa88f57462ad))
+
 ## [0.1.2](https://github.com/lakekeeper/console-components/compare/v0.1.1...v0.1.2) (2025-10-13)
 
 
