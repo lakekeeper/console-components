@@ -264,14 +264,6 @@ const isCreateAvailable = computed(() => ({
 // Check if we should show S3/GCS + HTTP warning
 const showS3HttpWarning = storageValidation.shouldShowHttpWarning;
 
-// Debug logging
-console.log('TableCreate storage check:', {
-  storageType: props.storageType,
-  storageTypeLower: props.storageType?.toLowerCase(),
-  supportedTypes: storageValidation.supportedStorageTypes,
-  isCreateAvailable: isCreateAvailable.value,
-});
-
 const sqlPreview = computed(() => {
   if (!tableName.value || fields.value.length === 0) return '';
 
@@ -285,11 +277,6 @@ const sqlPreview = computed(() => {
   // For Iceberg, use simple dot-separated unquoted identifiers
   // DuckDB Iceberg expects: catalog.namespace.table
   const fullTablePath = `"${warehouseName.value}"."${props.namespaceId}"."${tableName.value}"`;
-
-  console.log('TableCreate SQL generation:', {
-    namespaceId: props.namespaceId,
-    fullTablePath,
-  });
 
   return `CREATE TABLE ${fullTablePath} (
 ${fieldDefinitions}
@@ -355,7 +342,6 @@ async function createTable() {
       ${createTableSQL}
     `;
 
-    console.log('Executing CREATE TABLE:', query);
     await icebergDB.executeQuery(query);
 
     success.value = true;

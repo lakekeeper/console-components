@@ -96,11 +96,7 @@ export function useStorageValidation(
     const result = !storageType.value
       ? false
       : !supportedStorageTypes.includes(storageType.value.toLowerCase());
-    console.log('shouldShowUnsupportedWarning:', {
-      storageType: storageType.value,
-      supportedTypes: supportedStorageTypes,
-      result,
-    });
+
     return result;
   });
 

@@ -96,10 +96,6 @@ const userStore = useUserStore();
 const icebergDB = useIcebergDuckDB();
 const csvDownload = useCsvDownload();
 
-console.log('🔍 TablePreview props:', {
-  storageType: props.storageType,
-  catalogUrl: props.catalogUrl,
-});
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl),
@@ -197,7 +193,6 @@ async function loadPreview() {
       SELECT * FROM "${warehouseName.value}"."${props.namespaceId}"."${props.tableName}" LIMIT 1000;
     `;
 
-    console.log('Executing preview query:', query);
     const results = await icebergDB.executeQuery(query);
     queryResults.value = results;
   } catch (err: any) {
