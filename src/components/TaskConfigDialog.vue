@@ -4,7 +4,7 @@
     <template #prepend>
       <v-icon>mdi-cog-outline</v-icon>
     </template>
-    <v-list-item-title>Task Config</v-list-item-title>
+    <v-list-item-title class="text-subtitle-2">Task Config</v-list-item-title>
     <template #append>
       <v-chip size="x-small" color="primary" variant="tonal">PLUS</v-chip>
     </template>
