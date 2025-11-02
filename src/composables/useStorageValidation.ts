@@ -17,7 +17,7 @@ export function useStorageValidation(
   const supportedStorageTypes = ['s3']; //, 'gcs'
 
   // List of supported protocols for DuckDB WASM
-  const supportedProtocols = ['https:'];
+  const supportedProtocols = ['https:', 'http:'];
 
   /**
    * Check if the storage type is supported by DuckDB WASM
