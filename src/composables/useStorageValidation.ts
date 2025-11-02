@@ -42,7 +42,7 @@ export function useStorageValidation(
    * Check if we should show HTTP security warning for cloud storage
    */
   const shouldShowHttpWarning = computed(() => {
-    if (!storageType.value || !catalogUrl.value) return true;
+    if (!storageType.value || !catalogUrl.value) return false;
 
     const lowerStorageType = storageType.value.toLowerCase();
     const isCloudStorage = supportedStorageTypes.includes(lowerStorageType);
