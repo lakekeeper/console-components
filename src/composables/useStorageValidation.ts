@@ -101,13 +101,27 @@ export function useStorageValidation(
   });
 
   /**
-   * Check if an operation is available (combines storage and other checks)
+   * Check if an operation is available (combines storage and protocol checks)
    */
   const isOperationAvailable = computed(() => {
-    return {
-      available: isStorageSupported.value.supported,
-      reason: isStorageSupported.value.reason,
-    };
+    // First check if storage is supported
+    if (!isStorageSupported.value.supported) {
+      return {
+        available: false,
+        reason: isStorageSupported.value.reason,
+      };
+    }
+
+    // Then check if HTTP is being used with cloud storage (HTTPS is required)
+    if (shouldShowHttpWarning.value) {
+      const storageTypes = supportedStorageTypes.map((type) => type.toUpperCase()).join('/');
+      return {
+        available: false,
+        reason: `DuckDB WASM requires HTTPS for ${storageTypes} storage. Your catalog is using HTTP which is not secure. Please use an HTTPS catalog URL.`,
+      };
+    }
+
+    return { available: true, reason: null };
   });
 
   return {
