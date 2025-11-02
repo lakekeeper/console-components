@@ -104,10 +104,23 @@ export function useStorageValidation(
    * Check if an operation is available (combines storage and other checks)
    */
   const isOperationAvailable = computed(() => {
-    return {
-      available: isStorageSupported.value.supported,
-      reason: isStorageSupported.value.reason,
-    };
+    // First check if storage is supported
+    if (!isStorageSupported.value.supported) {
+      return {
+        available: false,
+        reason: isStorageSupported.value.reason,
+      };
+    }
+
+    // Then check for HTTP security issue
+    if (shouldShowHttpWarning.value) {
+      return {
+        available: false,
+        reason: httpWarningMessage.value,
+      };
+    }
+
+    return { available: true, reason: null };
   });
 
   return {
