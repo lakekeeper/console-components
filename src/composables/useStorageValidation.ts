@@ -15,6 +15,9 @@ export function useStorageValidation(
 ) {
   // List of supported storage types for DuckDB WASM
   const supportedStorageTypes = ['s3']; //, 'gcs'
+  
+  // List of supported protocols for DuckDB WASM
+  const supportedProtocols = ['https:'];
 
   /**
    * Check if the storage type is supported by DuckDB WASM
@@ -46,9 +49,18 @@ export function useStorageValidation(
 
     const lowerStorageType = storageType.value.toLowerCase();
     const isCloudStorage = supportedStorageTypes.includes(lowerStorageType);
-    const isHttpCatalog = catalogUrl.value.startsWith('http://');
+    
+    // Check if protocol is not in the supported list
+    let isUnsupportedProtocol = false;
+    try {
+      const url = new URL(catalogUrl.value);
+      isUnsupportedProtocol = !supportedProtocols.includes(url.protocol);
+    } catch {
+      // If URL is invalid, don't show warning (will be caught elsewhere)
+      return false;
+    }
 
-    return isCloudStorage && isHttpCatalog;
+    return isCloudStorage && isUnsupportedProtocol;
   });
 
   /**
@@ -64,9 +76,10 @@ export function useStorageValidation(
    */
   const requirementsText = computed(() => {
     const storageTypes = supportedStorageTypes.map((type) => type.toUpperCase()).join(' or ');
+    const protocols = supportedProtocols.map((p) => p.replace(':', '').toUpperCase()).join(' or ');
     return {
       storageRequirement: `Warehouse must use ${storageTypes} storage`,
-      protocolRequirement: 'Catalog must use HTTPS protocol',
+      protocolRequirement: `Catalog must use ${protocols} protocol`,
     };
   });
 
@@ -78,7 +91,10 @@ export function useStorageValidation(
     return `Warehouse must use ${storageTypes} storage`;
   });
 
-  const protocolRequirement = computed(() => 'Catalog must use HTTPS protocol');
+  const protocolRequirement = computed(() => {
+    const protocols = supportedProtocols.map((p) => p.replace(':', '').toUpperCase()).join(' or ');
+    return `Catalog must use ${protocols} protocol`;
+  });
 
   const unsupportedStorageReason = computed(() => {
     if (!storageType.value) return null;
@@ -134,5 +150,6 @@ export function useStorageValidation(
     unsupportedStorageReason,
     isOperationAvailable,
     supportedStorageTypes,
+    supportedProtocols,
   };
 }
