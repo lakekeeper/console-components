@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/lakekeeper/console-components/compare/v0.2.0...v0.2.1) (2025-11-02)
+
+
+### Bug Fixes
+
+* support https catalogs for duckdb wasm ([#18](https://github.com/lakekeeper/console-components/issues/18)) ([cc8004e](https://github.com/lakekeeper/console-components/commit/cc8004e68d8a912c09be588d35e75387fc1ee5f6))
+
 ## [0.2.0](https://github.com/lakekeeper/console-components/compare/v0.1.2...v0.2.0) (2025-11-01)
 
 
