@@ -5,6 +5,10 @@ justfile
 CHANGELOG.md
 */*.d.ts
 
+# Generated API clients
+src/gen/**
+**/*.gen.ts
+
 # Third-party libraries - do not format
 public/**
 **/duckdb-worker-wrapper.js
