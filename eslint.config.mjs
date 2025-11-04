@@ -39,7 +39,8 @@ export default [
   },
   {
     ignores: [
-      '*.gen.ts',
+      '**/*.gen.ts',
+      'src/gen/**',
       'openapi',
       '.github',
       'justfile',
