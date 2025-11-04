@@ -2,20 +2,10 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "@lakekeeper/console-components",
-      "extra-files": [
-        "package.json"
-      ]
+      "package-name": "@lakekeeper/console-components"
     }
   },
   "bump-minor-pre-major": true,
   "bump-patch-for-minor-pre-major": false,
-  "include-component-in-tag": false,
-  "changelog-sections": [
-    { "type": "feat", "section": "Features" },
-    { "type": "fix", "section": "Bug Fixes" },
-    { "type": "perf", "section": "Performance Improvements" },
-    { "type": "docs", "section": "Documentation", "hidden": true },
-    { "type": "chore", "section": "Miscellaneous", "hidden": true }
-  ]
+  "include-component-in-tag": false
 }
