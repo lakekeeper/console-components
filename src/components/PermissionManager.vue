@@ -36,7 +36,7 @@
       <span style="display: flex; align-items: center">
         <v-icon v-if="item.kind == 'user'" class="mr-2">mdi-account-circle-outline</v-icon>
         <v-icon v-else-if="isRoleFromDifferentProject(item)" class="mr-2" color="warning">
-          mdi-account-box-outline
+          mdi-badge-account-alert-outline
         </v-icon>
         <v-icon v-else class="mr-2">mdi-account-box-multiple-outline</v-icon>
         {{ item.name }}
