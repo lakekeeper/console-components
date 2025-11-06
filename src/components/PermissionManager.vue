@@ -35,8 +35,22 @@
     <template #item.name="{ item }">
       <span style="display: flex; align-items: center">
         <v-icon v-if="item.kind == 'user'" class="mr-2">mdi-account-circle-outline</v-icon>
+        <v-icon v-else-if="isRoleFromDifferentProject(item)" class="mr-2" color="warning">
+          mdi-account-box-outline
+        </v-icon>
         <v-icon v-else class="mr-2">mdi-account-box-multiple-outline</v-icon>
         {{ item.name }}
+        <span v-if="isRoleFromDifferentProject(item)" class="text-caption text-grey ml-2">
+          ({{ item['project-id'] }})
+        </span>
+        <v-chip
+          v-if="isRoleFromDifferentProject(item)"
+          class="ml-2"
+          color="warning"
+          size="x-small"
+          variant="outlined">
+          External
+        </v-chip>
       </span>
     </template>
     <!--template v-slot:item.kind="{ item }">
@@ -87,8 +101,24 @@ import {
 
 import { AssignmentCollection, Header, RelationType } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
+import { useVisualStore } from '../stores/visual';
 
 const functions = inject<any>('functions')!;
+const visualStore = useVisualStore();
+
+const currentProjectId = computed(() => {
+  return visualStore.projectSelected['project-id'] || null;
+});
+
+/**
+ * Check if a role belongs to a different project
+ */
+function isRoleFromDifferentProject(item: any): boolean {
+  if (item.kind !== 'role') return false;
+  if (!item['project-id']) return false;
+  if (!currentProjectId.value) return false;
+  return item['project-id'] !== currentProjectId.value;
+}
 
 const isManagedAccess = ref(false);
 const isManagedAccessInherited = ref(false);
@@ -99,7 +129,14 @@ const headers: readonly Header[] = Object.freeze([
 ]);
 
 const permissionRows = reactive<
-  { id: string; name: string; email: string; type: string[]; kind: string }[]
+  {
+    id: string;
+    name: string;
+    email: string;
+    type: string[];
+    kind: string;
+    'project-id'?: string | null;
+  }[]
 >([]);
 
 // <!--false, true -> "Managed access enabled by parent"
@@ -329,6 +366,7 @@ async function init() {
             email: '',
             type: [permission.type],
             kind: 'role',
+            'project-id': role['project-id'] || null,
           });
         } else {
           permissionRows[idx].type.push(permission.type);
