@@ -23,7 +23,6 @@ import WarehouseStorageAzure from './components/WarehouseStorageAzure.vue';
 import WarehouseStorageGCS from './components/WarehouseStorageGCS.vue';
 import WarehouseStorageJSON from './components/WarehouseStorageJSON.vue';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue';
-import AssignToRoleDialogSingle from './components/AssignToRoleDialogSingle.vue';
 import WarehouseDetails from './components/WarehouseDetails.vue';
 import TaskManager from './components/TaskManager.vue';
 import TaskDetails from './components/TaskDetails.vue';
@@ -103,7 +102,6 @@ export {
   WarehouseStorageGCS,
   WarehouseStorageJSON,
   DeleteConfirmDialog,
-  AssignToRoleDialogSingle,
   StatisticsDialog,
   StatisticsProject,
   ComputeConnectDialog,
@@ -172,7 +170,6 @@ const components = {
   WarehouseStorageGCS,
   WarehouseStorageJSON,
   DeleteConfirmDialog,
-  AssignToRoleDialogSingle,
   StatisticsDialog,
   StatisticsProject,
   ComputeConnectDialog,

@@ -13,11 +13,11 @@
 
       <v-btn
         v-else
-        icon="mdi-pencil"
         v-bind="activatorProps"
+        color="primary"
         size="small"
-        slim
-        variant="flat"></v-btn>
+        text="Edit"
+        variant="outlined"></v-btn>
     </template>
 
     <v-card
@@ -27,29 +27,27 @@
           : `Edit Assignment on ${props.relation} - ${props.obj?.name}`
       ">
       <v-card-text>
-        <span>
-          <v-row>
-            <v-col>
-              <v-switch
-                v-if="props.actionType == 'grant'"
-                v-model="model"
-                base-color="info"
-                color="success"
-                hide-details
-                inset
-                :label="`Search for ${searchForType.toUpperCase()}`"
-                :prepend-icon="
-                  searchForType == 'role'
-                    ? 'mdi-account-box-multiple-outline'
-                    : 'mdi-account-circle-outline'
-                "
-                @update:model-value="clearSelectedItem"></v-switch>
-            </v-col>
-            <v-col>
-              <v-checkbox v-model="byIdActivated" label="by Id"></v-checkbox>
-            </v-col>
-          </v-row>
-        </span>
+        <v-tabs
+          v-if="props.actionType == 'grant'"
+          v-model="searchForType"
+          color="primary"
+          class="mb-4"
+          @update:model-value="clearSelectedItem">
+          <v-tab value="user">
+            <v-icon start>mdi-account-circle-outline</v-icon>
+            Users
+          </v-tab>
+          <v-tab value="role">
+            <v-icon start>mdi-account-box-multiple-outline</v-icon>
+            Roles
+          </v-tab>
+        </v-tabs>
+
+        <v-row v-if="props.actionType == 'grant'">
+          <v-col>
+            <v-checkbox v-model="byIdActivated" label="Search by ID"></v-checkbox>
+          </v-col>
+        </v-row>
 
         <v-autocomplete
           v-if="props.actionType == 'grant' && !byIdActivated"
@@ -67,13 +65,9 @@
           <template #item="{ props: itemProps, item }">
             <v-list-item
               v-bind="itemProps"
-              :prepend-icon="
-                searchForType == 'role'
-                  ? 'mdi-account-box-multiple-outline'
-                  : 'mdi-account-circle-outline'
-              "
-              :subtitle="item.raw.email"
-              :title="item.raw.name"></v-list-item>
+              :prepend-icon="getItemIcon(item.raw)"
+              :subtitle="getItemSubtitle(item.raw)"
+              :title="getItemTitle(item.raw)"></v-list-item>
           </template>
         </v-autocomplete>
         <v-text-field
@@ -88,7 +82,17 @@
           <v-card-title>
             <span v-if="selectedItem.id == undefined">Search for a {{ searchForType }}</span>
             <span v-else>
+              <v-icon
+                v-if="isRoleFromDifferentProject(selectedItem)"
+                class="mr-2"
+                color="warning"
+                size="small">
+                mdi-badge-account-alert-outline
+              </v-icon>
               {{ selectedItem.name }}
+              <span v-if="isRoleFromDifferentProject(selectedItem)" class="text-caption text-grey">
+                ({{ (selectedItem as any)['project-id'] }})
+              </span>
             </span>
           </v-card-title>
           <span v-if="selectedItem.id != undefined">
@@ -100,6 +104,14 @@
                 size="small"
                 variant="flat"
                 @click="functions.copyToClipboard(selectedItem.id)"></v-btn>
+              <v-chip
+                v-if="isRoleFromDifferentProject(selectedItem)"
+                class="ml-2"
+                color="warning"
+                size="x-small"
+                variant="outlined">
+                External Project Role
+              </v-chip>
             </v-card-subtitle>
             <v-card-text>
               <v-row no-gutters>
@@ -147,9 +159,11 @@ import {
 
 import { AssignmentCollection, RelationType } from '@/common/interfaces';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
 import { StatusIntent } from '@/common/enums';
 
 const functions = useFunctions();
+const visualStore = useVisualStore();
 const byIdActivated = ref(false);
 const items = reactive<any[]>([]);
 const selectedItem = reactive<User | Role | { name: string; id: string }>({
@@ -158,7 +172,6 @@ const selectedItem = reactive<User | Role | { name: string; id: string }>({
 });
 const searchFor = ref<string>('');
 const isDialogActive = ref(false);
-const model = ref(true);
 const newAddAssignments = reactive<any[]>([]);
 const newDelAssignments = reactive<any[]>([]);
 const existingAssignments = reactive<any[]>([]);
@@ -169,10 +182,7 @@ const role = reactive<{ id: string; name: string }>({
 
 const selectedReleations = ref<any[]>([]);
 const idSearchUserOrRole = ref<string>('');
-
-const searchForType = computed(() => {
-  return model.value ? 'user' : 'role';
-});
+const searchForType = ref<'user' | 'role'>('user');
 
 const objRelation = computed(() => {
   if (props.relation === 'role') {
@@ -262,6 +272,60 @@ const emit = defineEmits<{
   ): void;
 }>();
 
+/**
+ * Get the current project ID from the visual store
+ */
+const currentProjectId = computed(() => {
+  return visualStore.projectSelected['project-id'] || null;
+});
+
+/**
+ * Check if a role belongs to a different project
+ */
+function isRoleFromDifferentProject(role: any): boolean {
+  if (searchForType.value !== 'role') return false;
+  if (!role['project-id']) return false;
+  if (!currentProjectId.value) return false;
+  return role['project-id'] !== currentProjectId.value;
+}
+
+/**
+ * Get the appropriate icon for the item
+ */
+function getItemIcon(item: any): string {
+  if (searchForType.value === 'role') {
+    // Use a different icon for roles from different projects
+    return isRoleFromDifferentProject(item)
+      ? 'mdi-badge-account-alert-outline' // Different icon for external roles
+      : 'mdi-account-box-multiple-outline'; // Standard role icon
+  }
+  return 'mdi-account-circle-outline'; // User icon
+}
+
+/**
+ * Get the formatted title for the item
+ */
+function getItemTitle(item: any): string {
+  if (searchForType.value === 'role' && isRoleFromDifferentProject(item)) {
+    return `${item.name} (${item['project-id']})`;
+  }
+  return item.name;
+}
+
+/**
+ * Get the subtitle for the item
+ */
+function getItemSubtitle(item: any): string {
+  if (searchForType.value === 'user') {
+    return item.email || '';
+  }
+  // For roles from different projects, show a hint
+  if (isRoleFromDifferentProject(item)) {
+    return 'External project role';
+  }
+  return item.description || '';
+}
+
 async function searchMember(search: string) {
   try {
     items.splice(0, items.length);
@@ -338,6 +402,8 @@ function clearSelectedItem() {
   Object.assign(selectedItem, { name: '' });
   idSearchUserOrRole.value = '';
   byIdActivated.value = false;
+  selectedReleations.value.splice(0, selectedReleations.value.length);
+  spliceAssignments();
 }
 
 function selectedObject() {
@@ -358,6 +424,7 @@ function selectedObject() {
   }
 
   searchFor.value = '';
+  items.splice(0, items.length);
 }
 
 function sendAssignment(value: any) {
@@ -435,7 +502,7 @@ async function init() {
         (a: any) => a.user === props.assignee || a.role === props.assignee,
       );
 
-      model.value = 'user' in assignee;
+      searchForType.value = 'user' in assignee ? 'user' : 'role';
 
       const assignments: any = props.assignments.filter(
         (a: any) => a.user === props.assignee || a.role === props.assignee,
@@ -460,6 +527,17 @@ async function init() {
 
 onMounted(async () => {
   await init();
+});
+
+// Clear state when dialog opens
+watch(isDialogActive, (newValue) => {
+  if (newValue && props.actionType === 'grant') {
+    // Clear everything when opening for grant action
+    clearSelectedItem();
+  } else if (newValue && props.actionType === 'edit') {
+    // Reinitialize when opening for edit action
+    init();
+  }
 });
 
 watch(

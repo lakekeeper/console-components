@@ -20,7 +20,7 @@
 
         <v-spacer></v-spacer>
         <span v-if="canManageGrants" style="display: flex; align-items: center">
-          <AssignToRoleDialogSingle
+          <PermissionAssignDialog
             :status="assignStatus"
             :action-type="'grant'"
             :assignee="''"
@@ -35,8 +35,22 @@
     <template #item.name="{ item }">
       <span style="display: flex; align-items: center">
         <v-icon v-if="item.kind == 'user'" class="mr-2">mdi-account-circle-outline</v-icon>
+        <v-icon v-else-if="isRoleFromDifferentProject(item)" class="mr-2" color="warning">
+          mdi-badge-account-alert-outline
+        </v-icon>
         <v-icon v-else class="mr-2">mdi-account-box-multiple-outline</v-icon>
         {{ item.name }}
+        <span v-if="isRoleFromDifferentProject(item)" class="text-caption text-grey ml-2">
+          ({{ item['project-id'] }})
+        </span>
+        <v-chip
+          v-if="isRoleFromDifferentProject(item)"
+          class="ml-2"
+          color="warning"
+          size="x-small"
+          variant="outlined">
+          External Project Role
+        </v-chip>
       </span>
     </template>
     <!--template v-slot:item.kind="{ item }">
@@ -50,19 +64,30 @@
       </td>
     </template-->
     <template #item.type="{ item }">
-      <AssignToRoleDialogSingle
-        v-if="canManageGrants"
-        :status="assignStatus"
-        :action-type="'edit'"
-        :assignee="item.id"
-        :assignments="existingAssignments"
-        :obj="assignableObj"
-        :relation="props.relationType"
-        @assignments="assign" />
       <v-chip v-for="(t, i) in item.type" :key="i" class="mr-1" size="small">{{ t }}</v-chip>
     </template>
+    <template #item.action="{ item }">
+      <span style="display: flex; align-items: center; gap: 8px">
+        <PermissionAssignDialog
+          v-if="canManageGrants"
+          :status="assignStatus"
+          :action-type="'edit'"
+          :assignee="item.id"
+          :assignments="existingAssignments"
+          :obj="assignableObj"
+          :relation="props.relationType"
+          @assignments="assign" />
+        <v-btn
+          v-if="canManageGrants"
+          color="error"
+          size="small"
+          text="Revoke All"
+          variant="outlined"
+          @click="openDeleteDialog(item)"></v-btn>
+      </span>
+    </template>
     <template #no-data>
-      <AssignToRoleDialogSingle
+      <PermissionAssignDialog
         v-if="canManageGrants"
         :status="assignStatus"
         :action-type="'assign'"
@@ -73,6 +98,23 @@
         @assignments="assign" />
     </template>
   </v-data-table>
+
+  <!-- Revoke All Confirmation Dialog -->
+  <v-dialog v-model="deleteDialog" max-width="500">
+    <v-card>
+      <v-card-title class="text-h5">Revoke All Permissions</v-card-title>
+      <v-card-text>
+        Are you sure you want to revoke all permissions for
+        <strong>{{ itemToDelete?.name }}</strong>
+        ?
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn color="grey" text="Cancel" variant="text" @click="deleteDialog = false"></v-btn>
+        <v-btn color="error" text="Revoke All" variant="flat" @click="confirmDelete"></v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script lang="ts" setup>
@@ -87,19 +129,46 @@ import {
 
 import { AssignmentCollection, Header, RelationType } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
+import { useVisualStore } from '../stores/visual';
 
 const functions = inject<any>('functions')!;
+const visualStore = useVisualStore();
+
+const currentProjectId = computed(() => {
+  return visualStore.projectSelected['project-id'] || null;
+});
+
+/**
+ * Check if a role belongs to a different project
+ */
+function isRoleFromDifferentProject(item: any): boolean {
+  if (item.kind !== 'role') return false;
+  if (!item['project-id']) return false;
+  if (!currentProjectId.value) return false;
+  return item['project-id'] !== currentProjectId.value;
+}
 
 const isManagedAccess = ref(false);
 const isManagedAccessInherited = ref(false);
+const deleteDialog = ref(false);
+const itemToDelete = ref<any>(null);
+
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Email', key: 'email', align: 'start' },
   { title: 'Roles', key: 'type', align: 'start', sortable: false },
+  { title: 'Action', key: 'action', align: 'center', sortable: false },
 ]);
 
 const permissionRows = reactive<
-  { id: string; name: string; email: string; type: string[]; kind: string }[]
+  {
+    id: string;
+    name: string;
+    email: string;
+    type: string[];
+    kind: string;
+    'project-id'?: string | null;
+  }[]
 >([]);
 
 // <!--false, true -> "Managed access enabled by parent"
@@ -329,6 +398,7 @@ async function init() {
             email: '',
             type: [permission.type],
             kind: 'role',
+            'project-id': role['project-id'] || null,
           });
         } else {
           permissionRows[idx].type.push(permission.type);
@@ -392,6 +462,36 @@ async function assign(permissions: { del: AssignmentCollection; writes: Assignme
     emit('statusUpdate', StatusIntent.FAILURE);
   } finally {
     loaded.value = true;
+  }
+}
+
+function openDeleteDialog(item: any) {
+  itemToDelete.value = item;
+  deleteDialog.value = true;
+}
+
+async function confirmDelete() {
+  try {
+    if (!itemToDelete.value) return;
+
+    deleteDialog.value = false;
+    loaded.value = false;
+    assignStatus.value = StatusIntent.STARTING;
+    emit('statusUpdate', StatusIntent.STARTING);
+
+    // Get all assignments for this user/role
+    const assignmentsToDelete = existingAssignments.filter(
+      (a: any) => a.user === itemToDelete.value.id || a.role === itemToDelete.value.id,
+    );
+
+    // Delete all assignments
+    await assign({ del: assignmentsToDelete, writes: [] });
+
+    itemToDelete.value = null;
+  } catch (error) {
+    console.error('Error deleting assignments:', error);
+    assignStatus.value = StatusIntent.FAILURE;
+    emit('statusUpdate', StatusIntent.FAILURE);
   }
 }
 
