@@ -529,6 +529,17 @@ onMounted(async () => {
   await init();
 });
 
+// Clear state when dialog opens
+watch(isDialogActive, (newValue) => {
+  if (newValue && props.actionType === 'grant') {
+    // Clear everything when opening for grant action
+    clearSelectedItem();
+  } else if (newValue && props.actionType === 'edit') {
+    // Reinitialize when opening for edit action
+    init();
+  }
+});
+
 watch(
   () => props.status,
   (newValue) => {
