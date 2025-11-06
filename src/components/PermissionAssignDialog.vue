@@ -13,11 +13,11 @@
 
       <v-btn
         v-else
-        icon="mdi-pencil"
         v-bind="activatorProps"
+        color="primary"
         size="small"
-        slim
-        variant="flat"></v-btn>
+        text="Edit"
+        variant="outlined"></v-btn>
     </template>
 
     <v-card

@@ -67,7 +67,7 @@
       <v-chip v-for="(t, i) in item.type" :key="i" class="mr-1" size="small">{{ t }}</v-chip>
     </template>
     <template #item.action="{ item }">
-      <span style="display: flex; align-items: center; gap: 4px">
+      <span style="display: flex; align-items: center; gap: 8px">
         <PermissionAssignDialog
           v-if="canManageGrants"
           :status="assignStatus"
@@ -80,10 +80,10 @@
         <v-btn
           v-if="canManageGrants"
           color="error"
-          icon="mdi-delete"
           size="small"
-          variant="flat"
-          @click="deleteAllAssignments(item)"></v-btn>
+          text="Delete"
+          variant="outlined"
+          @click="openDeleteDialog(item)"></v-btn>
       </span>
     </template>
     <template #no-data>
@@ -98,6 +98,23 @@
         @assignments="assign" />
     </template>
   </v-data-table>
+
+  <!-- Delete Confirmation Dialog -->
+  <v-dialog v-model="deleteDialog" max-width="500">
+    <v-card>
+      <v-card-title class="text-h5">Confirm Deletion</v-card-title>
+      <v-card-text>
+        Are you sure you want to remove all permissions for
+        <strong>{{ itemToDelete?.name }}</strong>
+        ?
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn color="grey" text="Cancel" variant="text" @click="deleteDialog = false"></v-btn>
+        <v-btn color="error" text="Delete" variant="flat" @click="confirmDelete"></v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script lang="ts" setup>
@@ -133,6 +150,9 @@ function isRoleFromDifferentProject(item: any): boolean {
 
 const isManagedAccess = ref(false);
 const isManagedAccessInherited = ref(false);
+const deleteDialog = ref(false);
+const itemToDelete = ref<any>(null);
+
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Email', key: 'email', align: 'start' },
@@ -445,24 +465,29 @@ async function assign(permissions: { del: AssignmentCollection; writes: Assignme
   }
 }
 
-async function deleteAllAssignments(item: any) {
-  try {
-    // Confirm deletion
-    if (!confirm(`Are you sure you want to remove all permissions for ${item.name}?`)) {
-      return;
-    }
+function openDeleteDialog(item: any) {
+  itemToDelete.value = item;
+  deleteDialog.value = true;
+}
 
+async function confirmDelete() {
+  try {
+    if (!itemToDelete.value) return;
+
+    deleteDialog.value = false;
     loaded.value = false;
     assignStatus.value = StatusIntent.STARTING;
     emit('statusUpdate', StatusIntent.STARTING);
 
     // Get all assignments for this user/role
     const assignmentsToDelete = existingAssignments.filter(
-      (a: any) => a.user === item.id || a.role === item.id,
+      (a: any) => a.user === itemToDelete.value.id || a.role === itemToDelete.value.id,
     );
 
     // Delete all assignments
     await assign({ del: assignmentsToDelete, writes: [] });
+
+    itemToDelete.value = null;
   } catch (error) {
     console.error('Error deleting assignments:', error);
     assignStatus.value = StatusIntent.FAILURE;
