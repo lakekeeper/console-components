@@ -67,7 +67,7 @@
       <v-chip v-for="(t, i) in item.type" :key="i" class="mr-1" size="small">{{ t }}</v-chip>
     </template>
     <template #item.action="{ item }">
-      <span style="display: flex; align-items: center; gap: 4px;">
+      <span style="display: flex; align-items: center; gap: 4px">
         <PermissionAssignDialog
           v-if="canManageGrants"
           :status="assignStatus"
