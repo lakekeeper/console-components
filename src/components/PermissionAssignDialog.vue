@@ -27,29 +27,27 @@
           : `Edit Assignment on ${props.relation} - ${props.obj?.name}`
       ">
       <v-card-text>
-        <span>
-          <v-row>
-            <v-col>
-              <v-switch
-                v-if="props.actionType == 'grant'"
-                v-model="model"
-                base-color="info"
-                color="success"
-                hide-details
-                inset
-                :label="`Search for ${searchForType.toUpperCase()}`"
-                :prepend-icon="
-                  searchForType == 'role'
-                    ? 'mdi-account-box-multiple-outline'
-                    : 'mdi-account-circle-outline'
-                "
-                @update:model-value="clearSelectedItem"></v-switch>
-            </v-col>
-            <v-col>
-              <v-checkbox v-model="byIdActivated" label="by Id"></v-checkbox>
-            </v-col>
-          </v-row>
-        </span>
+        <v-tabs
+          v-if="props.actionType == 'grant'"
+          v-model="searchForType"
+          color="primary"
+          class="mb-4"
+          @update:model-value="clearSelectedItem">
+          <v-tab value="user">
+            <v-icon start>mdi-account-circle-outline</v-icon>
+            Users
+          </v-tab>
+          <v-tab value="role">
+            <v-icon start>mdi-account-box-multiple-outline</v-icon>
+            Roles
+          </v-tab>
+        </v-tabs>
+
+        <v-row v-if="props.actionType == 'grant'">
+          <v-col>
+            <v-checkbox v-model="byIdActivated" label="Search by ID"></v-checkbox>
+          </v-col>
+        </v-row>
 
         <v-autocomplete
           v-if="props.actionType == 'grant' && !byIdActivated"
@@ -174,7 +172,6 @@ const selectedItem = reactive<User | Role | { name: string; id: string }>({
 });
 const searchFor = ref<string>('');
 const isDialogActive = ref(false);
-const model = ref(true);
 const newAddAssignments = reactive<any[]>([]);
 const newDelAssignments = reactive<any[]>([]);
 const existingAssignments = reactive<any[]>([]);
@@ -185,10 +182,7 @@ const role = reactive<{ id: string; name: string }>({
 
 const selectedReleations = ref<any[]>([]);
 const idSearchUserOrRole = ref<string>('');
-
-const searchForType = computed(() => {
-  return model.value ? 'user' : 'role';
-});
+const searchForType = ref<'user' | 'role'>('user');
 
 const objRelation = computed(() => {
   if (props.relation === 'role') {
@@ -506,7 +500,7 @@ async function init() {
         (a: any) => a.user === props.assignee || a.role === props.assignee,
       );
 
-      model.value = 'user' in assignee;
+      searchForType.value = 'user' in assignee ? 'user' : 'role';
 
       const assignments: any = props.assignments.filter(
         (a: any) => a.user === props.assignee || a.role === props.assignee,
