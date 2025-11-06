@@ -64,6 +64,9 @@
       </td>
     </template-->
     <template #item.type="{ item }">
+      <v-chip v-for="(t, i) in item.type" :key="i" class="mr-1" size="small">{{ t }}</v-chip>
+    </template>
+    <template #item.action="{ item }">
       <PermissionAssignDialog
         v-if="canManageGrants"
         :status="assignStatus"
@@ -73,7 +76,6 @@
         :obj="assignableObj"
         :relation="props.relationType"
         @assignments="assign" />
-      <v-chip v-for="(t, i) in item.type" :key="i" class="mr-1" size="small">{{ t }}</v-chip>
     </template>
     <template #no-data>
       <PermissionAssignDialog
@@ -126,6 +128,7 @@ const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Email', key: 'email', align: 'start' },
   { title: 'Roles', key: 'type', align: 'start', sortable: false },
+  { title: 'Action', key: 'action', align: 'center', sortable: false },
 ]);
 
 const permissionRows = reactive<
