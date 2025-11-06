@@ -67,13 +67,9 @@
           <template #item="{ props: itemProps, item }">
             <v-list-item
               v-bind="itemProps"
-              :prepend-icon="
-                searchForType == 'role'
-                  ? 'mdi-account-box-multiple-outline'
-                  : 'mdi-account-circle-outline'
-              "
-              :subtitle="item.raw.email"
-              :title="item.raw.name"></v-list-item>
+              :prepend-icon="getItemIcon(item.raw)"
+              :subtitle="getItemSubtitle(item.raw)"
+              :title="getItemTitle(item.raw)"></v-list-item>
           </template>
         </v-autocomplete>
         <v-text-field
@@ -88,7 +84,17 @@
           <v-card-title>
             <span v-if="selectedItem.id == undefined">Search for a {{ searchForType }}</span>
             <span v-else>
+              <v-icon
+                v-if="isRoleFromDifferentProject(selectedItem)"
+                class="mr-2"
+                color="warning"
+                size="small">
+                mdi-account-box-outline
+              </v-icon>
               {{ selectedItem.name }}
+              <span v-if="isRoleFromDifferentProject(selectedItem)" class="text-caption text-grey">
+                ({{ (selectedItem as any)['project-id'] }})
+              </span>
             </span>
           </v-card-title>
           <span v-if="selectedItem.id != undefined">
@@ -100,6 +106,14 @@
                 size="small"
                 variant="flat"
                 @click="functions.copyToClipboard(selectedItem.id)"></v-btn>
+              <v-chip
+                v-if="isRoleFromDifferentProject(selectedItem)"
+                class="ml-2"
+                color="warning"
+                size="x-small"
+                variant="outlined">
+                External Project Role
+              </v-chip>
             </v-card-subtitle>
             <v-card-text>
               <v-row no-gutters>
@@ -147,9 +161,11 @@ import {
 
 import { AssignmentCollection, RelationType } from '@/common/interfaces';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
 import { StatusIntent } from '@/common/enums';
 
 const functions = useFunctions();
+const visualStore = useVisualStore();
 const byIdActivated = ref(false);
 const items = reactive<any[]>([]);
 const selectedItem = reactive<User | Role | { name: string; id: string }>({
@@ -261,6 +277,60 @@ const emit = defineEmits<{
     },
   ): void;
 }>();
+
+/**
+ * Get the current project ID from the visual store
+ */
+const currentProjectId = computed(() => {
+  return visualStore.projectSelected['project-id'] || null;
+});
+
+/**
+ * Check if a role belongs to a different project
+ */
+function isRoleFromDifferentProject(role: any): boolean {
+  if (searchForType.value !== 'role') return false;
+  if (!role['project-id']) return false;
+  if (!currentProjectId.value) return false;
+  return role['project-id'] !== currentProjectId.value;
+}
+
+/**
+ * Get the appropriate icon for the item
+ */
+function getItemIcon(item: any): string {
+  if (searchForType.value === 'role') {
+    // Use a different icon for roles from different projects
+    return isRoleFromDifferentProject(item)
+      ? 'mdi-account-box-outline' // Different icon for external roles
+      : 'mdi-account-box-multiple-outline'; // Standard role icon
+  }
+  return 'mdi-account-circle-outline'; // User icon
+}
+
+/**
+ * Get the formatted title for the item
+ */
+function getItemTitle(item: any): string {
+  if (searchForType.value === 'role' && isRoleFromDifferentProject(item)) {
+    return `${item.name} (${item['project-id']})`;
+  }
+  return item.name;
+}
+
+/**
+ * Get the subtitle for the item
+ */
+function getItemSubtitle(item: any): string {
+  if (searchForType.value === 'user') {
+    return item.email || '';
+  }
+  // For roles from different projects, show a hint
+  if (isRoleFromDifferentProject(item)) {
+    return 'External project role';
+  }
+  return item.description || '';
+}
 
 async function searchMember(search: string) {
   try {
