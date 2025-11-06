@@ -81,7 +81,7 @@
           v-if="canManageGrants"
           color="error"
           size="small"
-          text="Ungrant"
+          text="Revoke All"
           variant="outlined"
           @click="openDeleteDialog(item)"></v-btn>
       </span>
@@ -99,19 +99,19 @@
     </template>
   </v-data-table>
 
-  <!-- Ungrant Confirmation Dialog -->
+  <!-- Revoke All Confirmation Dialog -->
   <v-dialog v-model="deleteDialog" max-width="500">
     <v-card>
-      <v-card-title class="text-h5">Confirm Ungrant</v-card-title>
+      <v-card-title class="text-h5">Revoke All Permissions</v-card-title>
       <v-card-text>
-        Are you sure you want to remove all permissions for
+        Are you sure you want to revoke all permissions for
         <strong>{{ itemToDelete?.name }}</strong>
         ?
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
         <v-btn color="grey" text="Cancel" variant="text" @click="deleteDialog = false"></v-btn>
-        <v-btn color="error" text="Ungrant" variant="flat" @click="confirmDelete"></v-btn>
+        <v-btn color="error" text="Revoke All" variant="flat" @click="confirmDelete"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
