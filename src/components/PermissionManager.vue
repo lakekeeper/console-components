@@ -20,7 +20,7 @@
 
         <v-spacer></v-spacer>
         <span v-if="canManageGrants" style="display: flex; align-items: center">
-          <AssignToRoleDialogSingle
+          <PermissionAssignDialog
             :status="assignStatus"
             :action-type="'grant'"
             :assignee="''"
@@ -50,7 +50,7 @@
       </td>
     </template-->
     <template #item.type="{ item }">
-      <AssignToRoleDialogSingle
+      <PermissionAssignDialog
         v-if="canManageGrants"
         :status="assignStatus"
         :action-type="'edit'"
@@ -62,7 +62,7 @@
       <v-chip v-for="(t, i) in item.type" :key="i" class="mr-1" size="small">{{ t }}</v-chip>
     </template>
     <template #no-data>
-      <AssignToRoleDialogSingle
+      <PermissionAssignDialog
         v-if="canManageGrants"
         :status="assignStatus"
         :action-type="'assign'"

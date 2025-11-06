@@ -55,12 +55,13 @@
           v-if="props.actionType == 'grant' && !byIdActivated"
           v-model="searchFor"
           class="mx-auto"
+          clear-on-select
           density="comfortable"
           item-title="name"
           item-value="id"
           :items="items"
           variant="solo"
-          @blur="onBlur"
+          @update:focused="items.splice(0, items.length)"
           @update:model-value="selectedObject"
           @update:search="searchMember">
           <template #item="{ props: itemProps, item }">
@@ -131,7 +132,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineEmits, defineProps, reactive, ref, onMounted, computed, watch, inject } from 'vue';
+import { defineEmits, defineProps, reactive, ref, onMounted, computed, watch } from 'vue';
 import {
   NamespaceRelation,
   ProjectRelation,
@@ -142,13 +143,13 @@ import {
   User,
   ViewRelation,
   WarehouseRelation,
-} from '../gen/management/types.gen';
+} from '@/gen/management/types.gen';
 
-import { AssignmentCollection, RelationType } from '../common/interfaces';
+import { AssignmentCollection, RelationType } from '@/common/interfaces';
+import { useFunctions } from '@/plugins/functions';
+import { StatusIntent } from '@/common/enums';
 
-import { StatusIntent } from '../common/enums';
-
-const functions = inject<any>('functions')!;
+const functions = useFunctions();
 const byIdActivated = ref(false);
 const items = reactive<any[]>([]);
 const selectedItem = reactive<User | Role | { name: string; id: string }>({
@@ -156,7 +157,6 @@ const selectedItem = reactive<User | Role | { name: string; id: string }>({
   id: '',
 });
 const searchFor = ref<string>('');
-const isSelecting = ref(false);
 const isDialogActive = ref(false);
 const model = ref(true);
 const newAddAssignments = reactive<any[]>([]);
@@ -264,7 +264,6 @@ const emit = defineEmits<{
 
 async function searchMember(search: string) {
   try {
-    if (isSelecting.value) return;
     items.splice(0, items.length);
     if (search === '') return;
 
@@ -282,13 +281,6 @@ async function searchMember(search: string) {
     }
   } catch (error) {
     console.error(error);
-  }
-}
-
-function onBlur() {
-  // Only clear items if no selection was made
-  if (!searchFor.value) {
-    items.splice(0, items.length);
   }
 }
 
@@ -349,7 +341,6 @@ function clearSelectedItem() {
 }
 
 function selectedObject() {
-  isSelecting.value = true;
   clearSelectedItem();
   selectedReleations.value.splice(0, selectedReleations.value.length);
   const obj = items.find((item: any) => item.id === searchFor.value);
@@ -368,9 +359,6 @@ function selectedObject() {
 
   searchFor.value = '';
   items.splice(0, items.length);
-  setTimeout(() => {
-    isSelecting.value = false;
-  }, 100);
 }
 
 function sendAssignment(value: any) {

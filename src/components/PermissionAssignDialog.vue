@@ -358,6 +358,7 @@ function selectedObject() {
   }
 
   searchFor.value = '';
+  items.splice(0, items.length);
 }
 
 function sendAssignment(value: any) {
