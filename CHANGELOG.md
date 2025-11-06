@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/lakekeeper/console-components/compare/v0.2.2...v0.2.3) (2025-11-06)
+
+
+### Bug Fixes
+
+* external role visibility ([#25](https://github.com/lakekeeper/console-components/issues/25)) ([b4eba4a](https://github.com/lakekeeper/console-components/commit/b4eba4a76d834d71ab318331dfc51eaf0c38308e))
+
 ## [0.2.2](https://github.com/lakekeeper/console-components/compare/v0.2.1...v0.2.2) (2025-11-04)
 
 
