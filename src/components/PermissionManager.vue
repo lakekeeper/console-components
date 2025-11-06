@@ -67,15 +67,24 @@
       <v-chip v-for="(t, i) in item.type" :key="i" class="mr-1" size="small">{{ t }}</v-chip>
     </template>
     <template #item.action="{ item }">
-      <PermissionAssignDialog
-        v-if="canManageGrants"
-        :status="assignStatus"
-        :action-type="'edit'"
-        :assignee="item.id"
-        :assignments="existingAssignments"
-        :obj="assignableObj"
-        :relation="props.relationType"
-        @assignments="assign" />
+      <span style="display: flex; align-items: center; gap: 4px;">
+        <PermissionAssignDialog
+          v-if="canManageGrants"
+          :status="assignStatus"
+          :action-type="'edit'"
+          :assignee="item.id"
+          :assignments="existingAssignments"
+          :obj="assignableObj"
+          :relation="props.relationType"
+          @assignments="assign" />
+        <v-btn
+          v-if="canManageGrants"
+          color="error"
+          icon="mdi-delete"
+          size="small"
+          variant="flat"
+          @click="deleteAllAssignments(item)"></v-btn>
+      </span>
     </template>
     <template #no-data>
       <PermissionAssignDialog
@@ -433,6 +442,31 @@ async function assign(permissions: { del: AssignmentCollection; writes: Assignme
     emit('statusUpdate', StatusIntent.FAILURE);
   } finally {
     loaded.value = true;
+  }
+}
+
+async function deleteAllAssignments(item: any) {
+  try {
+    // Confirm deletion
+    if (!confirm(`Are you sure you want to remove all permissions for ${item.name}?`)) {
+      return;
+    }
+
+    loaded.value = false;
+    assignStatus.value = StatusIntent.STARTING;
+    emit('statusUpdate', StatusIntent.STARTING);
+
+    // Get all assignments for this user/role
+    const assignmentsToDelete = existingAssignments.filter(
+      (a: any) => a.user === item.id || a.role === item.id,
+    );
+
+    // Delete all assignments
+    await assign({ del: assignmentsToDelete, writes: [] });
+  } catch (error) {
+    console.error('Error deleting assignments:', error);
+    assignStatus.value = StatusIntent.FAILURE;
+    emit('statusUpdate', StatusIntent.FAILURE);
   }
 }
 
