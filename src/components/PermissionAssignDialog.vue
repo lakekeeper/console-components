@@ -87,7 +87,7 @@
                 class="mr-2"
                 color="warning"
                 size="small">
-                mdi-account-box-outline
+                mdi-badge-account-alert-outline
               </v-icon>
               {{ selectedItem.name }}
               <span v-if="isRoleFromDifferentProject(selectedItem)" class="text-caption text-grey">
@@ -402,6 +402,8 @@ function clearSelectedItem() {
   Object.assign(selectedItem, { name: '' });
   idSearchUserOrRole.value = '';
   byIdActivated.value = false;
+  selectedReleations.value.splice(0, selectedReleations.value.length);
+  spliceAssignments();
 }
 
 function selectedObject() {
