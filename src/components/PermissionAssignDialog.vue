@@ -302,7 +302,7 @@ function getItemIcon(item: any): string {
   if (searchForType.value === 'role') {
     // Use a different icon for roles from different projects
     return isRoleFromDifferentProject(item)
-      ? 'mdi-account-box-outline' // Different icon for external roles
+      ? 'mdi-badge-account-alert-outline' // Different icon for external roles
       : 'mdi-account-box-multiple-outline'; // Standard role icon
   }
   return 'mdi-account-circle-outline'; // User icon
