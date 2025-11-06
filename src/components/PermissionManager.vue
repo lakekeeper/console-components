@@ -81,7 +81,7 @@
           v-if="canManageGrants"
           color="error"
           size="small"
-          text="Delete"
+          text="Ungrant"
           variant="outlined"
           @click="openDeleteDialog(item)"></v-btn>
       </span>
@@ -99,10 +99,10 @@
     </template>
   </v-data-table>
 
-  <!-- Delete Confirmation Dialog -->
+  <!-- Ungrant Confirmation Dialog -->
   <v-dialog v-model="deleteDialog" max-width="500">
     <v-card>
-      <v-card-title class="text-h5">Confirm Deletion</v-card-title>
+      <v-card-title class="text-h5">Confirm Ungrant</v-card-title>
       <v-card-text>
         Are you sure you want to remove all permissions for
         <strong>{{ itemToDelete?.name }}</strong>
@@ -111,7 +111,7 @@
       <v-card-actions>
         <v-spacer></v-spacer>
         <v-btn color="grey" text="Cancel" variant="text" @click="deleteDialog = false"></v-btn>
-        <v-btn color="error" text="Delete" variant="flat" @click="confirmDelete"></v-btn>
+        <v-btn color="error" text="Ungrant" variant="flat" @click="confirmDelete"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
