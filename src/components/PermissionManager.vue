@@ -49,7 +49,7 @@
           color="warning"
           size="x-small"
           variant="outlined">
-          External
+          External Project Role
         </v-chip>
       </span>
     </template>
