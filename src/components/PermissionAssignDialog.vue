@@ -637,6 +637,14 @@ watch(searchForType, (newValue) => {
   }
 });
 
+// Clear selected item when project is cleared for role search
+watch(selectedProjectForRoleSearch, (newValue) => {
+  if (searchForType.value === 'role' && !newValue) {
+    // Clear selected item when project is cleared
+    clearSelectedItem();
+  }
+});
+
 watch(
   () => props.status,
   (newValue) => {
