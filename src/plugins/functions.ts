@@ -1744,17 +1744,31 @@ async function updateUserById(name: string, userId: string): Promise<boolean> {
 }
 
 // Roles
-async function searchRole(search: string): Promise<Role[]> {
+async function searchRole(
+  searchRequest: string | { search: string; 'project-id'?: string },
+): Promise<Role[]> {
   try {
     init();
 
     const visual = useVisualStore();
     const client = mngClient.client;
 
+    // Handle both string (legacy) and object parameter formats
+    let search: string;
+    let projectId: string | undefined;
+
+    if (typeof searchRequest === 'string') {
+      search = searchRequest;
+      projectId = visual.projectSelected['project-id'] || '';
+    } else {
+      search = searchRequest.search;
+      projectId = searchRequest['project-id'] || visual.projectSelected['project-id'] || '';
+    }
+
     const { data, error } = await mng.searchRole({
       client,
       body: {
-        'project-id': visual.projectSelected['project-id'] || '',
+        'project-id': projectId,
         search,
       },
     });

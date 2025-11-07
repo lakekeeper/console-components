@@ -60,6 +60,20 @@
               <template #prepend-inner>
                 <v-icon>mdi-folder-account</v-icon>
               </template>
+              <template #item="{ props: itemProps, item }">
+                <v-list-item
+                  v-bind="itemProps"
+                  :title="`${item.raw['project-name']} (${item.raw['project-id']})`">
+                  <template #prepend>
+                    <v-icon v-if="item.raw['project-id'] === currentProjectId">
+                      mdi-check-circle
+                    </v-icon>
+                  </template>
+                </v-list-item>
+              </template>
+              <template #selection="{ item }">
+                <span>{{ item.raw['project-name'] }} ({{ item.raw['project-id'] }})</span>
+              </template>
             </v-select>
           </v-col>
         </v-row>
@@ -368,7 +382,7 @@ async function searchMember(search: string) {
       Object.assign(items, userSearchOutput);
     } else {
       // For role search, pass the selected project ID if available
-      const searchRequest: any = { name: search };
+      const searchRequest: any = { search: search };
       if (selectedProjectForRoleSearch.value) {
         searchRequest['project-id'] = selectedProjectForRoleSearch.value;
       }
