@@ -43,9 +43,33 @@
           </v-tab>
         </v-tabs>
 
+        <!-- Project Selector for Role Search -->
+        <v-row v-if="props.actionType == 'grant' && searchForType === 'role'">
+          <v-col>
+            <v-select
+              v-model="selectedProjectForRoleSearch"
+              :items="userProjects"
+              item-title="project-name"
+              item-value="project-id"
+              label="Select Project"
+              density="comfortable"
+              clearable
+              hint="Choose a project to search for roles"
+              persistent-hint
+              :loading="loadingProjects">
+              <template #prepend-inner>
+                <v-icon>mdi-folder-account</v-icon>
+              </template>
+            </v-select>
+          </v-col>
+        </v-row>
+
         <v-row v-if="props.actionType == 'grant'">
           <v-col>
-            <v-checkbox v-model="byIdActivated" label="Search by ID"></v-checkbox>
+            <v-checkbox
+              v-model="byIdActivated"
+              label="Search by ID"
+              :disabled="searchForType === 'role' && loadingProjects"></v-checkbox>
           </v-col>
         </v-row>
 
@@ -59,6 +83,8 @@
           item-value="id"
           :items="items"
           variant="solo"
+          :disabled="searchForType === 'role' && loadingProjects"
+          :loading="searchForType === 'role' && loadingProjects"
           @update:focused="items.splice(0, items.length)"
           @update:model-value="selectedObject"
           @update:search="searchMember">
@@ -71,12 +97,13 @@
           </template>
         </v-autocomplete>
         <v-text-field
-          v-else
+          v-if="props.actionType == 'grant' && byIdActivated"
           v-model="idSearchUserOrRole"
           clearable
           dense
           label="Search by ID"
           outlined
+          :disabled="searchForType === 'role' && loadingProjects"
           @update:model-value="searchMemberById"></v-text-field>
         <span class="mt-16">
           <v-card-title>
@@ -179,6 +206,11 @@ const role = reactive<{ id: string; name: string }>({
   name: 'empty',
   id: '',
 });
+
+// Project selection for role search
+const selectedProjectForRoleSearch = ref<string | null>(null);
+const userProjects = reactive<any[]>([]);
+const loadingProjects = ref(false);
 
 const selectedReleations = ref<any[]>([]);
 const idSearchUserOrRole = ref<string>('');
@@ -335,7 +367,13 @@ async function searchMember(search: string) {
       const userSearchOutput = await functions.searchUser(search);
       Object.assign(items, userSearchOutput);
     } else {
-      const roleSearchOutput = await functions.searchRole(search);
+      // For role search, pass the selected project ID if available
+      const searchRequest: any = { name: search };
+      if (selectedProjectForRoleSearch.value) {
+        searchRequest['project-id'] = selectedProjectForRoleSearch.value;
+      }
+
+      const roleSearchOutput = await functions.searchRole(searchRequest);
 
       const roleSearchOutputFiltered = roleSearchOutput.filter((it: Role) => {
         return it.id !== props.obj.id;
@@ -525,6 +563,23 @@ async function init() {
   }
 }
 
+async function loadUserProjects() {
+  try {
+    loadingProjects.value = true;
+    const projects = await functions.loadProjectList();
+    userProjects.splice(0, userProjects.length, ...projects);
+
+    // Auto-select current project if available
+    if (currentProjectId.value && !selectedProjectForRoleSearch.value) {
+      selectedProjectForRoleSearch.value = currentProjectId.value;
+    }
+  } catch (error) {
+    console.error('Failed to load projects:', error);
+  } finally {
+    loadingProjects.value = false;
+  }
+}
+
 onMounted(async () => {
   await init();
 });
@@ -534,9 +589,20 @@ watch(isDialogActive, (newValue) => {
   if (newValue && props.actionType === 'grant') {
     // Clear everything when opening for grant action
     clearSelectedItem();
+    // Load projects for role search
+    if (userProjects.length === 0) {
+      loadUserProjects();
+    }
   } else if (newValue && props.actionType === 'edit') {
     // Reinitialize when opening for edit action
     init();
+  }
+});
+
+// Load projects when role tab is selected
+watch(searchForType, (newValue) => {
+  if (newValue === 'role' && userProjects.length === 0) {
+    loadUserProjects();
   }
 });
 
