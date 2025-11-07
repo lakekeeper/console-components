@@ -34,7 +34,6 @@
         @update-deletion-profile="updateDeletionProfile" />
 
       <ComputeConnectDialog :warehouse="warehouse" />
-
     </v-list>
   </v-menu>
 </template>
