@@ -64,7 +64,7 @@
                 <v-list-item
                   v-bind="itemProps"
                   :title="`${item.raw['project-name']} (${item.raw['project-id']})`">
-                  <template #prepend>
+                  <template #append>
                     <v-icon v-if="item.raw['project-id'] === currentProjectId">
                       mdi-check-circle
                     </v-icon>
