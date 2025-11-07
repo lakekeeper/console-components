@@ -137,7 +137,7 @@ function parseErrorText(errorText: string): { message: string; code: number } {
   return { message, code };
 }
 
-function handleError(error: any, functionError: Error) {
+export function handleError(error: any, functionError: Error) {
   try {
     console.error('Handling error:', error);
     if (error === 'invalid HTTP header (authorization)') return;
@@ -2455,6 +2455,7 @@ export function useFunctions(config?: any) {
     controlTasks,
     listTasks,
     getNewToken,
+    handleError,
   };
 }
 
