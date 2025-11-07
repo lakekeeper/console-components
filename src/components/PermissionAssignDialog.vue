@@ -56,7 +56,8 @@
               clearable
               hint="Choose a project to search for roles"
               persistent-hint
-              :loading="loadingProjects">
+              :loading="loadingProjects"
+              @update:model-value="onProjectChange">
               <template #prepend-inner>
                 <v-icon>mdi-folder-account</v-icon>
               </template>
@@ -81,10 +82,7 @@
             <v-checkbox
               v-model="byIdActivated"
               label="Search by ID"
-              :disabled="
-                (searchForType === 'role' && loadingProjects) ||
-                (searchForType === 'role' && !selectedProjectForRoleSearch)
-              "></v-checkbox>
+              :disabled="isRoleSearchDisabled"></v-checkbox>
           </v-col>
         </v-row>
 
@@ -98,10 +96,7 @@
           item-value="id"
           :items="items"
           variant="solo"
-          :disabled="
-            (searchForType === 'role' && loadingProjects) ||
-            (searchForType === 'role' && !selectedProjectForRoleSearch)
-          "
+          :disabled="isRoleSearchDisabled"
           :loading="searchForType === 'role' && loadingProjects"
           :placeholder="
             searchForType === 'role' && !selectedProjectForRoleSearch
@@ -126,10 +121,7 @@
           dense
           label="Search by ID"
           outlined
-          :disabled="
-            (searchForType === 'role' && loadingProjects) ||
-            (searchForType === 'role' && !selectedProjectForRoleSearch)
-          "
+          :disabled="isRoleSearchDisabled"
           :placeholder="
             searchForType === 'role' && !selectedProjectForRoleSearch
               ? 'Please select a project first'
@@ -343,6 +335,14 @@ const currentProjectId = computed(() => {
 });
 
 /**
+ * Check if search controls should be disabled for role search
+ */
+const isRoleSearchDisabled = computed(() => {
+  if (searchForType.value !== 'role') return false;
+  return loadingProjects.value || !selectedProjectForRoleSearch.value;
+});
+
+/**
  * Check if a role belongs to a different project
  */
 function isRoleFromDifferentProject(role: any): boolean {
@@ -473,6 +473,7 @@ function clearSelectedItem() {
   byIdActivated.value = false;
   selectedReleations.value.splice(0, selectedReleations.value.length);
   spliceAssignments();
+  items.splice(0, items.length); // Clear the search results
 }
 
 function selectedObject() {
@@ -638,9 +639,10 @@ watch(searchForType, (newValue) => {
 });
 
 // Clear selected item when project is cleared for role search
-watch(selectedProjectForRoleSearch, (newValue) => {
-  if (searchForType.value === 'role' && !newValue) {
-    // Clear selected item when project is cleared
+watch(selectedProjectForRoleSearch, (newValue, oldValue) => {
+  // Only clear if we're on role tab and the value changed from something to null/undefined
+  if (searchForType.value === 'role' && oldValue && !newValue) {
+    console.log('Project cleared, clearing selected item');
     clearSelectedItem();
   }
 });
