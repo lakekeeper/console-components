@@ -674,7 +674,7 @@ async function confirmCancelTask() {
 
   taskActionLoading.value = true;
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'cancel' }, [
+    await functions.controlTasks(props.warehouseId, { action: 'cancel' }, [
       taskToConfirm.value['task-id'],
     ]);
     visual.setSnackbarMsg({
@@ -705,7 +705,7 @@ async function confirmRunTaskNow() {
 
   taskActionLoading.value = true;
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'run-now' }, [
+    await functions.controlTasks(props.warehouseId, { action: 'run-now' }, [
       taskToConfirm.value['task-id'],
     ]);
     visual.setSnackbarMsg({
@@ -797,7 +797,7 @@ async function viewTaskDetails(task: Task) {
 
 async function stopTask(task: Task) {
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'stop' }, [task['task-id']]);
+    await functions.controlTasks(props.warehouseId, { action: 'stop' }, [task['task-id']]);
     visual.setSnackbarMsg({
       function: 'stopTask',
       text: `Task ${task['task-id']} stop requested`,
