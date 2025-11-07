@@ -481,7 +481,7 @@ const getEntityId = () => {
   return null;
 };
 
-const createEntityFilter = (): TaskEntity[] | undefined => {
+const createEntityFilter = (): any[] | undefined => {
   const entityId = getEntityId();
   if (!entityId) return undefined;
 
@@ -490,15 +490,17 @@ const createEntityFilter = (): TaskEntity[] | undefined => {
       {
         type: 'view',
         'view-id': entityId,
+        'warehouse-id': props.warehouseId,
       },
-    ] as TaskEntity[];
+    ];
   } else if (props.entityType === 'table') {
     return [
       {
         type: 'table',
         'table-id': entityId,
+        'warehouse-id': props.warehouseId,
       },
-    ] as TaskEntity[];
+    ];
   }
   return undefined;
 };
@@ -675,7 +677,10 @@ async function confirmCancelTask() {
   taskActionLoading.value = true;
   try {
     await functions.controlTasks(props.warehouseId, { action: 'cancel' }, [
-      { 'task-id': taskToConfirm.value['task-id'], 'warehouse-id': props.warehouseId },
+      {
+        'task-id': taskToConfirm.value['task-id'],
+        'warehouse-id': props.warehouseId,
+      },
     ]);
     visual.setSnackbarMsg({
       function: 'cancelTask',
@@ -706,7 +711,10 @@ async function confirmRunTaskNow() {
   taskActionLoading.value = true;
   try {
     await functions.controlTasks(props.warehouseId, { action: 'run-now' }, [
-      { 'task-id': taskToConfirm.value['task-id'], 'warehouse-id': props.warehouseId },
+      {
+        'task-id': taskToConfirm.value['task-id'],
+        'warehouse-id': props.warehouseId,
+      },
     ]);
     visual.setSnackbarMsg({
       function: 'runTaskNow',
