@@ -19,8 +19,8 @@ import * as iceClient from '@/gen/iceberg/client.gen';
 import {
   GetNamespaceResponse,
   ListTablesResponse,
-  LoadTableResultReadable,
-  LoadViewResultReadable,
+  LoadTableResultWritable,
+  LoadViewResultWritable,
   Namespace,
   PageToken,
 } from '@/gen/iceberg/types.gen';
@@ -855,7 +855,7 @@ async function loadTable(
   warehouseId: string,
   namespacePath: string,
   tableName: string,
-): Promise<LoadTableResultReadable> {
+): Promise<LoadTableResultWritable> {
   try {
     const client = iceClient.client;
     const { data, error } = await ice.loadTable({
@@ -868,7 +868,7 @@ async function loadTable(
     });
     if (error) throw error;
 
-    return data as LoadTableResultReadable;
+    return data as LoadTableResultWritable;
   } catch (error: any) {
     handleError(error, new Error());
     return error;
@@ -1021,7 +1021,7 @@ async function loadView(
   warehouseId: string,
   namespacePath: string,
   viewName: string,
-): Promise<LoadViewResultReadable> {
+): Promise<LoadViewResultWritable> {
   const client = iceClient.client;
   const { data, error } = await ice.loadView({
     client,
@@ -1033,7 +1033,7 @@ async function loadView(
   });
   if (error) throw error;
 
-  return data as LoadViewResultReadable;
+  return data as LoadViewResultWritable;
 }
 
 async function dropView(
