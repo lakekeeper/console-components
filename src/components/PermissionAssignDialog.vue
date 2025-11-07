@@ -477,9 +477,18 @@ function clearSelectedItem() {
 }
 
 function selectedObject() {
-  clearSelectedItem();
-  selectedReleations.value.splice(0, selectedReleations.value.length);
+  // Find the selected object BEFORE clearing
   const obj = items.find((item: any) => item.id === searchFor.value);
+
+  if (!obj) return; // Safety check
+
+  // Now clear and reassign
+  selectedReleations.value.splice(0, selectedReleations.value.length);
+
+  // Clear only the selectedItem properties, not the entire state
+  Object.keys(selectedItem).forEach((key) => {
+    delete (selectedItem as any)[key];
+  });
 
   Object.assign(selectedItem, obj);
   spliceAssignments();
