@@ -648,7 +648,6 @@ watch(searchForType, (newValue) => {
 watch(selectedProjectForRoleSearch, (newValue, oldValue) => {
   // Only clear if we're on role tab and the value changed from something to null/undefined
   if (searchForType.value === 'role' && oldValue && !newValue) {
-    console.log('Project cleared, clearing selected item');
     clearSelectedItem();
   }
 });
