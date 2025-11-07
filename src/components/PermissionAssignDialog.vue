@@ -61,13 +61,14 @@
                 <v-icon>mdi-folder-account</v-icon>
               </template>
               <template #item="{ props: itemProps, item }">
-                <v-list-item
-                  v-bind="itemProps"
-                  :title="`${item.raw['project-name']} (${item.raw['project-id']})`">
-                  <template #append>
-                    <v-icon v-if="item.raw['project-id'] === currentProjectId">
-                      mdi-check-circle
-                    </v-icon>
+                <v-list-item v-bind="itemProps">
+                  <template #title>
+                    <span>{{ item.raw['project-name'] }} ({{ item.raw['project-id'] }})</span>
+                    <span
+                      v-if="item.raw['project-id'] === currentProjectId"
+                      class="text-primary text-caption ml-2">
+                      - currently active
+                    </span>
                   </template>
                 </v-list-item>
               </template>
