@@ -81,7 +81,10 @@
             <v-checkbox
               v-model="byIdActivated"
               label="Search by ID"
-              :disabled="searchForType === 'role' && loadingProjects"></v-checkbox>
+              :disabled="
+                (searchForType === 'role' && loadingProjects) ||
+                (searchForType === 'role' && !selectedProjectForRoleSearch)
+              "></v-checkbox>
           </v-col>
         </v-row>
 
@@ -95,8 +98,16 @@
           item-value="id"
           :items="items"
           variant="solo"
-          :disabled="searchForType === 'role' && loadingProjects"
+          :disabled="
+            (searchForType === 'role' && loadingProjects) ||
+            (searchForType === 'role' && !selectedProjectForRoleSearch)
+          "
           :loading="searchForType === 'role' && loadingProjects"
+          :placeholder="
+            searchForType === 'role' && !selectedProjectForRoleSearch
+              ? 'Please select a project first'
+              : ''
+          "
           @update:focused="items.splice(0, items.length)"
           @update:model-value="selectedObject"
           @update:search="searchMember">
@@ -115,7 +126,15 @@
           dense
           label="Search by ID"
           outlined
-          :disabled="searchForType === 'role' && loadingProjects"
+          :disabled="
+            (searchForType === 'role' && loadingProjects) ||
+            (searchForType === 'role' && !selectedProjectForRoleSearch)
+          "
+          :placeholder="
+            searchForType === 'role' && !selectedProjectForRoleSearch
+              ? 'Please select a project first'
+              : ''
+          "
           @update:model-value="searchMemberById"></v-text-field>
         <span class="mt-16">
           <v-card-title>
