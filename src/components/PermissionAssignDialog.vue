@@ -612,6 +612,14 @@ async function loadUserProjects() {
   }
 }
 
+function onProjectChange(value: string | null) {
+  console.log('Project changed to:', value, 'Type:', typeof value, 'Is null?', value === null);
+  if (value === null || value === undefined) {
+    console.log('Project cleared - clearing selected item');
+    clearSelectedItem();
+  }
+}
+
 onMounted(async () => {
   await init();
 });
