@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="800">
+  <v-dialog v-model="isDialogActive" max-width="1200">
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-if="actionType == 'grant'"
@@ -76,9 +76,6 @@
               </template>
             </v-select>
           </v-col>
-        </v-row>
-
-        <v-row v-if="props.actionType == 'grant'">
           <v-col>
             <v-checkbox
               v-model="byIdActivated"
