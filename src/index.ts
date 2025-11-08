@@ -55,7 +55,6 @@ import ViewDetails from './components/ViewDetails.vue';
 
 // Import navigation components
 import AppBar from './components/AppBar.vue';
-import NavigationBar from './components/NavigationBar.vue';
 
 // Import utility components
 import WarningBanner from './components/WarningBanner.vue';
@@ -82,7 +81,6 @@ export {
   RoleManager,
   RoleOverviewEdit,
   AppBar,
-  NavigationBar,
   WarningBanner,
   SnackbarMessage,
   BreadcrumbsFromUrl,
@@ -151,7 +149,6 @@ const components = {
   RoleManager,
   RoleOverviewEdit,
   AppBar,
-  NavigationBar,
   WarningBanner,
   SnackbarMessage,
   BreadcrumbsFromUrl,
