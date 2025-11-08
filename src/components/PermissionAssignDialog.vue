@@ -45,7 +45,7 @@
 
         <!-- Project Selector for Role Search -->
         <v-row v-if="props.actionType == 'grant' && searchForType === 'role'">
-          <v-col>
+          <v-col v-if="userProjects.length > 1">
             <v-select
               v-model="selectedProjectForRoleSearch"
               :items="userProjects"
@@ -610,9 +610,15 @@ async function loadUserProjects() {
     const projects = await functions.loadProjectList();
     userProjects.splice(0, userProjects.length, ...projects);
 
-    // Auto-select current project if available
-    if (currentProjectId.value && !selectedProjectForRoleSearch.value) {
-      selectedProjectForRoleSearch.value = currentProjectId.value;
+    // Auto-select logic
+    if (!selectedProjectForRoleSearch.value) {
+      if (projects.length === 1) {
+        // Only one project - auto-select it
+        selectedProjectForRoleSearch.value = projects[0]['project-id'];
+      } else if (currentProjectId.value) {
+        // Multiple projects - select current project if available
+        selectedProjectForRoleSearch.value = currentProjectId.value;
+      }
     }
   } catch (error) {
     console.error('Failed to load projects:', error);
