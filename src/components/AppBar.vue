@@ -3,7 +3,7 @@
     <template #prepend>
       <v-app-bar-nav-icon :icon="navIcon" @click="navBar"></v-app-bar-nav-icon>
     </template>
-    <slot name="support-menu">
+    <slot name="logo">
       <v-app-bar-title>
         <img
           :src="logoSrc"
