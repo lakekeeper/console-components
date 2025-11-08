@@ -10,22 +10,25 @@
     </v-list-item>
     <v-spacer></v-spacer>
 
-    <v-menu v-if="showUserMenu" open-on-hover>
-      <template #activator="{ props }">
-        <v-btn v-bind="props"><v-icon>mdi-help-box</v-icon></v-btn>
-      </template>
-      <v-list>
-        <v-list-item prepend-icon="mdi-file-document-check-outline" @click="goToDocumentation">
-          <v-list-item-title>Documentation</v-list-item-title>
-        </v-list-item>
-        <v-list-item prepend-icon="mdi-alert-circle-outline" @click="openIssue">
-          <v-list-item-title>Create an Issue</v-list-item-title>
-        </v-list-item>
-        <v-list-item prepend-icon="mdi-face-agent" @click="goToSupport">
-          <v-list-item-title>Support</v-list-item-title>
-        </v-list-item>
-      </v-list>
-    </v-menu>
+    <slot name="support-menu">
+      <!-- Default OSS support menu (fallback if slot not provided) -->
+      <v-menu v-if="showUserMenu" open-on-hover>
+        <template #activator="{ props }">
+          <v-btn v-bind="props"><v-icon>mdi-help-box</v-icon></v-btn>
+        </template>
+        <v-list>
+          <v-list-item prepend-icon="mdi-file-document-check-outline" @click="goToDocumentation">
+            <v-list-item-title>Documentation</v-list-item-title>
+          </v-list-item>
+          <v-list-item prepend-icon="mdi-alert-circle-outline" @click="openIssue">
+            <v-list-item-title>Create an Issue</v-list-item-title>
+          </v-list-item>
+          <v-list-item prepend-icon="mdi-face-agent" @click="goToSupport">
+            <v-list-item-title>Support</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+    </slot>
 
     <v-menu v-if="showUserMenu" open-on-hover>
       <template #activator="{ props }">
