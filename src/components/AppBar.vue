@@ -91,6 +91,14 @@ import { useRouter } from 'vue-router';
 import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT_SIDE.svg';
 import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE_SIDE.svg';
 
+// Props
+const props = defineProps({
+  logoSrc: {
+    type: String,
+    default: undefined,
+  },
+});
+
 const router = useRouter();
 const visual = useVisualStore();
 const config = useConfig();
@@ -110,6 +118,11 @@ const navIcon = computed(() => {
 });
 
 const logoSrc = computed(() => {
+  // If custom logo is provided via prop, use it
+  if (props.logoSrc) {
+    return props.logoSrc;
+  }
+  // Otherwise use default theme-based logos
   return visual.themeLight ? LogoDark : LogoLight;
 });
 
