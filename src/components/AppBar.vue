@@ -3,8 +3,14 @@
     <template #prepend>
       <v-app-bar-nav-icon :icon="navIcon" @click="navBar"></v-app-bar-nav-icon>
     </template>
-
-    <v-app-bar-title>Lakekeeper</v-app-bar-title>
+    <slot name="support-menu">
+      <v-app-bar-title>
+        <img
+          :src="logoSrc"
+          alt="Lakekeeper"
+          style="height: 32px; width: auto; vertical-align: middle" />
+      </v-app-bar-title>
+    </slot>
     <v-list-item>
       <ProjectManager />
     </v-list-item>
@@ -81,8 +87,9 @@ import { useVisualStore } from '../stores/visual';
 import { useConfig } from '../composables/usePermissions';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '@/plugins/functions';
-
 import { useRouter } from 'vue-router';
+import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT_SIDE.svg';
+import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE_SIDE.svg';
 
 const router = useRouter();
 const visual = useVisualStore();
@@ -100,6 +107,10 @@ const themeText = computed(() => {
 
 const navIcon = computed(() => {
   return visual.navBarShow ? 'mdi-menu-open' : 'mdi-menu';
+});
+
+const logoSrc = computed(() => {
+  return visual.themeLight ? LogoDark : LogoLight;
 });
 
 // Show user menu when user is authenticated OR when authentication is disabled
