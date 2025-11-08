@@ -97,6 +97,14 @@ const props = defineProps({
     type: String,
     default: undefined,
   },
+  logoSrcLight: {
+    type: String,
+    default: undefined,
+  },
+  logoSrcDark: {
+    type: String,
+    default: undefined,
+  },
 });
 
 const router = useRouter();
@@ -118,7 +126,11 @@ const navIcon = computed(() => {
 });
 
 const logoSrc = computed(() => {
-  // If custom logo is provided via prop, use it
+  // If theme-specific custom logos are provided, use them
+  if (props.logoSrcLight && props.logoSrcDark) {
+    return visual.themeLight ? props.logoSrcDark : props.logoSrcLight;
+  }
+  // If single custom logo is provided, use it
   if (props.logoSrc) {
     return props.logoSrc;
   }
