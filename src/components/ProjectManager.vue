@@ -150,7 +150,7 @@ const projectId = computed(() => project.value['project-id']);
 const serverId = computed(() => visual.getServerInfo()['server-id']);
 
 // Use composables for permissions
-const { canReadAssignments, showPermissionsTab, canGetEndpointStatistics, showStatisticsTab } =
+const { canReadAssignments, showPermissionsTab, showStatisticsTab } =
   useProjectPermissions(projectId);
 const { canCreateProject } = useServerPermissions(serverId);
 const projectAssignments = reactive<ProjectAssignment[]>([]);
