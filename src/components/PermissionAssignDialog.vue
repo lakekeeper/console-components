@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="800">
+  <v-dialog v-model="isDialogActive" max-width="1200">
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-if="actionType == 'grant'"
@@ -43,41 +43,94 @@
           </v-tab>
         </v-tabs>
 
-        <v-row v-if="props.actionType == 'grant'">
-          <v-col>
-            <v-checkbox v-model="byIdActivated" label="Search by ID"></v-checkbox>
+        <!-- Project Selector for Role Search -->
+        <v-row v-if="props.actionType == 'grant' && searchForType === 'role'">
+          <v-col v-if="userProjects.length > 1">
+            <v-select
+              v-model="selectedProjectForRoleSearch"
+              :items="userProjects"
+              item-title="project-name"
+              item-value="project-id"
+              label="Select Project"
+              density="comfortable"
+              clearable
+              hint="Choose a project to search for roles"
+              persistent-hint
+              :loading="loadingProjects"
+              @update:model-value="onProjectChange">
+              <template #prepend-inner>
+                <v-icon>mdi-folder-account</v-icon>
+              </template>
+              <template #item="{ props: itemProps, item }">
+                <v-list-item v-bind="itemProps">
+                  <template #title>
+                    <span>{{ item.raw['project-name'] }} ({{ item.raw['project-id'] }})</span>
+                    <span
+                      v-if="item.raw['project-id'] === currentProjectId"
+                      class="text-primary text-caption ml-2">
+                      - currently active
+                    </span>
+                  </template>
+                </v-list-item>
+              </template>
+              <template #selection="{ item }">
+                <span>{{ item.raw['project-name'] }} ({{ item.raw['project-id'] }})</span>
+              </template>
+            </v-select>
           </v-col>
         </v-row>
-
-        <v-autocomplete
-          v-if="props.actionType == 'grant' && !byIdActivated"
-          v-model="searchFor"
-          class="mx-auto"
-          clear-on-select
-          density="comfortable"
-          item-title="name"
-          item-value="id"
-          :items="items"
-          variant="solo"
-          @update:focused="items.splice(0, items.length)"
-          @update:model-value="selectedObject"
-          @update:search="searchMember">
-          <template #item="{ props: itemProps, item }">
-            <v-list-item
-              v-bind="itemProps"
-              :prepend-icon="getItemIcon(item.raw)"
-              :subtitle="getItemSubtitle(item.raw)"
-              :title="getItemTitle(item.raw)"></v-list-item>
-          </template>
-        </v-autocomplete>
-        <v-text-field
-          v-else
-          v-model="idSearchUserOrRole"
-          clearable
-          dense
-          label="Search by ID"
-          outlined
-          @update:model-value="searchMemberById"></v-text-field>
+        <v-row>
+          <v-col cols="2">
+            <v-checkbox
+              v-model="byIdActivated"
+              label="Search by ID"
+              :disabled="isRoleSearchDisabled"></v-checkbox>
+          </v-col>
+          <v-col>
+            <v-autocomplete
+              v-if="props.actionType == 'grant' && !byIdActivated"
+              v-model="searchFor"
+              class="mx-auto"
+              clear-on-select
+              density="comfortable"
+              item-title="name"
+              item-value="id"
+              :items="items"
+              variant="solo"
+              :disabled="isRoleSearchDisabled"
+              :loading="searchForType === 'role' && loadingProjects"
+              :placeholder="
+                searchForType === 'role' && !selectedProjectForRoleSearch
+                  ? 'Please select a project first'
+                  : ''
+              "
+              @update:focused="items.splice(0, items.length)"
+              @update:model-value="selectedObject"
+              @update:search="searchMember">
+              <template #item="{ props: itemProps, item }">
+                <v-list-item
+                  v-bind="itemProps"
+                  :prepend-icon="getItemIcon(item.raw)"
+                  :subtitle="getItemSubtitle(item.raw)"
+                  :title="getItemTitle(item.raw)"></v-list-item>
+              </template>
+            </v-autocomplete>
+            <v-text-field
+              v-if="props.actionType == 'grant' && byIdActivated"
+              v-model="idSearchUserOrRole"
+              clearable
+              dense
+              label="Search by ID"
+              outlined
+              :disabled="isRoleSearchDisabled"
+              :placeholder="
+                searchForType === 'role' && !selectedProjectForRoleSearch
+                  ? 'Please select a project first'
+                  : ''
+              "
+              @update:model-value="searchMemberById"></v-text-field>
+          </v-col>
+        </v-row>
         <span class="mt-16">
           <v-card-title>
             <span v-if="selectedItem.id == undefined">Search for a {{ searchForType }}</span>
@@ -180,6 +233,11 @@ const role = reactive<{ id: string; name: string }>({
   id: '',
 });
 
+// Project selection for role search
+const selectedProjectForRoleSearch = ref<string | null>(null);
+const userProjects = reactive<any[]>([]);
+const loadingProjects = ref(false);
+
 const selectedReleations = ref<any[]>([]);
 const idSearchUserOrRole = ref<string>('');
 const searchForType = ref<'user' | 'role'>('user');
@@ -280,6 +338,14 @@ const currentProjectId = computed(() => {
 });
 
 /**
+ * Check if search controls should be disabled for role search
+ */
+const isRoleSearchDisabled = computed(() => {
+  if (searchForType.value !== 'role') return false;
+  return loadingProjects.value || !selectedProjectForRoleSearch.value;
+});
+
+/**
  * Check if a role belongs to a different project
  */
 function isRoleFromDifferentProject(role: any): boolean {
@@ -335,7 +401,13 @@ async function searchMember(search: string) {
       const userSearchOutput = await functions.searchUser(search);
       Object.assign(items, userSearchOutput);
     } else {
-      const roleSearchOutput = await functions.searchRole(search);
+      // For role search, pass the selected project ID if available
+      const searchRequest: any = { search: search };
+      if (selectedProjectForRoleSearch.value) {
+        searchRequest['project-id'] = selectedProjectForRoleSearch.value;
+      }
+
+      const roleSearchOutput = await functions.searchRole(searchRequest);
 
       const roleSearchOutputFiltered = roleSearchOutput.filter((it: Role) => {
         return it.id !== props.obj.id;
@@ -404,12 +476,22 @@ function clearSelectedItem() {
   byIdActivated.value = false;
   selectedReleations.value.splice(0, selectedReleations.value.length);
   spliceAssignments();
+  items.splice(0, items.length); // Clear the search results
 }
 
 function selectedObject() {
-  clearSelectedItem();
-  selectedReleations.value.splice(0, selectedReleations.value.length);
+  // Find the selected object BEFORE clearing
   const obj = items.find((item: any) => item.id === searchFor.value);
+
+  if (!obj) return; // Safety check
+
+  // Now clear and reassign
+  selectedReleations.value.splice(0, selectedReleations.value.length);
+
+  // Clear only the selectedItem properties, not the entire state
+  Object.keys(selectedItem).forEach((key) => {
+    delete (selectedItem as any)[key];
+  });
 
   Object.assign(selectedItem, obj);
   spliceAssignments();
@@ -525,6 +607,35 @@ async function init() {
   }
 }
 
+async function loadUserProjects() {
+  try {
+    loadingProjects.value = true;
+    const projects = await functions.loadProjectList();
+    userProjects.splice(0, userProjects.length, ...projects);
+
+    // Auto-select logic
+    if (!selectedProjectForRoleSearch.value) {
+      if (projects.length === 1) {
+        // Only one project - auto-select it
+        selectedProjectForRoleSearch.value = projects[0]['project-id'];
+      } else if (currentProjectId.value) {
+        // Multiple projects - select current project if available
+        selectedProjectForRoleSearch.value = currentProjectId.value;
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load projects:', error);
+  } finally {
+    loadingProjects.value = false;
+  }
+}
+
+function onProjectChange(value: string | null) {
+  if (value === null || value === undefined) {
+    clearSelectedItem();
+  }
+}
+
 onMounted(async () => {
   await init();
 });
@@ -534,9 +645,28 @@ watch(isDialogActive, (newValue) => {
   if (newValue && props.actionType === 'grant') {
     // Clear everything when opening for grant action
     clearSelectedItem();
+    // Load projects for role search
+    if (userProjects.length === 0) {
+      loadUserProjects();
+    }
   } else if (newValue && props.actionType === 'edit') {
     // Reinitialize when opening for edit action
     init();
+  }
+});
+
+// Load projects when role tab is selected
+watch(searchForType, (newValue) => {
+  if (newValue === 'role' && userProjects.length === 0) {
+    loadUserProjects();
+  }
+});
+
+// Clear selected item when project is cleared for role search
+watch(selectedProjectForRoleSearch, (newValue, oldValue) => {
+  // Only clear if we're on role tab and the value changed from something to null/undefined
+  if (searchForType.value === 'role' && oldValue && !newValue) {
+    clearSelectedItem();
   }
 });
 

@@ -8,7 +8,6 @@ import UserRenameDialog from './components/UserRenameDialog.vue';
 import ProjectDialog from './components/ProjectDialog.vue';
 import ProjectManager from './components/ProjectManager.vue';
 import ProjectStatistics from './components/ProjectStatistics.vue';
-import AddOrEditProjectNameDialog from './components/AddOrEditProjectNameDialog.vue';
 import NamespaceAddDialog from './components/NamespaceAddDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
 import RoleManager from './components/RoleManager.vue';
@@ -56,7 +55,6 @@ import ViewDetails from './components/ViewDetails.vue';
 
 // Import navigation components
 import AppBar from './components/AppBar.vue';
-import NavigationBar from './components/NavigationBar.vue';
 
 // Import utility components
 import WarningBanner from './components/WarningBanner.vue';
@@ -83,7 +81,6 @@ export {
   RoleManager,
   RoleOverviewEdit,
   AppBar,
-  NavigationBar,
   WarningBanner,
   SnackbarMessage,
   BreadcrumbsFromUrl,
@@ -152,7 +149,6 @@ const components = {
   RoleManager,
   RoleOverviewEdit,
   AppBar,
-  NavigationBar,
   WarningBanner,
   SnackbarMessage,
   BreadcrumbsFromUrl,
@@ -175,7 +171,6 @@ const components = {
   ComputeConnectDialog,
   ProjectManager,
   ProjectStatistics,
-  AddOrEditProjectNameDialog,
   WarehouseDetails,
   TaskManager,
   TaskDetails,

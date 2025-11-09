@@ -19,8 +19,8 @@ import * as iceClient from '@/gen/iceberg/client.gen';
 import {
   GetNamespaceResponse,
   ListTablesResponse,
-  LoadTableResultReadable,
-  LoadViewResultReadable,
+  LoadTableResultWritable,
+  LoadViewResultWritable,
   Namespace,
   PageToken,
 } from '@/gen/iceberg/types.gen';
@@ -137,7 +137,7 @@ function parseErrorText(errorText: string): { message: string; code: number } {
   return { message, code };
 }
 
-function handleError(error: any, functionError: Error) {
+export function handleError(error: any, functionError: Error) {
   try {
     console.error('Handling error:', error);
     if (error === 'invalid HTTP header (authorization)') return;
@@ -855,7 +855,7 @@ async function loadTable(
   warehouseId: string,
   namespacePath: string,
   tableName: string,
-): Promise<LoadTableResultReadable> {
+): Promise<LoadTableResultWritable> {
   try {
     const client = iceClient.client;
     const { data, error } = await ice.loadTable({
@@ -868,7 +868,7 @@ async function loadTable(
     });
     if (error) throw error;
 
-    return data as LoadTableResultReadable;
+    return data as LoadTableResultWritable;
   } catch (error: any) {
     handleError(error, new Error());
     return error;
@@ -1021,7 +1021,7 @@ async function loadView(
   warehouseId: string,
   namespacePath: string,
   viewName: string,
-): Promise<LoadViewResultReadable> {
+): Promise<LoadViewResultWritable> {
   const client = iceClient.client;
   const { data, error } = await ice.loadView({
     client,
@@ -1033,7 +1033,7 @@ async function loadView(
   });
   if (error) throw error;
 
-  return data as LoadViewResultReadable;
+  return data as LoadViewResultWritable;
 }
 
 async function dropView(
@@ -1744,17 +1744,31 @@ async function updateUserById(name: string, userId: string): Promise<boolean> {
 }
 
 // Roles
-async function searchRole(search: string): Promise<Role[]> {
+async function searchRole(
+  searchRequest: string | { search: string; 'project-id'?: string },
+): Promise<Role[]> {
   try {
     init();
 
     const visual = useVisualStore();
     const client = mngClient.client;
 
+    // Handle both string (legacy) and object parameter formats
+    let search: string;
+    let projectId: string | undefined;
+
+    if (typeof searchRequest === 'string') {
+      search = searchRequest;
+      projectId = visual.projectSelected['project-id'] || '';
+    } else {
+      search = searchRequest.search;
+      projectId = searchRequest['project-id'] || visual.projectSelected['project-id'] || '';
+    }
+
     const { data, error } = await mng.searchRole({
       client,
       body: {
-        'project-id': visual.projectSelected['project-id'] || '',
+        'project-id': projectId,
         search,
       },
     });
@@ -2455,6 +2469,7 @@ export function useFunctions(config?: any) {
     controlTasks,
     listTasks,
     getNewToken,
+    handleError,
   };
 }
 

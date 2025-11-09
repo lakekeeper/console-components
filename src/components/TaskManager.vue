@@ -445,7 +445,6 @@ import type {
   TaskStatus,
   ListTasksRequest,
   ListTasksResponse,
-  TaskEntity,
   GetTaskDetailsResponse,
 } from '../gen/management/types.gen';
 
@@ -481,7 +480,7 @@ const getEntityId = () => {
   return null;
 };
 
-const createEntityFilter = (): TaskEntity[] | undefined => {
+const createEntityFilter = (): any[] | undefined => {
   const entityId = getEntityId();
   if (!entityId) return undefined;
 
@@ -490,15 +489,17 @@ const createEntityFilter = (): TaskEntity[] | undefined => {
       {
         type: 'view',
         'view-id': entityId,
+        'warehouse-id': props.warehouseId,
       },
-    ] as TaskEntity[];
+    ];
   } else if (props.entityType === 'table') {
     return [
       {
         type: 'table',
         'table-id': entityId,
+        'warehouse-id': props.warehouseId,
       },
-    ] as TaskEntity[];
+    ];
   }
   return undefined;
 };

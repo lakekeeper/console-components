@@ -49,7 +49,7 @@
             <template #top>
               <v-toolbar color="transparent" density="compact" flat>
                 <v-toolbar-title class="text-subtitle-1">Available Projects</v-toolbar-title>
-                <AddOrEditProjectNameDialog
+                <ProjectNameAddOrEditDialog
                   v-if="canCreateProject"
                   :id="''"
                   :action-type="'add'"
@@ -79,7 +79,7 @@
 
             <template #item.actions="{ item }">
               <div class="d-inline-flex ga-2 align-center">
-                <AddOrEditProjectNameDialog
+                <ProjectNameAddOrEditDialog
                   :id="item['project-id']"
                   :action-type="'edit'"
                   :name="item['project-name']"
