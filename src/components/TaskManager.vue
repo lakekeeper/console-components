@@ -445,7 +445,6 @@ import type {
   TaskStatus,
   ListTasksRequest,
   ListTasksResponse,
-  TaskEntity,
   GetTaskDetailsResponse,
 } from '../gen/management/types.gen';
 
