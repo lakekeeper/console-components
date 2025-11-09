@@ -239,15 +239,7 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
   const canSearchRoles = computed(() => hasPermission('search_roles'));
   const canReadAssignments = computed(() => hasPermission('read_assignments'));
   const canDelete = computed(() => hasPermission('delete'));
-  const canGetEndpointStatistics = computed(() => {
-    const result = hasPermission('get_endpoint_statistics');
-    console.log('🔍 canGetEndpointStatistics DEBUG:', {
-      result,
-      searchingFor: 'get_endpoint_statistics',
-      userPermissions: permissions.value,
-    });
-    return result;
-  });
+  const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
 
   // UI visibility helpers that include auth checks
   const showPermissionsTab = computed(
@@ -256,24 +248,12 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
   );
-  const showStatisticsTab = computed(() => {
-    const hasPermission = canGetEndpointStatistics.value;
-    const authDisabled = !config.enabledAuthentication.value;
-    const permissionsDisabled = !config.enabledPermissions.value;
-    const shouldShow = hasPermission || authDisabled || permissionsDisabled;
-
-    console.log('📊 showStatisticsTab DEBUG:', {
-      hasPermission,
-      authDisabled,
-      permissionsDisabled,
-      shouldShow,
-      permissions: permissions.value,
-      enabledAuthentication: config.enabledAuthentication.value,
-      enabledPermissions: config.enabledPermissions.value,
-    });
-
-    return shouldShow;
-  });
+  const showStatisticsTab = computed(
+    () =>
+      canGetEndpointStatistics.value ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
 
   // Auto-load on mount
   onMounted(() => {
