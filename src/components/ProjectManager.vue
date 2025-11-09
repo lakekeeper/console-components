@@ -118,7 +118,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref, reactive, computed } from 'vue';
+import { onMounted, ref, reactive, computed, watch } from 'vue';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '../plugins/functions';
@@ -153,6 +153,32 @@ const serverId = computed(() => visual.getServerInfo()['server-id']);
 const { canReadAssignments, showPermissionsTab, showStatisticsTab } =
   useProjectPermissions(projectId);
 const { canCreateProject } = useServerPermissions(serverId);
+
+// Debug logging
+console.log('🔥 ProjectManager SCRIPT LOADED');
+console.log('🔥 Initial project ID:', projectId.value);
+
+const debugShowStats = computed(() => {
+  console.log('🚀 ProjectManager DEBUG:', {
+    showStatisticsTab: showStatisticsTab.value,
+    projectId: projectId.value,
+    hasProjectId: !!projectId.value,
+  });
+  return showStatisticsTab.value;
+});
+
+// Watch showStatisticsTab changes
+watch(
+  showStatisticsTab,
+  (newValue, oldValue) => {
+    console.log('🔥 showStatisticsTab CHANGED:', {
+      from: oldValue,
+      to: newValue,
+      projectId: projectId.value,
+    });
+  },
+  { immediate: true },
+);
 const projectAssignments = reactive<ProjectAssignment[]>([]);
 const existingAssignments = reactive<ProjectAssignment[]>([]);
 const loaded = ref(true);
@@ -327,10 +353,16 @@ async function renameProject(renamedProject: RenameProjectRequest & { 'project-i
   }
 }
 onMounted(async () => {
+  console.log('🔥 ProjectManager onMounted - isAuthenticated:', userStorage.isAuthenticated);
+  console.log('🔥 ProjectManager onMounted - showStatisticsTab:', showStatisticsTab.value);
+  console.log('🔥 ProjectManager onMounted - showPermissionsTab:', showPermissionsTab.value);
+
   if (userStorage.isAuthenticated) {
     await init();
   } else {
     await getEndpointStatistcs();
   }
+
+  console.log('🔥 ProjectManager onMounted COMPLETE - showStatisticsTab:', showStatisticsTab.value);
 });
 </script>
