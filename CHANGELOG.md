@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/lakekeeper/console-components/compare/v0.2.3...v0.2.4) (2025-11-09)
+
+
+### Bug Fixes
+
+* role permissions  ([#27](https://github.com/lakekeeper/console-components/issues/27)) ([46f96e8](https://github.com/lakekeeper/console-components/commit/46f96e83f2a06db31e736c86f8bde7b0c5b157de))
+
 ## [0.2.3](https://github.com/lakekeeper/console-components/compare/v0.2.2...v0.2.3) (2025-11-06)
 
 
