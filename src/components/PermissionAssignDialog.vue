@@ -78,56 +78,59 @@
               </template>
             </v-select>
           </v-col>
+        </v-row>
+        <v-row>
           <v-col>
             <v-checkbox
               v-model="byIdActivated"
               label="Search by ID"
               :disabled="isRoleSearchDisabled"></v-checkbox>
           </v-col>
+          <v-col>
+            <v-autocomplete
+              v-if="props.actionType == 'grant' && !byIdActivated"
+              v-model="searchFor"
+              class="mx-auto"
+              clear-on-select
+              density="comfortable"
+              item-title="name"
+              item-value="id"
+              :items="items"
+              variant="solo"
+              :disabled="isRoleSearchDisabled"
+              :loading="searchForType === 'role' && loadingProjects"
+              :placeholder="
+                searchForType === 'role' && !selectedProjectForRoleSearch
+                  ? 'Please select a project first'
+                  : ''
+              "
+              @update:focused="items.splice(0, items.length)"
+              @update:model-value="selectedObject"
+              @update:search="searchMember">
+              <template #item="{ props: itemProps, item }">
+                <v-list-item
+                  v-bind="itemProps"
+                  :prepend-icon="getItemIcon(item.raw)"
+                  :subtitle="getItemSubtitle(item.raw)"
+                  :title="getItemTitle(item.raw)"></v-list-item>
+              </template>
+            </v-autocomplete>
+            <v-text-field
+              v-if="props.actionType == 'grant' && byIdActivated"
+              v-model="idSearchUserOrRole"
+              clearable
+              dense
+              label="Search by ID"
+              outlined
+              :disabled="isRoleSearchDisabled"
+              :placeholder="
+                searchForType === 'role' && !selectedProjectForRoleSearch
+                  ? 'Please select a project first'
+                  : ''
+              "
+              @update:model-value="searchMemberById"></v-text-field>
+          </v-col>
         </v-row>
-
-        <v-autocomplete
-          v-if="props.actionType == 'grant' && !byIdActivated"
-          v-model="searchFor"
-          class="mx-auto"
-          clear-on-select
-          density="comfortable"
-          item-title="name"
-          item-value="id"
-          :items="items"
-          variant="solo"
-          :disabled="isRoleSearchDisabled"
-          :loading="searchForType === 'role' && loadingProjects"
-          :placeholder="
-            searchForType === 'role' && !selectedProjectForRoleSearch
-              ? 'Please select a project first'
-              : ''
-          "
-          @update:focused="items.splice(0, items.length)"
-          @update:model-value="selectedObject"
-          @update:search="searchMember">
-          <template #item="{ props: itemProps, item }">
-            <v-list-item
-              v-bind="itemProps"
-              :prepend-icon="getItemIcon(item.raw)"
-              :subtitle="getItemSubtitle(item.raw)"
-              :title="getItemTitle(item.raw)"></v-list-item>
-          </template>
-        </v-autocomplete>
-        <v-text-field
-          v-if="props.actionType == 'grant' && byIdActivated"
-          v-model="idSearchUserOrRole"
-          clearable
-          dense
-          label="Search by ID"
-          outlined
-          :disabled="isRoleSearchDisabled"
-          :placeholder="
-            searchForType === 'role' && !selectedProjectForRoleSearch
-              ? 'Please select a project first'
-              : ''
-          "
-          @update:model-value="searchMemberById"></v-text-field>
         <span class="mt-16">
           <v-card-title>
             <span v-if="selectedItem.id == undefined">Search for a {{ searchForType }}</span>
