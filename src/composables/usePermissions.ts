@@ -248,12 +248,7 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
   );
-  const showStatisticsTab = computed(
-    () =>
-      canGetEndpointStatistics.value ||
-      !config.enabledAuthentication.value ||
-      !config.enabledPermissions.value,
-  );
+  const showStatisticsTab = computed(() => canGetEndpointStatistics.value);
 
   // Auto-load on mount
   onMounted(() => {

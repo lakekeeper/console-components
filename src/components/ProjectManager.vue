@@ -128,7 +128,6 @@ import {
   CreateProjectRequest,
   GetEndpointStatisticsResponse,
   GetProjectResponse,
-  ProjectAssignment,
   RenameProjectRequest,
 } from '../gen/management/types.gen';
 import { Header, RelationType } from '../common/interfaces';
@@ -153,13 +152,8 @@ const serverId = computed(() => visual.getServerInfo()['server-id']);
 const { canReadAssignments, showPermissionsTab, showStatisticsTab } =
   useProjectPermissions(projectId);
 const { canCreateProject } = useServerPermissions(serverId);
-const projectAssignments = reactive<ProjectAssignment[]>([]);
-const existingAssignments = reactive<ProjectAssignment[]>([]);
 const loaded = ref(true);
 const loadedStatistics = ref(true);
-const assignments = reactive<
-  { id: string; name: string; email: string; type: string; kind: string }[]
->([]);
 
 const statistics = reactive<GetEndpointStatisticsResponse>({
   'called-endpoints': [],
@@ -182,45 +176,7 @@ const availableProjects = reactive<(GetProjectResponse & { actions: string[]; in
 async function init() {
   try {
     loaded.value = false;
-
     await loadProjects();
-
-    projectAssignments.splice(0, projectAssignments.length);
-    Object.assign(
-      projectAssignments,
-      canReadAssignments.value ? await functions.getProjectAssignments() : [],
-    );
-    existingAssignments.splice(0, existingAssignments.length);
-    Object.assign(existingAssignments, projectAssignments);
-
-    for (const assignment of projectAssignments) {
-      const searchUser: any = assignment;
-
-      if (searchUser.user) {
-        const user = await functions.getUser(searchUser.user);
-
-        if (user) {
-          assignments.push({
-            id: user.id,
-            name: user.name,
-            email: user.email ?? '',
-            type: assignment.type,
-            kind: 'user',
-          });
-        }
-      } else {
-        const role = await functions.getRole(searchUser.role);
-        if (role) {
-          assignments.push({
-            id: role.id,
-            name: role.name,
-            email: '',
-            type: assignment.type,
-            kind: 'role',
-          });
-        }
-      }
-    }
     loaded.value = true;
   } catch (error: any) {
     console.error(error);
@@ -228,6 +184,11 @@ async function init() {
 }
 
 async function getEndpointStatistcs() {
+  // Only load if not already loaded
+  if (loadedStatistics.value && statistics['called-endpoints'].length > 0) {
+    return;
+  }
+
   try {
     // Fetch statistics from the backend
     loadedStatistics.value = false;
@@ -329,8 +290,6 @@ async function renameProject(renamedProject: RenameProjectRequest & { 'project-i
 onMounted(async () => {
   if (userStorage.isAuthenticated) {
     await init();
-  } else {
-    await getEndpointStatistcs();
   }
 });
 </script>
