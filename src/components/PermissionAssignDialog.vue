@@ -80,7 +80,7 @@
           </v-col>
         </v-row>
         <v-row>
-          <v-col>
+          <v-col cols="2">
             <v-checkbox
               v-model="byIdActivated"
               label="Search by ID"
