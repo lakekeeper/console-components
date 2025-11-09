@@ -740,7 +740,7 @@ export type NamespaceIdentOrUuid = {
 
 export type NamespaceRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify';
 
-export type ProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'list_warehouses' | 'create_role' | 'list_roles' | 'search_roles' | 'read_assignments' | 'grant_role_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin';
+export type ProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'list_warehouses' | 'create_role' | 'list_roles' | 'search_roles' | 'read_assignments' | 'grant_role_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin' | 'get_endpoint_statistics';
 
 export type ProjectAssignment = (UserOrRole & {
     type: 'project_admin';
@@ -1525,7 +1525,7 @@ export type ViewAssignment = (UserOrRole & {
 
 export type ViewRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'modify';
 
-export type WarehouseAction = 'create_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks';
+export type WarehouseAction = 'create_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_warehouse_protection' | 'get_endpoint_statistics';
 
 export type WarehouseAssignment = (UserOrRole & {
     type: 'ownership';

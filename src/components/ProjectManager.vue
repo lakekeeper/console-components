@@ -25,7 +25,9 @@
         <v-tab v-if="showPermissionsTab && userStorage.isAuthenticated" value="permissions">
           Permissions
         </v-tab>
-        <v-tab value="statistics" @click="getEndpointStatistcs">Statistics</v-tab>
+        <v-tab v-if="showStatisticsTab" value="statistics" @click="getEndpointStatistcs">
+          Statistics
+        </v-tab>
       </v-tabs>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="overview" v-if="userStorage.isAuthenticated">
@@ -107,7 +109,7 @@
             :relation-type="permissionType" />
         </v-tabs-window-item>
 
-        <v-tabs-window-item value="statistics">
+        <v-tabs-window-item v-if="showStatisticsTab" value="statistics">
           <ProjectStatistics v-if="loadedStatistics" :stats="statistics" />
         </v-tabs-window-item>
       </v-tabs-window>
@@ -148,7 +150,8 @@ const projectId = computed(() => project.value['project-id']);
 const serverId = computed(() => visual.getServerInfo()['server-id']);
 
 // Use composables for permissions
-const { canReadAssignments, showPermissionsTab } = useProjectPermissions(projectId);
+const { canReadAssignments, showPermissionsTab, canGetEndpointStatistics, showStatisticsTab } =
+  useProjectPermissions(projectId);
 const { canCreateProject } = useServerPermissions(serverId);
 const projectAssignments = reactive<ProjectAssignment[]>([]);
 const existingAssignments = reactive<ProjectAssignment[]>([]);

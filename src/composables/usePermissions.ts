@@ -239,6 +239,7 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
   const canSearchRoles = computed(() => hasPermission('search_roles'));
   const canReadAssignments = computed(() => hasPermission('read_assignments'));
   const canDelete = computed(() => hasPermission('delete'));
+  const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
 
   // UI visibility helpers that include auth checks
   const showPermissionsTab = computed(
@@ -246,6 +247,12 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
+  );
+  const showStatisticsTab = computed(
+    () =>
+      canGetEndpointStatistics.value ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
   );
 
   // Auto-load on mount
@@ -279,7 +286,9 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
     canSearchRoles,
     canReadAssignments,
     canDelete,
+    canGetEndpointStatistics,
     showPermissionsTab,
+    showStatisticsTab,
     refresh: loadPermissions,
   };
 }
@@ -339,6 +348,8 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const canModifyStorage = computed(() => hasPermission('modify_storage'));
   const canModifyCredentials = computed(() => hasPermission('modify_storage_credential'));
   const canRename = computed(() => hasPermission('rename'));
+  const canSetWarehouseProtection = computed(() => hasPermission('set_warehouse_protection'));
+  const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
 
   // UI visibility helpers that include auth checks
   const showPermissionsTab = computed(
@@ -389,6 +400,8 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canModifyStorage,
     canModifyCredentials,
     canRename,
+    canSetWarehouseProtection,
+    canGetEndpointStatistics,
     showPermissionsTab,
     showTasksTab,
     refresh: loadPermissions,
