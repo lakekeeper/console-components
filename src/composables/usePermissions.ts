@@ -12,9 +12,27 @@ import { usePermissionStore } from '@/stores/permissions';
 // Helper to get config values via inject with fallback
 export function useConfig() {
   const config = inject<any>('appConfig', null);
+  const functions = useFunctions();
+  const authzBackend = ref<string>('');
+
+  // Load server info to determine permissions backend
+  onMounted(async () => {
+    if (functions?.getServerInfo) {
+      try {
+        const serverInfo = await functions.getServerInfo();
+        authzBackend.value = serverInfo['authz-backend'] || '';
+      } catch (error) {
+        console.warn('Failed to load server info for permissions config:', error);
+      }
+    }
+  });
+
   return {
     enabledAuthentication: computed(() => config?.enabledAuthentication ?? false),
-    enabledPermissions: computed(() => config?.enabledPermissions ?? false),
+    enabledPermissions: computed(() => {
+      // Check server's authz-backend instead of frontend config
+      return authzBackend.value !== 'allow-all' && authzBackend.value !== '';
+    }),
   };
 }
 import type { Ref } from 'vue';
