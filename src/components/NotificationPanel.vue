@@ -4,10 +4,41 @@
     temporary
     location="right"
     width="600"
-    class="notification-panel">
-    <div class="notification-panel-container fill-height">
-      <!-- Fixed Header Section -->
-      <div class="notification-fixed-header">
+    :style="{
+      position: 'fixed',
+      top: '0',
+      right: '0',
+      height: '100vh',
+      zIndex: 9999,
+      overflow: 'hidden',
+    }">
+    <!-- Root container with absolute positioning and flex layout -->
+    <div
+      :style="{
+        position: 'absolute',
+        top: '0',
+        left: '0',
+        right: '0',
+        bottom: '0',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100%',
+        overflow: 'hidden',
+        backgroundColor: 'rgb(var(--v-theme-surface))',
+      }">
+      <!-- Fixed Header Section - Absolutely positioned at top -->
+      <div
+        :style="{
+          position: 'absolute',
+          top: '0',
+          left: '0',
+          right: '0',
+          zIndex: '100',
+          backgroundColor: 'rgb(var(--v-theme-surface))',
+          borderBottom: '1px solid rgba(var(--v-border-color), var(--v-border-opacity))',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        }">
         <!-- Header -->
         <v-card class="notification-header" flat>
           <v-card-title class="d-flex align-center justify-space-between pa-4">
@@ -50,7 +81,9 @@
         <v-divider />
 
         <!-- Filter Section -->
-        <v-card flat class="px-4 py-2 notification-filters">
+        <v-card
+          flat
+          :style="{ padding: '8px 16px', backgroundColor: 'rgb(var(--v-theme-surface))' }">
           <div class="text-caption text-grey mb-2">Filter by type:</div>
           <div class="d-flex gap-2 flex-wrap">
             <v-chip
@@ -107,10 +140,32 @@
         <v-divider />
       </div>
 
-      <!-- Scrollable Content -->
-      <div class="notification-content-wrapper">
-        <div class="notification-scroll-container">
-          <div v-if="filteredNotifications.length === 0" class="pa-4 text-center">
+      <!-- Scrollable Content - Positioned below fixed header -->
+      <div
+        :style="{
+          position: 'absolute',
+          top: '220px',
+          left: '0',
+          right: '0',
+          bottom: '0',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }">
+        <!-- This is the ONLY element that scrolls -->
+        <div
+          :style="{
+            flex: '1',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            height: '100%',
+            padding: '0',
+            margin: '0',
+            scrollbarWidth: 'thin',
+          }">
+          <div
+            v-if="filteredNotifications.length === 0"
+            :style="{ padding: '16px', textAlign: 'center' }">
             <v-icon size="64" color="grey-lighten-1" class="mb-4">
               {{ selectedFilter === 'all' ? 'mdi-bell-off' : 'mdi-filter-off' }}
             </v-icon>
@@ -130,13 +185,19 @@
             </div>
           </div>
 
-          <div v-else class="notification-list">
+          <div v-else :style="{ paddingBottom: '16px', width: '100%' }">
             <div
               v-for="(notifications, dateKey) in filteredGroupedNotifications"
               :key="dateKey"
-              class="notification-group">
+              :style="{
+                borderBottom: '1px solid rgba(var(--v-border-color), var(--v-border-opacity))',
+                paddingBottom: '8px',
+                marginBottom: '8px',
+              }">
               <!-- Date Header -->
-              <v-list-subheader class="text-caption font-weight-bold text-grey px-4 py-2">
+              <v-list-subheader
+                :style="{ padding: '8px 16px' }"
+                class="text-caption font-weight-bold text-grey">
                 {{ formatDateHeader(dateKey) }}
               </v-list-subheader>
 
@@ -144,14 +205,39 @@
               <div
                 v-for="notification in notifications"
                 :key="notification.id"
-                class="notification-item"
-                :class="{ 'notification-unread': !notification.read }"
+                :style="{
+                  transition: 'background-color 0.2s ease',
+                  cursor: 'pointer',
+                }"
+                @mouseover="
+                  (e) => {
+                    const target = e.target as HTMLElement;
+                    const btn = target.querySelector(
+                      '.notification-delete-btn-inline',
+                    ) as HTMLElement;
+                    if (btn) btn.style.opacity = '1';
+                  }
+                "
+                @mouseleave="
+                  (e) => {
+                    const target = e.target as HTMLElement;
+                    const btn = target.querySelector(
+                      '.notification-delete-btn-inline',
+                    ) as HTMLElement;
+                    if (btn) btn.style.opacity = '0';
+                  }
+                "
                 @click="markAsRead(notification.id)">
                 <v-card
                   flat
-                  class="ma-2 notification-clickable"
-                  :class="{ 'notification-card-unread': !notification.read }"
-                  @click="openNotificationDetails(notification)">
+                  :style="{
+                    margin: '8px',
+                    borderLeft: !notification.read
+                      ? '3px solid rgb(var(--v-theme-primary))'
+                      : 'none',
+                    cursor: 'pointer',
+                  }"
+                  @click.stop="openNotificationDetails(notification)">
                   <v-card-text class="py-3">
                     <div class="d-flex align-start">
                       <v-icon
@@ -186,15 +272,24 @@
                       </div>
 
                       <div class="d-flex align-center ml-2">
-                        <div v-if="!notification.read" class="notification-unread-dot mr-2"></div>
+                        <div
+                          v-if="!notification.read"
+                          :style="{
+                            width: '8px',
+                            height: '8px',
+                            backgroundColor: 'rgb(var(--v-theme-primary))',
+                            borderRadius: '50%',
+                            marginRight: '8px',
+                          }"></div>
                         <v-btn
                           icon="mdi-close"
                           size="x-small"
                           variant="text"
                           color="grey"
-                          class="notification-delete-btn"
+                          :style="{ opacity: '0', transition: 'opacity 0.2s ease' }"
                           @click.stop="deleteNotification(notification.id)"
-                          :title="'Delete notification'"></v-btn>
+                          :title="'Delete notification'"
+                          class="notification-delete-btn-inline"></v-btn>
                       </div>
                     </div>
                   </v-card-text>
@@ -492,43 +587,9 @@ function getNotificationDescription(notification: NotificationEvent): string {
 const TypeEnum = Type;
 </script>
 <style scoped>
+/* Minimal CSS - everything else is inline styles */
 .notification-header {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-
-.notification-item {
-  transition: background-color 0.2s ease;
-  cursor: pointer;
-}
-
-.notification-item:hover {
-  background-color: rgba(var(--v-theme-surface-variant), 0.1);
-}
-
-.notification-card-unread {
-  border-left: 3px solid rgb(var(--v-theme-primary));
-}
-
-.notification-unread-dot {
-  width: 8px;
-  height: 8px;
-  background-color: rgb(var(--v-theme-primary));
-  border-radius: 50%;
-}
-
-.notification-group:not(:last-child) {
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-}
-
-.notification-delete-btn {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.notification-item:hover .notification-delete-btn {
-  opacity: 1;
 }
 
 .filter-chip {
@@ -540,68 +601,9 @@ const TypeEnum = Type;
   transform: scale(1.05);
 }
 
-/* Override Vuetify's navigation drawer completely */
-.notification-panel {
-  z-index: 9999;
-}
-
-.notification-panel .v-navigation-drawer__content {
-  display: flex !important;
-  flex-direction: column !important;
-  height: 100vh !important;
-  overflow: hidden !important;
+/* Override any external CSS that might interfere */
+:deep(.v-navigation-drawer__content) {
   padding: 0 !important;
-}
-
-/* Main container - fills entire drawer */
-.notification-panel-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  width: 100%;
-  overflow: hidden;
-  position: relative;
-}
-
-/* Fixed header - never scrolls */
-.notification-fixed-header {
-  position: relative;
-  z-index: 20;
-  flex-shrink: 0;
-  flex-grow: 0;
-  background-color: rgb(var(--v-theme-surface));
-  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  width: 100%;
-}
-
-.notification-filters {
-  background-color: rgb(var(--v-theme-surface));
-}
-
-/* Content wrapper - takes remaining space */
-.notification-content-wrapper {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-  height: 0; /* Force flex calculation */
-}
-
-/* This is the ONLY scrollable container */
-.notification-scroll-container {
-  flex: 1;
-  overflow-y: scroll;
-  overflow-x: hidden;
-  padding: 0;
-  margin: 0;
-  height: 100%;
-  width: 100%;
-  position: relative;
-}
-
-.notification-list {
-  padding-bottom: 16px;
-  width: 100%;
+  overflow: hidden !important;
 }
 </style>
