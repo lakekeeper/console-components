@@ -228,10 +228,10 @@ async function getServerInfo(notify?: boolean): Promise<ServerInfo> {
 
     visualStore.setServerInfo(data as ServerInfo);
 
-    handleSuccess('getServerInfo', 'Server information loaded successfully', notify);
+    handleSuccess('getServerInfo', 'Server information loaded successfully', notify ?? false);
     return data as ServerInfo;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify ?? false);
     return error;
   }
 }
@@ -423,7 +423,7 @@ async function getEndpointStatistics(
     handleSuccess('getEndpointStatistics', 'Endpoint statistics loaded successfully', notify);
     return data as GetEndpointStatisticsResponse;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -532,7 +532,7 @@ async function getWarehouseStatistics(
     handleSuccess('getWarehouseStatistics', 'Warehouse statistics loaded successfully', notify);
     return data as GetWarehouseStatisticsResponse;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -595,7 +595,7 @@ async function listDeletedTabulars(
     );
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     return error;
   }
 }
