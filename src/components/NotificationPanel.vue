@@ -61,9 +61,9 @@
             :key="dateKey"
             class="notification-group">
             <!-- Date Header -->
-            <v-subheader class="text-caption font-weight-bold text-grey px-4 py-2">
+            <v-list-subheader class="text-caption font-weight-bold text-grey px-4 py-2">
               {{ formatDateHeader(dateKey) }}
-            </v-subheader>
+            </v-list-subheader>
 
             <!-- Notifications for this date -->
             <div
