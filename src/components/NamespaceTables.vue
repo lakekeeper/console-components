@@ -66,6 +66,7 @@ const props = defineProps<{
 
 const router = useRouter();
 const functions = useFunctions();
+const notify = true;
 
 const searchTbl = ref('');
 const loadedTables: TableIdentifierExtended[] = reactive([]);
@@ -121,7 +122,7 @@ async function paginationCheck(option: Options) {
 
 async function deleteTableWithOptions(e: any, item: TableIdentifierExtended) {
   try {
-    await functions.dropTable(props.warehouseId, props.namespacePath, item.name, e);
+    await functions.dropTable(props.warehouseId, props.namespacePath, item.name, e, notify);
     await loadTables();
   } catch (error) {
     console.error(`Failed to drop table-${item.name}`, error);

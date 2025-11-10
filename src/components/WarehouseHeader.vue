@@ -61,12 +61,14 @@ const props = defineProps<{
 
 const functions = useFunctions();
 const visual = useVisualStore();
+const notify = true;
 const processStatus = ref('starting');
 const showSearchDialog = ref(false);
 
 const warehouse = reactive<GetWarehouseResponse>({
   'delete-profile': { type: 'hard' },
   id: '',
+  'warehouse-id': '',
   name: '',
   'project-id': '',
   status: 'active',
@@ -118,7 +120,7 @@ async function loadStatistics() {
 
 async function renameWarehouse(name: string) {
   try {
-    await functions.renameWarehouse(props.warehouseId, name);
+    await functions.renameWarehouse(props.warehouseId, name, notify);
     await loadWarehouse();
   } catch (error) {
     console.error('Failed to rename warehouse:', error);

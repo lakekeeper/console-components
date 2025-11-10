@@ -90,6 +90,7 @@ const emit = defineEmits<{
 
 const router = useRouter();
 const functions = useFunctions();
+const notify = true;
 
 // Use warehouse permissions composable
 const { canDelete, canCreateNamespace } = useWarehousePermissions(props.warehouseId);
@@ -125,7 +126,7 @@ const headers: readonly Header[] = Object.freeze([
 async function addNamespace(namespace: string[]) {
   createNamespaceStatus.value = StatusIntent.STARTING;
   try {
-    const res = await functions.createNamespace(props.warehouseId, namespace);
+    const res = await functions.createNamespace(props.warehouseId, namespace, notify);
     if (res.error) throw res.error;
 
     createNamespaceStatus.value = StatusIntent.SUCCESS;
@@ -232,6 +233,7 @@ async function deleteNamespaceWithOptions(e: any, item: Item) {
       props.warehouseId,
       item.parentPath.join(String.fromCharCode(0x1f)),
       e,
+      notify,
     );
     if (res.error) throw res.error;
 

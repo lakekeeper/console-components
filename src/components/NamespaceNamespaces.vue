@@ -93,6 +93,7 @@ const props = defineProps<{
 
 const router = useRouter();
 const functions = useFunctions();
+const notify = true;
 
 const namespaceId = ref('');
 const confirmDialog = ref(false);
@@ -177,7 +178,7 @@ async function paginationCheck(option: Options) {
 async function addNamespace(namespaceIdent: string[]) {
   addNamespaceStatus.value = StatusIntent.STARTING;
   try {
-    const res = await functions.createNamespace(props.warehouseId, namespaceIdent);
+    const res = await functions.createNamespace(props.warehouseId, namespaceIdent, notify);
     if (res.error) throw res.error;
 
     addNamespaceStatus.value = StatusIntent.SUCCESS;
@@ -194,6 +195,7 @@ async function deleteNamespaceWithOptions(e: any, item: Item) {
       props.warehouseId,
       item.parentPath.join(String.fromCharCode(0x1f)),
       e,
+      notify,
     );
     if (res.error) throw res.error;
 
