@@ -216,23 +216,8 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type) {
   }
 }
 
-function sendSnackbar(message: string, ttl: number, functionCaused: string, type: Type) {
-  const visual = useVisualStore();
-  try {
-    visual.setSnackbarMsg({
-      function: functionCaused,
-      text: message,
-      ttl,
-      ts: Date.now(),
-      type,
-    });
-  } catch (error) {
-    console.error('Failed to set error', error);
-  }
-}
-
 // Server
-async function getServerInfo(): Promise<ServerInfo> {
+async function getServerInfo(notify?: boolean): Promise<ServerInfo> {
   try {
     const client = mngClient.client;
 
@@ -243,6 +228,7 @@ async function getServerInfo(): Promise<ServerInfo> {
 
     visualStore.setServerInfo(data as ServerInfo);
 
+    handleSuccess('getServerInfo', 'Server information loaded successfully', notify);
     return data as ServerInfo;
   } catch (error: any) {
     handleError(error, new Error());
@@ -415,6 +401,7 @@ async function getEndpointStatistics(
   warehouseFilter: WarehouseFilter,
   range_specifier?: null | TimeWindowSelector,
   status_codes?: Array<number> | null,
+  notify?: boolean,
 ): Promise<GetEndpointStatisticsResponse> {
   try {
     init();
@@ -433,6 +420,7 @@ async function getEndpointStatistics(
     });
     if (error) throw error;
 
+    handleSuccess('getEndpointStatistics', 'Endpoint statistics loaded successfully', notify);
     return data as GetEndpointStatisticsResponse;
   } catch (error) {
     handleError(error, new Error());
@@ -522,24 +510,31 @@ async function getWarehouseStatistics(
   whId: string,
   page_size?: number,
   page_token?: string,
+  notify?: boolean,
 ): Promise<GetWarehouseStatisticsResponse> {
-  init();
+  try {
+    init();
 
-  const client = mngClient.client;
+    const client = mngClient.client;
 
-  const { data, error } = await mng.getWarehouseStatistics({
-    client,
-    path: {
-      warehouse_id: whId,
-    },
-    query: {
-      page_size: page_size,
-      page_token: page_token,
-    },
-  });
-  if (error) throw error;
+    const { data, error } = await mng.getWarehouseStatistics({
+      client,
+      path: {
+        warehouse_id: whId,
+      },
+      query: {
+        page_size: page_size,
+        page_token: page_token,
+      },
+    });
+    if (error) throw error;
 
-  return data as GetWarehouseStatisticsResponse;
+    handleSuccess('getWarehouseStatistics', 'Warehouse statistics loaded successfully', notify);
+    return data as GetWarehouseStatisticsResponse;
+  } catch (error) {
+    handleError(error, new Error());
+    throw error;
+  }
 }
 
 async function deleteWarehouse(whId: string, notify?: boolean) {
@@ -576,6 +571,7 @@ async function listDeletedTabulars(
   namespaceId: string,
   pageSizeNumber?: number,
   pageToken?: string,
+  notify?: boolean,
 ): Promise<ListDeletedTabularsResponse> {
   try {
     const client = mngClient.client;
@@ -591,7 +587,13 @@ async function listDeletedTabulars(
     });
     if (error) throw error;
 
-    return data as ListDeletedTabularsResponse;
+    const result = data as ListDeletedTabularsResponse;
+    handleSuccess(
+      'listDeletedTabulars',
+      `${result.tabulars?.length || 0} deleted tabulars loaded`,
+      notify,
+    );
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     return error;
@@ -625,7 +627,11 @@ async function renameWarehouse(whId: string, name: string, notify?: boolean): Pr
   }
 }
 
-async function updateStorageCredential(whId: string, storageCredentials: StorageCredential) {
+async function updateStorageCredential(
+  whId: string,
+  storageCredentials: StorageCredential,
+  notify?: boolean,
+) {
   try {
     init();
 
@@ -639,8 +645,8 @@ async function updateStorageCredential(whId: string, storageCredentials: Storage
       },
     });
     if (error) throw error;
-    sendSnackbar('Storage Credential Updated', 3000, 'updateStorageCredential', Type.SUCCESS);
 
+    handleSuccess('updateStorageCredential', 'Storage credential updated successfully', notify);
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -651,6 +657,7 @@ async function updateStorageProfile(
   whId: string,
   storageCredentials: StorageCredential,
   storageProfile: StorageProfile,
+  notify?: boolean,
 ) {
   try {
     init();
@@ -669,7 +676,7 @@ async function updateStorageProfile(
     });
     if (error) throw error;
 
-    handleSuccess('updateStorageProfile', 'Storage profile updated successfully');
+    handleSuccess('updateStorageProfile', 'Storage profile updated successfully', notify);
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -677,7 +684,11 @@ async function updateStorageProfile(
   }
 }
 
-async function updateWarehouseDeleteProfile(whId: string, deleteProfile: TabularDeleteProfile) {
+async function updateWarehouseDeleteProfile(
+  whId: string,
+  deleteProfile: TabularDeleteProfile,
+  notify?: boolean,
+) {
   try {
     init();
 
@@ -693,7 +704,7 @@ async function updateWarehouseDeleteProfile(whId: string, deleteProfile: Tabular
       },
     });
 
-    handleSuccess('updateWarehouseDeleteProfile', 'Delete profile updated successfully');
+    handleSuccess('updateWarehouseDeleteProfile', 'Delete profile updated successfully', notify);
     return true;
   } catch (error) {
     handleError(error, new Error());
@@ -701,7 +712,7 @@ async function updateWarehouseDeleteProfile(whId: string, deleteProfile: Tabular
   }
 }
 
-async function getWarehouseById(warehouseId: string): Promise<boolean> {
+async function getWarehouseById(warehouseId: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -716,7 +727,13 @@ async function getWarehouseById(warehouseId: string): Promise<boolean> {
     });
     if (error) throw error;
 
-    return data?.['managed-access'] ?? false;
+    const result = data?.['managed-access'] ?? false;
+    handleSuccess(
+      'getWarehouseById',
+      `Warehouse access status loaded: ${result ? 'managed access enabled' : 'managed access disabled'}`,
+      notify,
+    );
+    return result;
   } catch (error) {
     handleError(error, new Error());
     throw error;
@@ -726,6 +743,7 @@ async function getWarehouseById(warehouseId: string): Promise<boolean> {
 async function setWarehouseProtection(
   warehouseId: string,
   protected_state: boolean,
+  notify?: boolean,
 ): Promise<SetWarehouseProtectionResponse> {
   try {
     init();
@@ -747,6 +765,7 @@ async function setWarehouseProtection(
     handleSuccess(
       'setWarehouseProtection',
       `Warehouse protection ${protected_state ? 'enabled' : 'disabled'}`,
+      notify,
     );
     return data;
   } catch (error) {
@@ -788,24 +807,53 @@ async function listNamespaces(
       namespaceMap[namespace] = namespaceUuids[index];
     });
 
-    return { namespaceMap, namespaces, 'next-page-token': data['next-page-token'] ?? undefined };
+    const result = {
+      namespaceMap,
+      namespaces,
+      'next-page-token': data['next-page-token'] ?? undefined,
+    };
+
+    if (notify) {
+      handleSuccess(
+        'listNamespaces',
+        `${namespaces.length} namespace(s) loaded successfully`,
+        notify,
+      );
+    }
+
+    return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
     return error;
   }
 }
 
-async function loadNamespaceMetadata(id: string, namespace: string): Promise<GetNamespaceResponse> {
-  const client = iceClient.client;
-  const { data, error } = await ice.loadNamespaceMetadata({
-    client,
-    path: { namespace, prefix: id },
-    query: { returnUuid: true },
-  });
+async function loadNamespaceMetadata(
+  id: string,
+  namespace: string,
+  notify?: boolean,
+): Promise<GetNamespaceResponse> {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.loadNamespaceMetadata({
+      client,
+      path: { namespace, prefix: id },
+      query: { returnUuid: true },
+    });
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return data as GetNamespaceResponse;
+    const result = data as GetNamespaceResponse;
+    handleSuccess(
+      'loadNamespaceMetadata',
+      `Namespace metadata for '${namespace}' loaded successfully`,
+      notify,
+    );
+    return result;
+  } catch (error: any) {
+    handleError(error, new Error());
+    throw error;
+  }
 }
 
 async function createNamespace(id: string, namespace: Namespace, notify?: boolean) {
@@ -846,7 +894,7 @@ async function dropNamespace(id: string, ns: string, options?: NamespaceAction, 
     if (notify) {
       handleSuccess('dropNamespace', `Namespace '${ns}' deleted successfully`, notify);
     } else {
-      handleSuccess('dropNamespace', 'Namespace deleted successfully');
+      handleSuccess('dropNamespace', 'Namespace deleted successfully', notify);
     }
 
     return data;
@@ -857,7 +905,10 @@ async function dropNamespace(id: string, ns: string, options?: NamespaceAction, 
   }
 }
 
-async function getNamespaceById(namespaceId: string): Promise<GetNamespaceAuthPropertiesResponse> {
+async function getNamespaceById(
+  namespaceId: string,
+  notify?: boolean,
+): Promise<GetNamespaceAuthPropertiesResponse> {
   try {
     init();
 
@@ -872,7 +923,9 @@ async function getNamespaceById(namespaceId: string): Promise<GetNamespaceAuthPr
     });
     if (error) throw error;
 
-    return data as GetNamespaceAuthPropertiesResponse;
+    const result = data as GetNamespaceAuthPropertiesResponse;
+    handleSuccess('getNamespaceById', `Namespace properties loaded successfully`, notify);
+    return result;
   } catch (error) {
     handleError(error, new Error());
     throw error;
@@ -882,6 +935,7 @@ async function getNamespaceById(namespaceId: string): Promise<GetNamespaceAuthPr
 async function getNamespaceProtection(
   warehouseId: string,
   namespaceId: string,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -898,7 +952,13 @@ async function getNamespaceProtection(
     });
     if (error) throw error;
 
-    return data as GetNamespaceProtectionResponse;
+    const result = data as GetNamespaceProtectionResponse;
+    handleSuccess(
+      'getNamespaceProtection',
+      'Namespace protection status loaded successfully',
+      notify,
+    );
+    return result;
   } catch (error) {
     handleError(error, new Error());
     throw error;
@@ -909,6 +969,7 @@ async function setNamespaceProtection(
   warehouseId: string,
   namespaceId: string,
   protected_state: boolean,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -928,6 +989,11 @@ async function setNamespaceProtection(
     });
     if (error) throw error;
 
+    handleSuccess(
+      'setNamespaceProtection',
+      `Namespace protection ${protected_state ? 'enabled' : 'disabled'}`,
+      notify,
+    );
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -954,7 +1020,15 @@ async function listTables(
     });
     if (error) throw error;
 
-    return data as ListTablesResponse;
+    const result = data as ListTablesResponse;
+    if (notify) {
+      handleSuccess(
+        'listTables',
+        `${result.identifiers?.length || 0} table(s) loaded successfully`,
+        notify,
+      );
+    }
+    return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
     return error;
@@ -965,6 +1039,7 @@ async function loadTable(
   warehouseId: string,
   namespacePath: string,
   tableName: string,
+  notify?: boolean,
 ): Promise<LoadTableResultWritable> {
   try {
     const client = iceClient.client;
@@ -978,44 +1053,61 @@ async function loadTable(
     });
     if (error) throw error;
 
-    return data as LoadTableResultWritable;
+    const result = data as LoadTableResultWritable;
+    handleSuccess('loadTable', `Table '${tableName}' loaded successfully`, notify);
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     return error;
   }
 }
 
-async function loadTableCustomized(warehouseId: string, namespacePath: string, tableName: string) {
-  const userStore = useUserStore();
-  const accessToken = userStore.user.access_token;
+async function loadTableCustomized(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
 
-  const response = await fetch(
-    `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
-    {
-      method: 'GET',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${accessToken}`,
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
+      {
+        method: 'GET',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
       },
-    },
-  );
+    );
 
-  if (!response.ok) {
-    throw new Error(`Error fetching table data: ${response.statusText}`);
+    if (!response.ok) {
+      throw new Error(`Error fetching table data: ${response.statusText}`);
+    }
+    const textData = await response.text();
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(textData);
+    // const data = JSON.parse(textData, (key, value) => {
+    //   // If the value is a large number (potentially snapshot-id), convert it to BigInt
+    //   if (typeof value === 'number' && value > Number.MAX_SAFE_INTEGER) {
+
+    //     return String(BigInt(value)); // Convert to BigInt to preserve precision
+    //   }
+    //   return value;
+    // });
+
+    handleSuccess(
+      'loadTableCustomized',
+      `Table '${tableName}' (customized) loaded successfully`,
+      notify,
+    );
+    return data;
+  } catch (error: any) {
+    handleError(error, new Error());
+    throw error;
   }
-  const textData = await response.text();
-  const JSONBigString = JSONBig({ storeAsString: true });
-  const data = JSONBigString.parse(textData);
-  // const data = JSON.parse(textData, (key, value) => {
-  //   // If the value is a large number (potentially snapshot-id), convert it to BigInt
-  //   if (typeof value === 'number' && value > Number.MAX_SAFE_INTEGER) {
-
-  //     return String(BigInt(value)); // Convert to BigInt to preserve precision
-  //   }
-  //   return value;
-  // });
-
-  return data;
 }
 
 async function dropTable(
@@ -1041,7 +1133,7 @@ async function dropTable(
     if (notify) {
       handleSuccess('dropTable', `Table '${tableName}' deleted successfully`, notify);
     } else {
-      handleSuccess('Drop Table', 'Table deleted successfully');
+      handleSuccess('Drop Table', 'Table deleted successfully', notify);
     }
 
     return true;
@@ -1054,6 +1146,7 @@ async function dropTable(
 async function getTableProtection(
   warehouseId: string,
   tableId: string,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -1070,7 +1163,9 @@ async function getTableProtection(
     });
     if (error) throw error;
 
-    return data as GetNamespaceProtectionResponse;
+    const result = data as GetNamespaceProtectionResponse;
+    handleSuccess('getTableProtection', 'Table protection status loaded successfully', notify);
+    return result;
   } catch (error) {
     handleError(error, new Error());
     throw error;
@@ -1081,6 +1176,7 @@ async function setTableProtection(
   warehouseId: string,
   tableId: string,
   protected_state: boolean,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -1100,6 +1196,11 @@ async function setTableProtection(
     });
     if (error) throw error;
 
+    handleSuccess(
+      'setTableProtection',
+      `Table protection ${protected_state ? 'enabled' : 'disabled'}`,
+      notify,
+    );
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -1126,7 +1227,15 @@ async function listViews(
     });
     if (error) throw error;
 
-    return data as ListTablesResponse;
+    const result = data as ListTablesResponse;
+    if (notify) {
+      handleSuccess(
+        'listViews',
+        `${result.identifiers?.length || 0} view(s) loaded successfully`,
+        notify,
+      );
+    }
+    return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
     return error;
@@ -1137,19 +1246,27 @@ async function loadView(
   warehouseId: string,
   namespacePath: string,
   viewName: string,
+  notify?: boolean,
 ): Promise<LoadViewResultWritable> {
-  const client = iceClient.client;
-  const { data, error } = await ice.loadView({
-    client,
-    path: {
-      prefix: warehouseId,
-      namespace: namespacePath,
-      view: viewName,
-    },
-  });
-  if (error) throw error;
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.loadView({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+        view: viewName,
+      },
+    });
+    if (error) throw error;
 
-  return data as LoadViewResultWritable;
+    const result = data as LoadViewResultWritable;
+    handleSuccess('loadView', `View '${viewName}' loaded successfully`, notify);
+    return result;
+  } catch (error: any) {
+    handleError(error, new Error());
+    throw error;
+  }
 }
 
 async function dropView(
@@ -1176,7 +1293,7 @@ async function dropView(
     if (notify) {
       handleSuccess('dropView', `View '${viewName}' deleted successfully`, notify);
     } else {
-      handleSuccess('drop View', 'View deleted successfully');
+      handleSuccess('drop View', 'View deleted successfully', notify);
     }
 
     return data;
@@ -1186,7 +1303,11 @@ async function dropView(
   }
 }
 
-async function getViewProtection(warehouseId: string, viewId: string): Promise<ProtectionResponse> {
+async function getViewProtection(
+  warehouseId: string,
+  viewId: string,
+  notify?: boolean,
+): Promise<ProtectionResponse> {
   try {
     init();
 
@@ -1202,7 +1323,9 @@ async function getViewProtection(warehouseId: string, viewId: string): Promise<P
     });
     if (error) throw error;
 
-    return data as GetNamespaceProtectionResponse;
+    const result = data as GetNamespaceProtectionResponse;
+    handleSuccess('getViewProtection', 'View protection status loaded successfully', notify);
+    return result;
   } catch (error) {
     handleError(error, new Error());
     throw error;
@@ -1213,6 +1336,7 @@ async function setViewProtection(
   warehouseId: string,
   viewId: string,
   protected_state: boolean,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -1232,6 +1356,11 @@ async function setViewProtection(
     });
     if (error) throw error;
 
+    handleSuccess(
+      'setViewProtection',
+      `View protection ${protected_state ? 'enabled' : 'disabled'}`,
+      notify,
+    );
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -1240,7 +1369,12 @@ async function setViewProtection(
 }
 
 // Tabular
-async function undropTabular(warehouseId: string, id: string, type: 'table' | 'view') {
+async function undropTabular(
+  warehouseId: string,
+  id: string,
+  type: 'table' | 'view',
+  notify?: boolean,
+) {
   try {
     const client = mngClient.client;
     const { error } = await mng.undropTabulars({
@@ -1252,6 +1386,12 @@ async function undropTabular(warehouseId: string, id: string, type: 'table' | 'v
     });
 
     if (error) throw error;
+
+    handleSuccess(
+      'undropTabular',
+      `${type.charAt(0).toUpperCase() + type.slice(1)} restored successfully`,
+      notify,
+    );
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
@@ -1259,7 +1399,10 @@ async function undropTabular(warehouseId: string, id: string, type: 'table' | 'v
 }
 
 // Assignments
-async function getWarehouseAssignmentsById(warehouseId: string): Promise<WarehouseAssignment[]> {
+async function getWarehouseAssignmentsById(
+  warehouseId: string,
+  notify?: boolean,
+): Promise<WarehouseAssignment[]> {
   try {
     const visual = useVisualStore();
     const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
@@ -1278,7 +1421,13 @@ async function getWarehouseAssignmentsById(warehouseId: string): Promise<Warehou
 
     if (error) throw error;
 
-    return (data ?? {}).assignments as WarehouseAssignment[];
+    const result = (data ?? {}).assignments as WarehouseAssignment[];
+    handleSuccess(
+      'getWarehouseAssignmentsById',
+      `${result.length} warehouse assignment(s) loaded`,
+      notify,
+    );
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
@@ -1289,6 +1438,7 @@ async function updateWarehouseAssignmentsById(
   warehouseId: string,
   deletes: WarehouseAssignment[],
   writes: WarehouseAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1305,7 +1455,11 @@ async function updateWarehouseAssignmentsById(
 
     if (error) throw error;
 
-    handleSuccess('updateWarehouseAssignmentsById', 'Warehouse assignments updated successfully');
+    handleSuccess(
+      'updateWarehouseAssignmentsById',
+      'Warehouse assignments updated successfully',
+      notify,
+    );
     return true;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1316,6 +1470,7 @@ async function updateWarehouseAssignmentsById(
 async function setWarehouseManagedAccess(
   warehouseId: string,
   managedAccess: boolean,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1335,6 +1490,7 @@ async function setWarehouseManagedAccess(
     handleSuccess(
       'setWarehouseManagedAccess',
       `Warehouse managed access ${managedAccess ? 'enabled' : 'disabled'}`,
+      notify,
     );
     return true;
   } catch (error: any) {
@@ -1691,7 +1847,7 @@ async function updateViewAssignmentsById(
 }
 
 // User
-async function createUser() {
+async function createUser(notify?: boolean) {
   try {
     init();
 
@@ -1703,6 +1859,7 @@ async function createUser() {
     });
     if (error) throw error;
 
+    handleSuccess('createUser', 'User created successfully', notify);
     return data;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1710,7 +1867,7 @@ async function createUser() {
   }
 }
 
-async function whoAmI() {
+async function whoAmI(notify?: boolean) {
   try {
     init();
 
@@ -1721,6 +1878,7 @@ async function whoAmI() {
     });
     if (error) throw error;
 
+    handleSuccess('whoAmI', 'User identity retrieved successfully', notify);
     return data;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1728,7 +1886,7 @@ async function whoAmI() {
   }
 }
 
-async function searchUser(search: string): Promise<User[]> {
+async function searchUser(search: string, notify?: boolean): Promise<User[]> {
   try {
     init();
 
@@ -1741,7 +1899,9 @@ async function searchUser(search: string): Promise<User[]> {
 
     if (error) throw error;
 
-    return ((data as SearchUserResponse) ?? []).users as User[];
+    const result = ((data as SearchUserResponse) ?? []).users as User[];
+    handleSuccess('searchUser', `Found ${result.length} user(s) matching '${search}'`, notify);
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
@@ -1751,6 +1911,7 @@ async function searchUser(search: string): Promise<User[]> {
 async function searchTabular(
   warehouseId: string,
   request: SearchTabularRequest,
+  notify?: boolean,
 ): Promise<SearchTabularResponse> {
   try {
     init();
@@ -1764,14 +1925,21 @@ async function searchTabular(
       body: { search: request.search || '', ...request },
     });
     if (error) throw error;
-    return (data as SearchTabularResponse) ?? { tabulars: [] };
+
+    const result = (data as SearchTabularResponse) ?? { tabulars: [] };
+    handleSuccess(
+      'searchTabular',
+      `Found ${result.tabulars?.length || 0} tabular(s) matching search criteria`,
+      notify,
+    );
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
   }
 }
 
-async function getUser(userId: string): Promise<User> {
+async function getUser(userId: string, notify?: boolean): Promise<User> {
   try {
     init();
 
@@ -1786,7 +1954,9 @@ async function getUser(userId: string): Promise<User> {
 
     if (error) throw error;
 
-    return data as User;
+    const result = data as User;
+    handleSuccess('getUser', `User '${result.name || userId}' loaded successfully`, notify);
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
@@ -1821,6 +1991,7 @@ async function deleteUser(userId: string, notify?: boolean): Promise<boolean> {
 async function listUser(
   pageToken?: string,
   pageSize?: number,
+  notify?: boolean,
 ): Promise<{ users: User[]; 'next-page-token'?: string }> {
   try {
     init();
@@ -1837,17 +2008,19 @@ async function listUser(
 
     if (error) throw error;
 
-    return {
+    const result = {
       users: data?.users as User[],
       'next-page-token': data?.['next-page-token'] || undefined,
     };
+    handleSuccess('listUser', `${result.users?.length || 0} user(s) loaded successfully`, notify);
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
   }
 }
 
-async function updateUserById(name: string, userId: string): Promise<boolean> {
+async function updateUserById(name: string, userId: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -1866,6 +2039,7 @@ async function updateUserById(name: string, userId: string): Promise<boolean> {
 
     if (error) throw error;
 
+    handleSuccess('updateUserById', `User '${name}' updated successfully`, notify);
     return true;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1876,6 +2050,7 @@ async function updateUserById(name: string, userId: string): Promise<boolean> {
 // Roles
 async function searchRole(
   searchRequest: string | { search: string; 'project-id'?: string },
+  notify?: boolean,
 ): Promise<Role[]> {
   try {
     init();
@@ -1905,14 +2080,20 @@ async function searchRole(
 
     if (error) throw error;
 
-    return ((data as SearchRoleResponse) ?? []).roles as Role[];
+    const result = ((data as SearchRoleResponse) ?? []).roles as Role[];
+    handleSuccess('searchRole', `Found ${result.length} role(s) matching '${search}'`, notify);
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
   }
 }
 
-async function listRoles(pageSize?: number, pageToken?: string): Promise<ListRolesResponse> {
+async function listRoles(
+  pageSize?: number,
+  pageToken?: string,
+  notify?: boolean,
+): Promise<ListRolesResponse> {
   try {
     init();
 
@@ -1928,14 +2109,16 @@ async function listRoles(pageSize?: number, pageToken?: string): Promise<ListRol
 
     if (error) throw error;
 
-    return (data as ListRolesResponse) ?? { roles: [] };
+    const result = (data as ListRolesResponse) ?? { roles: [] };
+    handleSuccess('listRoles', `${result.roles?.length || 0} role(s) loaded successfully`, notify);
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
   }
 }
 
-async function getRole(roleId: string): Promise<Role> {
+async function getRole(roleId: string, notify?: boolean): Promise<Role> {
   try {
     init();
 
@@ -1948,7 +2131,9 @@ async function getRole(roleId: string): Promise<Role> {
 
     if (error) throw error;
 
-    return data as Role;
+    const result = data as Role;
+    handleSuccess('getRole', `Role '${result.name || roleId}' loaded successfully`, notify);
+    return result;
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
