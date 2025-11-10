@@ -75,6 +75,7 @@ import {
 
 import { useUserStore } from '@/stores/user';
 import { useVisualStore } from '@/stores/visual';
+import { useNotificationStore } from '@/stores/notifications';
 import { App } from 'vue';
 
 // Config injected from app
@@ -137,7 +138,7 @@ function parseErrorText(errorText: string): { message: string; code: number } {
   return { message, code };
 }
 
-export function handleError(error: any, functionError: Error, notify: boolean = true) {
+export function handleError(error: any, functionError: Error, notify?: boolean) {
   try {
     console.error('Handling error:', error);
     if (error === 'invalid HTTP header (authorization)') return;
@@ -163,8 +164,8 @@ export function handleError(error: any, functionError: Error, notify: boolean = 
       return;
     }
 
-    // Only show notification if notify is true
-    if (notify) {
+    // Only show notification if notify is true (default true)
+    if (notify ?? true) {
       setError(error, 3000, functionName, Type.ERROR);
     }
   } catch (newError: any) {
@@ -178,6 +179,7 @@ export function handleError(error: any, functionError: Error, notify: boolean = 
 
 function setError(error: any, ttl: number, functionCaused: string, type: Type) {
   const visual = useVisualStore();
+  const notificationStore = useNotificationStore();
   try {
     let message = '';
     let code = 0;
@@ -203,11 +205,19 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type) {
       const baseUrl = appConfig?.baseUrlPrefix || '';
       window.location.href = `${baseUrl}/ui/login`;
     } else {
+      // Show snackbar
       visual.setSnackbarMsg({
         function: functionCaused,
         text: message,
         ttl,
         ts: Date.now(),
+        type,
+      });
+
+      // Add to notification store for navbar notifications
+      notificationStore.addNotification({
+        function: functionCaused,
+        text: message,
         type,
       });
     }
@@ -2618,12 +2628,21 @@ async function getRoleAccessById(roleId: string): Promise<RoleAction[]> {
 function handleSuccess(functionName: string, msg: string, notify: boolean = true) {
   if (notify) {
     const visual = useVisualStore();
+    const notificationStore = useNotificationStore();
 
+    // Show snackbar
     visual.setSnackbarMsg({
       function: functionName,
       text: msg,
       ttl: 3000,
       ts: Date.now(),
+      type: Type.SUCCESS,
+    });
+
+    // Add to notification store for navbar notifications
+    notificationStore.addNotification({
+      function: functionName,
+      text: msg,
       type: Type.SUCCESS,
     });
   }
