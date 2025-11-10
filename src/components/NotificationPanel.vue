@@ -67,7 +67,9 @@
               size="small"
               @click="setFilter(TypeEnum.SUCCESS)"
               class="filter-chip">
-              <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.SUCCESS) }}</v-icon>
+              <v-icon size="x-small" class="mr-1">
+                {{ getNotificationIcon(TypeEnum.SUCCESS) }}
+              </v-icon>
               Success ({{ getCountByType(TypeEnum.SUCCESS) }})
             </v-chip>
             <v-chip
@@ -85,7 +87,9 @@
               size="small"
               @click="setFilter(TypeEnum.WARNING)"
               class="filter-chip">
-              <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.WARNING) }}</v-icon>
+              <v-icon size="x-small" class="mr-1">
+                {{ getNotificationIcon(TypeEnum.WARNING) }}
+              </v-icon>
               Warning ({{ getCountByType(TypeEnum.WARNING) }})
             </v-chip>
             <v-chip
