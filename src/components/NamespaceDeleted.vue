@@ -146,7 +146,7 @@ async function loadDeletedTabulars() {
 async function undropTabular(item: DeletedTabularResponseExtended) {
   try {
     loading.value = true;
-    await functions.undropTabular(props.warehouseId, item.id, item.typ);
+    await functions.undropTabular(props.warehouseId, item.id, item.typ, true);
     await loadDeletedTabulars();
   } catch (error) {
     console.error(`Failed to undrop table-${item.name}`, error);

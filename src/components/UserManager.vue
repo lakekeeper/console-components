@@ -222,7 +222,7 @@ async function paginationCheck(option: any) {
 
 async function deleteUser(user: User) {
   try {
-    await functions.deleteUser(user.id);
+    await functions.deleteUser(user.id, true);
 
     // Remove the deleted user from both loaded users and search results arrays
     const loadedIndex = loadedUsers.findIndex((u) => u.id === user.id);
@@ -244,7 +244,7 @@ async function deleteUser(user: User) {
 async function renameUser(user: { name: string; id: string }) {
   try {
     renameStatus.value = StatusIntent.STARTING;
-    await functions.updateUserById(user.name, user.id);
+    await functions.updateUserById(user.name, user.id, true);
     renameStatus.value = StatusIntent.SUCCESS;
 
     // Update the user in both loaded users and search results arrays

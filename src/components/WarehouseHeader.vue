@@ -130,7 +130,7 @@ async function renameWarehouse(name: string) {
 async function updateCredentials(credentials: StorageCredential) {
   processStatus.value = 'running';
   try {
-    await functions.updateStorageCredential(props.warehouseId, credentials);
+    await functions.updateStorageCredential(props.warehouseId, credentials, true);
     processStatus.value = 'success';
     await loadWarehouse();
   } catch (error) {
@@ -149,6 +149,7 @@ async function updateProfile(newProfile: {
       props.warehouseId,
       newProfile.credentials,
       newProfile.profile,
+      true,
     );
     processStatus.value = 'success';
     await loadWarehouse();
@@ -160,7 +161,7 @@ async function updateProfile(newProfile: {
 
 async function updateDelProfile(profile: TabularDeleteProfile) {
   try {
-    await functions.updateWarehouseDeleteProfile(props.warehouseId, profile);
+    await functions.updateWarehouseDeleteProfile(props.warehouseId, profile, true);
     await loadWarehouse();
     visual.setSnackbarMsg({
       function: 'updateDelProfile',

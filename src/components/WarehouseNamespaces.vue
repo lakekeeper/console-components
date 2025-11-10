@@ -218,7 +218,11 @@ async function confirmProtectionChange() {
 
 async function setProtection() {
   try {
-    await functions.setWarehouseProtection(props.warehouseId, recursiveDeleteProtection.value);
+    await functions.setWarehouseProtection(
+      props.warehouseId,
+      recursiveDeleteProtection.value,
+      true,
+    );
     emit('namespace-updated');
   } catch (error) {
     console.error(error);

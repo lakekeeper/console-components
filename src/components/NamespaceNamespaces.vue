@@ -245,6 +245,7 @@ async function setProtection() {
       props.warehouseId,
       namespaceId.value,
       recursiveDeleteProtection.value,
+      true,
     );
     // Value already set in confirmProtectionChange
   } catch (error) {

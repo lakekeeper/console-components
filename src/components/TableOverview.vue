@@ -36,7 +36,7 @@ import { ref, reactive, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import TableDetails from './TableDetails.vue';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
-import type { LoadTableResultReadable } from '@/gen/iceberg/types.gen';
+import type { LoadTableResultWritable } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -50,7 +50,7 @@ const tableId = ref('');
 const confirmDialog = ref(false);
 const pendingProtectionValue = ref(false);
 
-const table = reactive<LoadTableResultReadable>({
+const table = reactive<LoadTableResultWritable>({
   metadata: {
     'format-version': 0,
     'table-uuid': '',
@@ -91,6 +91,7 @@ async function setProtection() {
       props.warehouseId,
       tableId.value,
       pendingProtectionValue.value,
+      true,
     );
     await getProtection();
   } catch (error) {

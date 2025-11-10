@@ -37,7 +37,7 @@ import { onMounted, ref, reactive, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import ViewDetails from './ViewDetails.vue';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
-import type { LoadViewResultReadable } from '@/gen/iceberg/types.gen';
+import type { LoadViewResultWritable } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -52,7 +52,7 @@ const viewId = ref('');
 const confirmDialog = ref(false);
 const pendingProtectionValue = ref(false);
 
-const view = reactive<LoadViewResultReadable>({
+const view = reactive<LoadViewResultWritable>({
   'metadata-location': '',
   metadata: {
     'view-uuid': '',
@@ -101,6 +101,7 @@ async function setProtection() {
       props.warehouseId,
       viewId.value,
       pendingProtectionValue.value,
+      true,
     );
     await getProtection();
   } catch (error) {

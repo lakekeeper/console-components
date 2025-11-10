@@ -417,7 +417,7 @@ async function createWarehouse(warehouseObject: WarehousObject) {
       'storage-profile': warehouseObject['storage-profile'] as StorageProfile,
     });
 
-    const res: any = await functions.createWarehouse(wh);
+    const res: any = await functions.createWarehouse(wh, true);
 
     if (res.status === 400) throw new Error(res.message);
 
@@ -434,7 +434,7 @@ async function createWarehouse(warehouseObject: WarehousObject) {
 async function createWarehouseJSON(wh: CreateWarehouseRequest) {
   try {
     creatingWarehouse.value = true;
-    const res: any = await functions.createWarehouse(wh);
+    const res: any = await functions.createWarehouse(wh, true);
 
     if (res.status === 400) throw new Error(res.message);
 
