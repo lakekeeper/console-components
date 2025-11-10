@@ -3,9 +3,9 @@
     v-model="notificationStore.isOpen"
     temporary
     location="right"
-    width="400"
+    width="600"
     class="notification-panel">
-    <div class="notification-panel-container">
+    <div class="notification-panel-container fill-height">
       <!-- Fixed Header Section -->
       <div class="notification-fixed-header">
         <!-- Header -->
@@ -491,10 +491,6 @@ function getNotificationDescription(notification: NotificationEvent): string {
 const TypeEnum = Type;
 </script>
 <style scoped>
-.notification-panel {
-  z-index: 9999;
-}
-
 .notification-header {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
@@ -543,16 +539,25 @@ const TypeEnum = Type;
   transform: scale(1.05);
 }
 
+.notification-panel {
+  z-index: 9999;
+}
+
 .notification-panel-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  overflow: hidden; /* Prevent entire container from scrolling */
 }
 
 .notification-fixed-header {
   flex-shrink: 0; /* Prevent header from shrinking */
+  flex-grow: 0; /* Prevent header from growing */
+  position: sticky;
+  top: 0;
   z-index: 10;
   background-color: rgb(var(--v-theme-surface));
+  border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .notification-filters {
@@ -560,18 +565,18 @@ const TypeEnum = Type;
 }
 
 .notification-content-wrapper {
-  flex: 1;
+  flex: 1 1 0%; /* Allow to grow and shrink, with 0 base size */
   display: flex;
   flex-direction: column;
-  min-height: 0; /* Important for flex child to shrink */
-  overflow: hidden;
+  min-height: 0; /* Critical for proper flex behavior */
+  overflow: hidden; /* Prevent wrapper from scrolling */
 }
 
 .notification-scroll-container {
-  flex: 1;
+  flex: 1 1 0%;
   overflow-y: auto;
   overflow-x: hidden;
-  min-height: 0; /* Important for proper scrolling */
+  height: 0; /* Force height calculation from flex */
   padding: 0;
 }
 
