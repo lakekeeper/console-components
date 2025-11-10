@@ -165,9 +165,8 @@ export function handleError(error: any, functionError: Error, notify?: boolean) 
     }
 
     // Only show notification if notify is true (default true)
-    if (notify ?? true) {
-      setError(error, 3000, functionName, Type.ERROR);
-    }
+
+    setError(error, 3000, functionName, Type.ERROR, notify ?? true);
   } catch (newError: any) {
     if (typeof newError === 'string' && error.includes('net::ERR_CONNECTION_REFUSED')) {
       console.error('Connection refused');
@@ -177,7 +176,7 @@ export function handleError(error: any, functionError: Error, notify?: boolean) 
   }
 }
 
-function setError(error: any, ttl: number, functionCaused: string, type: Type) {
+function setError(error: any, ttl: number, functionCaused: string, type: Type, notify?: boolean) {
   const visual = useVisualStore();
   const notificationStore = useNotificationStore();
   try {
@@ -215,11 +214,13 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type) {
       });
 
       // Add to notification store for navbar notifications
-      notificationStore.addNotification({
-        function: functionCaused,
-        text: message,
-        type,
-      });
+      if (notify) {
+        notificationStore.addNotification({
+          function: functionCaused,
+          text: message,
+          type,
+        });
+      }
     }
   } catch (newError) {
     console.error('Failed to set error', newError);
@@ -430,7 +431,9 @@ async function getEndpointStatistics(
     });
     if (error) throw error;
 
-    handleSuccess('getEndpointStatistics', 'Endpoint statistics loaded successfully', notify);
+    if (notify) {
+      handleSuccess('getEndpointStatistics', 'Endpoint statistics loaded successfully', notify);
+    }
     return data as GetEndpointStatisticsResponse;
   } catch (error) {
     handleError(error, new Error(), notify);
@@ -539,7 +542,9 @@ async function getWarehouseStatistics(
     });
     if (error) throw error;
 
-    handleSuccess('getWarehouseStatistics', 'Warehouse statistics loaded successfully', notify);
+    if (notify) {
+      handleSuccess('getWarehouseStatistics', 'Warehouse statistics loaded successfully', notify);
+    }
     return data as GetWarehouseStatisticsResponse;
   } catch (error) {
     handleError(error, new Error(), notify);
@@ -598,11 +603,13 @@ async function listDeletedTabulars(
     if (error) throw error;
 
     const result = data as ListDeletedTabularsResponse;
-    handleSuccess(
-      'listDeletedTabulars',
-      `${result.tabulars?.length || 0} deleted tabulars loaded`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'listDeletedTabulars',
+        `${result.tabulars?.length || 0} deleted tabulars loaded`,
+        notify,
+      );
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
@@ -656,7 +663,9 @@ async function updateStorageCredential(
     });
     if (error) throw error;
 
-    handleSuccess('updateStorageCredential', 'Storage credential updated successfully', notify);
+    if (notify) {
+      handleSuccess('updateStorageCredential', 'Storage credential updated successfully', notify);
+    }
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -686,7 +695,9 @@ async function updateStorageProfile(
     });
     if (error) throw error;
 
-    handleSuccess('updateStorageProfile', 'Storage profile updated successfully', notify);
+    if (notify) {
+      handleSuccess('updateStorageProfile', 'Storage profile updated successfully', notify);
+    }
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -714,7 +725,9 @@ async function updateWarehouseDeleteProfile(
       },
     });
 
-    handleSuccess('updateWarehouseDeleteProfile', 'Delete profile updated successfully', notify);
+    if (notify) {
+      handleSuccess('updateWarehouseDeleteProfile', 'Delete profile updated successfully', notify);
+    }
     return true;
   } catch (error) {
     handleError(error, new Error());
@@ -738,11 +751,13 @@ async function getWarehouseById(warehouseId: string, notify?: boolean): Promise<
     if (error) throw error;
 
     const result = data?.['managed-access'] ?? false;
-    handleSuccess(
-      'getWarehouseById',
-      `Warehouse access status loaded: ${result ? 'managed access enabled' : 'managed access disabled'}`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'getWarehouseById',
+        `Warehouse access status loaded: ${result ? 'managed access enabled' : 'managed access disabled'}`,
+        notify,
+      );
+    }
     return result;
   } catch (error) {
     handleError(error, new Error());
@@ -772,11 +787,13 @@ async function setWarehouseProtection(
     });
     if (error) throw error;
 
-    handleSuccess(
-      'setWarehouseProtection',
-      `Warehouse protection ${protected_state ? 'enabled' : 'disabled'}`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'setWarehouseProtection',
+        `Warehouse protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -854,11 +871,13 @@ async function loadNamespaceMetadata(
     if (error) throw error;
 
     const result = data as GetNamespaceResponse;
-    handleSuccess(
-      'loadNamespaceMetadata',
-      `Namespace metadata for '${namespace}' loaded successfully`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'loadNamespaceMetadata',
+        `Namespace metadata for '${namespace}' loaded successfully`,
+        notify,
+      );
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -934,7 +953,9 @@ async function getNamespaceById(
     if (error) throw error;
 
     const result = data as GetNamespaceAuthPropertiesResponse;
-    handleSuccess('getNamespaceById', `Namespace properties loaded successfully`, notify);
+    if (notify) {
+      handleSuccess('getNamespaceById', `Namespace properties loaded successfully`, notify);
+    }
     return result;
   } catch (error) {
     handleError(error, new Error());
@@ -963,11 +984,13 @@ async function getNamespaceProtection(
     if (error) throw error;
 
     const result = data as GetNamespaceProtectionResponse;
-    handleSuccess(
-      'getNamespaceProtection',
-      'Namespace protection status loaded successfully',
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'getNamespaceProtection',
+        'Namespace protection status loaded successfully',
+        notify,
+      );
+    }
     return result;
   } catch (error) {
     handleError(error, new Error());
@@ -999,11 +1022,13 @@ async function setNamespaceProtection(
     });
     if (error) throw error;
 
-    handleSuccess(
-      'setNamespaceProtection',
-      `Namespace protection ${protected_state ? 'enabled' : 'disabled'}`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'setNamespaceProtection',
+        `Namespace protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -1064,7 +1089,9 @@ async function loadTable(
     if (error) throw error;
 
     const result = data as LoadTableResultWritable;
-    handleSuccess('loadTable', `Table '${tableName}' loaded successfully`, notify);
+    if (notify) {
+      handleSuccess('loadTable', `Table '${tableName}' loaded successfully`, notify);
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1108,11 +1135,13 @@ async function loadTableCustomized(
     //   return value;
     // });
 
-    handleSuccess(
-      'loadTableCustomized',
-      `Table '${tableName}' (customized) loaded successfully`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'loadTableCustomized',
+        `Table '${tableName}' (customized) loaded successfully`,
+        notify,
+      );
+    }
     return data;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1174,7 +1203,9 @@ async function getTableProtection(
     if (error) throw error;
 
     const result = data as GetNamespaceProtectionResponse;
-    handleSuccess('getTableProtection', 'Table protection status loaded successfully', notify);
+    if (notify) {
+      handleSuccess('getTableProtection', 'Table protection status loaded successfully', notify);
+    }
     return result;
   } catch (error) {
     handleError(error, new Error());
@@ -1206,11 +1237,13 @@ async function setTableProtection(
     });
     if (error) throw error;
 
-    handleSuccess(
-      'setTableProtection',
-      `Table protection ${protected_state ? 'enabled' : 'disabled'}`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'setTableProtection',
+        `Table protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -1271,7 +1304,9 @@ async function loadView(
     if (error) throw error;
 
     const result = data as LoadViewResultWritable;
-    handleSuccess('loadView', `View '${viewName}' loaded successfully`, notify);
+    if (notify) {
+      handleSuccess('loadView', `View '${viewName}' loaded successfully`, notify);
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1334,7 +1369,9 @@ async function getViewProtection(
     if (error) throw error;
 
     const result = data as GetNamespaceProtectionResponse;
-    handleSuccess('getViewProtection', 'View protection status loaded successfully', notify);
+    if (notify) {
+      handleSuccess('getViewProtection', 'View protection status loaded successfully', notify);
+    }
     return result;
   } catch (error) {
     handleError(error, new Error());
@@ -1366,11 +1403,13 @@ async function setViewProtection(
     });
     if (error) throw error;
 
-    handleSuccess(
-      'setViewProtection',
-      `View protection ${protected_state ? 'enabled' : 'disabled'}`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'setViewProtection',
+        `View protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -1397,11 +1436,13 @@ async function undropTabular(
 
     if (error) throw error;
 
-    handleSuccess(
-      'undropTabular',
-      `${type.charAt(0).toUpperCase() + type.slice(1)} restored successfully`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'undropTabular',
+        `${type.charAt(0).toUpperCase() + type.slice(1)} restored successfully`,
+        notify,
+      );
+    }
   } catch (error: any) {
     handleError(error, new Error());
     throw error;
@@ -1432,11 +1473,13 @@ async function getWarehouseAssignmentsById(
     if (error) throw error;
 
     const result = (data ?? {}).assignments as WarehouseAssignment[];
-    handleSuccess(
-      'getWarehouseAssignmentsById',
-      `${result.length} warehouse assignment(s) loaded`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'getWarehouseAssignmentsById',
+        `${result.length} warehouse assignment(s) loaded`,
+        notify,
+      );
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1465,11 +1508,13 @@ async function updateWarehouseAssignmentsById(
 
     if (error) throw error;
 
-    handleSuccess(
-      'updateWarehouseAssignmentsById',
-      'Warehouse assignments updated successfully',
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'updateWarehouseAssignmentsById',
+        'Warehouse assignments updated successfully',
+        notify,
+      );
+    }
     return true;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1497,11 +1542,13 @@ async function setWarehouseManagedAccess(
 
     if (error) throw error;
 
-    handleSuccess(
-      'setWarehouseManagedAccess',
-      `Warehouse managed access ${managedAccess ? 'enabled' : 'disabled'}`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'setWarehouseManagedAccess',
+        `Warehouse managed access ${managedAccess ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return true;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1869,7 +1916,9 @@ async function createUser(notify?: boolean) {
     });
     if (error) throw error;
 
-    handleSuccess('createUser', 'User created successfully', notify);
+    if (notify) {
+      handleSuccess('createUser', 'User created successfully', notify);
+    }
     return data;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1888,7 +1937,9 @@ async function whoAmI(notify?: boolean) {
     });
     if (error) throw error;
 
-    handleSuccess('whoAmI', 'User identity retrieved successfully', notify);
+    if (notify) {
+      handleSuccess('whoAmI', 'User identity retrieved successfully', notify);
+    }
     return data;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1910,7 +1961,9 @@ async function searchUser(search: string, notify?: boolean): Promise<User[]> {
     if (error) throw error;
 
     const result = ((data as SearchUserResponse) ?? []).users as User[];
-    handleSuccess('searchUser', `Found ${result.length} user(s) matching '${search}'`, notify);
+    if (notify) {
+      handleSuccess('searchUser', `Found ${result.length} user(s) matching '${search}'`, notify);
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1937,11 +1990,13 @@ async function searchTabular(
     if (error) throw error;
 
     const result = (data as SearchTabularResponse) ?? { tabulars: [] };
-    handleSuccess(
-      'searchTabular',
-      `Found ${result.tabulars?.length || 0} tabular(s) matching search criteria`,
-      notify,
-    );
+    if (notify) {
+      handleSuccess(
+        'searchTabular',
+        `Found ${result.tabulars?.length || 0} tabular(s) matching search criteria`,
+        notify,
+      );
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1965,7 +2020,9 @@ async function getUser(userId: string, notify?: boolean): Promise<User> {
     if (error) throw error;
 
     const result = data as User;
-    handleSuccess('getUser', `User '${result.name || userId}' loaded successfully`, notify);
+    if (notify) {
+      handleSuccess('getUser', `User '${result.name || userId}' loaded successfully`, notify);
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -2022,7 +2079,9 @@ async function listUser(
       users: data?.users as User[],
       'next-page-token': data?.['next-page-token'] || undefined,
     };
-    handleSuccess('listUser', `${result.users?.length || 0} user(s) loaded successfully`, notify);
+    if (notify) {
+      handleSuccess('listUser', `${result.users?.length || 0} user(s) loaded successfully`, notify);
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -2049,7 +2108,9 @@ async function updateUserById(name: string, userId: string, notify?: boolean): P
 
     if (error) throw error;
 
-    handleSuccess('updateUserById', `User '${name}' updated successfully`, notify);
+    if (notify) {
+      handleSuccess('updateUserById', `User '${name}' updated successfully`, notify);
+    }
     return true;
   } catch (error: any) {
     handleError(error, new Error());
@@ -2091,7 +2152,9 @@ async function searchRole(
     if (error) throw error;
 
     const result = ((data as SearchRoleResponse) ?? []).roles as Role[];
-    handleSuccess('searchRole', `Found ${result.length} role(s) matching '${search}'`, notify);
+    if (notify) {
+      handleSuccess('searchRole', `Found ${result.length} role(s) matching '${search}'`, notify);
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -2120,7 +2183,13 @@ async function listRoles(
     if (error) throw error;
 
     const result = (data as ListRolesResponse) ?? { roles: [] };
-    handleSuccess('listRoles', `${result.roles?.length || 0} role(s) loaded successfully`, notify);
+    if (notify) {
+      handleSuccess(
+        'listRoles',
+        `${result.roles?.length || 0} role(s) loaded successfully`,
+        notify,
+      );
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -2142,7 +2211,9 @@ async function getRole(roleId: string, notify?: boolean): Promise<Role> {
     if (error) throw error;
 
     const result = data as Role;
-    handleSuccess('getRole', `Role '${result.name || roleId}' loaded successfully`, notify);
+    if (notify) {
+      handleSuccess('getRole', `Role '${result.name || roleId}' loaded successfully`, notify);
+    }
     return result;
   } catch (error: any) {
     handleError(error, new Error());
@@ -2625,7 +2696,7 @@ async function getRoleAccessById(roleId: string): Promise<RoleAction[]> {
     return [];
   }
 }
-function handleSuccess(functionName: string, msg: string, notify: boolean = true) {
+function handleSuccess(functionName: string, msg: string, notify?: boolean) {
   if (notify) {
     const visual = useVisualStore();
     const notificationStore = useNotificationStore();
