@@ -266,7 +266,9 @@ async function bootstrapServer(): Promise<boolean> {
 }
 
 // Project
-async function loadProjectList(): Promise<GetProjectResponse[]> {
+async function loadProjectList(notify?: boolean): Promise<GetProjectResponse[]> {
+  const startTime = Date.now();
+
   try {
     const visual = useVisualStore();
     const { data, error } = await mng.listProjects({ client: mngClient.client });
@@ -283,8 +285,37 @@ async function loadProjectList(): Promise<GetProjectResponse[]> {
       }
     }
 
-    return data?.projects || [];
+    const result = data?.projects || [];
+
+    // Capture success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification(
+        'loadProjectList',
+        'SUCCESS',
+        `Loaded ${result.length} project(s) successfully`,
+        {
+          operation: 'load',
+          entityType: 'Projects',
+          count: result.length,
+          duration: `${duration}ms`,
+        },
+      );
+    }
+
+    return result;
   } catch (error: any) {
+    // Capture error notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification('loadProjectList', 'ERROR', 'Failed to load projects', {
+        operation: 'load',
+        entityType: 'Projects',
+        duration: `${duration}ms`,
+        error: error,
+      });
+    }
+
     handleError(error, new Error());
     throw error;
   }
@@ -309,7 +340,9 @@ async function getProjectById(projectId: string): Promise<GetProjectResponse> {
   }
 }
 
-async function createProject(name: string): Promise<string> {
+async function createProject(name: string, notify?: boolean): Promise<string> {
+  const startTime = Date.now();
+
   try {
     const { data, error } = await mng.createProject({
       client: mngClient.client,
@@ -317,13 +350,46 @@ async function createProject(name: string): Promise<string> {
     });
     if (error) throw error;
 
-    return data?.['project-id'] ?? '';
+    const projectId = data?.['project-id'] ?? '';
+
+    // Capture success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification(
+        'createProject',
+        'SUCCESS',
+        `Project "${name}" created successfully`,
+        {
+          operation: 'create',
+          entityType: 'Project',
+          entityName: name,
+          entityId: projectId,
+          duration: `${duration}ms`,
+        },
+      );
+    }
+
+    return projectId;
   } catch (error: any) {
+    // Capture error notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification('createProject', 'ERROR', `Failed to create project "${name}"`, {
+        operation: 'create',
+        entityType: 'Project',
+        entityName: name,
+        duration: `${duration}ms`,
+        error: error,
+      });
+    }
+
     handleError(error, new Error());
     throw error;
   }
 }
-async function deleteProjectById(projectId: string): Promise<boolean> {
+async function deleteProjectById(projectId: string, notify?: boolean): Promise<boolean> {
+  const startTime = Date.now();
+
   try {
     const { error } = await mng.deleteProjectById({
       client: mngClient.client,
@@ -331,14 +397,43 @@ async function deleteProjectById(projectId: string): Promise<boolean> {
     });
     if (error) throw error;
 
+    // Capture success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification('deleteProjectById', 'SUCCESS', `Project deleted successfully`, {
+        operation: 'delete',
+        entityType: 'Project',
+        entityId: projectId,
+        duration: `${duration}ms`,
+      });
+    }
+
     return true;
   } catch (error: any) {
+    // Capture error notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification('deleteProjectById', 'ERROR', `Failed to delete project`, {
+        operation: 'delete',
+        entityType: 'Project',
+        entityId: projectId,
+        duration: `${duration}ms`,
+        error: error,
+      });
+    }
+
     handleError(error, new Error());
     throw error;
   }
 }
 
-async function renameProjectById(body: RenameProjectRequest, projectId: string): Promise<boolean> {
+async function renameProjectById(
+  body: RenameProjectRequest,
+  projectId: string,
+  notify?: boolean,
+): Promise<boolean> {
+  const startTime = Date.now();
+
   try {
     const { error } = await mng.renameProjectById({
       client: mngClient.client,
@@ -347,8 +442,31 @@ async function renameProjectById(body: RenameProjectRequest, projectId: string):
     });
     if (error) throw error;
 
+    // Capture success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification('renameProjectById', 'SUCCESS', `Project renamed successfully`, {
+        operation: 'rename',
+        entityType: 'Project',
+        entityId: projectId,
+        duration: `${duration}ms`,
+      });
+    }
+
     return true;
   } catch (error: any) {
+    // Capture error notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification('renameProjectById', 'ERROR', `Failed to rename project`, {
+        operation: 'rename',
+        entityType: 'Project',
+        entityId: projectId,
+        duration: `${duration}ms`,
+        error: error,
+      });
+    }
+
     handleError(error, new Error());
     throw error;
   }
@@ -417,7 +535,12 @@ async function getWarehouse(id: string): Promise<GetWarehouseResponse> {
   }
 }
 
-async function createWarehouse(wh: CreateWarehouseRequest): Promise<CreateWarehouseResponse> {
+async function createWarehouse(
+  wh: CreateWarehouseRequest,
+  notify?: boolean,
+): Promise<CreateWarehouseResponse> {
+  const startTime = Date.now();
+
   try {
     init();
 
@@ -429,8 +552,43 @@ async function createWarehouse(wh: CreateWarehouseRequest): Promise<CreateWareho
     });
     if (error) throw error;
 
-    return data as CreateWarehouseResponse;
+    const result = data as CreateWarehouseResponse;
+
+    // Capture success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification(
+        'createWarehouse',
+        'SUCCESS',
+        `Warehouse "${wh['warehouse-name']}" created successfully`,
+        {
+          operation: 'create',
+          entityType: 'Warehouse',
+          entityName: wh['warehouse-name'],
+          duration: `${duration}ms`,
+        },
+      );
+    }
+
+    return result;
   } catch (error) {
+    // Capture error notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification(
+        'createWarehouse',
+        'ERROR',
+        `Failed to create warehouse "${wh['warehouse-name']}"`,
+        {
+          operation: 'create',
+          entityType: 'Warehouse',
+          entityName: wh['warehouse-name'],
+          duration: `${duration}ms`,
+          error: error,
+        },
+      );
+    }
+
     handleError(error, new Error());
     throw error;
   }
@@ -460,7 +618,9 @@ async function getWarehouseStatistics(
   return data as GetWarehouseStatisticsResponse;
 }
 
-async function deleteWarehouse(whId: string) {
+async function deleteWarehouse(whId: string, notify?: boolean) {
+  const startTime = Date.now();
+
   try {
     init();
 
@@ -474,8 +634,31 @@ async function deleteWarehouse(whId: string) {
     });
     if (error) throw error;
 
+    // Capture success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification('deleteWarehouse', 'SUCCESS', `Warehouse deleted successfully`, {
+        operation: 'delete',
+        entityType: 'Warehouse',
+        entityId: whId,
+        duration: `${duration}ms`,
+      });
+    }
+
     return data;
   } catch (error) {
+    // Capture error notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      await captureNotification('deleteWarehouse', 'ERROR', `Failed to delete warehouse`, {
+        operation: 'delete',
+        entityType: 'Warehouse',
+        entityId: whId,
+        duration: `${duration}ms`,
+        error: error,
+      });
+    }
+
     handleError(error, new Error());
     return error;
   }
@@ -2373,81 +2556,6 @@ function safeStringify(obj: any): string {
   }
 }
 
-// Function wrapper to capture notifications
-function wrapFunctionWithNotification<T extends (...args: any[]) => any>(
-  fn: T,
-  functionName: string,
-): T {
-  return ((...args: any[]) => {
-    const startTime = Date.now();
-
-    // For async functions
-    if (fn.constructor.name === 'AsyncFunction') {
-      return (async () => {
-        try {
-          const result = await fn(...args);
-          const duration = Date.now() - startTime;
-
-          // Capture successful function call
-          await captureNotification(
-            functionName,
-            'SUCCESS',
-            `${functionName} completed successfully`,
-            {
-              duration: `${duration}ms`,
-              args: safeStringify(args).substring(0, 100) + '...',
-              result: typeof result === 'object' ? 'Object' : String(result).substring(0, 50),
-            },
-          );
-
-          return result;
-        } catch (error) {
-          const duration = Date.now() - startTime;
-
-          // Capture failed function call
-          await captureNotification(functionName, 'ERROR', `${functionName} failed: ${error}`, {
-            duration: `${duration}ms`,
-            args: safeStringify(args).substring(0, 100) + '...',
-            error: String(error).substring(0, 100),
-          });
-
-          throw error;
-        }
-      })() as ReturnType<T>;
-    } else {
-      // For synchronous functions
-      try {
-        const result = fn(...args);
-        const duration = Date.now() - startTime;
-
-        // Capture successful function call (async capture for sync functions)
-        setTimeout(() => {
-          captureNotification(functionName, 'SUCCESS', `${functionName} completed successfully`, {
-            duration: `${duration}ms`,
-            args: safeStringify(args).substring(0, 100) + '...',
-            result: typeof result === 'object' ? 'Object' : String(result).substring(0, 50),
-          });
-        }, 0);
-
-        return result;
-      } catch (error) {
-        const duration = Date.now() - startTime;
-
-        // Capture failed function call
-        setTimeout(() => {
-          captureNotification(functionName, 'ERROR', `${functionName} failed: ${error}`, {
-            duration: `${duration}ms`,
-            args: safeStringify(args).substring(0, 100) + '...',
-            error: String(error).substring(0, 100),
-          });
-        }, 0);
-
-        throw error;
-      }
-    }
-  }) as T;
-}
-
 // Function to capture notifications
 async function captureNotification(
   functionName: string,
@@ -2462,14 +2570,61 @@ async function captureNotification(
     // Determine notification type based on status
     const type = status === 'SUCCESS' ? Type.SUCCESS : Type.ERROR;
 
+    // Helper function to format values for display
+    const formatValue = (value: any, maxLength: number = 200): string => {
+      if (value === null || value === undefined) {
+        return String(value);
+      }
+
+      if (typeof value === 'object') {
+        try {
+          const jsonString = JSON.stringify(value, null, 2);
+          if (jsonString.length > maxLength) {
+            // Try compact JSON first
+            const compactJson = JSON.stringify(value);
+            if (compactJson.length <= maxLength) {
+              return compactJson;
+            }
+            // If still too long, truncate with ellipsis
+            return jsonString.substring(0, maxLength - 3) + '...';
+          }
+          return jsonString;
+        } catch (error) {
+          return '[Complex Object]';
+        }
+      }
+
+      const stringValue = String(value);
+      if (stringValue.length > maxLength) {
+        return stringValue.substring(0, maxLength - 3) + '...';
+      }
+      return stringValue;
+    };
+
     // Create detailed notification text
     let notificationText = message;
     if (metadata) {
       const details = [];
       if (metadata.duration) details.push(`Duration: ${metadata.duration}`);
-      if (metadata.args && metadata.args !== '"..."') details.push(`Args: ${metadata.args}`);
-      if (metadata.result) details.push(`Result: ${metadata.result}`);
-      if (metadata.error) details.push(`Error: ${metadata.error}`);
+      if (metadata.args && metadata.args !== '"..."') {
+        // Try to parse and format args if it's a JSON string
+        let argsDisplay = metadata.args;
+        try {
+          const parsedArgs = JSON.parse(metadata.args.replace('...', ''));
+          argsDisplay = formatValue(parsedArgs, 100);
+        } catch {
+          argsDisplay = metadata.args;
+        }
+        details.push(`Args: ${argsDisplay}`);
+      }
+      if (metadata.result) {
+        const resultDisplay = formatValue(metadata.result, 150);
+        details.push(`Result: ${resultDisplay}`);
+      }
+      if (metadata.error) {
+        const errorDisplay = formatValue(metadata.error, 100);
+        details.push(`Error: ${errorDisplay}`);
+      }
 
       if (details.length > 0) {
         notificationText += ` | ${details.join(' | ')}`;
@@ -2596,24 +2751,8 @@ export function useFunctions(config?: any) {
     handleError,
   };
 
-  // Wrap all functions with notification interceptor (except utility functions)
-  const wrappedFunctions: any = {};
-  const excludeFunctions = [
-    'icebergCatalogUrl',
-    'icebergCatalogUrlSuffixed',
-    'handleError',
-    'copyToClipboard',
-  ];
-
-  Object.entries(functions).forEach(([name, fn]) => {
-    if (typeof fn === 'function' && !excludeFunctions.includes(name)) {
-      wrappedFunctions[name] = wrapFunctionWithNotification(fn, name);
-    } else {
-      wrappedFunctions[name] = fn;
-    }
-  });
-
-  return wrappedFunctions;
+  // Return functions with simple boolean notification control
+  return functions;
 }
 
 export default {

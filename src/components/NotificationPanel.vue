@@ -47,17 +47,84 @@
 
       <v-divider />
 
+      <!-- Filter Section -->
+      <v-card flat class="px-4 py-2">
+        <div class="text-caption text-grey mb-2">Filter by type:</div>
+        <div class="d-flex gap-2 flex-wrap">
+          <v-chip
+            :color="selectedFilter === 'all' ? 'primary' : 'default'"
+            :variant="selectedFilter === 'all' ? 'flat' : 'outlined'"
+            size="small"
+            @click="setFilter('all')"
+            class="filter-chip">
+            All ({{ notificationStore.notifications.length }})
+          </v-chip>
+          <v-chip
+            :color="selectedFilter === TypeEnum.SUCCESS ? 'success' : 'default'"
+            :variant="selectedFilter === TypeEnum.SUCCESS ? 'flat' : 'outlined'"
+            size="small"
+            @click="setFilter(TypeEnum.SUCCESS)"
+            class="filter-chip">
+            <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.SUCCESS) }}</v-icon>
+            Success ({{ getCountByType(TypeEnum.SUCCESS) }})
+          </v-chip>
+          <v-chip
+            :color="selectedFilter === TypeEnum.ERROR ? 'error' : 'default'"
+            :variant="selectedFilter === TypeEnum.ERROR ? 'flat' : 'outlined'"
+            size="small"
+            @click="setFilter(TypeEnum.ERROR)"
+            class="filter-chip">
+            <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.ERROR) }}</v-icon>
+            Error ({{ getCountByType(TypeEnum.ERROR) }})
+          </v-chip>
+          <v-chip
+            :color="selectedFilter === TypeEnum.WARNING ? 'warning' : 'default'"
+            :variant="selectedFilter === TypeEnum.WARNING ? 'flat' : 'outlined'"
+            size="small"
+            @click="setFilter(TypeEnum.WARNING)"
+            class="filter-chip">
+            <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.WARNING) }}</v-icon>
+            Warning ({{ getCountByType(TypeEnum.WARNING) }})
+          </v-chip>
+          <v-chip
+            :color="selectedFilter === TypeEnum.INFO ? 'info' : 'default'"
+            :variant="selectedFilter === TypeEnum.INFO ? 'flat' : 'outlined'"
+            size="small"
+            @click="setFilter(TypeEnum.INFO)"
+            class="filter-chip">
+            <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.INFO) }}</v-icon>
+            Info ({{ getCountByType(TypeEnum.INFO) }})
+          </v-chip>
+        </div>
+      </v-card>
+
+      <v-divider />
+
       <!-- Content -->
       <div class="flex-grow-1 overflow-y-auto">
-        <div v-if="notificationStore.notifications.length === 0" class="pa-4 text-center">
-          <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-bell-off</v-icon>
-          <div class="text-body-1 text-grey">No notifications yet</div>
-          <div class="text-caption text-grey">Events from snackbar messages will appear here</div>
+        <div v-if="filteredNotifications.length === 0" class="pa-4 text-center">
+          <v-icon size="64" color="grey-lighten-1" class="mb-4">
+            {{ selectedFilter === 'all' ? 'mdi-bell-off' : 'mdi-filter-off' }}
+          </v-icon>
+          <div class="text-body-1 text-grey">
+            {{
+              selectedFilter === 'all'
+                ? 'No notifications yet'
+                : `No ${selectedFilter} notifications`
+            }}
+          </div>
+          <div class="text-caption text-grey">
+            {{
+              selectedFilter === 'all'
+                ? 'Events from function calls will appear here'
+                : 'Try changing the filter to see other notifications'
+            }}
+          </div>
         </div>
 
         <div v-else>
           <div
-            v-for="(notifications, dateKey) in notificationStore.groupedNotifications"
+            v-for="(notifications, dateKey) in filteredGroupedNotifications"
             :key="dateKey"
             class="notification-group">
             <!-- Date Header -->
@@ -208,16 +275,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useNotificationStore } from '@/stores/notifications';
 import { Type } from '@/common/enums';
 import type { NotificationEvent } from '@/stores/notifications';
 
 const notificationStore = useNotificationStore();
 
+// Filter state
+const selectedFilter = ref<'all' | Type>('all');
+
 // Modal state
 const detailsDialog = ref(false);
 const selectedNotification = ref<NotificationEvent | null>(null);
+
+// Computed filtered notifications
+const filteredNotifications = computed(() => {
+  if (selectedFilter.value === 'all') {
+    return notificationStore.notifications;
+  }
+  return notificationStore.notifications.filter((n) => n.type === selectedFilter.value);
+});
+
+// Computed grouped filtered notifications
+const filteredGroupedNotifications = computed((): Record<string, NotificationEvent[]> => {
+  const filtered = filteredNotifications.value;
+  const grouped: Record<string, NotificationEvent[]> = {};
+
+  for (const notification of filtered) {
+    const dateKey = new Date(notification.timestamp).toDateString();
+    if (!grouped[dateKey]) {
+      grouped[dateKey] = [];
+    }
+    grouped[dateKey].push(notification);
+  }
+
+  // Sort by date (most recent first)
+  const sortedEntries = Object.entries(grouped).sort(([a], [b]) => {
+    return new Date(b).getTime() - new Date(a).getTime();
+  });
+
+  // Sort notifications within each date group by timestamp (most recent first)
+  for (const [, notifications] of sortedEntries) {
+    notifications.sort((a, b) => b.timestamp - a.timestamp);
+  }
+
+  return Object.fromEntries(sortedEntries);
+});
 
 function markAsRead(id: string) {
   notificationStore.markAsRead(id);
@@ -233,6 +337,15 @@ function markAllAsRead() {
 
 function clearAll() {
   notificationStore.clearAll();
+}
+
+// Filter functions
+function setFilter(filter: 'all' | Type) {
+  selectedFilter.value = filter;
+}
+
+function getCountByType(type: Type): number {
+  return notificationStore.notifications.filter((n) => n.type === type).length;
 }
 
 function formatDateHeader(dateString: string): string {
@@ -364,8 +477,10 @@ function getNotificationDescription(notification: NotificationEvent): string {
     ? notification.text.substring(0, maxLength) + '...'
     : notification.text;
 }
-</script>
 
+// Make Type enum available in template
+const TypeEnum = Type;
+</script>
 <style scoped>
 .notification-panel {
   z-index: 9999;
@@ -408,5 +523,14 @@ function getNotificationDescription(notification: NotificationEvent): string {
 
 .notification-item:hover .notification-delete-btn {
   opacity: 1;
+}
+
+.filter-chip {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+  transform: scale(1.05);
 }
 </style>
