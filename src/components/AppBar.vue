@@ -97,6 +97,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useRouter } from 'vue-router';
 import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT_SIDE.svg';
 import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE_SIDE.svg';
+import NotificationPanel from './NotificationPanel.vue';
 
 // Props
 const props = defineProps({

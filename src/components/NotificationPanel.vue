@@ -1,54 +1,47 @@
 <template>
-  <v-navigation-drawer
-    v-model="notificationStore.isOpen"
-    temporary
-    location="right"
-    width="400"
-    class="notification-panel">
-    <div class="d-flex flex-column fill-height">
+  <v-dialog v-model="notificationStore.isOpen" max-width="500" class="notification-dialog">
+    <v-card class="notification-panel">
       <!-- Header -->
-      <v-card class="notification-header" flat>
-        <v-card-title class="d-flex align-center justify-space-between pa-4">
-          <div class="d-flex align-center">
-            <v-icon class="mr-2">mdi-bell</v-icon>
-            <span>Notifications</span>
-            <v-chip
-              v-if="notificationStore.unreadCount > 0"
-              :text="notificationStore.unreadCount.toString()"
-              color="primary"
-              size="small"
-              class="ml-2" />
-          </div>
+      <v-card-title class="d-flex align-center justify-space-between pa-4 bg-surface-variant">
+        <div class="d-flex align-center">
+          <v-icon class="mr-2">mdi-bell</v-icon>
+          <span>Notifications</span>
+          <v-chip
+            v-if="notificationStore.unreadCount > 0"
+            :text="notificationStore.unreadCount.toString()"
+            color="primary"
+            size="small"
+            class="ml-2" />
+        </div>
 
-          <div class="d-flex align-center">
-            <v-btn
-              v-if="notificationStore.notifications.length > 0"
-              icon="mdi-check-all"
-              size="small"
-              variant="text"
-              @click="markAllAsRead"
-              :title="'Mark all as read'"></v-btn>
-            <v-btn
-              v-if="notificationStore.notifications.length > 0"
-              icon="mdi-delete-sweep"
-              size="small"
-              variant="text"
-              color="error"
-              @click="clearAll"
-              :title="'Clear all'"></v-btn>
-            <v-btn
-              icon="mdi-close"
-              size="small"
-              variant="text"
-              @click="notificationStore.closePanel"></v-btn>
-          </div>
-        </v-card-title>
-      </v-card>
+        <div class="d-flex align-center">
+          <v-btn
+            v-if="notificationStore.notifications.length > 0"
+            icon="mdi-check-all"
+            size="small"
+            variant="text"
+            @click="markAllAsRead"
+            :title="'Mark all as read'"></v-btn>
+          <v-btn
+            v-if="notificationStore.notifications.length > 0"
+            icon="mdi-delete-sweep"
+            size="small"
+            variant="text"
+            color="error"
+            @click="clearAll"
+            :title="'Clear all'"></v-btn>
+          <v-btn
+            icon="mdi-close"
+            size="small"
+            variant="text"
+            @click="notificationStore.closePanel"></v-btn>
+        </div>
+      </v-card-title>
 
       <v-divider />
 
       <!-- Content -->
-      <div class="flex-grow-1 overflow-y-auto">
+      <v-card-text class="pa-0" style="max-height: 500px; overflow-y: auto">
         <div v-if="notificationStore.notifications.length === 0" class="pa-4 text-center">
           <v-icon size="64" color="grey-lighten-1" class="mb-4">mdi-bell-off</v-icon>
           <div class="text-body-1 text-grey">No notifications yet</div>
@@ -113,9 +106,9 @@
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  </v-navigation-drawer>
+      </v-card-text>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -240,5 +233,16 @@ function getNotificationTypeText(type: Type): string {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   padding-bottom: 8px;
   margin-bottom: 8px;
+}
+
+/* Dialog and panel styling */
+.notification-dialog {
+  z-index: 9999 !important;
+}
+
+.notification-panel {
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
 }
 </style>
