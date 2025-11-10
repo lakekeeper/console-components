@@ -101,96 +101,98 @@
       <v-divider />
 
       <!-- Content -->
-      <div class="flex-grow-1 overflow-y-auto">
-        <div v-if="filteredNotifications.length === 0" class="pa-4 text-center">
-          <v-icon size="64" color="grey-lighten-1" class="mb-4">
-            {{ selectedFilter === 'all' ? 'mdi-bell-off' : 'mdi-filter-off' }}
-          </v-icon>
-          <div class="text-body-1 text-grey">
-            {{
-              selectedFilter === 'all'
-                ? 'No notifications yet'
-                : `No ${selectedFilter} notifications`
-            }}
+      <div class="notification-content-wrapper">
+        <div class="notification-scroll-container">
+          <div v-if="filteredNotifications.length === 0" class="pa-4 text-center">
+            <v-icon size="64" color="grey-lighten-1" class="mb-4">
+              {{ selectedFilter === 'all' ? 'mdi-bell-off' : 'mdi-filter-off' }}
+            </v-icon>
+            <div class="text-body-1 text-grey">
+              {{
+                selectedFilter === 'all'
+                  ? 'No notifications yet'
+                  : `No ${selectedFilter} notifications`
+              }}
+            </div>
+            <div class="text-caption text-grey">
+              {{
+                selectedFilter === 'all'
+                  ? 'Events from function calls will appear here'
+                  : 'Try changing the filter to see other notifications'
+              }}
+            </div>
           </div>
-          <div class="text-caption text-grey">
-            {{
-              selectedFilter === 'all'
-                ? 'Events from function calls will appear here'
-                : 'Try changing the filter to see other notifications'
-            }}
-          </div>
-        </div>
 
-        <div v-else>
-          <div
-            v-for="(notifications, dateKey) in filteredGroupedNotifications"
-            :key="dateKey"
-            class="notification-group">
-            <!-- Date Header -->
-            <v-list-subheader class="text-caption font-weight-bold text-grey px-4 py-2">
-              {{ formatDateHeader(dateKey) }}
-            </v-list-subheader>
-
-            <!-- Notifications for this date -->
+          <div v-else class="notification-list">
             <div
-              v-for="notification in notifications"
-              :key="notification.id"
-              class="notification-item"
-              :class="{ 'notification-unread': !notification.read }"
-              @click="markAsRead(notification.id)">
-              <v-card
-                flat
-                class="ma-2 notification-clickable"
-                :class="{ 'notification-card-unread': !notification.read }"
-                @click="openNotificationDetails(notification)">
-                <v-card-text class="py-3">
-                  <div class="d-flex align-start">
-                    <v-icon
-                      :color="getNotificationColor(notification.type)"
-                      :icon="getNotificationIcon(notification.type)"
-                      class="mr-3 mt-1"
-                      size="small"></v-icon>
+              v-for="(notifications, dateKey) in filteredGroupedNotifications"
+              :key="dateKey"
+              class="notification-group">
+              <!-- Date Header -->
+              <v-list-subheader class="text-caption font-weight-bold text-grey px-4 py-2">
+                {{ formatDateHeader(dateKey) }}
+              </v-list-subheader>
 
-                    <div class="flex-grow-1">
-                      <!-- Title (function name or first part of text) -->
-                      <div class="text-subtitle-2 mb-1 font-weight-medium">
-                        {{ getNotificationTitle(notification) }}
-                      </div>
+              <!-- Notifications for this date -->
+              <div
+                v-for="notification in notifications"
+                :key="notification.id"
+                class="notification-item"
+                :class="{ 'notification-unread': !notification.read }"
+                @click="markAsRead(notification.id)">
+                <v-card
+                  flat
+                  class="ma-2 notification-clickable"
+                  :class="{ 'notification-card-unread': !notification.read }"
+                  @click="openNotificationDetails(notification)">
+                  <v-card-text class="py-3">
+                    <div class="d-flex align-start">
+                      <v-icon
+                        :color="getNotificationColor(notification.type)"
+                        :icon="getNotificationIcon(notification.type)"
+                        class="mr-3 mt-1"
+                        size="small"></v-icon>
 
-                      <!-- Short description -->
-                      <div class="text-body-2 text-grey mb-2">
-                        {{ getNotificationDescription(notification) }}
-                      </div>
-
-                      <div class="d-flex align-center justify-space-between">
-                        <div class="text-caption text-grey">
-                          <span>{{ formatTime(notification.timestamp) }}</span>
+                      <div class="flex-grow-1">
+                        <!-- Title (function name or first part of text) -->
+                        <div class="text-subtitle-2 mb-1 font-weight-medium">
+                          {{ getNotificationTitle(notification) }}
                         </div>
 
-                        <v-chip
-                          :color="getNotificationColor(notification.type)"
+                        <!-- Short description -->
+                        <div class="text-body-2 text-grey mb-2">
+                          {{ getNotificationDescription(notification) }}
+                        </div>
+
+                        <div class="d-flex align-center justify-space-between">
+                          <div class="text-caption text-grey">
+                            <span>{{ formatTime(notification.timestamp) }}</span>
+                          </div>
+
+                          <v-chip
+                            :color="getNotificationColor(notification.type)"
+                            size="x-small"
+                            variant="outlined">
+                            {{ getNotificationTypeText(notification.type) }}
+                          </v-chip>
+                        </div>
+                      </div>
+
+                      <div class="d-flex align-center ml-2">
+                        <div v-if="!notification.read" class="notification-unread-dot mr-2"></div>
+                        <v-btn
+                          icon="mdi-close"
                           size="x-small"
-                          variant="outlined">
-                          {{ getNotificationTypeText(notification.type) }}
-                        </v-chip>
+                          variant="text"
+                          color="grey"
+                          class="notification-delete-btn"
+                          @click.stop="deleteNotification(notification.id)"
+                          :title="'Delete notification'"></v-btn>
                       </div>
                     </div>
-
-                    <div class="d-flex align-center ml-2">
-                      <div v-if="!notification.read" class="notification-unread-dot mr-2"></div>
-                      <v-btn
-                        icon="mdi-close"
-                        size="x-small"
-                        variant="text"
-                        color="grey"
-                        class="notification-delete-btn"
-                        @click.stop="deleteNotification(notification.id)"
-                        :title="'Delete notification'"></v-btn>
-                    </div>
-                  </div>
-                </v-card-text>
-              </v-card>
+                  </v-card-text>
+                </v-card>
+              </div>
             </div>
           </div>
         </div>
@@ -532,5 +534,24 @@ const TypeEnum = Type;
 
 .filter-chip:hover {
   transform: scale(1.05);
+}
+
+.notification-content-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex child to shrink */
+}
+
+.notification-scroll-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0; /* Important for proper scrolling */
+  max-height: calc(100vh - 200px); /* Prevent overlap with header */
+}
+
+.notification-list {
+  padding-bottom: 16px; /* Add some bottom spacing */
 }
 </style>
