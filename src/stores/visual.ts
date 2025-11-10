@@ -116,10 +116,10 @@ export const useVisualStore = defineStore(
       // We use a dynamic import to avoid circular dependencies
       if (typeof window !== 'undefined') {
         // Use setTimeout to avoid potential timing issues during initialization
-        setTimeout(() => {
+        setTimeout(async () => {
           try {
-            // Try to get the notification store instance
-            const { useNotificationStore } = require('@/stores/notifications');
+            // Try to dynamically import the notification store
+            const { useNotificationStore } = await import('./notifications');
             const notificationStore = useNotificationStore();
 
             notificationStore.addNotification({
