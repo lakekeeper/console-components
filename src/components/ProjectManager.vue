@@ -139,6 +139,7 @@ const userStorage = useUserStore();
 
 const visual = useVisualStore();
 const functions = useFunctions();
+const notify = true;
 
 const router = useRouter();
 
@@ -251,7 +252,7 @@ async function activateProject(item: { 'project-id': string; 'project-name': str
 
 async function deleteProject(project: GetProjectResponse & { actions: string[]; info: string }) {
   try {
-    await functions.deleteProjectById(project['project-id'], true);
+    await functions.deleteProjectById(project['project-id'], notify);
     // if we delete the current project, switch to the first project
     if (project['project-id'] === visual.projectSelected['project-id']) {
       router.push('/');
@@ -265,7 +266,7 @@ async function deleteProject(project: GetProjectResponse & { actions: string[]; 
 
 async function addProject(createProject: CreateProjectRequest & { 'project-name': string }) {
   try {
-    await functions.createProject(createProject['project-name'], true);
+    await functions.createProject(createProject['project-name'], notify);
   } catch (error) {
     console.error(error);
   } finally {
@@ -275,7 +276,7 @@ async function addProject(createProject: CreateProjectRequest & { 'project-name'
 
 async function renameProject(renamedProject: RenameProjectRequest & { 'project-id': string }) {
   try {
-    await functions.renameProjectById(renamedProject, renamedProject['project-id'], true);
+    await functions.renameProjectById(renamedProject, renamedProject['project-id'], notify);
 
     // Update the selected project name if this is the currently selected project
     if (visual.projectSelected['project-id'] === renamedProject['project-id']) {

@@ -321,7 +321,7 @@ async function loadProjectList(notify?: boolean): Promise<GetProjectResponse[]> 
   }
 }
 
-async function getProjectById(projectId: string): Promise<GetProjectResponse> {
+async function getProjectById(projectId: string, notify?: boolean): Promise<GetProjectResponse> {
   try {
     const { data, error } = await mng.getProjectById({
       client: mngClient.client,
@@ -333,8 +333,14 @@ async function getProjectById(projectId: string): Promise<GetProjectResponse> {
       throw new Error('Failed to get project by ID');
     }
 
+    if (notify) {
+      captureNotification('getProjectById', 'SUCCESS', `Project '${data['project-name']}' loaded`);
+    }
     return data;
   } catch (error: any) {
+    if (notify) {
+      captureNotification('getProjectById', 'ERROR', `Failed to load project: ${error.message}`);
+    }
     handleError(error, new Error());
     throw error;
   }
@@ -502,7 +508,7 @@ async function getEndpointStatistics(
 }
 
 // Warehouse
-async function listWarehouses(): Promise<ListWarehousesResponse> {
+async function listWarehouses(notify?: boolean): Promise<ListWarehousesResponse> {
   try {
     const client = mngClient.client;
 
@@ -511,14 +517,24 @@ async function listWarehouses(): Promise<ListWarehousesResponse> {
     const wh = data as ListWarehousesResponse;
     if (error) throw error;
 
+    if (notify) {
+      captureNotification(
+        'listWarehouses',
+        'SUCCESS',
+        `${wh.warehouses?.length || 0} warehouses loaded`,
+      );
+    }
     return wh;
   } catch (error: any) {
+    if (notify) {
+      captureNotification('listWarehouses', 'ERROR', `Failed to load warehouses: ${error.message}`);
+    }
     handleError(error, new Error());
     throw error;
   }
 }
 
-async function getWarehouse(id: string): Promise<GetWarehouseResponse> {
+async function getWarehouse(id: string, notify?: boolean): Promise<GetWarehouseResponse> {
   try {
     const client = mngClient.client;
 
@@ -528,8 +544,15 @@ async function getWarehouse(id: string): Promise<GetWarehouseResponse> {
     });
     if (error) throw error;
 
-    return data as GetWarehouseResponse;
+    const result = data as GetWarehouseResponse;
+    if (notify) {
+      captureNotification('getWarehouse', 'SUCCESS', `Warehouse loaded successfully`);
+    }
+    return result;
   } catch (error: any) {
+    if (notify) {
+      captureNotification('getWarehouse', 'ERROR', `Failed to load warehouse: ${error.message}`);
+    }
     handleError(error, new Error());
     return error;
   }
@@ -691,7 +714,7 @@ async function listDeletedTabulars(
   }
 }
 
-async function renameWarehouse(whId: string, name: string): Promise<boolean> {
+async function renameWarehouse(whId: string, name: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -707,8 +730,18 @@ async function renameWarehouse(whId: string, name: string): Promise<boolean> {
 
     // if (data.error) throw new Error(data.error);
 
+    if (notify) {
+      captureNotification('renameWarehouse', 'SUCCESS', `Warehouse renamed to '${name}'`);
+    }
     return true;
   } catch (error: any) {
+    if (notify) {
+      captureNotification(
+        'renameWarehouse',
+        'ERROR',
+        `Failed to rename warehouse: ${error.message}`,
+      );
+    }
     console.error('Failed to rename warehouse', error);
     handleError(error, new Error());
     throw error;
@@ -890,7 +923,7 @@ async function loadNamespaceMetadata(id: string, namespace: string): Promise<Get
   return data as GetNamespaceResponse;
 }
 
-async function createNamespace(id: string, namespace: Namespace) {
+async function createNamespace(id: string, namespace: Namespace, notify?: boolean) {
   try {
     const client = iceClient.client;
     const { data, error } = await ice.createNamespace({
@@ -902,14 +935,28 @@ async function createNamespace(id: string, namespace: Namespace) {
     });
     if (error) throw error;
 
+    if (notify) {
+      captureNotification(
+        'createNamespace',
+        'SUCCESS',
+        `Namespace '${namespace.join('.')}' created`,
+      );
+    }
     return data;
   } catch (error: any) {
+    if (notify) {
+      captureNotification(
+        'createNamespace',
+        'ERROR',
+        `Failed to create namespace: ${error.message}`,
+      );
+    }
     handleError(error, new Error());
     return error;
   }
 }
 
-async function dropNamespace(id: string, ns: string, options?: NamespaceAction) {
+async function dropNamespace(id: string, ns: string, options?: NamespaceAction, notify?: boolean) {
   try {
     const client = iceClient.client;
     const { data, error } = await ice.dropNamespace({
@@ -921,10 +968,18 @@ async function dropNamespace(id: string, ns: string, options?: NamespaceAction) 
       query: options as { force?: boolean; recursive?: boolean; purge?: boolean } | undefined,
     });
     if (error) throw error;
-    handleSuccess('dropNamespace', 'Namespace deleted successfully');
+
+    if (notify) {
+      captureNotification('dropNamespace', 'SUCCESS', `Namespace '${ns}' deleted successfully`);
+    } else {
+      handleSuccess('dropNamespace', 'Namespace deleted successfully');
+    }
 
     return data;
   } catch (error: any) {
+    if (notify) {
+      captureNotification('dropNamespace', 'ERROR', `Failed to delete namespace: ${error.message}`);
+    }
     handleError(error, new Error());
     console.error('Failed to drop namespace', error);
     return error;
@@ -1096,6 +1151,7 @@ async function dropTable(
   namespacePath: string,
   tableName: string,
   options?: { purgeRequested?: boolean; force?: boolean } | undefined,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     const client = iceClient.client;
@@ -1110,10 +1166,17 @@ async function dropTable(
     });
     if (error) throw error;
 
-    handleSuccess('Drop Table', 'Table deleted successfully');
+    if (notify) {
+      captureNotification('dropTable', 'SUCCESS', `Table '${tableName}' deleted successfully`);
+    } else {
+      handleSuccess('Drop Table', 'Table deleted successfully');
+    }
 
     return true;
   } catch (error: any) {
+    if (notify) {
+      captureNotification('dropTable', 'ERROR', `Failed to delete table: ${error.message}`);
+    }
     handleError(error, new Error());
     throw error;
   }
@@ -1224,6 +1287,7 @@ async function dropView(
   namespacePath: string,
   viewName: string,
   options?: { force?: boolean } | undefined,
+  notify?: boolean,
 ) {
   try {
     const client = iceClient.client;
@@ -1238,10 +1302,18 @@ async function dropView(
     });
 
     if (error) throw error;
-    handleSuccess('drop View', 'View deleted successfully');
+
+    if (notify) {
+      captureNotification('dropView', 'SUCCESS', `View '${viewName}' deleted successfully`);
+    } else {
+      handleSuccess('drop View', 'View deleted successfully');
+    }
 
     return data;
   } catch (error: any) {
+    if (notify) {
+      captureNotification('dropView', 'ERROR', `Failed to delete view: ${error.message}`);
+    }
     handleError(error, new Error());
     throw error;
   }
@@ -2008,7 +2080,7 @@ async function getRole(roleId: string): Promise<Role> {
   }
 }
 
-async function createRole(name: string, description?: string): Promise<Role> {
+async function createRole(name: string, description?: string, notify?: boolean): Promise<Role> {
   try {
     init();
 
@@ -2028,8 +2100,15 @@ async function createRole(name: string, description?: string): Promise<Role> {
 
     if (error) throw error;
 
-    return data as Role;
+    const result = data as Role;
+    if (notify) {
+      captureNotification('createRole', 'SUCCESS', `Role '${name}' created successfully`);
+    }
+    return result;
   } catch (error: any) {
+    if (notify) {
+      captureNotification('createRole', 'ERROR', `Failed to create role: ${error.message}`);
+    }
     handleError(error, new Error());
     throw error;
   }
@@ -2061,7 +2140,7 @@ async function updateRole(roleId: string, name: string, description?: string): P
   }
 }
 
-async function deleteRole(roleId: string): Promise<boolean> {
+async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -2072,8 +2151,14 @@ async function deleteRole(roleId: string): Promise<boolean> {
       path: { role_id: roleId },
     });
 
+    if (notify) {
+      captureNotification('deleteRole', 'SUCCESS', `Role deleted successfully`);
+    }
     return true;
   } catch (error: any) {
+    if (notify) {
+      captureNotification('deleteRole', 'ERROR', `Failed to delete role: ${error.message}`);
+    }
     console.error('Failed to delete role', error);
     handleError(error, new Error());
     throw error;
