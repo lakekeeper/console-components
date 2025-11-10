@@ -359,6 +359,12 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const canControlTasks = computed(
+    () =>
+      canControlAllTasks.value ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
 
   // Auto-load on mount
   onMounted(() => {
@@ -399,6 +405,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canGetEndpointStatistics,
     showPermissionsTab,
     showTasksTab,
+    canControlTasks,
     refresh: loadPermissions,
   };
 }

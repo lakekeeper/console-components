@@ -241,21 +241,21 @@
               variant="text"
               @click="viewTaskDetails(item)"></v-btn>
             <v-btn
-              v-if="item.status === 'RUNNING' && canControl"
+              v-if="item.status === 'RUNNING' && canControlTasks"
               icon="mdi-stop"
               size="small"
               variant="text"
               color="warning"
               @click="stopTask(item)"></v-btn>
             <v-btn
-              v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControl"
+              v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
               icon="mdi-cancel"
               size="small"
               variant="text"
               color="error"
               @click="cancelTask(item)"></v-btn>
             <v-btn
-              v-if="item.status === 'SCHEDULED' && canControl"
+              v-if="item.status === 'SCHEDULED' && canControlTasks"
               icon="mdi-play"
               size="small"
               variant="text"
@@ -434,7 +434,7 @@
 </template>
 
 <script setup lang="ts">
-import { useWarehousePermissions, useConfig } from '../composables/usePermissions';
+import { useWarehousePermissions } from '../composables/usePermissions';
 import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
 import { reactive, ref, onMounted, computed, inject } from 'vue';
@@ -459,17 +459,9 @@ const props = defineProps<{
 // Composables
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
-const config = useConfig();
 
-const { canControlAllTasks } = useWarehousePermissions(props.warehouseId);
+const { canControlAllTasks, canControlTasks } = useWarehousePermissions(props.warehouseId);
 
-// When auth/permissions are disabled, allow all task control actions
-const canControl = computed(
-  () =>
-    canControlAllTasks.value ||
-    !config.enabledAuthentication.value ||
-    !config.enabledPermissions.value,
-);
 // Helper functions to handle entity type differences
 const getEntityId = () => {
   if (props.entityType === 'view') {
@@ -574,6 +566,8 @@ const queueNameOptions = computed(() =>
     value: option.value,
   })),
 );
+
+// Permission-based computed properties (using composable)
 
 // Computed properties for filter state
 const hasActiveFilters = computed(() => {
