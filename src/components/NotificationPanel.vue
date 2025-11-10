@@ -5,102 +5,105 @@
     location="right"
     width="400"
     class="notification-panel">
-    <div class="d-flex flex-column fill-height">
-      <!-- Header -->
-      <v-card class="notification-header" flat>
-        <v-card-title class="d-flex align-center justify-space-between pa-4">
-          <div class="d-flex align-center">
-            <v-icon class="mr-2">mdi-bell</v-icon>
-            <span>Notifications</span>
+    <div class="notification-panel-container">
+      <!-- Fixed Header Section -->
+      <div class="notification-fixed-header">
+        <!-- Header -->
+        <v-card class="notification-header" flat>
+          <v-card-title class="d-flex align-center justify-space-between pa-4">
+            <div class="d-flex align-center">
+              <v-icon class="mr-2">mdi-bell</v-icon>
+              <span>Notifications</span>
+              <v-chip
+                v-if="notificationStore.unreadCount > 0"
+                :text="notificationStore.unreadCount.toString()"
+                color="primary"
+                size="small"
+                class="ml-2" />
+            </div>
+
+            <div class="d-flex align-center">
+              <v-btn
+                v-if="notificationStore.notifications.length > 0"
+                icon="mdi-check-all"
+                size="small"
+                variant="text"
+                @click="markAllAsRead"
+                :title="'Mark all as read'"></v-btn>
+              <v-btn
+                v-if="notificationStore.notifications.length > 0"
+                icon="mdi-delete-sweep"
+                size="small"
+                variant="text"
+                color="error"
+                @click="clearAll"
+                :title="'Clear all'"></v-btn>
+              <v-btn
+                icon="mdi-close"
+                size="small"
+                variant="text"
+                @click="notificationStore.closePanel"></v-btn>
+            </div>
+          </v-card-title>
+        </v-card>
+
+        <v-divider />
+
+        <!-- Filter Section -->
+        <v-card flat class="px-4 py-2 notification-filters">
+          <div class="text-caption text-grey mb-2">Filter by type:</div>
+          <div class="d-flex gap-2 flex-wrap">
             <v-chip
-              v-if="notificationStore.unreadCount > 0"
-              :text="notificationStore.unreadCount.toString()"
-              color="primary"
+              :color="selectedFilter === 'all' ? 'primary' : 'default'"
+              :variant="selectedFilter === 'all' ? 'flat' : 'outlined'"
               size="small"
-              class="ml-2" />
+              @click="setFilter('all')"
+              class="filter-chip">
+              All ({{ notificationStore.notifications.length }})
+            </v-chip>
+            <v-chip
+              :color="selectedFilter === TypeEnum.SUCCESS ? 'success' : 'default'"
+              :variant="selectedFilter === TypeEnum.SUCCESS ? 'flat' : 'outlined'"
+              size="small"
+              @click="setFilter(TypeEnum.SUCCESS)"
+              class="filter-chip">
+              <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.SUCCESS) }}</v-icon>
+              Success ({{ getCountByType(TypeEnum.SUCCESS) }})
+            </v-chip>
+            <v-chip
+              :color="selectedFilter === TypeEnum.ERROR ? 'error' : 'default'"
+              :variant="selectedFilter === TypeEnum.ERROR ? 'flat' : 'outlined'"
+              size="small"
+              @click="setFilter(TypeEnum.ERROR)"
+              class="filter-chip">
+              <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.ERROR) }}</v-icon>
+              Error ({{ getCountByType(TypeEnum.ERROR) }})
+            </v-chip>
+            <v-chip
+              :color="selectedFilter === TypeEnum.WARNING ? 'warning' : 'default'"
+              :variant="selectedFilter === TypeEnum.WARNING ? 'flat' : 'outlined'"
+              size="small"
+              @click="setFilter(TypeEnum.WARNING)"
+              class="filter-chip">
+              <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.WARNING) }}</v-icon>
+              Warning ({{ getCountByType(TypeEnum.WARNING) }})
+            </v-chip>
+            <v-chip
+              :color="selectedFilter === TypeEnum.INFO ? 'info' : 'default'"
+              :variant="selectedFilter === TypeEnum.INFO ? 'flat' : 'outlined'"
+              size="small"
+              @click="setFilter(TypeEnum.INFO)"
+              class="filter-chip">
+              <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.INFO) }}</v-icon>
+              Info ({{ getCountByType(TypeEnum.INFO) }})
+            </v-chip>
           </div>
+        </v-card>
 
-          <div class="d-flex align-center">
-            <v-btn
-              v-if="notificationStore.notifications.length > 0"
-              icon="mdi-check-all"
-              size="small"
-              variant="text"
-              @click="markAllAsRead"
-              :title="'Mark all as read'"></v-btn>
-            <v-btn
-              v-if="notificationStore.notifications.length > 0"
-              icon="mdi-delete-sweep"
-              size="small"
-              variant="text"
-              color="error"
-              @click="clearAll"
-              :title="'Clear all'"></v-btn>
-            <v-btn
-              icon="mdi-close"
-              size="small"
-              variant="text"
-              @click="notificationStore.closePanel"></v-btn>
-          </div>
-        </v-card-title>
-      </v-card>
+        <v-divider />
+      </div>
 
-      <v-divider />
-
-      <!-- Filter Section -->
-      <v-card flat class="px-4 py-2">
-        <div class="text-caption text-grey mb-2">Filter by type:</div>
-        <div class="d-flex gap-2 flex-wrap">
-          <v-chip
-            :color="selectedFilter === 'all' ? 'primary' : 'default'"
-            :variant="selectedFilter === 'all' ? 'flat' : 'outlined'"
-            size="small"
-            @click="setFilter('all')"
-            class="filter-chip">
-            All ({{ notificationStore.notifications.length }})
-          </v-chip>
-          <v-chip
-            :color="selectedFilter === TypeEnum.SUCCESS ? 'success' : 'default'"
-            :variant="selectedFilter === TypeEnum.SUCCESS ? 'flat' : 'outlined'"
-            size="small"
-            @click="setFilter(TypeEnum.SUCCESS)"
-            class="filter-chip">
-            <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.SUCCESS) }}</v-icon>
-            Success ({{ getCountByType(TypeEnum.SUCCESS) }})
-          </v-chip>
-          <v-chip
-            :color="selectedFilter === TypeEnum.ERROR ? 'error' : 'default'"
-            :variant="selectedFilter === TypeEnum.ERROR ? 'flat' : 'outlined'"
-            size="small"
-            @click="setFilter(TypeEnum.ERROR)"
-            class="filter-chip">
-            <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.ERROR) }}</v-icon>
-            Error ({{ getCountByType(TypeEnum.ERROR) }})
-          </v-chip>
-          <v-chip
-            :color="selectedFilter === TypeEnum.WARNING ? 'warning' : 'default'"
-            :variant="selectedFilter === TypeEnum.WARNING ? 'flat' : 'outlined'"
-            size="small"
-            @click="setFilter(TypeEnum.WARNING)"
-            class="filter-chip">
-            <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.WARNING) }}</v-icon>
-            Warning ({{ getCountByType(TypeEnum.WARNING) }})
-          </v-chip>
-          <v-chip
-            :color="selectedFilter === TypeEnum.INFO ? 'info' : 'default'"
-            :variant="selectedFilter === TypeEnum.INFO ? 'flat' : 'outlined'"
-            size="small"
-            @click="setFilter(TypeEnum.INFO)"
-            class="filter-chip">
-            <v-icon size="x-small" class="mr-1">{{ getNotificationIcon(TypeEnum.INFO) }}</v-icon>
-            Info ({{ getCountByType(TypeEnum.INFO) }})
-          </v-chip>
-        </div>
-      </v-card>
-
-      <v-divider />
-
-      <!-- Content -->
+      <!-- Scrollable Content -->
       <div class="notification-content-wrapper">
         <div class="notification-scroll-container">
           <div v-if="filteredNotifications.length === 0" class="pa-4 text-center">
@@ -536,11 +539,28 @@ const TypeEnum = Type;
   transform: scale(1.05);
 }
 
+.notification-panel-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.notification-fixed-header {
+  flex-shrink: 0; /* Prevent header from shrinking */
+  z-index: 10;
+  background-color: rgb(var(--v-theme-surface));
+}
+
+.notification-filters {
+  background-color: rgb(var(--v-theme-surface));
+}
+
 .notification-content-wrapper {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0; /* Important for flex child to shrink */
+  overflow: hidden;
 }
 
 .notification-scroll-container {
@@ -548,7 +568,7 @@ const TypeEnum = Type;
   overflow-y: auto;
   overflow-x: hidden;
   min-height: 0; /* Important for proper scrolling */
-  max-height: calc(100vh - 200px); /* Prevent overlap with header */
+  padding: 0;
 }
 
 .notification-list {
