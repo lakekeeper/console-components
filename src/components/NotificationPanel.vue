@@ -106,7 +106,17 @@
                       </div>
                     </div>
 
-                    <div v-if="!notification.read" class="notification-unread-dot ml-2 mt-1"></div>
+                    <div class="d-flex align-center ml-2">
+                      <div v-if="!notification.read" class="notification-unread-dot mr-2"></div>
+                      <v-btn
+                        icon="mdi-close"
+                        size="x-small"
+                        variant="text"
+                        color="grey"
+                        class="notification-delete-btn"
+                        @click.stop="deleteNotification(notification.id)"
+                        :title="'Delete notification'"></v-btn>
+                    </div>
                   </div>
                 </v-card-text>
               </v-card>
@@ -126,6 +136,10 @@ const notificationStore = useNotificationStore();
 
 function markAsRead(id: string) {
   notificationStore.markAsRead(id);
+}
+
+function deleteNotification(id: string) {
+  notificationStore.deleteNotification(id);
 }
 
 function markAllAsRead() {
@@ -240,5 +254,14 @@ function getNotificationTypeText(type: Type): string {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   padding-bottom: 8px;
   margin-bottom: 8px;
+}
+
+.notification-delete-btn {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.notification-item:hover .notification-delete-btn {
+  opacity: 1;
 }
 </style>

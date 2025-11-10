@@ -79,6 +79,15 @@ export const useNotificationStore = defineStore('notifications', () => {
     saveToStorage();
   }
 
+  // Delete a specific notification
+  function deleteNotification(id: string) {
+    const index = notifications.value.findIndex((n) => n.id === id);
+    if (index !== -1) {
+      notifications.value.splice(index, 1);
+      saveToStorage();
+    }
+  }
+
   // Clear all notifications
   function clearAll() {
     notifications.value = [];
@@ -145,6 +154,7 @@ export const useNotificationStore = defineStore('notifications', () => {
     addNotification,
     markAsRead,
     markAllAsRead,
+    deleteNotification,
     clearAll,
     togglePanel,
     closePanel,
