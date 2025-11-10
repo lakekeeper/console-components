@@ -2632,14 +2632,14 @@ async function getNewToken(auth: any) {
   }
 }
 
-// Safe JSON stringify that handles circular references
-function safeStringify(obj: any): string {
-  try {
-    return JSON.stringify(obj);
-  } catch (error) {
-    return '[Circular]';
-  }
-}
+// // Safe JSON stringify that handles circular references
+// function safeStringify(obj: any): string {
+//   try {
+//     return JSON.stringify(obj);
+//   } catch {
+//     return '[Circular]';
+//   }
+// }
 
 // Function to capture notifications
 async function captureNotification(
@@ -2674,7 +2674,7 @@ async function captureNotification(
             return jsonString.substring(0, maxLength - 3) + '...';
           }
           return jsonString;
-        } catch (error) {
+        } catch {
           return '[Complex Object]';
         }
       }

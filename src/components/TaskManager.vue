@@ -460,7 +460,7 @@ const props = defineProps<{
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
 
-const { canControlAllTasks, canControlTasks } = useWarehousePermissions(props.warehouseId);
+const { canControlTasks } = useWarehousePermissions(props.warehouseId);
 
 // Helper functions to handle entity type differences
 const getEntityId = () => {
