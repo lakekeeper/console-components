@@ -360,6 +360,7 @@ function getCountByType(type: Type): number {
 function formatDateHeader(dateString: string): string {
   const date = new Date(dateString);
   const today = new Date();
+
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
 
@@ -541,12 +542,18 @@ const TypeEnum = Type;
 
 .notification-panel {
   z-index: 9999;
+  overflow: hidden !important; /* Force prevent drawer from scrolling */
+}
+
+.notification-panel .v-navigation-drawer__content {
+  overflow: hidden !important; /* Prevent drawer content from scrolling */
 }
 
 .notification-panel-container {
   display: flex;
   flex-direction: column;
   height: 100%;
+  max-height: 100vh;
   overflow: hidden; /* Prevent entire container from scrolling */
 }
 
@@ -574,13 +581,16 @@ const TypeEnum = Type;
 
 .notification-scroll-container {
   flex: 1 1 0%;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
   height: 0; /* Force height calculation from flex */
+  max-height: calc(100vh - 200px); /* Ensure container has max height */
   padding: 0;
+  position: relative;
 }
 
 .notification-list {
   padding-bottom: 16px; /* Add some bottom spacing */
+  min-height: 100%; /* Ensure list takes full container height */
 }
 </style>
