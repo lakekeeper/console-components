@@ -74,9 +74,9 @@
               @click="markAsRead(notification.id)">
               <v-card
                 flat
-                class="ma-2"
+                class="ma-2 notification-clickable"
                 :class="{ 'notification-card-unread': !notification.read }"
-                @click="markAsRead(notification.id)">
+                @click="openNotificationDetails(notification)">
                 <v-card-text class="py-3">
                   <div class="d-flex align-start">
                     <v-icon
@@ -86,14 +86,18 @@
                       size="small"></v-icon>
 
                     <div class="flex-grow-1">
-                      <div class="text-body-2 mb-1">{{ notification.text }}</div>
+                      <!-- Title (function name or first part of text) -->
+                      <div class="text-subtitle-2 mb-1 font-weight-medium">
+                        {{ getNotificationTitle(notification) }}
+                      </div>
+
+                      <!-- Short description -->
+                      <div class="text-body-2 text-grey mb-2">
+                        {{ getNotificationDescription(notification) }}
+                      </div>
 
                       <div class="d-flex align-center justify-space-between">
                         <div class="text-caption text-grey">
-                          <span v-if="notification.function" class="font-weight-medium">
-                            {{ notification.function }}
-                          </span>
-                          <span v-if="notification.function">•</span>
                           <span>{{ formatTime(notification.timestamp) }}</span>
                         </div>
 
@@ -126,13 +130,94 @@
       </div>
     </div>
   </v-navigation-drawer>
+
+  <!-- Notification Details Modal -->
+  <v-dialog v-model="detailsDialog" max-width="600" persistent>
+    <v-card>
+      <v-card-title class="d-flex align-center justify-space-between pa-4">
+        <div class="d-flex align-center">
+          <v-icon
+            :color="selectedNotification ? getNotificationColor(selectedNotification.type) : 'grey'"
+            :icon="
+              selectedNotification ? getNotificationIcon(selectedNotification.type) : 'mdi-bell'
+            "
+            class="mr-2"
+            size="large"></v-icon>
+          <span>Notification Details</span>
+        </div>
+        <v-btn icon="mdi-close" size="small" variant="text" @click="closeDetails"></v-btn>
+      </v-card-title>
+
+      <v-divider />
+
+      <v-card-text v-if="selectedNotification" class="pa-4">
+        <!-- Function Name -->
+        <div v-if="selectedNotification.function" class="mb-3">
+          <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Function</div>
+          <v-chip :color="getNotificationColor(selectedNotification.type)" variant="outlined">
+            {{ selectedNotification.function }}
+          </v-chip>
+        </div>
+
+        <!-- Message -->
+        <div class="mb-3">
+          <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Message</div>
+          <div class="text-body-1">{{ selectedNotification.text }}</div>
+        </div>
+
+        <!-- Timestamp -->
+        <div class="mb-3">
+          <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Time</div>
+          <div class="text-body-2">{{ formatFullTimestamp(selectedNotification.timestamp) }}</div>
+        </div>
+
+        <!-- Status -->
+        <div class="mb-3">
+          <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Status</div>
+          <v-chip :color="getNotificationColor(selectedNotification.type)" size="small">
+            {{ getNotificationTypeText(selectedNotification.type) }}
+          </v-chip>
+        </div>
+
+        <!-- Read Status -->
+        <div class="mb-3">
+          <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Read Status</div>
+          <v-chip
+            :color="selectedNotification.read ? 'success' : 'primary'"
+            size="small"
+            variant="outlined">
+            {{ selectedNotification.read ? 'Read' : 'Unread' }}
+          </v-chip>
+        </div>
+      </v-card-text>
+
+      <v-card-actions class="pa-4">
+        <v-spacer></v-spacer>
+        <v-btn
+          v-if="selectedNotification && !selectedNotification.read"
+          color="primary"
+          variant="outlined"
+          @click="markAsReadAndClose">
+          Mark as Read
+        </v-btn>
+        <v-btn color="error" variant="outlined" @click="deleteAndClose">Delete</v-btn>
+        <v-btn color="primary" @click="closeDetails">Close</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue';
 import { useNotificationStore } from '@/stores/notifications';
 import { Type } from '@/common/enums';
+import type { NotificationEvent } from '@/stores/notifications';
 
 const notificationStore = useNotificationStore();
+
+// Modal state
+const detailsDialog = ref(false);
+const selectedNotification = ref<NotificationEvent | null>(null);
 
 function markAsRead(id: string) {
   notificationStore.markAsRead(id);
@@ -218,6 +303,66 @@ function getNotificationTypeText(type: Type): string {
     default:
       return 'Info';
   }
+}
+
+// Modal functions
+function openNotificationDetails(notification: NotificationEvent): void {
+  selectedNotification.value = notification;
+  detailsDialog.value = true;
+
+  // Mark as read when opened
+  if (!notification.read) {
+    notificationStore.markAsRead(notification.id);
+  }
+}
+
+function closeDetails(): void {
+  detailsDialog.value = false;
+  selectedNotification.value = null;
+}
+
+function markAsReadAndClose(): void {
+  if (selectedNotification.value) {
+    notificationStore.markAsRead(selectedNotification.value.id);
+  }
+  closeDetails();
+}
+
+function deleteAndClose(): void {
+  if (selectedNotification.value) {
+    notificationStore.deleteNotification(selectedNotification.value.id);
+  }
+  closeDetails();
+}
+
+function formatFullTimestamp(timestamp: number): string {
+  return new Date(timestamp).toLocaleString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+// Title and description functions for condensed view
+function getNotificationTitle(notification: NotificationEvent): string {
+  if (notification.function) {
+    return notification.function;
+  }
+
+  // Extract first few words as title
+  const words = notification.text.split(' ');
+  return words.slice(0, 3).join(' ') + (words.length > 3 ? '...' : '');
+}
+
+function getNotificationDescription(notification: NotificationEvent): string {
+  // Return the full text as description, but limit length for display
+  const maxLength = 60;
+  return notification.text.length > maxLength
+    ? notification.text.substring(0, maxLength) + '...'
+    : notification.text;
 }
 </script>
 

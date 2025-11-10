@@ -2364,6 +2364,128 @@ async function getNewToken(auth: any) {
   }
 }
 
+// Safe JSON stringify that handles circular references
+function safeStringify(obj: any): string {
+  try {
+    return JSON.stringify(obj);
+  } catch (error) {
+    return '[Circular]';
+  }
+}
+
+// Function wrapper to capture notifications
+function wrapFunctionWithNotification<T extends (...args: any[]) => any>(
+  fn: T,
+  functionName: string,
+): T {
+  return ((...args: any[]) => {
+    const startTime = Date.now();
+
+    // For async functions
+    if (fn.constructor.name === 'AsyncFunction') {
+      return (async () => {
+        try {
+          const result = await fn(...args);
+          const duration = Date.now() - startTime;
+
+          // Capture successful function call
+          await captureNotification(
+            functionName,
+            'SUCCESS',
+            `${functionName} completed successfully`,
+            {
+              duration: `${duration}ms`,
+              args: safeStringify(args).substring(0, 100) + '...',
+              result: typeof result === 'object' ? 'Object' : String(result).substring(0, 50),
+            },
+          );
+
+          return result;
+        } catch (error) {
+          const duration = Date.now() - startTime;
+
+          // Capture failed function call
+          await captureNotification(functionName, 'ERROR', `${functionName} failed: ${error}`, {
+            duration: `${duration}ms`,
+            args: safeStringify(args).substring(0, 100) + '...',
+            error: String(error).substring(0, 100),
+          });
+
+          throw error;
+        }
+      })() as ReturnType<T>;
+    } else {
+      // For synchronous functions
+      try {
+        const result = fn(...args);
+        const duration = Date.now() - startTime;
+
+        // Capture successful function call (async capture for sync functions)
+        setTimeout(() => {
+          captureNotification(functionName, 'SUCCESS', `${functionName} completed successfully`, {
+            duration: `${duration}ms`,
+            args: safeStringify(args).substring(0, 100) + '...',
+            result: typeof result === 'object' ? 'Object' : String(result).substring(0, 50),
+          });
+        }, 0);
+
+        return result;
+      } catch (error) {
+        const duration = Date.now() - startTime;
+
+        // Capture failed function call
+        setTimeout(() => {
+          captureNotification(functionName, 'ERROR', `${functionName} failed: ${error}`, {
+            duration: `${duration}ms`,
+            args: safeStringify(args).substring(0, 100) + '...',
+            error: String(error).substring(0, 100),
+          });
+        }, 0);
+
+        throw error;
+      }
+    }
+  }) as T;
+}
+
+// Function to capture notifications
+async function captureNotification(
+  functionName: string,
+  status: 'SUCCESS' | 'ERROR',
+  message: string,
+  metadata?: any,
+) {
+  try {
+    const { useNotificationStore } = await import('../stores/notifications');
+    const notificationStore = useNotificationStore();
+
+    // Determine notification type based on status
+    const type = status === 'SUCCESS' ? Type.SUCCESS : Type.ERROR;
+
+    // Create detailed notification text
+    let notificationText = message;
+    if (metadata) {
+      const details = [];
+      if (metadata.duration) details.push(`Duration: ${metadata.duration}`);
+      if (metadata.args && metadata.args !== '"..."') details.push(`Args: ${metadata.args}`);
+      if (metadata.result) details.push(`Result: ${metadata.result}`);
+      if (metadata.error) details.push(`Error: ${metadata.error}`);
+
+      if (details.length > 0) {
+        notificationText += ` | ${details.join(' | ')}`;
+      }
+    }
+
+    notificationStore.addNotification({
+      function: functionName,
+      text: notificationText,
+      type: type,
+    });
+  } catch (error) {
+    console.debug('Failed to capture notification:', error);
+  }
+}
+
 export function useFunctions(config?: any) {
   // Set the injected config if provided
   if (config) {
@@ -2378,7 +2500,9 @@ export function useFunctions(config?: any) {
   }
 
   init();
-  return {
+
+  // Define all functions
+  const functions = {
     getServerInfo,
     loadProjectList,
     listWarehouses,
@@ -2471,6 +2595,25 @@ export function useFunctions(config?: any) {
     getNewToken,
     handleError,
   };
+
+  // Wrap all functions with notification interceptor (except utility functions)
+  const wrappedFunctions: any = {};
+  const excludeFunctions = [
+    'icebergCatalogUrl',
+    'icebergCatalogUrlSuffixed',
+    'handleError',
+    'copyToClipboard',
+  ];
+
+  Object.entries(functions).forEach(([name, fn]) => {
+    if (typeof fn === 'function' && !excludeFunctions.includes(name)) {
+      wrappedFunctions[name] = wrapFunctionWithNotification(fn, name);
+    } else {
+      wrappedFunctions[name] = fn;
+    }
+  });
+
+  return wrappedFunctions;
 }
 
 export default {
