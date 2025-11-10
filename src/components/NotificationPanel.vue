@@ -540,57 +540,68 @@ const TypeEnum = Type;
   transform: scale(1.05);
 }
 
+/* Override Vuetify's navigation drawer completely */
 .notification-panel {
   z-index: 9999;
-  overflow: hidden !important; /* Force prevent drawer from scrolling */
 }
 
 .notification-panel .v-navigation-drawer__content {
-  overflow: hidden !important; /* Prevent drawer content from scrolling */
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100vh !important;
+  overflow: hidden !important;
+  padding: 0 !important;
 }
 
+/* Main container - fills entire drawer */
 .notification-panel-container {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-height: 100vh;
-  overflow: hidden; /* Prevent entire container from scrolling */
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
 }
 
+/* Fixed header - never scrolls */
 .notification-fixed-header {
-  flex-shrink: 0; /* Prevent header from shrinking */
-  flex-grow: 0; /* Prevent header from growing */
-  position: sticky;
-  top: 0;
-  z-index: 10;
+  position: relative;
+  z-index: 20;
+  flex-shrink: 0;
+  flex-grow: 0;
   background-color: rgb(var(--v-theme-surface));
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  width: 100%;
 }
 
 .notification-filters {
   background-color: rgb(var(--v-theme-surface));
 }
 
+/* Content wrapper - takes remaining space */
 .notification-content-wrapper {
-  flex: 1 1 0%; /* Allow to grow and shrink, with 0 base size */
+  flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0; /* Critical for proper flex behavior */
-  overflow: hidden; /* Prevent wrapper from scrolling */
+  overflow: hidden;
+  position: relative;
+  height: 0; /* Force flex calculation */
 }
 
+/* This is the ONLY scrollable container */
 .notification-scroll-container {
-  flex: 1 1 0%;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  height: 0; /* Force height calculation from flex */
-  max-height: calc(100vh - 200px); /* Ensure container has max height */
+  flex: 1;
+  overflow-y: scroll;
+  overflow-x: hidden;
   padding: 0;
+  margin: 0;
+  height: 100%;
+  width: 100%;
   position: relative;
 }
 
 .notification-list {
-  padding-bottom: 16px; /* Add some bottom spacing */
-  min-height: 100%; /* Ensure list takes full container height */
+  padding-bottom: 16px;
+  width: 100%;
 }
 </style>
