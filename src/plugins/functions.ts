@@ -137,7 +137,7 @@ function parseErrorText(errorText: string): { message: string; code: number } {
   return { message, code };
 }
 
-export function handleError(error: any, functionError: Error) {
+export function handleError(error: any, functionError: Error, notify: boolean = true) {
   try {
     console.error('Handling error:', error);
     if (error === 'invalid HTTP header (authorization)') return;
@@ -163,7 +163,10 @@ export function handleError(error: any, functionError: Error) {
       return;
     }
 
-    setError(error, 3000, functionName, Type.ERROR);
+    // Only show notification if notify is true
+    if (notify) {
+      setError(error, 3000, functionName, Type.ERROR);
+    }
   } catch (newError: any) {
     if (typeof newError === 'string' && error.includes('net::ERR_CONNECTION_REFUSED')) {
       console.error('Connection refused');
@@ -247,7 +250,7 @@ async function getServerInfo(): Promise<ServerInfo> {
   }
 }
 
-async function bootstrapServer(): Promise<boolean> {
+async function bootstrapServer(notify?: boolean): Promise<boolean> {
   try {
     const client = mngClient.client;
 
@@ -257,10 +260,13 @@ async function bootstrapServer(): Promise<boolean> {
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('bootstrapServer', 'Server bootstrapped successfully', notify);
+    }
     return true;
   } catch (error: any) {
     console.error('Failed to bootstrap server', error);
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     return error;
   }
 }
@@ -287,36 +293,19 @@ async function loadProjectList(notify?: boolean): Promise<GetProjectResponse[]> 
 
     const result = data?.projects || [];
 
-    // Capture success notification if requested
+    // Show success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      await captureNotification(
+      handleSuccess(
         'loadProjectList',
-        'SUCCESS',
-        `Loaded ${result.length} project(s) successfully`,
-        {
-          operation: 'load',
-          entityType: 'Projects',
-          count: result.length,
-          duration: `${duration}ms`,
-        },
+        `Loaded ${result.length} project(s) successfully (${duration}ms)`,
+        notify,
       );
     }
 
     return result;
   } catch (error: any) {
-    // Capture error notification if requested
-    if (notify) {
-      const duration = Date.now() - startTime;
-      await captureNotification('loadProjectList', 'ERROR', 'Failed to load projects', {
-        operation: 'load',
-        entityType: 'Projects',
-        duration: `${duration}ms`,
-        error: error,
-      });
-    }
-
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -334,14 +323,11 @@ async function getProjectById(projectId: string, notify?: boolean): Promise<GetP
     }
 
     if (notify) {
-      captureNotification('getProjectById', 'SUCCESS', `Project '${data['project-name']}' loaded`);
+      handleSuccess('getProjectById', `Project '${data['project-name']}' loaded`, notify);
     }
     return data;
   } catch (error: any) {
-    if (notify) {
-      captureNotification('getProjectById', 'ERROR', `Failed to load project: ${error.message}`);
-    }
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -358,38 +344,19 @@ async function createProject(name: string, notify?: boolean): Promise<string> {
 
     const projectId = data?.['project-id'] ?? '';
 
-    // Capture success notification if requested
+    // Show success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      await captureNotification(
+      handleSuccess(
         'createProject',
-        'SUCCESS',
-        `Project "${name}" created successfully`,
-        {
-          operation: 'create',
-          entityType: 'Project',
-          entityName: name,
-          entityId: projectId,
-          duration: `${duration}ms`,
-        },
+        `Project "${name}" created successfully (${duration}ms)`,
+        notify,
       );
     }
 
     return projectId;
   } catch (error: any) {
-    // Capture error notification if requested
-    if (notify) {
-      const duration = Date.now() - startTime;
-      await captureNotification('createProject', 'ERROR', `Failed to create project "${name}"`, {
-        operation: 'create',
-        entityType: 'Project',
-        entityName: name,
-        duration: `${duration}ms`,
-        error: error,
-      });
-    }
-
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -403,32 +370,15 @@ async function deleteProjectById(projectId: string, notify?: boolean): Promise<b
     });
     if (error) throw error;
 
-    // Capture success notification if requested
+    // Show success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      await captureNotification('deleteProjectById', 'SUCCESS', `Project deleted successfully`, {
-        operation: 'delete',
-        entityType: 'Project',
-        entityId: projectId,
-        duration: `${duration}ms`,
-      });
+      handleSuccess('deleteProjectById', `Project deleted successfully (${duration}ms)`, notify);
     }
 
     return true;
   } catch (error: any) {
-    // Capture error notification if requested
-    if (notify) {
-      const duration = Date.now() - startTime;
-      await captureNotification('deleteProjectById', 'ERROR', `Failed to delete project`, {
-        operation: 'delete',
-        entityType: 'Project',
-        entityId: projectId,
-        duration: `${duration}ms`,
-        error: error,
-      });
-    }
-
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -451,29 +401,12 @@ async function renameProjectById(
     // Capture success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      await captureNotification('renameProjectById', 'SUCCESS', `Project renamed successfully`, {
-        operation: 'rename',
-        entityType: 'Project',
-        entityId: projectId,
-        duration: `${duration}ms`,
-      });
+      handleSuccess('renameProjectById', `Project renamed successfully (${duration}ms)`, notify);
     }
 
     return true;
   } catch (error: any) {
-    // Capture error notification if requested
-    if (notify) {
-      const duration = Date.now() - startTime;
-      await captureNotification('renameProjectById', 'ERROR', `Failed to rename project`, {
-        operation: 'rename',
-        entityType: 'Project',
-        entityId: projectId,
-        duration: `${duration}ms`,
-        error: error,
-      });
-    }
-
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -518,18 +451,11 @@ async function listWarehouses(notify?: boolean): Promise<ListWarehousesResponse>
     if (error) throw error;
 
     if (notify) {
-      captureNotification(
-        'listWarehouses',
-        'SUCCESS',
-        `${wh.warehouses?.length || 0} warehouses loaded`,
-      );
+      handleSuccess('listWarehouses', `${wh.warehouses?.length || 0} warehouses loaded`, notify);
     }
     return wh;
   } catch (error: any) {
-    if (notify) {
-      captureNotification('listWarehouses', 'ERROR', `Failed to load warehouses: ${error.message}`);
-    }
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -546,14 +472,11 @@ async function getWarehouse(id: string, notify?: boolean): Promise<GetWarehouseR
 
     const result = data as GetWarehouseResponse;
     if (notify) {
-      captureNotification('getWarehouse', 'SUCCESS', `Warehouse loaded successfully`);
+      handleSuccess('getWarehouse', `Warehouse loaded successfully`, notify);
     }
     return result;
   } catch (error: any) {
-    if (notify) {
-      captureNotification('getWarehouse', 'ERROR', `Failed to load warehouse: ${error.message}`);
-    }
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     return error;
   }
 }
@@ -580,39 +503,17 @@ async function createWarehouse(
     // Capture success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      await captureNotification(
+      handleSuccess(
         'createWarehouse',
-        'SUCCESS',
-        `Warehouse "${wh['warehouse-name']}" created successfully`,
-        {
-          operation: 'create',
-          entityType: 'Warehouse',
-          entityName: wh['warehouse-name'],
-          duration: `${duration}ms`,
-        },
+        `Warehouse "${wh['warehouse-name']}" created successfully (${duration}ms)`,
+        notify,
       );
     }
 
     return result;
   } catch (error) {
     // Capture error notification if requested
-    if (notify) {
-      const duration = Date.now() - startTime;
-      await captureNotification(
-        'createWarehouse',
-        'ERROR',
-        `Failed to create warehouse "${wh['warehouse-name']}"`,
-        {
-          operation: 'create',
-          entityType: 'Warehouse',
-          entityName: wh['warehouse-name'],
-          duration: `${duration}ms`,
-          error: error,
-        },
-      );
-    }
-
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -657,32 +558,15 @@ async function deleteWarehouse(whId: string, notify?: boolean) {
     });
     if (error) throw error;
 
-    // Capture success notification if requested
+    // Show success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      await captureNotification('deleteWarehouse', 'SUCCESS', `Warehouse deleted successfully`, {
-        operation: 'delete',
-        entityType: 'Warehouse',
-        entityId: whId,
-        duration: `${duration}ms`,
-      });
+      handleSuccess('deleteWarehouse', `Warehouse deleted successfully (${duration}ms)`, notify);
     }
 
     return data;
   } catch (error) {
-    // Capture error notification if requested
-    if (notify) {
-      const duration = Date.now() - startTime;
-      await captureNotification('deleteWarehouse', 'ERROR', `Failed to delete warehouse`, {
-        operation: 'delete',
-        entityType: 'Warehouse',
-        entityId: whId,
-        duration: `${duration}ms`,
-        error: error,
-      });
-    }
-
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     return error;
   }
 }
@@ -731,19 +615,12 @@ async function renameWarehouse(whId: string, name: string, notify?: boolean): Pr
     // if (data.error) throw new Error(data.error);
 
     if (notify) {
-      captureNotification('renameWarehouse', 'SUCCESS', `Warehouse renamed to '${name}'`);
+      handleSuccess('renameWarehouse', `Warehouse renamed to '${name}'`, notify);
     }
     return true;
   } catch (error: any) {
-    if (notify) {
-      captureNotification(
-        'renameWarehouse',
-        'ERROR',
-        `Failed to rename warehouse: ${error.message}`,
-      );
-    }
     console.error('Failed to rename warehouse', error);
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -791,6 +668,8 @@ async function updateStorageProfile(
       },
     });
     if (error) throw error;
+
+    handleSuccess('updateStorageProfile', 'Storage profile updated successfully');
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -814,6 +693,7 @@ async function updateWarehouseDeleteProfile(whId: string, deleteProfile: Tabular
       },
     });
 
+    handleSuccess('updateWarehouseDeleteProfile', 'Delete profile updated successfully');
     return true;
   } catch (error) {
     handleError(error, new Error());
@@ -864,6 +744,10 @@ async function setWarehouseProtection(
     });
     if (error) throw error;
 
+    handleSuccess(
+      'setWarehouseProtection',
+      `Warehouse protection ${protected_state ? 'enabled' : 'disabled'}`,
+    );
     return data;
   } catch (error) {
     handleError(error, new Error());
@@ -876,6 +760,7 @@ async function listNamespaces(
   id: string,
   parentNS?: string,
   page_token?: PageToken,
+  notify?: boolean,
 ): Promise<NamespaceResponse> {
   try {
     const client = iceClient.client;
@@ -905,7 +790,7 @@ async function listNamespaces(
 
     return { namespaceMap, namespaces, 'next-page-token': data['next-page-token'] ?? undefined };
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     return error;
   }
 }
@@ -936,22 +821,11 @@ async function createNamespace(id: string, namespace: Namespace, notify?: boolea
     if (error) throw error;
 
     if (notify) {
-      captureNotification(
-        'createNamespace',
-        'SUCCESS',
-        `Namespace '${namespace.join('.')}' created`,
-      );
+      handleSuccess('createNamespace', `Namespace '${namespace.join('.')}' created`, notify);
     }
     return data;
   } catch (error: any) {
-    if (notify) {
-      captureNotification(
-        'createNamespace',
-        'ERROR',
-        `Failed to create namespace: ${error.message}`,
-      );
-    }
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     return error;
   }
 }
@@ -970,18 +844,15 @@ async function dropNamespace(id: string, ns: string, options?: NamespaceAction, 
     if (error) throw error;
 
     if (notify) {
-      captureNotification('dropNamespace', 'SUCCESS', `Namespace '${ns}' deleted successfully`);
+      handleSuccess('dropNamespace', `Namespace '${ns}' deleted successfully`, notify);
     } else {
       handleSuccess('dropNamespace', 'Namespace deleted successfully');
     }
 
     return data;
   } catch (error: any) {
-    if (notify) {
-      captureNotification('dropNamespace', 'ERROR', `Failed to delete namespace: ${error.message}`);
-    }
-    handleError(error, new Error());
     console.error('Failed to drop namespace', error);
+    handleError(error, new Error(), notify);
     return error;
   }
 }
@@ -1069,6 +940,7 @@ async function listTables(
   id: string,
   ns?: string,
   pageToken?: PageToken,
+  notify?: boolean,
 ): Promise<ListTablesResponse> {
   try {
     const client = iceClient.client;
@@ -1084,7 +956,7 @@ async function listTables(
 
     return data as ListTablesResponse;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     return error;
   }
 }
@@ -1167,17 +1039,14 @@ async function dropTable(
     if (error) throw error;
 
     if (notify) {
-      captureNotification('dropTable', 'SUCCESS', `Table '${tableName}' deleted successfully`);
+      handleSuccess('dropTable', `Table '${tableName}' deleted successfully`, notify);
     } else {
       handleSuccess('Drop Table', 'Table deleted successfully');
     }
 
     return true;
   } catch (error: any) {
-    if (notify) {
-      captureNotification('dropTable', 'ERROR', `Failed to delete table: ${error.message}`);
-    }
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -1243,6 +1112,7 @@ async function listViews(
   id: string,
   ns?: string,
   page_token?: PageToken,
+  notify?: boolean,
 ): Promise<ListTablesResponse> {
   try {
     const client = iceClient.client;
@@ -1258,7 +1128,7 @@ async function listViews(
 
     return data as ListTablesResponse;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     return error;
   }
 }
@@ -1304,17 +1174,14 @@ async function dropView(
     if (error) throw error;
 
     if (notify) {
-      captureNotification('dropView', 'SUCCESS', `View '${viewName}' deleted successfully`);
+      handleSuccess('dropView', `View '${viewName}' deleted successfully`, notify);
     } else {
       handleSuccess('drop View', 'View deleted successfully');
     }
 
     return data;
   } catch (error: any) {
-    if (notify) {
-      captureNotification('dropView', 'ERROR', `Failed to delete view: ${error.message}`);
-    }
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -1438,6 +1305,7 @@ async function updateWarehouseAssignmentsById(
 
     if (error) throw error;
 
+    handleSuccess('updateWarehouseAssignmentsById', 'Warehouse assignments updated successfully');
     return true;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1464,6 +1332,10 @@ async function setWarehouseManagedAccess(
 
     if (error) throw error;
 
+    handleSuccess(
+      'setWarehouseManagedAccess',
+      `Warehouse managed access ${managedAccess ? 'enabled' : 'disabled'}`,
+    );
     return true;
   } catch (error: any) {
     handleError(error, new Error());
@@ -1921,7 +1793,7 @@ async function getUser(userId: string): Promise<User> {
   }
 }
 
-async function deleteUser(userId: string): Promise<boolean> {
+async function deleteUser(userId: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -1936,9 +1808,12 @@ async function deleteUser(userId: string): Promise<boolean> {
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('deleteUser', `User deleted successfully`, notify);
+    }
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -2102,19 +1977,21 @@ async function createRole(name: string, description?: string, notify?: boolean):
 
     const result = data as Role;
     if (notify) {
-      captureNotification('createRole', 'SUCCESS', `Role '${name}' created successfully`);
+      handleSuccess('createRole', `Role '${name}' created successfully`, notify);
     }
     return result;
   } catch (error: any) {
-    if (notify) {
-      captureNotification('createRole', 'ERROR', `Failed to create role: ${error.message}`);
-    }
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
 
-async function updateRole(roleId: string, name: string, description?: string): Promise<Role> {
+async function updateRole(
+  roleId: string,
+  name: string,
+  description?: string,
+  notify?: boolean,
+): Promise<Role> {
   try {
     init();
 
@@ -2130,12 +2007,15 @@ async function updateRole(roleId: string, name: string, description?: string): P
       body,
       path: { role_id: roleId },
     });
-
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateRole', `Role '${name}' updated successfully`, notify);
+    }
 
     return data as Role;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -2152,15 +2032,12 @@ async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
     });
 
     if (notify) {
-      captureNotification('deleteRole', 'SUCCESS', `Role deleted successfully`);
+      handleSuccess('deleteRole', `Role '${roleId}' deleted successfully`, notify);
     }
     return true;
   } catch (error: any) {
-    if (notify) {
-      captureNotification('deleteRole', 'ERROR', `Failed to delete role: ${error.message}`);
-    }
     console.error('Failed to delete role', error);
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -2553,16 +2430,18 @@ async function getRoleAccessById(roleId: string): Promise<RoleAction[]> {
     return [];
   }
 }
-function handleSuccess(functionName: string, msg: string) {
-  const visual = useVisualStore();
+function handleSuccess(functionName: string, msg: string, notify: boolean = true) {
+  if (notify) {
+    const visual = useVisualStore();
 
-  visual.setSnackbarMsg({
-    function: functionName,
-    text: msg,
-    ttl: 3000,
-    ts: Date.now(),
-    type: Type.SUCCESS,
-  });
+    visual.setSnackbarMsg({
+      function: functionName,
+      text: msg,
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.SUCCESS,
+    });
+  }
 }
 // internal
 function copyToClipboard(text: string) {
@@ -2629,100 +2508,6 @@ async function getNewToken(auth: any) {
     }
   } catch (error) {
     handleError(error, new Error('Failed to get new token'));
-  }
-}
-
-// // Safe JSON stringify that handles circular references
-// function safeStringify(obj: any): string {
-//   try {
-//     return JSON.stringify(obj);
-//   } catch {
-//     return '[Circular]';
-//   }
-// }
-
-// Function to capture notifications
-async function captureNotification(
-  functionName: string,
-  status: 'SUCCESS' | 'ERROR',
-  message: string,
-  metadata?: any,
-) {
-  try {
-    const { useNotificationStore } = await import('../stores/notifications');
-    const notificationStore = useNotificationStore();
-
-    // Determine notification type based on status
-    const type = status === 'SUCCESS' ? Type.SUCCESS : Type.ERROR;
-
-    // Helper function to format values for display
-    const formatValue = (value: any, maxLength: number = 200): string => {
-      if (value === null || value === undefined) {
-        return String(value);
-      }
-
-      if (typeof value === 'object') {
-        try {
-          const jsonString = JSON.stringify(value, null, 2);
-          if (jsonString.length > maxLength) {
-            // Try compact JSON first
-            const compactJson = JSON.stringify(value);
-            if (compactJson.length <= maxLength) {
-              return compactJson;
-            }
-            // If still too long, truncate with ellipsis
-            return jsonString.substring(0, maxLength - 3) + '...';
-          }
-          return jsonString;
-        } catch {
-          return '[Complex Object]';
-        }
-      }
-
-      const stringValue = String(value);
-      if (stringValue.length > maxLength) {
-        return stringValue.substring(0, maxLength - 3) + '...';
-      }
-      return stringValue;
-    };
-
-    // Create detailed notification text
-    let notificationText = message;
-    if (metadata) {
-      const details = [];
-      if (metadata.duration) details.push(`Duration: ${metadata.duration}`);
-      if (metadata.args && metadata.args !== '"..."') {
-        // Try to parse and format args if it's a JSON string
-        let argsDisplay = metadata.args;
-        try {
-          const parsedArgs = JSON.parse(metadata.args.replace('...', ''));
-          argsDisplay = formatValue(parsedArgs, 100);
-        } catch {
-          argsDisplay = metadata.args;
-        }
-        details.push(`Args: ${argsDisplay}`);
-      }
-      if (metadata.result) {
-        const resultDisplay = formatValue(metadata.result, 150);
-        details.push(`Result: ${resultDisplay}`);
-      }
-      if (metadata.error) {
-        const errorDisplay = formatValue(metadata.error, 100);
-        details.push(`Error: ${errorDisplay}`);
-      }
-
-      if (details.length > 0) {
-        notificationText += ` | ${details.join(' | ')}`;
-      }
-    }
-
-    notificationStore.addNotification({
-      function: functionName,
-      text: notificationText,
-      type: type,
-    });
-  } catch (error) {
-    console.debug('Failed to capture notification:', error);
   }
 }
 
