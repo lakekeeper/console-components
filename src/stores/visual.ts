@@ -112,26 +112,35 @@ export const useVisualStore = defineStore(
     function setSnackbarMsg(msg: SnackbarMsg) {
       Object.assign(snackbarMsg, msg);
 
-      // Also add to notifications store if available
+      // Also add to notifications store if available (but filter out authentication messages)
       // We use a dynamic import to avoid circular dependencies
       if (typeof window !== 'undefined') {
-        // Use setTimeout to avoid potential timing issues during initialization
-        setTimeout(async () => {
-          try {
-            // Try to dynamically import the notification store
-            const { useNotificationStore } = await import('./notifications');
-            const notificationStore = useNotificationStore();
+        // Filter out authentication failure messages
+        const isAuthMessage =
+          msg.text.toLowerCase().includes('failed to authenticate') ||
+          msg.text.toLowerCase().includes('authentication failed') ||
+          msg.text.toLowerCase().includes('unauthorized') ||
+          msg.text.toLowerCase().includes('login failed');
 
-            notificationStore.addNotification({
-              function: msg.function,
-              text: msg.text,
-              type: msg.type,
-            });
-          } catch (error) {
-            // Silently fail if notification store is not available
-            console.debug('Notification store not available:', error);
-          }
-        }, 0);
+        if (!isAuthMessage) {
+          // Use setTimeout to avoid potential timing issues during initialization
+          setTimeout(async () => {
+            try {
+              // Try to dynamically import the notification store
+              const { useNotificationStore } = await import('./notifications');
+              const notificationStore = useNotificationStore();
+
+              notificationStore.addNotification({
+                function: msg.function,
+                text: msg.text,
+                type: msg.type,
+              });
+            } catch (error) {
+              // Silently fail if notification store is not available
+              console.debug('Notification store not available:', error);
+            }
+          }, 0);
+        }
       }
     }
 
