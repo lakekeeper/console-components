@@ -71,12 +71,19 @@
         </v-list-item>
       </v-list>
     </v-menu>
+
+    <!-- Notification Button -->
+    <NotificationButton />
+
     <v-btn
       :icon="visual.themeLight ? 'mdi-moon-waning-crescent' : 'mdi-white-balance-sunny'"
       size="small"
       class="ml-2"
       variant="text"
       @click="toggleTheme"></v-btn>
+
+    <!-- Notification Panel -->
+    <NotificationPanel />
   </v-app-bar>
 </template>
 

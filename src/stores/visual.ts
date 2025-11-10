@@ -53,6 +53,16 @@ export const useVisualStore = defineStore(
       'aws-system-identities-enabled': false,
       'azure-system-identities-enabled': false,
       'gcp-system-identities-enabled': false,
+      'license-status': {
+        valid: false,
+        'license-type': '',
+        'license-id': null,
+        expiration: null,
+        error: null,
+        audience: null,
+        customer: null,
+        issuer: null,
+      },
       queues: [],
     });
 
@@ -101,6 +111,28 @@ export const useVisualStore = defineStore(
 
     function setSnackbarMsg(msg: SnackbarMsg) {
       Object.assign(snackbarMsg, msg);
+
+      // Also add to notifications store if available
+      // We use a dynamic import to avoid circular dependencies
+      if (typeof window !== 'undefined') {
+        // Use setTimeout to avoid potential timing issues during initialization
+        setTimeout(() => {
+          try {
+            // Try to get the notification store instance
+            const { useNotificationStore } = require('@/stores/notifications');
+            const notificationStore = useNotificationStore();
+
+            notificationStore.addNotification({
+              function: msg.function,
+              text: msg.text,
+              type: msg.type,
+            });
+          } catch (error) {
+            // Silently fail if notification store is not available
+            console.debug('Notification store not available:', error);
+          }
+        }, 0);
+      }
     }
 
     function getSnackbarMsg() {
