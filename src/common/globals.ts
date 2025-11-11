@@ -61,7 +61,6 @@ const warehouseActions: WarehouseAction[] = [
   'change_ownership',
   'get_all_tasks',
   'control_all_tasks',
-  'set_warehouse_protection',
   'get_endpoint_statistics',
 ];
 

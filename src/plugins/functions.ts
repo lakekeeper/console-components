@@ -138,16 +138,19 @@ function parseErrorText(errorText: string): { message: string; code: number } {
   return { message, code };
 }
 
-export function handleError(error: any, functionError: Error, notify?: boolean) {
+export function handleError(error: any, functionError: Error | string, notify?: boolean) {
   try {
     console.error('Handling error:', error);
+    console.error('Function causing error:', functionError);
     if (error === 'invalid HTTP header (authorization)') return;
-    const functionName =
-      functionError.stack?.split('\n')[1]?.trim()?.split(' ')[1]?.replace('Object.', '') ||
-      'unknown';
 
-    // Check if this is a task management related error
-    const isTaskFunction = ['listTasks', 'getTaskDetails', 'controlTasks'].includes(functionName);
+    // If functionError is a string, use it directly as the function name
+    // Otherwise, extract from stack trace
+    const functionName =
+      typeof functionError === 'string'
+        ? functionError
+        : functionError.stack?.split('\n')[1]?.trim()?.split(' ')[1]?.replace('Object.', '') ||
+          'unknown';
 
     // Don't redirect to server-offline for task management failures or if it's already marked as a task error
     if (error.message === 'Failed to fetch') {
@@ -158,11 +161,13 @@ export function handleError(error: any, functionError: Error, notify?: boolean) 
       return;
     }
 
+    // Check if this is a task management related error
+    // const isTaskFunction = ['listTasks', 'getTaskDetails', 'controlTasks'].includes(functionName);
     // For task management errors, just log them without redirecting
-    if (isTaskFunction || error.isTaskManagementError) {
-      console.warn('Task management error (not redirecting):', error);
-      return;
-    }
+    // if (isTaskFunction || error.isTaskManagementError) {
+    //   console.warn('Task management error (not redirecting):', error);
+    //   return;
+    // }
 
     // Only show notification if notify is true (default false)
 
@@ -918,7 +923,7 @@ async function createNamespace(id: string, namespace: Namespace, notify?: boolea
     }
     return data;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'createNamespace', notify);
     throw error;
   }
 }
