@@ -215,10 +215,11 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       });
 
       // Add to notification store for navbar notifications
+      console.log('Notifying error error.stack:', error.stack);
       if (notify) {
         notificationStore.addNotification({
           function: functionCaused,
-          stack: error.stack ? error.stack.split('\n') : [],
+          stack: error.stack ? error.stack : [],
           text: message,
           type,
         });
