@@ -339,7 +339,7 @@
         <!-- Stack Trace -->
         <div class="mb-3">
           <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Stack Trace</div>
-          <pre class="text-body-1">{{ selectedNotification.stack.join('\n') }}</pre>
+          <pre class="text-body-1">{{ selectedNotification.stack }}</pre>
         </div>
 
         <!-- Timestamp -->
