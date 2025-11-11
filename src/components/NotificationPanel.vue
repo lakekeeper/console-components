@@ -367,9 +367,7 @@
                     </v-btn>
                   </v-chip>
                 </template>
-                <template v-else>
-                  {{ item }}
-                </template>
+                <template v-else></template>
               </v-list-item-title>
             </v-list-item>
           </v-list>
@@ -386,17 +384,6 @@
           <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Status</div>
           <v-chip :color="getNotificationColor(selectedNotification.type)" size="small">
             {{ getNotificationTypeText(selectedNotification.type) }}
-          </v-chip>
-        </div>
-
-        <!-- Read Status -->
-        <div class="mb-3">
-          <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Read Status</div>
-          <v-chip
-            :color="selectedNotification.read ? 'success' : 'primary'"
-            size="small"
-            variant="outlined">
-            {{ selectedNotification.read ? 'Read' : 'Unread' }}
           </v-chip>
         </div>
 
