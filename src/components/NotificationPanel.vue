@@ -367,7 +367,9 @@
                     </v-btn>
                   </v-chip>
                 </template>
-                <template v-else></template>
+                <template v-else>
+                  {{ item }}
+                </template>
               </v-list-item-title>
             </v-list-item>
           </v-list>
