@@ -9,7 +9,7 @@
       top: '0',
       right: '0',
       height: '100vh',
-      zIndex: 9999,
+      zIndex: 2000,
       overflow: 'hidden',
     }">
     <!-- Root container with absolute positioning and flex layout -->
