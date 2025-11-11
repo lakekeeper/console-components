@@ -1142,7 +1142,25 @@ async function loadTableCustomized(
     );
 
     if (!response.ok) {
-      throw new Error(`Error fetching table data: ${response.statusText}`);
+      // Create a proper error object that matches the API client format
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        // If response body is not JSON, use the text or status text
+        errorMessage = errorBody || response.statusText;
+      }
+
+      throw {
+        error: {
+          code: response.status,
+          message: errorMessage,
+          type: 'FetchError',
+        },
+      };
     }
     const textData = await response.text();
     const JSONBigString = JSONBig({ storeAsString: true });
