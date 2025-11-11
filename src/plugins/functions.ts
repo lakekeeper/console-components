@@ -215,7 +215,7 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       });
 
       // Add to notification store for navbar notifications
-      console.log('Notifying error error.stack:', error.stack);
+      console.log('Notifying error error.stack:', error);
       if (notify) {
         notificationStore.addNotification({
           function: functionCaused,
