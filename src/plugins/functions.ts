@@ -1165,6 +1165,7 @@ async function loadTableCustomized(
     }
     return data;
   } catch (error: any) {
+    console.error('Failed to load table customized', error);
     handleError(error, new Error());
     throw error;
   }
