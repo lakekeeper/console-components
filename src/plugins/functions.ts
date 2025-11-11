@@ -261,7 +261,7 @@ async function getServerInfo(notify?: boolean): Promise<ServerInfo> {
     }
     return data as ServerInfo;
   } catch (error: any) {
-    handleError(error, new Error(), notify ?? false);
+    handleError(error, 'getServerInfo', notify ?? false);
     throw error;
   }
 }
@@ -282,7 +282,7 @@ async function bootstrapServer(notify?: boolean): Promise<boolean> {
     return true;
   } catch (error: any) {
     console.error('Failed to bootstrap server', error);
-    handleError(error, new Error(), notify);
+    handleError(error, 'bootstrapServer', notify);
     throw error;
   }
 }
@@ -323,7 +323,7 @@ async function loadProjectList(notify?: boolean): Promise<GetProjectResponse[]> 
 
     return result;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'loadProjectList', notify);
     throw error;
   }
 }
@@ -345,7 +345,7 @@ async function getProjectById(projectId: string, notify?: boolean): Promise<GetP
     }
     return data;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'getProjectById', notify);
     throw error;
   }
 }
@@ -374,7 +374,7 @@ async function createProject(name: string, notify?: boolean): Promise<string> {
 
     return projectId;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'createProject', notify);
     throw error;
   }
 }
@@ -396,7 +396,7 @@ async function deleteProjectById(projectId: string, notify?: boolean): Promise<b
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'deleteProjectById', notify);
     throw error;
   }
 }
@@ -424,7 +424,7 @@ async function renameProjectById(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'renameProjectById', notify);
     throw error;
   }
 }
@@ -457,7 +457,7 @@ async function getEndpointStatistics(
     }
     return data as GetEndpointStatisticsResponse;
   } catch (error) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'getEndpointStatistics', notify);
     throw error;
   }
 }
@@ -477,7 +477,7 @@ async function listWarehouses(notify?: boolean): Promise<ListWarehousesResponse>
     }
     return wh;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'listWarehouses', notify);
     throw error;
   }
 }
@@ -498,7 +498,7 @@ async function getWarehouse(id: string, notify?: boolean): Promise<GetWarehouseR
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'getWarehouse', notify);
     throw error;
   }
 }
@@ -535,7 +535,7 @@ async function createWarehouse(
     return result;
   } catch (error) {
     // Capture error notification if requested
-    handleError(error, new Error(), notify);
+    handleError(error, 'createWarehouse', notify);
     throw error;
   }
 }
@@ -568,7 +568,7 @@ async function getWarehouseStatistics(
     }
     return data as GetWarehouseStatisticsResponse;
   } catch (error) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'getWarehouseStatistics', notify);
     throw error;
   }
 }
@@ -597,7 +597,7 @@ async function deleteWarehouse(whId: string, notify?: boolean) {
 
     return data;
   } catch (error) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'deleteWarehouse', notify);
     throw error;
   }
 }
@@ -633,7 +633,7 @@ async function listDeletedTabulars(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'listDeletedTabulars', notify);
     throw error;
   }
 }
@@ -660,7 +660,7 @@ async function renameWarehouse(whId: string, name: string, notify?: boolean): Pr
     return true;
   } catch (error: any) {
     console.error('Failed to rename warehouse', error);
-    handleError(error, new Error(), notify);
+    handleError(error, 'renameWarehouse', notify);
     throw error;
   }
 }
@@ -689,7 +689,7 @@ async function updateStorageCredential(
     }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'updateStorageCredential');
     throw error;
   }
 }
@@ -721,7 +721,7 @@ async function updateStorageProfile(
     }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'updateStorageProfile');
     throw error;
   }
 }
@@ -751,7 +751,7 @@ async function updateWarehouseDeleteProfile(
     }
     return true;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'updateWarehouseDeleteProfile');
     throw error;
   }
 }
@@ -781,7 +781,7 @@ async function getWarehouseById(warehouseId: string, notify?: boolean): Promise<
     }
     return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getWarehouseById');
     throw error;
   }
 }
@@ -817,7 +817,7 @@ async function setWarehouseProtection(
     }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'setWarehouseProtection');
     throw error;
   }
 }
@@ -871,7 +871,7 @@ async function listNamespaces(
 
     return result;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'listNamespaces', notify);
     throw error;
   }
 }
@@ -901,7 +901,7 @@ async function loadNamespaceMetadata(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'loadNamespaceMetadata', notify);
     throw error;
   }
 }
@@ -948,7 +948,7 @@ async function dropNamespace(id: string, ns: string, options?: NamespaceAction, 
     return data;
   } catch (error: any) {
     console.error('Failed to drop namespace', error);
-    handleError(error, new Error(), notify);
+    handleError(error, 'dropNamespace', notify);
     throw error;
   }
 }
@@ -977,7 +977,7 @@ async function getNamespaceById(
     }
     return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getNamespaceById', notify);
     throw error;
   }
 }
@@ -1012,7 +1012,7 @@ async function getNamespaceProtection(
     }
     return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getNamespaceProtection', notify);
     throw error;
   }
 }
@@ -1050,7 +1050,7 @@ async function setNamespaceProtection(
     }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'setNamespaceProtection', notify);
     throw error;
   }
 }
@@ -1084,7 +1084,7 @@ async function listTables(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'listTables', notify);
     throw error;
   }
 }
@@ -1113,7 +1113,7 @@ async function loadTable(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'loadTable', notify);
     throw error;
   }
 }
@@ -1181,7 +1181,7 @@ async function loadTableCustomized(
     }
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'loadTableCustomized', notify);
     throw error;
   }
 }
@@ -1212,7 +1212,7 @@ async function dropTable(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'dropTable', notify);
     throw error;
   }
 }
@@ -1243,7 +1243,7 @@ async function getTableProtection(
     }
     return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getTableProtection', notify);
     throw error;
   }
 }
@@ -1281,7 +1281,7 @@ async function setTableProtection(
     }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'setTableProtection', notify);
     throw error;
   }
 }
@@ -1315,7 +1315,7 @@ async function listViews(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'loadView', notify);
     throw error;
   }
 }
@@ -1344,7 +1344,7 @@ async function loadView(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'loadView', notify);
     throw error;
   }
 }
@@ -1375,7 +1375,7 @@ async function dropView(
     }
     return data;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'dropView', notify);
     throw error;
   }
 }
@@ -1406,7 +1406,7 @@ async function getViewProtection(
     }
     return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getViewProtection');
     throw error;
   }
 }
@@ -1444,7 +1444,7 @@ async function setViewProtection(
     }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'setViewProtection');
     throw error;
   }
 }
@@ -1476,7 +1476,7 @@ async function undropTabular(
       );
     }
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'undropTabular');
     throw error;
   }
 }
@@ -1514,7 +1514,7 @@ async function getWarehouseAssignmentsById(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getWarehouseAssignmentsById');
     throw error;
   }
 }
@@ -1549,7 +1549,7 @@ async function updateWarehouseAssignmentsById(
     }
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateWarehouseAssignmentsById');
     throw error;
   }
 }
@@ -1583,7 +1583,7 @@ async function setWarehouseManagedAccess(
     }
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'setWarehouseManagedAccess');
     throw error;
   }
 }
@@ -1610,7 +1610,7 @@ async function getRoleAssignmentsById(roleId: string): Promise<RoleAssignment[]>
 
     return ((data ?? {}).assignments as RoleAssignment[]) ?? [];
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getRoleAssignmentsById');
     throw error;
   }
 }
@@ -1642,7 +1642,7 @@ async function updateRoleAssignmentsById(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateRoleAssignmentsById');
     throw error;
   }
 }
@@ -1666,7 +1666,7 @@ async function getServerAssignments(): Promise<ServerAssignment[]> {
     const assignments = ((data ?? {}).assignments as ServerAssignment[]) ?? [];
     return assignments;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getServerAssignments');
     throw error;
   }
 }
@@ -1694,7 +1694,7 @@ async function updateServerAssignments(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateServerAssignments');
     throw error;
   }
 }
@@ -1718,7 +1718,7 @@ async function getProjectAssignments(): Promise<ProjectAssignment[]> {
     const assignments = ((data ?? {}).assignments as ProjectAssignment[]) ?? [];
     return assignments;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getProjectAssignments');
     throw error;
   }
 }
@@ -1746,7 +1746,7 @@ async function updateProjectAssignments(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateProjectAssignments');
     throw error;
   }
 }
@@ -1773,7 +1773,7 @@ async function getNamespaceAssignmentsById(namespaceId: string): Promise<Namespa
     const assignments = ((data ?? {}).assignments as NamespaceAssignment[]) ?? [];
     return assignments;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getNamespaceAssignmentsById');
     throw error;
   }
 }
@@ -1809,7 +1809,7 @@ async function updateNamespaceAssignmentsById(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateNamespaceAssignmentsById');
     throw error;
   }
 }
@@ -1844,7 +1844,7 @@ async function setNamespaceManagedAccess(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'setNamespaceManagedAccess', notify);
     throw error;
   }
 }
@@ -1875,7 +1875,7 @@ async function getTableAssignmentsById(
     const assignments = ((data ?? {}).assignments as TableAssignment[]) ?? [];
     return assignments;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getTableAssignmentsById');
     throw error;
   }
 }
@@ -1909,7 +1909,7 @@ async function updateTableAssignmentsById(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateTableAssignmentsById');
     throw error;
   }
 }
@@ -1939,7 +1939,7 @@ async function getViewAssignmentsById(
 
     return ((data ?? {}).assignments as ViewAssignment[]) ?? [];
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getViewAssignmentsById');
     throw error;
   }
 }
@@ -1973,7 +1973,7 @@ async function updateViewAssignmentsById(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateViewAssignmentsById');
     throw error;
   }
 }
@@ -1996,7 +1996,7 @@ async function createUser(notify?: boolean) {
     }
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'createUser');
     throw error;
   }
 }
@@ -2017,7 +2017,7 @@ async function whoAmI(notify?: boolean) {
     }
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'whoAmI');
     throw error;
   }
 }
@@ -2041,7 +2041,7 @@ async function searchUser(search: string, notify?: boolean): Promise<User[]> {
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'searchUser');
     throw error;
   }
 }
@@ -2074,7 +2074,7 @@ async function searchTabular(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'searchTabular');
     throw error;
   }
 }
@@ -2100,7 +2100,7 @@ async function getUser(userId: string, notify?: boolean): Promise<User> {
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getUser');
     throw error;
   }
 }
@@ -2125,7 +2125,7 @@ async function deleteUser(userId: string, notify?: boolean): Promise<boolean> {
     }
     return true;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'deleteUser', notify);
     throw error;
   }
 }
@@ -2159,7 +2159,7 @@ async function listUser(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'listUser');
     throw error;
   }
 }
@@ -2188,7 +2188,7 @@ async function updateUserById(name: string, userId: string, notify?: boolean): P
     }
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateUserById');
     throw error;
   }
 }
@@ -2232,7 +2232,7 @@ async function searchRole(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'searchRole');
     throw error;
   }
 }
@@ -2267,7 +2267,7 @@ async function listRoles(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'listRoles');
     throw error;
   }
 }
@@ -2291,7 +2291,7 @@ async function getRole(roleId: string, notify?: boolean): Promise<Role> {
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getRole');
     throw error;
   }
 }
@@ -2322,7 +2322,7 @@ async function createRole(name: string, description?: string, notify?: boolean):
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'createRole', notify);
     throw error;
   }
 }
@@ -2356,7 +2356,7 @@ async function updateRole(
 
     return data as Role;
   } catch (error: any) {
-    handleError(error, new Error(), notify);
+    handleError(error, 'updateRole', notify);
     throw error;
   }
 }
@@ -2378,7 +2378,7 @@ async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
     return true;
   } catch (error: any) {
     console.error('Failed to delete role', error);
-    handleError(error, new Error(), notify);
+    handleError(error, 'deleteRole', notify);
     throw error;
   }
 }
@@ -2402,7 +2402,7 @@ async function getTaskQueueConfigTabularExpiration(
 
     return data as TabularExpirationQueueConfig;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getTaskQueueConfigTabularExpiration');
     throw error;
   }
 }
@@ -2426,7 +2426,7 @@ async function setTaskQueueConfigTabularExpiration(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'setTaskQueueConfigTabularExpiration');
     throw error;
   }
 }
@@ -2446,7 +2446,7 @@ async function getTaskQueueConfigTabularPurge(warehouseId: string): Promise<Purg
 
     return data as PurgeQueueConfig;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getTaskQueueConfigTabularPurge');
     throw error;
   }
 }
@@ -2470,7 +2470,7 @@ async function setTaskQueueConfigTabularPurge(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'setTaskQueueConfigTabularPurge');
     throw error;
   }
 }
@@ -2492,7 +2492,7 @@ async function getTaskDetails(
   } catch (error: any) {
     // Handle CORS preflight failures and 404 errors gracefully without redirecting to server-offline
 
-    handleError(error, new Error());
+    handleError(error, 'getTaskDetails');
     throw error;
   }
 }
@@ -2544,7 +2544,7 @@ async function controlTasks(
   } catch (error: any) {
     // Handle CORS preflight failures and 404 errors gracefully without redirecting to server-offline
 
-    handleError(error, new Error());
+    handleError(error, 'controlTasks');
     throw error;
   }
 }
@@ -2568,7 +2568,7 @@ async function listTasks(
     // Handle CORS preflight failures and 404 errors gracefully without redirecting to server-offline
 
     // For other errors, use the standard error handling
-    handleError(error, new Error());
+    handleError(error, 'listTasks');
     throw error;
   }
 }
@@ -2596,7 +2596,7 @@ async function getServerAccess(): Promise<ServerAction[]> {
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getServerAccess');
     throw error;
   }
 }
@@ -2620,7 +2620,7 @@ async function getProjectAccess(): Promise<ProjectAction[]> {
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getProjectAccess');
     throw error;
   }
 }
@@ -2647,7 +2647,7 @@ async function getProjectAccessById(projectId: string): Promise<ProjectAction[]>
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getProjectAccessById');
     throw error;
   }
 }
@@ -2676,7 +2676,7 @@ async function getWarehouseAccessById(warehouseId: string): Promise<WarehouseAct
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getWarehouseAccessById');
     return [];
   }
 }
@@ -2704,7 +2704,7 @@ async function getNamespaceAccessById(namespaceId: string): Promise<NamespaceAct
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getNamespaceAccessById');
     return [];
   }
 }
@@ -2734,7 +2734,7 @@ async function getTableAccessById(tableId: string, warehouseId: string): Promise
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getTableAccessById');
     return [];
   }
 }
@@ -2763,7 +2763,7 @@ async function getViewAccessById(viewId: string, warehouseId: string): Promise<V
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getViewAccessById');
     return [];
   }
 }
@@ -2791,7 +2791,7 @@ async function getRoleAccessById(roleId: string): Promise<RoleAction[]> {
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getRoleAccessById');
     return [];
   }
 }
