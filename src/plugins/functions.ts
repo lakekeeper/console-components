@@ -164,9 +164,9 @@ export function handleError(error: any, functionError: Error, notify?: boolean) 
       return;
     }
 
-    // Only show notification if notify is true (default true)
+    // Only show notification if notify is true (default false)
 
-    setError(error, 3000, functionName, Type.ERROR, notify ?? true);
+    setError(error, 3000, functionName, Type.ERROR, notify ?? false);
   } catch (newError: any) {
     if (typeof newError === 'string' && error.includes('net::ERR_CONNECTION_REFUSED')) {
       console.error('Connection refused');
@@ -908,7 +908,7 @@ async function loadNamespaceMetadata(
     }
     return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
