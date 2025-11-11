@@ -204,8 +204,9 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       // Redirect to login page
       const baseUrl = appConfig?.baseUrlPrefix || '';
       window.location.href = `${baseUrl}/ui/login`;
-    } else {
-      // Always show snackbar for immediate feedback
+    } else if (notify) {
+      // Only show snackbar and persistent notification when notify is true
+      // Show snackbar for immediate feedback
       visual.setSnackbarMsg({
         function: functionCaused,
         text: message,
@@ -214,37 +215,31 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
         type,
       });
 
-      // Only add to single persistent storage when notify is true
-      if (notify) {
-        console.log('Full error object:', error);
-        console.log('error.error:', error.error);
-        console.log('error.error.stack:', error.error?.stack);
-        console.log('error.stack:', error.stack);
+      console.log('Full error object:', error);
+      console.log('error.error:', error.error);
+      console.log('error.error.stack:', error.error?.stack);
+      console.log('error.stack:', error.stack);
 
-        let errorStack = [];
-        if (
-          error?.error?.stack &&
-          Array.isArray(error.error.stack) &&
-          error.error.stack.length > 0
-        ) {
-          errorStack = error.error.stack;
-        } else if (error?.stack && Array.isArray(error.stack) && error.stack.length > 0) {
-          errorStack = error.stack;
-        } else if (error?.error?.stack) {
-          errorStack = [error.error.stack];
-        } else if (error?.stack) {
-          errorStack = [error.stack];
-        }
-
-        console.log('Final errorStack to be stored:', errorStack);
-
-        notificationStore.addNotification({
-          function: functionCaused,
-          stack: errorStack,
-          text: message,
-          type,
-        });
+      let errorStack = [];
+      if (error?.error?.stack && Array.isArray(error.error.stack) && error.error.stack.length > 0) {
+        errorStack = error.error.stack;
+      } else if (error?.stack && Array.isArray(error.stack) && error.stack.length > 0) {
+        errorStack = error.stack;
+      } else if (error?.error?.stack) {
+        errorStack = [error.error.stack];
+      } else if (error?.stack) {
+        errorStack = [error.stack];
       }
+
+      console.log('Final errorStack to be stored:', errorStack);
+
+      // Add to persistent notification storage
+      notificationStore.addNotification({
+        function: functionCaused,
+        stack: errorStack,
+        text: message,
+        type,
+      });
     }
   } catch (newError) {
     console.error('Failed to set error', newError);
