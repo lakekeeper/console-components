@@ -1951,9 +1951,9 @@ async function createUser(notify?: boolean) {
     });
     if (error) throw error;
 
-    if (notify) {
-      handleSuccess('createUser', 'User created successfully', notify);
-    }
+    // if (notify) {
+    //   handleSuccess('createUser', 'User created successfully', notify);
+    // }
     return data;
   } catch (error: any) {
     handleError(error, new Error());
