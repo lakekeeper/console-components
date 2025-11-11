@@ -26,7 +26,7 @@
               : 'Recursive Delete Protection disabled'
           "
           @click.prevent="showConfirmDialog"></v-switch>
-        <v-spacer></v-spacer>
+        <v-spacer v-if="canSetProtection"></v-spacer>
         <v-text-field
           v-model="searchNamespace"
           label="Filter results"
