@@ -337,9 +337,13 @@
         </div>
 
         <!-- Stack Trace -->
-        <div class="mb-3">
+        <div
+          v-if="selectedNotification.stack && selectedNotification.stack.length > 0"
+          class="mb-3">
           <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Stack Trace</div>
-          <pre class="text-body-1">{{ selectedNotification.stack }}</pre>
+          <pre class="text-body-2" style="white-space: pre-wrap; word-wrap: break-word">{{
+            selectedNotification.stack.join('\n')
+          }}</pre>
         </div>
 
         <!-- Timestamp -->

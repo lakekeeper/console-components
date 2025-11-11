@@ -205,7 +205,7 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       const baseUrl = appConfig?.baseUrlPrefix || '';
       window.location.href = `${baseUrl}/ui/login`;
     } else {
-      // Show snackbar
+      // Always show snackbar for immediate feedback
       visual.setSnackbarMsg({
         function: functionCaused,
         text: message,
@@ -214,11 +214,30 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
         type,
       });
 
-      // Add to notification store for navbar notifications
-      const errorStack = error?.error?.stack || error?.stack || [];
-      console.log('Notifying error error.stack:', error.error?.stack);
-      console.log('Notifying error error.stack resolved:', errorStack);
+      // Only add to single persistent storage when notify is true
       if (notify) {
+        console.log('Full error object:', error);
+        console.log('error.error:', error.error);
+        console.log('error.error.stack:', error.error?.stack);
+        console.log('error.stack:', error.stack);
+
+        let errorStack = [];
+        if (
+          error?.error?.stack &&
+          Array.isArray(error.error.stack) &&
+          error.error.stack.length > 0
+        ) {
+          errorStack = error.error.stack;
+        } else if (error?.stack && Array.isArray(error.stack) && error.stack.length > 0) {
+          errorStack = error.stack;
+        } else if (error?.error?.stack) {
+          errorStack = [error.error.stack];
+        } else if (error?.stack) {
+          errorStack = [error.stack];
+        }
+
+        console.log('Final errorStack to be stored:', errorStack);
+
         notificationStore.addNotification({
           function: functionCaused,
           stack: errorStack,
@@ -1790,6 +1809,7 @@ async function updateNamespaceAssignmentsById(
 async function setNamespaceManagedAccess(
   namespaceId: string,
   managedAccess: boolean,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1806,9 +1826,17 @@ async function setNamespaceManagedAccess(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'setNamespaceManagedAccess',
+        `Namespace managed access ${managedAccess ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, new Error(), notify);
     throw error;
   }
 }
@@ -2760,20 +2788,20 @@ async function getRoleAccessById(roleId: string): Promise<RoleAction[]> {
   }
 }
 function handleSuccess(functionName: string, msg: string, notify?: boolean) {
+  const visual = useVisualStore();
+  const notificationStore = useNotificationStore();
+
+  // Always show snackbar
+  visual.setSnackbarMsg({
+    function: functionName,
+    text: msg,
+    ttl: 3000,
+    ts: Date.now(),
+    type: Type.SUCCESS,
+  });
+
+  // Only add to notification store for persistent notifications if notify is true
   if (notify) {
-    const visual = useVisualStore();
-    const notificationStore = useNotificationStore();
-
-    // Show snackbar
-    visual.setSnackbarMsg({
-      function: functionName,
-      text: msg,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.SUCCESS,
-    });
-
-    // Add to notification store for navbar notifications
     notificationStore.addNotification({
       function: functionName,
       stack: [],

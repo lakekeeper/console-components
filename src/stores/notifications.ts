@@ -51,7 +51,6 @@ export const useNotificationStore = defineStore('notifications', () => {
     const newNotification: NotificationEvent = {
       ...notification,
       id: `notification-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      stack: [],
       timestamp: Date.now(),
       read: false,
     };
