@@ -64,7 +64,7 @@ export const useNotificationStore = defineStore(
     // Clear old notifications (older than 24 hours)
     function pruneOldNotifications() {
       const now = Date.now();
-      const initialCount = notifications.value.length;
+
       notifications.value = notifications.value.filter(
         (notification) => now - notification.timestamp < 24 * 60 * 60 * 1000,
       );

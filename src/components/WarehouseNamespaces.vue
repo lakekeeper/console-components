@@ -16,6 +16,7 @@
     <template #top>
       <v-toolbar color="transparent" density="compact" flat>
         <v-switch
+          v-if="canSetProtection"
           v-model="recursiveDeleteProtection"
           class="ml-4 mt-4"
           color="info"
@@ -93,7 +94,9 @@ const functions = useFunctions();
 const notify = true;
 
 // Use warehouse permissions composable
-const { canDelete, canCreateNamespace } = useWarehousePermissions(props.warehouseId);
+const { canDelete, canCreateNamespace, canSetProtection } = useWarehousePermissions(
+  props.warehouseId,
+);
 
 const searchNamespace = ref('');
 const recursiveDeleteProtection = ref(false);
@@ -126,7 +129,7 @@ const headers: readonly Header[] = Object.freeze([
 async function addNamespace(namespace: string[]) {
   createNamespaceStatus.value = StatusIntent.STARTING;
   try {
-    const res = await functions.createNamespace(props.warehouseId, namespace, notify);
+    await functions.createNamespace(props.warehouseId, namespace, notify);
 
     createNamespaceStatus.value = StatusIntent.SUCCESS;
     await loadNamespaces();
@@ -232,7 +235,7 @@ async function setProtection() {
 
 async function deleteNamespaceWithOptions(e: any, item: Item) {
   try {
-    const res = await functions.dropNamespace(
+    await functions.dropNamespace(
       props.warehouseId,
       item.parentPath.join(String.fromCharCode(0x1f)),
       e,

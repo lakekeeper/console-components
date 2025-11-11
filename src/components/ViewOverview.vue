@@ -2,6 +2,7 @@
   <div>
     <v-toolbar color="transparent" density="compact" flat>
       <v-switch
+        v-if="canSetProtection"
         v-model="recursiveDeleteProtection"
         class="ml-4 mt-4"
         color="info"
@@ -33,8 +34,9 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref, reactive, watch } from 'vue';
+import { onMounted, ref, reactive, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { useViewPermissions } from '@/composables/usePermissions';
 import ViewDetails from './ViewDetails.vue';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 import type { LoadViewResultWritable } from '@/gen/iceberg/types.gen';
@@ -51,6 +53,12 @@ const recursiveDeleteProtection = ref(false);
 const viewId = ref('');
 const confirmDialog = ref(false);
 const pendingProtectionValue = ref(false);
+
+// Use view permissions composable
+const { canSetProtection } = useViewPermissions(
+  computed(() => viewId.value),
+  computed(() => props.warehouseId),
+);
 
 const view = reactive<LoadViewResultWritable>({
   'metadata-location': '',
