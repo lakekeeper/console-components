@@ -127,7 +127,6 @@ async function addNamespace(namespace: string[]) {
   createNamespaceStatus.value = StatusIntent.STARTING;
   try {
     const res = await functions.createNamespace(props.warehouseId, namespace, notify);
-    if (res.error) throw res.error;
 
     createNamespaceStatus.value = StatusIntent.SUCCESS;
     await loadNamespaces();
@@ -239,7 +238,6 @@ async function deleteNamespaceWithOptions(e: any, item: Item) {
       e,
       notify,
     );
-    if (res.error) throw res.error;
 
     await loadNamespaces();
     emit('namespace-updated');

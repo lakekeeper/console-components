@@ -1,7 +1,7 @@
 generate-clients: update-openapi-management update-openapi-catalog generate-management-client generate-iceberg-client
 
 update-openapi-management: 
-    curl -o openapi/management-open-api.yaml https://raw.githubusercontent.com/lakekeeper/lakekeeper/ct/authz-4-2/docs/docs/api/management-open-api.yaml
+    curl -o openapi/management-open-api.yaml https://raw.githubusercontent.com/lakekeeper/lakekeeper/docs/docs/api/management-open-api.yaml
 
 update-openapi-catalog: 
     cp /Users/viktor/Biz/lakekeeper/docs/docs/api/rest-catalog-open-api.yaml openapi/rest-catalog-open-api.yaml
