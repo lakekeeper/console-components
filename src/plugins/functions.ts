@@ -501,7 +501,7 @@ async function getWarehouse(id: string, notify?: boolean): Promise<GetWarehouseR
     return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
