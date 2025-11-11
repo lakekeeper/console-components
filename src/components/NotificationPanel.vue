@@ -485,15 +485,9 @@ function clearAll() {
 
 // Copy Error ID to clipboard
 function copyErrorId(errorId: string) {
-  navigator.clipboard
-    .writeText(errorId)
-    .then(() => {
-      // Optional: Show a temporary success message
-      console.log('Error ID copied to clipboard:', errorId);
-    })
-    .catch((err) => {
-      console.error('Failed to copy Error ID:', err);
-    });
+  navigator.clipboard.writeText(errorId).catch((err) => {
+    console.error('Failed to copy Error ID:', err);
+  });
 }
 
 // Filter functions

@@ -215,11 +215,6 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
         type,
       });
 
-      console.log('Full error object:', error);
-      console.log('error.error:', error.error);
-      console.log('error.error.stack:', error.error?.stack);
-      console.log('error.stack:', error.stack);
-
       let errorStack = [];
       if (error?.error?.stack && Array.isArray(error.error.stack) && error.error.stack.length > 0) {
         errorStack = error.error.stack;
@@ -230,8 +225,6 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       } else if (error?.stack) {
         errorStack = [error.stack];
       }
-
-      console.log('Final errorStack to be stored:', errorStack);
 
       // Add to persistent notification storage
       notificationStore.addNotification({
@@ -1183,7 +1176,6 @@ async function loadTableCustomized(
     }
     return data;
   } catch (error: any) {
-    console.error('Failed to load table customized', error);
     handleError(error, new Error());
     throw error;
   }
