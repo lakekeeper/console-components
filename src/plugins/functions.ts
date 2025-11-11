@@ -264,7 +264,7 @@ async function getServerInfo(notify?: boolean): Promise<ServerInfo> {
     return data as ServerInfo;
   } catch (error: any) {
     handleError(error, new Error(), notify ?? false);
-    return error;
+    throw error;
   }
 }
 
@@ -285,7 +285,7 @@ async function bootstrapServer(notify?: boolean): Promise<boolean> {
   } catch (error: any) {
     console.error('Failed to bootstrap server', error);
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
@@ -600,7 +600,7 @@ async function deleteWarehouse(whId: string, notify?: boolean) {
     return data;
   } catch (error) {
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
@@ -636,7 +636,7 @@ async function listDeletedTabulars(
     return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
@@ -874,7 +874,7 @@ async function listNamespaces(
     return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
@@ -926,7 +926,7 @@ async function createNamespace(id: string, namespace: Namespace, notify?: boolea
     return data;
   } catch (error: any) {
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
@@ -951,7 +951,7 @@ async function dropNamespace(id: string, ns: string, options?: NamespaceAction, 
   } catch (error: any) {
     console.error('Failed to drop namespace', error);
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
@@ -1087,7 +1087,7 @@ async function listTables(
     return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
@@ -1116,7 +1116,7 @@ async function loadTable(
     return result;
   } catch (error: any) {
     handleError(error, new Error());
-    return error;
+    throw error;
   }
 }
 
@@ -1300,7 +1300,7 @@ async function listViews(
     return result;
   } catch (error: any) {
     handleError(error, new Error(), notify);
-    return error;
+    throw error;
   }
 }
 
