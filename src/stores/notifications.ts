@@ -124,7 +124,7 @@ export const useNotificationStore = defineStore(
   },
   {
     persistedState: {
-      key: 'lakekeeper-notifications',
+      key: 'notifications',
       persist: true,
     },
   },

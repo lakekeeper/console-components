@@ -388,8 +388,6 @@
             {{ getNotificationTypeText(selectedNotification.type) }}
           </v-chip>
         </div>
-
-        {{ selectedNotification }}
       </v-card-text>
 
       <v-card-actions class="pa-4">
