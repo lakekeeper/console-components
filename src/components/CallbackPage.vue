@@ -46,7 +46,7 @@ async function init() {
     userStorage.setUser(newUser);
 
     if (functions?.createUser) {
-      await functions.createUser(true);
+      await functions.createUser();
     }
 
     if (functions?.getServerInfo) {

@@ -340,10 +340,39 @@
         <div
           v-if="selectedNotification.stack && selectedNotification.stack.length > 0"
           class="mb-3">
-          <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Stack Trace</div>
-          <pre class="text-body-2" style="white-space: pre-wrap; word-wrap: break-word">{{
-            selectedNotification.stack.join('\n')
-          }}</pre>
+          <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">
+            More Information
+          </div>
+          <v-list dense class="pa-0">
+            <v-list-item
+              v-for="(item, index) in selectedNotification.stack"
+              :key="index"
+              class="px-0 py-1">
+              <template v-slot:prepend>
+                <v-icon size="small" class="mr-2">mdi-circle-small</v-icon>
+              </template>
+              <v-list-item-title class="text-body-2">
+                <template v-if="item.includes('Error ID:')">
+                  <span>{{ item.split(':')[0] }}:</span>
+                  <v-chip size="small" class="ml-2" variant="outlined" color="primary">
+                    {{ item.split(':')[1].trim() }}
+                    <v-btn
+                      icon
+                      size="x-small"
+                      variant="text"
+                      class="ml-1"
+                      @click="copyErrorId(item.split(':')[1].trim())"
+                      :title="'Copy Error ID'">
+                      <v-icon size="x-small">mdi-content-copy</v-icon>
+                    </v-btn>
+                  </v-chip>
+                </template>
+                <template v-else>
+                  {{ item }}
+                </template>
+              </v-list-item-title>
+            </v-list-item>
+          </v-list>
         </div>
 
         <!-- Timestamp -->
@@ -453,6 +482,19 @@ function markAllAsRead() {
 
 function clearAll() {
   notificationStore.clearAll();
+}
+
+// Copy Error ID to clipboard
+function copyErrorId(errorId: string) {
+  navigator.clipboard
+    .writeText(errorId)
+    .then(() => {
+      // Optional: Show a temporary success message
+      console.log('Error ID copied to clipboard:', errorId);
+    })
+    .catch((err) => {
+      console.error('Failed to copy Error ID:', err);
+    });
 }
 
 // Filter functions

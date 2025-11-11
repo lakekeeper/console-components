@@ -263,7 +263,9 @@ async function getServerInfo(notify?: boolean): Promise<ServerInfo> {
 
     visualStore.setServerInfo(data as ServerInfo);
 
-    handleSuccess('getServerInfo', 'Server information loaded successfully', notify ?? false);
+    if (notify) {
+      handleSuccess('getServerInfo', 'Server information loaded successfully', notify ?? false);
+    }
     return data as ServerInfo;
   } catch (error: any) {
     handleError(error, new Error(), notify ?? false);
@@ -317,11 +319,13 @@ async function loadProjectList(notify?: boolean): Promise<GetProjectResponse[]> 
     // Show success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      handleSuccess(
-        'loadProjectList',
-        `Loaded ${result.length} project(s) successfully (${duration}ms)`,
-        notify,
-      );
+      if (notify) {
+        handleSuccess(
+          'loadProjectList',
+          `Loaded ${result.length} project(s) successfully (${duration}ms)`,
+          notify,
+        );
+      }
     }
 
     return result;
@@ -946,8 +950,6 @@ async function dropNamespace(id: string, ns: string, options?: NamespaceAction, 
 
     if (notify) {
       handleSuccess('dropNamespace', `Namespace '${ns}' deleted successfully`, notify);
-    } else {
-      handleSuccess('dropNamespace', 'Namespace deleted successfully', notify);
     }
 
     return data;
@@ -1195,8 +1197,6 @@ async function dropTable(
 
     if (notify) {
       handleSuccess('dropTable', `Table '${tableName}' deleted successfully`, notify);
-    } else {
-      handleSuccess('Drop Table', 'Table deleted successfully', notify);
     }
 
     return true;
@@ -1361,10 +1361,7 @@ async function dropView(
 
     if (notify) {
       handleSuccess('dropView', `View '${viewName}' deleted successfully`, notify);
-    } else {
-      handleSuccess('drop View', 'View deleted successfully', notify);
     }
-
     return data;
   } catch (error: any) {
     handleError(error, new Error(), notify);
@@ -1983,9 +1980,9 @@ async function createUser(notify?: boolean) {
     });
     if (error) throw error;
 
-    // if (notify) {
-    //   handleSuccess('createUser', 'User created successfully', notify);
-    // }
+    if (notify) {
+      handleSuccess('createUser', 'User created successfully', notify);
+    }
     return data;
   } catch (error: any) {
     handleError(error, new Error());
