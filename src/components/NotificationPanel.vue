@@ -407,12 +407,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useNotificationStore } from '@/stores/notifications';
+import { useUserStore } from '@/stores/user';
 import { Type } from '@/common/enums';
 import type { NotificationEvent } from '@/stores/notifications';
 
 const notificationStore = useNotificationStore();
+const userStore = useUserStore();
+
+// Close panel when user logs out
+watch(
+  () => userStore.isAuthenticated,
+  (isAuthenticated) => {
+    if (!isAuthenticated && notificationStore.isOpen) {
+      notificationStore.closePanel();
+    }
+  },
+);
 
 // Filter state
 const selectedFilter = ref<'all' | Type>('all');
