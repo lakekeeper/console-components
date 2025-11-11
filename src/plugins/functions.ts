@@ -180,6 +180,7 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
   const visual = useVisualStore();
   const notificationStore = useNotificationStore();
   try {
+    console.error('Setting error:', error);
     let message = '';
     let code = 0;
     if (typeof error === 'string') {
@@ -1587,6 +1588,7 @@ async function updateRoleAssignmentsById(
   roleId: string,
   deletes: RoleAssignment[],
   writes: RoleAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1602,6 +1604,10 @@ async function updateRoleAssignmentsById(
     });
 
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateRoleAssignmentsById', 'Role assignments updated successfully', notify);
+    }
 
     return true;
   } catch (error: any) {
@@ -1637,6 +1643,7 @@ async function getServerAssignments(): Promise<ServerAssignment[]> {
 async function updateServerAssignments(
   deletes: ServerAssignment[],
   writes: ServerAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1649,6 +1656,10 @@ async function updateServerAssignments(
     });
 
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateServerAssignments', 'Server assignments updated successfully', notify);
+    }
 
     return true;
   } catch (error: any) {
@@ -1684,6 +1695,7 @@ async function getProjectAssignments(): Promise<ProjectAssignment[]> {
 async function updateProjectAssignments(
   deletes: ProjectAssignment[],
   writes: ProjectAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1696,6 +1708,10 @@ async function updateProjectAssignments(
     });
 
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateProjectAssignments', 'Project assignments updated successfully', notify);
+    }
 
     return true;
   } catch (error: any) {
@@ -1735,6 +1751,7 @@ async function updateNamespaceAssignmentsById(
   namespaceId: string,
   deletes: NamespaceAssignment[],
   writes: NamespaceAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1750,6 +1767,14 @@ async function updateNamespaceAssignmentsById(
     });
 
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'updateNamespaceAssignmentsById',
+        'Namespace assignments updated successfully',
+        notify,
+      );
+    }
 
     return true;
   } catch (error: any) {
@@ -1820,6 +1845,7 @@ async function updateTableAssignmentsById(
   deletes: TableAssignment[],
   writes: TableAssignment[],
   warehouseId: string,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1836,6 +1862,10 @@ async function updateTableAssignmentsById(
     });
 
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateTableAssignmentsById', 'Table assignments updated successfully', notify);
+    }
 
     return true;
   } catch (error: any) {
@@ -1879,6 +1909,7 @@ async function updateViewAssignmentsById(
   deletes: ViewAssignment[],
   writes: ViewAssignment[],
   warehouseId: string,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1895,6 +1926,10 @@ async function updateViewAssignmentsById(
     });
 
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateViewAssignmentsById', 'View assignments updated successfully', notify);
+    }
 
     return true;
   } catch (error: any) {
@@ -2426,6 +2461,7 @@ async function controlTasks(
   warehouseId: string,
   action: ControlTaskAction,
   taskIds: string[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -2441,6 +2477,29 @@ async function controlTasks(
       body,
     });
     if (error) throw error;
+
+    if (notify) {
+      const actionText = action['action-type'];
+      const taskText = taskIds.length === 1 ? `Task ${taskIds[0]}` : `${taskIds.length} tasks`;
+      let message = '';
+
+      switch (actionText) {
+        case 'stop':
+          message = `${taskText} stop requested`;
+          break;
+        case 'cancel':
+          message = `${taskText} cancelled`;
+          break;
+        case 'run-now':
+          message = `${taskText} scheduled to run now`;
+          break;
+        default:
+          message = `${taskText} ${actionText} completed`;
+      }
+
+      handleSuccess('controlTasks', message, notify);
+    }
+
     return true;
   } catch (error: any) {
     // Handle CORS preflight failures and 404 errors gracefully without redirecting to server-offline

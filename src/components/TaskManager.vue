@@ -669,27 +669,16 @@ async function confirmCancelTask() {
 
   taskActionLoading.value = true;
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'cancel' }, [
-      taskToConfirm.value['task-id'],
-    ]);
-    visual.setSnackbarMsg({
-      function: 'cancelTask',
-      text: `Task ${taskToConfirm.value['task-id']} cancelled`,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.SUCCESS,
-    });
+    await functions.controlTasks(
+      props.warehouseId,
+      { 'action-type': 'cancel' },
+      [taskToConfirm.value['task-id']],
+      true,
+    );
     closeCancelConfirmDialog();
     await refreshTasks();
   } catch (error: any) {
     console.error('Failed to cancel task:', error);
-    visual.setSnackbarMsg({
-      function: 'cancelTask',
-      text: `Failed to cancel task: ${error?.message || 'Unknown error'}`,
-      ttl: 5000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
   } finally {
     taskActionLoading.value = false;
   }
@@ -700,27 +689,16 @@ async function confirmRunTaskNow() {
 
   taskActionLoading.value = true;
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'run-now' }, [
-      taskToConfirm.value['task-id'],
-    ]);
-    visual.setSnackbarMsg({
-      function: 'runTaskNow',
-      text: `Task ${taskToConfirm.value['task-id']} scheduled to run now`,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.SUCCESS,
-    });
+    await functions.controlTasks(
+      props.warehouseId,
+      { 'action-type': 'run-now' },
+      [taskToConfirm.value['task-id']],
+      true,
+    );
     closeRunNowConfirmDialog();
     await refreshTasks();
   } catch (error: any) {
     console.error('Failed to run task now:', error);
-    visual.setSnackbarMsg({
-      function: 'runTaskNow',
-      text: `Failed to run task: ${error?.message || 'Unknown error'}`,
-      ttl: 5000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
   } finally {
     taskActionLoading.value = false;
   }
@@ -792,24 +770,15 @@ async function viewTaskDetails(task: Task) {
 
 async function stopTask(task: Task) {
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'stop' }, [task['task-id']]);
-    visual.setSnackbarMsg({
-      function: 'stopTask',
-      text: `Task ${task['task-id']} stop requested`,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.SUCCESS,
-    });
+    await functions.controlTasks(
+      props.warehouseId,
+      { 'action-type': 'stop' },
+      [task['task-id']],
+      true,
+    );
     await refreshTasks();
   } catch (error: any) {
     console.error('Failed to stop task:', error);
-    visual.setSnackbarMsg({
-      function: 'stopTask',
-      text: `Failed to stop task: ${error?.message || 'Unknown error'}`,
-      ttl: 5000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
   }
 }
 
