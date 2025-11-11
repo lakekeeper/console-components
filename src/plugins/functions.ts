@@ -215,12 +215,13 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       });
 
       // Add to notification store for navbar notifications
-      console.log('Notifying error error.stack:', error.error.stack);
-      console.log('Notifying error error.stack:', error.error.stack ? error.error.stack : []);
+      const errorStack = error?.error?.stack || error?.stack || [];
+      console.log('Notifying error error.stack:', error.error?.stack);
+      console.log('Notifying error error.stack resolved:', errorStack);
       if (notify) {
         notificationStore.addNotification({
           function: functionCaused,
-          stack: error.error.stack ? error.error.stack : [],
+          stack: errorStack,
           text: message,
           type,
         });
@@ -2775,6 +2776,7 @@ function handleSuccess(functionName: string, msg: string, notify?: boolean) {
     // Add to notification store for navbar notifications
     notificationStore.addNotification({
       function: functionName,
+      stack: [],
       text: msg,
       type: Type.SUCCESS,
     });
