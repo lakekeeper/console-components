@@ -218,6 +218,7 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       if (notify) {
         notificationStore.addNotification({
           function: functionCaused,
+          stack: error.stack ? error.stack.split('\n') : [],
           text: message,
           type,
         });
