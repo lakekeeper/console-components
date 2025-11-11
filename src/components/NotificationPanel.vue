@@ -361,7 +361,7 @@
                       size="x-small"
                       variant="text"
                       class="ml-1"
-                      @click="copyErrorId(item.split(':')[1].trim())"
+                      @click="functions.copyToClipboard(item.split(':')[1].trim())"
                       :title="'Copy Error ID'">
                       <v-icon size="x-small">mdi-content-copy</v-icon>
                     </v-btn>
@@ -410,11 +410,13 @@
 import { ref, computed, watch } from 'vue';
 import { useNotificationStore } from '@/stores/notifications';
 import { useUserStore } from '@/stores/user';
+import { useFunctions } from '@/plugins/functions';
 import { Type } from '@/common/enums';
 import type { NotificationEvent } from '@/stores/notifications';
 
 const notificationStore = useNotificationStore();
 const userStore = useUserStore();
+const functions = useFunctions();
 
 // Close panel when user logs out
 watch(
@@ -481,13 +483,6 @@ function markAllAsRead() {
 
 function clearAll() {
   notificationStore.clearAll();
-}
-
-// Copy Error ID to clipboard
-function copyErrorId(errorId: string) {
-  navigator.clipboard.writeText(errorId).catch((err) => {
-    console.error('Failed to copy Error ID:', err);
-  });
 }
 
 // Filter functions
