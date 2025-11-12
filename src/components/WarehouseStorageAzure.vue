@@ -150,12 +150,29 @@
         </v-col>
       </v-row>
 
-      <v-btn
-        v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
-        color="success"
-        type="submit">
-        Submit
-      </v-btn>
+      <v-menu v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE">
+        <template #activator="{ props: menuProps }">
+          <v-btn-group divided>
+            <v-btn color="success" type="submit">Submit</v-btn>
+            <v-btn color="success" v-bind="menuProps" icon="mdi-menu-down" size="small"></v-btn>
+          </v-btn-group>
+        </template>
+        <v-list>
+          <v-list-item @click="handleSubmit">
+            <template #prepend>
+              <v-icon>mdi-check</v-icon>
+            </template>
+            <v-list-item-title>Submit</v-list-item-title>
+          </v-list-item>
+          <v-list-item @click="saveAsJson">
+            <template #prepend>
+              <v-icon>mdi-download</v-icon>
+            </template>
+            <v-list-item-title>Save as JSON</v-list-item-title>
+          </v-list-item>
+        </v-list>
+      </v-menu>
+
       <v-btn
         v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
         color="success"
@@ -199,7 +216,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'submit', warehouseObjectDataEmit: WarehousObject): void;
+  (e: 'submit', warehouseObjectDataEmit: WarehousObject, shouldSaveAsJson: boolean): void;
   (e: 'updateCredentials', credentials: StorageCredential): void;
   (
     e: 'updateProfile',
@@ -224,6 +241,8 @@ const warehouseObjectData = reactive<{
     type: 'az',
   },
 });
+
+const shouldSaveAsJson = ref(false);
 
 watch(credentialType, (newValue) => {
   warehouseObjectData['storage-credential']['credential-type'] = newValue;
@@ -274,7 +293,13 @@ const rules = {
 };
 
 const handleSubmit = () => {
-  emit('submit', warehouseObjectData);
+  shouldSaveAsJson.value = false;
+  emit('submit', warehouseObjectData, shouldSaveAsJson.value);
+};
+
+const saveAsJson = () => {
+  shouldSaveAsJson.value = true;
+  emit('submit', warehouseObjectData, shouldSaveAsJson.value);
 };
 
 const emitNewCredentials = () => {
