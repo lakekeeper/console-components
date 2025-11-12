@@ -235,13 +235,24 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       const baseUrl = appConfig?.baseUrlPrefix || '';
       window.location.href = `${baseUrl}/ui/login`;
     } else {
-      visual.setSnackbarMsg({
-        function: functionCaused,
-        text: message,
-        ttl,
-        ts: Date.now(),
-        type,
-      });
+      // Always show snackbar for immediate user feedback
+
+      // Only add to notification store for persistent notifications if notify is true
+      if (notify) {
+        visual.setSnackbarMsg({
+          function: functionCaused,
+          text: message,
+          ttl,
+          ts: Date.now(),
+          type,
+        });
+        notificationStore.addNotification({
+          function: functionCaused,
+          stack: [],
+          text: message,
+          type,
+        });
+      }
     }
   } catch (newError) {
     console.error('Failed to set error', newError);
