@@ -7,7 +7,7 @@
         <img
           :src="logoSrc"
           alt="Lakekeeper"
-          style="height: 32px; width: auto; vertical-align: middle" />
+          style="height: 16px; width: auto; vertical-align: middle" />
       </slot>
     </div>
   </v-footer>
