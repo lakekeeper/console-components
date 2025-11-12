@@ -150,28 +150,30 @@
         </v-col>
       </v-row>
 
-      <v-menu v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE">
-        <template #activator="{ props: menuProps }">
-          <v-btn-group divided>
-            <v-btn color="success" type="submit">Submit</v-btn>
+      <v-btn-group
+        v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
+        divided>
+        <v-btn color="success" type="submit">Submit</v-btn>
+        <v-menu>
+          <template #activator="{ props: menuProps }">
             <v-btn color="success" v-bind="menuProps" icon="mdi-menu-down" size="small"></v-btn>
-          </v-btn-group>
-        </template>
-        <v-list>
-          <v-list-item @click="handleSubmit">
-            <template #prepend>
-              <v-icon>mdi-check</v-icon>
-            </template>
-            <v-list-item-title>Submit</v-list-item-title>
-          </v-list-item>
-          <v-list-item @click="saveAsJson">
-            <template #prepend>
-              <v-icon>mdi-download</v-icon>
-            </template>
-            <v-list-item-title>Save as JSON</v-list-item-title>
-          </v-list-item>
-        </v-list>
-      </v-menu>
+          </template>
+          <v-list>
+            <v-list-item @click="handleSubmit">
+              <template #prepend>
+                <v-icon>mdi-check</v-icon>
+              </template>
+              <v-list-item-title>Submit</v-list-item-title>
+            </v-list-item>
+            <v-list-item @click="saveAsJson">
+              <template #prepend>
+                <v-icon>mdi-download</v-icon>
+              </template>
+              <v-list-item-title>& save config</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+      </v-btn-group>
 
       <v-btn
         v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
