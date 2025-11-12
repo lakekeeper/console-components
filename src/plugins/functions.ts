@@ -142,7 +142,21 @@ export function handleError(error: any, functionError: Error | string, notify?: 
   try {
     console.error('Handling error:', error);
     console.error('Function causing error:', functionError);
-    if (error === 'invalid HTTP header (authorization)') return;
+
+    // Check if this is an authorization error due to missing/invalid token
+    if (error === 'invalid HTTP header (authorization)') {
+      const userStore = useUserStore();
+      const hasToken = userStore.user.access_token && userStore.user.access_token.trim() !== '';
+
+      if (!hasToken) {
+        // User is not authenticated, redirect to logout/login
+        console.warn('No access token found, redirecting to logout...');
+        userStore.unsetUser();
+        const baseUrl = appConfig?.baseUrlPrefix || '';
+        window.location.href = `${baseUrl}/ui/logout`;
+      }
+      return;
+    }
 
     // If functionError is a string, use it directly as the function name
     // Otherwise, extract from stack trace
@@ -202,13 +216,13 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
     }
 
     if (code === 401) {
-      console.warn('Authentication failed (401), redirecting to login...');
+      console.warn('Authentication failed (401), redirecting to logout...');
       // Clear user session
       const userStore = useUserStore();
       userStore.unsetUser();
-      // Redirect to login page
+      // Redirect to logout page (which will then redirect to login)
       const baseUrl = appConfig?.baseUrlPrefix || '';
-      window.location.href = `${baseUrl}/ui/login`;
+      window.location.href = `${baseUrl}/ui/logout`;
     } else if (notify) {
       // Only show snackbar and persistent notification when notify is true
       // Show snackbar for immediate feedback
