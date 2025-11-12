@@ -227,51 +227,19 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
     }
 
     if (code === 401) {
-      // Prevent redirect loop: don't redirect if already on login/logout/callback pages
-      const currentPath = window.location.pathname;
-      if (
-        currentPath.includes('/login') ||
-        currentPath.includes('/logout') ||
-        currentPath.includes('/callback')
-      ) {
-        console.warn('Already on auth page, skipping redirect to prevent loop');
-        return;
-      }
-
-      console.warn('Authentication failed (401), redirecting to logout...');
+      console.warn('Authentication failed (401), redirecting to login...');
       // Clear user session
       const userStore = useUserStore();
       userStore.unsetUser();
-      // Redirect to logout page (which will then redirect to login)
+      // Redirect to login page
       const baseUrl = appConfig?.baseUrlPrefix || '';
-      window.location.href = `${baseUrl}/ui/logout`;
-    } else if (notify) {
-      // Only show snackbar and persistent notification when notify is true
-      // Show snackbar for immediate feedback
+      window.location.href = `${baseUrl}/ui/login`;
+    } else {
       visual.setSnackbarMsg({
         function: functionCaused,
         text: message,
         ttl,
         ts: Date.now(),
-        type,
-      });
-
-      let errorStack = [];
-      if (error?.error?.stack && Array.isArray(error.error.stack) && error.error.stack.length > 0) {
-        errorStack = error.error.stack;
-      } else if (error?.stack && Array.isArray(error.stack) && error.stack.length > 0) {
-        errorStack = error.stack;
-      } else if (error?.error?.stack) {
-        errorStack = [error.error.stack];
-      } else if (error?.stack) {
-        errorStack = [error.stack];
-      }
-
-      // Add to persistent notification storage
-      notificationStore.addNotification({
-        function: functionCaused,
-        stack: errorStack,
-        text: message,
         type,
       });
     }
