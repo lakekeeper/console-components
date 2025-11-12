@@ -149,6 +149,17 @@ export function handleError(error: any, functionError: Error | string, notify?: 
       const hasToken = userStore.user.access_token && userStore.user.access_token.trim() !== '';
 
       if (!hasToken) {
+        // Prevent redirect loop: don't redirect if already on login/logout/callback pages
+        const currentPath = window.location.pathname;
+        if (
+          currentPath.includes('/login') ||
+          currentPath.includes('/logout') ||
+          currentPath.includes('/callback')
+        ) {
+          console.warn('Already on auth page, skipping redirect to prevent loop');
+          return;
+        }
+
         // User is not authenticated, redirect to logout/login
         console.warn('No access token found, redirecting to logout...');
         userStore.unsetUser();
@@ -216,6 +227,17 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
     }
 
     if (code === 401) {
+      // Prevent redirect loop: don't redirect if already on login/logout/callback pages
+      const currentPath = window.location.pathname;
+      if (
+        currentPath.includes('/login') ||
+        currentPath.includes('/logout') ||
+        currentPath.includes('/callback')
+      ) {
+        console.warn('Already on auth page, skipping redirect to prevent loop');
+        return;
+      }
+
       console.warn('Authentication failed (401), redirecting to logout...');
       // Clear user session
       const userStore = useUserStore();
