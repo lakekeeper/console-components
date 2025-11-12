@@ -153,7 +153,7 @@
       <v-btn-group
         v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
         divided>
-        <v-btn color="success" type="submit">Submit</v-btn>
+        <v-btn color="success" type="submit">Create</v-btn>
         <v-menu>
           <template #activator="{ props: menuProps }">
             <v-btn color="success" v-bind="menuProps" icon="mdi-menu-down" size="small"></v-btn>
@@ -163,7 +163,7 @@
               <template #prepend>
                 <v-icon>mdi-check</v-icon>
               </template>
-              <v-list-item-title>Submit</v-list-item-title>
+              <v-list-item-title>Create</v-list-item-title>
             </v-list-item>
             <v-list-item @click="saveAsJson">
               <template #prepend>

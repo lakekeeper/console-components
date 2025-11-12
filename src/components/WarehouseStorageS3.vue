@@ -338,7 +338,7 @@
                 warehouseObjectData['storage-profile']['sts-enabled']
               ))
           ">
-          Submit
+          Create
         </v-btn>
         <v-menu>
           <template #activator="{ props: menuProps }">
@@ -369,7 +369,7 @@
               <template #prepend>
                 <v-icon>mdi-check</v-icon>
               </template>
-              <v-list-item-title>Submit</v-list-item-title>
+              <v-list-item-title>Create</v-list-item-title>
             </v-list-item>
             <v-list-item @click="saveAsJson">
               <template #prepend>
