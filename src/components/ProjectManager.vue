@@ -25,7 +25,9 @@
         <v-tab v-if="showPermissionsTab && userStorage.isAuthenticated" value="permissions">
           Permissions
         </v-tab>
-        <v-tab value="statistics" @click="getEndpointStatistcs">Statistics</v-tab>
+        <v-tab v-if="showStatisticsTab" value="statistics" @click="getEndpointStatistcs">
+          Statistics
+        </v-tab>
       </v-tabs>
       <v-tabs-window v-model="tab">
         <v-tabs-window-item value="overview" v-if="userStorage.isAuthenticated">
@@ -107,7 +109,7 @@
             :relation-type="permissionType" />
         </v-tabs-window-item>
 
-        <v-tabs-window-item value="statistics">
+        <v-tabs-window-item v-if="showStatisticsTab" value="statistics">
           <ProjectStatistics v-if="loadedStatistics" :stats="statistics" />
         </v-tabs-window-item>
       </v-tabs-window>
@@ -126,7 +128,6 @@ import {
   CreateProjectRequest,
   GetEndpointStatisticsResponse,
   GetProjectResponse,
-  ProjectAssignment,
   RenameProjectRequest,
 } from '../gen/management/types.gen';
 import { Header, RelationType } from '../common/interfaces';
@@ -138,6 +139,7 @@ const userStorage = useUserStore();
 
 const visual = useVisualStore();
 const functions = useFunctions();
+const notify = true;
 
 const router = useRouter();
 
@@ -148,15 +150,10 @@ const projectId = computed(() => project.value['project-id']);
 const serverId = computed(() => visual.getServerInfo()['server-id']);
 
 // Use composables for permissions
-const { canReadAssignments, showPermissionsTab } = useProjectPermissions(projectId);
+const { showPermissionsTab, showStatisticsTab } = useProjectPermissions(projectId);
 const { canCreateProject } = useServerPermissions(serverId);
-const projectAssignments = reactive<ProjectAssignment[]>([]);
-const existingAssignments = reactive<ProjectAssignment[]>([]);
 const loaded = ref(true);
 const loadedStatistics = ref(true);
-const assignments = reactive<
-  { id: string; name: string; email: string; type: string; kind: string }[]
->([]);
 
 const statistics = reactive<GetEndpointStatisticsResponse>({
   'called-endpoints': [],
@@ -179,45 +176,7 @@ const availableProjects = reactive<(GetProjectResponse & { actions: string[]; in
 async function init() {
   try {
     loaded.value = false;
-
     await loadProjects();
-
-    projectAssignments.splice(0, projectAssignments.length);
-    Object.assign(
-      projectAssignments,
-      canReadAssignments.value ? await functions.getProjectAssignments() : [],
-    );
-    existingAssignments.splice(0, existingAssignments.length);
-    Object.assign(existingAssignments, projectAssignments);
-
-    for (const assignment of projectAssignments) {
-      const searchUser: any = assignment;
-
-      if (searchUser.user) {
-        const user = await functions.getUser(searchUser.user);
-
-        if (user) {
-          assignments.push({
-            id: user.id,
-            name: user.name,
-            email: user.email ?? '',
-            type: assignment.type,
-            kind: 'user',
-          });
-        }
-      } else {
-        const role = await functions.getRole(searchUser.role);
-        if (role) {
-          assignments.push({
-            id: role.id,
-            name: role.name,
-            email: '',
-            type: assignment.type,
-            kind: 'role',
-          });
-        }
-      }
-    }
     loaded.value = true;
   } catch (error: any) {
     console.error(error);
@@ -225,6 +184,11 @@ async function init() {
 }
 
 async function getEndpointStatistcs() {
+  // Only load if not already loaded
+  if (loadedStatistics.value && statistics['called-endpoints'].length > 0) {
+    return;
+  }
+
   try {
     // Fetch statistics from the backend
     loadedStatistics.value = false;
@@ -287,7 +251,7 @@ async function activateProject(item: { 'project-id': string; 'project-name': str
 
 async function deleteProject(project: GetProjectResponse & { actions: string[]; info: string }) {
   try {
-    await functions.deleteProjectById(project['project-id']);
+    await functions.deleteProjectById(project['project-id'], notify);
     // if we delete the current project, switch to the first project
     if (project['project-id'] === visual.projectSelected['project-id']) {
       router.push('/');
@@ -301,7 +265,7 @@ async function deleteProject(project: GetProjectResponse & { actions: string[]; 
 
 async function addProject(createProject: CreateProjectRequest & { 'project-name': string }) {
   try {
-    await functions.createProject(createProject['project-name']);
+    await functions.createProject(createProject['project-name'], notify);
   } catch (error) {
     console.error(error);
   } finally {
@@ -311,7 +275,7 @@ async function addProject(createProject: CreateProjectRequest & { 'project-name'
 
 async function renameProject(renamedProject: RenameProjectRequest & { 'project-id': string }) {
   try {
-    await functions.renameProjectById(renamedProject, renamedProject['project-id']);
+    await functions.renameProjectById(renamedProject, renamedProject['project-id'], notify);
 
     // Update the selected project name if this is the currently selected project
     if (visual.projectSelected['project-id'] === renamedProject['project-id']) {
@@ -326,8 +290,6 @@ async function renameProject(renamedProject: RenameProjectRequest & { 'project-i
 onMounted(async () => {
   if (userStorage.isAuthenticated) {
     await init();
-  } else {
-    await getEndpointStatistcs();
   }
 });
 </script>

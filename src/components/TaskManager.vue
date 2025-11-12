@@ -241,21 +241,21 @@
               variant="text"
               @click="viewTaskDetails(item)"></v-btn>
             <v-btn
-              v-if="item.status === 'RUNNING' && canControl"
+              v-if="item.status === 'RUNNING' && canControlTasks"
               icon="mdi-stop"
               size="small"
               variant="text"
               color="warning"
               @click="stopTask(item)"></v-btn>
             <v-btn
-              v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControl"
+              v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
               icon="mdi-cancel"
               size="small"
               variant="text"
               color="error"
               @click="cancelTask(item)"></v-btn>
             <v-btn
-              v-if="item.status === 'SCHEDULED' && canControl"
+              v-if="item.status === 'SCHEDULED' && canControlTasks"
               icon="mdi-play"
               size="small"
               variant="text"
@@ -434,7 +434,7 @@
 </template>
 
 <script setup lang="ts">
-import { useWarehousePermissions, useConfig } from '../composables/usePermissions';
+import { useWarehousePermissions } from '../composables/usePermissions';
 import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
 import { reactive, ref, onMounted, computed, inject } from 'vue';
@@ -459,17 +459,9 @@ const props = defineProps<{
 // Composables
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
-const config = useConfig();
 
-const { canControlAllTasks } = useWarehousePermissions(props.warehouseId);
+const { canControlTasks } = useWarehousePermissions(props.warehouseId);
 
-// When auth/permissions are disabled, allow all task control actions
-const canControl = computed(
-  () =>
-    canControlAllTasks.value ||
-    !config.enabledAuthentication.value ||
-    !config.enabledPermissions.value,
-);
 // Helper functions to handle entity type differences
 const getEntityId = () => {
   if (props.entityType === 'view') {
@@ -575,6 +567,8 @@ const queueNameOptions = computed(() =>
   })),
 );
 
+// Permission-based computed properties (using composable)
+
 // Computed properties for filter state
 const hasActiveFilters = computed(() => {
   return (
@@ -675,27 +669,16 @@ async function confirmCancelTask() {
 
   taskActionLoading.value = true;
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'cancel' }, [
-      taskToConfirm.value['task-id'],
-    ]);
-    visual.setSnackbarMsg({
-      function: 'cancelTask',
-      text: `Task ${taskToConfirm.value['task-id']} cancelled`,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.SUCCESS,
-    });
+    await functions.controlTasks(
+      props.warehouseId,
+      { 'action-type': 'cancel' },
+      [taskToConfirm.value['task-id']],
+      true,
+    );
     closeCancelConfirmDialog();
     await refreshTasks();
   } catch (error: any) {
     console.error('Failed to cancel task:', error);
-    visual.setSnackbarMsg({
-      function: 'cancelTask',
-      text: `Failed to cancel task: ${error?.message || 'Unknown error'}`,
-      ttl: 5000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
   } finally {
     taskActionLoading.value = false;
   }
@@ -706,27 +689,16 @@ async function confirmRunTaskNow() {
 
   taskActionLoading.value = true;
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'run-now' }, [
-      taskToConfirm.value['task-id'],
-    ]);
-    visual.setSnackbarMsg({
-      function: 'runTaskNow',
-      text: `Task ${taskToConfirm.value['task-id']} scheduled to run now`,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.SUCCESS,
-    });
+    await functions.controlTasks(
+      props.warehouseId,
+      { 'action-type': 'run-now' },
+      [taskToConfirm.value['task-id']],
+      true,
+    );
     closeRunNowConfirmDialog();
     await refreshTasks();
   } catch (error: any) {
     console.error('Failed to run task now:', error);
-    visual.setSnackbarMsg({
-      function: 'runTaskNow',
-      text: `Failed to run task: ${error?.message || 'Unknown error'}`,
-      ttl: 5000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
   } finally {
     taskActionLoading.value = false;
   }
@@ -798,24 +770,15 @@ async function viewTaskDetails(task: Task) {
 
 async function stopTask(task: Task) {
   try {
-    await functions.controlTasks(props.warehouseId, { 'action-type': 'stop' }, [task['task-id']]);
-    visual.setSnackbarMsg({
-      function: 'stopTask',
-      text: `Task ${task['task-id']} stop requested`,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.SUCCESS,
-    });
+    await functions.controlTasks(
+      props.warehouseId,
+      { 'action-type': 'stop' },
+      [task['task-id']],
+      true,
+    );
     await refreshTasks();
   } catch (error: any) {
     console.error('Failed to stop task:', error);
-    visual.setSnackbarMsg({
-      function: 'stopTask',
-      text: `Failed to stop task: ${error?.message || 'Unknown error'}`,
-      ttl: 5000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
   }
 }
 

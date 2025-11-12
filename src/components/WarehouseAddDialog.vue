@@ -274,6 +274,7 @@ import WarehouseStorageJSON from './WarehouseStorageJSON.vue';
 
 import {
   CreateWarehouseRequest,
+  CreateWarehouseResponse,
   GcsServiceKey,
   GetWarehouseResponse,
   StorageCredential,
@@ -385,7 +386,10 @@ const warehouseObjectAz = reactive<WarehousObject>({
   },
 });
 
-async function createWarehouse(warehouseObject: WarehousObject) {
+async function createWarehouse(
+  warehouseObject: WarehousObject,
+  shouldDownloadJson: boolean = false,
+) {
   try {
     if (warehouseObject['storage-profile'].type === 'gcs')
       Object.assign(warehouseObjectGCS, warehouseObject);
@@ -417,9 +421,21 @@ async function createWarehouse(warehouseObject: WarehousObject) {
       'storage-profile': warehouseObject['storage-profile'] as StorageProfile,
     });
 
-    const res: any = await functions.createWarehouse(wh);
+    const res: CreateWarehouseResponse = await functions.createWarehouse(wh, true);
 
-    if (res.status === 400) throw new Error(res.message);
+    // Download JSON if requested
+    if (shouldDownloadJson) {
+      const jsonString = JSON.stringify(wh, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `warehouse-${warehouseName.value}-${res['warehouse-id']}-config.json`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
 
     emit('addedWarehouse');
     creatingWarehouse.value = false;
@@ -434,7 +450,7 @@ async function createWarehouse(warehouseObject: WarehousObject) {
 async function createWarehouseJSON(wh: CreateWarehouseRequest) {
   try {
     creatingWarehouse.value = true;
-    const res: any = await functions.createWarehouse(wh);
+    const res: any = await functions.createWarehouse(wh, true);
 
     if (res.status === 400) throw new Error(res.message);
 

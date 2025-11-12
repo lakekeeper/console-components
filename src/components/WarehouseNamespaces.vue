@@ -16,6 +16,7 @@
     <template #top>
       <v-toolbar color="transparent" density="compact" flat>
         <v-switch
+          v-if="canSetProtection"
           v-model="recursiveDeleteProtection"
           class="ml-4 mt-4"
           color="info"
@@ -25,7 +26,7 @@
               : 'Recursive Delete Protection enabled'
           "
           @click.prevent="showConfirmDialog"></v-switch>
-        <v-spacer></v-spacer>
+        <v-spacer v-if="canSetProtection"></v-spacer>
         <v-text-field
           v-model="searchNamespace"
           label="Filter results"
@@ -90,9 +91,12 @@ const emit = defineEmits<{
 
 const router = useRouter();
 const functions = useFunctions();
+const notify = true;
 
 // Use warehouse permissions composable
-const { canDelete, canCreateNamespace } = useWarehousePermissions(props.warehouseId);
+const { canDelete, canCreateNamespace, canSetProtection } = useWarehousePermissions(
+  props.warehouseId,
+);
 
 const searchNamespace = ref('');
 const recursiveDeleteProtection = ref(false);
@@ -125,8 +129,7 @@ const headers: readonly Header[] = Object.freeze([
 async function addNamespace(namespace: string[]) {
   createNamespaceStatus.value = StatusIntent.STARTING;
   try {
-    const res = await functions.createNamespace(props.warehouseId, namespace);
-    if (res.error) throw res.error;
+    await functions.createNamespace(props.warehouseId, namespace, notify);
 
     createNamespaceStatus.value = StatusIntent.SUCCESS;
     await loadNamespaces();
@@ -217,7 +220,11 @@ async function confirmProtectionChange() {
 
 async function setProtection() {
   try {
-    await functions.setWarehouseProtection(props.warehouseId, recursiveDeleteProtection.value);
+    await functions.setWarehouseProtection(
+      props.warehouseId,
+      recursiveDeleteProtection.value,
+      true,
+    );
     emit('namespace-updated');
   } catch (error) {
     console.error(error);
@@ -228,12 +235,12 @@ async function setProtection() {
 
 async function deleteNamespaceWithOptions(e: any, item: Item) {
   try {
-    const res = await functions.dropNamespace(
+    await functions.dropNamespace(
       props.warehouseId,
       item.parentPath.join(String.fromCharCode(0x1f)),
       e,
+      notify,
     );
-    if (res.error) throw res.error;
 
     await loadNamespaces();
     emit('namespace-updated');

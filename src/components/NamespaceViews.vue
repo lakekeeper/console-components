@@ -66,6 +66,7 @@ const props = defineProps<{
 
 const router = useRouter();
 const functions = useFunctions();
+const notify = true;
 
 const searchView = ref('');
 const loadedViews: ViewIdentifierExtended[] = reactive([]);
@@ -121,7 +122,7 @@ async function paginationCheck(option: Options) {
 
 async function deleteViewWithOptions(e: any, item: ViewIdentifierExtended) {
   try {
-    await functions.dropView(props.warehouseId, props.namespacePath, item.name, e);
+    await functions.dropView(props.warehouseId, props.namespacePath, item.name, e, notify);
     await loadViews();
   } catch (error) {
     console.error(`Failed to drop view-${item.name}`, error);

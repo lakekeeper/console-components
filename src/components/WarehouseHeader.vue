@@ -61,12 +61,14 @@ const props = defineProps<{
 
 const functions = useFunctions();
 const visual = useVisualStore();
+const notify = true;
 const processStatus = ref('starting');
 const showSearchDialog = ref(false);
 
 const warehouse = reactive<GetWarehouseResponse>({
   'delete-profile': { type: 'hard' },
   id: '',
+  'warehouse-id': '',
   name: '',
   'project-id': '',
   status: 'active',
@@ -118,7 +120,7 @@ async function loadStatistics() {
 
 async function renameWarehouse(name: string) {
   try {
-    await functions.renameWarehouse(props.warehouseId, name);
+    await functions.renameWarehouse(props.warehouseId, name, notify);
     await loadWarehouse();
   } catch (error) {
     console.error('Failed to rename warehouse:', error);
@@ -128,7 +130,7 @@ async function renameWarehouse(name: string) {
 async function updateCredentials(credentials: StorageCredential) {
   processStatus.value = 'running';
   try {
-    await functions.updateStorageCredential(props.warehouseId, credentials);
+    await functions.updateStorageCredential(props.warehouseId, credentials, true);
     processStatus.value = 'success';
     await loadWarehouse();
   } catch (error) {
@@ -147,6 +149,7 @@ async function updateProfile(newProfile: {
       props.warehouseId,
       newProfile.credentials,
       newProfile.profile,
+      true,
     );
     processStatus.value = 'success';
     await loadWarehouse();
@@ -158,7 +161,7 @@ async function updateProfile(newProfile: {
 
 async function updateDelProfile(profile: TabularDeleteProfile) {
   try {
-    await functions.updateWarehouseDeleteProfile(props.warehouseId, profile);
+    await functions.updateWarehouseDeleteProfile(props.warehouseId, profile, true);
     await loadWarehouse();
     visual.setSnackbarMsg({
       function: 'updateDelProfile',

@@ -53,6 +53,16 @@ export const useVisualStore = defineStore(
       'aws-system-identities-enabled': false,
       'azure-system-identities-enabled': false,
       'gcp-system-identities-enabled': false,
+      'license-status': {
+        valid: false,
+        'license-type': '',
+        'license-id': null,
+        expiration: null,
+        error: null,
+        audience: null,
+        customer: null,
+        issuer: null,
+      },
       queues: [],
     });
 
@@ -101,6 +111,10 @@ export const useVisualStore = defineStore(
 
     function setSnackbarMsg(msg: SnackbarMsg) {
       Object.assign(snackbarMsg, msg);
+
+      // Note: Notifications are now primarily captured from functions.ts
+      // This snackbar integration is kept for legacy compatibility but may capture duplicates
+      // Consider disabling this if all notifications should come from function interceptor only
     }
 
     function getSnackbarMsg() {

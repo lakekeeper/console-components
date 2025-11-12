@@ -70,7 +70,7 @@ async function loadRole() {
 }
 
 async function editRole(roleIn: { name: string; description: string }) {
-  await functions.updateRole(role.id, roleIn.name, roleIn.description);
+  await functions.updateRole(role.id, roleIn.name, roleIn.description, true);
   await loadRole();
 }
 </script>

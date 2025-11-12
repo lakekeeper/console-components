@@ -75,6 +75,7 @@ import {
 
 import { useUserStore } from '@/stores/user';
 import { useVisualStore } from '@/stores/visual';
+import { useNotificationStore } from '@/stores/notifications';
 import { App } from 'vue';
 
 // Config injected from app
@@ -137,16 +138,44 @@ function parseErrorText(errorText: string): { message: string; code: number } {
   return { message, code };
 }
 
-export function handleError(error: any, functionError: Error) {
+export function handleError(error: any, functionError: Error | string, notify?: boolean) {
   try {
     console.error('Handling error:', error);
-    if (error === 'invalid HTTP header (authorization)') return;
-    const functionName =
-      functionError.stack?.split('\n')[1]?.trim()?.split(' ')[1]?.replace('Object.', '') ||
-      'unknown';
+    console.error('Function causing error:', functionError);
 
-    // Check if this is a task management related error
-    const isTaskFunction = ['listTasks', 'getTaskDetails', 'controlTasks'].includes(functionName);
+    // Check if this is an authorization error due to missing/invalid token
+    if (error === 'invalid HTTP header (authorization)') {
+      const userStore = useUserStore();
+      const hasToken = userStore.user.access_token && userStore.user.access_token.trim() !== '';
+
+      if (!hasToken) {
+        // Prevent redirect loop: don't redirect if already on login/logout/callback pages
+        const currentPath = window.location.pathname;
+        if (
+          currentPath.includes('/login') ||
+          currentPath.includes('/logout') ||
+          currentPath.includes('/callback')
+        ) {
+          console.warn('Already on auth page, skipping redirect to prevent loop');
+          return;
+        }
+
+        // User is not authenticated, redirect to logout/login
+        console.warn('No access token found, redirecting to logout...');
+        userStore.unsetUser();
+        const baseUrl = appConfig?.baseUrlPrefix || '';
+        window.location.href = `${baseUrl}/ui/logout`;
+      }
+      return;
+    }
+
+    // If functionError is a string, use it directly as the function name
+    // Otherwise, extract from stack trace
+    const functionName =
+      typeof functionError === 'string'
+        ? functionError
+        : functionError.stack?.split('\n')[1]?.trim()?.split(' ')[1]?.replace('Object.', '') ||
+          'unknown';
 
     // Don't redirect to server-offline for task management failures or if it's already marked as a task error
     if (error.message === 'Failed to fetch') {
@@ -157,13 +186,17 @@ export function handleError(error: any, functionError: Error) {
       return;
     }
 
+    // Check if this is a task management related error
+    // const isTaskFunction = ['listTasks', 'getTaskDetails', 'controlTasks'].includes(functionName);
     // For task management errors, just log them without redirecting
-    if (isTaskFunction || error.isTaskManagementError) {
-      console.warn('Task management error (not redirecting):', error);
-      return;
-    }
+    // if (isTaskFunction || error.isTaskManagementError) {
+    //   console.warn('Task management error (not redirecting):', error);
+    //   return;
+    // }
 
-    setError(error, 3000, functionName, Type.ERROR);
+    // Only show notification if notify is true (default false)
+
+    setError(error, 3000, functionName, Type.ERROR, notify ?? false);
   } catch (newError: any) {
     if (typeof newError === 'string' && error.includes('net::ERR_CONNECTION_REFUSED')) {
       console.error('Connection refused');
@@ -173,9 +206,11 @@ export function handleError(error: any, functionError: Error) {
   }
 }
 
-function setError(error: any, ttl: number, functionCaused: string, type: Type) {
+function setError(error: any, ttl: number, functionCaused: string, type: Type, notify?: boolean) {
   const visual = useVisualStore();
+  const notificationStore = useNotificationStore();
   try {
+    console.error('Setting error:', error);
     let message = '';
     let code = 0;
     if (typeof error === 'string') {
@@ -213,23 +248,8 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type) {
   }
 }
 
-function sendSnackbar(message: string, ttl: number, functionCaused: string, type: Type) {
-  const visual = useVisualStore();
-  try {
-    visual.setSnackbarMsg({
-      function: functionCaused,
-      text: message,
-      ttl,
-      ts: Date.now(),
-      type,
-    });
-  } catch (error) {
-    console.error('Failed to set error', error);
-  }
-}
-
 // Server
-async function getServerInfo(): Promise<ServerInfo> {
+async function getServerInfo(notify?: boolean): Promise<ServerInfo> {
   try {
     const client = mngClient.client;
 
@@ -240,14 +260,17 @@ async function getServerInfo(): Promise<ServerInfo> {
 
     visualStore.setServerInfo(data as ServerInfo);
 
+    if (notify) {
+      handleSuccess('getServerInfo', 'Server information loaded successfully', notify ?? false);
+    }
     return data as ServerInfo;
   } catch (error: any) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'getServerInfo', notify ?? false);
+    throw error;
   }
 }
 
-async function bootstrapServer(): Promise<boolean> {
+async function bootstrapServer(notify?: boolean): Promise<boolean> {
   try {
     const client = mngClient.client;
 
@@ -257,16 +280,21 @@ async function bootstrapServer(): Promise<boolean> {
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('bootstrapServer', 'Server bootstrapped successfully', notify);
+    }
     return true;
   } catch (error: any) {
     console.error('Failed to bootstrap server', error);
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'bootstrapServer', notify);
+    throw error;
   }
 }
 
 // Project
-async function loadProjectList(): Promise<GetProjectResponse[]> {
+async function loadProjectList(notify?: boolean): Promise<GetProjectResponse[]> {
+  const startTime = Date.now();
+
   try {
     const visual = useVisualStore();
     const { data, error } = await mng.listProjects({ client: mngClient.client });
@@ -283,14 +311,28 @@ async function loadProjectList(): Promise<GetProjectResponse[]> {
       }
     }
 
-    return data?.projects || [];
+    const result = data?.projects || [];
+
+    // Show success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      if (notify) {
+        handleSuccess(
+          'loadProjectList',
+          `Loaded ${result.length} project(s) successfully (${duration}ms)`,
+          notify,
+        );
+      }
+    }
+
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'loadProjectList', notify);
     throw error;
   }
 }
 
-async function getProjectById(projectId: string): Promise<GetProjectResponse> {
+async function getProjectById(projectId: string, notify?: boolean): Promise<GetProjectResponse> {
   try {
     const { data, error } = await mng.getProjectById({
       client: mngClient.client,
@@ -302,14 +344,19 @@ async function getProjectById(projectId: string): Promise<GetProjectResponse> {
       throw new Error('Failed to get project by ID');
     }
 
+    if (notify) {
+      handleSuccess('getProjectById', `Project '${data['project-name']}' loaded`, notify);
+    }
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getProjectById', notify);
     throw error;
   }
 }
 
-async function createProject(name: string): Promise<string> {
+async function createProject(name: string, notify?: boolean): Promise<string> {
+  const startTime = Date.now();
+
   try {
     const { data, error } = await mng.createProject({
       client: mngClient.client,
@@ -317,13 +364,27 @@ async function createProject(name: string): Promise<string> {
     });
     if (error) throw error;
 
-    return data?.['project-id'] ?? '';
+    const projectId = data?.['project-id'] ?? '';
+
+    // Show success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      handleSuccess(
+        'createProject',
+        `Project "${name}" created successfully (${duration}ms)`,
+        notify,
+      );
+    }
+
+    return projectId;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'createProject', notify);
     throw error;
   }
 }
-async function deleteProjectById(projectId: string): Promise<boolean> {
+async function deleteProjectById(projectId: string, notify?: boolean): Promise<boolean> {
+  const startTime = Date.now();
+
   try {
     const { error } = await mng.deleteProjectById({
       client: mngClient.client,
@@ -331,14 +392,26 @@ async function deleteProjectById(projectId: string): Promise<boolean> {
     });
     if (error) throw error;
 
+    // Show success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      handleSuccess('deleteProjectById', `Project deleted successfully (${duration}ms)`, notify);
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'deleteProjectById', notify);
     throw error;
   }
 }
 
-async function renameProjectById(body: RenameProjectRequest, projectId: string): Promise<boolean> {
+async function renameProjectById(
+  body: RenameProjectRequest,
+  projectId: string,
+  notify?: boolean,
+): Promise<boolean> {
+  const startTime = Date.now();
+
   try {
     const { error } = await mng.renameProjectById({
       client: mngClient.client,
@@ -347,9 +420,15 @@ async function renameProjectById(body: RenameProjectRequest, projectId: string):
     });
     if (error) throw error;
 
+    // Capture success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      handleSuccess('renameProjectById', `Project renamed successfully (${duration}ms)`, notify);
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'renameProjectById', notify);
     throw error;
   }
 }
@@ -358,6 +437,7 @@ async function getEndpointStatistics(
   warehouseFilter: WarehouseFilter,
   range_specifier?: null | TimeWindowSelector,
   status_codes?: Array<number> | null,
+  notify?: boolean,
 ): Promise<GetEndpointStatisticsResponse> {
   try {
     init();
@@ -376,15 +456,18 @@ async function getEndpointStatistics(
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('getEndpointStatistics', 'Endpoint statistics loaded successfully', notify);
+    }
     return data as GetEndpointStatisticsResponse;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getEndpointStatistics', notify);
     throw error;
   }
 }
 
 // Warehouse
-async function listWarehouses(): Promise<ListWarehousesResponse> {
+async function listWarehouses(notify?: boolean): Promise<ListWarehousesResponse> {
   try {
     const client = mngClient.client;
 
@@ -393,14 +476,17 @@ async function listWarehouses(): Promise<ListWarehousesResponse> {
     const wh = data as ListWarehousesResponse;
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('listWarehouses', `${wh.warehouses?.length || 0} warehouses loaded`, notify);
+    }
     return wh;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'listWarehouses', notify);
     throw error;
   }
 }
 
-async function getWarehouse(id: string): Promise<GetWarehouseResponse> {
+async function getWarehouse(id: string, notify?: boolean): Promise<GetWarehouseResponse> {
   try {
     const client = mngClient.client;
 
@@ -410,14 +496,23 @@ async function getWarehouse(id: string): Promise<GetWarehouseResponse> {
     });
     if (error) throw error;
 
-    return data as GetWarehouseResponse;
+    const result = data as GetWarehouseResponse;
+    if (notify) {
+      handleSuccess('getWarehouse', `Warehouse loaded successfully`, notify);
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'getWarehouse', notify);
+    throw error;
   }
 }
 
-async function createWarehouse(wh: CreateWarehouseRequest): Promise<CreateWarehouseResponse> {
+async function createWarehouse(
+  wh: CreateWarehouseRequest,
+  notify?: boolean,
+): Promise<CreateWarehouseResponse> {
+  const startTime = Date.now();
+
   try {
     init();
 
@@ -429,9 +524,22 @@ async function createWarehouse(wh: CreateWarehouseRequest): Promise<CreateWareho
     });
     if (error) throw error;
 
-    return data as CreateWarehouseResponse;
+    const result = data as CreateWarehouseResponse;
+
+    // Capture success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      handleSuccess(
+        'createWarehouse',
+        `Warehouse "${wh['warehouse-name']}" created successfully (${duration}ms)`,
+        notify,
+      );
+    }
+
+    return result;
   } catch (error) {
-    handleError(error, new Error());
+    // Capture error notification if requested
+    handleError(error, 'createWarehouse', notify);
     throw error;
   }
 }
@@ -440,27 +548,38 @@ async function getWarehouseStatistics(
   whId: string,
   page_size?: number,
   page_token?: string,
+  notify?: boolean,
 ): Promise<GetWarehouseStatisticsResponse> {
-  init();
+  try {
+    init();
 
-  const client = mngClient.client;
+    const client = mngClient.client;
 
-  const { data, error } = await mng.getWarehouseStatistics({
-    client,
-    path: {
-      warehouse_id: whId,
-    },
-    query: {
-      page_size: page_size,
-      page_token: page_token,
-    },
-  });
-  if (error) throw error;
+    const { data, error } = await mng.getWarehouseStatistics({
+      client,
+      path: {
+        warehouse_id: whId,
+      },
+      query: {
+        page_size: page_size,
+        page_token: page_token,
+      },
+    });
+    if (error) throw error;
 
-  return data as GetWarehouseStatisticsResponse;
+    if (notify) {
+      handleSuccess('getWarehouseStatistics', 'Warehouse statistics loaded successfully', notify);
+    }
+    return data as GetWarehouseStatisticsResponse;
+  } catch (error) {
+    handleError(error, 'getWarehouseStatistics', notify);
+    throw error;
+  }
 }
 
-async function deleteWarehouse(whId: string) {
+async function deleteWarehouse(whId: string, notify?: boolean) {
+  const startTime = Date.now();
+
   try {
     init();
 
@@ -474,10 +593,16 @@ async function deleteWarehouse(whId: string) {
     });
     if (error) throw error;
 
+    // Show success notification if requested
+    if (notify) {
+      const duration = Date.now() - startTime;
+      handleSuccess('deleteWarehouse', `Warehouse deleted successfully (${duration}ms)`, notify);
+    }
+
     return data;
   } catch (error) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'deleteWarehouse', notify);
+    throw error;
   }
 }
 
@@ -486,6 +611,7 @@ async function listDeletedTabulars(
   namespaceId: string,
   pageSizeNumber?: number,
   pageToken?: string,
+  notify?: boolean,
 ): Promise<ListDeletedTabularsResponse> {
   try {
     const client = mngClient.client;
@@ -501,14 +627,22 @@ async function listDeletedTabulars(
     });
     if (error) throw error;
 
-    return data as ListDeletedTabularsResponse;
+    const result = data as ListDeletedTabularsResponse;
+    if (notify) {
+      handleSuccess(
+        'listDeletedTabulars',
+        `${result.tabulars?.length || 0} deleted tabulars loaded`,
+        notify,
+      );
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'listDeletedTabulars', notify);
+    throw error;
   }
 }
 
-async function renameWarehouse(whId: string, name: string): Promise<boolean> {
+async function renameWarehouse(whId: string, name: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -524,15 +658,22 @@ async function renameWarehouse(whId: string, name: string): Promise<boolean> {
 
     // if (data.error) throw new Error(data.error);
 
+    if (notify) {
+      handleSuccess('renameWarehouse', `Warehouse renamed to '${name}'`, notify);
+    }
     return true;
   } catch (error: any) {
     console.error('Failed to rename warehouse', error);
-    handleError(error, new Error());
+    handleError(error, 'renameWarehouse', notify);
     throw error;
   }
 }
 
-async function updateStorageCredential(whId: string, storageCredentials: StorageCredential) {
+async function updateStorageCredential(
+  whId: string,
+  storageCredentials: StorageCredential,
+  notify?: boolean,
+) {
   try {
     init();
 
@@ -546,11 +687,13 @@ async function updateStorageCredential(whId: string, storageCredentials: Storage
       },
     });
     if (error) throw error;
-    sendSnackbar('Storage Credential Updated', 3000, 'updateStorageCredential', Type.SUCCESS);
 
+    if (notify) {
+      handleSuccess('updateStorageCredential', 'Storage credential updated successfully', notify);
+    }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'updateStorageCredential');
     throw error;
   }
 }
@@ -558,6 +701,7 @@ async function updateStorageProfile(
   whId: string,
   storageCredentials: StorageCredential,
   storageProfile: StorageProfile,
+  notify?: boolean,
 ) {
   try {
     init();
@@ -575,14 +719,22 @@ async function updateStorageProfile(
       },
     });
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateStorageProfile', 'Storage profile updated successfully', notify);
+    }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'updateStorageProfile');
     throw error;
   }
 }
 
-async function updateWarehouseDeleteProfile(whId: string, deleteProfile: TabularDeleteProfile) {
+async function updateWarehouseDeleteProfile(
+  whId: string,
+  deleteProfile: TabularDeleteProfile,
+  notify?: boolean,
+) {
   try {
     init();
 
@@ -598,14 +750,17 @@ async function updateWarehouseDeleteProfile(whId: string, deleteProfile: Tabular
       },
     });
 
+    if (notify) {
+      handleSuccess('updateWarehouseDeleteProfile', 'Delete profile updated successfully', notify);
+    }
     return true;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'updateWarehouseDeleteProfile');
     throw error;
   }
 }
 
-async function getWarehouseById(warehouseId: string): Promise<boolean> {
+async function getWarehouseById(warehouseId: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -620,9 +775,17 @@ async function getWarehouseById(warehouseId: string): Promise<boolean> {
     });
     if (error) throw error;
 
-    return data?.['managed-access'] ?? false;
+    const result = data?.['managed-access'] ?? false;
+    if (notify) {
+      handleSuccess(
+        'getWarehouseById',
+        `Warehouse access status loaded: ${result ? 'managed access enabled' : 'managed access disabled'}`,
+        notify,
+      );
+    }
+    return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getWarehouseById');
     throw error;
   }
 }
@@ -630,6 +793,7 @@ async function getWarehouseById(warehouseId: string): Promise<boolean> {
 async function setWarehouseProtection(
   warehouseId: string,
   protected_state: boolean,
+  notify?: boolean,
 ): Promise<SetWarehouseProtectionResponse> {
   try {
     init();
@@ -648,9 +812,16 @@ async function setWarehouseProtection(
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'setWarehouseProtection',
+        `Warehouse protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'setWarehouseProtection');
     throw error;
   }
 }
@@ -660,6 +831,7 @@ async function listNamespaces(
   id: string,
   parentNS?: string,
   page_token?: PageToken,
+  notify?: boolean,
 ): Promise<NamespaceResponse> {
   try {
     const client = iceClient.client;
@@ -687,27 +859,58 @@ async function listNamespaces(
       namespaceMap[namespace] = namespaceUuids[index];
     });
 
-    return { namespaceMap, namespaces, 'next-page-token': data['next-page-token'] ?? undefined };
+    const result = {
+      namespaceMap,
+      namespaces,
+      'next-page-token': data['next-page-token'] ?? undefined,
+    };
+
+    if (notify) {
+      handleSuccess(
+        'listNamespaces',
+        `${namespaces.length} namespace(s) loaded successfully`,
+        notify,
+      );
+    }
+
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'listNamespaces', notify);
+    throw error;
   }
 }
 
-async function loadNamespaceMetadata(id: string, namespace: string): Promise<GetNamespaceResponse> {
-  const client = iceClient.client;
-  const { data, error } = await ice.loadNamespaceMetadata({
-    client,
-    path: { namespace, prefix: id },
-    query: { returnUuid: true },
-  });
+async function loadNamespaceMetadata(
+  id: string,
+  namespace: string,
+  notify?: boolean,
+): Promise<GetNamespaceResponse> {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.loadNamespaceMetadata({
+      client,
+      path: { namespace, prefix: id },
+      query: { returnUuid: true },
+    });
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return data as GetNamespaceResponse;
+    const result = data as GetNamespaceResponse;
+    if (notify) {
+      handleSuccess(
+        'loadNamespaceMetadata',
+        `Namespace metadata for '${namespace}' loaded successfully`,
+        notify,
+      );
+    }
+    return result;
+  } catch (error: any) {
+    handleError(error, 'loadNamespaceMetadata', notify);
+    throw error;
+  }
 }
 
-async function createNamespace(id: string, namespace: Namespace) {
+async function createNamespace(id: string, namespace: Namespace, notify?: boolean) {
   try {
     const client = iceClient.client;
     const { data, error } = await ice.createNamespace({
@@ -719,14 +922,17 @@ async function createNamespace(id: string, namespace: Namespace) {
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('createNamespace', `Namespace '${namespace.join('.')}' created`, notify);
+    }
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'createNamespace', notify);
+    throw error;
   }
 }
 
-async function dropNamespace(id: string, ns: string, options?: NamespaceAction) {
+async function dropNamespace(id: string, ns: string, options?: NamespaceAction, notify?: boolean) {
   try {
     const client = iceClient.client;
     const { data, error } = await ice.dropNamespace({
@@ -738,17 +944,23 @@ async function dropNamespace(id: string, ns: string, options?: NamespaceAction) 
       query: options as { force?: boolean; recursive?: boolean; purge?: boolean } | undefined,
     });
     if (error) throw error;
-    handleSuccess('dropNamespace', 'Namespace deleted successfully');
+
+    if (notify) {
+      handleSuccess('dropNamespace', `Namespace '${ns}' deleted successfully`, notify);
+    }
 
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
     console.error('Failed to drop namespace', error);
-    return error;
+    handleError(error, 'dropNamespace', notify);
+    throw error;
   }
 }
 
-async function getNamespaceById(namespaceId: string): Promise<GetNamespaceAuthPropertiesResponse> {
+async function getNamespaceById(
+  namespaceId: string,
+  notify?: boolean,
+): Promise<GetNamespaceAuthPropertiesResponse> {
   try {
     init();
 
@@ -763,9 +975,13 @@ async function getNamespaceById(namespaceId: string): Promise<GetNamespaceAuthPr
     });
     if (error) throw error;
 
-    return data as GetNamespaceAuthPropertiesResponse;
+    const result = data as GetNamespaceAuthPropertiesResponse;
+    if (notify) {
+      handleSuccess('getNamespaceById', `Namespace properties loaded successfully`, notify);
+    }
+    return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getNamespaceById', notify);
     throw error;
   }
 }
@@ -773,6 +989,7 @@ async function getNamespaceById(namespaceId: string): Promise<GetNamespaceAuthPr
 async function getNamespaceProtection(
   warehouseId: string,
   namespaceId: string,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -789,9 +1006,17 @@ async function getNamespaceProtection(
     });
     if (error) throw error;
 
-    return data as GetNamespaceProtectionResponse;
+    const result = data as GetNamespaceProtectionResponse;
+    if (notify) {
+      handleSuccess(
+        'getNamespaceProtection',
+        'Namespace protection status loaded successfully',
+        notify,
+      );
+    }
+    return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getNamespaceProtection', notify);
     throw error;
   }
 }
@@ -800,6 +1025,7 @@ async function setNamespaceProtection(
   warehouseId: string,
   namespaceId: string,
   protected_state: boolean,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -819,9 +1045,16 @@ async function setNamespaceProtection(
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'setNamespaceProtection',
+        `Namespace protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'setNamespaceProtection', notify);
     throw error;
   }
 }
@@ -831,6 +1064,7 @@ async function listTables(
   id: string,
   ns?: string,
   pageToken?: PageToken,
+  notify?: boolean,
 ): Promise<ListTablesResponse> {
   try {
     const client = iceClient.client;
@@ -844,10 +1078,18 @@ async function listTables(
     });
     if (error) throw error;
 
-    return data as ListTablesResponse;
+    const result = data as ListTablesResponse;
+    if (notify) {
+      handleSuccess(
+        'listTables',
+        `${result.identifiers?.length || 0} table(s) loaded successfully`,
+        notify,
+      );
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'listTables', notify);
+    throw error;
   }
 }
 
@@ -855,6 +1097,7 @@ async function loadTable(
   warehouseId: string,
   namespacePath: string,
   tableName: string,
+  notify?: boolean,
 ): Promise<LoadTableResultWritable> {
   try {
     const client = iceClient.client;
@@ -868,44 +1111,83 @@ async function loadTable(
     });
     if (error) throw error;
 
-    return data as LoadTableResultWritable;
+    const result = data as LoadTableResultWritable;
+    if (notify) {
+      handleSuccess('loadTable', `Table '${tableName}' loaded successfully`, notify);
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'loadTable', notify);
+    throw error;
   }
 }
 
-async function loadTableCustomized(warehouseId: string, namespacePath: string, tableName: string) {
-  const userStore = useUserStore();
-  const accessToken = userStore.user.access_token;
+async function loadTableCustomized(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
 
-  const response = await fetch(
-    `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
-    {
-      method: 'GET',
-      headers: {
-        'content-type': 'application/json',
-        authorization: `Bearer ${accessToken}`,
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
+      {
+        method: 'GET',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
       },
-    },
-  );
+    );
 
-  if (!response.ok) {
-    throw new Error(`Error fetching table data: ${response.statusText}`);
+    if (!response.ok) {
+      // Create a proper error object that matches the API client format
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        // If response body is not JSON, use the text or status text
+        errorMessage = errorBody || response.statusText;
+      }
+
+      throw {
+        error: {
+          code: response.status,
+          message: errorMessage,
+          type: 'FetchError',
+        },
+      };
+    }
+    const textData = await response.text();
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(textData);
+    // const data = JSON.parse(textData, (key, value) => {
+    //   // If the value is a large number (potentially snapshot-id), convert it to BigInt
+    //   if (typeof value === 'number' && value > Number.MAX_SAFE_INTEGER) {
+
+    //     return String(BigInt(value)); // Convert to BigInt to preserve precision
+    //   }
+    //   return value;
+    // });
+
+    if (notify) {
+      handleSuccess(
+        'loadTableCustomized',
+        `Table '${tableName}' (customized) loaded successfully`,
+        notify,
+      );
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'loadTableCustomized', notify);
+    throw error;
   }
-  const textData = await response.text();
-  const JSONBigString = JSONBig({ storeAsString: true });
-  const data = JSONBigString.parse(textData);
-  // const data = JSON.parse(textData, (key, value) => {
-  //   // If the value is a large number (potentially snapshot-id), convert it to BigInt
-  //   if (typeof value === 'number' && value > Number.MAX_SAFE_INTEGER) {
-
-  //     return String(BigInt(value)); // Convert to BigInt to preserve precision
-  //   }
-  //   return value;
-  // });
-
-  return data;
 }
 
 async function dropTable(
@@ -913,6 +1195,7 @@ async function dropTable(
   namespacePath: string,
   tableName: string,
   options?: { purgeRequested?: boolean; force?: boolean } | undefined,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     const client = iceClient.client;
@@ -927,11 +1210,13 @@ async function dropTable(
     });
     if (error) throw error;
 
-    handleSuccess('Drop Table', 'Table deleted successfully');
+    if (notify) {
+      handleSuccess('dropTable', `Table '${tableName}' deleted successfully`, notify);
+    }
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'dropTable', notify);
     throw error;
   }
 }
@@ -939,6 +1224,7 @@ async function dropTable(
 async function getTableProtection(
   warehouseId: string,
   tableId: string,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -955,9 +1241,13 @@ async function getTableProtection(
     });
     if (error) throw error;
 
-    return data as GetNamespaceProtectionResponse;
+    const result = data as GetNamespaceProtectionResponse;
+    if (notify) {
+      handleSuccess('getTableProtection', 'Table protection status loaded successfully', notify);
+    }
+    return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getTableProtection', notify);
     throw error;
   }
 }
@@ -966,6 +1256,7 @@ async function setTableProtection(
   warehouseId: string,
   tableId: string,
   protected_state: boolean,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -985,9 +1276,16 @@ async function setTableProtection(
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'setTableProtection',
+        `Table protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'setTableProtection', notify);
     throw error;
   }
 }
@@ -997,6 +1295,7 @@ async function listViews(
   id: string,
   ns?: string,
   page_token?: PageToken,
+  notify?: boolean,
 ): Promise<ListTablesResponse> {
   try {
     const client = iceClient.client;
@@ -1010,10 +1309,18 @@ async function listViews(
     });
     if (error) throw error;
 
-    return data as ListTablesResponse;
+    const result = data as ListTablesResponse;
+    if (notify) {
+      handleSuccess(
+        'listViews',
+        `${result.identifiers?.length || 0} view(s) loaded successfully`,
+        notify,
+      );
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
-    return error;
+    handleError(error, 'loadView', notify);
+    throw error;
   }
 }
 
@@ -1021,19 +1328,29 @@ async function loadView(
   warehouseId: string,
   namespacePath: string,
   viewName: string,
+  notify?: boolean,
 ): Promise<LoadViewResultWritable> {
-  const client = iceClient.client;
-  const { data, error } = await ice.loadView({
-    client,
-    path: {
-      prefix: warehouseId,
-      namespace: namespacePath,
-      view: viewName,
-    },
-  });
-  if (error) throw error;
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.loadView({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+        view: viewName,
+      },
+    });
+    if (error) throw error;
 
-  return data as LoadViewResultWritable;
+    const result = data as LoadViewResultWritable;
+    if (notify) {
+      handleSuccess('loadView', `View '${viewName}' loaded successfully`, notify);
+    }
+    return result;
+  } catch (error: any) {
+    handleError(error, 'loadView', notify);
+    throw error;
+  }
 }
 
 async function dropView(
@@ -1041,6 +1358,7 @@ async function dropView(
   namespacePath: string,
   viewName: string,
   options?: { force?: boolean } | undefined,
+  notify?: boolean,
 ) {
   try {
     const client = iceClient.client;
@@ -1055,16 +1373,22 @@ async function dropView(
     });
 
     if (error) throw error;
-    handleSuccess('drop View', 'View deleted successfully');
 
+    if (notify) {
+      handleSuccess('dropView', `View '${viewName}' deleted successfully`, notify);
+    }
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'dropView', notify);
     throw error;
   }
 }
 
-async function getViewProtection(warehouseId: string, viewId: string): Promise<ProtectionResponse> {
+async function getViewProtection(
+  warehouseId: string,
+  viewId: string,
+  notify?: boolean,
+): Promise<ProtectionResponse> {
   try {
     init();
 
@@ -1080,9 +1404,13 @@ async function getViewProtection(warehouseId: string, viewId: string): Promise<P
     });
     if (error) throw error;
 
-    return data as GetNamespaceProtectionResponse;
+    const result = data as GetNamespaceProtectionResponse;
+    if (notify) {
+      handleSuccess('getViewProtection', 'View protection status loaded successfully', notify);
+    }
+    return result;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'getViewProtection');
     throw error;
   }
 }
@@ -1091,6 +1419,7 @@ async function setViewProtection(
   warehouseId: string,
   viewId: string,
   protected_state: boolean,
+  notify?: boolean,
 ): Promise<ProtectionResponse> {
   try {
     init();
@@ -1110,15 +1439,27 @@ async function setViewProtection(
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'setViewProtection',
+        `View protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return data;
   } catch (error) {
-    handleError(error, new Error());
+    handleError(error, 'setViewProtection');
     throw error;
   }
 }
 
 // Tabular
-async function undropTabular(warehouseId: string, id: string, type: 'table' | 'view') {
+async function undropTabular(
+  warehouseId: string,
+  id: string,
+  type: 'table' | 'view',
+  notify?: boolean,
+) {
   try {
     const client = mngClient.client;
     const { error } = await mng.undropTabulars({
@@ -1130,14 +1471,25 @@ async function undropTabular(warehouseId: string, id: string, type: 'table' | 'v
     });
 
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'undropTabular',
+        `${type.charAt(0).toUpperCase() + type.slice(1)} restored successfully`,
+        notify,
+      );
+    }
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'undropTabular');
     throw error;
   }
 }
 
 // Assignments
-async function getWarehouseAssignmentsById(warehouseId: string): Promise<WarehouseAssignment[]> {
+async function getWarehouseAssignmentsById(
+  warehouseId: string,
+  notify?: boolean,
+): Promise<WarehouseAssignment[]> {
   try {
     const visual = useVisualStore();
     const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
@@ -1156,9 +1508,17 @@ async function getWarehouseAssignmentsById(warehouseId: string): Promise<Warehou
 
     if (error) throw error;
 
-    return (data ?? {}).assignments as WarehouseAssignment[];
+    const result = (data ?? {}).assignments as WarehouseAssignment[];
+    if (notify) {
+      handleSuccess(
+        'getWarehouseAssignmentsById',
+        `${result.length} warehouse assignment(s) loaded`,
+        notify,
+      );
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getWarehouseAssignmentsById');
     throw error;
   }
 }
@@ -1167,6 +1527,7 @@ async function updateWarehouseAssignmentsById(
   warehouseId: string,
   deletes: WarehouseAssignment[],
   writes: WarehouseAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1183,9 +1544,16 @@ async function updateWarehouseAssignmentsById(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'updateWarehouseAssignmentsById',
+        'Warehouse assignments updated successfully',
+        notify,
+      );
+    }
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateWarehouseAssignmentsById');
     throw error;
   }
 }
@@ -1193,6 +1561,7 @@ async function updateWarehouseAssignmentsById(
 async function setWarehouseManagedAccess(
   warehouseId: string,
   managedAccess: boolean,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1209,9 +1578,16 @@ async function setWarehouseManagedAccess(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'setWarehouseManagedAccess',
+        `Warehouse managed access ${managedAccess ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'setWarehouseManagedAccess');
     throw error;
   }
 }
@@ -1238,7 +1614,7 @@ async function getRoleAssignmentsById(roleId: string): Promise<RoleAssignment[]>
 
     return ((data ?? {}).assignments as RoleAssignment[]) ?? [];
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getRoleAssignmentsById');
     throw error;
   }
 }
@@ -1247,6 +1623,7 @@ async function updateRoleAssignmentsById(
   roleId: string,
   deletes: RoleAssignment[],
   writes: RoleAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1263,9 +1640,13 @@ async function updateRoleAssignmentsById(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('updateRoleAssignmentsById', 'Role assignments updated successfully', notify);
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateRoleAssignmentsById');
     throw error;
   }
 }
@@ -1289,7 +1670,7 @@ async function getServerAssignments(): Promise<ServerAssignment[]> {
     const assignments = ((data ?? {}).assignments as ServerAssignment[]) ?? [];
     return assignments;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getServerAssignments');
     throw error;
   }
 }
@@ -1297,6 +1678,7 @@ async function getServerAssignments(): Promise<ServerAssignment[]> {
 async function updateServerAssignments(
   deletes: ServerAssignment[],
   writes: ServerAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1310,9 +1692,13 @@ async function updateServerAssignments(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('updateServerAssignments', 'Server assignments updated successfully', notify);
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateServerAssignments');
     throw error;
   }
 }
@@ -1336,7 +1722,7 @@ async function getProjectAssignments(): Promise<ProjectAssignment[]> {
     const assignments = ((data ?? {}).assignments as ProjectAssignment[]) ?? [];
     return assignments;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getProjectAssignments');
     throw error;
   }
 }
@@ -1344,6 +1730,7 @@ async function getProjectAssignments(): Promise<ProjectAssignment[]> {
 async function updateProjectAssignments(
   deletes: ProjectAssignment[],
   writes: ProjectAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1357,9 +1744,13 @@ async function updateProjectAssignments(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('updateProjectAssignments', 'Project assignments updated successfully', notify);
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateProjectAssignments');
     throw error;
   }
 }
@@ -1386,7 +1777,7 @@ async function getNamespaceAssignmentsById(namespaceId: string): Promise<Namespa
     const assignments = ((data ?? {}).assignments as NamespaceAssignment[]) ?? [];
     return assignments;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getNamespaceAssignmentsById');
     throw error;
   }
 }
@@ -1395,6 +1786,7 @@ async function updateNamespaceAssignmentsById(
   namespaceId: string,
   deletes: NamespaceAssignment[],
   writes: NamespaceAssignment[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1411,9 +1803,17 @@ async function updateNamespaceAssignmentsById(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'updateNamespaceAssignmentsById',
+        'Namespace assignments updated successfully',
+        notify,
+      );
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateNamespaceAssignmentsById');
     throw error;
   }
 }
@@ -1421,6 +1821,7 @@ async function updateNamespaceAssignmentsById(
 async function setNamespaceManagedAccess(
   namespaceId: string,
   managedAccess: boolean,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1437,9 +1838,17 @@ async function setNamespaceManagedAccess(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess(
+        'setNamespaceManagedAccess',
+        `Namespace managed access ${managedAccess ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'setNamespaceManagedAccess', notify);
     throw error;
   }
 }
@@ -1470,7 +1879,7 @@ async function getTableAssignmentsById(
     const assignments = ((data ?? {}).assignments as TableAssignment[]) ?? [];
     return assignments;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getTableAssignmentsById');
     throw error;
   }
 }
@@ -1480,6 +1889,7 @@ async function updateTableAssignmentsById(
   deletes: TableAssignment[],
   writes: TableAssignment[],
   warehouseId: string,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1497,9 +1907,13 @@ async function updateTableAssignmentsById(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('updateTableAssignmentsById', 'Table assignments updated successfully', notify);
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateTableAssignmentsById');
     throw error;
   }
 }
@@ -1529,7 +1943,7 @@ async function getViewAssignmentsById(
 
     return ((data ?? {}).assignments as ViewAssignment[]) ?? [];
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getViewAssignmentsById');
     throw error;
   }
 }
@@ -1539,6 +1953,7 @@ async function updateViewAssignmentsById(
   deletes: ViewAssignment[],
   writes: ViewAssignment[],
   warehouseId: string,
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -1556,15 +1971,19 @@ async function updateViewAssignmentsById(
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('updateViewAssignmentsById', 'View assignments updated successfully', notify);
+    }
+
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateViewAssignmentsById');
     throw error;
   }
 }
 
 // User
-async function createUser() {
+async function createUser(notify?: boolean) {
   try {
     init();
 
@@ -1576,14 +1995,17 @@ async function createUser() {
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('createUser', 'User created successfully', notify);
+    }
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'createUser');
     throw error;
   }
 }
 
-async function whoAmI() {
+async function whoAmI(notify?: boolean) {
   try {
     init();
 
@@ -1594,14 +2016,17 @@ async function whoAmI() {
     });
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('whoAmI', 'User identity retrieved successfully', notify);
+    }
     return data;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'whoAmI');
     throw error;
   }
 }
 
-async function searchUser(search: string): Promise<User[]> {
+async function searchUser(search: string, notify?: boolean): Promise<User[]> {
   try {
     init();
 
@@ -1614,9 +2039,13 @@ async function searchUser(search: string): Promise<User[]> {
 
     if (error) throw error;
 
-    return ((data as SearchUserResponse) ?? []).users as User[];
+    const result = ((data as SearchUserResponse) ?? []).users as User[];
+    if (notify) {
+      handleSuccess('searchUser', `Found ${result.length} user(s) matching '${search}'`, notify);
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'searchUser');
     throw error;
   }
 }
@@ -1624,6 +2053,7 @@ async function searchUser(search: string): Promise<User[]> {
 async function searchTabular(
   warehouseId: string,
   request: SearchTabularRequest,
+  notify?: boolean,
 ): Promise<SearchTabularResponse> {
   try {
     init();
@@ -1637,14 +2067,23 @@ async function searchTabular(
       body: { search: request.search || '', ...request },
     });
     if (error) throw error;
-    return (data as SearchTabularResponse) ?? { tabulars: [] };
+
+    const result = (data as SearchTabularResponse) ?? { tabulars: [] };
+    if (notify) {
+      handleSuccess(
+        'searchTabular',
+        `Found ${result.tabulars?.length || 0} tabular(s) matching search criteria`,
+        notify,
+      );
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'searchTabular');
     throw error;
   }
 }
 
-async function getUser(userId: string): Promise<User> {
+async function getUser(userId: string, notify?: boolean): Promise<User> {
   try {
     init();
 
@@ -1659,14 +2098,18 @@ async function getUser(userId: string): Promise<User> {
 
     if (error) throw error;
 
-    return data as User;
+    const result = data as User;
+    if (notify) {
+      handleSuccess('getUser', `User '${result.name || userId}' loaded successfully`, notify);
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getUser');
     throw error;
   }
 }
 
-async function deleteUser(userId: string): Promise<boolean> {
+async function deleteUser(userId: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -1681,9 +2124,12 @@ async function deleteUser(userId: string): Promise<boolean> {
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('deleteUser', `User deleted successfully`, notify);
+    }
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'deleteUser', notify);
     throw error;
   }
 }
@@ -1691,6 +2137,7 @@ async function deleteUser(userId: string): Promise<boolean> {
 async function listUser(
   pageToken?: string,
   pageSize?: number,
+  notify?: boolean,
 ): Promise<{ users: User[]; 'next-page-token'?: string }> {
   try {
     init();
@@ -1707,17 +2154,21 @@ async function listUser(
 
     if (error) throw error;
 
-    return {
+    const result = {
       users: data?.users as User[],
       'next-page-token': data?.['next-page-token'] || undefined,
     };
+    if (notify) {
+      handleSuccess('listUser', `${result.users?.length || 0} user(s) loaded successfully`, notify);
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'listUser');
     throw error;
   }
 }
 
-async function updateUserById(name: string, userId: string): Promise<boolean> {
+async function updateUserById(name: string, userId: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -1736,9 +2187,12 @@ async function updateUserById(name: string, userId: string): Promise<boolean> {
 
     if (error) throw error;
 
+    if (notify) {
+      handleSuccess('updateUserById', `User '${name}' updated successfully`, notify);
+    }
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateUserById');
     throw error;
   }
 }
@@ -1746,6 +2200,7 @@ async function updateUserById(name: string, userId: string): Promise<boolean> {
 // Roles
 async function searchRole(
   searchRequest: string | { search: string; 'project-id'?: string },
+  notify?: boolean,
 ): Promise<Role[]> {
   try {
     init();
@@ -1775,14 +2230,22 @@ async function searchRole(
 
     if (error) throw error;
 
-    return ((data as SearchRoleResponse) ?? []).roles as Role[];
+    const result = ((data as SearchRoleResponse) ?? []).roles as Role[];
+    if (notify) {
+      handleSuccess('searchRole', `Found ${result.length} role(s) matching '${search}'`, notify);
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'searchRole');
     throw error;
   }
 }
 
-async function listRoles(pageSize?: number, pageToken?: string): Promise<ListRolesResponse> {
+async function listRoles(
+  pageSize?: number,
+  pageToken?: string,
+  notify?: boolean,
+): Promise<ListRolesResponse> {
   try {
     init();
 
@@ -1798,14 +2261,22 @@ async function listRoles(pageSize?: number, pageToken?: string): Promise<ListRol
 
     if (error) throw error;
 
-    return (data as ListRolesResponse) ?? { roles: [] };
+    const result = (data as ListRolesResponse) ?? { roles: [] };
+    if (notify) {
+      handleSuccess(
+        'listRoles',
+        `${result.roles?.length || 0} role(s) loaded successfully`,
+        notify,
+      );
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'listRoles');
     throw error;
   }
 }
 
-async function getRole(roleId: string): Promise<Role> {
+async function getRole(roleId: string, notify?: boolean): Promise<Role> {
   try {
     init();
 
@@ -1818,14 +2289,18 @@ async function getRole(roleId: string): Promise<Role> {
 
     if (error) throw error;
 
-    return data as Role;
+    const result = data as Role;
+    if (notify) {
+      handleSuccess('getRole', `Role '${result.name || roleId}' loaded successfully`, notify);
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getRole');
     throw error;
   }
 }
 
-async function createRole(name: string, description?: string): Promise<Role> {
+async function createRole(name: string, description?: string, notify?: boolean): Promise<Role> {
   try {
     init();
 
@@ -1845,14 +2320,23 @@ async function createRole(name: string, description?: string): Promise<Role> {
 
     if (error) throw error;
 
-    return data as Role;
+    const result = data as Role;
+    if (notify) {
+      handleSuccess('createRole', `Role '${name}' created successfully`, notify);
+    }
+    return result;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'createRole', notify);
     throw error;
   }
 }
 
-async function updateRole(roleId: string, name: string, description?: string): Promise<Role> {
+async function updateRole(
+  roleId: string,
+  name: string,
+  description?: string,
+  notify?: boolean,
+): Promise<Role> {
   try {
     init();
 
@@ -1868,17 +2352,20 @@ async function updateRole(roleId: string, name: string, description?: string): P
       body,
       path: { role_id: roleId },
     });
-
     if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateRole', `Role '${name}' updated successfully`, notify);
+    }
 
     return data as Role;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'updateRole', notify);
     throw error;
   }
 }
 
-async function deleteRole(roleId: string): Promise<boolean> {
+async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
   try {
     init();
 
@@ -1889,10 +2376,13 @@ async function deleteRole(roleId: string): Promise<boolean> {
       path: { role_id: roleId },
     });
 
+    if (notify) {
+      handleSuccess('deleteRole', `Role '${roleId}' deleted successfully`, notify);
+    }
     return true;
   } catch (error: any) {
     console.error('Failed to delete role', error);
-    handleError(error, new Error());
+    handleError(error, 'deleteRole', notify);
     throw error;
   }
 }
@@ -1916,7 +2406,7 @@ async function getTaskQueueConfigTabularExpiration(
 
     return data as TabularExpirationQueueConfig;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getTaskQueueConfigTabularExpiration');
     throw error;
   }
 }
@@ -1940,7 +2430,7 @@ async function setTaskQueueConfigTabularExpiration(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'setTaskQueueConfigTabularExpiration');
     throw error;
   }
 }
@@ -1960,7 +2450,7 @@ async function getTaskQueueConfigTabularPurge(warehouseId: string): Promise<Purg
 
     return data as PurgeQueueConfig;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getTaskQueueConfigTabularPurge');
     throw error;
   }
 }
@@ -1984,7 +2474,7 @@ async function setTaskQueueConfigTabularPurge(
 
     return true;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'setTaskQueueConfigTabularPurge');
     throw error;
   }
 }
@@ -2006,7 +2496,7 @@ async function getTaskDetails(
   } catch (error: any) {
     // Handle CORS preflight failures and 404 errors gracefully without redirecting to server-offline
 
-    handleError(error, new Error());
+    handleError(error, 'getTaskDetails');
     throw error;
   }
 }
@@ -2015,6 +2505,7 @@ async function controlTasks(
   warehouseId: string,
   action: ControlTaskAction,
   taskIds: string[],
+  notify?: boolean,
 ): Promise<boolean> {
   try {
     init();
@@ -2030,11 +2521,34 @@ async function controlTasks(
       body,
     });
     if (error) throw error;
+
+    if (notify) {
+      const actionText = action['action-type'];
+      const taskText = taskIds.length === 1 ? `Task ${taskIds[0]}` : `${taskIds.length} tasks`;
+      let message = '';
+
+      switch (actionText) {
+        case 'stop':
+          message = `${taskText} stop requested`;
+          break;
+        case 'cancel':
+          message = `${taskText} cancelled`;
+          break;
+        case 'run-now':
+          message = `${taskText} scheduled to run now`;
+          break;
+        default:
+          message = `${taskText} ${actionText} completed`;
+      }
+
+      handleSuccess('controlTasks', message, notify);
+    }
+
     return true;
   } catch (error: any) {
     // Handle CORS preflight failures and 404 errors gracefully without redirecting to server-offline
 
-    handleError(error, new Error());
+    handleError(error, 'controlTasks');
     throw error;
   }
 }
@@ -2058,7 +2572,7 @@ async function listTasks(
     // Handle CORS preflight failures and 404 errors gracefully without redirecting to server-offline
 
     // For other errors, use the standard error handling
-    handleError(error, new Error());
+    handleError(error, 'listTasks');
     throw error;
   }
 }
@@ -2086,7 +2600,7 @@ async function getServerAccess(): Promise<ServerAction[]> {
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getServerAccess');
     throw error;
   }
 }
@@ -2110,7 +2624,7 @@ async function getProjectAccess(): Promise<ProjectAction[]> {
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getProjectAccess');
     throw error;
   }
 }
@@ -2137,7 +2651,7 @@ async function getProjectAccessById(projectId: string): Promise<ProjectAction[]>
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getProjectAccessById');
     throw error;
   }
 }
@@ -2166,7 +2680,7 @@ async function getWarehouseAccessById(warehouseId: string): Promise<WarehouseAct
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getWarehouseAccessById');
     return [];
   }
 }
@@ -2194,7 +2708,7 @@ async function getNamespaceAccessById(namespaceId: string): Promise<NamespaceAct
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getNamespaceAccessById');
     return [];
   }
 }
@@ -2224,7 +2738,7 @@ async function getTableAccessById(tableId: string, warehouseId: string): Promise
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getTableAccessById');
     return [];
   }
 }
@@ -2253,7 +2767,7 @@ async function getViewAccessById(viewId: string, warehouseId: string): Promise<V
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getViewAccessById');
     return [];
   }
 }
@@ -2281,13 +2795,15 @@ async function getRoleAccessById(roleId: string): Promise<RoleAction[]> {
 
     return actions;
   } catch (error: any) {
-    handleError(error, new Error());
+    handleError(error, 'getRoleAccessById');
     return [];
   }
 }
-function handleSuccess(functionName: string, msg: string) {
+function handleSuccess(functionName: string, msg: string, notify?: boolean) {
   const visual = useVisualStore();
+  const notificationStore = useNotificationStore();
 
+  // Always show snackbar
   visual.setSnackbarMsg({
     function: functionName,
     text: msg,
@@ -2295,6 +2811,16 @@ function handleSuccess(functionName: string, msg: string) {
     ts: Date.now(),
     type: Type.SUCCESS,
   });
+
+  // Only add to notification store for persistent notifications if notify is true
+  if (notify) {
+    notificationStore.addNotification({
+      function: functionName,
+      stack: [],
+      text: msg,
+      type: Type.SUCCESS,
+    });
+  }
 }
 // internal
 function copyToClipboard(text: string) {
@@ -2378,7 +2904,9 @@ export function useFunctions(config?: any) {
   }
 
   init();
-  return {
+
+  // Define all functions
+  const functions = {
     getServerInfo,
     loadProjectList,
     listWarehouses,
@@ -2471,6 +2999,9 @@ export function useFunctions(config?: any) {
     getNewToken,
     handleError,
   };
+
+  // Return functions with simple boolean notification control
+  return functions;
 }
 
 export default {

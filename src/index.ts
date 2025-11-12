@@ -68,6 +68,8 @@ import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
 import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
+import NotificationButton from './components/NotificationButton.vue';
+import NotificationPanel from './components/NotificationPanel.vue';
 
 // Export individual components
 export {
@@ -121,6 +123,8 @@ export {
   ViewRaw,
   ViewHistory,
   ViewDetails,
+  NotificationButton,
+  NotificationPanel,
 };
 
 // Export composables
@@ -131,6 +135,7 @@ export * from './composables/useAuth';
 export { useVisualStore } from './stores/visual';
 export { usePermissionStore } from './stores/permissions';
 export { useUserStore } from './stores/user';
+export { useNotificationStore } from './stores/notifications';
 
 // Export common types and enums
 export * from './common/interfaces';
@@ -201,6 +206,8 @@ const components = {
   ViewRaw,
   ViewHistory,
   ViewDetails,
+  NotificationButton,
+  NotificationPanel,
 };
 
 // Create the plugin

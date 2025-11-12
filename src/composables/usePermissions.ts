@@ -12,9 +12,27 @@ import { usePermissionStore } from '@/stores/permissions';
 // Helper to get config values via inject with fallback
 export function useConfig() {
   const config = inject<any>('appConfig', null);
+  const functions = useFunctions();
+  const authzBackend = ref<string>('');
+
+  // Load server info to determine permissions backend
+  onMounted(async () => {
+    if (functions?.getServerInfo) {
+      try {
+        const serverInfo = await functions.getServerInfo();
+        authzBackend.value = serverInfo['authz-backend'] || '';
+      } catch (error) {
+        console.warn('Failed to load server info for permissions config:', error);
+      }
+    }
+  });
+
   return {
     enabledAuthentication: computed(() => config?.enabledAuthentication ?? false),
-    enabledPermissions: computed(() => config?.enabledPermissions ?? false),
+    enabledPermissions: computed(() => {
+      // Check server's authz-backend instead of frontend config
+      return authzBackend.value !== 'allow-all' && authzBackend.value !== '';
+    }),
   };
 }
 import type { Ref } from 'vue';
@@ -239,6 +257,7 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
   const canSearchRoles = computed(() => hasPermission('search_roles'));
   const canReadAssignments = computed(() => hasPermission('read_assignments'));
   const canDelete = computed(() => hasPermission('delete'));
+  const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
 
   // UI visibility helpers that include auth checks
   const showPermissionsTab = computed(
@@ -247,6 +266,7 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
   );
+  const showStatisticsTab = computed(() => canGetEndpointStatistics.value);
 
   // Auto-load on mount
   onMounted(() => {
@@ -279,7 +299,9 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
     canSearchRoles,
     canReadAssignments,
     canDelete,
+    canGetEndpointStatistics,
     showPermissionsTab,
+    showStatisticsTab,
     refresh: loadPermissions,
   };
 }
@@ -339,6 +361,13 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const canModifyStorage = computed(() => hasPermission('modify_storage'));
   const canModifyCredentials = computed(() => hasPermission('modify_storage_credential'));
   const canRename = computed(() => hasPermission('rename'));
+  const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
+  const canSetProtection = computed(
+    () =>
+      hasPermission('set_protection') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
 
   // UI visibility helpers that include auth checks
   const showPermissionsTab = computed(
@@ -350,6 +379,12 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const showTasksTab = computed(
     () =>
       canGetAllTasks.value ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
+  const canControlTasks = computed(
+    () =>
+      canControlAllTasks.value ||
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
@@ -389,8 +424,11 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canModifyStorage,
     canModifyCredentials,
     canRename,
+    canSetProtection,
+    canGetEndpointStatistics,
     showPermissionsTab,
     showTasksTab,
+    canControlTasks,
     refresh: loadPermissions,
   };
 }
@@ -438,6 +476,12 @@ export function useNamespacePermissions(namespaceId: Ref<string> | string) {
   const canCreateView = computed(() => hasPermission('create_view'));
   const canGetMetadata = computed(() => hasPermission('get_metadata'));
   const canManageGrants = computed(() => hasPermission('grant_manage_grants'));
+  const canSetProtection = computed(
+    () =>
+      hasPermission('set_protection') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
 
   // UI helpers
   const showPermissionsTab = computed(
@@ -477,6 +521,7 @@ export function useNamespacePermissions(namespaceId: Ref<string> | string) {
     canCreateView,
     canGetMetadata,
     canManageGrants,
+    canSetProtection,
     showPermissionsTab,
     refresh: loadPermissions,
   };
@@ -535,6 +580,12 @@ export function useTablePermissions(
   const canReadPermissions = computed(() => hasPermission('read_assignments'));
   const canGetTasks = computed(() => hasPermission('get_tasks'));
   const canControlTasks = computed(() => hasPermission('control_tasks'));
+  const canSetProtection = computed(
+    () =>
+      hasPermission('set_protection') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
 
   // UI helpers
   const showPermissionsTab = computed(
@@ -571,6 +622,7 @@ export function useTablePermissions(
     canReadPermissions,
     canGetTasks,
     canControlTasks,
+    canSetProtection,
     showPermissionsTab,
     showTasksTab,
     refresh: loadPermissions,
@@ -630,6 +682,12 @@ export function useViewPermissions(
   const canReadPermissions = computed(() => hasPermission('read_assignments'));
   const canGetTasks = computed(() => hasPermission('get_tasks'));
   const canControlTasks = computed(() => hasPermission('control_tasks'));
+  const canSetProtection = computed(
+    () =>
+      hasPermission('set_protection') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
 
   // UI helpers
   const showPermissionsTab = computed(
@@ -666,6 +724,7 @@ export function useViewPermissions(
     canReadPermissions,
     canGetTasks,
     canControlTasks,
+    canSetProtection,
     showPermissionsTab,
     showTasksTab,
     refresh: loadPermissions,

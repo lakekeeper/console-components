@@ -16,6 +16,7 @@
     <template #top>
       <v-toolbar color="transparent" density="compact" flat>
         <v-switch
+          v-if="canSetProtection"
           v-model="recursiveDeleteProtection"
           class="ml-4 mt-4"
           color="info"
@@ -25,7 +26,7 @@
               : 'Recursive Delete Protection disabled'
           "
           @click.prevent="showConfirmDialog"></v-switch>
-        <v-spacer></v-spacer>
+        <v-spacer v-if="canSetProtection"></v-spacer>
         <v-text-field
           v-model="searchNamespace"
           label="Filter results"
@@ -93,6 +94,7 @@ const props = defineProps<{
 
 const router = useRouter();
 const functions = useFunctions();
+const notify = true;
 
 const namespaceId = ref('');
 const confirmDialog = ref(false);
@@ -112,7 +114,9 @@ async function loadNamespaceAndData() {
 }
 
 // Use namespace permissions composable
-const { canCreateNamespace } = useNamespacePermissions(computed(() => namespaceId.value));
+const { canCreateNamespace, canSetProtection } = useNamespacePermissions(
+  computed(() => namespaceId.value),
+);
 
 const searchNamespace = ref('');
 const recursiveDeleteProtection = ref(false);
@@ -177,8 +181,7 @@ async function paginationCheck(option: Options) {
 async function addNamespace(namespaceIdent: string[]) {
   addNamespaceStatus.value = StatusIntent.STARTING;
   try {
-    const res = await functions.createNamespace(props.warehouseId, namespaceIdent);
-    if (res.error) throw res.error;
+    await functions.createNamespace(props.warehouseId, namespaceIdent, notify);
 
     addNamespaceStatus.value = StatusIntent.SUCCESS;
     await loadNamespaces();
@@ -190,12 +193,12 @@ async function addNamespace(namespaceIdent: string[]) {
 
 async function deleteNamespaceWithOptions(e: any, item: Item) {
   try {
-    const res = await functions.dropNamespace(
+    await functions.dropNamespace(
       props.warehouseId,
       item.parentPath.join(String.fromCharCode(0x1f)),
       e,
+      notify,
     );
-    if (res.error) throw res.error;
 
     await loadNamespaces();
   } catch (error) {
@@ -243,6 +246,7 @@ async function setProtection() {
       props.warehouseId,
       namespaceId.value,
       recursiveDeleteProtection.value,
+      true,
     );
     // Value already set in confirmProtectionChange
   } catch (error) {

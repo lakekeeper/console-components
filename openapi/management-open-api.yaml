@@ -3712,6 +3712,7 @@ components:
         - grant_select
         - grant_pass_grants
         - grant_manage_grants
+        - set_protection
     NamespaceAssignment:
       oneOf:
         - allOf:
@@ -3846,6 +3847,7 @@ components:
         - grant_project_admin
         - grant_security_admin
         - grant_data_admin
+        - get_endpoint_statistics
     ProjectAssignment:
       oneOf:
         - allOf:
@@ -4723,6 +4725,7 @@ components:
         - change_ownership
         - get_tasks
         - control_tasks
+        - set_protection
     TableAssignment:
       oneOf:
         - allOf:
@@ -5337,6 +5340,7 @@ components:
         - change_ownership
         - get_tasks
         - control_tasks
+        - set_protection
     ViewAssignment:
       oneOf:
         - allOf:
@@ -5427,6 +5431,8 @@ components:
         - change_ownership
         - get_all_tasks
         - control_all_tasks
+        - set_protection
+        - get_endpoint_statistics
     WarehouseAssignment:
       oneOf:
         - allOf:

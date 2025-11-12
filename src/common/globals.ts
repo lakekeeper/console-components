@@ -35,6 +35,7 @@ const projectActions: ProjectAction[] = [
   'grant_project_admin',
   'grant_security_admin',
   'grant_data_admin',
+  'get_endpoint_statistics',
 ];
 
 const warehouseActions: WarehouseAction[] = [
@@ -58,6 +59,9 @@ const warehouseActions: WarehouseAction[] = [
   'grant_pass_grants',
   'grant_manage_grants',
   'change_ownership',
+  'get_all_tasks',
+  'control_all_tasks',
+  'get_endpoint_statistics',
 ];
 
 const namespaceActions: NamespaceAction[] = [

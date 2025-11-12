@@ -316,28 +316,70 @@
         </v-row>
       </div>
 
-      <v-btn
+      <v-btn-group
         v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
-        color="success"
-        :disabled="
-          (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-            (!warehouseObjectData['storage-credential']['aws-access-key-id'] ||
-              !warehouseObjectData['storage-credential']['aws-secret-access-key'])) ||
-          !warehouseObjectData['storage-profile'].bucket ||
-          (warehouseObjectData['storage-profile'].flavor === 'aws' &&
-            !warehouseObjectData['storage-profile'].region) ||
-          (warehouseObjectData['storage-profile']['sts-enabled'] &&
-            warehouseObjectData['storage-profile'].flavor !== 's3-compat' &&
-            !warehouseObjectData['storage-profile']['sts-role-arn'] &&
-            !(
-              warehouseObjectData['storage-profile'].flavor === 'aws' &&
-              warehouseObjectData['storage-profile']['assume-role-arn'] &&
-              warehouseObjectData['storage-profile']['sts-enabled']
-            ))
-        "
-        type="submit">
-        Submit
-      </v-btn>
+        divided>
+        <v-btn
+          color="success"
+          type="submit"
+          :disabled="
+            (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
+              (!warehouseObjectData['storage-credential']['aws-access-key-id'] ||
+                !warehouseObjectData['storage-credential']['aws-secret-access-key'])) ||
+            !warehouseObjectData['storage-profile'].bucket ||
+            (warehouseObjectData['storage-profile'].flavor === 'aws' &&
+              !warehouseObjectData['storage-profile'].region) ||
+            (warehouseObjectData['storage-profile']['sts-enabled'] &&
+              warehouseObjectData['storage-profile'].flavor !== 's3-compat' &&
+              !warehouseObjectData['storage-profile']['sts-role-arn'] &&
+              !(
+                warehouseObjectData['storage-profile'].flavor === 'aws' &&
+                warehouseObjectData['storage-profile']['assume-role-arn'] &&
+                warehouseObjectData['storage-profile']['sts-enabled']
+              ))
+          ">
+          Create
+        </v-btn>
+        <v-menu>
+          <template #activator="{ props: menuProps }">
+            <v-btn
+              color="success"
+              v-bind="menuProps"
+              icon="mdi-menu-down"
+              size="small"
+              :disabled="
+                (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
+                  (!warehouseObjectData['storage-credential']['aws-access-key-id'] ||
+                    !warehouseObjectData['storage-credential']['aws-secret-access-key'])) ||
+                !warehouseObjectData['storage-profile'].bucket ||
+                (warehouseObjectData['storage-profile'].flavor === 'aws' &&
+                  !warehouseObjectData['storage-profile'].region) ||
+                (warehouseObjectData['storage-profile']['sts-enabled'] &&
+                  warehouseObjectData['storage-profile'].flavor !== 's3-compat' &&
+                  !warehouseObjectData['storage-profile']['sts-role-arn'] &&
+                  !(
+                    warehouseObjectData['storage-profile'].flavor === 'aws' &&
+                    warehouseObjectData['storage-profile']['assume-role-arn'] &&
+                    warehouseObjectData['storage-profile']['sts-enabled']
+                  ))
+              "></v-btn>
+          </template>
+          <v-list>
+            <v-list-item @click="handleSubmit">
+              <template #prepend>
+                <v-icon>mdi-check</v-icon>
+              </template>
+              <v-list-item-title>Create</v-list-item-title>
+            </v-list-item>
+            <v-list-item @click="saveAsJson">
+              <template #prepend>
+                <v-icon>mdi-download</v-icon>
+              </template>
+              <v-list-item-title>& save config</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
+      </v-btn-group>
       <v-btn
         v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
         color="success"
@@ -399,7 +441,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'submit', warehouseObjectDataEmit: WarehousObject): void;
+  (e: 'submit', warehouseObjectDataEmit: WarehousObject, shouldSaveAsJson: boolean): void;
   (e: 'updateCredentials', credentials: StorageCredential): void;
   (
     e: 'updateProfile',
@@ -428,6 +470,9 @@ const warehouseObjectData = reactive<{
     'external-id': null, // Optional, can be used for both credential types
   },
 });
+
+// Track whether to save as JSON
+const shouldSaveAsJson = ref(false);
 
 // STS Session Tags management
 const stsSessionTagsArray = ref<Array<{ key: string; value: string }>>([]);
@@ -584,7 +629,13 @@ const s3Flavor = [
 ];
 
 const handleSubmit = () => {
-  emit('submit', warehouseObjectData);
+  shouldSaveAsJson.value = false;
+  emit('submit', warehouseObjectData, shouldSaveAsJson.value);
+};
+
+const saveAsJson = () => {
+  shouldSaveAsJson.value = true;
+  emit('submit', warehouseObjectData, shouldSaveAsJson.value);
 };
 
 const emitNewCredentials = () => {

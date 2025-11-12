@@ -99,6 +99,7 @@ import cfIcon from '@/assets/cf.svg';
 const router = useRouter();
 const functions = useFunctions();
 const visual = useVisualStore();
+const notify = true;
 
 const projectId = computed(() => visual.projectSelected['project-id']);
 const { loading, canCreateWarehouse, canListWarehouses } = useProjectPermissions(projectId);
@@ -231,7 +232,7 @@ function navigateToWarehouse(item: GetWarehouseResponseExtended) {
 
 async function deleteWarehouse(id: string) {
   try {
-    await functions.deleteWarehouse(id);
+    await functions.deleteWarehouse(id, notify);
     await listWarehouse();
   } catch (error) {
     console.error('Error deleting warehouse:', error);

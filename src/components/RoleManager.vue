@@ -74,6 +74,7 @@ import { useProjectPermissions } from '../composables/usePermissions';
 const functions = useFunctions();
 const visual = useVisualStore();
 const router = useRouter();
+const notify = true;
 
 interface ExtendedRole extends Role {
   can_delete?: boolean;
@@ -215,7 +216,7 @@ async function paginationCheck(option: any) {
 
 async function createRole() {
   try {
-    await functions.createRole(role.name, role.description);
+    await functions.createRole(role.name, role.description, notify);
     await loadRoles();
     searchResults.splice(0, searchResults.length);
     searchResults.push(...loadedRoles);
@@ -226,7 +227,7 @@ async function createRole() {
 
 async function deleteRole(roleId: string) {
   try {
-    await functions.deleteRole(roleId);
+    await functions.deleteRole(roleId, notify);
 
     // Remove from both arrays efficiently
     const loadedIndex = loadedRoles.findIndex((r) => r.id === roleId);
