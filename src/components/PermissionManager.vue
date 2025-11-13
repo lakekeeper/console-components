@@ -49,7 +49,13 @@
             variant="outlined">
             External Project Role
           </v-chip>
-          ( Project-ID: {{ item['project-id'] }})
+          ( Project-ID: {{ item['project-id'] }}
+          <v-btn
+            icon="mdi-content-copy"
+            size="x-small"
+            variant="flat"
+            @click="copyToClipboard(item['project-id'] || '')"></v-btn>
+          )
         </span>
       </span>
     </template>
@@ -189,6 +195,9 @@ const managedAccess = computed(() => {
   }
 });
 
+function copyToClipboard(text: string) {
+  functions.copyToClipboard(text);
+}
 const props = withDefaults(
   defineProps<{
     objectId: string;
