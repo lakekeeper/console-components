@@ -248,8 +248,6 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       code = code || error?.error?.code || error?.status || error?.response?.status || 0;
     }
 
-    console.log('Extracted code:', code, 'message:', message);
-
     if (code === 401) {
       console.warn('Authentication failed (401), redirecting to login...');
       // Clear user session

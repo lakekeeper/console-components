@@ -82,24 +82,12 @@ export function createAuth(config: AuthConfig) {
   userManager.events.addUserLoaded(async (user) => {
     const now = Date.now();
 
-    console.log('[userLoaded] Event fired! Token expiry:', user.expires_at);
-
     // Always update the store with new token data
     const mappedUser = mapOidcUserToUser(user);
     if (mappedUser) {
-      console.log(
-        '[userLoaded] Updating user store with new token. Exp:',
-        mappedUser.token_expires_at,
-      );
-
       useUserStore().setUser(mappedUser);
       accessToken.value = mappedUser.access_token;
       isAuthenticated.value = true;
-
-      console.log(
-        '[userLoaded] Store updated. Current store token exp:',
-        useUserStore().user.token_expires_at,
-      );
 
       // CRITICAL: Verify UserManager's storage has the same refresh token
       // If different, it means the event parameter has stale data
@@ -114,10 +102,6 @@ export function createAuth(config: AuthConfig) {
 
           const correctedUser = mapOidcUserToUser(freshUser);
           if (correctedUser) {
-            console.log(
-              '[userLoaded] Correcting with fresh token. Exp:',
-              correctedUser.token_expires_at,
-            );
             useUserStore().setUser(correctedUser);
           }
         }
