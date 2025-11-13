@@ -41,7 +41,6 @@
         <v-icon v-else class="mr-2">mdi-account-box-multiple-outline</v-icon>
         {{ item.name }}
         <span v-if="isRoleFromDifferentProject(item)" class="text-caption text-grey ml-2">
-          (
           <v-chip
             v-if="isRoleFromDifferentProject(item)"
             class="ml-2"
@@ -50,7 +49,7 @@
             variant="outlined">
             External Project Role
           </v-chip>
-          Project-ID: {{ item['project-id'] }})
+          ( Project-ID: {{ item['project-id'] }})
         </span>
       </span>
     </template>
