@@ -82,6 +82,7 @@
         <v-row>
           <v-col cols="2">
             <v-checkbox
+              v-if="props.actionType == 'grant'"
               v-model="byIdActivated"
               label="Search by ID"
               :disabled="isRoleSearchDisabled"></v-checkbox>
