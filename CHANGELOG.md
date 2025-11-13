@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.6](https://github.com/lakekeeper/console-components/compare/v0.2.5...v0.2.6) (2025-11-13)
+
+
+### Bug Fixes
+
+* re-login on 401 ([#32](https://github.com/lakekeeper/console-components/issues/32)) ([30029d5](https://github.com/lakekeeper/console-components/commit/30029d57e8b59a4b058d0151b4c1d19420114828))
+
 ## [0.2.5](https://github.com/lakekeeper/console-components/compare/v0.2.4...v0.2.5) (2025-11-12)
 
 
