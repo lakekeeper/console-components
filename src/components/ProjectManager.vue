@@ -46,11 +46,22 @@
             fixed-header
             :headers="headers"
             hover
-            :items="availableProjects"
+            :items="filteredProjects"
             :sort-by="[{ key: 'project-name', order: 'asc' }]">
             <template #top>
               <v-toolbar color="transparent" density="compact" flat>
                 <v-toolbar-title class="text-subtitle-1">Available Projects</v-toolbar-title>
+                <v-spacer></v-spacer>
+                <v-text-field
+                  v-model="searchQuery"
+                  label="Filter projects"
+                  prepend-inner-icon="mdi-filter"
+                  placeholder="Type to filter projects"
+                  variant="underlined"
+                  hide-details
+                  clearable
+                  class="mr-4"
+                  style="max-width: 300px"></v-text-field>
                 <ProjectNameAddOrEditDialog
                   v-if="canCreateProject"
                   :id="''"
@@ -172,6 +183,22 @@ const headers: readonly Header[] = Object.freeze([
 const availableProjects = reactive<(GetProjectResponse & { actions: string[]; info: string })[]>(
   [],
 );
+
+const searchQuery = ref('');
+
+// Computed property to filter projects based on search query
+const filteredProjects = computed(() => {
+  if (!searchQuery.value || searchQuery.value.trim() === '') {
+    return availableProjects;
+  }
+
+  const query = searchQuery.value.toLowerCase().trim();
+  return availableProjects.filter(
+    (project) =>
+      project['project-name'].toLowerCase().includes(query) ||
+      project['project-id'].toLowerCase().includes(query),
+  );
+});
 
 async function init() {
   try {
