@@ -3,7 +3,7 @@
     fixed-header
     :headers="headers"
     hover
-    :items="permissionRows"
+    :items="filteredAssignments"
     :sort-by="[{ key: 'name', order: 'asc' }]">
     <template #top>
       <v-toolbar color="transparent" density="compact" flat>
@@ -19,6 +19,16 @@
           @click="switchManagedAccess"></v-switch>
 
         <v-spacer></v-spacer>
+        <v-text-field
+          v-model="searchQuery"
+          label="Filter Assignments"
+          prepend-inner-icon="mdi-filter"
+          placeholder="Type to filter assignments"
+          variant="underlined"
+          hide-details
+          clearable
+          class="mr-4"
+          style="max-width: 300px"></v-text-field>
         <span v-if="canManageGrants" style="display: flex; align-items: center">
           <PermissionAssignDialog
             :status="assignStatus"
@@ -139,6 +149,23 @@ import { useVisualStore } from '../stores/visual';
 
 const functions = inject<any>('functions')!;
 const visualStore = useVisualStore();
+
+const searchQuery = ref('');
+
+// Computed property to filter projects based on search query
+const filteredAssignments = computed(() => {
+  if (!searchQuery.value || searchQuery.value.trim() === '') {
+    return permissionRows;
+  }
+
+  const query = searchQuery.value.toLowerCase().trim();
+  return permissionRows.filter(
+    (permission) =>
+      permission['id'].toLowerCase().includes(query) ||
+      permission['name'].toLowerCase().includes(query) ||
+      permission['email'].toLowerCase().includes(query),
+  );
+});
 
 const currentProjectId = computed(() => {
   return visualStore.projectSelected['project-id'] || null;
