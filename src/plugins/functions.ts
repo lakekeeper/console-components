@@ -211,48 +211,73 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
   const notificationStore = useNotificationStore();
   try {
     console.error('Setting error:', error);
+    console.error('Error structure:', JSON.stringify(error, null, 2));
     let message = '';
     let code = 0;
+
     if (typeof error === 'string') {
       const data = parseErrorText(error);
       message = data.message;
       code = data.code;
+      // Check if the string message indicates authentication failure
+      if (
+        message.toLowerCase().includes('failed to authenticate') ||
+        message.toLowerCase().includes('unauthorized')
+      ) {
+        code = 401;
+      }
     } else {
       const api_error_type = error?.error?.type || '';
-      const msg = error?.error?.message || 'An unknown error occurred';
+      const msg = error?.error?.message || error?.message || 'An unknown error occurred';
+
+      // Check if message indicates authentication failure
+      if (
+        msg.toLowerCase().includes('failed to authenticate') ||
+        msg.toLowerCase().includes('unauthorized')
+      ) {
+        code = 401;
+      }
+
       if (api_error_type !== '') {
         message = `${api_error_type}: ${msg}`;
+      } else {
+        message = msg;
       }
-      code = error?.error?.code;
+
+      // Check multiple possible locations for the status code
+      code = code || error?.error?.code || error?.status || error?.response?.status || 0;
     }
+
+    console.log('Extracted code:', code, 'message:', message);
 
     if (code === 401) {
       console.warn('Authentication failed (401), redirecting to login...');
       // Clear user session
       const userStore = useUserStore();
       userStore.unsetUser();
-      // Redirect to login page
+      // Redirect to login page immediately without showing snackbar
       const baseUrl = appConfig?.baseUrlPrefix || '';
       window.location.href = `${baseUrl}/ui/login`;
-    } else {
-      // Always show snackbar for immediate user feedback
+      return; // Exit early to prevent snackbar from showing
+    }
 
-      // Only add to notification store for persistent notifications if notify is true
-      if (notify) {
-        visual.setSnackbarMsg({
-          function: functionCaused,
-          text: message,
-          ttl,
-          ts: Date.now(),
-          type,
-        });
-        notificationStore.addNotification({
-          function: functionCaused,
-          stack: [],
-          text: message,
-          type,
-        });
-      }
+    // Always show snackbar for immediate user feedback
+    visual.setSnackbarMsg({
+      function: functionCaused,
+      text: message,
+      ttl,
+      ts: Date.now(),
+      type,
+    });
+
+    // Only add to notification store for persistent notifications if notify is true
+    if (notify) {
+      notificationStore.addNotification({
+        function: functionCaused,
+        stack: [],
+        text: message,
+        type,
+      });
     }
   } catch (newError) {
     console.error('Failed to set error', newError);
