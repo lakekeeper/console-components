@@ -54,9 +54,9 @@
                 <v-spacer></v-spacer>
                 <v-text-field
                   v-model="searchQuery"
-                  label="Search projects"
-                  prepend-inner-icon="mdi-magnify"
-                  placeholder="Type to search projects"
+                  label="Filter projects"
+                  prepend-inner-icon="mdi-filter"
+                  placeholder="Type to filter projects"
                   variant="underlined"
                   hide-details
                   clearable
