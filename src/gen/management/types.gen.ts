@@ -438,6 +438,38 @@ export type GetEndpointStatisticsRequest = {
     warehouse: WarehouseFilter;
 };
 
+export type GetLakekeeperNamespaceActionsResponse = {
+    'allowed-actions': Array<LakekeeperNamespaceAction>;
+};
+
+export type GetLakekeeperProjectActionsResponse = {
+    'allowed-actions': Array<LakekeeperProjectAction>;
+};
+
+export type GetLakekeeperRoleActionsResponse = {
+    'allowed-actions': Array<LakekeeperRoleAction>;
+};
+
+export type GetLakekeeperServerActionsResponse = {
+    'allowed-actions': Array<LakekeeperServerAction>;
+};
+
+export type GetLakekeeperTableActionsResponse = {
+    'allowed-actions': Array<LakekeeperTableAction>;
+};
+
+export type GetLakekeeperUserActionsResponse = {
+    'allowed-actions': Array<LakekeeperUserAction>;
+};
+
+export type GetLakekeeperViewActionsResponse = {
+    'allowed-actions': Array<LakekeeperViewAction>;
+};
+
+export type GetLakekeeperWarehouseActionsResponse = {
+    'allowed-actions': Array<LakekeeperWarehouseAction>;
+};
+
 export type GetNamespaceAccessResponse = {
     'allowed-actions': Array<NamespaceAction>;
 };
@@ -591,6 +623,22 @@ export type GetWarehouseResponse = {
 export type IcebergErrorResponse = {
     error: ErrorModel;
 };
+
+export type LakekeeperNamespaceAction = 'CanCreateTable' | 'CanCreateView' | 'CanCreateNamespace' | 'CanDelete' | 'CanUpdateProperties' | 'CanGetMetadata' | 'CanListTables' | 'CanListViews' | 'CanListNamespaces' | 'CanListEverything' | 'CanSetProtection' | 'CanIncludeInList';
+
+export type LakekeeperProjectAction = 'CanCreateWarehouse' | 'CanDelete' | 'CanRename' | 'CanGetMetadata' | 'CanListWarehouses' | 'CanIncludeInList' | 'CanCreateRole' | 'CanListRoles' | 'CanSearchRoles' | 'CanGetEndpointStatistics';
+
+export type LakekeeperRoleAction = 'CanRead' | 'CanDelete' | 'CanUpdate';
+
+export type LakekeeperServerAction = 'CanCreateProject' | 'CanUpdateUsers' | 'CanDeleteUsers' | 'CanListUsers' | 'CanProvisionUsers';
+
+export type LakekeeperTableAction = 'CanDrop' | 'CanWriteData' | 'CanReadData' | 'CanGetMetadata' | 'CanCommit' | 'CanRename' | 'CanIncludeInList' | 'CanUndrop' | 'CanGetTasks' | 'CanControlTasks' | 'CanSetProtection';
+
+export type LakekeeperUserAction = 'CanRead' | 'CanUpdate' | 'CanDelete';
+
+export type LakekeeperViewAction = 'CanDrop' | 'CanGetMetadata' | 'CanCommit' | 'CanIncludeInList' | 'CanRename' | 'CanUndrop' | 'CanGetTasks' | 'CanControlTasks' | 'CanSetProtection';
+
+export type LakekeeperWarehouseAction = 'CanCreateNamespace' | 'CanDelete' | 'CanUpdateStorage' | 'CanUpdateStorageCredential' | 'CanGetMetadata' | 'CanGetConfig' | 'CanListNamespaces' | 'CanListEverything' | 'CanUse' | 'CanIncludeInList' | 'CanDeactivate' | 'CanActivate' | 'CanRename' | 'CanListDeletedTabulars' | 'CanModifySoftDeletion' | 'CanGetTaskQueueConfig' | 'CanModifyTaskQueueConfig' | 'CanGetAllTasks' | 'CanControlAllTasks' | 'CanSetProtection' | 'CanGetEndpointStatistics';
 
 /**
  * Status of license validation
@@ -1623,70 +1671,6 @@ export type BootstrapResponses = {
 
 export type BootstrapResponse = BootstrapResponses[keyof BootstrapResponses];
 
-export type DeleteDefaultProjectDeprecatedData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/management/v1/default-project';
-};
-
-export type DeleteDefaultProjectDeprecatedErrors = {
-    '4XX': IcebergErrorResponse;
-};
-
-export type DeleteDefaultProjectDeprecatedError = DeleteDefaultProjectDeprecatedErrors[keyof DeleteDefaultProjectDeprecatedErrors];
-
-export type DeleteDefaultProjectDeprecatedResponses = {
-    /**
-     * Project deleted successfully
-     */
-    204: void;
-};
-
-export type DeleteDefaultProjectDeprecatedResponse = DeleteDefaultProjectDeprecatedResponses[keyof DeleteDefaultProjectDeprecatedResponses];
-
-export type GetDefaultProjectDeprecatedData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/management/v1/default-project';
-};
-
-export type GetDefaultProjectDeprecatedErrors = {
-    '4XX': IcebergErrorResponse;
-};
-
-export type GetDefaultProjectDeprecatedError = GetDefaultProjectDeprecatedErrors[keyof GetDefaultProjectDeprecatedErrors];
-
-export type GetDefaultProjectDeprecatedResponses = {
-    /**
-     * Project details
-     */
-    200: GetProjectResponse;
-};
-
-export type GetDefaultProjectDeprecatedResponse = GetDefaultProjectDeprecatedResponses[keyof GetDefaultProjectDeprecatedResponses];
-
-export type RenameDefaultProjectDeprecatedData = {
-    body: RenameProjectRequest;
-    path?: never;
-    query?: never;
-    url: '/management/v1/default-project/rename';
-};
-
-export type RenameDefaultProjectDeprecatedErrors = {
-    '4XX': IcebergErrorResponse;
-};
-
-export type RenameDefaultProjectDeprecatedError = RenameDefaultProjectDeprecatedErrors[keyof RenameDefaultProjectDeprecatedErrors];
-
-export type RenameDefaultProjectDeprecatedResponses = {
-    /**
-     * Project renamed successfully
-     */
-    200: unknown;
-};
-
 export type GetEndpointStatisticsData = {
     body: GetEndpointStatisticsRequest;
     path?: never;
@@ -2370,7 +2354,7 @@ export type UpdateViewAssignmentsByIdResponses = {
 
 export type UpdateViewAssignmentsByIdResponse = UpdateViewAssignmentsByIdResponses[keyof UpdateViewAssignmentsByIdResponses];
 
-export type DeleteDefaultProjectData = {
+export type DeleteProjectData = {
     body?: never;
     headers: {
         /**
@@ -2383,22 +2367,22 @@ export type DeleteDefaultProjectData = {
     url: '/management/v1/project';
 };
 
-export type DeleteDefaultProjectErrors = {
+export type DeleteProjectErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type DeleteDefaultProjectError = DeleteDefaultProjectErrors[keyof DeleteDefaultProjectErrors];
+export type DeleteProjectError = DeleteProjectErrors[keyof DeleteProjectErrors];
 
-export type DeleteDefaultProjectResponses = {
+export type DeleteProjectResponses = {
     /**
      * Project deleted successfully
      */
     204: void;
 };
 
-export type DeleteDefaultProjectResponse = DeleteDefaultProjectResponses[keyof DeleteDefaultProjectResponses];
+export type DeleteProjectResponse = DeleteProjectResponses[keyof DeleteProjectResponses];
 
-export type GetDefaultProjectData = {
+export type GetProjectData = {
     body?: never;
     headers: {
         /**
@@ -2411,20 +2395,20 @@ export type GetDefaultProjectData = {
     url: '/management/v1/project';
 };
 
-export type GetDefaultProjectErrors = {
+export type GetProjectErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type GetDefaultProjectError = GetDefaultProjectErrors[keyof GetDefaultProjectErrors];
+export type GetProjectError = GetProjectErrors[keyof GetProjectErrors];
 
-export type GetDefaultProjectResponses = {
+export type GetProjectResponses = {
     /**
      * Project details
      */
     200: GetProjectResponse;
 };
 
-export type GetDefaultProjectResponse = GetDefaultProjectResponses[keyof GetDefaultProjectResponses];
+export type GetProjectResponse2 = GetProjectResponses[keyof GetProjectResponses];
 
 export type CreateProjectData = {
     body: CreateProjectRequest;
@@ -2470,7 +2454,32 @@ export type ListProjectsResponses = {
 
 export type ListProjectsResponse2 = ListProjectsResponses[keyof ListProjectsResponses];
 
-export type RenameDefaultProjectData = {
+export type GetProjectActionsData = {
+    body?: never;
+    headers: {
+        /**
+         * Optional project ID
+         */
+        'x-project-id': string;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/project/actions';
+};
+
+export type GetProjectActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetProjectActionsError = GetProjectActionsErrors[keyof GetProjectActionsErrors];
+
+export type GetProjectActionsResponses = {
+    200: GetLakekeeperProjectActionsResponse;
+};
+
+export type GetProjectActionsResponse = GetProjectActionsResponses[keyof GetProjectActionsResponses];
+
+export type RenameProjectData = {
     body: RenameProjectRequest;
     headers: {
         /**
@@ -2483,20 +2492,20 @@ export type RenameDefaultProjectData = {
     url: '/management/v1/project/rename';
 };
 
-export type RenameDefaultProjectErrors = {
+export type RenameProjectErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type RenameDefaultProjectError = RenameDefaultProjectErrors[keyof RenameDefaultProjectErrors];
+export type RenameProjectError = RenameProjectErrors[keyof RenameProjectErrors];
 
-export type RenameDefaultProjectResponses = {
+export type RenameProjectResponses = {
     /**
      * Project renamed successfully
      */
     200: unknown;
 };
 
-export type DeleteProjectByIdData = {
+export type DeleteProjectByIdDeprecatedData = {
     body?: never;
     path: {
         project_id: string;
@@ -2505,22 +2514,22 @@ export type DeleteProjectByIdData = {
     url: '/management/v1/project/{project_id}';
 };
 
-export type DeleteProjectByIdErrors = {
+export type DeleteProjectByIdDeprecatedErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type DeleteProjectByIdError = DeleteProjectByIdErrors[keyof DeleteProjectByIdErrors];
+export type DeleteProjectByIdDeprecatedError = DeleteProjectByIdDeprecatedErrors[keyof DeleteProjectByIdDeprecatedErrors];
 
-export type DeleteProjectByIdResponses = {
+export type DeleteProjectByIdDeprecatedResponses = {
     /**
      * Project deleted successfully
      */
     204: void;
 };
 
-export type DeleteProjectByIdResponse = DeleteProjectByIdResponses[keyof DeleteProjectByIdResponses];
+export type DeleteProjectByIdDeprecatedResponse = DeleteProjectByIdDeprecatedResponses[keyof DeleteProjectByIdDeprecatedResponses];
 
-export type GetProjectByIdData = {
+export type GetProjectByIdDeprecatedData = {
     body?: never;
     path: {
         project_id: string;
@@ -2529,22 +2538,22 @@ export type GetProjectByIdData = {
     url: '/management/v1/project/{project_id}';
 };
 
-export type GetProjectByIdErrors = {
+export type GetProjectByIdDeprecatedErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type GetProjectByIdError = GetProjectByIdErrors[keyof GetProjectByIdErrors];
+export type GetProjectByIdDeprecatedError = GetProjectByIdDeprecatedErrors[keyof GetProjectByIdDeprecatedErrors];
 
-export type GetProjectByIdResponses = {
+export type GetProjectByIdDeprecatedResponses = {
     /**
      * Project details
      */
     200: GetProjectResponse;
 };
 
-export type GetProjectByIdResponse = GetProjectByIdResponses[keyof GetProjectByIdResponses];
+export type GetProjectByIdDeprecatedResponse = GetProjectByIdDeprecatedResponses[keyof GetProjectByIdDeprecatedResponses];
 
-export type RenameProjectByIdData = {
+export type RenameProjectByIdDeprecatedData = {
     body: RenameProjectRequest;
     path: {
         project_id: string;
@@ -2553,13 +2562,13 @@ export type RenameProjectByIdData = {
     url: '/management/v1/project/{project_id}/rename';
 };
 
-export type RenameProjectByIdErrors = {
+export type RenameProjectByIdDeprecatedErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type RenameProjectByIdError = RenameProjectByIdErrors[keyof RenameProjectByIdErrors];
+export type RenameProjectByIdDeprecatedError = RenameProjectByIdDeprecatedErrors[keyof RenameProjectByIdDeprecatedErrors];
 
-export type RenameProjectByIdResponses = {
+export type RenameProjectByIdDeprecatedResponses = {
     /**
      * Project renamed successfully
      */
@@ -2632,6 +2641,9 @@ export type CreateRoleResponse = CreateRoleResponses[keyof CreateRoleResponses];
 export type DeleteRoleData = {
     body?: never;
     path: {
+        /**
+         * Role ID
+         */
         role_id: string;
     };
     query?: never;
@@ -2656,6 +2668,9 @@ export type DeleteRoleResponse = DeleteRoleResponses[keyof DeleteRoleResponses];
 export type GetRoleData = {
     body?: never;
     path: {
+        /**
+         * Role ID
+         */
         role_id: string;
     };
     query?: never;
@@ -2680,6 +2695,9 @@ export type GetRoleResponse = GetRoleResponses[keyof GetRoleResponses];
 export type UpdateRoleData = {
     body: UpdateRoleRequest;
     path: {
+        /**
+         * Role ID
+         */
         role_id: string;
     };
     query?: never;
@@ -2700,6 +2718,30 @@ export type UpdateRoleResponses = {
 };
 
 export type UpdateRoleResponse = UpdateRoleResponses[keyof UpdateRoleResponses];
+
+export type GetRoleActionsData = {
+    body?: never;
+    path: {
+        /**
+         * Role ID
+         */
+        role_id: string;
+    };
+    query?: never;
+    url: '/management/v1/role/{role_id}/actions';
+};
+
+export type GetRoleActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetRoleActionsError = GetRoleActionsErrors[keyof GetRoleActionsErrors];
+
+export type GetRoleActionsResponses = {
+    200: GetLakekeeperRoleActionsResponse;
+};
+
+export type GetRoleActionsResponse = GetRoleActionsResponses[keyof GetRoleActionsResponses];
 
 export type SearchRoleData = {
     body: SearchRoleRequest;
@@ -2744,6 +2786,25 @@ export type SearchUserResponses = {
 };
 
 export type SearchUserResponse2 = SearchUserResponses[keyof SearchUserResponses];
+
+export type GetServerActionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/management/v1/server/actions';
+};
+
+export type GetServerActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetServerActionsError = GetServerActionsErrors[keyof GetServerActionsErrors];
+
+export type GetServerActionsResponses = {
+    200: GetLakekeeperServerActionsResponse;
+};
+
+export type GetServerActionsResponse = GetServerActionsResponses[keyof GetServerActionsResponses];
 
 export type ListUserData = {
     body?: never;
@@ -2877,6 +2938,27 @@ export type UpdateUserResponses = {
     200: unknown;
 };
 
+export type GetUserActionsData = {
+    body?: never;
+    path: {
+        user_id: string;
+    };
+    query?: never;
+    url: '/management/v1/user/{user_id}/actions';
+};
+
+export type GetUserActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetUserActionsError = GetUserActionsErrors[keyof GetUserActionsErrors];
+
+export type GetUserActionsResponses = {
+    200: GetLakekeeperUserActionsResponse;
+};
+
+export type GetUserActionsResponse = GetUserActionsResponses[keyof GetUserActionsResponses];
+
 export type ListWarehousesData = {
     body?: never;
     path?: never;
@@ -2980,6 +3062,30 @@ export type GetWarehouseResponses = {
 };
 
 export type GetWarehouseResponse2 = GetWarehouseResponses[keyof GetWarehouseResponses];
+
+export type GetWarehouseActionsData = {
+    body?: never;
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/actions';
+};
+
+export type GetWarehouseActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetWarehouseActionsError = GetWarehouseActionsErrors[keyof GetWarehouseActionsErrors];
+
+export type GetWarehouseActionsResponses = {
+    200: GetLakekeeperWarehouseActionsResponse;
+};
+
+export type GetWarehouseActionsResponse = GetWarehouseActionsResponses[keyof GetWarehouseActionsResponses];
 
 export type ActivateWarehouseData = {
     body?: never;
@@ -3111,29 +3217,27 @@ export type UndropTabularsResponses = {
 
 export type UndropTabularsResponse = UndropTabularsResponses[keyof UndropTabularsResponses];
 
-export type UndropTabularsDeprecatedData = {
-    body: UndropTabularsRequest;
+export type GetNamespaceActionsData = {
+    body?: never;
     path: {
         warehouse_id: string;
+        namespace_id: string;
     };
     query?: never;
-    url: '/management/v1/warehouse/{warehouse_id}/deleted_tabulars/undrop';
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/actions';
 };
 
-export type UndropTabularsDeprecatedErrors = {
+export type GetNamespaceActionsErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type UndropTabularsDeprecatedError = UndropTabularsDeprecatedErrors[keyof UndropTabularsDeprecatedErrors];
+export type GetNamespaceActionsError = GetNamespaceActionsErrors[keyof GetNamespaceActionsErrors];
 
-export type UndropTabularsDeprecatedResponses = {
-    /**
-     * Tabular undropped successfully
-     */
-    204: void;
+export type GetNamespaceActionsResponses = {
+    200: GetLakekeeperNamespaceActionsResponse;
 };
 
-export type UndropTabularsDeprecatedResponse = UndropTabularsDeprecatedResponses[keyof UndropTabularsDeprecatedResponses];
+export type GetNamespaceActionsResponse = GetNamespaceActionsResponses[keyof GetNamespaceActionsResponses];
 
 export type GetNamespaceProtectionData = {
     body?: never;
@@ -3334,6 +3438,28 @@ export type UpdateStorageCredentialResponses = {
 };
 
 export type UpdateStorageCredentialResponse = UpdateStorageCredentialResponses[keyof UpdateStorageCredentialResponses];
+
+export type GetTableActionsData = {
+    body?: never;
+    path: {
+        warehouse_id: string;
+        table_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/actions';
+};
+
+export type GetTableActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetTableActionsError = GetTableActionsErrors[keyof GetTableActionsErrors];
+
+export type GetTableActionsResponses = {
+    200: GetLakekeeperTableActionsResponse;
+};
+
+export type GetTableActionsResponse = GetTableActionsResponses[keyof GetTableActionsResponses];
 
 export type GetTableProtectionData = {
     body?: never;
@@ -3543,6 +3669,28 @@ export type ListTasksResponses = {
 };
 
 export type ListTasksResponse2 = ListTasksResponses[keyof ListTasksResponses];
+
+export type GetViewActionsData = {
+    body?: never;
+    path: {
+        warehouse_id: string;
+        view_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/actions';
+};
+
+export type GetViewActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetViewActionsError = GetViewActionsErrors[keyof GetViewActionsErrors];
+
+export type GetViewActionsResponses = {
+    200: GetLakekeeperViewActionsResponse;
+};
+
+export type GetViewActionsResponse = GetViewActionsResponses[keyof GetViewActionsResponses];
 
 export type GetViewProtectionData = {
     body?: never;

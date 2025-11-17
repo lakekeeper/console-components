@@ -366,24 +366,24 @@ async function loadProjectList(notify?: boolean): Promise<GetProjectResponse[]> 
   }
 }
 
-async function getProjectById(projectId: string, notify?: boolean): Promise<GetProjectResponse> {
+async function getProject(projectId: string, notify?: boolean): Promise<GetProjectResponse> {
   try {
-    const { data, error } = await mng.getProjectById({
+    const { data, error } = await mng.getProject({
       client: mngClient.client,
-      path: { project_id: projectId },
+      headers: { 'x-project-id': projectId },
     });
     if (error) throw error;
 
     if (data === undefined) {
-      throw new Error('Failed to get project by ID');
+      throw new Error('Failed to get project');
     }
 
     if (notify) {
-      handleSuccess('getProjectById', `Project '${data['project-name']}' loaded`, notify);
+      handleSuccess('getProject', `Project '${data['project-name']}' loaded`, notify);
     }
     return data;
   } catch (error: any) {
-    handleError(error, 'getProjectById', notify);
+    handleError(error, 'getProject', notify);
     throw error;
   }
 }
@@ -416,30 +416,30 @@ async function createProject(name: string, notify?: boolean): Promise<string> {
     throw error;
   }
 }
-async function deleteProjectById(projectId: string, notify?: boolean): Promise<boolean> {
+async function deleteProject(projectId: string, notify?: boolean): Promise<boolean> {
   const startTime = Date.now();
 
   try {
-    const { error } = await mng.deleteProjectById({
+    const { error } = await mng.deleteProject({
       client: mngClient.client,
-      path: { project_id: projectId },
+      headers: { 'x-project-id': projectId },
     });
     if (error) throw error;
 
     // Show success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      handleSuccess('deleteProjectById', `Project deleted successfully (${duration}ms)`, notify);
+      handleSuccess('deleteProject', `Project deleted successfully (${duration}ms)`, notify);
     }
 
     return true;
   } catch (error: any) {
-    handleError(error, 'deleteProjectById', notify);
+    handleError(error, 'deleteProject', notify);
     throw error;
   }
 }
 
-async function renameProjectById(
+async function renameProject(
   body: RenameProjectRequest,
   projectId: string,
   notify?: boolean,
@@ -447,22 +447,22 @@ async function renameProjectById(
   const startTime = Date.now();
 
   try {
-    const { error } = await mng.renameProjectById({
+    const { error } = await mng.renameProject({
       client: mngClient.client,
       body,
-      path: { project_id: projectId },
+      headers: { 'x-project-id': projectId },
     });
     if (error) throw error;
 
     // Capture success notification if requested
     if (notify) {
       const duration = Date.now() - startTime;
-      handleSuccess('renameProjectById', `Project renamed successfully (${duration}ms)`, notify);
+      handleSuccess('renameProject', `Project renamed successfully (${duration}ms)`, notify);
     }
 
     return true;
   } catch (error: any) {
-    handleError(error, 'renameProjectById', notify);
+    handleError(error, 'renameProject', notify);
     throw error;
   }
 }
@@ -3003,13 +3003,13 @@ export function useFunctions(config?: any) {
     listUser,
     deleteUser,
     createProject,
-    renameProjectById,
-    deleteProjectById,
+    renameProject,
+    deleteProject,
     setWarehouseManagedAccess,
     setNamespaceManagedAccess,
     getNamespaceById,
     getWarehouseById,
-    getProjectById,
+    getProject,
     updateUserById,
     undropTabular,
     getWarehouseStatistics,

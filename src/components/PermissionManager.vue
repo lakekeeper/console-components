@@ -320,7 +320,7 @@ async function loadObjectData() {
       assignableObj.id = props.objectId;
       assignableObj.name = props.objectId; // Views don't have a separate get endpoint
     } else if (props.relationType === RelationType.Project) {
-      objData = await functions.getProjectById(props.objectId);
+      objData = await functions.getProject(props.objectId);
       assignableObj.id = objData['project-id'];
       assignableObj.name = objData['project-name'];
     } else if (props.relationType === RelationType.Role) {
