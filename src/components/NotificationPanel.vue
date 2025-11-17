@@ -210,7 +210,7 @@
                   cursor: 'pointer',
                 }"
                 @mouseover="
-                  (e) => {
+                  (e: Event) => {
                     const target = e.target as HTMLElement;
                     const btn = target.querySelector(
                       '.notification-delete-btn-inline',
@@ -219,7 +219,7 @@
                   }
                 "
                 @mouseleave="
-                  (e) => {
+                  (e: Event) => {
                     const target = e.target as HTMLElement;
                     const btn = target.querySelector(
                       '.notification-delete-btn-inline',
