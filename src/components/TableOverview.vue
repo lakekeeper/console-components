@@ -35,7 +35,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
-import { useTablePermissions } from '@/composables/usePermissions';
+import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import TableDetails from './TableDetails.vue';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 import type { LoadTableResultWritable } from '@/gen/iceberg/types.gen';

@@ -16,7 +16,7 @@ import { inject, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
-import { useConfig } from '../composables/usePermissions';
+import { useConfig } from '../composables/useCatalogPermissions';
 
 const router = useRouter();
 const visual = useVisualStore();

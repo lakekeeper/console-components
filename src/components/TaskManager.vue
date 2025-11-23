@@ -434,7 +434,7 @@
 </template>
 
 <script setup lang="ts">
-import { useWarehousePermissions } from '../composables/usePermissions';
+import { useWarehousePermissions } from '../composables/useCatalogPermissions';
 import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
 import { reactive, ref, onMounted, computed, inject } from 'vue';

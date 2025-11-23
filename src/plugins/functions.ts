@@ -1,5 +1,5 @@
 import { inject } from 'vue';
-import { globals } from '@/common/globals';
+import { permissionActions } from '@/common/permissionActions';
 import {
   NamespaceResponse,
   SearchTabularRequest,
@@ -44,31 +44,41 @@ import {
   ListWarehousesResponse,
   NamespaceAction,
   NamespaceAssignment,
-  ProjectAction,
   ProjectAssignment,
   ProtectionResponse,
+  // New action types
+  OpenFgaServerAction,
+  OpenFgaProjectAction,
+  OpenFgaWarehouseAction,
+  OpenFgaNamespaceAction,
+  OpenFgaTableAction,
+  OpenFgaViewAction,
+  OpenFgaRoleAction,
+  LakekeeperServerAction,
+  LakekeeperProjectAction,
+  LakekeeperWarehouseAction,
+  LakekeeperNamespaceAction,
+  LakekeeperTableAction,
+  LakekeeperViewAction,
+  LakekeeperRoleAction,
+  LakekeeperUserAction,
   PurgeQueueConfig,
   RenameProjectRequest,
   Role,
-  RoleAction,
   RoleAssignment,
   SearchRoleResponse,
   SearchUserResponse,
-  ServerAction,
   ServerAssignment,
   ServerInfo,
   SetWarehouseProtectionResponse,
   StorageCredential,
   StorageProfile,
-  TableAction,
   TableAssignment,
   TabularDeleteProfile,
   TimeWindowSelector,
   UpdateRoleRequest,
   User,
-  ViewAction,
   ViewAssignment,
-  WarehouseAction,
   WarehouseAssignment,
   WarehouseFilter,
 } from '@/gen/management/types.gen';
@@ -127,6 +137,22 @@ const icebergCatalogUrl = (): string => {
 const icebergCatalogUrlSuffixed = (): string => {
   return icebergCatalogUrl() + 'catalog/';
 };
+
+/**
+ * Checks if the server is using OpenFGA as the authorization backend.
+ *
+ * This should ONLY be used to conditionally call `/assignments` endpoints,
+ * which are OpenFGA-specific.
+ *
+ * Both `/authorizer-actions` and catalog `/actions` endpoints work with
+ * ALL authorization backends (allow-all, openfga, cedar, opa, and future backends).
+ *
+ * @param serverInfo - The server information object
+ * @returns true if the backend is OpenFGA, false otherwise
+ */
+function isOpenFGABackend(serverInfo: ServerInfo): boolean {
+  return serverInfo['authz-backend'] === 'openfga';
+}
 
 function parseErrorText(errorText: string): { message: string; code: number } {
   const messageMatch = errorText.match(/: (.*) at/);
@@ -1519,16 +1545,19 @@ async function undropTabular(
   }
 }
 
-// Assignments
+// Assignments - OpenFGA ONLY
+// These endpoints ONLY work with OpenFGA authorization backend
 async function getWarehouseAssignmentsById(
   warehouseId: string,
   notify?: boolean,
 ): Promise<WarehouseAssignment[]> {
   try {
     const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    const serverInfo = visual.getServerInfo();
 
-    if (!appConfig.enabledAuthentication || authOff) return [];
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) return [];
+
     init();
 
     const client = mngClient.client;
@@ -1564,6 +1593,15 @@ async function updateWarehouseAssignmentsById(
   notify?: boolean,
 ): Promise<boolean> {
   try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update warehouse assignments: OpenFGA backend is required');
+      return false;
+    }
+
     init();
 
     const client = mngClient.client;
@@ -1629,9 +1667,10 @@ async function setWarehouseManagedAccess(
 async function getRoleAssignmentsById(roleId: string): Promise<RoleAssignment[]> {
   try {
     const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    const serverInfo = visual.getServerInfo();
 
-    if (!appConfig.enabledAuthentication || authOff) return [];
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) return [];
 
     init();
 
@@ -1660,6 +1699,15 @@ async function updateRoleAssignmentsById(
   notify?: boolean,
 ): Promise<boolean> {
   try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update role assignments: OpenFGA backend is required');
+      return false;
+    }
+
     init();
 
     const client = mngClient.client;
@@ -1688,9 +1736,10 @@ async function updateRoleAssignmentsById(
 async function getServerAssignments(): Promise<ServerAssignment[]> {
   try {
     const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    const serverInfo = visual.getServerInfo();
 
-    if (!appConfig.enabledAuthentication || authOff) return [];
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) return [];
 
     init();
 
@@ -1715,6 +1764,15 @@ async function updateServerAssignments(
   notify?: boolean,
 ): Promise<boolean> {
   try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update server assignments: OpenFGA backend is required');
+      return false;
+    }
+
     init();
 
     const client = mngClient.client;
@@ -1740,9 +1798,10 @@ async function updateServerAssignments(
 async function getProjectAssignments(): Promise<ProjectAssignment[]> {
   try {
     const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    const serverInfo = visual.getServerInfo();
 
-    if (!appConfig.enabledAuthentication || authOff) return [];
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) return [];
 
     init();
 
@@ -1767,6 +1826,15 @@ async function updateProjectAssignments(
   notify?: boolean,
 ): Promise<boolean> {
   try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update project assignments: OpenFGA backend is required');
+      return false;
+    }
+
     init();
 
     const client = mngClient.client;
@@ -1792,9 +1860,10 @@ async function updateProjectAssignments(
 async function getNamespaceAssignmentsById(namespaceId: string): Promise<NamespaceAssignment[]> {
   try {
     const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    const serverInfo = visual.getServerInfo();
 
-    if (!appConfig.enabledAuthentication || authOff) return [];
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) return [];
 
     init();
 
@@ -1823,6 +1892,15 @@ async function updateNamespaceAssignmentsById(
   notify?: boolean,
 ): Promise<boolean> {
   try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update namespace assignments: OpenFGA backend is required');
+      return false;
+    }
+
     init();
 
     const client = mngClient.client;
@@ -1893,9 +1971,10 @@ async function getTableAssignmentsById(
 ): Promise<TableAssignment[]> {
   try {
     const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    const serverInfo = visual.getServerInfo();
 
-    if (!appConfig.enabledAuthentication || authOff) return [];
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) return [];
 
     init();
 
@@ -1926,6 +2005,15 @@ async function updateTableAssignmentsById(
   notify?: boolean,
 ): Promise<boolean> {
   try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update table assignments: OpenFGA backend is required');
+      return false;
+    }
+
     init();
 
     const client = mngClient.client;
@@ -1958,9 +2046,10 @@ async function getViewAssignmentsById(
 ): Promise<ViewAssignment[]> {
   try {
     const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    const serverInfo = visual.getServerInfo();
 
-    if (!appConfig.enabledAuthentication || authOff) return [];
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) return [];
 
     init();
 
@@ -1990,6 +2079,15 @@ async function updateViewAssignmentsById(
   notify?: boolean,
 ): Promise<boolean> {
   try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    // Assignments are OpenFGA-only feature
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update view assignments: OpenFGA backend is required');
+      return false;
+    }
+
     init();
 
     const client = mngClient.client;
@@ -2611,225 +2709,517 @@ async function listTasks(
   }
 }
 
-// Access
+// Authorizer Actions - OpenFGA relations for permission delegation
+// These work with ALL authorization backends (allow-all, openfga, future backends)
 
-async function getServerAccess(): Promise<ServerAction[]> {
+async function getAuthorizerServerActions(notify?: boolean): Promise<OpenFgaServerAction[]> {
   try {
-    const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
-
-    if (!appConfig.enabledAuthentication || authOff) return globals.serverActions as ServerAction[];
+    if (!appConfig.enabledAuthentication) return [];
 
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getServerAccess({
+    const { data, error } = await mng.getAuthorizerServerActions({
       client,
     });
 
     if (error) throw error;
 
-    const actions = (data ?? {})['allowed-actions'] as ServerAction[];
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaServerAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerServerActions',
+        'Server authorizer actions retrieved successfully',
+        true,
+      );
+    }
 
     return actions;
   } catch (error: any) {
-    handleError(error, 'getServerAccess');
+    handleError(error, 'getAuthorizerServerActions', notify);
     throw error;
   }
 }
 
-async function getProjectAccess(): Promise<ProjectAction[]> {
-  try {
-    const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+// Catalog Actions - Operational permissions (what you can DO)
+// These work with ALL authorization backends (allow-all, openfga, future backends)
 
-    if (!appConfig.enabledAuthentication || authOff)
-      return globals.projectActions as ProjectAction[];
+async function getServerCatalogActions(notify?: boolean): Promise<LakekeeperServerAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogServerActions;
+    }
+
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getProjectAccess({ client });
+    const { data, error } = await mng.getServerActions({
+      client,
+    });
 
     if (error) throw error;
 
-    const actions = (data ?? {})['allowed-actions'] as ProjectAction[];
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperServerAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getServerCatalogActions',
+        'Server catalog actions retrieved successfully',
+        true,
+      );
+    }
 
     return actions;
   } catch (error: any) {
-    handleError(error, 'getProjectAccess');
+    handleError(error, 'getServerCatalogActions', notify);
     throw error;
   }
 }
 
-async function getProjectAccessById(projectId: string): Promise<ProjectAction[]> {
+async function getAuthorizerProjectActions(notify?: boolean): Promise<OpenFgaProjectAction[]> {
   try {
-    const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    if (!appConfig.enabledAuthentication) return [];
 
-    if (!appConfig.enabledAuthentication || authOff)
-      return globals.projectActions as ProjectAction[];
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getProjectAccessById({
-      client,
-      path: { project_id: projectId },
-    });
+    const { data, error } = await mng.getAuthorizerProjectActions({ client });
 
     if (error) throw error;
 
-    const actions = (data ?? {})['allowed-actions'] as ProjectAction[];
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaProjectAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerProjectActions',
+        'Project authorizer actions retrieved successfully',
+        true,
+      );
+    }
 
     return actions;
   } catch (error: any) {
-    handleError(error, 'getProjectAccessById');
+    handleError(error, 'getAuthorizerProjectActions', notify);
     throw error;
   }
 }
 
-async function getWarehouseAccessById(warehouseId: string): Promise<WarehouseAction[]> {
+async function getProjectCatalogActions(notify?: boolean): Promise<LakekeeperProjectAction[]> {
   try {
-    const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogProjectActions;
+    }
 
-    if (!appConfig.enabledAuthentication || authOff)
-      return globals.warehouseActions as WarehouseAction[];
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getWarehouseAccessById({
-      client,
-      path: {
-        warehouse_id: warehouseId,
-      },
-    });
+    const { data, error } = await mng.getProjectActions({ client });
 
     if (error) throw error;
 
-    const actions = (data ?? {})['allowed-actions'] as WarehouseAction[];
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperProjectAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getProjectCatalogActions',
+        'Project catalog actions retrieved successfully',
+        true,
+      );
+    }
 
     return actions;
   } catch (error: any) {
-    handleError(error, 'getWarehouseAccessById');
-    return [];
-  }
-}
-async function getNamespaceAccessById(namespaceId: string): Promise<NamespaceAction[]> {
-  try {
-    const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
-
-    if (!appConfig.enabledAuthentication || authOff)
-      return globals.namespaceActions as NamespaceAction[];
-    init();
-
-    const client = mngClient.client;
-
-    const { data, error } = await mng.getNamespaceAccessById({
-      client,
-      path: {
-        namespace_id: namespaceId,
-      },
-    });
-
-    if (error) throw error;
-
-    const actions = (data ?? {})['allowed-actions'] as NamespaceAction[];
-
-    return actions;
-  } catch (error: any) {
-    handleError(error, 'getNamespaceAccessById');
-    return [];
+    handleError(error, 'getProjectCatalogActions', notify);
+    throw error;
   }
 }
 
-async function getTableAccessById(tableId: string, warehouseId: string): Promise<TableAction[]> {
+async function getAuthorizerWarehouseActions(
+  warehouseId: string,
+  notify?: boolean,
+): Promise<OpenFgaWarehouseAction[]> {
   try {
-    const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
-
-    if (!appConfig.enabledAuthentication || authOff) return globals.tableActions as TableAction[];
+    if (!appConfig.enabledAuthentication) return [];
 
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getTableAccessById({
+    const { data, error } = await mng.getAuthorizerWarehouseActions({
       client,
-      path: {
-        warehouse_id: warehouseId,
-        table_id: tableId,
-      },
+      path: { warehouse_id: warehouseId },
     });
 
     if (error) throw error;
 
-    const actions = (data ?? {})['allowed-actions'] as TableAction[];
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaWarehouseAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerWarehouseActions',
+        'Warehouse authorizer actions retrieved successfully',
+        true,
+      );
+    }
 
     return actions;
   } catch (error: any) {
-    handleError(error, 'getTableAccessById');
+    handleError(error, 'getAuthorizerWarehouseActions', notify);
     return [];
   }
 }
 
-async function getViewAccessById(viewId: string, warehouseId: string): Promise<ViewAction[]> {
+async function getWarehouseCatalogActions(
+  warehouseId: string,
+  notify?: boolean,
+): Promise<LakekeeperWarehouseAction[]> {
   try {
-    const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogWarehouseActions;
+    }
 
-    if (!appConfig.enabledAuthentication || authOff) return globals.viewActions as ViewAction[];
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getViewAccessById({
+    const { data, error } = await mng.getWarehouseActions({
       client,
-      path: {
-        warehouse_id: warehouseId,
-        view_id: viewId,
-      },
+      path: { warehouse_id: warehouseId },
     });
 
     if (error) throw error;
 
-    const actions = (data ?? {})['allowed-actions'] as ViewAction[];
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperWarehouseAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getWarehouseCatalogActions',
+        'Warehouse catalog actions retrieved successfully',
+        true,
+      );
+    }
 
     return actions;
   } catch (error: any) {
-    handleError(error, 'getViewAccessById');
+    handleError(error, 'getWarehouseCatalogActions', notify);
+    return [];
+  }
+}
+async function getAuthorizerNamespaceActions(
+  namespaceId: string,
+  notify?: boolean,
+): Promise<OpenFgaNamespaceAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) return [];
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getAuthorizerNamespaceActions({
+      client,
+      path: { namespace_id: namespaceId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaNamespaceAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerNamespaceActions',
+        'Namespace authorizer actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getAuthorizerNamespaceActions', notify);
     return [];
   }
 }
 
-async function getRoleAccessById(roleId: string): Promise<RoleAction[]> {
+async function getNamespaceCatalogActions(
+  warehouseId: string,
+  namespaceId: string,
+  notify?: boolean,
+): Promise<LakekeeperNamespaceAction[]> {
   try {
-    const visual = useVisualStore();
-    const authOff = visual.getServerInfo()['authz-backend'] === 'allow-all' ? true : false;
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogNamespaceActions;
+    }
 
-    if (!appConfig.enabledAuthentication || authOff) return globals.roleActions as RoleAction[];
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getRoleAccessById({
+    const { data, error } = await mng.getNamespaceActions({
       client,
-      path: {
-        role_id: roleId,
-      },
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId },
     });
 
     if (error) throw error;
 
-    const actions = (data ?? {})['allowed-actions'] as RoleAction[];
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperNamespaceAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getNamespaceCatalogActions',
+        'Namespace catalog actions retrieved successfully',
+        true,
+      );
+    }
 
     return actions;
   } catch (error: any) {
-    handleError(error, 'getRoleAccessById');
+    handleError(error, 'getNamespaceCatalogActions', notify);
+    return [];
+  }
+}
+
+async function getAuthorizerTableActions(
+  tableId: string,
+  warehouseId: string,
+  notify?: boolean,
+): Promise<OpenFgaTableAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) return [];
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getAuthorizerTableActions({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaTableAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerTableActions',
+        'Table authorizer actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getAuthorizerTableActions', notify);
+    return [];
+  }
+}
+
+async function getTableCatalogActions(
+  tableId: string,
+  warehouseId: string,
+  notify?: boolean,
+): Promise<LakekeeperTableAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogTableActions;
+    }
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getTableActions({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperTableAction[];
+
+    if (notify) {
+      handleSuccess('getTableCatalogActions', 'Table catalog actions retrieved successfully', true);
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getTableCatalogActions', notify);
+    return [];
+  }
+}
+
+async function getAuthorizerViewActions(
+  viewId: string,
+  warehouseId: string,
+  notify?: boolean,
+): Promise<OpenFgaViewAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) return [];
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getAuthorizerViewActions({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaViewAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerViewActions',
+        'View authorizer actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getAuthorizerViewActions', notify);
+    return [];
+  }
+}
+
+async function getViewCatalogActions(
+  viewId: string,
+  warehouseId: string,
+  notify?: boolean,
+): Promise<LakekeeperViewAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogViewActions;
+    }
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getViewActions({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperViewAction[];
+
+    if (notify) {
+      handleSuccess('getViewCatalogActions', 'View catalog actions retrieved successfully', true);
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getViewCatalogActions', notify);
+    return [];
+  }
+}
+
+async function getAuthorizerRoleActions(
+  roleId: string,
+  notify?: boolean,
+): Promise<OpenFgaRoleAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) return [];
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getAuthorizerRoleActions({
+      client,
+      path: { role_id: roleId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaRoleAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerRoleActions',
+        'Role authorizer actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getAuthorizerRoleActions', notify);
+    return [];
+  }
+}
+
+async function getRoleCatalogActions(
+  roleId: string,
+  notify?: boolean,
+): Promise<LakekeeperRoleAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogRoleActions;
+    }
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getRoleActions({
+      client,
+      path: { role_id: roleId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperRoleAction[];
+
+    if (notify) {
+      handleSuccess('getRoleCatalogActions', 'Role catalog actions retrieved successfully', true);
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getRoleCatalogActions', notify);
+    return [];
+  }
+}
+
+async function getUserCatalogActions(
+  userId: string,
+  notify?: boolean,
+): Promise<LakekeeperUserAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogUserActions;
+    }
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getUserActions({
+      client,
+      path: { user_id: userId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperUserAction[];
+
+    if (notify) {
+      handleSuccess('getUserCatalogActions', 'User catalog actions retrieved successfully', true);
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getUserCatalogActions', notify);
     return [];
   }
 }
@@ -2954,9 +3344,6 @@ export function useFunctions(config?: any) {
     bootstrapServer,
     createWarehouse,
     deleteWarehouse,
-    getProjectAccess,
-    getWarehouseAccessById,
-    getNamespaceAccessById,
     getWarehouseAssignmentsById,
     updateWarehouseAssignmentsById,
     searchRole,
@@ -2976,24 +3363,37 @@ export function useFunctions(config?: any) {
     updateServerAssignments,
     icebergCatalogUrl,
     icebergCatalogUrlSuffixed,
-    getServerAccess,
+    // New authorizer actions (OpenFGA relations - work with ALL backends)
+    getAuthorizerServerActions,
+    getAuthorizerProjectActions,
+    getAuthorizerWarehouseActions,
+    getAuthorizerNamespaceActions,
+    getAuthorizerTableActions,
+    getAuthorizerViewActions,
+    getAuthorizerRoleActions,
+    // New catalog actions (operational permissions - work with ALL backends)
+    getServerCatalogActions,
+    getProjectCatalogActions,
+    getWarehouseCatalogActions,
+    getNamespaceCatalogActions,
+    getTableCatalogActions,
+    getViewCatalogActions,
+    getRoleCatalogActions,
+    getUserCatalogActions,
     getNamespaceAssignmentsById,
     updateNamespaceAssignmentsById,
     loadNamespaceMetadata,
     listViews,
     listDeletedTabulars,
-    getTableAccessById,
     loadTable,
     loadTableCustomized,
     loadView,
-    getViewAccessById,
     updateTableAssignmentsById,
     updateViewAssignmentsById,
     getTableAssignmentsById,
     getViewAssignmentsById,
     getProjectAssignments,
     updateProjectAssignments,
-    getRoleAccessById,
     renameWarehouse,
     updateStorageCredential,
     updateStorageProfile,
@@ -3021,7 +3421,6 @@ export function useFunctions(config?: any) {
     setTableProtection,
     setViewProtection,
     getViewProtection,
-    getProjectAccessById,
     // Task functions
     getTaskQueueConfigTabularExpiration,
     setTaskQueueConfigTabularExpiration,

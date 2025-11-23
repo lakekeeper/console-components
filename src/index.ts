@@ -128,7 +128,8 @@ export {
 };
 
 // Export composables
-export * from './composables/usePermissions';
+export * from './composables/useCatalogPermissions';
+export * from './composables/useAuthorizerPermissions';
 export * from './composables/useAuth';
 
 // Export stores

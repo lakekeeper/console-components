@@ -1,12 +1,12 @@
 import { ref, computed, onMounted, watch, inject } from 'vue';
 import type {
-  ProjectAction,
-  WarehouseAction,
-  NamespaceAction,
-  ServerAction,
-  RoleAction,
-  TableAction,
-  ViewAction,
+  LakekeeperProjectAction,
+  LakekeeperWarehouseAction,
+  LakekeeperNamespaceAction,
+  LakekeeperServerAction,
+  LakekeeperRoleAction,
+  LakekeeperTableAction,
+  LakekeeperViewAction,
 } from '@/gen/management/types.gen';
 import { usePermissionStore } from '@/stores/permissions';
 // Helper to get config values via inject with fallback
@@ -46,47 +46,39 @@ export function useServerPermissions(serverId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
   const config = useConfig();
   const loading = ref(false);
-  const permissions = ref<ServerAction[]>([]);
+  const permissions = ref<LakekeeperServerAction[]>([]);
 
   const serverIdRef = computed(() => (typeof serverId === 'string' ? serverId : serverId.value));
 
   async function loadPermissions() {
     loading.value = true;
     try {
-      permissions.value = await permissionStore.getServerPermissions(serverIdRef.value);
+      permissions.value = await permissionStore.getServerPermissions();
     } finally {
       loading.value = false;
     }
   }
 
-  function hasPermission(action: ServerAction): boolean {
+  function hasPermission(action: LakekeeperServerAction): boolean {
     return permissions.value.includes(action);
   }
 
-  function hasAnyPermission(...actions: ServerAction[]): boolean {
+  function hasAnyPermission(...actions: LakekeeperServerAction[]): boolean {
     return actions.some((action) => permissions.value.includes(action));
   }
 
-  function hasAllPermissions(...actions: ServerAction[]): boolean {
+  function hasAllPermissions(...actions: LakekeeperServerAction[]): boolean {
     return actions.every((action) => permissions.value.includes(action));
   }
 
-  // Specific permission checks
+  // Specific permission checks - CATALOG/OPERATIONAL only
   const canCreateProject = computed(() => hasPermission('create_project'));
   const canUpdateUsers = computed(() => hasPermission('update_users'));
   const canDeleteUsers = computed(() => hasPermission('delete_users'));
   const canListUsers = computed(() => hasPermission('list_users'));
-  const canGrantAdmin = computed(() => hasPermission('grant_admin'));
   const canProvisionUsers = computed(() => hasPermission('provision_users'));
-  const canReadAssignments = computed(() => hasPermission('read_assignments'));
 
-  // UI visibility helpers that include auth checks
-  const showPermissionsTab = computed(
-    () =>
-      canReadAssignments.value &&
-      config.enabledAuthentication.value &&
-      config.enabledPermissions.value,
-  );
+  // UI visibility helpers
   const showUsersTab = computed(() => canListUsers.value && config.enabledAuthentication.value);
 
   // Auto-load on mount
@@ -117,10 +109,7 @@ export function useServerPermissions(serverId: Ref<string> | string) {
     canUpdateUsers,
     canDeleteUsers,
     canListUsers,
-    canGrantAdmin,
     canProvisionUsers,
-    canReadAssignments,
-    showPermissionsTab,
     showUsersTab,
     refresh: loadPermissions,
   };
@@ -133,9 +122,8 @@ export function useServerPermissions(serverId: Ref<string> | string) {
  */
 export function useRolePermissions(roleId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
-  const config = useConfig();
   const loading = ref(false);
-  const permissions = ref<RoleAction[]>([]);
+  const permissions = ref<LakekeeperRoleAction[]>([]);
 
   const roleIdRef = computed(() => (typeof roleId === 'string' ? roleId : roleId.value));
 
@@ -148,34 +136,22 @@ export function useRolePermissions(roleId: Ref<string> | string) {
     }
   }
 
-  function hasPermission(action: RoleAction): boolean {
+  function hasPermission(action: LakekeeperRoleAction): boolean {
     return permissions.value.includes(action);
   }
 
-  function hasAnyPermission(...actions: RoleAction[]): boolean {
+  function hasAnyPermission(...actions: LakekeeperRoleAction[]): boolean {
     return actions.some((action) => permissions.value.includes(action));
   }
 
-  function hasAllPermissions(...actions: RoleAction[]): boolean {
+  function hasAllPermissions(...actions: LakekeeperRoleAction[]): boolean {
     return actions.every((action) => permissions.value.includes(action));
   }
 
-  // Specific permission checks
-  const canAssume = computed(() => hasPermission('assume'));
-  const canGrantAssignee = computed(() => hasPermission('can_grant_assignee'));
-  const canChangeOwnership = computed(() => hasPermission('can_change_ownership'));
+  // Specific permission checks - CATALOG/OPERATIONAL only
   const canDelete = computed(() => hasPermission('delete'));
   const canUpdate = computed(() => hasPermission('update'));
   const canRead = computed(() => hasPermission('read'));
-  const canReadAssignments = computed(() => hasPermission('read_assignments'));
-
-  // UI visibility helpers that include auth checks
-  const showPermissionsTab = computed(
-    () =>
-      canReadAssignments.value &&
-      config.enabledAuthentication.value &&
-      config.enabledPermissions.value,
-  );
 
   // Auto-load on mount
   onMounted(() => {
@@ -201,14 +177,9 @@ export function useRolePermissions(roleId: Ref<string> | string) {
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    canAssume,
-    canGrantAssignee,
-    canChangeOwnership,
     canDelete,
     canUpdate,
     canRead,
-    canReadAssignments,
-    showPermissionsTab,
     refresh: loadPermissions,
   };
 }
@@ -220,9 +191,8 @@ export function useRolePermissions(roleId: Ref<string> | string) {
  */
 export function useProjectPermissions(projectId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
-  const config = useConfig();
   const loading = ref(false);
-  const permissions = ref<ProjectAction[]>([]);
+  const permissions = ref<LakekeeperProjectAction[]>([]);
 
   const projectIdRef = computed(() =>
     typeof projectId === 'string' ? projectId : projectId.value,
@@ -231,41 +201,34 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
   async function loadPermissions() {
     loading.value = true;
     try {
-      permissions.value = await permissionStore.getProjectPermissions(projectIdRef.value);
+      permissions.value = await permissionStore.getProjectPermissions();
     } finally {
       loading.value = false;
     }
   }
 
-  function hasPermission(action: ProjectAction): boolean {
+  function hasPermission(action: LakekeeperProjectAction): boolean {
     return permissions.value.includes(action);
   }
 
-  function hasAnyPermission(...actions: ProjectAction[]): boolean {
+  function hasAnyPermission(...actions: LakekeeperProjectAction[]): boolean {
     return actions.some((action) => permissions.value.includes(action));
   }
 
-  function hasAllPermissions(...actions: ProjectAction[]): boolean {
+  function hasAllPermissions(...actions: LakekeeperProjectAction[]): boolean {
     return actions.every((action) => permissions.value.includes(action));
   }
 
-  // Specific permission checks
+  // Specific permission checks - CATALOG/OPERATIONAL only
   const canCreateWarehouse = computed(() => hasPermission('create_warehouse'));
   const canListWarehouses = computed(() => hasPermission('list_warehouses'));
   const canCreateRole = computed(() => hasPermission('create_role'));
   const canListRoles = computed(() => hasPermission('list_roles'));
   const canSearchRoles = computed(() => hasPermission('search_roles'));
-  const canReadAssignments = computed(() => hasPermission('read_assignments'));
   const canDelete = computed(() => hasPermission('delete'));
   const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
 
-  // UI visibility helpers that include auth checks
-  const showPermissionsTab = computed(
-    () =>
-      canReadAssignments.value &&
-      config.enabledAuthentication.value &&
-      config.enabledPermissions.value,
-  );
+  // UI visibility helpers
   const showStatisticsTab = computed(() => canGetEndpointStatistics.value);
 
   // Auto-load on mount
@@ -297,10 +260,8 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
     canCreateRole,
     canListRoles,
     canSearchRoles,
-    canReadAssignments,
     canDelete,
     canGetEndpointStatistics,
-    showPermissionsTab,
     showStatisticsTab,
     refresh: loadPermissions,
   };
@@ -315,7 +276,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
   const config = useConfig();
   const loading = ref(false);
-  const permissions = ref<WarehouseAction[]>([]);
+  const permissions = ref<LakekeeperWarehouseAction[]>([]);
 
   const warehouseIdRef = computed(() =>
     typeof warehouseId === 'string' ? warehouseId : warehouseId.value,
@@ -330,37 +291,26 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     }
   }
 
-  function hasPermission(action: WarehouseAction): boolean {
+  function hasPermission(action: LakekeeperWarehouseAction): boolean {
     return permissions.value.includes(action);
   }
 
-  function hasAnyPermission(...actions: WarehouseAction[]): boolean {
+  function hasAnyPermission(...actions: LakekeeperWarehouseAction[]): boolean {
     return actions.some((action) => permissions.value.includes(action));
   }
 
-  function hasAllPermissions(...actions: WarehouseAction[]): boolean {
+  function hasAllPermissions(...actions: LakekeeperWarehouseAction[]): boolean {
     return actions.every((action) => permissions.value.includes(action));
   }
 
-  // Specific permission checks
+  // Specific permission checks - CATALOG/OPERATIONAL only
   const canCreateNamespace = computed(() => hasPermission('create_namespace'));
   const canDelete = computed(() => hasPermission('delete'));
-  const canReadPermissions = computed(() => hasPermission('read_assignments'));
-  const canModifyWarehouse = computed(() =>
-    hasAnyPermission(
-      'modify_storage',
-      'modify_storage_credential',
-      'rename',
-      'grant_create',
-      'grant_modify',
-    ),
-  );
-  const canManageGrants = computed(() => hasPermission('grant_manage_grants'));
+  const canUpdateStorage = computed(() => hasPermission('update_storage'));
+  const canUpdateStorageCredential = computed(() => hasPermission('update_storage_credential'));
+  const canRename = computed(() => hasPermission('rename'));
   const canGetAllTasks = computed(() => hasPermission('get_all_tasks'));
   const canControlAllTasks = computed(() => hasPermission('control_all_tasks'));
-  const canModifyStorage = computed(() => hasPermission('modify_storage'));
-  const canModifyCredentials = computed(() => hasPermission('modify_storage_credential'));
-  const canRename = computed(() => hasPermission('rename'));
   const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
   const canSetProtection = computed(
     () =>
@@ -368,14 +318,11 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
-
-  // UI visibility helpers that include auth checks
-  const showPermissionsTab = computed(
-    () =>
-      canReadPermissions.value &&
-      config.enabledAuthentication.value &&
-      config.enabledPermissions.value,
+  const canModifyWarehouse = computed(() =>
+    hasAnyPermission('update_storage', 'update_storage_credential', 'rename'),
   );
+
+  // UI visibility helpers
   const showTasksTab = computed(
     () =>
       canGetAllTasks.value ||
@@ -416,17 +363,14 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     hasAllPermissions,
     canCreateNamespace,
     canDelete,
-    canReadPermissions,
+    canUpdateStorage,
+    canUpdateStorageCredential,
     canModifyWarehouse,
     canGetAllTasks,
-    canManageGrants,
     canControlAllTasks,
-    canModifyStorage,
-    canModifyCredentials,
     canRename,
     canSetProtection,
     canGetEndpointStatistics,
-    showPermissionsTab,
     showTasksTab,
     canControlTasks,
     refresh: loadPermissions,
@@ -442,7 +386,7 @@ export function useNamespacePermissions(namespaceId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
   const config = useConfig();
   const loading = ref(false);
-  const permissions = ref<NamespaceAction[]>([]);
+  const permissions = ref<LakekeeperNamespaceAction[]>([]);
 
   const namespaceIdRef = computed(() =>
     typeof namespaceId === 'string' ? namespaceId : namespaceId.value,
@@ -457,38 +401,28 @@ export function useNamespacePermissions(namespaceId: Ref<string> | string) {
     }
   }
 
-  function hasPermission(action: NamespaceAction): boolean {
+  function hasPermission(action: LakekeeperNamespaceAction): boolean {
     return permissions.value.includes(action);
   }
 
-  function hasAnyPermission(...actions: NamespaceAction[]): boolean {
+  function hasAnyPermission(...actions: LakekeeperNamespaceAction[]): boolean {
     return actions.some((action) => permissions.value.includes(action));
   }
 
-  function hasAllPermissions(...actions: NamespaceAction[]): boolean {
+  function hasAllPermissions(...actions: LakekeeperNamespaceAction[]): boolean {
     return actions.every((action) => permissions.value.includes(action));
   }
 
-  // Specific permission checks
+  // Specific permission checks - CATALOG/OPERATIONAL only
   const canCreateTable = computed(() => hasPermission('create_table'));
   const canCreateNamespace = computed(() => hasPermission('create_namespace'));
-  const canReadPermissions = computed(() => hasPermission('read_assignments'));
   const canCreateView = computed(() => hasPermission('create_view'));
   const canGetMetadata = computed(() => hasPermission('get_metadata'));
-  const canManageGrants = computed(() => hasPermission('grant_manage_grants'));
   const canSetProtection = computed(
     () =>
       hasPermission('set_protection') ||
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
-  );
-
-  // UI helpers
-  const showPermissionsTab = computed(
-    () =>
-      canReadPermissions.value &&
-      config.enabledAuthentication.value &&
-      config.enabledPermissions.value,
   );
 
   // Auto-load on mount
@@ -517,12 +451,9 @@ export function useNamespacePermissions(namespaceId: Ref<string> | string) {
     hasAllPermissions,
     canCreateTable,
     canCreateNamespace,
-    canReadPermissions,
     canCreateView,
     canGetMetadata,
-    canManageGrants,
     canSetProtection,
-    showPermissionsTab,
     refresh: loadPermissions,
   };
 }
@@ -539,7 +470,7 @@ export function useTablePermissions(
 ) {
   const functions = useFunctions();
   const loading = ref(false);
-  const permissions = ref<TableAction[]>([]);
+  const permissions = ref<LakekeeperTableAction[]>([]);
   const config = useConfig();
 
   const tableIdRef = computed(() => (typeof tableId === 'string' ? tableId : tableId.value));
@@ -552,32 +483,28 @@ export function useTablePermissions(
 
     loading.value = true;
     try {
-      const serverInfo = await functions.getServerInfo();
-      if (serverInfo['authz-backend'] !== 'allow-all') {
-        permissions.value = await functions.getTableAccessById(
-          tableIdRef.value,
-          warehouseIdRef.value,
-        );
-      }
+      permissions.value = await functions.getTableCatalogActions(
+        tableIdRef.value,
+        warehouseIdRef.value,
+      );
     } finally {
       loading.value = false;
     }
   }
 
-  function hasPermission(action: TableAction): boolean {
+  function hasPermission(action: LakekeeperTableAction): boolean {
     return permissions.value.includes(action);
   }
 
-  function hasAnyPermission(...actions: TableAction[]): boolean {
+  function hasAnyPermission(...actions: LakekeeperTableAction[]): boolean {
     return actions.some((action) => permissions.value.includes(action));
   }
 
-  function hasAllPermissions(...actions: TableAction[]): boolean {
+  function hasAllPermissions(...actions: LakekeeperTableAction[]): boolean {
     return actions.every((action) => permissions.value.includes(action));
   }
 
-  // Specific permission checks
-  const canReadPermissions = computed(() => hasPermission('read_assignments'));
+  // Specific permission checks - CATALOG/OPERATIONAL only
   const canGetTasks = computed(() => hasPermission('get_tasks'));
   const canControlTasks = computed(() => hasPermission('control_tasks'));
   const canSetProtection = computed(
@@ -586,14 +513,11 @@ export function useTablePermissions(
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const canDrop = computed(() => hasPermission('drop'));
+  const canWriteData = computed(() => hasPermission('write_data'));
+  const canReadData = computed(() => hasPermission('read_data'));
 
   // UI helpers
-  const showPermissionsTab = computed(
-    () =>
-      canReadPermissions.value &&
-      config.enabledAuthentication.value &&
-      config.enabledPermissions.value,
-  );
   const showTasksTab = computed(
     () =>
       canGetTasks.value || !config.enabledAuthentication.value || !config.enabledPermissions.value,
@@ -619,11 +543,12 @@ export function useTablePermissions(
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    canReadPermissions,
     canGetTasks,
     canControlTasks,
     canSetProtection,
-    showPermissionsTab,
+    canDrop,
+    canWriteData,
+    canReadData,
     showTasksTab,
     refresh: loadPermissions,
   };
@@ -641,7 +566,7 @@ export function useViewPermissions(
 ) {
   const functions = useFunctions();
   const loading = ref(false);
-  const permissions = ref<ViewAction[]>([]);
+  const permissions = ref<LakekeeperViewAction[]>([]);
   const config = useConfig();
 
   const viewIdRef = computed(() => (typeof viewId === 'string' ? viewId : viewId.value));
@@ -654,32 +579,28 @@ export function useViewPermissions(
 
     loading.value = true;
     try {
-      const serverInfo = await functions.getServerInfo();
-      if (serverInfo['authz-backend'] !== 'allow-all') {
-        permissions.value = await functions.getViewAccessById(
-          viewIdRef.value,
-          warehouseIdRef.value,
-        );
-      }
+      permissions.value = await functions.getViewCatalogActions(
+        viewIdRef.value,
+        warehouseIdRef.value,
+      );
     } finally {
       loading.value = false;
     }
   }
 
-  function hasPermission(action: ViewAction): boolean {
+  function hasPermission(action: LakekeeperViewAction): boolean {
     return permissions.value.includes(action);
   }
 
-  function hasAnyPermission(...actions: ViewAction[]): boolean {
+  function hasAnyPermission(...actions: LakekeeperViewAction[]): boolean {
     return actions.some((action) => permissions.value.includes(action));
   }
 
-  function hasAllPermissions(...actions: ViewAction[]): boolean {
+  function hasAllPermissions(...actions: LakekeeperViewAction[]): boolean {
     return actions.every((action) => permissions.value.includes(action));
   }
 
-  // Specific permission checks
-  const canReadPermissions = computed(() => hasPermission('read_assignments'));
+  // Specific permission checks - CATALOG/OPERATIONAL only
   const canGetTasks = computed(() => hasPermission('get_tasks'));
   const canControlTasks = computed(() => hasPermission('control_tasks'));
   const canSetProtection = computed(
@@ -688,14 +609,9 @@ export function useViewPermissions(
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const canDrop = computed(() => hasPermission('drop'));
 
   // UI helpers
-  const showPermissionsTab = computed(
-    () =>
-      canReadPermissions.value &&
-      config.enabledAuthentication.value &&
-      config.enabledPermissions.value,
-  );
   const showTasksTab = computed(
     () =>
       canGetTasks.value || !config.enabledAuthentication.value || !config.enabledPermissions.value,
@@ -721,11 +637,10 @@ export function useViewPermissions(
     hasPermission,
     hasAnyPermission,
     hasAllPermissions,
-    canReadPermissions,
     canGetTasks,
     canControlTasks,
     canSetProtection,
-    showPermissionsTab,
+    canDrop,
     showTasksTab,
     refresh: loadPermissions,
   };

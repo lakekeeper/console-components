@@ -91,7 +91,7 @@
 import { computed, inject, onMounted } from 'vue';
 import { useTheme } from 'vuetify';
 import { useVisualStore } from '../stores/visual';
-import { useConfig } from '../composables/usePermissions';
+import { useConfig } from '../composables/useCatalogPermissions';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '@/plugins/functions';
 import { useRouter } from 'vue-router';

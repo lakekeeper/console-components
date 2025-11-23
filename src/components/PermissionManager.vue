@@ -135,13 +135,14 @@
 
 <script lang="ts" setup>
 import { onMounted, reactive, computed, ref, inject } from 'vue';
+import { useRolePermissions } from '../composables/useCatalogPermissions';
+
 import {
-  useServerPermissions,
-  useWarehousePermissions,
-  useNamespacePermissions,
-  useProjectPermissions,
-  useRolePermissions,
-} from '../composables/usePermissions';
+  useServerAuthorizerPermissions,
+  useWarehouseAuthorizerPermissions,
+  useNamespaceAuthorizerPermissions,
+  useProjectAuthorizerPermissions,
+} from '../composables/useAuthorizerPermissions';
 
 import { AssignmentCollection, Header, RelationType } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
@@ -256,39 +257,43 @@ const assignableObj = reactive<{ id: string; name: string }>({
 const objectIdRef = computed(() => props.objectId);
 const warehouseIdRef = computed(() => props.warehouseId || '');
 
-// Initialize permission composables based on relation type
-const serverPerms = useServerPermissions('server');
-const warehousePerms = useWarehousePermissions(objectIdRef);
-const namespacePerms = useNamespacePermissions(objectIdRef);
-const projectPerms = useProjectPermissions(objectIdRef);
-const rolePerms = useRolePermissions(objectIdRef);
-const warehousePermsForTableView = useWarehousePermissions(warehouseIdRef);
-
 // Computed property to check if user can manage grants
 // This will re-evaluate when permissions load or change
 const canManageGrants = computed(() => {
   switch (props.relationType) {
-    case RelationType.Server:
-      return serverPerms.canReadAssignments.value;
+    case RelationType.Server: {
+      const serverAuthzPerms = useServerAuthorizerPermissions('server');
+      return serverAuthzPerms.canReadAssignments.value;
+    }
 
-    case RelationType.Warehouse:
-      return warehousePerms.canManageGrants.value;
+    case RelationType.Warehouse: {
+      const warehouseAuthzPerms = useWarehouseAuthorizerPermissions(objectIdRef);
+      return warehouseAuthzPerms.canManageGrants.value;
+    }
 
-    case RelationType.Namespace:
-      return namespacePerms.canManageGrants.value;
+    case RelationType.Namespace: {
+      const namespaceAuthzPerms = useNamespaceAuthorizerPermissions(objectIdRef, warehouseIdRef);
+      return namespaceAuthzPerms.canManageGrants.value;
+    }
 
-    case RelationType.Project:
-      return projectPerms.canReadAssignments.value;
+    case RelationType.Project: {
+      const projectAuthzPerms = useProjectAuthorizerPermissions(objectIdRef);
+      return projectAuthzPerms.canReadAssignments.value;
+    }
 
-    case RelationType.Role:
-      return rolePerms.canUpdate.value;
+    case RelationType.Role: {
+      const roleCatalogPerms = useRolePermissions(objectIdRef);
+      return roleCatalogPerms.canUpdate.value;
+    }
 
     case RelationType.Table:
-    case RelationType.View:
+    case RelationType.View: {
       if (!props.warehouseId) {
         return false;
       }
-      return warehousePermsForTableView.hasPermission('grant_manage_grants');
+      const warehouseAuthzPermsForTableView = useWarehouseAuthorizerPermissions(warehouseIdRef);
+      return warehouseAuthzPermsForTableView.canManageGrants.value;
+    }
 
     default:
       return false;

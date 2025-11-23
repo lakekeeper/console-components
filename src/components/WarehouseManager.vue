@@ -86,7 +86,7 @@ import { GetWarehouseResponse } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { usePermissionStore } from '@/stores/permissions';
-import { useProjectPermissions } from '@/composables/usePermissions';
+import { useProjectPermissions } from '@/composables/useCatalogPermissions';
 import { Header } from '@/common/interfaces';
 import { VIcon, VImg } from 'vuetify/components';
 import WarehouseAddDialog from './WarehouseAddDialog.vue';

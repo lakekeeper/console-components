@@ -69,7 +69,7 @@ import { Role } from '../gen/management/types.gen';
 import { useRouter } from 'vue-router';
 import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
-import { useProjectPermissions } from '../composables/usePermissions';
+import { useProjectPermissions } from '../composables/useCatalogPermissions';
 
 const functions = useFunctions();
 const visual = useVisualStore();

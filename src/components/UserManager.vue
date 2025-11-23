@@ -80,7 +80,7 @@ import { User } from '../gen/management/types.gen';
 import { reactive, ref, onMounted, watch, inject } from 'vue';
 import { Header } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
-import { useServerPermissions } from '../composables/usePermissions';
+import { useServerPermissions } from '../composables/useCatalogPermissions';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 import UserRenameDialog from './UserRenameDialog.vue';
 

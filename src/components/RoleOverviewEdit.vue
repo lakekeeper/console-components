@@ -38,7 +38,7 @@
 <script lang="ts" setup>
 import { onMounted, reactive } from 'vue';
 import { useFunctions } from '../plugins/functions';
-import { useRolePermissions } from '../composables/usePermissions';
+import { useRolePermissions } from '../composables/useCatalogPermissions';
 
 const props = defineProps<{
   roleId: string;
