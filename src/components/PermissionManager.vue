@@ -263,7 +263,7 @@ const canManageGrants = computed(() => {
   switch (props.relationType) {
     case RelationType.Server: {
       const serverAuthzPerms = useServerAuthorizerPermissions('server');
-      return serverAuthzPerms.canReadAssignments.value;
+      return serverAuthzPerms.canManageGrants.value;
     }
 
     case RelationType.Warehouse: {
@@ -278,7 +278,7 @@ const canManageGrants = computed(() => {
 
     case RelationType.Project: {
       const projectAuthzPerms = useProjectAuthorizerPermissions(objectIdRef);
-      return projectAuthzPerms.canReadAssignments.value;
+      return projectAuthzPerms.canManageGrants.value;
     }
 
     case RelationType.Role: {
