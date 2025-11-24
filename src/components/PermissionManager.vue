@@ -142,6 +142,7 @@ import {
   useWarehouseAuthorizerPermissions,
   useNamespaceAuthorizerPermissions,
   useProjectAuthorizerPermissions,
+  useRoleAuthorizerPermissions,
 } from '../composables/useAuthorizerPermissions';
 
 import { AssignmentCollection, Header, RelationType } from '../common/interfaces';
@@ -258,10 +259,11 @@ const objectIdRef = computed(() => props.objectId);
 const warehouseIdRef = computed(() => props.warehouseId || '');
 
 // Initialize ALL permission composables at setup time (not inside computed!)
-const serverAuthzPerms = useServerAuthorizerPermissions('server');
+const serverAuthzPerms = useServerAuthorizerPermissions(objectIdRef);
 const warehouseAuthzPerms = useWarehouseAuthorizerPermissions(objectIdRef);
 const namespaceAuthzPerms = useNamespaceAuthorizerPermissions(objectIdRef, warehouseIdRef);
 const projectAuthzPerms = useProjectAuthorizerPermissions(objectIdRef);
+const roleAuthzPerms = useRoleAuthorizerPermissions(objectIdRef);
 const roleCatalogPerms = useRolePermissions(objectIdRef);
 
 // Computed property to check if user can manage grants
@@ -281,7 +283,7 @@ const canManageGrants = computed(() => {
       return projectAuthzPerms.canManageGrants.value;
 
     case RelationType.Role:
-      return roleCatalogPerms.canUpdate.value;
+      return roleAuthzPerms.canManageGrants.value;
 
     case RelationType.Table:
     case RelationType.View:

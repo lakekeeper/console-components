@@ -106,8 +106,8 @@ const { canListRoles, canCreateRole } = useProjectPermissions(projectId);
 async function loadPermissionsForRoles(roles: ExtendedRole[]): Promise<void> {
   await Promise.all(
     roles.map(async (role) => {
-      const roleAction = await functions.getRoleAccessById(role.id);
-      role.can_delete = roleAction.includes('delete');
+      const roleActions = await functions.getRoleCatalogActions(role.id);
+      role.can_delete = roleActions.includes('delete');
     }),
   );
 }

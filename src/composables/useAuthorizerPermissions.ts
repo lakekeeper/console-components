@@ -88,21 +88,10 @@ export function useServerAuthorizerPermissions(serverId: Ref<string> | string) {
 
   // Auto-load on mount
   onMounted(() => {
-    if (serverIdRef.value) {
-      loadPermissions();
-    }
+    loadPermissions();
   });
 
-  // Watch for ID changes
-  watch(
-    serverIdRef,
-    (newId, oldId) => {
-      if (newId && newId !== oldId) {
-        loadPermissions();
-      }
-    },
-    { flush: 'post' },
-  );
+  // Note: No watch needed - server permissions are global and don't depend on serverId
 
   return {
     loading,
@@ -158,6 +147,11 @@ export function useRoleAuthorizerPermissions(roleId: Ref<string> | string) {
   const canChangeOwnership = computed(() => hasPermission('can_change_ownership'));
   const canAssume = computed(() => hasPermission('assume'));
 
+  // Can manage grants = can grant assignee OR can change ownership
+  const canManageGrants = computed(() =>
+    hasAnyPermission('can_grant_assignee', 'can_change_ownership'),
+  );
+
   // UI visibility helpers
   const showPermissionsTab = computed(
     () =>
@@ -194,6 +188,7 @@ export function useRoleAuthorizerPermissions(roleId: Ref<string> | string) {
     canGrantAssignee,
     canChangeOwnership,
     canAssume,
+    canManageGrants,
     showPermissionsTab,
     refresh: loadPermissions,
   };
@@ -265,21 +260,10 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
 
   // Auto-load on mount
   onMounted(() => {
-    if (projectIdRef.value) {
-      loadPermissions();
-    }
+    loadPermissions();
   });
 
-  // Watch for ID changes
-  watch(
-    projectIdRef,
-    (newId, oldId) => {
-      if (newId && newId !== oldId) {
-        loadPermissions();
-      }
-    },
-    { flush: 'post' },
-  );
+  // Note: No watch needed - project permissions are contextual (current project) and don't depend on projectId parameter
 
   return {
     loading,
