@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
 
 export default defineConfig({
@@ -15,6 +16,35 @@ export default defineConfig({
           hoistStatic: false,
           prefixIdentifiers: true,
         },
+      },
+    }),
+    dts({
+      // Generate .d.ts files
+      include: ['src/**/*.ts', 'src/**/*.vue'],
+      exclude: ['src/**/*.spec.ts', 'src/**/*.test.ts', 'src/**/*.stories.ts'],
+      // Output directory for type declarations
+      outDir: 'dist/types',
+      //Don't bundle into single file - keep structure
+      rollupTypes: false,
+      // Skip diagnostics for faster builds (some components have type issues)
+      skipDiagnostics: true,
+      // Log level
+      logLevel: 'warn',
+      // Static import
+      staticImport: true,
+      // Clean output directory before build
+      beforeWriteFile: (filePath, content) => {
+        // Only emit index.d.ts and key type files
+        if (
+          filePath.includes('index.d.ts') ||
+          filePath.includes('composables') ||
+          filePath.includes('gen/management/types.gen.d.ts') ||
+          filePath.includes('common/interfaces.d.ts') ||
+          filePath.includes('common/enums.d.ts')
+        ) {
+          return { filePath, content };
+        }
+        return false;
       },
     }),
   ],

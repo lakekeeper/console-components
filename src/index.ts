@@ -128,8 +128,29 @@ export {
 };
 
 // Export composables
-export * from './composables/useCatalogPermissions';
-export * from './composables/useAuthorizerPermissions';
+// Catalog Permissions (operational actions)
+export {
+  useServerPermissions,
+  useProjectPermissions,
+  useWarehousePermissions,
+  useNamespacePermissions,
+  useTablePermissions,
+  useViewPermissions,
+  useRolePermissions,
+} from './composables/useCatalogPermissions';
+
+// Authorizer Permissions (OpenFGA delegation/grant permissions)
+export {
+  useServerAuthorizerPermissions,
+  useProjectAuthorizerPermissions,
+  useWarehouseAuthorizerPermissions,
+  useNamespaceAuthorizerPermissions,
+  useTableAuthorizerPermissions,
+  useViewAuthorizerPermissions,
+  useRoleAuthorizerPermissions, // ← Note: singular "Role", not "Roles"
+} from './composables/useAuthorizerPermissions';
+
+// Auth composables
 export * from './composables/useAuth';
 
 // Export stores
@@ -141,6 +162,51 @@ export { useNotificationStore } from './stores/notifications';
 // Export common types and enums
 export * from './common/interfaces';
 export * from './common/enums';
+
+// Export generated OpenAPI types for permissions
+export type {
+  // Catalog/Operational Action Types
+  LakekeeperServerAction,
+  LakekeeperProjectAction,
+  LakekeeperWarehouseAction,
+  LakekeeperNamespaceAction,
+  LakekeeperTableAction,
+  LakekeeperViewAction,
+  LakekeeperRoleAction,
+  LakekeeperUserAction,
+  // Authorizer/Delegation Action Types (OpenFGA)
+  OpenFgaServerAction,
+  OpenFgaProjectAction,
+  OpenFgaWarehouseAction,
+  OpenFgaNamespaceAction,
+  OpenFgaTableAction,
+  OpenFgaViewAction,
+  OpenFgaRoleAction,
+  // Assignment Types
+  ServerAssignment,
+  ProjectAssignment,
+  WarehouseAssignment,
+  NamespaceAssignment,
+  TableAssignment,
+  ViewAssignment,
+  RoleAssignment,
+  // Response Types
+  GetServerAssignmentsResponse,
+  GetProjectAssignmentsResponse,
+  GetWarehouseAssignmentsResponse,
+  GetNamespaceAssignmentsResponse,
+  GetTableAssignmentsResponse,
+  GetViewAssignmentsResponse,
+  GetRoleAssignmentsResponse,
+  GetProjectResponse,
+  GetWarehouseResponse,
+  // Entity Types
+  Role,
+  User,
+  ServerInfo,
+  Task,
+  TaskStatus,
+} from './gen/management/types.gen';
 
 // Register all components in an object
 const components = {
