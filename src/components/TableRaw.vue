@@ -45,7 +45,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import VueJsonPretty from 'vue-json-pretty';
 import 'vue-json-pretty/lib/styles.css';
-import type { LoadTableResultReadable } from '@/gen/iceberg/types.gen';
+import type { LoadTableResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -59,7 +59,7 @@ const visual = useVisualStore();
 const depth = ref(3);
 const maxDepth = ref(1000);
 
-const table = reactive<LoadTableResultReadable>({
+const table = reactive<LoadTableResult>({
   metadata: {
     'format-version': 0,
     'table-uuid': '',

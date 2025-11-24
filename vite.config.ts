@@ -32,20 +32,6 @@ export default defineConfig({
       logLevel: 'warn',
       // Static import
       staticImport: true,
-      // Clean output directory before build
-      beforeWriteFile: (filePath, content) => {
-        // Only emit index.d.ts and key type files
-        if (
-          filePath.includes('index.d.ts') ||
-          filePath.includes('composables') ||
-          filePath.includes('gen/management/types.gen.d.ts') ||
-          filePath.includes('common/interfaces.d.ts') ||
-          filePath.includes('common/enums.d.ts')
-        ) {
-          return { filePath, content };
-        }
-        return false;
-      },
     }),
   ],
   build: {

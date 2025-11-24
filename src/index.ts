@@ -295,7 +295,7 @@ export { ConsoleComponentsPlugin };
 
 // Export functions plugin
 export { default as functionsPlugin } from './plugins/functions';
-export { useFunctions as useFunctionsImplementation } from './plugins/functions';
+export { useFunctions } from './plugins/functions';
 
 // Export auth factory and types
 export { createAuth, type AuthConfig } from './plugins/auth';

@@ -6,7 +6,7 @@
 import { onMounted, ref, reactive, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import ViewHistory from './ViewHistory.vue';
-import type { LoadViewResultReadable } from '@/gen/iceberg/types.gen';
+import type { LoadViewResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -17,7 +17,7 @@ const props = defineProps<{
 const functions = useFunctions();
 const loaded = ref(false);
 
-const view = reactive<LoadViewResultReadable>({
+const view = reactive<LoadViewResult>({
   'metadata-location': '',
   metadata: {
     'view-uuid': '',

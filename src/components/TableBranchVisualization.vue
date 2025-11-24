@@ -359,7 +359,7 @@
                                   field,
                                   selectedSnapshot,
                                   snapshotHistory.findIndex(
-                                    (s) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
+                                    (s: {[x: string]: any;}) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
                                   ),
                                 )
                                   ? 'success'
@@ -376,7 +376,7 @@
                                 field,
                                 selectedSnapshot,
                                 snapshotHistory.findIndex(
-                                  (s) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
+                                  (s: Snapshot) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
                                 ),
                               )
                                 ? 'text-success font-weight-bold'
@@ -421,11 +421,11 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
-import type { LoadTableResultReadable, Snapshot } from '../gen/iceberg/types.gen';
+import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
 // Props
 interface Props {
-  table: LoadTableResultReadable;
+  table: LoadTableResult;
   snapshotHistory: Snapshot[];
 }
 
