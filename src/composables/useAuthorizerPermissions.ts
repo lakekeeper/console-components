@@ -74,7 +74,7 @@ export function useServerAuthorizerPermissions(serverId: Ref<string> | string) {
   // Specific authorizer permission checks - DELEGATION only
   const canReadAssignments = computed(() => hasPermission('read_assignments'));
   const canGrantAdmin = computed(() => hasPermission('grant_admin'));
-  
+
   // Check if user can manage grants (has grant_admin permission)
   const canManageGrants = computed(() => canGrantAdmin.value);
 
@@ -240,9 +240,9 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
   const canGrantCreate = computed(() => hasPermission('grant_create'));
   const canGrantRoleCreator = computed(() => hasPermission('grant_role_creator'));
   const canGrantProjectAdmin = computed(() => hasPermission('grant_project_admin'));
-  
+
   // Check if user can manage grants (has any grant permission)
-  const canManageGrants = computed(() => 
+  const canManageGrants = computed(() =>
     hasAnyPermission(
       'grant_role_creator',
       'grant_create',
@@ -251,8 +251,8 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
       'grant_select',
       'grant_project_admin',
       'grant_security_admin',
-      'grant_data_admin'
-    )
+      'grant_data_admin',
+    ),
   );
 
   // UI visibility helpers
