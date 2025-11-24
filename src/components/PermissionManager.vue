@@ -257,43 +257,38 @@ const assignableObj = reactive<{ id: string; name: string }>({
 const objectIdRef = computed(() => props.objectId);
 const warehouseIdRef = computed(() => props.warehouseId || '');
 
+// Initialize ALL permission composables at setup time (not inside computed!)
+const serverAuthzPerms = useServerAuthorizerPermissions('server');
+const warehouseAuthzPerms = useWarehouseAuthorizerPermissions(objectIdRef);
+const namespaceAuthzPerms = useNamespaceAuthorizerPermissions(objectIdRef, warehouseIdRef);
+const projectAuthzPerms = useProjectAuthorizerPermissions(objectIdRef);
+const roleCatalogPerms = useRolePermissions(objectIdRef);
+
 // Computed property to check if user can manage grants
 // This will re-evaluate when permissions load or change
 const canManageGrants = computed(() => {
   switch (props.relationType) {
-    case RelationType.Server: {
-      const serverAuthzPerms = useServerAuthorizerPermissions('server');
+    case RelationType.Server:
       return serverAuthzPerms.canManageGrants.value;
-    }
 
-    case RelationType.Warehouse: {
-      const warehouseAuthzPerms = useWarehouseAuthorizerPermissions(objectIdRef);
+    case RelationType.Warehouse:
       return warehouseAuthzPerms.canManageGrants.value;
-    }
 
-    case RelationType.Namespace: {
-      const namespaceAuthzPerms = useNamespaceAuthorizerPermissions(objectIdRef, warehouseIdRef);
+    case RelationType.Namespace:
       return namespaceAuthzPerms.canManageGrants.value;
-    }
 
-    case RelationType.Project: {
-      const projectAuthzPerms = useProjectAuthorizerPermissions(objectIdRef);
+    case RelationType.Project:
       return projectAuthzPerms.canManageGrants.value;
-    }
 
-    case RelationType.Role: {
-      const roleCatalogPerms = useRolePermissions(objectIdRef);
+    case RelationType.Role:
       return roleCatalogPerms.canUpdate.value;
-    }
 
     case RelationType.Table:
-    case RelationType.View: {
+    case RelationType.View:
       if (!props.warehouseId) {
         return false;
       }
-      const warehouseAuthzPermsForTableView = useWarehouseAuthorizerPermissions(warehouseIdRef);
-      return warehouseAuthzPermsForTableView.canManageGrants.value;
-    }
+      return warehouseAuthzPerms.canManageGrants.value;
 
     default:
       return false;
