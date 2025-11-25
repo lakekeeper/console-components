@@ -135,7 +135,6 @@
 
 <script lang="ts" setup>
 import { onMounted, reactive, computed, ref, inject } from 'vue';
-import { useRolePermissions } from '../composables/useCatalogPermissions';
 
 import {
   useServerAuthorizerPermissions,
@@ -193,7 +192,7 @@ const itemToDelete = ref<any>(null);
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Email', key: 'email', align: 'start' },
-  { title: 'Roles', key: 'type', align: 'start', sortable: false },
+  { title: 'Assignments', key: 'type', align: 'start', sortable: false },
   { title: 'Action', key: 'action', align: 'center', sortable: false },
 ]);
 
