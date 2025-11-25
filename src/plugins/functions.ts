@@ -2410,13 +2410,25 @@ async function listRoles(
 
 async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean): Promise<Role> {
   try {
-    // Only call init() if we want the default project header
-    // When skipProjectId is true, we skip init() to avoid setting the default x-project-id header
-    if (!skipProjectId) {
+    const client = mngClient.client;
+
+    if (skipProjectId) {
+      // Clear any existing project header configuration
+      client.setConfig({
+        baseUrl: icebergCatalogUrl(),
+        headers: {}, // Empty headers - no x-project-id
+      });
+
+      // Still need the auth interceptor
+      client.interceptors.request.use((request) => {
+        const accessToken = useUserStore().user.access_token;
+        request.headers.set('Authorization', `Bearer ${accessToken}`);
+        return request;
+      });
+    } else {
+      // Use normal init with project header
       init();
     }
-
-    const client = mngClient.client;
 
     const { data, error } = await mng.getRole({
       client,
