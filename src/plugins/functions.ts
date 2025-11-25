@@ -2410,7 +2410,13 @@ async function listRoles(
 
 async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean): Promise<Role> {
   try {
-    console.log('[getRole] Called with parameters', { roleId, notify, skipProjectId });
+    console.log('[getRole] Called with parameters', {
+      roleId,
+      notify,
+      skipProjectId,
+      argumentsLength: arguments.length,
+      allArguments: Array.from(arguments),
+    });
     if (skipProjectId) {
       console.log('[getRole] skipProjectId=true - fetching role WITHOUT x-project-id header', {
         roleId,
@@ -2442,8 +2448,9 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
         },
       });
 
-      console.log('[getRole] API response received', {
+      console.log('[getRole] API response received (skipProjectId)', {
         success: !error,
+        hasError: !!error,
         roleName: (data as Role)?.name,
         roleProjectId: (data as Role)?.['project-id' as keyof Role],
       });
@@ -2476,8 +2483,9 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
         path: { role_id: roleId },
       });
 
-      console.log('[getRole] API response received', {
+      console.log('[getRole] API response received (normal)', {
         success: !error,
+        hasError: !!error,
         roleName: (data as Role)?.name,
         roleProjectId: (data as Role)?.['project-id' as keyof Role],
       });

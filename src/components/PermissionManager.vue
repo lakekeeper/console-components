@@ -439,13 +439,8 @@ async function init() {
         }
       } catch (error: any) {
         // Role fetch failed with current project - try without project context
-        console.log(
-          `[PermissionManager] First attempt failed for role ${searchUser.role}, retrying without x-project-id header`,
-          error,
-        );
         try {
           const role = await functions.getRole(searchUser.role, false, true); // skipProjectId = true
-          console.log(`[PermissionManager] Retry succeeded for role ${searchUser.role}:`, role);
           const idx = permissionRows.findIndex((a) => a.id === role.id);
 
           if (role) {
@@ -464,10 +459,6 @@ async function init() {
           }
         } catch (secondError: any) {
           // Role not accessible at all - show with warning
-          console.error(
-            `[PermissionManager] Both attempts failed for role ${searchUser.role}. Displaying as "External Project"`,
-            secondError,
-          );
           const idx = permissionRows.findIndex((a) => a.id === searchUser.role);
           if (idx === -1) {
             permissionRows.push({
