@@ -2410,22 +2410,18 @@ async function listRoles(
 
 async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean): Promise<Role> {
   try {
-    init();
+    // Only call init() if we want the default project header
+    // When skipProjectId is true, we skip init() to avoid setting the default x-project-id header
+    if (!skipProjectId) {
+      init();
+    }
 
     const client = mngClient.client;
 
-    // Build request parameters
-    const requestParams: any = {
+    const { data, error } = await mng.getRole({
       client,
       path: { role_id: roleId },
-    };
-
-    // If skipProjectId is true, explicitly set empty x-project-id to override default
-    if (skipProjectId === true) {
-      requestParams.headers = { 'x-project-id': '' };
-    }
-
-    const { data, error } = await mng.getRole(requestParams);
+    });
 
     if (error) throw error;
 
