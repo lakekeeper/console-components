@@ -259,33 +259,36 @@ const assignableObj = reactive<{ id: string; name: string }>({
 const objectIdRef = computed(() => props.objectId);
 const warehouseIdRef = computed(() => props.warehouseId || '');
 
+// Conditionally initialize ONLY the composable needed for the current relation type
+// This prevents unnecessary API calls and reactive state setup
+let authzPerms:
+  | ReturnType<typeof useServerAuthorizerPermissions>
+  | ReturnType<typeof useWarehouseAuthorizerPermissions>
+  | ReturnType<typeof useNamespaceAuthorizerPermissions>
+  | ReturnType<typeof useProjectAuthorizerPermissions>
+  | ReturnType<typeof useRoleAuthorizerPermissions>
+  | ReturnType<typeof useTableAuthorizerPermissions>
+  | ReturnType<typeof useViewAuthorizerPermissions>
+  | null = null;
+
+if (props.relationType === RelationType.Server) {
+  authzPerms = useServerAuthorizerPermissions(objectIdRef);
+} else if (props.relationType === RelationType.Warehouse) {
+  authzPerms = useWarehouseAuthorizerPermissions(objectIdRef);
+} else if (props.relationType === RelationType.Namespace) {
+  authzPerms = useNamespaceAuthorizerPermissions(objectIdRef, warehouseIdRef);
+} else if (props.relationType === RelationType.Project) {
+  authzPerms = useProjectAuthorizerPermissions(objectIdRef);
+} else if (props.relationType === RelationType.Role) {
+  authzPerms = useRoleAuthorizerPermissions(objectIdRef);
+} else if (props.relationType === RelationType.Table) {
+  authzPerms = useTableAuthorizerPermissions(objectIdRef, warehouseIdRef);
+} else if (props.relationType === RelationType.View) {
+  authzPerms = useViewAuthorizerPermissions(objectIdRef, warehouseIdRef);
+}
+
 // Computed property to check if user can manage grants
-// This will re-evaluate when permissions load or change
-const canManageGrants = computed(() => {
-  switch (props.relationType) {
-    case RelationType.Server:
-      return useServerAuthorizerPermissions(objectIdRef);
-
-    case RelationType.Warehouse:
-      return useWarehouseAuthorizerPermissions(objectIdRef);
-
-    case RelationType.Namespace:
-      return useNamespaceAuthorizerPermissions(objectIdRef, warehouseIdRef);
-
-    case RelationType.Project:
-      return useProjectAuthorizerPermissions(objectIdRef);
-
-    case RelationType.Role:
-      return useRoleAuthorizerPermissions(objectIdRef);
-    case RelationType.Table:
-      return useTableAuthorizerPermissions(objectIdRef, warehouseIdRef);
-    case RelationType.View:
-      return useViewAuthorizerPermissions(objectIdRef, warehouseIdRef);
-
-    default:
-      return false;
-  }
-});
+const canManageGrants = computed(() => authzPerms?.canManageGrants.value ?? false);
 
 async function loadObjectData() {
   try {
