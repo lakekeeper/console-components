@@ -2408,16 +2408,24 @@ async function listRoles(
   }
 }
 
-async function getRole(roleId: string, notify?: boolean): Promise<Role> {
+async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean): Promise<Role> {
   try {
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getRole({
+    // Build request parameters
+    const requestParams: any = {
       client,
       path: { role_id: roleId },
-    });
+    };
+
+    // If skipProjectId is true, explicitly set empty x-project-id to override default
+    if (skipProjectId === true) {
+      requestParams.headers = { 'x-project-id': '' };
+    }
+
+    const { data, error } = await mng.getRole(requestParams);
 
     if (error) throw error;
 

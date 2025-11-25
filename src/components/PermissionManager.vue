@@ -418,21 +418,61 @@ async function init() {
         }
       }
     } else {
-      const role = await functions.getRole(searchUser.role);
-      const idx = permissionRows.findIndex((a) => a.id === role.id);
+      try {
+        // First try with current project context
+        const role = await functions.getRole(searchUser.role);
+        const idx = permissionRows.findIndex((a) => a.id === role.id);
 
-      if (role) {
-        if (idx === -1) {
-          permissionRows.push({
-            id: role.id,
-            name: role.name,
-            email: '',
-            type: [permission.type],
-            kind: 'role',
-            'project-id': role['project-id'] || null,
-          });
-        } else {
-          permissionRows[idx].type.push(permission.type);
+        if (role) {
+          if (idx === -1) {
+            permissionRows.push({
+              id: role.id,
+              name: role.name,
+              email: '',
+              type: [permission.type],
+              kind: 'role',
+              'project-id': role['project-id'] || null,
+            });
+          } else {
+            permissionRows[idx].type.push(permission.type);
+          }
+        }
+      } catch (error: any) {
+        // Role fetch failed with current project - try without project context
+        try {
+          const role = await functions.getRole(searchUser.role, false, true); // skipProjectId = true
+          const idx = permissionRows.findIndex((a) => a.id === role.id);
+
+          if (role) {
+            if (idx === -1) {
+              permissionRows.push({
+                id: role.id,
+                name: role.name,
+                email: '',
+                type: [permission.type],
+                kind: 'role',
+                'project-id': role['project-id'] || null,
+              });
+            } else {
+              permissionRows[idx].type.push(permission.type);
+            }
+          }
+        } catch (secondError: any) {
+          // Role not accessible at all - show with warning
+          console.warn(`Unable to fetch role ${searchUser.role}:`, secondError);
+          const idx = permissionRows.findIndex((a) => a.id === searchUser.role);
+          if (idx === -1) {
+            permissionRows.push({
+              id: searchUser.role,
+              name: `Role ${searchUser.role.substring(0, 8)}... (External Project)`,
+              email: '',
+              type: [permission.type],
+              kind: 'role',
+              'project-id': 'unknown',
+            });
+          } else {
+            permissionRows[idx].type.push(permission.type);
+          }
         }
       }
     }
