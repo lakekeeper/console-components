@@ -2410,38 +2410,84 @@ async function listRoles(
 
 async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean): Promise<Role> {
   try {
-    const client = mngClient.client;
-
     if (skipProjectId) {
-      // Clear any existing project header configuration
+      console.log('[getRole] skipProjectId=true - fetching role WITHOUT x-project-id header', {
+        roleId,
+        baseUrl: icebergCatalogUrl(),
+      });
+      
+      // When skipping project ID, we need to ensure the client has NO x-project-id header
+      // We must configure it with explicit undefined/empty to override any default
+      const userStore = useUserStore();
+      const accessToken = userStore.user.access_token;
+
+      const client = mngClient.client;
+
+      // Completely reset the config without x-project-id header
       client.setConfig({
         baseUrl: icebergCatalogUrl(),
-        headers: {}, // Empty headers - no x-project-id
+        // Explicitly set headers without x-project-id
       });
 
-      // Still need the auth interceptor
-      client.interceptors.request.use((request) => {
-        const accessToken = useUserStore().user.access_token;
-        request.headers.set('Authorization', `Bearer ${accessToken}`);
-        return request;
+      console.log('[getRole] Making API call with explicit Authorization header only');
+      
+      // Use the API call WITHOUT init() to avoid setting default project header
+      const { data, error } = await mng.getRole({
+        client,
+        path: { role_id: roleId },
+        headers: {
+          // Explicitly provide only the Authorization header
+          Authorization: `Bearer ${accessToken}`,
+        },
       });
+      
+      console.log('[getRole] API response received', { 
+        success: !error, 
+        roleName: (data as Role)?.name,
+        roleProjectId: (data as Role)?.[('project-id' as keyof Role)],
+      });
+
+      if (error) throw error;
+
+      const result = data as Role;
+      if (notify) {
+        handleSuccess('getRole', `Role '${result.name || roleId}' loaded successfully`, notify);
+      }
+      return result;
     } else {
-      // Use normal init with project header
+      // Normal flow with project header
+      const visual = useVisualStore();
+      const projectId = visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'];
+      
+      console.log('[getRole] skipProjectId=false - fetching role WITH x-project-id header', {
+        roleId,
+        projectId,
+        baseUrl: icebergCatalogUrl(),
+      });
+      
       init();
+
+      const client = mngClient.client;
+
+      const { data, error } = await mng.getRole({
+        client,
+        path: { role_id: roleId },
+      });
+      
+      console.log('[getRole] API response received', { 
+        success: !error, 
+        roleName: (data as Role)?.name,
+        roleProjectId: (data as Role)?.[('project-id' as keyof Role)],
+      });
+
+      if (error) throw error;
+
+      const result = data as Role;
+      if (notify) {
+        handleSuccess('getRole', `Role '${result.name || roleId}' loaded successfully`, notify);
+      }
+      return result;
     }
-
-    const { data, error } = await mng.getRole({
-      client,
-      path: { role_id: roleId },
-    });
-
-    if (error) throw error;
-
-    const result = data as Role;
-    if (notify) {
-      handleSuccess('getRole', `Role '${result.name || roleId}' loaded successfully`, notify);
-    }
-    return result;
   } catch (error: any) {
     handleError(error, 'getRole');
     throw error;
