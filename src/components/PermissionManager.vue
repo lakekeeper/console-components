@@ -440,7 +440,7 @@ async function init() {
       } catch (error: any) {
         // Role fetch failed with current project - try without project context
         try {
-          const role = await functions.getRole(searchUser.role, false, true); // skipProjectId = true
+          const role = await functions.getRole(searchUser.role, { skipProjectId: true }); // Fetch without x-project-id header
           const idx = permissionRows.findIndex((a) => a.id === role.id);
 
           if (role) {
