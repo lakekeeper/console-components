@@ -3160,6 +3160,7 @@ async function getAuthorizerRoleActions(
 
 async function getRoleCatalogActions(
   roleId: string,
+  projectId?: string,
   notify?: boolean,
 ): Promise<LakekeeperRoleAction[]> {
   try {
@@ -3174,6 +3175,7 @@ async function getRoleCatalogActions(
     const { data, error } = await mng.getRoleActions({
       client,
       path: { role_id: roleId },
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
     });
 
     if (error) throw error;

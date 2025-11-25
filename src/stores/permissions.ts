@@ -24,9 +24,12 @@ export const usePermissionStore = defineStore('permissions', () => {
   }
 
   // Role Permissions - returns catalog (operational) actions
-  async function getRolePermissions(roleId: string): Promise<LakekeeperRoleAction[]> {
+  async function getRolePermissions(
+    roleId: string,
+    projectId?: string,
+  ): Promise<LakekeeperRoleAction[]> {
     try {
-      const permissions = await functions.getRoleCatalogActions(roleId);
+      const permissions = await functions.getRoleCatalogActions(roleId, projectId);
       return permissions;
     } catch (error) {
       console.error(`Failed to load role permissions for ${roleId}:`, error);
