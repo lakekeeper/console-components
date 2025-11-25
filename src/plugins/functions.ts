@@ -2408,35 +2408,8 @@ async function listRoles(
   }
 }
 
-async function getRole(
-  roleIdOrParams: string | { roleId: string; notify?: boolean; skipProjectId?: boolean },
-  options?: boolean | { notify?: boolean; skipProjectId?: boolean },
-): Promise<Role> {
-  // Extract parameters - support both old and new calling conventions
-  const roleId = typeof roleIdOrParams === 'string' ? roleIdOrParams : roleIdOrParams.roleId;
-  const notify =
-    typeof roleIdOrParams === 'object'
-      ? roleIdOrParams.notify
-      : typeof options === 'boolean'
-        ? options
-        : options?.notify;
-  const skipProjectId =
-    typeof roleIdOrParams === 'object'
-      ? roleIdOrParams.skipProjectId
-      : typeof options === 'object'
-        ? options?.skipProjectId
-        : undefined;
-
+async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean): Promise<Role> {
   try {
-    console.log('[getRole] Called with parameters', {
-      roleIdOrParams,
-      options,
-      extractedRoleId: roleId,
-      extractedNotify: notify,
-      extractedSkipProjectId: skipProjectId,
-      argumentsLength: arguments.length,
-      allArguments: Array.from(arguments),
-    });
     if (skipProjectId) {
       console.log('[getRole] skipProjectId=true - fetching role WITHOUT x-project-id header', {
         roleId,
