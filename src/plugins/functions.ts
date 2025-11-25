@@ -2417,19 +2417,18 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
       });
 
       // When skipping project ID, we need to ensure the client has NO x-project-id header
-      // We must configure it with explicit undefined/empty to override any default
       const userStore = useUserStore();
       const accessToken = userStore.user.access_token;
 
       const client = mngClient.client;
 
-      // Completely reset the config without x-project-id header
+      // Reset the config with explicitly empty headers to clear x-project-id
       client.setConfig({
         baseUrl: icebergCatalogUrl(),
-        // Explicitly set headers without x-project-id
+        headers: {}, // Explicitly empty headers object to clear defaults
       });
 
-      console.log('[getRole] Making API call with explicit Authorization header only');
+      console.log('[getRole] Making API call with Authorization header only (no x-project-id)');
 
       // Use the API call WITHOUT init() to avoid setting default project header
       const { data, error } = await mng.getRole({
