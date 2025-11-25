@@ -2415,7 +2415,7 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
         roleId,
         baseUrl: icebergCatalogUrl(),
       });
-      
+
       // When skipping project ID, we need to ensure the client has NO x-project-id header
       // We must configure it with explicit undefined/empty to override any default
       const userStore = useUserStore();
@@ -2430,7 +2430,7 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
       });
 
       console.log('[getRole] Making API call with explicit Authorization header only');
-      
+
       // Use the API call WITHOUT init() to avoid setting default project header
       const { data, error } = await mng.getRole({
         client,
@@ -2440,11 +2440,11 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
           Authorization: `Bearer ${accessToken}`,
         },
       });
-      
-      console.log('[getRole] API response received', { 
-        success: !error, 
+
+      console.log('[getRole] API response received', {
+        success: !error,
         roleName: (data as Role)?.name,
-        roleProjectId: (data as Role)?.[('project-id' as keyof Role)],
+        roleProjectId: (data as Role)?.['project-id' as keyof Role],
       });
 
       if (error) throw error;
@@ -2457,14 +2457,15 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
     } else {
       // Normal flow with project header
       const visual = useVisualStore();
-      const projectId = visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'];
-      
+      const projectId =
+        visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'];
+
       console.log('[getRole] skipProjectId=false - fetching role WITH x-project-id header', {
         roleId,
         projectId,
         baseUrl: icebergCatalogUrl(),
       });
-      
+
       init();
 
       const client = mngClient.client;
@@ -2473,11 +2474,11 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
         client,
         path: { role_id: roleId },
       });
-      
-      console.log('[getRole] API response received', { 
-        success: !error, 
+
+      console.log('[getRole] API response received', {
+        success: !error,
         roleName: (data as Role)?.name,
-        roleProjectId: (data as Role)?.[('project-id' as keyof Role)],
+        roleProjectId: (data as Role)?.['project-id' as keyof Role],
       });
 
       if (error) throw error;
