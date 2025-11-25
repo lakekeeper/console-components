@@ -2416,38 +2416,53 @@ async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean
         baseUrl: icebergCatalogUrl(),
       });
 
-      // When skipping project ID, we need to ensure the client has NO x-project-id header
+      // Use custom fetch to bypass OpenAPI client and have full control over headers
       const userStore = useUserStore();
       const accessToken = userStore.user.access_token;
+      const url = `${icebergCatalogUrl()}management/v1/role/${roleId}`;
 
-      const client = mngClient.client;
+      console.log('[getRole] Custom fetch with Authorization header only (no x-project-id)');
 
-      // Reset the config with explicitly empty headers to clear x-project-id
-      client.setConfig({
-        baseUrl: icebergCatalogUrl(),
-        headers: {}, // Explicitly empty headers object to clear defaults
-      });
-
-      console.log('[getRole] Making API call with Authorization header only (no x-project-id)');
-
-      // Use the API call WITHOUT init() to avoid setting default project header
-      const { data, error } = await mng.getRole({
-        client,
-        path: { role_id: roleId },
+      const response = await fetch(url, {
+        method: 'GET',
         headers: {
-          // Explicitly provide only the Authorization header
+          Accept: 'application/json',
           Authorization: `Bearer ${accessToken}`,
+          // Explicitly NO x-project-id header
         },
       });
 
-      console.log('[getRole] API response received (skipProjectId)', {
-        success: !error,
-        hasError: !!error,
-        roleName: (data as Role)?.name,
-        roleProjectId: (data as Role)?.['project-id' as keyof Role],
-      });
+      if (!response.ok) {
+        // Parse error response
+        const errorBody = await response.text().catch(() => response.statusText);
+        let errorMessage = response.statusText;
+        let errorType = 'FetchError';
 
-      if (error) throw error;
+        try {
+          const errorJson = JSON.parse(errorBody);
+          errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+          errorType = errorJson.type || errorJson.error?.type || 'FetchError';
+        } catch {
+          errorMessage = errorBody || response.statusText;
+        }
+
+        throw {
+          error: {
+            code: response.status,
+            message: errorMessage,
+            type: errorType,
+          },
+        };
+      }
+
+      const data = await response.json();
+
+      console.log('[getRole] API response received (skipProjectId)', {
+        success: true,
+        hasError: false,
+        roleName: data.name,
+        roleProjectId: data['project-id'],
+      });
 
       const result = data as Role;
       if (notify) {
