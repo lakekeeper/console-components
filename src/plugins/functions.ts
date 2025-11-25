@@ -2409,19 +2409,31 @@ async function listRoles(
 }
 
 async function getRole(
-  roleId: string,
+  roleIdOrParams: string | { roleId: string; notify?: boolean; skipProjectId?: boolean },
   options?: boolean | { notify?: boolean; skipProjectId?: boolean },
 ): Promise<Role> {
-  // Handle backward compatibility: if options is a boolean, treat it as notify parameter
-  const notify = typeof options === 'boolean' ? options : options?.notify;
-  const skipProjectId = typeof options === 'object' ? options?.skipProjectId : undefined;
+  // Extract parameters - support both old and new calling conventions
+  const roleId = typeof roleIdOrParams === 'string' ? roleIdOrParams : roleIdOrParams.roleId;
+  const notify =
+    typeof roleIdOrParams === 'object'
+      ? roleIdOrParams.notify
+      : typeof options === 'boolean'
+        ? options
+        : options?.notify;
+  const skipProjectId =
+    typeof roleIdOrParams === 'object'
+      ? roleIdOrParams.skipProjectId
+      : typeof options === 'object'
+        ? options?.skipProjectId
+        : undefined;
 
   try {
     console.log('[getRole] Called with parameters', {
-      roleId,
+      roleIdOrParams,
       options,
-      notify,
-      skipProjectId,
+      extractedRoleId: roleId,
+      extractedNotify: notify,
+      extractedSkipProjectId: skipProjectId,
       argumentsLength: arguments.length,
       allArguments: Array.from(arguments),
     });
