@@ -2410,6 +2410,7 @@ async function listRoles(
 
 async function getRole(roleId: string, notify?: boolean, skipProjectId?: boolean): Promise<Role> {
   try {
+    console.log('[getRole] Called with parameters', { roleId, notify, skipProjectId });
     if (skipProjectId) {
       console.log('[getRole] skipProjectId=true - fetching role WITHOUT x-project-id header', {
         roleId,
