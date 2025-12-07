@@ -29,6 +29,7 @@
           clearable
           class="mr-4"
           style="max-width: 300px"></v-text-field>
+        <PermissionMatrixDialog class="mr-2" />
         <span v-if="canManageGrants" style="display: flex; align-items: center">
           <PermissionAssignDialog
             :status="assignStatus"
@@ -149,6 +150,7 @@ import {
 import { AssignmentCollection, Header, RelationType } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
 import { useVisualStore } from '../stores/visual';
+import PermissionMatrixDialog from './PermissionMatrixDialog.vue';
 
 const functions = inject<any>('functions')!;
 const visualStore = useVisualStore();
