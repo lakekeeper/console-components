@@ -223,7 +223,7 @@ watch(canListWarehouses, async (newValue) => {
 async function listWarehouse() {
   try {
     whResponse.splice(0, whResponse.length);
-    const wh = await functions.listWarehouses(false, showInactive.value);
+    const wh = await functions.listWarehouses(false);
 
     Object.assign(whResponse, wh.warehouses);
 

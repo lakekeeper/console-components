@@ -35,20 +35,6 @@
 
       <v-divider></v-divider>
 
-      <v-list-item
-        v-if="warehouse.status === 'inactive'"
-        prepend-icon="mdi-play-circle"
-        title="Activate Warehouse"
-        @click="activateWarehouseAction"></v-list-item>
-
-      <v-list-item
-        v-if="warehouse.status === 'active'"
-        prepend-icon="mdi-pause-circle"
-        title="Deactivate Warehouse"
-        @click="deactivateWarehouseAction"></v-list-item>
-
-      <v-divider></v-divider>
-
       <ComputeConnectDialog :warehouse="warehouse" />
     </v-list>
   </v-menu>
@@ -90,26 +76,6 @@ onMounted(async () => {});
 function emitRename(name: string) {
   emit('renameWarehouse', name);
   menuOpen.value = false;
-}
-
-async function activateWarehouseAction() {
-  try {
-    await functions.activateWarehouse(warehouse.id, true);
-    emit('warehouseStatusChanged');
-    menuOpen.value = false;
-  } catch (error) {
-    console.error('Failed to activate warehouse', error);
-  }
-}
-
-async function deactivateWarehouseAction() {
-  try {
-    await functions.deactivateWarehouse(warehouse.id, true);
-    emit('warehouseStatusChanged');
-    menuOpen.value = false;
-  } catch (error) {
-    console.error('Failed to deactivate warehouse', error);
-  }
 }
 
 function updateStorageCredential(e: StorageCredential) {
