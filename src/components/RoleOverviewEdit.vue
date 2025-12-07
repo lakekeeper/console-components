@@ -31,6 +31,15 @@
         :action-type="'edit'"
         :role="role as any"
         @role-input="editRole" />
+      <v-spacer></v-spacer>
+      <v-menu location="start">
+        <template #activator="{ props: menuProps }">
+          <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="menuProps"></v-btn>
+        </template>
+        <v-list density="compact">
+          <RoleMetadataDialog :role-id="role.id" :can-update-source-system="canUpdate" />
+        </v-list>
+      </v-menu>
     </v-card-actions>
   </v-card>
 </template>
@@ -39,6 +48,7 @@
 import { onMounted, reactive } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useRolePermissions } from '../composables/useCatalogPermissions';
+import RoleMetadataDialog from './RoleMetadataDialog.vue';
 
 const props = defineProps<{
   roleId: string;

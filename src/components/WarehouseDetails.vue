@@ -36,12 +36,33 @@
               </v-col>
               <v-col cols="12">
                 <div class="text-overline text-medium-emphasis">Status</div>
-                <div class="mt-2">
+                <div class="mt-2 d-flex align-center gap-2">
                   <v-chip
                     :color="warehouse.status === 'active' ? 'success' : 'warning'"
-                    size="small">
+                    size="small"
+                    :prepend-icon="
+                      warehouse.status === 'active' ? 'mdi-check-circle' : 'mdi-pause-circle'
+                    ">
                     {{ warehouse.status }}
                   </v-chip>
+                  <v-btn
+                    v-if="warehouse.status === 'active' && canDeactivate"
+                    size="x-small"
+                    color="warning"
+                    variant="outlined"
+                    prepend-icon="mdi-pause"
+                    @click="deactivateWarehouse">
+                    Deactivate
+                  </v-btn>
+                  <v-btn
+                    v-if="warehouse.status === 'inactive' && canActivate"
+                    size="x-small"
+                    color="success"
+                    variant="outlined"
+                    prepend-icon="mdi-play"
+                    @click="activateWarehouse">
+                    Activate
+                  </v-btn>
                 </div>
               </v-col>
               <v-col cols="12">
@@ -292,6 +313,28 @@ async function loadWarehouse() {
 }
 
 onMounted(loadWarehouse);
+
+// Permission placeholders - these should be replaced with actual permission checks
+const canActivate = true;
+const canDeactivate = true;
+
+async function activateWarehouse() {
+  try {
+    await functions.activateWarehouse(props.warehouseId, true);
+    await loadWarehouse();
+  } catch (error) {
+    console.error('Failed to activate warehouse:', error);
+  }
+}
+
+async function deactivateWarehouse() {
+  try {
+    await functions.deactivateWarehouse(props.warehouseId, true);
+    await loadWarehouse();
+  } catch (error) {
+    console.error('Failed to deactivate warehouse:', error);
+  }
+}
 
 function copyToClipboard(text: string) {
   functions.copyToClipboard(text);

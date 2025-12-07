@@ -46,6 +46,7 @@ import {
   NamespaceAssignment,
   ProjectAssignment,
   ProtectionResponse,
+  RoleMetadata,
   // New action types
   OpenFgaServerAction,
   OpenFgaProjectAction,
@@ -882,6 +883,58 @@ async function setWarehouseProtection(
     return data;
   } catch (error) {
     handleError(error, 'setWarehouseProtection');
+    throw error;
+  }
+}
+
+async function activateWarehouse(warehouseId: string, notify?: boolean): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { error } = await mng.activateWarehouse({
+      client,
+      path: {
+        warehouse_id: warehouseId,
+      },
+    });
+
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('activateWarehouse', 'Warehouse activated successfully', notify);
+    }
+
+    return true;
+  } catch (error: any) {
+    handleError(error, 'activateWarehouse', notify);
+    throw error;
+  }
+}
+
+async function deactivateWarehouse(warehouseId: string, notify?: boolean): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { error } = await mng.deactivateWarehouse({
+      client,
+      path: {
+        warehouse_id: warehouseId,
+      },
+    });
+
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('deactivateWarehouse', 'Warehouse deactivated successfully', notify);
+    }
+
+    return true;
+  } catch (error: any) {
+    handleError(error, 'deactivateWarehouse', notify);
     throw error;
   }
 }
@@ -2519,6 +2572,61 @@ async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
   }
 }
 
+async function getRoleMetadata(roleId: string, notify?: boolean): Promise<RoleMetadata> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getRoleMetadata({
+      client,
+      path: { role_id: roleId },
+    });
+
+    if (error) throw error;
+
+    const metadata = data ?? { id: '', name: '', 'project-id': '' };
+
+    if (notify) {
+      handleSuccess('getRoleMetadata', 'Role metadata retrieved successfully', notify);
+    }
+
+    return metadata;
+  } catch (error: any) {
+    handleError(error, 'getRoleMetadata', notify);
+    throw error;
+  }
+}
+
+async function updateRoleSourceSystem(
+  roleId: string,
+  sourceId: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { error } = await mng.updateRoleSourceSystem({
+      client,
+      path: { role_id: roleId },
+      body: { 'source-id': sourceId },
+    });
+
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateRoleSourceSystem', 'Role source system updated successfully', notify);
+    }
+
+    return true;
+  } catch (error: any) {
+    handleError(error, 'updateRoleSourceSystem', notify);
+    throw error;
+  }
+}
+
 // Tasks
 
 async function getTaskQueueConfigTabularExpiration(
@@ -3225,6 +3333,85 @@ async function getUserCatalogActions(
     return [];
   }
 }
+
+// Batch Permission Checks
+async function batchCheckActions(
+  checks: Array<{
+    id?: string | null;
+    identity?: any | null;
+    operation: any;
+  }>,
+  errorOnNotFound?: boolean,
+  notify?: boolean,
+): Promise<Array<{ allowed: boolean; id?: string | null }>> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.batchCheckActions({
+      client,
+      body: {
+        checks,
+        'error-on-not-found': errorOnNotFound ?? false,
+      },
+    });
+
+    if (error) throw error;
+
+    const results = (data?.results ?? []) as Array<{
+      allowed: boolean;
+      id?: string | null;
+    }>;
+
+    if (notify) {
+      handleSuccess(
+        'batchCheckActions',
+        `Batch check completed: ${results.filter((r) => r.allowed).length}/${results.length} allowed`,
+        notify,
+      );
+    }
+
+    return results;
+  } catch (error: any) {
+    handleError(error, 'batchCheckActions', notify);
+    throw error;
+  }
+}
+
+async function checkAction(
+  operation: any,
+  identity?: any | null,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.check({
+      client,
+      body: {
+        operation,
+        identity: identity ?? null,
+      },
+    });
+
+    if (error) throw error;
+
+    const allowed = (data?.allowed ?? false) as boolean;
+
+    if (notify) {
+      handleSuccess('checkAction', `Action ${allowed ? 'allowed' : 'denied'}`, notify);
+    }
+
+    return allowed;
+  } catch (error: any) {
+    handleError(error, 'checkAction', notify);
+    throw error;
+  }
+}
+
 function handleSuccess(functionName: string, msg: string, notify?: boolean) {
   const visual = useVisualStore();
   const notificationStore = useNotificationStore();
@@ -3423,6 +3610,15 @@ export function useFunctions(config?: any) {
     setTableProtection,
     setViewProtection,
     getViewProtection,
+    // Warehouse activation/deactivation
+    activateWarehouse,
+    deactivateWarehouse,
+    // Role metadata functions
+    getRoleMetadata,
+    updateRoleSourceSystem,
+    // Permission check functions
+    batchCheckActions,
+    checkAction,
     // Task functions
     getTaskQueueConfigTabularExpiration,
     setTaskQueueConfigTabularExpiration,

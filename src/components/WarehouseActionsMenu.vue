@@ -33,6 +33,22 @@
         @cancel="menuOpen = false"
         @update-deletion-profile="updateDeletionProfile" />
 
+      <v-divider></v-divider>
+
+      <v-list-item
+        v-if="warehouse.status === 'inactive'"
+        prepend-icon="mdi-play-circle"
+        title="Activate Warehouse"
+        @click="activateWarehouseAction"></v-list-item>
+
+      <v-list-item
+        v-if="warehouse.status === 'active'"
+        prepend-icon="mdi-pause-circle"
+        title="Deactivate Warehouse"
+        @click="deactivateWarehouseAction"></v-list-item>
+
+      <v-divider></v-divider>
+
       <ComputeConnectDialog :warehouse="warehouse" />
     </v-list>
   </v-menu>
@@ -47,8 +63,10 @@ import {
 } from '../gen/management/types.gen';
 import { ref, onMounted } from 'vue';
 import { Intent, ObjectType } from '../common/enums';
+import { useFunctions } from '../plugins/functions';
 
 const menuOpen = ref(false);
+const functions = useFunctions();
 
 const emit = defineEmits<{
   (e: 'renameWarehouse', warehouse: string): void;
@@ -58,6 +76,7 @@ const emit = defineEmits<{
     newProfile: { profile: StorageProfile; credentials: StorageCredential },
   ): void;
   (e: 'updateDelprofile', profile: TabularDeleteProfile): void;
+  (e: 'warehouseStatusChanged'): void;
   (e: 'close'): void;
 }>();
 
@@ -71,6 +90,26 @@ onMounted(async () => {});
 function emitRename(name: string) {
   emit('renameWarehouse', name);
   menuOpen.value = false;
+}
+
+async function activateWarehouseAction() {
+  try {
+    await functions.activateWarehouse(warehouse.id, true);
+    emit('warehouseStatusChanged');
+    menuOpen.value = false;
+  } catch (error) {
+    console.error('Failed to activate warehouse', error);
+  }
+}
+
+async function deactivateWarehouseAction() {
+  try {
+    await functions.deactivateWarehouse(warehouse.id, true);
+    emit('warehouseStatusChanged');
+    menuOpen.value = false;
+  } catch (error) {
+    console.error('Failed to deactivate warehouse', error);
+  }
 }
 
 function updateStorageCredential(e: StorageCredential) {

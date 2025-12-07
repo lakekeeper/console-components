@@ -32,6 +32,12 @@ export type AdlsProfile = {
      */
     'key-prefix'?: string | null;
     /**
+     * Enable SAS (Shared Access Signature) token generation for Azure Data Lake Storage.
+     * When disabled, clients cannot use vended credentials for this storage profile.
+     * Defaults to true.
+     */
+    'sas-enabled'?: boolean;
+    /**
      * The validity of the sas token in seconds. Default: 3600.
      */
     'sas-token-validity-seconds'?: number | null;
@@ -71,6 +77,75 @@ export type BootstrapRequest = {
      */
     'user-name'?: string | null;
     'user-type'?: null | UserType;
+};
+
+/**
+ * A single check item with optional identity override
+ */
+export type CatalogActionCheckItem = {
+    /**
+     * Optional identifier for this check (returned in response).
+     * If not specified, the index in the request array will be used.
+     */
+    id?: string | null;
+    identity?: null | UserOrRole;
+    /**
+     * The operation to check
+     */
+    operation: CatalogActionCheckOperation;
+};
+
+/**
+ * Represents an action on an object
+ */
+export type CatalogActionCheckOperation = {
+    server: {
+        action: LakekeeperServerAction;
+    };
+} | {
+    project: {
+        action: LakekeeperProjectAction;
+        'project-id'?: string | null;
+    };
+} | {
+    warehouse: {
+        action: LakekeeperWarehouseAction;
+        'warehouse-id': string;
+    };
+} | {
+    namespace: NamespaceIdentOrUuid & {
+        action: LakekeeperNamespaceAction;
+    };
+} | {
+    table: TabularIdentOrUuid & {
+        action: LakekeeperTableAction;
+    };
+} | {
+    view: TabularIdentOrUuid & {
+        action: LakekeeperViewAction;
+    };
+};
+
+export type CatalogActionsBatchCheckRequest = {
+    /**
+     * List of checks to perform
+     */
+    checks: Array<CatalogActionCheckItem>;
+    /**
+     * If true, return 404 error when resources are not found.
+     * If false, treat missing resources as denied (allowed = false).
+     * Defaults to false.
+     */
+    'error-on-not-found'?: boolean;
+};
+
+export type CatalogActionsBatchCheckResponse = {
+    results: Array<CatalogActionsBatchCheckResult>;
+};
+
+export type CatalogActionsBatchCheckResult = {
+    allowed: boolean;
+    id?: string | null;
 };
 
 /**
@@ -410,6 +485,12 @@ export type GcsProfile = {
      * Subpath in the bucket to use.
      */
     'key-prefix'?: string | null;
+    /**
+     * Enable STS (Security Token Service) downscoped token generation for GCS.
+     * When disabled, clients cannot use vended credentials for this storage profile.
+     * Defaults to true.
+     */
+    'sts-enabled'?: boolean;
 };
 
 export type GcsServiceKey = {
@@ -661,7 +742,7 @@ export type LakekeeperNamespaceAction = 'create_table' | 'create_view' | 'create
 
 export type LakekeeperProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'get_metadata' | 'list_warehouses' | 'include_in_list' | 'create_role' | 'list_roles' | 'search_roles' | 'get_endpoint_statistics';
 
-export type LakekeeperRoleAction = 'read' | 'delete' | 'update';
+export type LakekeeperRoleAction = 'read' | 'read_metadata' | 'delete' | 'update';
 
 export type LakekeeperServerAction = 'create_project' | 'update_users' | 'delete_users' | 'list_users' | 'provision_users';
 
@@ -932,6 +1013,25 @@ export type RoleAssignment = (UserOrRole & {
     type: 'ownership';
 });
 
+/**
+ * Metadata of a role with reduced information.
+ * Returned for cross-project role references.
+ */
+export type RoleMetadata = {
+    /**
+     * Globally unique id of this role
+     */
+    id: string;
+    /**
+     * Name of the role
+     */
+    name: string;
+    /**
+     * Project ID in which the role is created.
+     */
+    'project-id': string;
+};
+
 export type RoleRelation = 'assignee' | 'ownership';
 
 /**
@@ -1046,6 +1146,12 @@ export type S3Profile = {
      * Region to use for S3 requests.
      */
     region: string;
+    /**
+     * Enable remote signing for S3 requests.
+     * When disabled, clients cannot use remote signing even if STS is disabled.
+     * Defaults to true.
+     */
+    'remote-signing-enabled'?: boolean;
     /**
      * S3 URL style detection mode for remote signing.
      * One of `auto`, `path-style`, `virtual-host`.
@@ -1703,6 +1809,28 @@ export type WarehouseStatisticsResponse = {
  * Status of a warehouse
  */
 export type WarehouseStatus = 'active' | 'inactive';
+
+export type BatchCheckActionsData = {
+    body: CatalogActionsBatchCheckRequest;
+    path?: never;
+    query?: never;
+    url: '/management/v1/action/batch-check';
+};
+
+export type BatchCheckActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type BatchCheckActionsError = BatchCheckActionsErrors[keyof BatchCheckActionsErrors];
+
+export type BatchCheckActionsResponses = {
+    /**
+     * Batch check results
+     */
+    200: CatalogActionsBatchCheckResponse;
+};
+
+export type BatchCheckActionsResponse = BatchCheckActionsResponses[keyof BatchCheckActionsResponses];
 
 export type BootstrapData = {
     body: BootstrapRequest;
@@ -3116,6 +3244,33 @@ export type GetRoleActionsResponses = {
 };
 
 export type GetRoleActionsResponse = GetRoleActionsResponses[keyof GetRoleActionsResponses];
+
+export type GetRoleMetadataData = {
+    body?: never;
+    path: {
+        /**
+         * Role ID
+         */
+        role_id: string;
+    };
+    query?: never;
+    url: '/management/v1/role/{role_id}/metadata';
+};
+
+export type GetRoleMetadataErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetRoleMetadataError = GetRoleMetadataErrors[keyof GetRoleMetadataErrors];
+
+export type GetRoleMetadataResponses = {
+    /**
+     * High level Role Metadata
+     */
+    200: RoleMetadata;
+};
+
+export type GetRoleMetadataResponse = GetRoleMetadataResponses[keyof GetRoleMetadataResponses];
 
 export type UpdateRoleSourceSystemData = {
     body: UpdateRoleSourceSystemRequest;
