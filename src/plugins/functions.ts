@@ -2579,43 +2579,16 @@ async function getRoleMetadata(roleId: string, notify?: boolean): Promise<RoleMe
   try {
     init();
 
-    const userStore = useUserStore();
-    const accessToken = userStore.user.access_token;
+    const client = mngClient.client;
 
-    const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}management/v1/role/${roleId}/metadata`,
-      {
-        method: 'GET',
-        headers: {
-          'content-type': 'application/json',
-          authorization: `Bearer ${accessToken}`,
-          // Explicitly NOT including x-project-id header
-        },
-      },
-    );
+    const { data, error } = await mng.getRoleMetadata({
+      client,
+      path: { role_id: roleId },
+    });
 
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => response.statusText);
-      let errorMessage = response.statusText;
+    if (error) throw error;
 
-      try {
-        const errorJson = JSON.parse(errorBody);
-        errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
-      } catch {
-        errorMessage = errorBody || errorMessage;
-      }
-
-      throw {
-        error: {
-          code: response.status,
-          message: errorMessage,
-          type: 'FetchError',
-        },
-      };
-    }
-
-    const data = await response.json();
-    const metadata = (data ?? { id: '', name: '', 'project-id': '' }) as RoleMetadata;
+    const metadata = data as RoleMetadata;
 
     if (notify) {
       handleSuccess('getRoleMetadata', 'Role metadata retrieved successfully', notify);
