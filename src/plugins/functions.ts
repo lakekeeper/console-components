@@ -536,42 +536,19 @@ async function listWarehouses(
   try {
     const client = mngClient.client;
 
-    if (!includeInactive) {
-      // Just fetch active warehouses
-      const { data, error } = await mng.listWarehouses({
-        client,
-        query: { warehouseStatus: ['active'] },
-      });
+    // Build the warehouseStatus array based on includeInactive flag
+    const warehouseStatus: WarehouseStatus[] | undefined = includeInactive
+      ? ['active', 'inactive']
+      : ['active'];
 
-      if (error) throw error;
+    const { data, error } = await mng.listWarehouses({
+      client,
+      query: { warehouseStatus },
+    });
 
-      const wh = data as ListWarehousesResponse;
-      if (notify) {
-        handleSuccess('listWarehouses', `${wh.warehouses?.length || 0} warehouses loaded`, notify);
-      }
-      return wh;
-    }
+    if (error) throw error;
 
-    // The API doesn't support passing multiple statuses in a single array parameter.
-    // Even though the TypeScript types suggest warehouseStatus is Array<WarehouseStatus>,
-    // the backend rejects ?warehouseStatus=active&warehouseStatus=inactive with 400 Bad Request.
-    // Therefore, we make two parallel requests and merge the results client-side.
-    const [activeResponse, inactiveResponse] = await Promise.all([
-      mng.listWarehouses({ client, query: { warehouseStatus: ['active'] } }),
-      mng.listWarehouses({ client, query: { warehouseStatus: ['inactive'] } }),
-    ]);
-
-    if (activeResponse.error) throw activeResponse.error;
-    if (inactiveResponse.error) throw inactiveResponse.error;
-
-    // Merge the warehouses from both responses
-    const activeWarehouses = (activeResponse.data as ListWarehousesResponse)?.warehouses || [];
-    const inactiveWarehouses = (inactiveResponse.data as ListWarehousesResponse)?.warehouses || [];
-
-    const wh: ListWarehousesResponse = {
-      warehouses: [...activeWarehouses, ...inactiveWarehouses],
-    };
-
+    const wh = data as ListWarehousesResponse;
     if (notify) {
       handleSuccess('listWarehouses', `${wh.warehouses?.length || 0} warehouses loaded`, notify);
     }
