@@ -40,13 +40,6 @@
       ]">
       <template #top>
         <v-toolbar color="transparent" density="compact" flat>
-          <v-switch
-            v-model="showInactive"
-            color="primary"
-            density="compact"
-            hide-details
-            label="Show inactive"
-            @update:model-value="listWarehouse"></v-switch>
           <v-spacer></v-spacer>
           <v-text-field
             v-model="searchWarehouse"
@@ -120,7 +113,6 @@ const projectId = computed(() => visual.projectSelected['project-id']);
 const { loading, canCreateWarehouse, canListWarehouses } = useProjectPermissions(projectId);
 
 const searchWarehouse = ref('');
-const showInactive = ref(true);
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
