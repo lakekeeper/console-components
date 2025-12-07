@@ -167,10 +167,7 @@
             </v-row>
 
             <span v-if="props.objectType !== ObjectType.DELETION_PROFILE">
-              <v-tabs
-                v-model="storageCredentialType"
-                bg-color="primary"
-                :disabled="!emptyWarehouse">
+              <v-tabs v-model="storageCredentialType" color="primary" :disabled="!emptyWarehouse">
                 <v-tab value="S3">
                   <v-icon start>mdi-aws</v-icon>
                   S3
