@@ -319,7 +319,7 @@ async function loadObjectData() {
       assignableObj.id = objData['project-id'];
       assignableObj.name = objData['project-name'];
     } else if (props.relationType === RelationType.Role) {
-      objData = await functions.getRole(props.objectId);
+      objData = await functions.getRoleMetadata(props.objectId);
       assignableObj.id = objData.id;
       assignableObj.name = objData.name;
     }
@@ -418,7 +418,7 @@ async function init() {
         }
       }
     } else {
-      const role = await functions.getRole(searchUser.role);
+      const role = await functions.getRoleMetadata(searchUser.role);
       const idx = permissionRows.findIndex((a) => a.id === role.id);
 
       if (role) {
