@@ -5,7 +5,8 @@
         v-bind="activatorProps"
         color="primary"
         prepend-icon="mdi-shield-check"
-        variant="elevated">
+        variant="elevated"
+        size="small">
         Evaluate Access
       </v-btn>
     </template>
@@ -57,6 +58,36 @@
                       density="compact"
                       @update:model-value="onIdentityTypeChange"></v-select>
 
+                    <!-- Project Selector for Roles -->
+                    <v-select
+                      v-if="selectedIdentityType === 'role' && userProjects.length > 0"
+                      v-model="selectedProjectForRoles"
+                      :items="userProjects"
+                      item-title="project-name"
+                      item-value="project-id"
+                      label="Select Project"
+                      density="compact"
+                      clearable
+                      hint="Choose a project to load roles from"
+                      persistent-hint
+                      class="mt-2"
+                      :loading="loadingProjects"
+                      @update:model-value="onProjectChange">
+                      <template #prepend-inner>
+                        <v-icon>mdi-folder-account</v-icon>
+                      </template>
+                      <template #item="{ props: itemProps, item }">
+                        <v-list-item v-bind="itemProps">
+                          <template #title>
+                            <span>{{ item.raw['project-name'] }}</span>
+                            <span class="text-caption text-grey ml-2">
+                              ({{ item.raw['project-id'] }})
+                            </span>
+                          </template>
+                        </v-list-item>
+                      </template>
+                    </v-select>
+
                     <v-autocomplete
                       v-if="selectedIdentityType === 'user'"
                       v-model="selectedUsers"
@@ -88,7 +119,11 @@
                       chips
                       closable-chips
                       density="compact"
-                      :loading="loadingRoles">
+                      :loading="loadingRoles"
+                      :disabled="!selectedProjectForRoles"
+                      :placeholder="
+                        !selectedProjectForRoles ? 'Please select a project first' : ''
+                      ">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-shield-account</v-icon>
@@ -357,6 +392,7 @@ const loading = ref(false);
 const loadingUsers = ref(false);
 const loadingRoles = ref(false);
 const loadingWarehouses = ref(false);
+const loadingProjects = ref(false);
 const configPanel = ref([0]); // Open by default
 
 // Identity selection
@@ -364,6 +400,8 @@ const selectedIdentityType = ref<'user' | 'role'>('user');
 const selectedUsers = ref<string[]>([]);
 const selectedRoles = ref<string[]>([]);
 const availableUsers = ref<User[]>([]);
+const selectedProjectForRoles = ref<string | null>(null);
+const userProjects = ref<Array<{ 'project-id': string; 'project-name': string }>>([]);
 const availableRoles = ref<Role[]>([]);
 
 // Resource selection
@@ -574,10 +612,18 @@ function getIdentityIcon(identity: string) {
 async function onIdentityTypeChange() {
   selectedUsers.value = [];
   selectedRoles.value = [];
+  selectedProjectForRoles.value = null;
 
   if (selectedIdentityType.value === 'user') {
     await loadUsers();
   } else {
+    await loadProjects();
+  }
+}
+
+async function onProjectChange() {
+  selectedRoles.value = [];
+  if (selectedProjectForRoles.value) {
     await loadRoles();
   }
 }
@@ -607,11 +653,33 @@ async function loadUsers() {
   }
 }
 
-async function loadRoles() {
+async function loadProjects() {
   if (!functions) return;
   try {
+    loadingProjects.value = true;
+    const projects = await functions.loadProjectList();
+    userProjects.value = projects || [];
+
+    // Auto-select logic
+    if (!selectedProjectForRoles.value && projects.length > 0) {
+      if (projects.length === 1) {
+        // Only one project - auto-select it
+        selectedProjectForRoles.value = projects[0]['project-id'];
+        await loadRoles();
+      }
+    }
+  } catch (error) {
+    console.error('Failed to load projects:', error);
+  } finally {
+    loadingProjects.value = false;
+  }
+}
+
+async function loadRoles() {
+  if (!functions || !selectedProjectForRoles.value) return;
+  try {
     loadingRoles.value = true;
-    const result = await functions.listRoles();
+    const result = await functions.listRoles(selectedProjectForRoles.value);
     availableRoles.value = result.roles || [];
   } catch (error) {
     console.error('Failed to load roles:', error);
@@ -795,6 +863,7 @@ async function loadMatrix() {
 function clearSelection() {
   selectedUsers.value = [];
   selectedRoles.value = [];
+  selectedProjectForRoles.value = null;
   selectedWarehouses.value = [];
   selectedNamespaces.value = [];
   selectedTables.value = [];
@@ -808,6 +877,9 @@ watch(dialog, async (isOpen) => {
   if (isOpen) {
     await loadUsers();
     await loadWarehouses();
+    if (selectedIdentityType.value === 'role') {
+      await loadProjects();
+    }
   }
 });
 </script>

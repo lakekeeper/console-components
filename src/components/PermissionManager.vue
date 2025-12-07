@@ -36,7 +36,7 @@
             :action-type="'grant'"
             :assignee="''"
             :assignments="existingAssignments"
-            class="mr-2"
+            class="mr-2 ml-2"
             :obj="assignableObj"
             :relation="props.relationType"
             @assignments="assign" />
