@@ -40,6 +40,13 @@
       ]">
       <template #top>
         <v-toolbar color="transparent" density="compact" flat>
+          <v-switch
+            v-model="showInactive"
+            color="primary"
+            density="compact"
+            hide-details
+            label="Show inactive"
+            @update:model-value="listWarehouse"></v-switch>
           <v-spacer></v-spacer>
           <v-text-field
             v-model="searchWarehouse"
@@ -58,6 +65,14 @@
             {{ item.name }}
           </span>
         </td>
+      </template>
+      <template #item.status="{ item }">
+        <v-chip
+          :color="item.status === 'active' ? 'success' : 'warning'"
+          size="small"
+          :prepend-icon="item.status === 'active' ? 'mdi-check-circle' : 'mdi-pause-circle'">
+          {{ item.status }}
+        </v-chip>
       </template>
       <template #item.actions="{ item }">
         <DeleteConfirmDialog
@@ -105,9 +120,11 @@ const projectId = computed(() => visual.projectSelected['project-id']);
 const { loading, canCreateWarehouse, canListWarehouses } = useProjectPermissions(projectId);
 
 const searchWarehouse = ref('');
+const showInactive = ref(true);
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
+  { title: 'Status', key: 'status', align: 'center' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
 
@@ -206,7 +223,7 @@ watch(canListWarehouses, async (newValue) => {
 async function listWarehouse() {
   try {
     whResponse.splice(0, whResponse.length);
-    const wh = await functions.listWarehouses();
+    const wh = await functions.listWarehouses(false, showInactive.value);
 
     Object.assign(whResponse, wh.warehouses);
 

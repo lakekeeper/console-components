@@ -528,11 +528,19 @@ async function getEndpointStatistics(
 }
 
 // Warehouse
-async function listWarehouses(notify?: boolean): Promise<ListWarehousesResponse> {
+async function listWarehouses(
+  notify?: boolean,
+  includeInactive: boolean = true,
+): Promise<ListWarehousesResponse> {
   try {
     const client = mngClient.client;
 
-    const { data, error } = await mng.listWarehouses({ client });
+    const { data, error } = await mng.listWarehouses({
+      client,
+      query: {
+        warehouseStatus: includeInactive ? ['active', 'inactive'] : ['active'],
+      },
+    });
 
     const wh = data as ListWarehousesResponse;
     if (error) throw error;
