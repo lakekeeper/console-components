@@ -679,8 +679,13 @@ async function loadRoles() {
   if (!functions || !selectedProjectForRoles.value) return;
   try {
     loadingRoles.value = true;
-    const result = await functions.listRoles(selectedProjectForRoles.value);
-    availableRoles.value = result.roles || [];
+    // Use searchRole with empty search to get all roles for the project
+    const searchRequest = {
+      search: '',
+      'project-id': selectedProjectForRoles.value,
+    };
+    const roles = await functions.searchRole(searchRequest);
+    availableRoles.value = roles || [];
   } catch (error) {
     console.error('Failed to load roles:', error);
   } finally {

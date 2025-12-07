@@ -16,7 +16,12 @@
           </span>
         </v-tooltip>
       </div>
-      <v-btn variant="text" icon="mdi-refresh" @click="loadMatrix" :loading="loading"></v-btn>
+      <v-btn
+        variant="text"
+        icon="mdi-refresh"
+        @click="loadMatrix"
+        :loading="loading"
+        class="ml-2 mr-2"></v-btn>
     </v-card-title>
 
     <v-card-text>
