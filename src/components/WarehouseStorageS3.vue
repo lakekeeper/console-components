@@ -1,15 +1,44 @@
 <template>
   <v-form @submit.prevent="handleSubmit">
+    <!--Credential Type Selection-->
+    <v-divider />
+
+    <v-container fluid>
+      <v-radio-group v-model="warehouseObjectData['storage-credential']['credential-type']" row>
+        <v-row>
+          <v-col>
+            <span class="text-grey">Credential Type:</span>
+          </v-col>
+        </v-row>
+        <v-row>
+          <v-radio value="access-key" color="primary">
+            <template #label>
+              <div>
+                <v-icon color="primary">mdi-key</v-icon>
+                Access Key
+              </div>
+            </template>
+          </v-radio>
+          <v-radio value="aws-system-identity" color="primary">
+            <template #label>
+              <div>
+                <v-icon color="primary">mdi-shield-key</v-icon>
+                AWS System Identity
+              </div>
+            </template>
+          </v-radio>
+          <v-radio value="cloudflare-r2" color="primary">
+            <template #label>
+              <div class="d-flex align-center">
+                <v-img :src="cfIcon" width="20" height="20" class="mr-2"></v-img>
+                Cloudflare R2
+              </div>
+            </template>
+          </v-radio>
+        </v-row>
+      </v-radio-group>
+    </v-container>
     <!--Storage Credentials-->
-    <v-select
-      v-model="warehouseObjectData['storage-credential']['credential-type']"
-      :items="credentialOptions"
-      item-title="text"
-      item-value="value"
-      label="Credential Type"
-      color="primary"
-      outlined
-      :rules="[rules.required]"></v-select>
 
     <!-- Access Key Fields -->
     <v-text-field
@@ -431,18 +460,15 @@ import {
 import { Intent, ObjectType } from '@/common/enums';
 import { WarehousObject } from '@/common/interfaces';
 
+// Import SVG assets
+import cfIcon from '@/assets/cf.svg';
+
 const showPassword = ref(false);
 
 const s3UrlDetectionModes = [
   { name: 'Path', code: 'path' },
   { name: 'Virtual Host', code: 'virtual_host' },
   { name: 'Auto', code: 'auto' },
-];
-
-const credentialOptions = [
-  { text: 'Access Key ', value: 'access-key' },
-  { text: 'AWS System Identity', value: 'aws-system-identity' },
-  { text: 'Cloudflare R2', value: 'cloudflare-r2' },
 ];
 
 const showPasswordExternalId = ref(false);

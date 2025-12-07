@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="850">
+  <v-dialog v-model="isDialogActive" max-width="850" min-width="850">
     <template #activator="{ props: activatorProps }">
       <v-list-item
         v-bind="activatorProps"
