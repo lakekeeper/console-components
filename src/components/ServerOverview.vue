@@ -347,7 +347,84 @@
 
       <!-- Permission Matrix Tab -->
       <v-window-item value="permissions">
-        <PermissionMatrix />
+        <v-card class="pa-6">
+          <v-card-title class="d-flex align-center mb-4">
+            <v-icon color="primary" class="mr-2">mdi-shield-check</v-icon>
+            Permission Evaluation
+            <v-tooltip location="top" max-width="400">
+              <template #activator="{ props: tooltipProps }">
+                <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+                  mdi-information-outline
+                </v-icon>
+              </template>
+              <span>
+                Use the permission matrix to evaluate access rights across multiple users, roles,
+                and resources in a single batch check.
+              </span>
+            </v-tooltip>
+          </v-card-title>
+
+          <v-card-text>
+            <v-alert type="info" variant="tonal" class="mb-4">
+              <div class="d-flex align-center">
+                <v-icon start>mdi-information</v-icon>
+                <div>
+                  <strong>Batch Permission Evaluation</strong>
+                  <div class="text-body-2 mt-1">
+                    The Permission Matrix allows you to check multiple permissions simultaneously.
+                    You can evaluate access across users, roles, warehouses, namespaces, tables,
+                    views, and more. Results show which actions are allowed (green) or denied (red)
+                    for each identity-resource combination.
+                  </div>
+                </div>
+              </div>
+            </v-alert>
+
+            <div class="text-center">
+              <PermissionMatrixDialog />
+              <div class="text-caption text-medium-emphasis mt-3">
+                Click the button above to open the permission evaluation tool
+              </div>
+            </div>
+
+            <!-- Quick Info Cards -->
+            <v-row class="mt-6">
+              <v-col cols="12" md="4">
+                <v-card variant="outlined">
+                  <v-card-text class="text-center">
+                    <v-icon size="large" color="primary">mdi-account-group</v-icon>
+                    <div class="text-h6 mt-2">Check Users & Roles</div>
+                    <div class="text-caption mt-1">
+                      Evaluate permissions for multiple users or roles at once
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-card variant="outlined">
+                  <v-card-text class="text-center">
+                    <v-icon size="large" color="primary">mdi-database</v-icon>
+                    <div class="text-h6 mt-2">Multiple Resources</div>
+                    <div class="text-caption mt-1">
+                      Check warehouses, namespaces, tables, views, and more
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+              <v-col cols="12" md="4">
+                <v-card variant="outlined">
+                  <v-card-text class="text-center">
+                    <v-icon size="large" color="primary">mdi-lightning-bolt</v-icon>
+                    <div class="text-h6 mt-2">Fast Batch Checks</div>
+                    <div class="text-caption mt-1">
+                      Single API call checks hundreds of permissions efficiently
+                    </div>
+                  </v-card-text>
+                </v-card>
+              </v-col>
+            </v-row>
+          </v-card-text>
+        </v-card>
       </v-window-item>
     </v-window>
   </v-container>
@@ -355,7 +432,7 @@
 
 <script lang="ts" setup>
 import { onMounted, ref, inject } from 'vue';
-import PermissionMatrix from './PermissionMatrix.vue';
+import PermissionMatrixDialog from './PermissionMatrixDialog.vue';
 
 const functions = inject<any>('functions');
 const activeTab = ref('overview');
