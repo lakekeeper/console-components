@@ -445,7 +445,7 @@ async function searchMemberById(idSearchUserOrRolePar: string) {
 
       idSearchUserOrRole.value = '';
     } else {
-      const roleSearchOutput = await functions.getRole(idSearchUserOrRolePar);
+      const roleSearchOutput = await functions.getRoleMetadata(idSearchUserOrRolePar);
 
       Object.assign(selectedItem, roleSearchOutput);
 
@@ -600,7 +600,7 @@ async function init() {
         selectedItem,
         assignee.user
           ? await functions.getUser(assignee.user)
-          : await functions.getRole(assignee.role),
+          : await functions.getRoleMetadata(assignee.role),
       );
     }
   } catch (error) {
