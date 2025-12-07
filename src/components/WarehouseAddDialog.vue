@@ -312,7 +312,8 @@ const warehouseObjectS3 = reactive<WarehousObject>({
     type: 's3',
     bucket: '',
     region: '',
-    'sts-enabled': false,
+    'remote-signing-enabled': true,
+    'sts-enabled': true,
   },
   'storage-credential': {
     type: 's3',
@@ -339,6 +340,7 @@ const warehouseObjectGCS = reactive<WarehousObject>({
   'storage-profile': {
     type: 'gcs',
     bucket: '',
+    'sts-enabled': true,
   },
   'storage-credential': {
     type: 'gcs',
@@ -351,6 +353,7 @@ const warehouseObjectAz = reactive<WarehousObject>({
   'storage-profile': {
     'account-name': '',
     filesystem: '',
+    'sas-enabled': true,
     type: 'adls',
   },
   'storage-credential': {
