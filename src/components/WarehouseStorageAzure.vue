@@ -244,7 +244,7 @@ const warehouseObjectData = reactive<{
   'storage-profile': {
     'account-name': '',
     filesystem: '',
-    'sas-enabled': true,
+    'sas-enabled': false,
     type: 'adls',
   },
   'storage-credential': {

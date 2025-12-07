@@ -499,7 +499,7 @@ const warehouseObjectData = reactive<{
     bucket: '',
     region: '',
     'remote-signing-enabled': true,
-    'sts-enabled': true,
+    'sts-enabled': false,
   },
   'storage-credential': {
     type: 's3',

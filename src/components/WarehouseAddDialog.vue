@@ -182,7 +182,7 @@
                 </v-tab>
               </v-tabs>
 
-              <v-tabs-window v-model="storageCredentialType" class="mt-4">
+              <v-tabs-window v-model="storageCredentialType" class="mt-4" style="min-height: 600px">
                 <v-tabs-window-item value="S3">
                   <WarehouseStorageS3
                     :credentials-only="emptyWarehouse"
@@ -313,7 +313,7 @@ const warehouseObjectS3 = reactive<WarehousObject>({
     bucket: '',
     region: '',
     'remote-signing-enabled': true,
-    'sts-enabled': true,
+    'sts-enabled': false,
   },
   'storage-credential': {
     type: 's3',

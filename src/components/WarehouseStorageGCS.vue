@@ -183,7 +183,7 @@ const warehouseObjectData = reactive<{
 }>({
   'storage-profile': {
     bucket: '',
-    'sts-enabled': true,
+    'sts-enabled': false,
     type: 'gcs',
   },
   'storage-credential': {
