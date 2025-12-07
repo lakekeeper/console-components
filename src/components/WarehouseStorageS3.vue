@@ -245,6 +245,19 @@
       <v-row>
         <v-col cols="3">
           <v-switch
+            v-model="warehouseObjectData['storage-profile']['remote-signing-enabled']"
+            color="primary"
+            :label="
+              warehouseObjectData['storage-profile']['remote-signing-enabled']
+                ? `Remote signing is enabled`
+                : `Enable remote signing`
+            "></v-switch>
+        </v-col>
+      </v-row>
+
+      <v-row>
+        <v-col cols="3">
+          <v-switch
             v-model="warehouseObjectData['storage-profile']['sts-enabled']"
             color="primary"
             :label="
@@ -459,8 +472,8 @@ const warehouseObjectData = reactive<{
     type: 's3',
     bucket: '',
     region: '',
-
-    'sts-enabled': false,
+    'remote-signing-enabled': true,
+    'sts-enabled': true,
   },
   'storage-credential': {
     type: 's3',

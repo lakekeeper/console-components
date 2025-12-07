@@ -71,6 +71,13 @@
         label="Key-prefix"
         placeholder="key-prefix"></v-text-field>
 
+      <v-switch
+        v-model="warehouseObjectData['storage-profile']['sts-enabled']"
+        color="primary"
+        :label="
+          warehouseObjectData['storage-profile']['sts-enabled'] ? `STS is enabled` : `Enable STS`
+        "></v-switch>
+
       <v-btn-group
         v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
         divided>
@@ -176,6 +183,7 @@ const warehouseObjectData = reactive<{
 }>({
   'storage-profile': {
     bucket: '',
+    'sts-enabled': true,
     type: 'gcs',
   },
   'storage-credential': {

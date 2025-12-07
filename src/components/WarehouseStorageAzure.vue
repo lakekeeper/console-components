@@ -129,8 +129,19 @@
         label="Key Prefix"
         placeholder="path/to/warehouse"></v-text-field>
       <v-row>
+        <v-col cols="3">
+          <v-switch
+            v-model="warehouseObjectData['storage-profile']['sas-enabled']"
+            color="primary"
+            :label="
+              warehouseObjectData['storage-profile']['sas-enabled']
+                ? `SAS is enabled`
+                : `Enable SAS`
+            "></v-switch>
+        </v-col>
         <v-col cols="6">
           <v-text-field
+            v-if="warehouseObjectData['storage-profile']['sas-enabled']"
             v-model="warehouseObjectData['storage-profile']['sas-token-validity-seconds']"
             label="SAS Token Validity (seconds)"
             placeholder="3600"
@@ -233,6 +244,7 @@ const warehouseObjectData = reactive<{
   'storage-profile': {
     'account-name': '',
     filesystem: '',
+    'sas-enabled': true,
     type: 'adls',
   },
   'storage-credential': {
