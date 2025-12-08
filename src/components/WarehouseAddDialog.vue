@@ -114,9 +114,14 @@
             <v-text-field
               v-if="emptyWarehouse"
               v-model="warehouseName"
-              label="Warehouse Name"
+              label="Warehouse Name *"
               placeholder="my-warehouse"
-              :rules="[rules.required, rules.noSlash]"></v-text-field>
+              :rules="[rules.required, rules.noSlash]"
+              :error="isWarehouseNameInvalid"
+              :color="isWarehouseNameInvalid ? 'error' : 'primary'"
+              :style="
+                isWarehouseNameInvalid ? 'color: rgb(var(--v-theme-error));' : ''
+              "></v-text-field>
             <v-row justify="center">
               <v-col
                 v-if="
@@ -305,6 +310,11 @@ const rules = {
   required: (value: any) => !!value || 'Required.',
   noSlash: (value: string) => !value.includes('/') || 'Cannot contain "/"',
 };
+
+// Computed property for warehouse name validation (show red border when required but empty)
+const isWarehouseNameInvalid = computed(() => {
+  return emptyWarehouse.value && !warehouseName.value;
+});
 
 const emptyWarehouse = ref(true);
 const warehouseObjectS3 = reactive<WarehousObject>({
