@@ -4,10 +4,11 @@
       <v-btn
         v-bind="activatorProps"
         color="primary"
+        class="mr-2"
         prepend-icon="mdi-shield-check"
         variant="elevated"
         size="small">
-        Evaluate Access
+        Evaluate
       </v-btn>
     </template>
 

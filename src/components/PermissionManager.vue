@@ -29,18 +29,18 @@
           clearable
           class="mr-4"
           style="max-width: 300px"></v-text-field>
-        <PermissionMatrixDialog class="mr-2" />
-        <span v-if="canManageGrants" style="display: flex; align-items: center">
+
+        <span v-if="canManageGrants" style="display: flex; align-items: center" class="mr-2 ml-2">
           <PermissionAssignDialog
             :status="assignStatus"
             :action-type="'grant'"
             :assignee="''"
             :assignments="existingAssignments"
-            class="mr-2 ml-2"
             :obj="assignableObj"
             :relation="props.relationType"
             @assignments="assign" />
         </span>
+        <PermissionMatrixDialog class="mr-2" />
       </v-toolbar>
     </template>
     <template #item.name="{ item }">
