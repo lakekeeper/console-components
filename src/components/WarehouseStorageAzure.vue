@@ -84,7 +84,10 @@
             label="Client ID *"
             placeholder="12345678-1234-1234-1234-123456789abc"
             hint="Application (client) ID from Azure AD"
-            :rules="[rules.required]" />
+            :rules="[rules.required]"
+            :error="isClientIdInvalid"
+            :color="isClientIdInvalid ? 'error' : 'primary'"
+            :style="isClientIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''" />
 
           <v-text-field
             v-model="warehouseObjectData['storage-credential']['client-secret']"
@@ -95,13 +98,19 @@
             hint="Secret value from Azure AD application"
             :rules="[rules.required]"
             :type="showPassword ? 'text' : 'password'"
+            :error="isClientSecretInvalid"
+            :color="isClientSecretInvalid ? 'error' : 'primary'"
+            :style="isClientSecretInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
             @click:append-inner="showPassword = !showPassword" />
           <v-text-field
             v-model="warehouseObjectData['storage-credential']['tenant-id']"
             label="Tenant ID *"
             placeholder="87654321-4321-4321-4321-abc987654321"
             hint="Directory (tenant) ID from Azure AD"
-            :rules="[rules.required]" />
+            :rules="[rules.required]"
+            :error="isTenantIdInvalid"
+            :color="isTenantIdInvalid ? 'error' : 'primary'"
+            :style="isTenantIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''" />
 
           <v-btn
             v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
@@ -125,6 +134,9 @@
             hint="Storage account access key from Azure portal"
             :rules="[rules.required]"
             :type="showPassword ? 'text' : 'password'"
+            :error="isSharedKeyInvalid"
+            :color="isSharedKeyInvalid ? 'error' : 'primary'"
+            :style="isSharedKeyInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
             @click:append-inner="showPassword = !showPassword" />
           <v-btn
             v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
@@ -177,14 +189,20 @@
           placeholder="mystorageaccount"
           hint="Name of the Azure storage account"
           persistent-hint
-          :rules="[rules.required]"></v-text-field>
+          :rules="[rules.required]"
+          :error="isAccountNameInvalid"
+          :color="isAccountNameInvalid ? 'error' : 'primary'"
+          :style="isAccountNameInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
         <v-text-field
           v-model="warehouseObjectData['storage-profile']['filesystem']"
           label="Filesystem (Container) *"
           placeholder="my-filesystem"
           hint="ADLS Gen2 filesystem name (also known as container in blob storage)"
           persistent-hint
-          :rules="[rules.required, rules.noSlash]"></v-text-field>
+          :rules="[rules.required, rules.noSlash]"
+          :error="isFilesystemInvalid"
+          :color="isFilesystemInvalid ? 'error' : 'primary'"
+          :style="isFilesystemInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
         <v-text-field
           v-model="warehouseObjectData['storage-profile']['host']"
           label="Host"
@@ -326,7 +344,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, watch, Ref } from 'vue';
+import { onMounted, ref, reactive, watch, Ref, computed } from 'vue';
 import {
   AdlsProfile,
   AzCredential,
@@ -424,6 +442,43 @@ const rules = {
   required: (value: any) => !!value || 'Required.',
   noSlash: (value: string) => !value.includes('/') || 'Cannot contain "/"',
 };
+
+// Computed properties for field validation states (show red border when required but empty)
+const isClientIdInvalid = computed(() => {
+  return (
+    isClientCredentials(warehouseObjectData['storage-credential']) &&
+    !warehouseObjectData['storage-credential']['client-id']
+  );
+});
+
+const isClientSecretInvalid = computed(() => {
+  return (
+    isClientCredentials(warehouseObjectData['storage-credential']) &&
+    !warehouseObjectData['storage-credential']['client-secret']
+  );
+});
+
+const isTenantIdInvalid = computed(() => {
+  return (
+    isClientCredentials(warehouseObjectData['storage-credential']) &&
+    !warehouseObjectData['storage-credential']['tenant-id']
+  );
+});
+
+const isSharedKeyInvalid = computed(() => {
+  return (
+    isSharedAccessKey(warehouseObjectData['storage-credential']) &&
+    !warehouseObjectData['storage-credential']['key']
+  );
+});
+
+const isAccountNameInvalid = computed(() => {
+  return !warehouseObjectData['storage-profile']['account-name'];
+});
+
+const isFilesystemInvalid = computed(() => {
+  return !warehouseObjectData['storage-profile']['filesystem'];
+});
 
 const handleSubmit = () => {
   shouldSaveAsJson.value = false;

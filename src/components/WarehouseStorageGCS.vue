@@ -130,7 +130,10 @@
           placeholder="my-bucket"
           hint="The GCS bucket where table data will be stored"
           persistent-hint
-          :rules="[rules.required]"></v-text-field>
+          :rules="[rules.required]"
+          :error="isBucketInvalid"
+          :color="isBucketInvalid ? 'error' : 'primary'"
+          :style="isBucketInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
         <v-text-field
           v-model="warehouseObjectData['storage-profile']['key-prefix']"
           label="Key Prefix"
@@ -241,7 +244,7 @@ import {
 } from '@/gen/management/types.gen';
 import { Intent, ObjectType } from '@/common/enums';
 import { WarehousObject } from '@/common/interfaces';
-import { ref, onMounted, reactive, Ref, watch } from 'vue';
+import { ref, onMounted, reactive, Ref, watch, computed } from 'vue';
 
 const credentialType: Ref<'service-account-key' | 'gcp-system-identity'> =
   ref('service-account-key');
@@ -326,6 +329,11 @@ const rules = {
     }
   },
 };
+
+// Computed properties for field validation states (show red border when required but empty)
+const isBucketInvalid = computed(() => {
+  return !warehouseObjectData['storage-profile'].bucket;
+});
 
 const handleSubmit = () => {
   shouldSaveAsJson.value = false;
