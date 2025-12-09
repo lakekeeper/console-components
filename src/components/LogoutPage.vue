@@ -34,8 +34,9 @@ onMounted(async () => {
   // Clear user data from localStorage
   localStorage.removeItem('user');
 
-  visual.projectSelected['project-id'] = '';
-  visual.projectSelected['project-name'] = 'None';
+  // Note: We intentionally keep projectSelected in the store so it can be restored on next login
+  // visual.projectSelected['project-id'] = '';
+  // visual.projectSelected['project-name'] = 'None';
   visual.showAppOrNavBar = false;
 
   // If authentication is enabled AND user was authenticated, redirect to IDP logout
