@@ -365,11 +365,25 @@ async function loadProjectList(notify?: boolean): Promise<GetProjectResponse[]> 
     if (data) {
       visual.setProjectList(data.projects || []);
 
-      // auto select project if no one is already selected
+      // Auto select project logic:
+      // 1. Try to restore the last selected project (from persisted store)
+      // 2. If not available, select the first project
       if (!visual.projectSelected['project-id']) {
-        for (const proj of data.projects || []) {
-          Object.assign(useVisualStore().projectSelected, proj);
+        // No project currently selected, select the first one
+        if (data.projects && data.projects.length > 0) {
+          Object.assign(useVisualStore().projectSelected, data.projects[0]);
         }
+      } else {
+        // Check if the previously selected project still exists in the project list
+        const previousProjectStillExists = data.projects?.some(
+          (proj) => proj['project-id'] === visual.projectSelected['project-id'],
+        );
+
+        if (!previousProjectStillExists && data.projects && data.projects.length > 0) {
+          // Previously selected project no longer exists, select the first one
+          Object.assign(useVisualStore().projectSelected, data.projects[0]);
+        }
+        // If previousProjectStillExists, keep the current selection (already in the store)
       }
     }
 
