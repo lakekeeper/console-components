@@ -35,17 +35,18 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-interface Props {
-  parentPath?: string;
-  pathSeparator?: string;
-  displaySeparator?: string;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  parentPath: '',
-  pathSeparator: '\x1f', // Default to unit separator character
-  displaySeparator: '.',
-});
+const props = withDefaults(
+  defineProps<{
+    parentPath?: string;
+    pathSeparator?: string;
+    displaySeparator?: string;
+  }>(),
+  {
+    parentPath: '',
+    pathSeparator: '\x1f',
+    displaySeparator: '.',
+  },
+);
 
 const emit = defineEmits<{
   addNamespace: [namespacePath: string[]];

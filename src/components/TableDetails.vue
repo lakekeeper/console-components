@@ -200,11 +200,9 @@ import { transformFields } from '../common/schemaUtils';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
 // Props
-interface Props {
+const props = defineProps<{
   table: LoadTableResult;
-}
-
-const props = defineProps<Props>();
+}>();
 
 // Composables
 const functions = useFunctions();

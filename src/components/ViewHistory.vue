@@ -287,11 +287,9 @@ interface TimelineEvent {
 }
 
 // Props
-interface Props {
+const props = defineProps<{
   view: LoadViewResult;
-}
-
-const props = defineProps<Props>();
+}>();
 
 // Composables
 const functions = useFunctions();

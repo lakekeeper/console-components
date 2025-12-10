@@ -253,11 +253,9 @@ import { transformFields } from '../common/schemaUtils';
 import type { LoadViewResult } from '../gen/iceberg/types.gen';
 
 // Props
-interface Props {
+const props = defineProps<{
   view: LoadViewResult;
-}
-
-const props = defineProps<Props>();
+}>();
 
 // Composables
 const functions = useFunctions();

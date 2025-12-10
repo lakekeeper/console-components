@@ -129,15 +129,16 @@ import { useFunctions } from '../plugins/functions';
 import type { Snapshot } from '../gen/iceberg/types.gen';
 
 // Props
-interface Props {
-  snapshot?: Snapshot;
-  title?: string;
-  showSummary?: boolean;
-}
-
-withDefaults(defineProps<Props>(), {
-  showSummary: true,
-});
+withDefaults(
+  defineProps<{
+    snapshot?: Snapshot;
+    title?: string;
+    showSummary?: boolean;
+  }>(),
+  {
+    showSummary: true,
+  },
+);
 
 // Composables
 const functions = useFunctions();

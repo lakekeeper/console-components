@@ -12,17 +12,18 @@
 </template>
 
 <script setup lang="ts">
-interface Props {
-  message?: string;
-  sticky?: boolean;
-  showActions?: boolean;
-}
-
-withDefaults(defineProps<Props>(), {
-  message: 'Warning: Authentication is OFF - Not safe for production.',
-  sticky: true,
-  showActions: false,
-});
+withDefaults(
+  defineProps<{
+    message?: string;
+    sticky?: boolean;
+    showActions?: boolean;
+  }>(),
+  {
+    message: 'Warning: Authentication is OFF - Not safe for production.',
+    sticky: true,
+    showActions: false,
+  },
+);
 
 defineEmits<{
   dismiss: [];
