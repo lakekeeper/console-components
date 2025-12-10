@@ -416,10 +416,7 @@ export function useNamespaceAuthorizerPermissions(
 
     loading.value = true;
     try {
-      permissions.value = await functions.getAuthorizerNamespaceActions(
-        namespaceIdRef.value,
-        warehouseIdRef.value,
-      );
+      permissions.value = await functions.getAuthorizerNamespaceActions(namespaceIdRef.value);
     } finally {
       loading.value = false;
     }
