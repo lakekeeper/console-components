@@ -38,7 +38,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import TableDetails from './TableDetails.vue';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
-import type { LoadTableResultWritable } from '@/gen/iceberg/types.gen';
+import type { LoadTableResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -58,7 +58,7 @@ const { canSetProtection } = useTablePermissions(
   computed(() => props.warehouseId),
 );
 
-const table = reactive<LoadTableResultWritable>({
+const table = reactive<LoadTableResult>({
   metadata: {
     'format-version': 0,
     'table-uuid': '',

@@ -412,15 +412,22 @@ import { useCsvDownload } from '@/composables/useCsvDownload';
 import WarehouseNavigationTree from './WarehouseNavigationTree.vue';
 import SqlEditor from './SqlEditor.vue';
 
-interface Props {
+// export type WarehouseSqlQueryProps = {
+//   warehouseId: string;
+//   warehouseName?: string;
+//   catalogUrl?: string;
+//   useFreshToken?: boolean;
+//   storageType?: string; // 's3', 'gcs', 'azure', etc.
+// };
+
+// // Replace the current export type and defineProps lines with:
+const props = defineProps<{
   warehouseId: string;
   warehouseName?: string;
   catalogUrl?: string;
   useFreshToken?: boolean;
-  storageType?: string; // 's3', 'gcs', 'azure', etc.
-}
-
-const props = defineProps<Props>();
+  storageType?: string;
+}>();
 
 const icebergDB = useIcebergDuckDB();
 const csvDownload = useCsvDownload();

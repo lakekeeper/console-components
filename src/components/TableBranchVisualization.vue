@@ -359,7 +359,7 @@
                                   field,
                                   selectedSnapshot,
                                   snapshotHistory.findIndex(
-                                    (s: {[x: string]: any;}) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
+                                    (s) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
                                   ),
                                 )
                                   ? 'success'
@@ -376,7 +376,7 @@
                                 field,
                                 selectedSnapshot,
                                 snapshotHistory.findIndex(
-                                  (s: Snapshot) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
+                                  (s) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
                                 ),
                               )
                                 ? 'text-success font-weight-bold'
