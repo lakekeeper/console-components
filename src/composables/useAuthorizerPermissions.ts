@@ -31,8 +31,8 @@ function useConfig() {
   return {
     enabledAuthentication: computed(() => config?.enabledAuthentication ?? false),
     enabledPermissions: computed(() => {
-      // Check server's authz-backend instead of frontend config
-      return authzBackend.value !== 'allow-all' && authzBackend.value !== '';
+      // Only enable authorizer permissions when backend is OpenFGA
+      return authzBackend.value === 'openfga';
     }),
   };
 }
