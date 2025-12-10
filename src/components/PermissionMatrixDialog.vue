@@ -380,7 +380,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, inject, watch } from 'vue';
+import { ref, computed, inject, watch } from 'vue';
 import type { User, Role } from '@/gen/management/types.gen';
 
 const functions = inject<any>('functions');

@@ -302,7 +302,7 @@ const max = ref(90);
 const slider = ref(7);
 const useFileInput = ref(false);
 
-const storageCredentialTypes = ref(['S3', 'GCS', 'AZURE']);
+// const storageCredentialTypes = ref(['S3', 'GCS', 'AZURE']);
 const storageCredentialType = ref('');
 const warehouseName = ref('');
 const functions = useFunctions();

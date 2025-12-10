@@ -18,7 +18,6 @@
           <v-textarea
             v-model="role.description"
             label="Role description"
-            placeholder="my role description"
             readonly
             style="max-width: 500px"></v-textarea>
         </v-col>

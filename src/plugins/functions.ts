@@ -82,7 +82,6 @@ import {
   ViewAssignment,
   WarehouseAssignment,
   WarehouseFilter,
-  WarehouseStatus,
 } from '@/gen/management/types.gen';
 
 import { useUserStore } from '@/stores/user';

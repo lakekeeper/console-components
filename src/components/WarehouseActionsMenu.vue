@@ -49,10 +49,10 @@ import {
 } from '../gen/management/types.gen';
 import { ref, onMounted } from 'vue';
 import { Intent, ObjectType } from '../common/enums';
-import { useFunctions } from '../plugins/functions';
+// import { useFunctions } from '../plugins/functions';
 
 const menuOpen = ref(false);
-const functions = useFunctions();
+// const functions = useFunctions();
 
 const emit = defineEmits<{
   (e: 'renameWarehouse', warehouse: string): void;

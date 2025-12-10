@@ -41,7 +41,7 @@ export function useServerAuthorizerPermissions(serverId: Ref<string> | string) {
   const loading = ref(false);
   const permissions = ref<OpenFgaServerAction[]>([]);
 
-  const serverIdRef = computed(() => (typeof serverId === 'string' ? serverId : serverId.value));
+  computed(() => (typeof serverId === 'string' ? serverId : serverId.value));
 
   async function loadPermissions() {
     // Only load authorizer permissions if OpenFGA is enabled
@@ -210,9 +210,7 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
   const loading = ref(false);
   const permissions = ref<OpenFgaProjectAction[]>([]);
 
-  const projectIdRef = computed(() =>
-    typeof projectId === 'string' ? projectId : projectId.value,
-  );
+  computed(() => (typeof projectId === 'string' ? projectId : projectId.value));
 
   async function loadPermissions() {
     // Only load authorizer permissions if OpenFGA is enabled
