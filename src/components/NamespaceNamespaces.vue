@@ -116,6 +116,7 @@ async function loadNamespaceAndData() {
 // Use namespace permissions composable
 const { canCreateNamespace, canSetProtection } = useNamespacePermissions(
   computed(() => namespaceId.value),
+  computed(() => props.warehouseId),
 );
 
 const searchNamespace = ref('');

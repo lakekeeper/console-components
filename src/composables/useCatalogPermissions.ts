@@ -380,9 +380,13 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
 /**
  * Composable for managing namespace permissions
  * @param namespaceId - The namespace ID (can be a ref or static string)
+ * @param warehouseId - The warehouse ID (can be a ref or static string)
  * @returns Reactive permission state and helper functions
  */
-export function useNamespacePermissions(namespaceId: Ref<string> | string) {
+export function useNamespacePermissions(
+  namespaceId: Ref<string> | string,
+  warehouseId: Ref<string> | string,
+) {
   const permissionStore = usePermissionStore();
   const config = useConfig();
   const loading = ref(false);
@@ -391,11 +395,19 @@ export function useNamespacePermissions(namespaceId: Ref<string> | string) {
   const namespaceIdRef = computed(() =>
     typeof namespaceId === 'string' ? namespaceId : namespaceId.value,
   );
+  const warehouseIdRef = computed(() =>
+    typeof warehouseId === 'string' ? warehouseId : warehouseId.value,
+  );
 
   async function loadPermissions() {
+    if (!namespaceIdRef.value || !warehouseIdRef.value) return;
+
     loading.value = true;
     try {
-      permissions.value = await permissionStore.getNamespacePermissions(namespaceIdRef.value);
+      permissions.value = await permissionStore.getNamespacePermissions(
+        namespaceIdRef.value,
+        warehouseIdRef.value,
+      );
     } finally {
       loading.value = false;
     }
@@ -427,16 +439,16 @@ export function useNamespacePermissions(namespaceId: Ref<string> | string) {
 
   // Auto-load on mount
   onMounted(() => {
-    if (namespaceIdRef.value) {
+    if (namespaceIdRef.value && warehouseIdRef.value) {
       loadPermissions();
     }
   });
 
   // Watch for ID changes (skip immediate to avoid double-load on mount)
   watch(
-    namespaceIdRef,
-    (newId, oldId) => {
-      if (newId && newId !== oldId) {
+    [namespaceIdRef, warehouseIdRef],
+    ([newNsId, newWhId], [oldNsId, oldWhId]) => {
+      if (newNsId && newWhId && (newNsId !== oldNsId || newWhId !== oldWhId)) {
         loadPermissions();
       }
     },

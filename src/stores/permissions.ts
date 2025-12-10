@@ -76,7 +76,7 @@ export const usePermissionStore = defineStore('permissions', () => {
         return [];
       }
 
-      const permissions = await functions.getNamespaceCatalogActions(namespaceId, whId);
+      const permissions = await functions.getNamespaceCatalogActions(whId, namespaceId);
       return permissions;
     } catch (error) {
       console.error(`Failed to load namespace permissions for ${namespaceId}:`, error);
