@@ -51,6 +51,12 @@ export function useServerAuthorizerPermissions(serverId: Ref<string> | string) {
   const serverIdRef = computed(() => (typeof serverId === 'string' ? serverId : serverId.value));
 
   async function loadPermissions() {
+    // Only load authorizer permissions if permissions are enabled
+    if (!config.enabledPermissions.value) {
+      permissions.value = [];
+      return;
+    }
+
     loading.value = true;
     try {
       permissions.value = await functions.getAuthorizerServerActions();
@@ -121,6 +127,12 @@ export function useRoleAuthorizerPermissions(roleId: Ref<string> | string) {
   const roleIdRef = computed(() => (typeof roleId === 'string' ? roleId : roleId.value));
 
   async function loadPermissions() {
+    // Only load authorizer permissions if permissions are enabled
+    if (!config.enabledPermissions.value) {
+      permissions.value = [];
+      return;
+    }
+
     loading.value = true;
     try {
       permissions.value = await functions.getAuthorizerRoleActions(roleIdRef.value);
@@ -210,6 +222,12 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
   );
 
   async function loadPermissions() {
+    // Only load authorizer permissions if permissions are enabled
+    if (!config.enabledPermissions.value) {
+      permissions.value = [];
+      return;
+    }
+
     loading.value = true;
     try {
       permissions.value = await functions.getAuthorizerProjectActions();
@@ -297,6 +315,12 @@ export function useWarehouseAuthorizerPermissions(warehouseId: Ref<string> | str
   );
 
   async function loadPermissions() {
+    // Only load authorizer permissions if permissions are enabled
+    if (!config.enabledPermissions.value) {
+      permissions.value = [];
+      return;
+    }
+
     loading.value = true;
     try {
       permissions.value = await functions.getAuthorizerWarehouseActions(warehouseIdRef.value);
@@ -391,6 +415,12 @@ export function useNamespaceAuthorizerPermissions(
   async function loadPermissions() {
     if (!namespaceIdRef.value || !warehouseIdRef.value) return;
 
+    // Only load authorizer permissions if permissions are enabled
+    if (!config.enabledPermissions.value) {
+      permissions.value = [];
+      return;
+    }
+
     loading.value = true;
     try {
       permissions.value = await functions.getAuthorizerNamespaceActions(
@@ -482,6 +512,12 @@ export function useTableAuthorizerPermissions(
   async function loadPermissions() {
     if (!tableIdRef.value || !warehouseIdRef.value) return;
 
+    // Only load authorizer permissions if permissions are enabled
+    if (!config.enabledPermissions.value) {
+      permissions.value = [];
+      return;
+    }
+
     loading.value = true;
     try {
       permissions.value = await functions.getAuthorizerTableActions(
@@ -570,6 +606,12 @@ export function useViewAuthorizerPermissions(
 
   async function loadPermissions() {
     if (!viewIdRef.value || !warehouseIdRef.value) return;
+
+    // Only load authorizer permissions if permissions are enabled
+    if (!config.enabledPermissions.value) {
+      permissions.value = [];
+      return;
+    }
 
     loading.value = true;
     try {
