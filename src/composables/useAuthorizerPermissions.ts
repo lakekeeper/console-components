@@ -9,31 +9,24 @@ import type {
   OpenFgaViewAction,
 } from '@/gen/management/types.gen';
 import type { Ref } from 'vue';
+import { useVisualStore } from '@/stores/visual';
 
-// Helper to get config values via inject with fallback
-function useConfig() {
-  const config = inject<any>('appConfig', null);
-  const functions = useFunctions();
-  const authzBackend = ref<string>('');
+// Helper to get config values
+function usePermissionsConfig() {
+  const appConfig = inject<any>('appConfig', null);
+  const visual = useVisualStore();
 
-  // Load server info to determine permissions backend
-  onMounted(async () => {
-    if (functions?.getServerInfo) {
-      try {
-        const serverInfo = await functions.getServerInfo();
-        authzBackend.value = serverInfo['authz-backend'] || '';
-      } catch (error) {
-        console.warn('Failed to load server info for authorizer permissions config:', error);
-      }
-    }
+  const enabledPermissions = computed(() => {
+    const serverInfo = visual.getServerInfo();
+    // Only enable authorizer permissions when backend is OpenFGA
+    return serverInfo['authz-backend'] === 'openfga';
   });
 
+  const enabledAuthentication = computed(() => appConfig?.enabledAuthentication ?? false);
+
   return {
-    enabledAuthentication: computed(() => config?.enabledAuthentication ?? false),
-    enabledPermissions: computed(() => {
-      // Only enable authorizer permissions when backend is OpenFGA
-      return authzBackend.value === 'openfga';
-    }),
+    enabledPermissions,
+    enabledAuthentication,
   };
 }
 
@@ -44,14 +37,14 @@ function useConfig() {
  */
 export function useServerAuthorizerPermissions(serverId: Ref<string> | string) {
   const functions = useFunctions();
-  const config = useConfig();
+  const config = usePermissionsConfig();
   const loading = ref(false);
   const permissions = ref<OpenFgaServerAction[]>([]);
 
   const serverIdRef = computed(() => (typeof serverId === 'string' ? serverId : serverId.value));
 
   async function loadPermissions() {
-    // Only load authorizer permissions if permissions are enabled
+    // Only load authorizer permissions if OpenFGA is enabled
     if (!config.enabledPermissions.value) {
       permissions.value = [];
       return;
@@ -120,14 +113,14 @@ export function useServerAuthorizerPermissions(serverId: Ref<string> | string) {
  */
 export function useRoleAuthorizerPermissions(roleId: Ref<string> | string) {
   const functions = useFunctions();
-  const config = useConfig();
+  const config = usePermissionsConfig();
   const loading = ref(false);
   const permissions = ref<OpenFgaRoleAction[]>([]);
 
   const roleIdRef = computed(() => (typeof roleId === 'string' ? roleId : roleId.value));
 
   async function loadPermissions() {
-    // Only load authorizer permissions if permissions are enabled
+    // Only load authorizer permissions if OpenFGA is enabled
     if (!config.enabledPermissions.value) {
       permissions.value = [];
       return;
@@ -213,7 +206,7 @@ export function useRoleAuthorizerPermissions(roleId: Ref<string> | string) {
  */
 export function useProjectAuthorizerPermissions(projectId: Ref<string> | string) {
   const functions = useFunctions();
-  const config = useConfig();
+  const config = usePermissionsConfig();
   const loading = ref(false);
   const permissions = ref<OpenFgaProjectAction[]>([]);
 
@@ -222,7 +215,7 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
   );
 
   async function loadPermissions() {
-    // Only load authorizer permissions if permissions are enabled
+    // Only load authorizer permissions if OpenFGA is enabled
     if (!config.enabledPermissions.value) {
       permissions.value = [];
       return;
@@ -306,7 +299,7 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
  */
 export function useWarehouseAuthorizerPermissions(warehouseId: Ref<string> | string) {
   const functions = useFunctions();
-  const config = useConfig();
+  const config = usePermissionsConfig();
   const loading = ref(false);
   const permissions = ref<OpenFgaWarehouseAction[]>([]);
 
@@ -315,7 +308,7 @@ export function useWarehouseAuthorizerPermissions(warehouseId: Ref<string> | str
   );
 
   async function loadPermissions() {
-    // Only load authorizer permissions if permissions are enabled
+    // Only load authorizer permissions if OpenFGA is enabled
     if (!config.enabledPermissions.value) {
       permissions.value = [];
       return;
@@ -401,7 +394,7 @@ export function useNamespaceAuthorizerPermissions(
   warehouseId: Ref<string> | string,
 ) {
   const functions = useFunctions();
-  const config = useConfig();
+  const config = usePermissionsConfig();
   const loading = ref(false);
   const permissions = ref<OpenFgaNamespaceAction[]>([]);
 
@@ -415,7 +408,7 @@ export function useNamespaceAuthorizerPermissions(
   async function loadPermissions() {
     if (!namespaceIdRef.value || !warehouseIdRef.value) return;
 
-    // Only load authorizer permissions if permissions are enabled
+    // Only load authorizer permissions if OpenFGA is enabled
     if (!config.enabledPermissions.value) {
       permissions.value = [];
       return;
@@ -500,7 +493,7 @@ export function useTableAuthorizerPermissions(
   warehouseId: Ref<string> | string,
 ) {
   const functions = useFunctions();
-  const config = useConfig();
+  const config = usePermissionsConfig();
   const loading = ref(false);
   const permissions = ref<OpenFgaTableAction[]>([]);
 
@@ -512,7 +505,7 @@ export function useTableAuthorizerPermissions(
   async function loadPermissions() {
     if (!tableIdRef.value || !warehouseIdRef.value) return;
 
-    // Only load authorizer permissions if permissions are enabled
+    // Only load authorizer permissions if OpenFGA is enabled
     if (!config.enabledPermissions.value) {
       permissions.value = [];
       return;
@@ -595,7 +588,7 @@ export function useViewAuthorizerPermissions(
   warehouseId: Ref<string> | string,
 ) {
   const functions = useFunctions();
-  const config = useConfig();
+  const config = usePermissionsConfig();
   const loading = ref(false);
   const permissions = ref<OpenFgaViewAction[]>([]);
 
@@ -607,7 +600,7 @@ export function useViewAuthorizerPermissions(
   async function loadPermissions() {
     if (!viewIdRef.value || !warehouseIdRef.value) return;
 
-    // Only load authorizer permissions if permissions are enabled
+    // Only load authorizer permissions if OpenFGA is enabled
     if (!config.enabledPermissions.value) {
       permissions.value = [];
       return;
