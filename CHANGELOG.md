@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.8](https://github.com/lakekeeper/console-components/compare/v0.2.7...v0.2.8) (2025-12-13)
+
+
+### Bug Fixes
+
+* authorization split catalog and authorizer ([#36](https://github.com/lakekeeper/console-components/issues/36)) ([8453907](https://github.com/lakekeeper/console-components/commit/845390763656c6b5b23b08335ba6972711309a1e))
+
 ## [0.2.7](https://github.com/lakekeeper/console-components/compare/v0.2.6...v0.2.7) (2025-11-13)
 
 
