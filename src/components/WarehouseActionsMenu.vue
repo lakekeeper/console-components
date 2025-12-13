@@ -33,6 +33,8 @@
         @cancel="menuOpen = false"
         @update-deletion-profile="updateDeletionProfile" />
 
+      <v-divider></v-divider>
+
       <ComputeConnectDialog :warehouse="warehouse" />
     </v-list>
   </v-menu>
@@ -47,8 +49,10 @@ import {
 } from '../gen/management/types.gen';
 import { ref, onMounted } from 'vue';
 import { Intent, ObjectType } from '../common/enums';
+// import { useFunctions } from '../plugins/functions';
 
 const menuOpen = ref(false);
+// const functions = useFunctions();
 
 const emit = defineEmits<{
   (e: 'renameWarehouse', warehouse: string): void;
@@ -58,6 +62,7 @@ const emit = defineEmits<{
     newProfile: { profile: StorageProfile; credentials: StorageCredential },
   ): void;
   (e: 'updateDelprofile', profile: TabularDeleteProfile): void;
+  (e: 'warehouseStatusChanged'): void;
   (e: 'close'): void;
 }>();
 

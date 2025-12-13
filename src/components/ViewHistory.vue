@@ -275,7 +275,7 @@
 <script setup lang="ts">
 import { computed, reactive, onMounted } from 'vue';
 import { useFunctions } from '../plugins/functions';
-import type { LoadViewResultReadable } from '../gen/iceberg';
+import type { LoadViewResult } from '../gen/iceberg';
 
 // Types
 interface TimelineEvent {
@@ -287,11 +287,9 @@ interface TimelineEvent {
 }
 
 // Props
-interface Props {
-  view: LoadViewResultReadable;
-}
-
-const props = defineProps<Props>();
+const props = defineProps<{
+  view: LoadViewResult;
+}>();
 
 // Composables
 const functions = useFunctions();

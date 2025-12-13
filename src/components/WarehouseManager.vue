@@ -59,6 +59,14 @@
           </span>
         </td>
       </template>
+      <template #item.status="{ item }">
+        <v-chip
+          :color="item.status === 'active' ? 'success' : 'warning'"
+          size="small"
+          :prepend-icon="item.status === 'active' ? 'mdi-check-circle' : 'mdi-pause-circle'">
+          {{ item.status }}
+        </v-chip>
+      </template>
       <template #item.actions="{ item }">
         <DeleteConfirmDialog
           v-if="item.can_delete"
@@ -86,7 +94,7 @@ import { GetWarehouseResponse } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { usePermissionStore } from '@/stores/permissions';
-import { useProjectPermissions } from '@/composables/usePermissions';
+import { useProjectPermissions } from '@/composables/useCatalogPermissions';
 import { Header } from '@/common/interfaces';
 import { VIcon, VImg } from 'vuetify/components';
 import WarehouseAddDialog from './WarehouseAddDialog.vue';
@@ -108,6 +116,7 @@ const searchWarehouse = ref('');
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
+  { title: 'Status', key: 'status', align: 'center' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
 
@@ -206,7 +215,7 @@ watch(canListWarehouses, async (newValue) => {
 async function listWarehouse() {
   try {
     whResponse.splice(0, whResponse.length);
-    const wh = await functions.listWarehouses();
+    const wh = await functions.listWarehouses(false);
 
     Object.assign(whResponse, wh.warehouses);
 

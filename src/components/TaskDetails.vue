@@ -320,14 +320,15 @@ import { getStatusColor, formatDateTime } from '../common/taskUtils';
 import { queueConfig } from '@/common/queueConfig';
 
 // Props
-interface Props {
-  task: GetTaskDetailsResponse | null;
-  formatQueueName?: (queueName: string) => string;
-}
-
-withDefaults(defineProps<Props>(), {
-  formatQueueName: (queueName: string) => queueConfig.formatQueueName(queueName),
-});
+withDefaults(
+  defineProps<{
+    task: GetTaskDetailsResponse | null;
+    formatQueueName?: (queueName: string) => string;
+  }>(),
+  {
+    formatQueueName: (queueName: string) => queueConfig.formatQueueName(queueName),
+  },
+);
 
 // Emits
 defineEmits<{

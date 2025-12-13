@@ -184,20 +184,18 @@ import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 
-interface Props {
+const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   catalogUrl: string;
   storageType?: string; // Storage type: s3, adls, gcs, etc.
-}
+}>();
 
 interface Field {
   name: string;
   type: string;
   nullable: boolean;
 }
-
-const props = defineProps<Props>();
 const emit = defineEmits<{
   (e: 'created', tableName: string): void;
 }>();

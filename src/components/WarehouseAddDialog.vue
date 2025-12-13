@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="850">
+  <v-dialog v-model="isDialogActive" max-width="1000">
     <template #activator="{ props: activatorProps }">
       <v-list-item
         v-bind="activatorProps"
@@ -34,7 +34,7 @@
         </v-list-item-title>
       </v-list-item>
     </template>
-    <v-card style="max-height: 90vh; overflow-y: auto">
+    <v-card style="max-height: 90vh; overflow-y: auto; min-width: 850px; width: 100%">
       <v-card-title v-if="props.objectType === ObjectType.WAREHOUSE" class="mt-8">
         <v-row>
           <v-col cols="8" class="ml-2">Add new warehouse</v-col>
@@ -114,9 +114,14 @@
             <v-text-field
               v-if="emptyWarehouse"
               v-model="warehouseName"
-              label="Warehouse Name"
+              label="Warehouse Name *"
               placeholder="my-warehouse"
-              :rules="[rules.required, rules.noSlash]"></v-text-field>
+              :rules="[rules.required, rules.noSlash]"
+              :error="isWarehouseNameInvalid"
+              :color="isWarehouseNameInvalid ? 'error' : 'primary'"
+              :style="
+                isWarehouseNameInvalid ? 'color: rgb(var(--v-theme-error));' : ''
+              "></v-text-field>
             <v-row justify="center">
               <v-col
                 v-if="
@@ -167,79 +172,55 @@
             </v-row>
 
             <span v-if="props.objectType !== ObjectType.DELETION_PROFILE">
-              <v-container fluid>
-                <v-radio-group v-model="storageCredentialType" row>
-                  <v-row>
-                    <v-col v-for="(type, i) in storageCredentialTypes" :key="i">
-                      <div>
-                        <v-radio
-                          :key="i"
-                          v-model="storageCredentialType"
-                          color="primary"
-                          :disabled="!emptyWarehouse"
-                          :value="type">
-                          <template #label>
-                            <div>
-                              <v-icon v-if="type === 'S3'" color="primary" size="x-large">
-                                mdi-aws
-                              </v-icon>
-                              <v-icon v-if="type === 'GCS'" color="primary" size="x-large">
-                                mdi-google-cloud
-                              </v-icon>
-                              <v-icon v-if="type === 'AZURE'" color="primary" size="x-large">
-                                mdi-microsoft-azure
-                              </v-icon>
+              <v-tabs v-model="storageCredentialType" color="primary" :disabled="!emptyWarehouse">
+                <v-tab value="S3">
+                  <v-icon start>mdi-aws</v-icon>
+                  S3
+                </v-tab>
+                <v-tab value="GCS">
+                  <v-icon start>mdi-google-cloud</v-icon>
+                  GCS
+                </v-tab>
+                <v-tab value="AZURE">
+                  <v-icon start>mdi-microsoft-azure</v-icon>
+                  Azure
+                </v-tab>
+              </v-tabs>
 
-                              {{ type }}
-                            </div>
-                          </template>
-                        </v-radio>
-                      </div>
-                    </v-col>
-                  </v-row>
-                </v-radio-group>
-              </v-container>
+              <v-tabs-window v-model="storageCredentialType" class="mt-4" style="min-height: 600px">
+                <v-tabs-window-item value="S3">
+                  <WarehouseStorageS3
+                    :credentials-only="emptyWarehouse"
+                    :intent="intent"
+                    :object-type="objectType"
+                    :warehouse-object="warehouseObjectS3"
+                    @submit="createWarehouse"
+                    @update-credentials="newCredentials"
+                    @update-profile="newProfile"></WarehouseStorageS3>
+                </v-tabs-window-item>
 
-              <!--v-select
-                :disabled="!emptyWarehouse"
-                v-model="storageCredentialType"
-                :items="storageCredentialTypes"
-                label="Storage Type"
-                :rules="[rules.required]"
-              ></v-select-->
+                <v-tabs-window-item value="GCS">
+                  <WarehouseStorageGCS
+                    :credentials-only="emptyWarehouse"
+                    :intent="intent"
+                    :object-type="objectType"
+                    :warehouse-object="warehouseObjectGCS"
+                    @submit="createWarehouse"
+                    @update-credentials="newCredentials"
+                    @update-profile="newProfile"></WarehouseStorageGCS>
+                </v-tabs-window-item>
 
-              <div v-if="storageCredentialType === 'S3'">
-                <WarehouseStorageS3
-                  :credentials-only="emptyWarehouse"
-                  :intent="intent"
-                  :object-type="objectType"
-                  :warehouse-object="warehouseObjectS3"
-                  @submit="createWarehouse"
-                  @update-credentials="newCredentials"
-                  @update-profile="newProfile"></WarehouseStorageS3>
-              </div>
-
-              <div v-if="storageCredentialType === 'AZURE'">
-                <WarehouseStorageAzure
-                  :credentials-only="emptyWarehouse"
-                  :intent="intent"
-                  :object-type="objectType"
-                  :warehouse-object="warehouseObjectAz"
-                  @submit="createWarehouse"
-                  @update-credentials="newCredentials"
-                  @update-profile="newProfile"></WarehouseStorageAzure>
-              </div>
-
-              <div v-if="storageCredentialType === 'GCS'">
-                <WarehouseStorageGCS
-                  :credentials-only="emptyWarehouse"
-                  :intent="intent"
-                  :object-type="objectType"
-                  :warehouse-object="warehouseObjectGCS"
-                  @submit="createWarehouse"
-                  @update-credentials="newCredentials"
-                  @update-profile="newProfile"></WarehouseStorageGCS>
-              </div>
+                <v-tabs-window-item value="AZURE">
+                  <WarehouseStorageAzure
+                    :credentials-only="emptyWarehouse"
+                    :intent="intent"
+                    :object-type="objectType"
+                    :warehouse-object="warehouseObjectAz"
+                    @submit="createWarehouse"
+                    @update-credentials="newCredentials"
+                    @update-profile="newProfile"></WarehouseStorageAzure>
+                </v-tabs-window-item>
+              </v-tabs-window>
             </span>
           </v-form>
 
@@ -321,7 +302,7 @@ const max = ref(90);
 const slider = ref(7);
 const useFileInput = ref(false);
 
-const storageCredentialTypes = ref(['S3', 'GCS', 'AZURE']);
+// const storageCredentialTypes = ref(['S3', 'GCS', 'AZURE']);
 const storageCredentialType = ref('');
 const warehouseName = ref('');
 const functions = useFunctions();
@@ -330,12 +311,18 @@ const rules = {
   noSlash: (value: string) => !value.includes('/') || 'Cannot contain "/"',
 };
 
+// Computed property for warehouse name validation (show red border when required but empty)
+const isWarehouseNameInvalid = computed(() => {
+  return emptyWarehouse.value && !warehouseName.value;
+});
+
 const emptyWarehouse = ref(true);
 const warehouseObjectS3 = reactive<WarehousObject>({
   'storage-profile': {
     type: 's3',
     bucket: '',
     region: '',
+    'remote-signing-enabled': true,
     'sts-enabled': false,
   },
   'storage-credential': {
@@ -363,6 +350,7 @@ const warehouseObjectGCS = reactive<WarehousObject>({
   'storage-profile': {
     type: 'gcs',
     bucket: '',
+    'sts-enabled': true,
   },
   'storage-credential': {
     type: 'gcs',
@@ -375,6 +363,7 @@ const warehouseObjectAz = reactive<WarehousObject>({
   'storage-profile': {
     'account-name': '',
     filesystem: '',
+    'sas-enabled': true,
     type: 'adls',
   },
   'storage-credential': {

@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteDefaultProjectData, DeleteDefaultProjectDeprecatedData, DeleteDefaultProjectDeprecatedErrors, DeleteDefaultProjectDeprecatedResponses, DeleteDefaultProjectErrors, DeleteDefaultProjectResponses, DeleteProjectByIdData, DeleteProjectByIdErrors, DeleteProjectByIdResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, GetDefaultProjectData, GetDefaultProjectDeprecatedData, GetDefaultProjectDeprecatedErrors, GetDefaultProjectDeprecatedResponses, GetDefaultProjectErrors, GetDefaultProjectResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdData, GetProjectByIdErrors, GetProjectByIdResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigTabularExpirationData, GetTaskQueueConfigTabularExpirationErrors, GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, RenameDefaultProjectData, RenameDefaultProjectDeprecatedData, RenameDefaultProjectDeprecatedErrors, RenameDefaultProjectDeprecatedResponses, RenameDefaultProjectErrors, RenameDefaultProjectResponses, RenameProjectByIdData, RenameProjectByIdErrors, RenameProjectByIdResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTaskQueueConfigTabularExpirationData, SetTaskQueueConfigTabularExpirationErrors, SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, UndropTabularsData, UndropTabularsDeprecatedData, UndropTabularsDeprecatedErrors, UndropTabularsDeprecatedResponses, UndropTabularsErrors, UndropTabularsResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigTabularExpirationData, GetTaskQueueConfigTabularExpirationErrors, GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTaskQueueConfigTabularExpirationData, SetTaskQueueConfigTabularExpirationErrors, SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
     /**
@@ -16,6 +16,38 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      * used to access values that aren't defined as part of the SDK function.
      */
     meta?: Record<string, unknown>;
+};
+
+/**
+ * Batch Check Catalog Actions
+ *
+ * Performs authorization checks for multiple catalog actions in a single request.
+ * This endpoint allows checking permissions across different resource types (servers, projects,
+ * warehouses, namespaces, tables, and views) efficiently.
+ *
+ * The endpoint supports:
+ * - Checking actions for different identities (users or roles)
+ * - Mixing different resource types in a single batch
+ * - Optional error-on-not-found behavior (default: treat missing resources as denied)
+ *
+ * Each check in the request can optionally override the identity being checked.
+ * If no identity is specified, the current user's identity is used.
+ */
+export const batchCheckActions = <ThrowOnError extends boolean = false>(options: Options<BatchCheckActionsData, ThrowOnError>) => {
+    return (options.client ?? client).post<BatchCheckActionsResponses, BatchCheckActionsErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/action/batch-check',
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+        }
+    });
 };
 
 /**
@@ -33,73 +65,6 @@ export const bootstrap = <ThrowOnError extends boolean = false>(options: Options
             }
         ],
         url: '/management/v1/bootstrap',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
-
-/**
- * Delete default Project
- *
- * Removes the user's default project and all its resources.
- * This endpoint is deprecated and will be removed in a future version.
- *
- * @deprecated
- */
-export const deleteDefaultProjectDeprecated = <ThrowOnError extends boolean = false>(options?: Options<DeleteDefaultProjectDeprecatedData, ThrowOnError>) => {
-    return (options?.client ?? client).delete<DeleteDefaultProjectDeprecatedResponses, DeleteDefaultProjectDeprecatedErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/default-project',
-        ...options
-    });
-};
-
-/**
- * Get Default Project
- *
- * Retrieves information about the user's default project.
- * This endpoint is deprecated and will be removed in a future version.
- *
- * @deprecated
- */
-export const getDefaultProjectDeprecated = <ThrowOnError extends boolean = false>(options?: Options<GetDefaultProjectDeprecatedData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetDefaultProjectDeprecatedResponses, GetDefaultProjectDeprecatedErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/default-project',
-        ...options
-    });
-};
-
-/**
- * Rename the default project.
- *
- * Updates the name of the user's default project.
- * This endpoint is deprecated and will be removed in a future version.
- *
- * @deprecated
- */
-export const renameDefaultProjectDeprecated = <ThrowOnError extends boolean = false>(options: Options<RenameDefaultProjectDeprecatedData, ThrowOnError>) => {
-    return (options.client ?? client).post<RenameDefaultProjectDeprecatedResponses, RenameDefaultProjectDeprecatedErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/default-project/rename',
         ...options,
         headers: {
             'Content-Type': 'application/json',
@@ -221,6 +186,11 @@ export const getNamespaceById = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * Get my access to a namespace
+ *
+ * **Deprecated:** Use `/management/v1/permissions/namespace/{namespace_id}/authorizer-actions` for Authorizer permissions
+ * or `/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/actions` for Catalog permissions instead.
+ *
+ * @deprecated
  */
 export const getNamespaceAccessById = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceAccessByIdData, ThrowOnError>) => {
     return (options.client ?? client).get<GetNamespaceAccessByIdResponses, unknown, ThrowOnError>({
@@ -272,6 +242,25 @@ export const updateNamespaceAssignmentsById = <ThrowOnError extends boolean = fa
 };
 
 /**
+ * Get allowed Authorizer actions on a namespace
+ *
+ * Returns Authorizer permissions (OpenFGA relations) for the specified namespace.
+ * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/actions` instead.
+ */
+export const getAuthorizerNamespaceActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerNamespaceActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetAuthorizerNamespaceActionsResponses, unknown, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/permissions/namespace/{namespace_id}/authorizer-actions',
+        ...options
+    });
+};
+
+/**
  * Set managed access property of a namespace
  */
 export const setNamespaceManagedAccess = <ThrowOnError extends boolean = false>(options: Options<SetNamespaceManagedAccessData, ThrowOnError>) => {
@@ -293,6 +282,11 @@ export const setNamespaceManagedAccess = <ThrowOnError extends boolean = false>(
 
 /**
  * Get my access to the default project
+ *
+ * **Deprecated:** Use `/management/v1/permissions/project/authorizer-actions` for Authorizer permissions
+ * or `/management/v1/project/actions` for Catalog permissions instead.
+ *
+ * @deprecated
  */
 export const getProjectAccess = <ThrowOnError extends boolean = false>(options?: Options<GetProjectAccessData, ThrowOnError>) => {
     return (options?.client ?? client).get<GetProjectAccessResponses, unknown, ThrowOnError>({
@@ -344,7 +338,31 @@ export const updateProjectAssignments = <ThrowOnError extends boolean = false>(o
 };
 
 /**
- * Get my access to the default project
+ * Get allowed Authorizer actions on the default project
+ *
+ * Returns Authorizer permissions (OpenFGA relations) for the default project.
+ * For Catalog permissions, use `/management/v1/project/actions` instead.
+ */
+export const getAuthorizerProjectActions = <ThrowOnError extends boolean = false>(options?: Options<GetAuthorizerProjectActionsData, ThrowOnError>) => {
+    return (options?.client ?? client).get<GetAuthorizerProjectActionsResponses, unknown, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/permissions/project/authorizer-actions',
+        ...options
+    });
+};
+
+/**
+ * Get my access to a project
+ *
+ * **Deprecated:** Use `/management/v1/permissions/project/authorizer-actions` for Authorizer permissions
+ * or `/management/v1/project/actions` for Catalog permissions instead.
+ *
+ * @deprecated
  */
 export const getProjectAccessById = <ThrowOnError extends boolean = false>(options: Options<GetProjectAccessByIdData, ThrowOnError>) => {
     return (options.client ?? client).get<GetProjectAccessByIdResponses, unknown, ThrowOnError>({
@@ -361,6 +379,10 @@ export const getProjectAccessById = <ThrowOnError extends boolean = false>(optio
 
 /**
  * Get user and role assignments to a project
+ *
+ * **Deprecated:** Use `/management/v1/permissions/project/assignments` instead.
+ *
+ * @deprecated
  */
 export const getProjectAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetProjectAssignmentsByIdData, ThrowOnError>) => {
     return (options.client ?? client).get<GetProjectAssignmentsByIdResponses, unknown, ThrowOnError>({
@@ -396,7 +418,12 @@ export const updateProjectAssignmentsById = <ThrowOnError extends boolean = fals
 };
 
 /**
- * Get my access to the default project
+ * Get my access to a role
+ *
+ * **Deprecated:** Use `/management/v1/permissions/role/{role_id}/authorizer-actions` for Authorizer permissions
+ * or `/management/v1/role/{role_id}/actions` for Catalog permissions instead.
+ *
+ * @deprecated
  */
 export const getRoleAccessById = <ThrowOnError extends boolean = false>(options: Options<GetRoleAccessByIdData, ThrowOnError>) => {
     return (options.client ?? client).get<GetRoleAccessByIdResponses, unknown, ThrowOnError>({
@@ -445,7 +472,31 @@ export const updateRoleAssignmentsById = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Get allowed Authorizer actions on a role
+ *
+ * Returns Authorizer permissions (OpenFGA relations) for the specified role.
+ * For Catalog permissions, use `/management/v1/role/{role_id}/actions` instead.
+ */
+export const getAuthorizerRoleActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerRoleActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetAuthorizerRoleActionsResponses, unknown, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/permissions/role/{role_id}/authorizer-actions',
+        ...options
+    });
+};
+
+/**
  * Get my access to the server
+ *
+ * **Deprecated:** Use `/management/v1/permissions/server/authorizer-actions` for Authorizer permissions
+ * or `/management/v1/server/actions` for Catalog permissions instead.
+ *
+ * @deprecated
  */
 export const getServerAccess = <ThrowOnError extends boolean = false>(options?: Options<GetServerAccessData, ThrowOnError>) => {
     return (options?.client ?? client).get<GetServerAccessResponses, unknown, ThrowOnError>({
@@ -497,6 +548,25 @@ export const updateServerAssignments = <ThrowOnError extends boolean = false>(op
 };
 
 /**
+ * Get allowed Authorizer actions on the server
+ *
+ * Returns Authorizer permissions (OpenFGA relations) for the server.
+ * For Catalog permissions, use `/management/v1/server/actions` instead.
+ */
+export const getAuthorizerServerActions = <ThrowOnError extends boolean = false>(options?: Options<GetAuthorizerServerActionsData, ThrowOnError>) => {
+    return (options?.client ?? client).get<GetAuthorizerServerActionsResponses, unknown, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/permissions/server/authorizer-actions',
+        ...options
+    });
+};
+
+/**
  * Get Authorization properties of a warehouse
  */
 export const getWarehouseById = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseByIdData, ThrowOnError>) => {
@@ -514,6 +584,11 @@ export const getWarehouseById = <ThrowOnError extends boolean = false>(options: 
 
 /**
  * Get my access to a warehouse
+ *
+ * **Deprecated:** Use `/management/v1/permissions/warehouse/{warehouse_id}/authorizer-actions` for Authorizer permissions
+ * or `/management/v1/warehouse/{warehouse_id}/actions` for Catalog permissions instead.
+ *
+ * @deprecated
  */
 export const getWarehouseAccessById = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseAccessByIdData, ThrowOnError>) => {
     return (options.client ?? client).get<GetWarehouseAccessByIdResponses, unknown, ThrowOnError>({
@@ -565,6 +640,25 @@ export const updateWarehouseAssignmentsById = <ThrowOnError extends boolean = fa
 };
 
 /**
+ * Get allowed Authorizer actions on a warehouse
+ *
+ * Returns Authorizer permissions (OpenFGA relations) for the specified warehouse.
+ * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/actions` instead.
+ */
+export const getAuthorizerWarehouseActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerWarehouseActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetAuthorizerWarehouseActionsResponses, unknown, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/permissions/warehouse/{warehouse_id}/authorizer-actions',
+        ...options
+    });
+};
+
+/**
  * Set managed access property of a warehouse
  */
 export const setWarehouseManagedAccess = <ThrowOnError extends boolean = false>(options: Options<SetWarehouseManagedAccessData, ThrowOnError>) => {
@@ -586,6 +680,11 @@ export const setWarehouseManagedAccess = <ThrowOnError extends boolean = false>(
 
 /**
  * Get my access to a table
+ *
+ * **Deprecated:** Use `/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/authorizer-actions` for Authorizer permissions
+ * or `/management/v1/warehouse/{warehouse_id}/table/{table_id}/actions` for Catalog permissions instead.
+ *
+ * @deprecated
  */
 export const getTableAccessById = <ThrowOnError extends boolean = false>(options: Options<GetTableAccessByIdData, ThrowOnError>) => {
     return (options.client ?? client).get<GetTableAccessByIdResponses, unknown, ThrowOnError>({
@@ -637,7 +736,31 @@ export const updateTableAssignmentsById = <ThrowOnError extends boolean = false>
 };
 
 /**
+ * Get allowed Authorizer actions on a table
+ *
+ * Returns Authorizer permissions (OpenFGA relations) for the specified table.
+ * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/table/{table_id}/actions` instead.
+ */
+export const getAuthorizerTableActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerTableActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetAuthorizerTableActionsResponses, unknown, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/authorizer-actions',
+        ...options
+    });
+};
+
+/**
  * Get my access to a view
+ *
+ * **Deprecated:** Use `/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/authorizer-actions` for Authorizer permissions
+ * or `/management/v1/warehouse/{warehouse_id}/view/{view_id}/actions` for Catalog permissions instead.
+ *
+ * @deprecated
  */
 export const getViewAccessById = <ThrowOnError extends boolean = false>(options: Options<GetViewAccessByIdData, ThrowOnError>) => {
     return (options.client ?? client).get<GetViewAccessByIdResponses, unknown, ThrowOnError>({
@@ -689,10 +812,29 @@ export const updateViewAssignmentsById = <ThrowOnError extends boolean = false>(
 };
 
 /**
+ * Get allowed Authorizer actions on a view
+ *
+ * Returns Authorizer permissions (OpenFGA relations) for the specified view.
+ * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/view/{view_id}/actions` instead.
+ */
+export const getAuthorizerViewActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerViewActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetAuthorizerViewActionsResponses, unknown, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/authorizer-actions',
+        ...options
+    });
+};
+
+/**
  * Delete Project
  */
-export const deleteDefaultProject = <ThrowOnError extends boolean = false>(options: Options<DeleteDefaultProjectData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DeleteDefaultProjectResponses, DeleteDefaultProjectErrors, ThrowOnError>({
+export const deleteProject = <ThrowOnError extends boolean = false>(options?: Options<DeleteProjectData, ThrowOnError>) => {
+    return (options?.client ?? client).delete<DeleteProjectResponses, DeleteProjectErrors, ThrowOnError>({
         security: [
             {
                 scheme: 'bearer',
@@ -709,8 +851,8 @@ export const deleteDefaultProject = <ThrowOnError extends boolean = false>(optio
  *
  * Retrieves information about the user's default project.
  */
-export const getDefaultProject = <ThrowOnError extends boolean = false>(options: Options<GetDefaultProjectData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetDefaultProjectResponses, GetDefaultProjectErrors, ThrowOnError>({
+export const getProject = <ThrowOnError extends boolean = false>(options?: Options<GetProjectData, ThrowOnError>) => {
+    return (options?.client ?? client).get<GetProjectResponses, GetProjectErrors, ThrowOnError>({
         security: [
             {
                 scheme: 'bearer',
@@ -763,10 +905,26 @@ export const listProjects = <ThrowOnError extends boolean = false>(options?: Opt
 };
 
 /**
+ * Get allowed actions for a project
+ */
+export const getProjectActions = <ThrowOnError extends boolean = false>(options?: Options<GetProjectActionsData, ThrowOnError>) => {
+    return (options?.client ?? client).get<GetProjectActionsResponses, GetProjectActionsErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/project/actions',
+        ...options
+    });
+};
+
+/**
  * Rename Project
  */
-export const renameDefaultProject = <ThrowOnError extends boolean = false>(options: Options<RenameDefaultProjectData, ThrowOnError>) => {
-    return (options.client ?? client).post<RenameDefaultProjectResponses, RenameDefaultProjectErrors, ThrowOnError>({
+export const renameProject = <ThrowOnError extends boolean = false>(options: Options<RenameProjectData, ThrowOnError>) => {
+    return (options.client ?? client).post<RenameProjectResponses, RenameProjectErrors, ThrowOnError>({
         security: [
             {
                 scheme: 'bearer',
@@ -786,9 +944,11 @@ export const renameDefaultProject = <ThrowOnError extends boolean = false>(optio
  * Delete Project by ID
  *
  * Permanently removes a specific project and all its associated resources.
+ *
+ * @deprecated
  */
-export const deleteProjectById = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectByIdData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DeleteProjectByIdResponses, DeleteProjectByIdErrors, ThrowOnError>({
+export const deleteProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectByIdDeprecatedData, ThrowOnError>) => {
+    return (options.client ?? client).delete<DeleteProjectByIdDeprecatedResponses, DeleteProjectByIdDeprecatedErrors, ThrowOnError>({
         security: [
             {
                 scheme: 'bearer',
@@ -802,9 +962,11 @@ export const deleteProjectById = <ThrowOnError extends boolean = false>(options:
 
 /**
  * Get Project
+ *
+ * @deprecated
  */
-export const getProjectById = <ThrowOnError extends boolean = false>(options: Options<GetProjectByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetProjectByIdResponses, GetProjectByIdErrors, ThrowOnError>({
+export const getProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<GetProjectByIdDeprecatedData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetProjectByIdDeprecatedResponses, GetProjectByIdDeprecatedErrors, ThrowOnError>({
         security: [
             {
                 scheme: 'bearer',
@@ -820,9 +982,11 @@ export const getProjectById = <ThrowOnError extends boolean = false>(options: Op
  * Rename Project by ID
  *
  * Updates the name of a specific project.
+ *
+ * @deprecated
  */
-export const renameProjectById = <ThrowOnError extends boolean = false>(options: Options<RenameProjectByIdData, ThrowOnError>) => {
-    return (options.client ?? client).post<RenameProjectByIdResponses, RenameProjectByIdErrors, ThrowOnError>({
+export const renameProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<RenameProjectByIdDeprecatedData, ThrowOnError>) => {
+    return (options.client ?? client).post<RenameProjectByIdDeprecatedResponses, RenameProjectByIdDeprecatedErrors, ThrowOnError>({
         security: [
             {
                 scheme: 'bearer',
@@ -935,6 +1099,62 @@ export const updateRole = <ThrowOnError extends boolean = false>(options: Option
 };
 
 /**
+ * Get allowed actions for a role
+ */
+export const getRoleActions = <ThrowOnError extends boolean = false>(options: Options<GetRoleActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetRoleActionsResponses, GetRoleActionsErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/role/{role_id}/actions',
+        ...options
+    });
+};
+
+/**
+ * Get Role Metadata
+ *
+ * Retrieves high-level metadata about a specific role.
+ * Depending on the authorizer, this method is typically allowed also for roles in
+ * other projects.
+ */
+export const getRoleMetadata = <ThrowOnError extends boolean = false>(options: Options<GetRoleMetadataData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetRoleMetadataResponses, GetRoleMetadataErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/role/{role_id}/metadata',
+        ...options
+    });
+};
+
+/**
+ * Set the source system for a role
+ */
+export const updateRoleSourceSystem = <ThrowOnError extends boolean = false>(options: Options<UpdateRoleSourceSystemData, ThrowOnError>) => {
+    return (options.client ?? client).put<UpdateRoleSourceSystemResponses, UpdateRoleSourceSystemErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/role/{role_id}/source-system',
+        ...options,
+        headers: {
+            'Content-Type': 'application/json',
+            ...options.headers
+        }
+    });
+};
+
+/**
  * Search Role
  *
  * Performs a fuzzy search for roles based on the provided criteria.
@@ -975,6 +1195,22 @@ export const searchUser = <ThrowOnError extends boolean = false>(options: Option
             'Content-Type': 'application/json',
             ...options.headers
         }
+    });
+};
+
+/**
+ * Get allowed server actions
+ */
+export const getServerActions = <ThrowOnError extends boolean = false>(options?: Options<GetServerActionsData, ThrowOnError>) => {
+    return (options?.client ?? client).get<GetServerActionsResponses, GetServerActionsErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/server/actions',
+        ...options
     });
 };
 
@@ -1080,6 +1316,22 @@ export const updateUser = <ThrowOnError extends boolean = false>(options: Option
 };
 
 /**
+ * Get allowed actions on a user
+ */
+export const getUserActions = <ThrowOnError extends boolean = false>(options: Options<GetUserActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetUserActionsResponses, GetUserActionsErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/user/{user_id}/actions',
+        ...options
+    });
+};
+
+/**
  * List Warehouses
  *
  * Returns all warehouses in the project that the current user has access to.
@@ -1156,6 +1408,22 @@ export const getWarehouse = <ThrowOnError extends boolean = false>(options: Opti
             }
         ],
         url: '/management/v1/warehouse/{warehouse_id}',
+        ...options
+    });
+};
+
+/**
+ * Get allowed actions for a warehouse
+ */
+export const getWarehouseActions = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetWarehouseActionsResponses, GetWarehouseActionsErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/warehouse/{warehouse_id}/actions',
         ...options
     });
 };
@@ -1259,27 +1527,18 @@ export const undropTabulars = <ThrowOnError extends boolean = false>(options: Op
 };
 
 /**
- * Undrop Tabular
- *
- * Restores previously deleted tables or views to make them accessible again.
- * This endpoint is deprecated and will be removed soon.
- *
- * @deprecated
+ * Get allowed actions for a namespace
  */
-export const undropTabularsDeprecated = <ThrowOnError extends boolean = false>(options: Options<UndropTabularsDeprecatedData, ThrowOnError>) => {
-    return (options.client ?? client).post<UndropTabularsDeprecatedResponses, UndropTabularsDeprecatedErrors, ThrowOnError>({
+export const getNamespaceActions = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetNamespaceActionsResponses, GetNamespaceActionsErrors, ThrowOnError>({
         security: [
             {
                 scheme: 'bearer',
                 type: 'http'
             }
         ],
-        url: '/management/v1/warehouse/{warehouse_id}/deleted_tabulars/undrop',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
+        url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/actions',
+        ...options
     });
 };
 
@@ -1472,6 +1731,22 @@ export const updateStorageCredential = <ThrowOnError extends boolean = false>(op
 };
 
 /**
+ * Get allowed actions for a table
+ */
+export const getTableActions = <ThrowOnError extends boolean = false>(options: Options<GetTableActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetTableActionsResponses, GetTableActionsErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/actions',
+        ...options
+    });
+};
+
+/**
  * Get Table Protection
  *
  * Retrieves whether a table is protected from deletion.
@@ -1646,6 +1921,22 @@ export const listTasks = <ThrowOnError extends boolean = false>(options: Options
             'Content-Type': 'application/json',
             ...options.headers
         }
+    });
+};
+
+/**
+ * Get allowed actions for a view
+ */
+export const getViewActions = <ThrowOnError extends boolean = false>(options: Options<GetViewActionsData, ThrowOnError>) => {
+    return (options.client ?? client).get<GetViewActionsResponses, GetViewActionsErrors, ThrowOnError>({
+        security: [
+            {
+                scheme: 'bearer',
+                type: 'http'
+            }
+        ],
+        url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/actions',
+        ...options
     });
 };
 

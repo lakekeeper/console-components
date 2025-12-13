@@ -1,55 +1,35 @@
 import { defineStore } from 'pinia';
 import type {
-  ProjectAction,
-  WarehouseAction,
-  NamespaceAction,
-  ServerAction,
-  RoleAction,
+  LakekeeperProjectAction,
+  LakekeeperWarehouseAction,
+  LakekeeperNamespaceAction,
+  LakekeeperServerAction,
+  LakekeeperRoleAction,
 } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
-import { globals } from '../common/globals';
+import { useVisualStore } from './visual';
 
 export const usePermissionStore = defineStore('permissions', () => {
   const functions = useFunctions();
 
-  // Check if auth/permissions are enabled by fetching server info from API
-  const isAuthEnabled = async () => {
+  // Server Permissions - returns catalog (operational) actions
+  async function getServerPermissions(): Promise<LakekeeperServerAction[]> {
     try {
-      const serverInfo = await functions.getServerInfo();
-      const authzBackend = serverInfo['authz-backend'];
-      const isEnabled = authzBackend !== 'allow-all';
-      return isEnabled;
-    } catch (error) {
-      console.error('[PermissionStore] Failed to get server info:', error);
-      return false;
-    }
-  };
-
-  // Server Permissions
-  async function getServerPermissions(serverId: string): Promise<ServerAction[]> {
-    // If auth is disabled, return all permissions
-    if (!(await isAuthEnabled())) {
-      return globals.serverActions as ServerAction[];
-    }
-
-    try {
-      const permissions = await functions.getServerAccess();
+      const permissions = await functions.getServerCatalogActions();
       return permissions;
     } catch (error) {
-      console.error(`Failed to load server permissions for ${serverId}:`, error);
+      console.error('Failed to load server permissions:', error);
       return [];
     }
   }
 
-  // Role Permissions
-  async function getRolePermissions(roleId: string): Promise<RoleAction[]> {
-    // If auth is disabled, return all permissions
-    if (!(await isAuthEnabled())) {
-      return globals.roleActions as RoleAction[];
-    }
-
+  // Role Permissions - returns catalog (operational) actions
+  async function getRolePermissions(
+    roleId: string,
+    projectId?: string,
+  ): Promise<LakekeeperRoleAction[]> {
     try {
-      const permissions = await functions.getRoleAccessById(roleId);
+      const permissions = await functions.getRoleCatalogActions(roleId, projectId);
       return permissions;
     } catch (error) {
       console.error(`Failed to load role permissions for ${roleId}:`, error);
@@ -57,31 +37,23 @@ export const usePermissionStore = defineStore('permissions', () => {
     }
   }
 
-  // Project Permissions
-  async function getProjectPermissions(projectId: string): Promise<ProjectAction[]> {
-    // If auth is disabled, return all permissions
-    if (!(await isAuthEnabled())) {
-      return globals.projectActions as ProjectAction[];
-    }
-
+  // Project Permissions - returns catalog (operational) actions
+  async function getProjectPermissions(): Promise<LakekeeperProjectAction[]> {
     try {
-      const permissions = await functions.getProjectAccess();
+      const permissions = await functions.getProjectCatalogActions();
       return permissions;
     } catch (error) {
-      console.error(`Failed to load project permissions for ${projectId}:`, error);
+      console.error('Failed to load project permissions:', error);
       return [];
     }
   }
 
-  // Warehouse Permissions
-  async function getWarehousePermissions(warehouseId: string): Promise<WarehouseAction[]> {
-    // If auth is disabled, return all permissions
-    if (!(await isAuthEnabled())) {
-      return globals.warehouseActions as WarehouseAction[];
-    }
-
+  // Warehouse Permissions - returns catalog (operational) actions
+  async function getWarehousePermissions(
+    warehouseId: string,
+  ): Promise<LakekeeperWarehouseAction[]> {
     try {
-      const permissions = await functions.getWarehouseAccessById(warehouseId);
+      const permissions = await functions.getWarehouseCatalogActions(warehouseId);
       return permissions;
     } catch (error) {
       console.error(`Failed to load warehouse permissions for ${warehouseId}:`, error);
@@ -89,15 +61,22 @@ export const usePermissionStore = defineStore('permissions', () => {
     }
   }
 
-  // Namespace Permissions
-  async function getNamespacePermissions(namespaceId: string): Promise<NamespaceAction[]> {
-    // If auth is disabled, return all permissions
-    if (!(await isAuthEnabled())) {
-      return globals.namespaceActions as NamespaceAction[];
-    }
-
+  // Namespace Permissions - returns catalog (operational) actions
+  async function getNamespacePermissions(
+    namespaceId: string,
+    warehouseId?: string,
+  ): Promise<LakekeeperNamespaceAction[]> {
     try {
-      const permissions = await functions.getNamespaceAccessById(namespaceId);
+      // Get warehouseId from visual store if not provided
+      const visual = useVisualStore();
+      const whId = warehouseId || visual.whId;
+
+      if (!whId) {
+        console.error('Failed to load namespace permissions: warehouseId not available');
+        return [];
+      }
+
+      const permissions = await functions.getNamespaceCatalogActions(whId, namespaceId);
       return permissions;
     } catch (error) {
       console.error(`Failed to load namespace permissions for ${namespaceId}:`, error);
@@ -106,14 +85,10 @@ export const usePermissionStore = defineStore('permissions', () => {
   }
 
   return {
-    // Getters
     getServerPermissions,
     getRolePermissions,
     getProjectPermissions,
     getWarehousePermissions,
     getNamespacePermissions,
-
-    // Auth check
-    isAuthEnabled,
   };
 });

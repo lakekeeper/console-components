@@ -21,7 +21,6 @@
           v-model="roleData.description"
           label="Role description"
           maxlength="500"
-          placeholder="my role description"
           :rules="[roleRule]"></v-textarea>
       </v-card-text>
 
@@ -41,7 +40,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineEmits, defineProps, reactive, onMounted, ref } from 'vue';
+import { reactive, onMounted, ref } from 'vue';
 
 const isDialogActive = ref(false);
 const emit = defineEmits<{

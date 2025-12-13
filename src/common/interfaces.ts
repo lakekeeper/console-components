@@ -125,6 +125,11 @@ export interface SearchTabularResponse {
   tabulars: any[];
 }
 
+export interface QueueOption {
+  title: string;
+  value: string;
+}
+
 export interface TabularExpirationQueueConfig {
   [key: string]: any;
 }

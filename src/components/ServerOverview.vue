@@ -33,7 +33,9 @@
                 </template>
                 <v-list-item-title>Version</v-list-item-title>
                 <v-list-item-subtitle>
-                  <v-chip size="small" color="primary">{{ projectInfo.version || 'N/A' }}</v-chip>
+                  <v-chip size="small" color="primary">
+                    {{ projectInfo.version || 'N/A' }}
+                  </v-chip>
                 </v-list-item-subtitle>
               </v-list-item>
 

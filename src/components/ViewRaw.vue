@@ -45,7 +45,7 @@ import 'vue-json-pretty/lib/styles.css';
 import { onMounted, ref, reactive, computed, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
-import type { LoadViewResultReadable } from '@/gen/iceberg/types.gen';
+import type { LoadViewResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -59,7 +59,7 @@ const visual = useVisualStore();
 const depthRawRepresentation = ref(3);
 const depthRawRepresentationMax = ref(1000);
 
-const view = reactive<LoadViewResultReadable>({
+const view = reactive<LoadViewResult>({
   'metadata-location': '',
   metadata: {
     'view-uuid': '',

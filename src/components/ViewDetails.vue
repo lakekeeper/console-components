@@ -250,14 +250,12 @@
 import { computed } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { transformFields } from '../common/schemaUtils';
-import type { LoadViewResultReadable } from '../gen/iceberg/types.gen';
+import type { LoadViewResult } from '../gen/iceberg/types.gen';
 
 // Props
-interface Props {
-  view: LoadViewResultReadable;
-}
-
-const props = defineProps<Props>();
+const props = defineProps<{
+  view: LoadViewResult;
+}>();
 
 // Composables
 const functions = useFunctions();

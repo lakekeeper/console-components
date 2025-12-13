@@ -16,7 +16,7 @@ import { inject, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
-import { useConfig } from '../composables/usePermissions';
+import { useConfig } from '../composables/useCatalogPermissions';
 
 const router = useRouter();
 const visual = useVisualStore();
@@ -34,8 +34,9 @@ onMounted(async () => {
   // Clear user data from localStorage
   localStorage.removeItem('user');
 
-  visual.projectSelected['project-id'] = '';
-  visual.projectSelected['project-name'] = 'None';
+  // Note: We intentionally keep projectSelected in the store so it can be restored on next login
+  // visual.projectSelected['project-id'] = '';
+  // visual.projectSelected['project-name'] = 'None';
   visual.showAppOrNavBar = false;
 
   // If authentication is enabled AND user was authenticated, redirect to IDP logout

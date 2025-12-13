@@ -1,125 +1,236 @@
 <template>
   <v-form @submit.prevent="handleSubmit">
-    <v-radio-group v-model="credentialType" row>
-      <v-row>
-        <v-col>
-          <span class="text-grey">Credential Type:</span>
-        </v-col>
-      </v-row>
-      <v-row>
-        <v-radio value="service-account-key" color="primary">
-          <template #label>
-            <div>
-              <v-icon color="primary">mdi-account-key</v-icon>
-              Service Account Key
-            </div>
+    <!-- Storage Credentials Section -->
+    <v-card class="mb-4" variant="outlined">
+      <v-card-title class="d-flex align-center">
+        <v-icon color="primary" class="mr-2">mdi-key-variant</v-icon>
+        Storage Credentials
+        <v-tooltip location="top">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+              mdi-information-outline
+            </v-icon>
           </template>
-        </v-radio>
-        <v-radio value="gcp-system-identity" color="primary">
-          <template #label>
-            <div>
-              <v-icon color="primary">mdi-key</v-icon>
-              GCP System Identity
-            </div>
-          </template>
-        </v-radio>
-      </v-row>
-    </v-radio-group>
-    <!--Storage Credentials-->
-    <span v-if="credentialType === 'service-account-key'">
-      <v-switch
-        v-model="useFileInput"
-        :label="!useFileInput ? 'Enable File Input' : 'Enable Text Input'"></v-switch>
+          <span>Choose how Lakekeeper authenticates to your Google Cloud Storage</span>
+        </v-tooltip>
+      </v-card-title>
+      <v-card-text>
+        <v-alert
+          v-if="credentialType === 'service-account-key'"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4">
+          <strong>Service Account Key:</strong>
+          Use a GCP service account JSON key file. Recommended for most use cases.
+        </v-alert>
+        <v-alert
+          v-if="credentialType === 'gcp-system-identity'"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4">
+          <strong>GCP System Identity:</strong>
+          Use workload identity from the Lakekeeper server. Most secure for GCP-hosted deployments.
+        </v-alert>
 
-      <v-file-input
-        v-if="useFileInput"
-        accept="application/json"
-        label="key.json"
-        :rules="[rules.required]"
-        @change="handleFileInput"></v-file-input>
-      <v-textarea
-        v-else
-        v-model="keyString"
-        label="GCS credentials key json"
-        :rules="[rules.required, rules.validJson]"
-        @update:model-value="verifyKeyJson"></v-textarea>
-      <v-btn
-        v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-        color="success"
-        :disabled="!keyStringValid"
-        @click="emitNewCredentials">
-        Update Credentials
-      </v-btn>
-    </span>
+        <v-radio-group v-model="credentialType" row>
+          <v-row>
+            <v-col>
+              <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
+            </v-col>
+          </v-row>
+          <v-row>
+            <v-radio value="service-account-key" color="primary">
+              <template #label>
+                <div>
+                  <v-icon color="primary">mdi-account-key</v-icon>
+                  Service Account Key
+                </div>
+              </template>
+            </v-radio>
+            <v-radio value="gcp-system-identity" color="primary">
+              <template #label>
+                <div>
+                  <v-icon color="primary">mdi-shield-key</v-icon>
+                  GCP System Identity
+                </div>
+              </template>
+            </v-radio>
+          </v-row>
+        </v-radio-group>
 
-    <v-divider></v-divider>
+        <div v-if="credentialType === 'service-account-key'">
+          <v-switch
+            v-model="useFileInput"
+            color="primary"
+            :label="!useFileInput ? 'Upload JSON File' : 'Paste JSON Text'"></v-switch>
 
-    <!--Storage Profile-->
+          <v-file-input
+            v-if="useFileInput"
+            accept="application/json"
+            label="Service Account Key (JSON) *"
+            prepend-icon="mdi-file-code"
+            hint="Upload your service account key JSON file from GCP"
+            persistent-hint
+            :rules="[rules.required]"
+            @change="handleFileInput"></v-file-input>
+          <v-textarea
+            v-else
+            v-model="keyString"
+            label="Service Account Key (JSON) *"
+            placeholder='{"type": "service_account", "project_id": "...", ...}'
+            hint="Paste the contents of your service account key JSON file"
+            persistent-hint
+            rows="6"
+            :rules="[rules.required, rules.validJson]"
+            @update:model-value="verifyKeyJson"></v-textarea>
+          <v-btn
+            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
+            color="success"
+            :disabled="!keyStringValid"
+            @click="emitNewCredentials">
+            Update Credentials
+          </v-btn>
+        </div>
 
-    <div
+        <div v-else-if="credentialType === 'gcp-system-identity'">
+          <v-alert type="info" variant="tonal" density="compact" class="my-4">
+            No additional credentials required. The system will use the workload identity configured
+            on the Lakekeeper server.
+          </v-alert>
+        </div>
+      </v-card-text>
+    </v-card>
+
+    <!-- Storage Profile Section -->
+    <v-card
       v-if="
         props.objectType === ObjectType.STORAGE_PROFILE ||
         (props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE)
-      ">
-      <v-text-field
-        v-model="warehouseObjectData['storage-profile'].bucket"
-        label="Bucket"
-        placeholder="my-bucket"
-        :rules="[rules.required]"></v-text-field>
-      <v-text-field
-        v-model="warehouseObjectData['storage-profile']['key-prefix']"
-        label="Key-prefix"
-        placeholder="key-prefix"></v-text-field>
-
-      <v-btn-group
-        v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
-        divided>
-        <v-btn
-          color="success"
-          :disabled="
-            (credentialType === 'service-account-key' && !keyStringValid) ||
-            warehouseObjectData['storage-profile'].bucket == ''
-          "
-          type="submit">
-          Create
-        </v-btn>
-        <v-menu>
-          <template #activator="{ props: menuProps }">
-            <v-btn
-              color="success"
-              v-bind="menuProps"
-              icon="mdi-menu-down"
-              size="small"
-              :disabled="
-                (credentialType === 'service-account-key' && !keyStringValid) ||
-                warehouseObjectData['storage-profile'].bucket == ''
-              "></v-btn>
+      "
+      class="mb-4"
+      variant="outlined">
+      <v-card-title class="d-flex align-center">
+        <v-icon color="primary" class="mr-2">mdi-database-cog</v-icon>
+        Storage Profile
+        <v-tooltip location="top">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+              mdi-information-outline
+            </v-icon>
           </template>
-          <v-list>
-            <v-list-item @click="handleSubmit">
-              <template #prepend>
-                <v-icon>mdi-check</v-icon>
-              </template>
-              <v-list-item-title>Create</v-list-item-title>
-            </v-list-item>
-            <v-list-item @click="saveAsJson">
-              <template #prepend>
-                <v-icon>mdi-download</v-icon>
-              </template>
-              <v-list-item-title>& save config</v-list-item-title>
-            </v-list-item>
-          </v-list>
-        </v-menu>
-      </v-btn-group>
+          <span>Configure Google Cloud Storage bucket settings</span>
+        </v-tooltip>
+      </v-card-title>
+      <v-card-text>
+        <v-text-field
+          v-model="warehouseObjectData['storage-profile'].bucket"
+          label="Bucket Name *"
+          placeholder="my-bucket"
+          hint="The GCS bucket where table data will be stored"
+          persistent-hint
+          :rules="[rules.required]"
+          :error="isBucketInvalid"
+          :color="isBucketInvalid ? 'error' : 'primary'"
+          :style="isBucketInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
+        <v-text-field
+          v-model="warehouseObjectData['storage-profile']['key-prefix']"
+          label="Key Prefix"
+          placeholder="path/to/warehouse"
+          hint="Optional: Subdirectory path within the bucket for warehouse data"></v-text-field>
 
-      <v-btn
-        v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
-        color="success"
-        :disabled="!warehouseObjectData['storage-profile'].bucket"
-        @click="emitNewProfile">
-        Update Profile
-      </v-btn>
-    </div>
+        <v-divider class="my-4"></v-divider>
+
+        <!-- Credential Vending Options -->
+        <h4 class="text-subtitle-1 mb-3 d-flex align-center">
+          Credential Vending Options
+          <v-tooltip location="top" max-width="400">
+            <template #activator="{ props: tooltipProps }">
+              <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+                mdi-information-outline
+              </v-icon>
+            </template>
+            <span>
+              Enable clients to request temporary credentials directly from Lakekeeper instead of
+              using static credentials
+            </span>
+          </v-tooltip>
+        </h4>
+
+        <v-switch
+          v-model="warehouseObjectData['storage-profile']['sts-enabled']"
+          color="primary"
+          :label="
+            warehouseObjectData['storage-profile']['sts-enabled']
+              ? `STS Enabled`
+              : `Enable STS (Security Token Service)`
+          ">
+          <template #append>
+            <v-tooltip location="top" max-width="400">
+              <template #activator="{ props: tooltipProps }">
+                <v-icon v-bind="tooltipProps" size="small" color="info">
+                  mdi-help-circle-outline
+                </v-icon>
+              </template>
+              <span>
+                Enables vending of temporary GCP credentials to clients. Provides time-limited
+                access to GCS without sharing long-term service account keys.
+              </span>
+            </v-tooltip>
+          </template>
+        </v-switch>
+
+        <v-btn-group
+          v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
+          divided>
+          <v-btn
+            color="success"
+            :disabled="
+              (credentialType === 'service-account-key' && !keyStringValid) ||
+              warehouseObjectData['storage-profile'].bucket == ''
+            "
+            type="submit">
+            Create
+          </v-btn>
+          <v-menu>
+            <template #activator="{ props: menuProps }">
+              <v-btn
+                color="success"
+                v-bind="menuProps"
+                icon="mdi-menu-down"
+                size="small"
+                :disabled="
+                  (credentialType === 'service-account-key' && !keyStringValid) ||
+                  warehouseObjectData['storage-profile'].bucket == ''
+                "></v-btn>
+            </template>
+            <v-list>
+              <v-list-item @click="handleSubmit">
+                <template #prepend>
+                  <v-icon>mdi-check</v-icon>
+                </template>
+                <v-list-item-title>Create</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="saveAsJson">
+                <template #prepend>
+                  <v-icon>mdi-download</v-icon>
+                </template>
+                <v-list-item-title>& save config</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
+        </v-btn-group>
+
+        <v-btn
+          v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
+          color="success"
+          :disabled="!warehouseObjectData['storage-profile'].bucket"
+          @click="emitNewProfile">
+          Update Profile
+        </v-btn>
+      </v-card-text>
+    </v-card>
   </v-form>
 </template>
 
@@ -133,7 +244,7 @@ import {
 } from '@/gen/management/types.gen';
 import { Intent, ObjectType } from '@/common/enums';
 import { WarehousObject } from '@/common/interfaces';
-import { ref, onMounted, reactive, Ref, watch } from 'vue';
+import { ref, onMounted, reactive, Ref, watch, computed } from 'vue';
 
 const credentialType: Ref<'service-account-key' | 'gcp-system-identity'> =
   ref('service-account-key');
@@ -176,6 +287,7 @@ const warehouseObjectData = reactive<{
 }>({
   'storage-profile': {
     bucket: '',
+    'sts-enabled': false,
     type: 'gcs',
   },
   'storage-credential': {
@@ -217,6 +329,11 @@ const rules = {
     }
   },
 };
+
+// Computed properties for field validation states (show red border when required but empty)
+const isBucketInvalid = computed(() => {
+  return !warehouseObjectData['storage-profile'].bucket;
+});
 
 const handleSubmit = () => {
   shouldSaveAsJson.value = false;

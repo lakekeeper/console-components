@@ -1,202 +1,350 @@
 <template>
   <v-form @submit.prevent="handleSubmit">
-    <!--Credential Type Selection-->
-    <v-divider />
+    <!-- Storage Credentials Section -->
+    <v-card class="mb-4" variant="outlined">
+      <v-card-title class="d-flex align-center">
+        <v-icon color="primary" class="mr-2">mdi-key-variant</v-icon>
+        Storage Credentials
+        <v-tooltip location="top">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+              mdi-information-outline
+            </v-icon>
+          </template>
+          <span>Choose how Lakekeeper authenticates to your Azure storage</span>
+        </v-tooltip>
+      </v-card-title>
+      <v-card-text>
+        <v-alert
+          v-if="credentialType === 'client-credentials'"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4">
+          <strong>Client Credentials:</strong>
+          Use Azure Active Directory application credentials (Service Principal). Recommended for
+          production environments.
+        </v-alert>
+        <v-alert
+          v-if="credentialType === 'shared-access-key'"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4">
+          <strong>Shared Access Key:</strong>
+          Use storage account access key. Simpler but less secure than service principals.
+        </v-alert>
+        <v-alert
+          v-if="credentialType === 'azure-system-identity'"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-4">
+          <strong>Azure System Identity:</strong>
+          Use managed identity from the Lakekeeper server. Most secure for Azure-hosted deployments.
+        </v-alert>
 
-    <v-container fluid>
-      <v-radio-group v-model="credentialType" row>
-        <v-row>
-          <v-col>
-            <span class="text-grey">Credential Type:</span>
-          </v-col>
-        </v-row>
-        <v-row>
-          <v-radio value="client-credentials" color="primary">
-            <template #label>
-              <div>
-                <v-icon color="primary">mdi-account-key</v-icon>
-                Client Credentials
-              </div>
-            </template>
-          </v-radio>
-          <v-radio value="shared-access-key" color="primary">
-            <template #label>
-              <div>
-                <v-icon color="primary">mdi-key</v-icon>
-                Shared Access Key
-              </div>
-            </template>
-          </v-radio>
-          <v-radio value="azure-system-identity" color="primary">
-            <template #label>
-              <div>
-                <v-icon color="primary">mdi-shield-key</v-icon>
-                Aazure System Identity
-              </div>
-            </template>
-          </v-radio>
-        </v-row>
-      </v-radio-group>
-    </v-container>
-    <!--Storage Credentials-->
+        <v-radio-group v-model="credentialType" row>
+          <v-row>
+            <v-col>
+              <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
+            </v-col>
+          </v-row>
+          <v-row>
+            <v-radio value="client-credentials" color="primary">
+              <template #label>
+                <div>
+                  <v-icon color="primary">mdi-account-key</v-icon>
+                  Client Credentials
+                </div>
+              </template>
+            </v-radio>
+            <v-radio value="shared-access-key" color="primary">
+              <template #label>
+                <div>
+                  <v-icon color="primary">mdi-key</v-icon>
+                  Shared Access Key
+                </div>
+              </template>
+            </v-radio>
+            <v-radio value="azure-system-identity" color="primary">
+              <template #label>
+                <div>
+                  <v-icon color="primary">mdi-shield-key</v-icon>
+                  Azure System Identity
+                </div>
+              </template>
+            </v-radio>
+          </v-row>
+        </v-radio-group>
 
-    <template v-if="isClientCredentials(warehouseObjectData['storage-credential'])">
-      <v-text-field
-        v-model="warehouseObjectData['storage-credential']['client-id']"
-        label="client-id"
-        placeholder=""
-        :rules="[rules.required]" />
+        <template v-if="isClientCredentials(warehouseObjectData['storage-credential'])">
+          <v-text-field
+            v-model="warehouseObjectData['storage-credential']['client-id']"
+            label="Client ID *"
+            placeholder="12345678-1234-1234-1234-123456789abc"
+            hint="Application (client) ID from Azure AD"
+            :rules="[rules.required]"
+            :error="isClientIdInvalid"
+            :color="isClientIdInvalid ? 'error' : 'primary'"
+            :style="isClientIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''" />
 
-      <v-text-field
-        v-model="warehouseObjectData['storage-credential']['client-secret']"
-        :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-        autocomplete="current-password"
-        label="client-secret"
-        placeholder="your-client-secret-"
-        :rules="[rules.required]"
-        :type="showPassword ? 'text' : 'password'"
-        @click:append-inner="showPassword = !showPassword" />
-      <v-text-field
-        v-model="warehouseObjectData['storage-credential']['tenant-id']"
-        label="tenant-id"
-        placeholder=""
-        :rules="[rules.required]" />
+          <v-text-field
+            v-model="warehouseObjectData['storage-credential']['client-secret']"
+            :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
+            autocomplete="current-password"
+            label="Client Secret *"
+            placeholder="your-client-secret"
+            hint="Secret value from Azure AD application"
+            :rules="[rules.required]"
+            :type="showPassword ? 'text' : 'password'"
+            :error="isClientSecretInvalid"
+            :color="isClientSecretInvalid ? 'error' : 'primary'"
+            :style="isClientSecretInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
+            @click:append-inner="showPassword = !showPassword" />
+          <v-text-field
+            v-model="warehouseObjectData['storage-credential']['tenant-id']"
+            label="Tenant ID *"
+            placeholder="87654321-4321-4321-4321-abc987654321"
+            hint="Directory (tenant) ID from Azure AD"
+            :rules="[rules.required]"
+            :error="isTenantIdInvalid"
+            :color="isTenantIdInvalid ? 'error' : 'primary'"
+            :style="isTenantIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''" />
 
-      <v-btn
-        v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-        color="success"
-        :disabled="
-          !warehouseObjectData['storage-credential']['client-id'] ||
-          !warehouseObjectData['storage-credential']['client-secret'] ||
-          !warehouseObjectData['storage-credential']['tenant-id']
-        "
-        @click="emitNewCredentials">
-        Update Credentials
-      </v-btn>
-    </template>
+          <v-btn
+            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
+            color="success"
+            :disabled="
+              !warehouseObjectData['storage-credential']['client-id'] ||
+              !warehouseObjectData['storage-credential']['client-secret'] ||
+              !warehouseObjectData['storage-credential']['tenant-id']
+            "
+            @click="emitNewCredentials">
+            Update Credentials
+          </v-btn>
+        </template>
 
-    <template v-else-if="isSharedAccessKey(warehouseObjectData['storage-credential'])">
-      <v-text-field
-        v-model="warehouseObjectData['storage-credential']['key']"
-        :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-        label="Shared Access Key"
-        placeholder="your-access-key"
-        :rules="[rules.required]"
-        :type="showPassword ? 'text' : 'password'"
-        @click:append-inner="showPassword = !showPassword" />
-      <v-btn
-        v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-        color="success"
-        :disabled="!warehouseObjectData['storage-credential']['key']"
-        @click="emitNewCredentials">
-        Update Credentials
-      </v-btn>
-    </template>
+        <template v-else-if="isSharedAccessKey(warehouseObjectData['storage-credential'])">
+          <v-text-field
+            v-model="warehouseObjectData['storage-credential']['key']"
+            :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
+            label="Shared Access Key *"
+            placeholder="your-access-key"
+            hint="Storage account access key from Azure portal"
+            :rules="[rules.required]"
+            :type="showPassword ? 'text' : 'password'"
+            :error="isSharedKeyInvalid"
+            :color="isSharedKeyInvalid ? 'error' : 'primary'"
+            :style="isSharedKeyInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
+            @click:append-inner="showPassword = !showPassword" />
+          <v-btn
+            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
+            color="success"
+            :disabled="!warehouseObjectData['storage-credential']['key']"
+            @click="emitNewCredentials">
+            Update Credentials
+          </v-btn>
+        </template>
 
-    <template v-else-if="isAzureSystemIdentityKey(warehouseObjectData['storage-credential'])">
-      <v-btn
-        v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-        color="success"
-        @click="emitNewCredentials">
-        Update Credentials
-      </v-btn>
-    </template>
+        <template v-else-if="isAzureSystemIdentityKey(warehouseObjectData['storage-credential'])">
+          <v-alert type="info" variant="tonal" density="compact" class="my-4">
+            No additional credentials required. The system will use the managed identity configured
+            on the Lakekeeper server.
+          </v-alert>
+          <v-btn
+            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
+            color="success"
+            @click="emitNewCredentials">
+            Update Credentials
+          </v-btn>
+        </template>
+      </v-card-text>
+    </v-card>
 
-    <v-divider />
-    <!--    Storage Profile-->
-    <div class="mt-6 mb-6">Storage Profile</div>
-    <div
+    <!-- Storage Profile Section -->
+    <v-card
       v-if="
         props.objectType === ObjectType.STORAGE_PROFILE ||
         (props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE)
-      ">
-      <v-text-field
-        v-model="warehouseObjectData['storage-profile']['account-name']"
-        label="account-name"
-        placeholder="my-account"
-        :rules="[rules.required]"></v-text-field>
-      <v-text-field
-        v-model="warehouseObjectData['storage-profile']['filesystem']"
-        label="Filesystem"
-        placeholder="my-filesystem"
-        :rules="[rules.required, rules.noSlash]"></v-text-field>
-      <v-text-field
-        v-model="warehouseObjectData['storage-profile']['host']"
-        label="host"
-        placeholder="dfs.core.windows.net"></v-text-field>
-      <v-text-field
-        v-model="warehouseObjectData['storage-profile']['key-prefix']"
-        label="Key Prefix"
-        placeholder="path/to/warehouse"></v-text-field>
-      <v-row>
-        <v-col cols="6">
-          <v-text-field
-            v-model="warehouseObjectData['storage-profile']['sas-token-validity-seconds']"
-            label="SAS Token Validity (seconds)"
-            placeholder="3600"
-            hint="This field is optional."
-            type="number"></v-text-field>
-        </v-col>
-        <v-col class="auto">
-          <v-switch
-            v-model="warehouseObjectData['storage-profile']['allow-alternative-protocols']"
-            color="primary"
-            class="mb-4"
-            :label="
-              warehouseObjectData['storage-profile']['allow-alternative-protocols']
-                ? 'Alternative Protocols enabled'
-                : 'Default Protocol is used'
-            "></v-switch>
-        </v-col>
-      </v-row>
-
-      <v-btn-group
-        v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
-        divided>
-        <v-btn color="success" type="submit">Create</v-btn>
-        <v-menu>
-          <template #activator="{ props: menuProps }">
-            <v-btn color="success" v-bind="menuProps" icon="mdi-menu-down" size="small"></v-btn>
+      "
+      class="mb-4"
+      variant="outlined">
+      <v-card-title class="d-flex align-center">
+        <v-icon color="primary" class="mr-2">mdi-database-cog</v-icon>
+        Storage Profile
+        <v-tooltip location="top">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+              mdi-information-outline
+            </v-icon>
           </template>
-          <v-list>
-            <v-list-item @click="handleSubmit">
-              <template #prepend>
-                <v-icon>mdi-check</v-icon>
-              </template>
-              <v-list-item-title>Create</v-list-item-title>
-            </v-list-item>
-            <v-list-item @click="saveAsJson">
-              <template #prepend>
-                <v-icon>mdi-download</v-icon>
-              </template>
-              <v-list-item-title>& save config</v-list-item-title>
-            </v-list-item>
-          </v-list>
-        </v-menu>
-      </v-btn-group>
+          <span>Configure Azure Data Lake Storage Gen2 settings</span>
+        </v-tooltip>
+      </v-card-title>
+      <v-card-text>
+        <v-text-field
+          v-model="warehouseObjectData['storage-profile']['account-name']"
+          label="Account Name *"
+          placeholder="mystorageaccount"
+          hint="Name of the Azure storage account"
+          persistent-hint
+          :rules="[rules.required]"
+          :error="isAccountNameInvalid"
+          :color="isAccountNameInvalid ? 'error' : 'primary'"
+          :style="isAccountNameInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
+        <v-text-field
+          v-model="warehouseObjectData['storage-profile']['filesystem']"
+          label="Filesystem (Container) *"
+          placeholder="my-filesystem"
+          hint="ADLS Gen2 filesystem name (also known as container in blob storage)"
+          persistent-hint
+          :rules="[rules.required, rules.noSlash]"
+          :error="isFilesystemInvalid"
+          :color="isFilesystemInvalid ? 'error' : 'primary'"
+          :style="isFilesystemInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
+        <v-text-field
+          v-model="warehouseObjectData['storage-profile']['host']"
+          label="Host"
+          placeholder="dfs.core.windows.net"
+          hint="Optional: Custom host for the storage account (defaults to dfs.core.windows.net)"></v-text-field>
+        <v-text-field
+          v-model="warehouseObjectData['storage-profile']['key-prefix']"
+          label="Key Prefix"
+          placeholder="path/to/warehouse"
+          hint="Optional: Subdirectory path within the filesystem for warehouse data"></v-text-field>
 
-      <v-btn
-        v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
-        color="success"
-        :disabled="
-          !warehouseObjectData['storage-profile']['account-name'] ||
-          !warehouseObjectData['storage-profile']['filesystem'] ||
-          (isClientCredentials(warehouseObjectData['storage-credential']) &&
-            (!warehouseObjectData['storage-credential']['client-id'] ||
-              !warehouseObjectData['storage-credential']['client-secret'] ||
-              !warehouseObjectData['storage-credential']['tenant-id'])) ||
-          (isSharedAccessKey(warehouseObjectData['storage-credential']) &&
-            !warehouseObjectData['storage-credential']['key'])
-        "
-        @click="emitNewProfile">
-        Update Profile
-      </v-btn>
-    </div>
+        <v-divider class="my-4"></v-divider>
+
+        <!-- Credential Vending Options -->
+        <h4 class="text-subtitle-1 mb-3 d-flex align-center">
+          Credential Vending Options
+          <v-tooltip location="top" max-width="400">
+            <template #activator="{ props: tooltipProps }">
+              <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+                mdi-information-outline
+              </v-icon>
+            </template>
+            <span>
+              Enable clients to request temporary credentials directly from Lakekeeper instead of
+              using static credentials
+            </span>
+          </v-tooltip>
+        </h4>
+
+        <v-row>
+          <v-col>
+            <v-switch
+              v-model="warehouseObjectData['storage-profile']['sas-enabled']"
+              color="primary"
+              :label="
+                warehouseObjectData['storage-profile']['sas-enabled']
+                  ? `SAS Enabled`
+                  : `Enable SAS (Shared Access Signature)`
+              ">
+              <template #append>
+                <v-tooltip location="top" max-width="400">
+                  <template #activator="{ props: tooltipProps }">
+                    <v-icon v-bind="tooltipProps" size="small" color="info">
+                      mdi-help-circle-outline
+                    </v-icon>
+                  </template>
+                  <span>
+                    Enables vending of temporary Azure SAS tokens to clients. Provides time-limited
+                    access to storage without sharing long-term credentials.
+                  </span>
+                </v-tooltip>
+              </template>
+            </v-switch>
+          </v-col>
+        </v-row>
+
+        <v-row v-if="warehouseObjectData['storage-profile']['sas-enabled']">
+          <v-col>
+            <v-text-field
+              v-model="warehouseObjectData['storage-profile']['sas-token-validity-seconds']"
+              label="SAS Token Validity (seconds)"
+              placeholder="3600"
+              hint="Optional: Duration for vended SAS tokens (default: 3600 seconds / 1 hour)"
+              type="number"></v-text-field>
+          </v-col>
+        </v-row>
+
+        <v-row>
+          <v-col>
+            <v-switch
+              v-model="warehouseObjectData['storage-profile']['allow-alternative-protocols']"
+              color="primary"
+              :label="
+                warehouseObjectData['storage-profile']['allow-alternative-protocols']
+                  ? 'Alternative Protocols Enabled'
+                  : 'Enable Alternative Protocols'
+              ">
+              <template #append>
+                <v-tooltip location="top" max-width="400">
+                  <template #activator="{ props: tooltipProps }">
+                    <v-icon v-bind="tooltipProps" size="small" color="info">
+                      mdi-help-circle-outline
+                    </v-icon>
+                  </template>
+                  <span>
+                    Allow legacy protocols like wasbs:// in locations. Not recommended except for
+                    migrating old tables.
+                  </span>
+                </v-tooltip>
+              </template>
+            </v-switch>
+          </v-col>
+        </v-row>
+
+        <v-btn-group
+          v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
+          divided>
+          <v-btn color="success" type="submit">Create</v-btn>
+          <v-menu>
+            <template #activator="{ props: menuProps }">
+              <v-btn color="success" v-bind="menuProps" icon="mdi-menu-down" size="small"></v-btn>
+            </template>
+            <v-list>
+              <v-list-item @click="handleSubmit">
+                <template #prepend>
+                  <v-icon>mdi-check</v-icon>
+                </template>
+                <v-list-item-title>Create</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="saveAsJson">
+                <template #prepend>
+                  <v-icon>mdi-download</v-icon>
+                </template>
+                <v-list-item-title>& save config</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
+        </v-btn-group>
+
+        <v-btn
+          v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
+          color="success"
+          :disabled="
+            !warehouseObjectData['storage-profile']['account-name'] ||
+            !warehouseObjectData['storage-profile']['filesystem'] ||
+            (isClientCredentials(warehouseObjectData['storage-credential']) &&
+              (!warehouseObjectData['storage-credential']['client-id'] ||
+                !warehouseObjectData['storage-credential']['client-secret'] ||
+                !warehouseObjectData['storage-credential']['tenant-id'])) ||
+            (isSharedAccessKey(warehouseObjectData['storage-credential']) &&
+              !warehouseObjectData['storage-credential']['key'])
+          "
+          @click="emitNewProfile">
+          Update Profile
+        </v-btn>
+      </v-card-text>
+    </v-card>
   </v-form>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, reactive, watch, Ref } from 'vue';
+import { onMounted, ref, reactive, watch, Ref, computed } from 'vue';
 import {
   AdlsProfile,
   AzCredential,
@@ -233,6 +381,7 @@ const warehouseObjectData = reactive<{
   'storage-profile': {
     'account-name': '',
     filesystem: '',
+    'sas-enabled': false,
     type: 'adls',
   },
   'storage-credential': {
@@ -293,6 +442,43 @@ const rules = {
   required: (value: any) => !!value || 'Required.',
   noSlash: (value: string) => !value.includes('/') || 'Cannot contain "/"',
 };
+
+// Computed properties for field validation states (show red border when required but empty)
+const isClientIdInvalid = computed(() => {
+  return (
+    isClientCredentials(warehouseObjectData['storage-credential']) &&
+    !warehouseObjectData['storage-credential']['client-id']
+  );
+});
+
+const isClientSecretInvalid = computed(() => {
+  return (
+    isClientCredentials(warehouseObjectData['storage-credential']) &&
+    !warehouseObjectData['storage-credential']['client-secret']
+  );
+});
+
+const isTenantIdInvalid = computed(() => {
+  return (
+    isClientCredentials(warehouseObjectData['storage-credential']) &&
+    !warehouseObjectData['storage-credential']['tenant-id']
+  );
+});
+
+const isSharedKeyInvalid = computed(() => {
+  return (
+    isSharedAccessKey(warehouseObjectData['storage-credential']) &&
+    !warehouseObjectData['storage-credential']['key']
+  );
+});
+
+const isAccountNameInvalid = computed(() => {
+  return !warehouseObjectData['storage-profile']['account-name'];
+});
+
+const isFilesystemInvalid = computed(() => {
+  return !warehouseObjectData['storage-profile']['filesystem'];
+});
 
 const handleSubmit = () => {
   shouldSaveAsJson.value = false;

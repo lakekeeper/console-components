@@ -155,7 +155,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { VCodeBlock } from '@wdns/vue-code-block';
 import { inject, ref, watch } from 'vue';
-import { useConfig } from '../composables/usePermissions';
+import { useConfig } from '../composables/useCatalogPermissions';
 
 const appConfig = inject<any>('appConfig', { idpAuthority: '' });
 const idpAuthority = appConfig.idpAuthority;

@@ -76,7 +76,7 @@
 import { reactive, ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
-import { useWarehousePermissions } from '../composables/usePermissions';
+import { useWarehousePermissions } from '../composables/useCatalogPermissions';
 import type { Header, Item, Options } from '@/common/interfaces';
 import { StatusIntent } from '@/common/enums';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';

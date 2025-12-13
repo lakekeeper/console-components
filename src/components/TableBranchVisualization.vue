@@ -421,15 +421,13 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
-import type { LoadTableResultReadable, Snapshot } from '../gen/iceberg/types.gen';
+import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
 // Props
-interface Props {
-  table: LoadTableResultReadable;
+const props = defineProps<{
+  table: LoadTableResult;
   snapshotHistory: Snapshot[];
-}
-
-const props = defineProps<Props>();
+}>();
 
 // Reactive data
 const selectedSnapshot = ref<Snapshot | null>(null);

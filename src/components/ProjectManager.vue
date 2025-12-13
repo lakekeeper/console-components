@@ -133,7 +133,8 @@ import { onMounted, ref, reactive, computed } from 'vue';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '../plugins/functions';
-import { useProjectPermissions, useServerPermissions } from '../composables/usePermissions';
+import { useProjectPermissions, useServerPermissions } from '../composables/useCatalogPermissions';
+import { useProjectAuthorizerPermissions } from '../composables/useAuthorizerPermissions';
 import { usePermissionStore } from '../stores/permissions';
 import {
   CreateProjectRequest,
@@ -161,7 +162,8 @@ const projectId = computed(() => project.value['project-id']);
 const serverId = computed(() => visual.getServerInfo()['server-id']);
 
 // Use composables for permissions
-const { showPermissionsTab, showStatisticsTab } = useProjectPermissions(projectId);
+const { showStatisticsTab } = useProjectPermissions(projectId);
+const { showPermissionsTab } = useProjectAuthorizerPermissions(projectId);
 const { canCreateProject } = useServerPermissions(serverId);
 const loaded = ref(true);
 const loadedStatistics = ref(true);
@@ -254,7 +256,7 @@ async function loadProjects() {
         }
 
         p.actions = [];
-        const access = await permissionStore.getProjectPermissions(p['project-id']);
+        const access = await permissionStore.getProjectPermissions();
         p.actions.push(...access);
       }),
     );
@@ -278,7 +280,7 @@ async function activateProject(item: { 'project-id': string; 'project-name': str
 
 async function deleteProject(project: GetProjectResponse & { actions: string[]; info: string }) {
   try {
-    await functions.deleteProjectById(project['project-id'], notify);
+    await functions.deleteProject(project['project-id'], notify);
     // if we delete the current project, switch to the first project
     if (project['project-id'] === visual.projectSelected['project-id']) {
       router.push('/');
@@ -302,7 +304,7 @@ async function addProject(createProject: CreateProjectRequest & { 'project-name'
 
 async function renameProject(renamedProject: RenameProjectRequest & { 'project-id': string }) {
   try {
-    await functions.renameProjectById(renamedProject, renamedProject['project-id'], notify);
+    await functions.renameProject(renamedProject, renamedProject['project-id'], notify);
 
     // Update the selected project name if this is the currently selected project
     if (visual.projectSelected['project-id'] === renamedProject['project-id']) {

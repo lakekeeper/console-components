@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
+import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
 
 export default defineConfig({
@@ -16,6 +17,21 @@ export default defineConfig({
           prefixIdentifiers: true,
         },
       },
+    }),
+    dts({
+      // Generate .d.ts files
+      include: ['src/**/*.ts', 'src/**/*.vue'],
+      exclude: ['src/**/*.spec.ts', 'src/**/*.test.ts', 'src/**/*.stories.ts'],
+      // Output directory for type declarations
+      outDir: 'dist/types',
+      //Don't bundle into single file - keep structure
+      rollupTypes: false,
+      // Skip diagnostics for faster builds (some components have type issues)
+      skipDiagnostics: true,
+      // Log level
+      logLevel: 'warn',
+      // Static import
+      staticImport: true,
     }),
   ],
   build: {

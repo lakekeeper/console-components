@@ -2,8 +2,6 @@
 export { default as ServerOverview } from './src/components/ServerOverview.vue';
 export { default as PermissionManager } from './src/components/PermissionManager.vue';
 export { default as UserManager } from './src/components/UserManager.vue';
-export { default as EULA } from './src/components/EULA.vue';
-export { default as WarehouseDetails } from './src/components/WarehouseDetails.vue';
 export { default as WarehouseAddDialog } from './src/components/WarehouseAddDialog.vue';
 export { default as TaskManager } from './src/components/TaskManager.vue';
 export { default as TaskDetails } from './src/components/TaskDetails.vue';
@@ -37,6 +35,7 @@ export function useWarehousePermissions(
 ): PermissionComposable;
 export function useNamespacePermissions(
   namespaceId: import('vue').Ref<string> | string,
+  warehouseId: import('vue').Ref<string> | string,
 ): PermissionComposable;
 export function useProjectPermissions(
   projectId: import('vue').Ref<string> | string,

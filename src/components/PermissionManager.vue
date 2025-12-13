@@ -29,17 +29,18 @@
           clearable
           class="mr-4"
           style="max-width: 300px"></v-text-field>
-        <span v-if="canManageGrants" style="display: flex; align-items: center">
+
+        <span v-if="canManageGrants" style="display: flex; align-items: center" class="mr-2 ml-2">
           <PermissionAssignDialog
             :status="assignStatus"
             :action-type="'grant'"
             :assignee="''"
             :assignments="existingAssignments"
-            class="mr-2"
             :obj="assignableObj"
             :relation="props.relationType"
             @assignments="assign" />
         </span>
+        <PermissionMatrixDialog class="mr-2" />
       </v-toolbar>
     </template>
     <template #item.name="{ item }">
@@ -135,17 +136,21 @@
 
 <script lang="ts" setup>
 import { onMounted, reactive, computed, ref, inject } from 'vue';
+
 import {
-  useServerPermissions,
-  useWarehousePermissions,
-  useNamespacePermissions,
-  useProjectPermissions,
-  useRolePermissions,
-} from '../composables/usePermissions';
+  useServerAuthorizerPermissions,
+  useWarehouseAuthorizerPermissions,
+  useNamespaceAuthorizerPermissions,
+  useProjectAuthorizerPermissions,
+  useRoleAuthorizerPermissions,
+  useViewAuthorizerPermissions,
+  useTableAuthorizerPermissions,
+} from '../composables/useAuthorizerPermissions';
 
 import { AssignmentCollection, Header, RelationType } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
 import { useVisualStore } from '../stores/visual';
+import PermissionMatrixDialog from './PermissionMatrixDialog.vue';
 
 const functions = inject<any>('functions')!;
 const visualStore = useVisualStore();
@@ -189,7 +194,7 @@ const itemToDelete = ref<any>(null);
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Email', key: 'email', align: 'start' },
-  { title: 'Roles', key: 'type', align: 'start', sortable: false },
+  { title: 'Assignments', key: 'type', align: 'start', sortable: false },
   { title: 'Action', key: 'action', align: 'center', sortable: false },
 ]);
 
@@ -256,44 +261,36 @@ const assignableObj = reactive<{ id: string; name: string }>({
 const objectIdRef = computed(() => props.objectId);
 const warehouseIdRef = computed(() => props.warehouseId || '');
 
-// Initialize permission composables based on relation type
-const serverPerms = useServerPermissions('server');
-const warehousePerms = useWarehousePermissions(objectIdRef);
-const namespacePerms = useNamespacePermissions(objectIdRef);
-const projectPerms = useProjectPermissions(objectIdRef);
-const rolePerms = useRolePermissions(objectIdRef);
-const warehousePermsForTableView = useWarehousePermissions(warehouseIdRef);
+// Conditionally initialize ONLY the composable needed for the current relation type
+// This prevents unnecessary API calls and reactive state setup
+let authzPerms:
+  | ReturnType<typeof useServerAuthorizerPermissions>
+  | ReturnType<typeof useWarehouseAuthorizerPermissions>
+  | ReturnType<typeof useNamespaceAuthorizerPermissions>
+  | ReturnType<typeof useProjectAuthorizerPermissions>
+  | ReturnType<typeof useRoleAuthorizerPermissions>
+  | ReturnType<typeof useTableAuthorizerPermissions>
+  | ReturnType<typeof useViewAuthorizerPermissions>
+  | null = null;
+
+if (props.relationType === RelationType.Server) {
+  authzPerms = useServerAuthorizerPermissions(objectIdRef);
+} else if (props.relationType === RelationType.Warehouse) {
+  authzPerms = useWarehouseAuthorizerPermissions(objectIdRef);
+} else if (props.relationType === RelationType.Namespace) {
+  authzPerms = useNamespaceAuthorizerPermissions(objectIdRef, warehouseIdRef);
+} else if (props.relationType === RelationType.Project) {
+  authzPerms = useProjectAuthorizerPermissions(objectIdRef);
+} else if (props.relationType === RelationType.Role) {
+  authzPerms = useRoleAuthorizerPermissions(objectIdRef);
+} else if (props.relationType === RelationType.Table) {
+  authzPerms = useTableAuthorizerPermissions(objectIdRef, warehouseIdRef);
+} else if (props.relationType === RelationType.View) {
+  authzPerms = useViewAuthorizerPermissions(objectIdRef, warehouseIdRef);
+}
 
 // Computed property to check if user can manage grants
-// This will re-evaluate when permissions load or change
-const canManageGrants = computed(() => {
-  switch (props.relationType) {
-    case RelationType.Server:
-      return serverPerms.canReadAssignments.value;
-
-    case RelationType.Warehouse:
-      return warehousePerms.canManageGrants.value;
-
-    case RelationType.Namespace:
-      return namespacePerms.canManageGrants.value;
-
-    case RelationType.Project:
-      return projectPerms.canReadAssignments.value;
-
-    case RelationType.Role:
-      return rolePerms.canUpdate.value;
-
-    case RelationType.Table:
-    case RelationType.View:
-      if (!props.warehouseId) {
-        return false;
-      }
-      return warehousePermsForTableView.hasPermission('grant_manage_grants');
-
-    default:
-      return false;
-  }
-});
+const canManageGrants = computed(() => authzPerms?.canManageGrants.value ?? false);
 
 async function loadObjectData() {
   try {
@@ -320,11 +317,11 @@ async function loadObjectData() {
       assignableObj.id = props.objectId;
       assignableObj.name = props.objectId; // Views don't have a separate get endpoint
     } else if (props.relationType === RelationType.Project) {
-      objData = await functions.getProjectById(props.objectId);
+      objData = await functions.getProject(props.objectId);
       assignableObj.id = objData['project-id'];
       assignableObj.name = objData['project-name'];
     } else if (props.relationType === RelationType.Role) {
-      objData = await functions.getRole(props.objectId);
+      objData = await functions.getRoleMetadata(props.objectId);
       assignableObj.id = objData.id;
       assignableObj.name = objData.name;
     }
@@ -423,7 +420,7 @@ async function init() {
         }
       }
     } else {
-      const role = await functions.getRole(searchUser.role);
+      const role = await functions.getRoleMetadata(searchUser.role);
       const idx = permissionRows.findIndex((a) => a.id === role.id);
 
       if (role) {

@@ -81,15 +81,13 @@ import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 
-interface Props {
+const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   tableName: string;
   catalogUrl: string; // Now required from parent
   storageType?: string; // Storage type: s3, adls, gcs, etc.
-}
-
-const props = defineProps<Props>();
+}>();
 
 const functions = useFunctions();
 const userStore = useUserStore();

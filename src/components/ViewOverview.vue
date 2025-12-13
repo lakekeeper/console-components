@@ -36,7 +36,7 @@
 <script lang="ts" setup>
 import { onMounted, ref, reactive, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
-import { useViewPermissions } from '@/composables/usePermissions';
+import { useViewPermissions } from '@/composables/useCatalogPermissions';
 import ViewDetails from './ViewDetails.vue';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 import type { LoadViewResultWritable } from '@/gen/iceberg/types.gen';

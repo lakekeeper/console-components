@@ -6,7 +6,7 @@
 import { reactive, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import TableBranchVisualization from './TableBranchVisualization.vue';
-import type { LoadTableResultReadable, Snapshot } from '@/gen/iceberg/types.gen';
+import type { LoadTableResult, Snapshot } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -16,7 +16,7 @@ const props = defineProps<{
 
 const functions = useFunctions();
 
-const table = reactive<LoadTableResultReadable>({
+const table = reactive<LoadTableResult>({
   metadata: {
     'format-version': 0,
     'table-uuid': '',

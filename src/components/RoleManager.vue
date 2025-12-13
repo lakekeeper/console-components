@@ -69,7 +69,7 @@ import { Role } from '../gen/management/types.gen';
 import { useRouter } from 'vue-router';
 import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
-import { useProjectPermissions } from '../composables/usePermissions';
+import { useProjectPermissions } from '../composables/useCatalogPermissions';
 
 const functions = useFunctions();
 const visual = useVisualStore();
@@ -106,8 +106,8 @@ const { canListRoles, canCreateRole } = useProjectPermissions(projectId);
 async function loadPermissionsForRoles(roles: ExtendedRole[]): Promise<void> {
   await Promise.all(
     roles.map(async (role) => {
-      const roleAction = await functions.getRoleAccessById(role.id);
-      role.can_delete = roleAction.includes('delete');
+      const roleActions = await functions.getRoleCatalogActions(role.id, role['project-id']);
+      role.can_delete = roleActions.includes('delete');
     }),
   );
 }

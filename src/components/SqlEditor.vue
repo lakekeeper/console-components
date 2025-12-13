@@ -15,20 +15,21 @@ import { tags } from '@lezer/highlight';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { useTheme } from 'vuetify';
 
-interface Props {
-  modelValue: string;
-  placeholder?: string;
-  disabled?: boolean;
-  minHeight?: string;
-  clearable?: boolean;
-}
-
-const props = withDefaults(defineProps<Props>(), {
-  placeholder: '',
-  disabled: false,
-  minHeight: '200px',
-  clearable: false,
-});
+const props = withDefaults(
+  defineProps<{
+    modelValue: string;
+    placeholder?: string;
+    disabled?: boolean;
+    minHeight?: string;
+    clearable?: boolean;
+  }>(),
+  {
+    placeholder: '',
+    disabled: false,
+    minHeight: '200px',
+    clearable: false,
+  },
+);
 
 const emit = defineEmits<{
   (e: 'update:modelValue', value: string): void;
