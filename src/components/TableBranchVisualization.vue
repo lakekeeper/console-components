@@ -330,7 +330,7 @@
                         v-if="table.metadata.schemas && table.metadata.schemas.length > 0"
                         class="text-caption text-grey-lighten-2 mt-1">
                         Schema IDs:
-                        {{ table.metadata.schemas.map((s) => s['schema-id']).join(', ') }}
+                        {{ table.metadata.schemas.map((s: any) => s['schema-id']).join(', ') }}
                       </div>
                     </div>
                     <div
@@ -359,7 +359,8 @@
                                   field,
                                   selectedSnapshot,
                                   snapshotHistory.findIndex(
-                                    (s) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
+                                    (s: Snapshot) =>
+                                      s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
                                   ),
                                 )
                                   ? 'success'
@@ -376,7 +377,8 @@
                                 field,
                                 selectedSnapshot,
                                 snapshotHistory.findIndex(
-                                  (s) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
+                                  (s: Snapshot) =>
+                                    s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
                                 ),
                               )
                                 ? 'text-success font-weight-bold'
@@ -390,7 +392,8 @@
                                   field,
                                   selectedSnapshot,
                                   snapshotHistory.findIndex(
-                                    (s) => s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
+                                    (s: Snapshot) =>
+                                      s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
                                   ),
                                 )
                               "
