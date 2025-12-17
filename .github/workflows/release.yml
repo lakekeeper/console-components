@@ -63,5 +63,8 @@ jobs:
       - name: Upload dist to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/**/*
+          files: |
+            dist/console-components.es.js
+            dist/console-components.umd.js
+            dist/style.css
           tag_name: ${{ needs.release_please.outputs.tag_name }}
