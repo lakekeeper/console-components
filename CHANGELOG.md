@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.11](https://github.com/lakekeeper/console-components/compare/v0.2.10...v0.2.11) (2025-12-17)
+
+
+### Bug Fixes
+
+* rremove http catalog from duckdb wasm ([#42](https://github.com/lakekeeper/console-components/issues/42)) ([dd4bc91](https://github.com/lakekeeper/console-components/commit/dd4bc9148800311f599ea1fb7863f30caf826bf9))
+
 ## [0.2.10](https://github.com/lakekeeper/console-components/compare/v0.2.9...v0.2.10) (2025-12-17)
 
 
