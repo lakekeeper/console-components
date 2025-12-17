@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.10](https://github.com/lakekeeper/console-components/compare/v0.2.9...v0.2.10) (2025-12-17)
+
+
+### Bug Fixes
+
+* release ([#40](https://github.com/lakekeeper/console-components/issues/40)) ([8766cc8](https://github.com/lakekeeper/console-components/commit/8766cc85ce48c2b02adc248dbcd8914cb20c4363))
+
 ## [0.2.9](https://github.com/lakekeeper/console-components/compare/v0.2.8...v0.2.9) (2025-12-17)
 
 
