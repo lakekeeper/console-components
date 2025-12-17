@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.9](https://github.com/lakekeeper/console-components/compare/v0.2.8...v0.2.9) (2025-12-17)
+
+
+### Bug Fixes
+
+* small issues with types and update duckdb ([#38](https://github.com/lakekeeper/console-components/issues/38)) ([aba048e](https://github.com/lakekeeper/console-components/commit/aba048edf0f3ee892ff8642325df5bc05a0183a9))
+
 ## [0.2.8](https://github.com/lakekeeper/console-components/compare/v0.2.7...v0.2.8) (2025-12-13)
 
 
