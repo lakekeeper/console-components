@@ -402,7 +402,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, onBeforeUnmount, computed, watch, toRef } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch, toRef, inject } from 'vue';
 import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
 import type { QueryResult } from '../composables/useDuckDB';
 import { useUserStore } from '../stores/user';
@@ -429,6 +429,7 @@ const props = defineProps<{
   storageType?: string;
 }>();
 
+const config = inject<any>('appConfig', { enabledAuthentication: false });
 const icebergDB = useIcebergDuckDB();
 const csvDownload = useCsvDownload();
 const visualStore = useVisualStore();
@@ -873,14 +874,14 @@ async function configureCatalogWithRetry(): Promise<boolean> {
   const maxAttempts = 10; // 10 attempts
   const delayMs = 3000; // 3 seconds between attempts
 
-  let accessToken = '';
-  if (props.useFreshToken) {
-    const userStore = useUserStore();
-    accessToken = userStore.user.access_token;
-  }
+  // Get access token from user store (or empty if authentication disabled)
+  const userStore = useUserStore();
+  const accessToken = config.enabledAuthentication ? userStore.user?.access_token || '' : '';
 
-  if (!accessToken) {
+  // Only require access token if authentication is enabled
+  if (!accessToken && config.enabledAuthentication) {
     console.warn('No access token available for catalog configuration');
+    warehouseError.value = 'No access token available. Please ensure you are logged in.';
     return false;
   }
 
