@@ -40,7 +40,7 @@
             :relation="props.relationType"
             @assignments="assign" />
         </span>
-        <PermissionMatrixDialog class="mr-2" />
+        <PermissionMatrixDialog v-if="props.relationType === RelationType.Warehouse" class="mr-2" />
       </v-toolbar>
     </template>
     <template #item.name="{ item }">
