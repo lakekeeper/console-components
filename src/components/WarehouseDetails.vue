@@ -315,26 +315,26 @@ async function loadWarehouse() {
 onMounted(loadWarehouse);
 
 // Permission placeholders - these should be replaced with actual permission checks
-const canActivate = true;
-const canDeactivate = true;
+// const canActivate = true;
+// const canDeactivate = true;
 
-async function activateWarehouse() {
-  try {
-    await functions.activateWarehouse(props.warehouseId, true);
-    await loadWarehouse();
-  } catch (error) {
-    console.error('Failed to activate warehouse:', error);
-  }
-}
+// async function activateWarehouse() {
+//   try {
+//     await functions.activateWarehouse(props.warehouseId, true);
+//     await loadWarehouse();
+//   } catch (error) {
+//     console.error('Failed to activate warehouse:', error);
+//   }
+// }
 
-async function deactivateWarehouse() {
-  try {
-    await functions.deactivateWarehouse(props.warehouseId, true);
-    await loadWarehouse();
-  } catch (error) {
-    console.error('Failed to deactivate warehouse:', error);
-  }
-}
+// async function deactivateWarehouse() {
+//   try {
+//     await functions.deactivateWarehouse(props.warehouseId, true);
+//     await loadWarehouse();
+//   } catch (error) {
+//     console.error('Failed to deactivate warehouse:', error);
+//   }
+// }
 
 function copyToClipboard(text: string) {
   functions.copyToClipboard(text);
