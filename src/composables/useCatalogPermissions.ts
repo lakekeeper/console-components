@@ -13,23 +13,26 @@ import { usePermissionStore } from '@/stores/permissions';
 /**
  * Helper function to extract action name from LakekeeperAction object
  */
-function getActionName(
-  action:
-    | LakekeeperServerAction
-    | LakekeeperProjectAction
-    | LakekeeperWarehouseAction
-    | LakekeeperNamespaceAction
-    | LakekeeperTableAction
-    | LakekeeperViewAction
-    | LakekeeperRoleAction,
-): string {
-  return action.action;
-}
+// function getActionName(
+//   action:
+//     | LakekeeperServerAction
+//     | LakekeeperProjectAction
+//     | LakekeeperWarehouseAction
+//     | LakekeeperNamespaceAction
+//     | LakekeeperTableAction
+//     | LakekeeperViewAction
+//     | LakekeeperRoleAction,
+// ): string {
+//   return action.action;
+// }
 
 /**
  * Helper to check if an action exists in a list of actions
  */
-function hasAction<T extends { action: string }>(actions: T[], actionName: string | T): boolean {
+export function hasAction<T extends { action: string }>(
+  actions: T[],
+  actionName: string | T,
+): boolean {
   const searchName = typeof actionName === 'string' ? actionName : actionName.action;
   return actions.some((a) => a.action === searchName);
 }

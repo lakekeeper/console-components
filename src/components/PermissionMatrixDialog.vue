@@ -449,17 +449,17 @@ const resourceTypes = [
   { label: 'Project', value: 'project' },
 ];
 
-const warehouseActions = permissionActions.catalogWarehouseActions.map((a) => a.action);
+const warehouseActions: string[] = permissionActions.catalogWarehouseActions.map((a) => a.action);
 
-const serverActions = permissionActions.catalogServerActions.map((a) => a.action);
+const serverActions: string[] = permissionActions.catalogServerActions.map((a) => a.action);
 
-const projectActions = permissionActions.catalogProjectActions.map((a) => a.action);
+const projectActions: string[] = permissionActions.catalogProjectActions.map((a) => a.action);
 
-const namespaceActions = permissionActions.catalogNamespaceActions.map((a) => a.action);
+const namespaceActions: string[] = permissionActions.catalogNamespaceActions.map((a) => a.action);
 
-const tableActions = permissionActions.catalogTableActions.map((a) => a.action);
+const tableActions: string[] = permissionActions.catalogTableActions.map((a) => a.action);
 
-const viewActions = permissionActions.catalogViewActions.map((a) => a.action);
+const viewActions: string[] = permissionActions.catalogViewActions.map((a) => a.action);
 
 // Computed
 const availableActions = computed(() => {
