@@ -738,21 +738,195 @@ export type IcebergErrorResponse = {
     error: ErrorModel;
 };
 
-export type LakekeeperNamespaceAction = 'create_table' | 'create_view' | 'create_namespace' | 'delete' | 'update_properties' | 'get_metadata' | 'list_tables' | 'list_views' | 'list_namespaces' | 'list_everything' | 'set_protection' | 'include_in_list';
+export type LakekeeperNamespaceAction = {
+    action: 'create_table';
+    properties?: {
+        [key: string]: string;
+    };
+} | {
+    action: 'create_view';
+    properties?: {
+        [key: string]: string;
+    };
+} | {
+    action: 'create_namespace';
+    properties?: {
+        [key: string]: string;
+    };
+} | {
+    action: 'delete';
+} | {
+    action: 'update_properties';
+    removed_properties?: Array<string>;
+    updated_properties?: {
+        [key: string]: string;
+    };
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'list_tables';
+} | {
+    action: 'list_views';
+} | {
+    action: 'list_namespaces';
+} | {
+    action: 'list_everything';
+} | {
+    action: 'set_protection';
+} | {
+    action: 'include_in_list';
+};
 
-export type LakekeeperProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'get_metadata' | 'list_warehouses' | 'include_in_list' | 'create_role' | 'list_roles' | 'search_roles' | 'get_endpoint_statistics';
+export type LakekeeperProjectAction = {
+    action: 'create_warehouse';
+} | {
+    action: 'delete';
+} | {
+    action: 'rename';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'list_warehouses';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'create_role';
+} | {
+    action: 'list_roles';
+} | {
+    action: 'search_roles';
+} | {
+    action: 'get_endpoint_statistics';
+};
 
-export type LakekeeperRoleAction = 'read' | 'read_metadata' | 'delete' | 'update';
+export type LakekeeperRoleAction = {
+    action: 'read';
+} | {
+    action: 'read_metadata';
+} | {
+    action: 'delete';
+} | {
+    action: 'update';
+};
 
-export type LakekeeperServerAction = 'create_project' | 'update_users' | 'delete_users' | 'list_users' | 'provision_users';
+export type LakekeeperServerAction = {
+    action: 'create_project';
+} | {
+    action: 'update_users';
+} | {
+    action: 'delete_users';
+} | {
+    action: 'list_users';
+} | {
+    action: 'provision_users';
+};
 
-export type LakekeeperTableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'include_in_list' | 'undrop' | 'get_tasks' | 'control_tasks' | 'set_protection';
+export type LakekeeperTableAction = {
+    action: 'drop';
+} | {
+    action: 'write_data';
+} | {
+    action: 'read_data';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'commit';
+    removed_properties?: Array<string>;
+    updated_properties?: {
+        [key: string]: string;
+    };
+} | {
+    action: 'rename';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'undrop';
+} | {
+    action: 'get_tasks';
+} | {
+    action: 'control_tasks';
+} | {
+    action: 'set_protection';
+};
 
-export type LakekeeperUserAction = 'read' | 'update' | 'delete';
+export type LakekeeperUserAction = {
+    action: 'read';
+} | {
+    action: 'update';
+} | {
+    action: 'delete';
+};
 
-export type LakekeeperViewAction = 'drop' | 'get_metadata' | 'commit' | 'include_in_list' | 'rename' | 'undrop' | 'get_tasks' | 'control_tasks' | 'set_protection';
+export type LakekeeperViewAction = {
+    action: 'drop';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'commit';
+    removed_properties?: Array<string>;
+    updated_properties?: {
+        [key: string]: string;
+    };
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'rename';
+} | {
+    action: 'undrop';
+} | {
+    action: 'get_tasks';
+} | {
+    action: 'control_tasks';
+} | {
+    action: 'set_protection';
+};
 
-export type LakekeeperWarehouseAction = 'create_namespace' | 'delete' | 'update_storage' | 'update_storage_credential' | 'get_metadata' | 'get_config' | 'list_namespaces' | 'list_everything' | 'use' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'modify_soft_deletion' | 'get_task_queue_config' | 'modify_task_queue_config' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'get_endpoint_statistics';
+export type LakekeeperWarehouseAction = {
+    action: 'create_namespace';
+    properties?: {
+        [key: string]: string;
+    };
+} | {
+    action: 'delete';
+} | {
+    action: 'update_storage';
+} | {
+    action: 'update_storage_credential';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'get_config';
+} | {
+    action: 'list_namespaces';
+} | {
+    action: 'list_everything';
+} | {
+    action: 'use';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'deactivate';
+} | {
+    action: 'activate';
+} | {
+    action: 'rename';
+} | {
+    action: 'list_deleted_tabulars';
+} | {
+    action: 'modify_soft_deletion';
+} | {
+    action: 'get_task_queue_config';
+} | {
+    action: 'modify_task_queue_config';
+} | {
+    action: 'get_all_tasks';
+} | {
+    action: 'control_all_tasks';
+} | {
+    action: 'set_protection';
+} | {
+    action: 'get_endpoint_statistics';
+};
 
 /**
  * Status of license validation

@@ -94,7 +94,7 @@ import { GetWarehouseResponse } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { usePermissionStore } from '@/stores/permissions';
-import { useProjectPermissions } from '@/composables/useCatalogPermissions';
+import { useProjectPermissions, hasAction } from '@/composables/useCatalogPermissions';
 import { Header } from '@/common/interfaces';
 import { VIcon, VImg } from 'vuetify/components';
 import WarehouseAddDialog from './WarehouseAddDialog.vue';
@@ -225,7 +225,7 @@ async function listWarehouse() {
     await Promise.all(
       whResponse.map(async (warehouse) => {
         const warehouseAccess = await permissionStore.getWarehousePermissions(warehouse.id);
-        warehouse.can_delete = warehouseAccess.includes('delete');
+        warehouse.can_delete = hasAction(warehouseAccess, 'delete');
       }),
     );
   } catch (error) {

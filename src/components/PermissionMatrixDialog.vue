@@ -382,6 +382,7 @@
 <script setup lang="ts">
 import { ref, computed, inject, watch } from 'vue';
 import type { User, Role } from '@/gen/management/types.gen';
+import { permissionActions } from '@/common/permissionActions';
 
 const functions = inject<any>('functions');
 
@@ -448,91 +449,17 @@ const resourceTypes = [
   { label: 'Project', value: 'project' },
 ];
 
-const warehouseActions = [
-  'create_namespace',
-  'delete',
-  'update_storage',
-  'update_storage_credential',
-  'get_metadata',
-  'get_config',
-  'list_namespaces',
-  'list_everything',
-  'use',
-  'include_in_list',
-  'deactivate',
-  'activate',
-  'rename',
-  'list_deleted_tabulars',
-  'modify_soft_deletion',
-  'get_task_queue_config',
-  'modify_task_queue_config',
-  'get_all_tasks',
-  'control_all_tasks',
-  'set_protection',
-  'get_endpoint_statistics',
-];
+const warehouseActions: string[] = permissionActions.catalogWarehouseActions.map((a) => a.action);
 
-const serverActions = [
-  'create_project',
-  'update_users',
-  'delete_users',
-  'list_users',
-  'provision_users',
-];
+const serverActions: string[] = permissionActions.catalogServerActions.map((a) => a.action);
 
-const projectActions = [
-  'create_warehouse',
-  'delete',
-  'rename',
-  'get_metadata',
-  'list_warehouses',
-  'include_in_list',
-  'create_role',
-  'list_roles',
-  'search_roles',
-  'get_endpoint_statistics',
-];
+const projectActions: string[] = permissionActions.catalogProjectActions.map((a) => a.action);
 
-const namespaceActions = [
-  'create_table',
-  'create_view',
-  'create_namespace',
-  'delete',
-  'update_properties',
-  'get_metadata',
-  'list_tables',
-  'list_views',
-  'list_namespaces',
-  'list_everything',
-  'set_protection',
-  'include_in_list',
-];
+const namespaceActions: string[] = permissionActions.catalogNamespaceActions.map((a) => a.action);
 
-const tableActions = [
-  'drop',
-  'write_data',
-  'read_data',
-  'get_metadata',
-  'commit',
-  'rename',
-  'include_in_list',
-  'undrop',
-  'get_tasks',
-  'control_tasks',
-  'set_protection',
-];
+const tableActions: string[] = permissionActions.catalogTableActions.map((a) => a.action);
 
-const viewActions = [
-  'drop',
-  'get_metadata',
-  'commit',
-  'include_in_list',
-  'rename',
-  'undrop',
-  'get_tasks',
-  'control_tasks',
-  'set_protection',
-];
+const viewActions: string[] = permissionActions.catalogViewActions.map((a) => a.action);
 
 // Computed
 const availableActions = computed(() => {
@@ -776,17 +703,20 @@ async function loadMatrix() {
               selectedIdentityType.value === 'user' ? { user: identity.id } : { role: identity.id },
           };
 
+          // Convert action string to action object format
+          const actionObj = { action };
+
           if (resource.type === 'warehouse') {
             check.operation = {
               warehouse: {
-                action,
+                action: actionObj,
                 'warehouse-id': resource.id,
               },
             };
           } else if (resource.type === 'namespace') {
             check.operation = {
               namespace: {
-                action,
+                action: actionObj,
                 namespace: resource.name,
                 'warehouse-id': null,
               },
@@ -794,7 +724,7 @@ async function loadMatrix() {
           } else if (resource.type === 'table') {
             check.operation = {
               table: {
-                action,
+                action: actionObj,
                 namespace: resource.namespace,
                 table: resource.name,
                 'warehouse-id': null,
@@ -803,7 +733,7 @@ async function loadMatrix() {
           } else if (resource.type === 'view') {
             check.operation = {
               view: {
-                action,
+                action: actionObj,
                 namespace: resource.namespace,
                 view: resource.name,
                 'warehouse-id': null,
@@ -812,13 +742,13 @@ async function loadMatrix() {
           } else if (resource.type === 'server') {
             check.operation = {
               server: {
-                action,
+                action: actionObj,
               },
             };
           } else if (resource.type === 'project') {
             check.operation = {
               project: {
-                action,
+                action: actionObj,
                 'project-id': null,
               },
             };
