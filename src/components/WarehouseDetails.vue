@@ -53,7 +53,7 @@
                     prepend-icon="mdi-pause"
                     @click="deactivateWarehouse">
                     Deactivate
-                  </v-btn-->
+                  </v-btn>
                   <v-btn
                     v-if="warehouse.status === 'inactive' && canActivate"
                     size="x-small"
@@ -62,14 +62,14 @@
                     prepend-icon="mdi-play"
                     @click="activateWarehouse">
                     Activate
-                  </v-btn>
+                  </v-btn-->
                 </div>
               </v-col>
               <v-col cols="12">
                 <div class="text-overline text-medium-emphasis">Delete Protection</div>
                 <div class="mt-2">
                   <v-chip
-                    :color="warehouse.protected ? 'error' : 'default'"
+                    :color="warehouse.protected ? 'success' : 'default'"
                     size="small"
                     :prepend-icon="warehouse.protected ? 'mdi-lock' : 'mdi-lock-open-outline'">
                     {{ warehouse.protected ? 'Enabled' : 'Disabled' }}
