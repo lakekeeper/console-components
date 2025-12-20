@@ -45,7 +45,7 @@
                     ">
                     {{ warehouse.status }}
                   </v-chip>
-                  <v-btn
+                  <!--v-btn
                     v-if="warehouse.status === 'active' && canDeactivate"
                     size="x-small"
                     color="warning"
@@ -53,7 +53,7 @@
                     prepend-icon="mdi-pause"
                     @click="deactivateWarehouse">
                     Deactivate
-                  </v-btn>
+                  </v-btn-->
                   <v-btn
                     v-if="warehouse.status === 'inactive' && canActivate"
                     size="x-small"
