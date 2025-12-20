@@ -9,6 +9,34 @@ import type {
   LakekeeperViewAction,
 } from '@/gen/management/types.gen';
 import { usePermissionStore } from '@/stores/permissions';
+
+/**
+ * Helper function to extract action name from LakekeeperAction object
+ */
+// function getActionName(
+//   action:
+//     | LakekeeperServerAction
+//     | LakekeeperProjectAction
+//     | LakekeeperWarehouseAction
+//     | LakekeeperNamespaceAction
+//     | LakekeeperTableAction
+//     | LakekeeperViewAction
+//     | LakekeeperRoleAction,
+// ): string {
+//   return action.action;
+// }
+
+/**
+ * Helper to check if an action exists in a list of actions
+ */
+export function hasAction<T extends { action: string }>(
+  actions: T[],
+  actionName: string | T,
+): boolean {
+  const searchName = typeof actionName === 'string' ? actionName : actionName.action;
+  return actions.some((a) => a.action === searchName);
+}
+
 // Helper to get config values via inject with fallback
 export function useConfig() {
   const config = inject<any>('appConfig', null);
@@ -59,16 +87,16 @@ export function useServerPermissions(serverId: Ref<string> | string) {
     }
   }
 
-  function hasPermission(action: LakekeeperServerAction): boolean {
-    return permissions.value.includes(action);
+  function hasPermission(action: LakekeeperServerAction | string): boolean {
+    return hasAction(permissions.value, action);
   }
 
-  function hasAnyPermission(...actions: LakekeeperServerAction[]): boolean {
-    return actions.some((action) => permissions.value.includes(action));
+  function hasAnyPermission(...actions: (LakekeeperServerAction | string)[]): boolean {
+    return actions.some((action) => hasAction(permissions.value, action));
   }
 
-  function hasAllPermissions(...actions: LakekeeperServerAction[]): boolean {
-    return actions.every((action) => permissions.value.includes(action));
+  function hasAllPermissions(...actions: (LakekeeperServerAction | string)[]): boolean {
+    return actions.every((action) => hasAction(permissions.value, action));
   }
 
   // Specific permission checks - CATALOG/OPERATIONAL only
@@ -136,16 +164,16 @@ export function useRolePermissions(roleId: Ref<string> | string) {
     }
   }
 
-  function hasPermission(action: LakekeeperRoleAction): boolean {
-    return permissions.value.includes(action);
+  function hasPermission(action: LakekeeperRoleAction | string): boolean {
+    return hasAction(permissions.value, action);
   }
 
-  function hasAnyPermission(...actions: LakekeeperRoleAction[]): boolean {
-    return actions.some((action) => permissions.value.includes(action));
+  function hasAnyPermission(...actions: (LakekeeperRoleAction | string)[]): boolean {
+    return actions.some((action) => hasAction(permissions.value, action));
   }
 
-  function hasAllPermissions(...actions: LakekeeperRoleAction[]): boolean {
-    return actions.every((action) => permissions.value.includes(action));
+  function hasAllPermissions(...actions: (LakekeeperRoleAction | string)[]): boolean {
+    return actions.every((action) => hasAction(permissions.value, action));
   }
 
   // Specific permission checks - CATALOG/OPERATIONAL only
@@ -207,16 +235,16 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
     }
   }
 
-  function hasPermission(action: LakekeeperProjectAction): boolean {
-    return permissions.value.includes(action);
+  function hasPermission(action: LakekeeperProjectAction | string): boolean {
+    return hasAction(permissions.value, action);
   }
 
-  function hasAnyPermission(...actions: LakekeeperProjectAction[]): boolean {
-    return actions.some((action) => permissions.value.includes(action));
+  function hasAnyPermission(...actions: (LakekeeperProjectAction | string)[]): boolean {
+    return actions.some((action) => hasAction(permissions.value, action));
   }
 
-  function hasAllPermissions(...actions: LakekeeperProjectAction[]): boolean {
-    return actions.every((action) => permissions.value.includes(action));
+  function hasAllPermissions(...actions: (LakekeeperProjectAction | string)[]): boolean {
+    return actions.every((action) => hasAction(permissions.value, action));
   }
 
   // Specific permission checks - CATALOG/OPERATIONAL only
@@ -291,16 +319,16 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     }
   }
 
-  function hasPermission(action: LakekeeperWarehouseAction): boolean {
-    return permissions.value.includes(action);
+  function hasPermission(action: LakekeeperWarehouseAction | string): boolean {
+    return hasAction(permissions.value, action);
   }
 
-  function hasAnyPermission(...actions: LakekeeperWarehouseAction[]): boolean {
-    return actions.some((action) => permissions.value.includes(action));
+  function hasAnyPermission(...actions: (LakekeeperWarehouseAction | string)[]): boolean {
+    return actions.some((action) => hasAction(permissions.value, action));
   }
 
-  function hasAllPermissions(...actions: LakekeeperWarehouseAction[]): boolean {
-    return actions.every((action) => permissions.value.includes(action));
+  function hasAllPermissions(...actions: (LakekeeperWarehouseAction | string)[]): boolean {
+    return actions.every((action) => hasAction(permissions.value, action));
   }
 
   // Specific permission checks - CATALOG/OPERATIONAL only
@@ -413,16 +441,16 @@ export function useNamespacePermissions(
     }
   }
 
-  function hasPermission(action: LakekeeperNamespaceAction): boolean {
-    return permissions.value.includes(action);
+  function hasPermission(action: LakekeeperNamespaceAction | string): boolean {
+    return hasAction(permissions.value, action);
   }
 
-  function hasAnyPermission(...actions: LakekeeperNamespaceAction[]): boolean {
-    return actions.some((action) => permissions.value.includes(action));
+  function hasAnyPermission(...actions: (LakekeeperNamespaceAction | string)[]): boolean {
+    return actions.some((action) => hasAction(permissions.value, action));
   }
 
-  function hasAllPermissions(...actions: LakekeeperNamespaceAction[]): boolean {
-    return actions.every((action) => permissions.value.includes(action));
+  function hasAllPermissions(...actions: (LakekeeperNamespaceAction | string)[]): boolean {
+    return actions.every((action) => hasAction(permissions.value, action));
   }
 
   // Specific permission checks - CATALOG/OPERATIONAL only
@@ -504,16 +532,16 @@ export function useTablePermissions(
     }
   }
 
-  function hasPermission(action: LakekeeperTableAction): boolean {
-    return permissions.value.includes(action);
+  function hasPermission(action: LakekeeperTableAction | string): boolean {
+    return hasAction(permissions.value, action);
   }
 
-  function hasAnyPermission(...actions: LakekeeperTableAction[]): boolean {
-    return actions.some((action) => permissions.value.includes(action));
+  function hasAnyPermission(...actions: (LakekeeperTableAction | string)[]): boolean {
+    return actions.some((action) => hasAction(permissions.value, action));
   }
 
-  function hasAllPermissions(...actions: LakekeeperTableAction[]): boolean {
-    return actions.every((action) => permissions.value.includes(action));
+  function hasAllPermissions(...actions: (LakekeeperTableAction | string)[]): boolean {
+    return actions.every((action) => hasAction(permissions.value, action));
   }
 
   // Specific permission checks - CATALOG/OPERATIONAL only
@@ -600,16 +628,16 @@ export function useViewPermissions(
     }
   }
 
-  function hasPermission(action: LakekeeperViewAction): boolean {
-    return permissions.value.includes(action);
+  function hasPermission(action: LakekeeperViewAction | string): boolean {
+    return hasAction(permissions.value, action);
   }
 
-  function hasAnyPermission(...actions: LakekeeperViewAction[]): boolean {
-    return actions.some((action) => permissions.value.includes(action));
+  function hasAnyPermission(...actions: (LakekeeperViewAction | string)[]): boolean {
+    return actions.some((action) => hasAction(permissions.value, action));
   }
 
-  function hasAllPermissions(...actions: LakekeeperViewAction[]): boolean {
-    return actions.every((action) => permissions.value.includes(action));
+  function hasAllPermissions(...actions: (LakekeeperViewAction | string)[]): boolean {
+    return actions.every((action) => hasAction(permissions.value, action));
   }
 
   // Specific permission checks - CATALOG/OPERATIONAL only

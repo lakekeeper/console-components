@@ -257,7 +257,7 @@ async function loadProjects() {
 
         p.actions = [];
         const access = await permissionStore.getProjectPermissions();
-        p.actions.push(...access);
+        p.actions.push(...access.map((permission) => permission.action));
       }),
     );
   } catch (error) {

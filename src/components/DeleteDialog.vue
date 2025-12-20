@@ -132,7 +132,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineEmits, defineProps, ref, reactive } from 'vue';
+import { ref, reactive } from 'vue';
 
 const deleteName = ref('');
 const expanded = ref(false);
