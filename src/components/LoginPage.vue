@@ -14,19 +14,13 @@
           <!-- Logo section -->
           <div class="text-center mb-6">
             <div class="logo-container mb-4">
-              <img
-                v-if="visual.themeLight"
-                src="../assets/LAKEKEEPER_IMAGE_TEXT.svg"
-                alt="Lakekeeper"
-                class="logo-image-svg"
-                style="max-width: 200px !important; width: 200px !important" />
-
-              <img
-                v-else
-                src="../assets/LAKEKEEPER_IMAGE_TEXT_WHITE.svg"
-                alt="Lakekeeper"
-                class="logo-image-svg"
-                style="max-width: 200px !important; width: 200px !important" />
+              <slot name="logo">
+                <img
+                  :src="logoSrc"
+                  alt="Lakekeeper"
+                  class="logo-image-svg"
+                  style="max-width: 200px !important; width: 200px !important" />
+              </slot>
             </div>
             <p class="text-h6 text-medium-emphasis mt-2">Control Plane for Data and AI</p>
           </div>
@@ -66,18 +60,48 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
 import { useConfig } from '../composables/useCatalogPermissions';
 import { useAuth } from '../composables/useAuth';
+import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT.svg';
+import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE.svg';
 
 const router = useRouter();
 const visual = useVisualStore();
 const userStore = useUserStore();
 const auth = useAuth();
 const config = useConfig();
+
+const props = defineProps({
+  logoSrc: {
+    type: String,
+    default: undefined,
+  },
+  logoSrcLight: {
+    type: String,
+    default: undefined,
+  },
+  logoSrcDark: {
+    type: String,
+    default: undefined,
+  },
+});
+
+const logoSrc = computed(() => {
+  // If theme-specific custom logos are provided, use them
+  if (props.logoSrcLight && props.logoSrcDark) {
+    return visual.themeLight ? props.logoSrcDark : props.logoSrcLight;
+  }
+  // If single custom logo is provided, use it
+  if (props.logoSrc) {
+    return props.logoSrc;
+  }
+  // Otherwise use default theme-based logos
+  return visual.themeLight ? LogoDark : LogoLight;
+});
 
 async function login() {
   if (!config.enabledAuthentication.value) {
