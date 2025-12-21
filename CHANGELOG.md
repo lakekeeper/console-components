@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.13](https://github.com/lakekeeper/console-components/compare/v0.2.12...v0.2.13) (2025-12-21)
+
+
+### Bug Fixes
+
+* login slot ([#46](https://github.com/lakekeeper/console-components/issues/46)) ([e0eacef](https://github.com/lakekeeper/console-components/commit/e0eacef885e9b2a6d01b4e41d3c62bc21517bed8))
+
 ## [0.2.12](https://github.com/lakekeeper/console-components/compare/v0.2.11...v0.2.12) (2025-12-20)
 
 
