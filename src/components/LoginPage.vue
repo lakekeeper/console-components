@@ -14,11 +14,13 @@
           <!-- Logo section -->
           <div class="text-center mb-6">
             <div class="logo-container mb-4">
-              <img
-                :src="logoSrc"
-                alt="Lakekeeper"
-                class="logo-image-svg"
-                style="max-width: 200px !important; width: 200px !important" />
+              <slot name="logo">
+                <img
+                  :src="logoSrc"
+                  alt="Lakekeeper"
+                  class="logo-image-svg"
+                  style="max-width: 200px !important; width: 200px !important" />
+              </slot>
             </div>
             <p class="text-h6 text-medium-emphasis mt-2">Control Plane for Data and AI</p>
           </div>
