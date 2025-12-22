@@ -54,13 +54,26 @@ export function useStorageValidation(
     let isUnsupportedProtocol = false;
     try {
       const url = new URL(catalogUrl.value);
+      console.log('[Storage Validation] Checking protocol:', {
+        protocol: url.protocol,
+        supportedProtocols,
+        isSupported: supportedProtocols.includes(url.protocol),
+        catalogUrl: catalogUrl.value,
+        storageType: storageType.value,
+      });
       isUnsupportedProtocol = !supportedProtocols.includes(url.protocol);
     } catch {
       // If URL is invalid, don't show warning (will be caught elsewhere)
       return false;
     }
 
-    return isCloudStorage && isUnsupportedProtocol;
+    const result = isCloudStorage && isUnsupportedProtocol;
+    console.log('[Storage Validation] shouldShowHttpWarning result:', {
+      isCloudStorage,
+      isUnsupportedProtocol,
+      result,
+    });
+    return result;
   });
 
   /**
