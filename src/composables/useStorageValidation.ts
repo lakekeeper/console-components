@@ -54,7 +54,7 @@ export function useStorageValidation(
     let isUnsupportedProtocol = false;
     try {
       const url = new URL(catalogUrl.value);
-      console.log('[Storage Validation] Checking protocol:', {
+      console.log('[Storage Validation] Checking protocol: http', {
         protocol: url.protocol,
         supportedProtocols,
         isSupported: supportedProtocols.includes(url.protocol),

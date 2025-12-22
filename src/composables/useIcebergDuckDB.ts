@@ -75,7 +75,7 @@ export function useIcebergDuckDB() {
         SET builtin_httpfs = false;
         INSTALL httpfs;
         LOAD httpfs;
-        FORCE INSTALL iceberg FROM core_nightly;
+        INSTALL iceberg; 
         LOAD iceberg;
         CREATE OR REPLACE SECRET iceberg_secret (
           TYPE iceberg,
