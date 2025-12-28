@@ -18,7 +18,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && node scripts/patch-duckdb-workers-all.js",
     "dev": "vite",
     "lint": "eslint . --fix",
     "test": "jest",
@@ -28,7 +28,8 @@
     "format": "prettier --write .",
     "prepare": "npm run build",
     "format:check": "prettier --check .",
-    "lint:check": "eslint ."
+    "lint:check": "eslint .",
+    "patch-duckdb": "node scripts/patch-duckdb-workers-all.js"
   },
   "keywords": [
     "vue",
