@@ -17,7 +17,7 @@ export function useStorageValidation(
   const supportedStorageTypes = ['s3']; //, 'gcs'
 
   // List of supported protocols for DuckDB WASM
-  const supportedProtocols = ['https:']; // 'http:' disabled since duckdb is not supporting it well
+  const supportedProtocols = ['https:', 'http:']; // 'http:' disabled since duckdb is not supporting it well
 
   /**
    * Check if the storage type is supported by DuckDB WASM
@@ -54,13 +54,26 @@ export function useStorageValidation(
     let isUnsupportedProtocol = false;
     try {
       const url = new URL(catalogUrl.value);
+      console.log('[Storage Validation] Checking protocol: http', {
+        protocol: url.protocol,
+        supportedProtocols,
+        isSupported: supportedProtocols.includes(url.protocol),
+        catalogUrl: catalogUrl.value,
+        storageType: storageType.value,
+      });
       isUnsupportedProtocol = !supportedProtocols.includes(url.protocol);
     } catch {
       // If URL is invalid, don't show warning (will be caught elsewhere)
       return false;
     }
 
-    return isCloudStorage && isUnsupportedProtocol;
+    const result = isCloudStorage && isUnsupportedProtocol;
+    console.log('[Storage Validation] shouldShowHttpWarning result:', {
+      isCloudStorage,
+      isUnsupportedProtocol,
+      result,
+    });
+    return result;
   });
 
   /**

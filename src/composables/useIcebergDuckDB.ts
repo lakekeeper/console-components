@@ -70,12 +70,12 @@ export function useIcebergDuckDB() {
         throw fetchError;
       }
 
-      // Execute all setup commands in correct order
+      // Execute all setup commands in correct order FORCE INSTALL iceberg FROM core_nightly;
       const setupQuery = `
         SET builtin_httpfs = false;
         INSTALL httpfs;
         LOAD httpfs;
-        INSTALL iceberg;
+        INSTALL iceberg; 
         LOAD iceberg;
         CREATE OR REPLACE SECRET iceberg_secret (
           TYPE iceberg,
@@ -90,8 +90,8 @@ export function useIcebergDuckDB() {
         );
       `;
 
-      await duckDB.executeQuery(setupQuery);
-
+      const res = await duckDB.executeQuery(setupQuery);
+      console.log('✅ [DuckDB Iceberg] Catalog configured successfully:', res);
       catalogConfigured.value = true;
     } catch (e) {
       console.error('❌ [DuckDB Iceberg] Failed to configure catalog:', e);
