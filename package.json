@@ -1,6 +1,6 @@
 {
   "name": "@lakekeeper/console-components",
-  "version": "0.2.13",
+  "version": "0.2.14",
   "description": "A library of Vue components for Lakekeeper console applications",
   "type": "module",
   "main": "dist/console-components.umd.js",
