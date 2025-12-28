@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.14](https://github.com/lakekeeper/console-components/compare/v0.2.13...v0.2.14) (2025-12-28)
+
+
+### Bug Fixes
+
+* duckdb http wasm ([#48](https://github.com/lakekeeper/console-components/issues/48)) ([1f999b6](https://github.com/lakekeeper/console-components/commit/1f999b61aa1435728369dd9d4091c0dacc372de8))
+
 ## [0.2.13](https://github.com/lakekeeper/console-components/compare/v0.2.12...v0.2.13) (2025-12-21)
 
 
