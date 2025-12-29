@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.15](https://github.com/lakekeeper/console-components/compare/v0.2.14...v0.2.15) (2025-12-29)
+
+
+### Bug Fixes
+
+* loading duckdb worker ([#50](https://github.com/lakekeeper/console-components/issues/50)) ([c8ec473](https://github.com/lakekeeper/console-components/commit/c8ec4731a034798317ab399c47b15538379cf394))
+
 ## [0.2.14](https://github.com/lakekeeper/console-components/compare/v0.2.13...v0.2.14) (2025-12-28)
 
 
