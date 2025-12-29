@@ -26,8 +26,6 @@ export default defineConfig({
       outDir: 'dist/types',
       //Don't bundle into single file - keep structure
       rollupTypes: false,
-      // Skip diagnostics for faster builds (some components have type issues)
-      skipDiagnostics: true,
       // Log level
       logLevel: 'warn',
       // Static import
