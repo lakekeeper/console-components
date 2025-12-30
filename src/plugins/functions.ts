@@ -12,6 +12,9 @@ import {
   GetTaskDetailsResponse,
   ControlTasksRequest,
   ControlTaskAction,
+  ListProjectTasksRequest,
+  ListProjectTasksResponse,
+  GetProjectTaskDetailsResponse,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
 import * as ice from '@/gen/iceberg/sdk.gen';
@@ -2833,6 +2836,91 @@ async function listTasks(
   }
 }
 
+// Project Task Functions
+async function listProjectTasks(
+  request: ListProjectTasksRequest,
+): Promise<ListProjectTasksResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+    const { data, error } = await mng.listProjectTasks({
+      client,
+      body: request,
+    });
+    if (error) throw error;
+    return data as ListProjectTasksResponse;
+  } catch (error: any) {
+    handleError(error, 'listProjectTasks');
+    throw error;
+  }
+}
+
+async function getProjectTaskDetails(taskId: string): Promise<GetProjectTaskDetailsResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+    const { data, error } = await mng.getProjectTaskDetails({
+      client,
+      path: { task_id: taskId },
+    });
+    if (error) throw error;
+    return data as GetProjectTaskDetailsResponse;
+  } catch (error: any) {
+    handleError(error, 'getProjectTaskDetails');
+    throw error;
+  }
+}
+
+async function controlProjectTasks(
+  action: ControlTaskAction,
+  taskIds: string[],
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+    const body: ControlTasksRequest = {
+      action,
+      'task-ids': taskIds,
+    };
+    const { error } = await mng.controlProjectTasks({
+      client,
+      body,
+    });
+    if (error) throw error;
+
+    if (notify) {
+      const actionText = action['action-type'];
+      const taskText = taskIds.length === 1 ? `Task ${taskIds[0]}` : `${taskIds.length} tasks`;
+      let message = '';
+
+      switch (actionText) {
+        case 'stop':
+          message = `${taskText} stop requested`;
+          break;
+        case 'cancel':
+          message = `${taskText} cancelled`;
+          break;
+        case 'run-now':
+          message = `${taskText} scheduled to run now`;
+          break;
+        default:
+          message = `${taskText} ${actionText} completed`;
+      }
+
+      handleSuccess('controlProjectTasks', message, notify);
+    }
+
+    return true;
+  } catch (error: any) {
+    handleError(error, 'controlProjectTasks');
+    throw error;
+  }
+}
+
 // Authorizer Actions - OpenFGA relations for permission delegation
 // These work with ALL authorization backends (allow-all, openfga, future backends)
 
@@ -3643,6 +3731,10 @@ export function useFunctions(config?: any) {
     getTaskDetails,
     controlTasks,
     listTasks,
+    // Project task functions
+    listProjectTasks,
+    getProjectTaskDetails,
+    controlProjectTasks,
     getNewToken,
     handleError,
   };

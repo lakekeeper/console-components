@@ -3,7 +3,7 @@
     <v-row>
       <v-col>
         <v-toolbar color="transparent" density="compact" flat>
-          <v-toolbar-title>Task Management</v-toolbar-title>
+          <v-toolbar-title>Project Task Management</v-toolbar-title>
           <v-spacer></v-spacer>
           <v-btn
             color="secondary"
@@ -178,24 +178,6 @@
           fixed-header
           :height="showFilters ? '40vh' : '60vh'"
           @update:options="handlePaginationUpdate">
-          <template #item.entity-name="{ item }">
-            <span
-              class="text-wrap"
-              style="
-                word-break: break-all;
-                white-space: normal;
-                line-height: 1.2;
-                max-width: 120px;
-                display: inline-block;
-                overflow-wrap: anywhere;
-              ">
-              {{
-                Array.isArray(item['entity-name'])
-                  ? item['entity-name'].join('.')
-                  : item['entity-name']
-              }}
-            </span>
-          </template>
           <template #item.status="{ item }">
             <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
               {{ item.status }}
@@ -278,7 +260,7 @@
               <v-icon size="64" color="grey-lighten-1">mdi-clipboard-list-outline</v-icon>
               <div class="text-h6 mt-2">No tasks found</div>
               <div class="text-subtitle-1 text-grey">
-                No tasks have been created for this {{ props.entityType || 'warehouse' }} yet.
+                No tasks have been created for this project yet.
               </div>
             </div>
           </template>
@@ -322,7 +304,7 @@
 
         <v-card-text v-else class="pa-0">
           <TaskDetails
-            :task="selectedTaskDetails"
+            :task="selectedTaskDetails as any"
             :format-queue-name="formatQueueName"
             @copy="functions.copyToClipboard" />
         </v-card-text>
@@ -434,75 +416,38 @@
 </template>
 
 <script setup lang="ts">
-import { useWarehousePermissions } from '../composables/useCatalogPermissions';
 import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
 import { reactive, ref, onMounted, computed, inject } from 'vue';
 import TaskDetails from './TaskDetails.vue';
 import { getStatusColor, formatDateTime } from '../common/taskUtils';
 import type {
-  WarehouseTaskInfo as Task,
+  ProjectTaskInfo as Task,
   TaskStatus,
-  ListTasksRequest,
-  ListTasksResponse,
-  GetTaskDetailsResponse,
+  ListProjectTasksRequest,
+  ListProjectTasksResponse,
+  GetProjectTaskDetailsResponse,
 } from '../gen/management/types.gen';
 
 // Props
 const props = defineProps<{
-  warehouseId: string;
-  tableId?: string;
-  viewId?: string;
-  entityType?: 'warehouse' | 'table' | 'view';
+  projectId: string;
 }>();
 
 // Composables
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
 
-const { canControlTasks } = useWarehousePermissions(props.warehouseId);
-
-// Helper functions to handle entity type differences
-const getEntityId = () => {
-  if (props.entityType === 'view') {
-    return props.viewId;
-  } else if (props.entityType === 'table') {
-    return props.tableId;
-  }
-  return null;
-};
-
-const createEntityFilter = (): any[] | undefined => {
-  const entityId = getEntityId();
-  if (!entityId) return undefined;
-
-  if (props.entityType === 'view') {
-    return [
-      {
-        type: 'view',
-        'view-id': entityId,
-        'warehouse-id': props.warehouseId,
-      },
-    ];
-  } else if (props.entityType === 'table') {
-    return [
-      {
-        type: 'table',
-        'table-id': entityId,
-        'warehouse-id': props.warehouseId,
-      },
-    ];
-  }
-  return undefined;
-};
+// TODO: Add project-level task permissions when available in the API
+// For now, allow task control actions (will be enforced by backend)
+const canControlTasks = computed(() => true);
 
 // Queue configuration
 const queueManager = useQueueConfig();
 
-// Table headers
+// Table headers (no entity-name column for project tasks)
 const taskHeaders = Object.freeze([
   { title: 'Task ID', key: 'task-id', align: 'start' as const, sortable: false },
-  { title: 'Entity Name', key: 'entity-name', align: 'start' as const, sortable: false },
   { title: 'Status', key: 'status', align: 'start' as const, sortable: false },
   { title: 'Progress', key: 'progress', align: 'start' as const, sortable: false },
   { title: 'Queue', key: 'queue-name', align: 'start' as const, sortable: false },
@@ -520,7 +465,7 @@ const errorMessage = ref('');
 
 // Task details modal data
 const showTaskDetailsDialog = ref(false);
-const selectedTaskDetails = ref<GetTaskDetailsResponse | null>(null);
+const selectedTaskDetails = ref<GetProjectTaskDetailsResponse | null>(null);
 const taskDetailsLoading = ref(false);
 const taskDetailsError = ref('');
 
@@ -566,8 +511,6 @@ const queueNameOptions = computed(() =>
     value: option.value,
   })),
 );
-
-// Permission-based computed properties (using composable)
 
 // Computed properties for filter state
 const hasActiveFilters = computed(() => {
@@ -633,7 +576,7 @@ async function loadTaskDetails(taskId: string) {
   taskDetailsError.value = '';
 
   try {
-    const details = await functions.getTaskDetails(props.warehouseId, taskId);
+    const details = await functions.getProjectTaskDetails(taskId);
     selectedTaskDetails.value = details;
   } catch (error: any) {
     console.error('Failed to load task details:', error);
@@ -669,8 +612,7 @@ async function confirmCancelTask() {
 
   taskActionLoading.value = true;
   try {
-    await functions.controlTasks(
-      props.warehouseId,
+    await functions.controlProjectTasks(
       { 'action-type': 'cancel' },
       [taskToConfirm.value['task-id']],
       true,
@@ -689,8 +631,7 @@ async function confirmRunTaskNow() {
 
   taskActionLoading.value = true;
   try {
-    await functions.controlTasks(
-      props.warehouseId,
+    await functions.controlProjectTasks(
       { 'action-type': 'run-now' },
       [taskToConfirm.value['task-id']],
       true,
@@ -750,8 +691,6 @@ async function handlePaginationUpdate(options: any) {
     const currentlyViewedItems = currentPage * itemsPerPage;
 
     // Calculate how much buffer we want to maintain
-    // When displaying 50 items, we want to have at least 100 loaded
-    // When displaying 100 items, we want to have at least 150 loaded, etc.
     const bufferSize = itemsPerPage;
     const minimumLoadedItems = currentlyViewedItems + bufferSize;
 
@@ -770,12 +709,7 @@ async function viewTaskDetails(task: Task) {
 
 async function stopTask(task: Task) {
   try {
-    await functions.controlTasks(
-      props.warehouseId,
-      { 'action-type': 'stop' },
-      [task['task-id']],
-      true,
-    );
+    await functions.controlProjectTasks({ 'action-type': 'stop' }, [task['task-id']], true);
     await refreshTasks();
   } catch (error: any) {
     console.error('Failed to stop task:', error);
@@ -801,13 +735,9 @@ async function listTasks() {
     // Store if this is a pagination request (loading more) vs fresh load
     const isLoadingMore = !!tasksNextPageToken.value;
 
-    const request: ListTasksRequest = {
+    const request: ListProjectTasksRequest = {
       'page-size': 110, // Load more items per request to reduce API calls
       'page-token': tasksNextPageToken.value,
-      // Add entity filter if entityId is provided
-      ...(getEntityId() && {
-        entities: createEntityFilter(),
-      }),
       // Apply filters
       ...(filters.status.length > 0 && { status: filters.status }),
       ...(filters.queueNames.length > 0 && {
@@ -830,7 +760,7 @@ async function listTasks() {
       }),
     };
 
-    const response: ListTasksResponse = await functions.listTasks(props.warehouseId, request);
+    const response: ListProjectTasksResponse = await functions.listProjectTasks(request);
 
     let filteredTasks = response.tasks || [];
 
@@ -874,7 +804,6 @@ async function listTasks() {
 
     if (isLoadingMore) {
       // If we were loading more data, append to existing tasks
-
       tasks.push(...filteredTasks);
     } else {
       // If this was a fresh load, replace all tasks
@@ -889,16 +818,7 @@ async function listTasks() {
 
     // Handle different error types gracefully
     if (error?.response?.status === 404 || error?.isTaskManagementError) {
-      const entityId = getEntityId();
-      if (entityId) {
-        const entityName = props.entityType === 'view' ? 'view' : 'table';
-        errorMessage.value = `Task management is not available for this ${entityName}. This may be because:
-• The ${entityName} does not support task operations
-• Task features are not enabled for this ${entityName} type
-• The ${entityName} ID format is not compatible with task management`;
-      } else {
-        errorMessage.value = `Task management is not available for this warehouse yet.`;
-      }
+      errorMessage.value = `Task management is not available for this project yet.`;
     } else if (error?.response?.status === 403) {
       errorMessage.value = 'You do not have permission to view tasks.';
     } else if (error?.response?.status >= 500) {
@@ -907,12 +827,12 @@ async function listTasks() {
       errorMessage.value = 'Failed to load tasks. Please check your connection and try again.';
     }
 
-    console.error('Failed to load tasks:', error);
+    console.error('Failed to load project tasks:', error);
 
     // Show user-friendly notification for non-404 errors and non-task management errors
     if (error?.response?.status !== 404 && !error?.isTaskManagementError) {
       visual.setSnackbarMsg({
-        function: 'listTasks',
+        function: 'listProjectTasks',
         text: errorMessage.value,
         ttl: 5000,
         ts: Date.now(),
@@ -925,23 +845,9 @@ async function listTasks() {
 // Load tasks when component is mounted
 onMounted(async () => {
   // Validate required props before attempting to load tasks
-  if (!props.warehouseId) {
+  if (!props.projectId) {
     hasError.value = true;
-    errorMessage.value = 'Warehouse ID is required to load tasks.';
-    return;
-  }
-
-  // For table context, ensure tableId is provided and valid
-  if (props.entityType === 'table' && (!props.tableId || props.tableId.trim() === '')) {
-    hasError.value = true;
-    errorMessage.value = 'Table ID is required to load table-specific tasks.';
-    return;
-  }
-
-  // For view context, ensure viewId is provided and valid
-  if (props.entityType === 'view' && (!props.viewId || props.viewId.trim() === '')) {
-    hasError.value = true;
-    errorMessage.value = 'View ID is required to load view-specific tasks.';
+    errorMessage.value = 'Project ID is required to load tasks.';
     return;
   }
 
