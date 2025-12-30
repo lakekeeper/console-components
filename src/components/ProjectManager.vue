@@ -25,9 +25,7 @@
         <v-tab v-if="showPermissionsTab && userStorage.isAuthenticated" value="permissions">
           Permissions
         </v-tab>
-        <v-tab v-if="userStorage.isAuthenticated" value="tasks" @click="loadProjectTasks">
-          Tasks
-        </v-tab>
+        <v-tab v-if="showTasksTab" value="tasks" @click="loadProjectTasks">Tasks</v-tab>
         <v-tab v-if="showStatisticsTab" value="statistics" @click="getEndpointStatistcs">
           Statistics
         </v-tab>
@@ -123,7 +121,7 @@
             :relation-type="permissionType" />
         </v-tabs-window-item>
 
-        <v-tabs-window-item v-if="userStorage.isAuthenticated" value="tasks">
+        <v-tabs-window-item v-if="showTasksTab" value="tasks">
           <ProjectTaskManager
             v-if="project['project-id']"
             ref="projectTaskManagerRef"
@@ -174,7 +172,7 @@ const projectId = computed(() => project.value['project-id']);
 const serverId = computed(() => visual.getServerInfo()['server-id']);
 
 // Use composables for permissions
-const { showStatisticsTab } = useProjectPermissions(projectId);
+const { showStatisticsTab, showTasksTab } = useProjectPermissions(projectId);
 const { showPermissionsTab } = useProjectAuthorizerPermissions(projectId);
 const { canCreateProject } = useServerPermissions(serverId);
 const loaded = ref(true);
