@@ -13,6 +13,29 @@ export function useIcebergDuckDB() {
   const loadError = ref<string | null>(null);
   const catalogConfigured = ref(false);
 
+  // Reusable CORS error message for object storage
+  const createCorsErrorMessage = () =>
+    `CORS Error: Cannot access object storage from the browser.\n\n` +
+    `DuckDB tried to read Iceberg metadata files from object storage (S3/ADLS/GCS)\n` +
+    `but the request was blocked by CORS policy.\n\n` +
+    `The object storage bucket needs CORS configuration to allow:\n` +
+    `1. Cross-origin requests from ${window.location.origin}\n` +
+    `2. Required headers: authorization, content-type, range, x-user-agent\n` +
+    `3. HTTP methods: GET, HEAD, OPTIONS\n` +
+    `4. Expose headers: content-range, content-length, etag\n\n` +
+    `Example S3 CORS configuration:\n` +
+    `[\n` +
+    `  {\n` +
+    `    "AllowedOrigins": ["${window.location.origin}"],\n` +
+    `    "AllowedMethods": ["GET", "HEAD"],\n` +
+    `    "AllowedHeaders": ["*"],\n` +
+    `    "ExposeHeaders": ["ETag", "Content-Length", "Content-Range"],\n` +
+    `    "MaxAgeSeconds": 3000\n` +
+    `  }\n` +
+    `]\n\n` +
+    `Check your browser console for the blocked URL.\n\n` +
+    `Please contact your administrator to configure CORS on your S3 bucket.`;
+
   /**
    * Configure Iceberg REST catalog in DuckDB
    * Based on: https://duckdb.org/docs/stable/core_extensions/iceberg/iceberg_rest_catalogs
@@ -51,19 +74,7 @@ export function useIcebergDuckDB() {
           errorMsg.includes('CORS') ||
           errorMsg.toLowerCase().includes('network')
         ) {
-          throw new Error(
-            `CORS Error: Cannot connect to the catalog server at ${config.restUri}\n\n` +
-              `The server is blocking requests from ${window.location.origin}.\n\n` +
-              `The catalog server needs to:\n` +
-              `1. Allow cross-origin requests by setting Access-Control-Allow-Origin header\n` +
-              `2. Include 'authorization' and 'content-type' in Access-Control-Allow-Headers\n` +
-              `3. Allow the 'x-user-agent' header that DuckDB sends\n\n` +
-              `Please contact your administrator to configure CORS headers on the catalog server.\n\n` +
-              `Technical details:\n` +
-              `- Test URL: ${testUrl}\n` +
-              `- Origin: ${window.location.origin}\n` +
-              `- Error: ${errorMsg}`,
-          );
+          throw new Error(`${createCorsErrorMessage()}`);
         }
 
         // Re-throw other errors
@@ -107,8 +118,37 @@ export function useIcebergDuckDB() {
     }
   }
 
+  /**
+   * Wrapper around executeQuery that detects S3 CORS errors
+   */
+  async function executeQuery(query: string) {
+    try {
+      return await duckDB.executeQuery(query);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+
+      // Check if this is a CORS error that manifests as a DuckDB read/download error
+      if (
+        errorMsg.includes('Cannot read') ||
+        errorMsg.includes('memory buffer') ||
+        errorMsg.includes('Invalid Input Error') ||
+        errorMsg.includes('HTTP Error') ||
+        errorMsg.includes('Full download failed') ||
+        errorMsg.includes('CORS error') ||
+        errorMsg.toLowerCase().includes('cors')
+      ) {
+        // This error happens when DuckDB can't read metadata/data files from S3 due to CORS
+        throw new Error(`${createCorsErrorMessage()}`);
+      }
+
+      // Re-throw other errors
+      throw error;
+    }
+  }
+
   return {
     ...duckDB,
+    executeQuery, // Override with CORS-aware version
     isLoadingTable,
     loadError,
     catalogConfigured,
