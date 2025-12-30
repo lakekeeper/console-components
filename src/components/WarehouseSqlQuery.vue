@@ -223,6 +223,7 @@
                     <v-alert
                       v-if="error"
                       type="error"
+                      icon="mdi-bug"
                       closable
                       @click:close="error = null"
                       class="mb-4">
