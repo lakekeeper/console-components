@@ -16,7 +16,7 @@ export function useIcebergDuckDB() {
   // Reusable CORS error message for object storage
   const createCorsErrorMessage = () =>
     `CORS Error: Cannot access object storage from the browser.\n\n` +
-    `DuckDB tried to read Iceberg metadata files from object storage (S3/Azure/GCS) ` +
+    `DuckDB tried to read Iceberg metadata files from object storage (S3/ADLS/GCS) ` +
     `but the request was blocked by CORS policy.\n\n` +
     `The object storage bucket needs CORS configuration to allow:\n` +
     `1. Cross-origin requests from ${window.location.origin}\n` +
@@ -33,7 +33,7 @@ export function useIcebergDuckDB() {
     `    "MaxAgeSeconds": 3000\n` +
     `  }\n` +
     `]\n\n` +
-    `Check your browser console for the blocked S3 URL (look for requests to *.s3.*.amazonaws.com).\n\n` +
+    `Check your browser console for the blocked URL.\n\n` +
     `Please contact your administrator to configure CORS on your S3 bucket.`;
 
   /**
@@ -74,7 +74,7 @@ export function useIcebergDuckDB() {
           errorMsg.includes('CORS') ||
           errorMsg.toLowerCase().includes('network')
         ) {
-          throw new Error(`${createCorsErrorMessage()}\n\nOriginal error: ${errorMsg}`);
+          throw new Error(`${createCorsErrorMessage()}`);
         }
 
         // Re-throw other errors
@@ -138,7 +138,7 @@ export function useIcebergDuckDB() {
         errorMsg.toLowerCase().includes('cors')
       ) {
         // This error happens when DuckDB can't read metadata/data files from S3 due to CORS
-        throw new Error(`${createCorsErrorMessage()}\n\nOriginal error: ${errorMsg}`);
+        throw new Error(`${createCorsErrorMessage()}`);
       }
 
       // Re-throw other errors
