@@ -127,13 +127,17 @@ export function useIcebergDuckDB() {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
 
-      // Check if this is a CORS error that manifests as a DuckDB read error
+      // Check if this is a CORS error that manifests as a DuckDB read/download error
       if (
         errorMsg.includes('Cannot read') ||
         errorMsg.includes('memory buffer') ||
-        errorMsg.includes('Invalid Input Error')
+        errorMsg.includes('Invalid Input Error') ||
+        errorMsg.includes('HTTP Error') ||
+        errorMsg.includes('Full download failed') ||
+        errorMsg.includes('CORS error') ||
+        errorMsg.toLowerCase().includes('cors')
       ) {
-        // This error happens when DuckDB can't read metadata files from S3 due to CORS
+        // This error happens when DuckDB can't read metadata/data files from S3 due to CORS
         throw new Error(`${createCorsErrorMessage()}\n\nOriginal error: ${errorMsg}`);
       }
 
