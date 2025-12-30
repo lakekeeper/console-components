@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.16](https://github.com/lakekeeper/console-components/compare/v0.2.15...v0.2.16) (2025-12-30)
+
+
+### Bug Fixes
+
+* added project tasks and gcs for duckdb ([#52](https://github.com/lakekeeper/console-components/issues/52)) ([9b754e0](https://github.com/lakekeeper/console-components/commit/9b754e05b8865a5a2307eca1d79fbaf1c0f17f71))
+
 ## [0.2.15](https://github.com/lakekeeper/console-components/compare/v0.2.14...v0.2.15) (2025-12-29)
 
 
