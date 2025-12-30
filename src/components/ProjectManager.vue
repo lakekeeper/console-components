@@ -25,7 +25,10 @@
         <v-tab v-if="showPermissionsTab && userStorage.isAuthenticated" value="permissions">
           Permissions
         </v-tab>
-        <v-tab v-if="showTasksTab && userStorage.isAuthenticated" value="tasks" @click="loadProjectTasks">
+        <v-tab
+          v-if="showTasksTab && userStorage.isAuthenticated"
+          value="tasks"
+          @click="loadProjectTasks">
           Tasks
         </v-tab>
         <v-tab v-if="showStatisticsTab" value="statistics" @click="getEndpointStatistcs">
