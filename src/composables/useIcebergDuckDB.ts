@@ -74,17 +74,7 @@ export function useIcebergDuckDB() {
           errorMsg.includes('CORS') ||
           errorMsg.toLowerCase().includes('network')
         ) {
-          throw new Error(
-            `Cannot connect to catalog server at ${config.restUri}\n\n` +
-              `Connection test failed. This could be due to:\n` +
-              `1. Network connectivity issues\n` +
-              `2. Incorrect catalog URL\n` +
-              `3. CORS restrictions (if catalog requires it)\n\n` +
-              `Technical details:\n` +
-              `- Test URL: ${testUrl}\n` +
-              `- Origin: ${window.location.origin}\n` +
-              `- Error: ${errorMsg}`,
-          );
+          throw new Error(`${createCorsErrorMessage()}\n\nOriginal error: ${errorMsg}`);
         }
 
         // Re-throw other errors
