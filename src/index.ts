@@ -204,7 +204,8 @@ export type {
   Role,
   User,
   ServerInfo,
-  Task,
+  WarehouseTaskInfo,
+  ProjectTaskInfo,
   TaskStatus,
 } from './gen/management/types.gen';
 

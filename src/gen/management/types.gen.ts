@@ -617,6 +617,25 @@ export type GetProjectResponse = {
     'project-name': string;
 };
 
+export type GetProjectTaskDetailsResponse = ProjectTaskInfo & {
+    /**
+     * History of past attempts
+     */
+    attempts: Array<TaskAttempt>;
+    /**
+     * Execution details for the current attempt
+     */
+    'execution-details'?: {
+        [key: string]: unknown;
+    } | null;
+    /**
+     * Task-specific data
+     */
+    'task-data': {
+        [key: string]: unknown;
+    };
+};
+
 export type GetPurgeQueueConfig = {
     'max-seconds-since-last-heartbeat'?: number | null;
     'queue-config': PurgeQueueConfig;
@@ -651,7 +670,7 @@ export type GetTabularExpirationQueueConfig = {
     'queue-config': TabularExpirationQueueConfig;
 };
 
-export type GetTaskDetailsResponse = Task & {
+export type GetTaskDetailsResponse = WarehouseTaskInfo & {
     /**
      * History of past attempts
      */
@@ -797,6 +816,14 @@ export type LakekeeperProjectAction = {
     action: 'search_roles';
 } | {
     action: 'get_endpoint_statistics';
+} | {
+    action: 'modify_task_queue_config';
+} | {
+    action: 'get_task_queue_config';
+} | {
+    action: 'get_project_tasks';
+} | {
+    action: 'control_project_tasks';
 };
 
 export type LakekeeperRoleAction = {
@@ -977,6 +1004,46 @@ export type ListDeletedTabularsResponse = {
     tabulars: Array<DeletedTabularResponse>;
 };
 
+export type ListProjectTasksRequest = {
+    /**
+     * Filter tasks created after this timestamp
+     */
+    'created-after'?: string | null;
+    /**
+     * Filter tasks created before this timestamp
+     */
+    'created-before'?: string | null;
+    /**
+     * Number of results per page
+     */
+    'page-size'?: number | null;
+    /**
+     * Next page token, re-use the same request as for the original request,
+     * but set this to the `next_page_token` from the previous response.
+     * Stop iterating when no more items are returned in a page.
+     */
+    'page-token'?: string | null;
+    /**
+     * Filter by one or more queue names
+     */
+    'queue-name'?: Array<string> | null;
+    /**
+     * Filter by task status
+     */
+    status?: Array<TaskStatus> | null;
+};
+
+export type ListProjectTasksResponse = {
+    /**
+     * Token for the next page of results
+     */
+    'next-page-token'?: string | null;
+    /**
+     * List of tasks
+     */
+    tasks: Array<ProjectTaskInfo>;
+};
+
 export type ListProjectsResponse = {
     /**
      * List of projects
@@ -1001,7 +1068,7 @@ export type ListTasksRequest = {
     /**
      * Filter by specific entity
      */
-    entities?: Array<TaskEntity> | null;
+    entities?: Array<WarehouseTaskEntityFilter> | null;
     /**
      * Number of results per page
      */
@@ -1030,7 +1097,7 @@ export type ListTasksResponse = {
     /**
      * List of tasks
      */
-    tasks: Array<Task>;
+    tasks: Array<WarehouseTaskInfo>;
 };
 
 export type ListUsersResponse = {
@@ -1111,6 +1178,57 @@ export type ProjectAssignment = (UserOrRole & {
 });
 
 export type ProjectRelation = 'project_admin' | 'security_admin' | 'data_admin' | 'role_creator' | 'describe' | 'select' | 'create' | 'modify';
+
+export type ProjectTaskInfo = {
+    /**
+     * Current attempt number
+     */
+    attempt: number;
+    /**
+     * When this task attempt was created
+     */
+    'created-at': string;
+    /**
+     * Last heartbeat timestamp for running tasks
+     */
+    'last-heartbeat-at'?: string | null;
+    /**
+     * Parent task ID if this is a sub-task
+     */
+    'parent-task-id'?: string | null;
+    /**
+     * When the latest attempt of the task was picked up for processing by a worker.
+     */
+    'picked-up-at'?: string | null;
+    /**
+     * Progress of the task (0.0 to 1.0)
+     */
+    progress: number;
+    /**
+     * Project ID associated with the task
+     */
+    'project-id': string;
+    /**
+     * Name of the queue processing this task
+     */
+    'queue-name': string;
+    /**
+     * When the latest attempt of the task is scheduled for
+     */
+    'scheduled-for': string;
+    /**
+     * Current status of the task
+     */
+    status: TaskStatus;
+    /**
+     * Unique identifier for the task
+     */
+    'task-id': string;
+    /**
+     * When the task was last updated
+     */
+    'updated-at'?: string | null;
+};
 
 export type ProtectionResponse = {
     /**
@@ -1618,65 +1736,6 @@ export type TabularIdentUuid = {
  */
 export type TabularType = 'table' | 'view';
 
-export type Task = {
-    /**
-     * Current attempt number
-     */
-    attempt: number;
-    /**
-     * When this task attempt was created
-     */
-    'created-at': string;
-    /**
-     * Type of entity this task operates on
-     */
-    entity: TaskEntity;
-    /**
-     * Name of the entity this task operates on
-     */
-    'entity-name': Array<string>;
-    /**
-     * Last heartbeat timestamp for running tasks
-     */
-    'last-heartbeat-at'?: string | null;
-    /**
-     * Parent task ID if this is a sub-task
-     */
-    'parent-task-id'?: string | null;
-    /**
-     * When the latest attempt of the task was picked up for processing by a worker.
-     */
-    'picked-up-at'?: string | null;
-    /**
-     * Progress of the task (0.0 to 1.0)
-     */
-    progress: number;
-    /**
-     * Name of the queue processing this task
-     */
-    'queue-name': string;
-    /**
-     * When the latest attempt of the task is scheduled for
-     */
-    'scheduled-for': string;
-    /**
-     * Current status of the task
-     */
-    status: TaskStatus;
-    /**
-     * Unique identifier for the task
-     */
-    'task-id': string;
-    /**
-     * When the task was last updated
-     */
-    'updated-at'?: string | null;
-    /**
-     * Warehouse ID associated with the task
-     */
-    'warehouse-id': string;
-};
-
 export type TaskAttempt = {
     /**
      * Attempt number
@@ -1716,14 +1775,6 @@ export type TaskAttempt = {
      * Status of this attempt
      */
     status: TaskStatus;
-};
-
-export type TaskEntity = {
-    'table-id': string;
-    type: 'table';
-} | {
-    type: 'view';
-    'view-id': string;
 };
 
 export type TaskStatus = 'RUNNING' | 'SCHEDULED' | 'STOPPING' | 'CANCELLED' | 'SUCCESS' | 'FAILED';
@@ -1983,6 +2034,84 @@ export type WarehouseStatisticsResponse = {
  * Status of a warehouse
  */
 export type WarehouseStatus = 'active' | 'inactive';
+
+export type WarehouseTaskEntityFilter = {
+    'table-id': string;
+    type: 'table';
+} | {
+    type: 'view';
+    'view-id': string;
+} | {
+    type: 'warehouse';
+};
+
+export type WarehouseTaskEntityId = {
+    'table-id': string;
+    type: 'table';
+} | {
+    type: 'view';
+    'view-id': string;
+};
+
+export type WarehouseTaskInfo = {
+    /**
+     * Current attempt number
+     */
+    attempt: number;
+    /**
+     * When this task attempt was created
+     */
+    'created-at': string;
+    entity?: null | WarehouseTaskEntityId;
+    /**
+     * Name of the entity this task operates on. None if this is a warehouse-level task.
+     */
+    'entity-name'?: Array<string> | null;
+    /**
+     * Last heartbeat timestamp for running tasks
+     */
+    'last-heartbeat-at'?: string | null;
+    /**
+     * Parent task ID if this is a sub-task
+     */
+    'parent-task-id'?: string | null;
+    /**
+     * When the latest attempt of the task was picked up for processing by a worker.
+     */
+    'picked-up-at'?: string | null;
+    /**
+     * Progress of the task (0.0 to 1.0)
+     */
+    progress: number;
+    /**
+     * Project ID associated with the task
+     */
+    'project-id': string;
+    /**
+     * Name of the queue processing this task
+     */
+    'queue-name': string;
+    /**
+     * When the latest attempt of the task is scheduled for
+     */
+    'scheduled-for': string;
+    /**
+     * Current status of the task
+     */
+    status: TaskStatus;
+    /**
+     * Unique identifier for the task
+     */
+    'task-id': string;
+    /**
+     * When the task was last updated
+     */
+    'updated-at'?: string | null;
+    /**
+     * Warehouse ID associated with the task
+     */
+    'warehouse-id': string;
+};
 
 export type BatchCheckActionsData = {
     body: CatalogActionsBatchCheckRequest;
@@ -3129,6 +3258,91 @@ export type RenameProjectResponses = {
      */
     200: unknown;
 };
+
+export type GetProjectTaskDetailsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        task_id: string;
+    };
+    query?: {
+        /**
+         * Number of attempts to retrieve (default: 5)
+         */
+        numAttempts?: number | null;
+    };
+    url: '/management/v1/project/task/by-id/{task_id}';
+};
+
+export type GetProjectTaskDetailsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetProjectTaskDetailsError = GetProjectTaskDetailsErrors[keyof GetProjectTaskDetailsErrors];
+
+export type GetProjectTaskDetailsResponses = {
+    200: GetProjectTaskDetailsResponse;
+};
+
+export type GetProjectTaskDetailsResponse2 = GetProjectTaskDetailsResponses[keyof GetProjectTaskDetailsResponses];
+
+export type ControlProjectTasksData = {
+    body: ControlTasksRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/project/task/control';
+};
+
+export type ControlProjectTasksErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ControlProjectTasksError = ControlProjectTasksErrors[keyof ControlProjectTasksErrors];
+
+export type ControlProjectTasksResponses = {
+    /**
+     * All requested actions were successful
+     */
+    204: void;
+};
+
+export type ControlProjectTasksResponse = ControlProjectTasksResponses[keyof ControlProjectTasksResponses];
+
+export type ListProjectTasksData = {
+    body: ListProjectTasksRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/project/task/list';
+};
+
+export type ListProjectTasksErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListProjectTasksError = ListProjectTasksErrors[keyof ListProjectTasksErrors];
+
+export type ListProjectTasksResponses = {
+    200: ListProjectTasksResponse;
+};
+
+export type ListProjectTasksResponse2 = ListProjectTasksResponses[keyof ListProjectTasksResponses];
 
 export type DeleteProjectByIdDeprecatedData = {
     body?: never;
