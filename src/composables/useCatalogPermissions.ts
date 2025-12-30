@@ -255,9 +255,12 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
   const canSearchRoles = computed(() => hasPermission('search_roles'));
   const canDelete = computed(() => hasPermission('delete'));
   const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
+  const canGetProjectTasks = computed(() => hasPermission('get_project_tasks'));
+  const canControlProjectTasks = computed(() => hasPermission('control_project_tasks'));
 
   // UI visibility helpers
   const showStatisticsTab = computed(() => canGetEndpointStatistics.value);
+  const showTasksTab = computed(() => canGetProjectTasks.value);
 
   // Auto-load on mount
   onMounted(() => {
@@ -290,7 +293,10 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
     canSearchRoles,
     canDelete,
     canGetEndpointStatistics,
+    canGetProjectTasks,
+    canControlProjectTasks,
     showStatisticsTab,
+    showTasksTab,
     refresh: loadPermissions,
   };
 }

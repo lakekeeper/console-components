@@ -416,6 +416,7 @@
 </template>
 
 <script setup lang="ts">
+import { useProjectPermissions } from '../composables/useCatalogPermissions';
 import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
 import { reactive, ref, onMounted, computed, inject } from 'vue';
@@ -438,9 +439,8 @@ const props = defineProps<{
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
 
-// TODO: Add project-level task permissions when available in the API
-// For now, allow task control actions (will be enforced by backend)
-const canControlTasks = computed(() => true);
+const { canControlProjectTasks } = useProjectPermissions(computed(() => props.projectId));
+const canControlTasks = canControlProjectTasks;
 
 // Queue configuration
 const queueManager = useQueueConfig();
