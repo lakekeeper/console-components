@@ -25,7 +25,9 @@
         <v-tab v-if="showPermissionsTab && userStorage.isAuthenticated" value="permissions">
           Permissions
         </v-tab>
-        <v-tab v-if="showTasksTab" value="tasks" @click="loadProjectTasks">Tasks</v-tab>
+        <v-tab v-if="showTasksTab && userStorage.isAuthenticated" value="tasks" @click="loadProjectTasks">
+          Tasks
+        </v-tab>
         <v-tab v-if="showStatisticsTab" value="statistics" @click="getEndpointStatistcs">
           Statistics
         </v-tab>
@@ -121,7 +123,7 @@
             :relation-type="permissionType" />
         </v-tabs-window-item>
 
-        <v-tabs-window-item v-if="showTasksTab" value="tasks">
+        <v-tabs-window-item v-if="showTasksTab && userStorage.isAuthenticated" value="tasks">
           <ProjectTaskManager
             v-if="project['project-id']"
             ref="projectTaskManagerRef"
