@@ -16,7 +16,7 @@ export function useIcebergDuckDB() {
   // Reusable CORS error message for object storage
   const createCorsErrorMessage = () =>
     `CORS Error: Cannot access object storage from the browser.\n\n` +
-    `DuckDB tried to read Iceberg metadata files from object storage (S3/ADLS/GCS) ` +
+    `DuckDB tried to read Iceberg metadata files from object storage (S3/ADLS/GCS)\n` +
     `but the request was blocked by CORS policy.\n\n` +
     `The object storage bucket needs CORS configuration to allow:\n` +
     `1. Cross-origin requests from ${window.location.origin}\n` +
