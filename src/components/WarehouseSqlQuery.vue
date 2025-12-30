@@ -814,27 +814,8 @@ async function executeQuery() {
     const result = await icebergDB.executeQuery(sqlQuery.value);
     queryResult.value = result;
   } catch (e) {
-    let errorMessage =
-      e instanceof Error ? e.message : 'An error occurred while executing the query';
-
-    // Check for CORS-related errors
-    if (
-      errorMessage.includes('CORS') ||
-      errorMessage.includes('Access-Control-Allow') ||
-      errorMessage.includes('cross-origin') ||
-      errorMessage.includes('not allowed by Access-Control-Allow-Headers')
-    ) {
-      errorMessage =
-        `CORS Error: The catalog server at ${props.catalogUrl} is blocking the request.\n\n` +
-        `This is usually caused by:\n` +
-        `1. Missing CORS headers on the catalog server\n` +
-        `2. The 'x-user-agent' header not being allowed by Access-Control-Allow-Headers\n` +
-        `3. The catalog URL not allowing requests from this origin\n\n` +
-        `Original error: ${errorMessage}\n\n` +
-        `Please contact your administrator to configure CORS headers on the catalog server.`;
-    }
-
-    error.value = errorMessage;
+    // The composable already handles CORS errors with detailed messages
+    error.value = e instanceof Error ? e.message : 'An error occurred while executing the query';
     console.error('Query execution error:', e);
   } finally {
     isExecuting.value = false;
@@ -899,18 +880,14 @@ async function configureCatalogWithRetry(): Promise<boolean> {
         catalogError instanceof Error ? catalogError.message : String(catalogError);
 
       // Check for CORS errors first (don't retry these)
+      // The composable already provides detailed CORS messages
       if (
         errorMessage.includes('CORS') ||
         errorMessage.includes('Access-Control-Allow') ||
-        errorMessage.includes('cross-origin') ||
-        errorMessage.includes('not allowed by Access-Control-Allow-Headers')
+        errorMessage.includes('cross-origin')
       ) {
-        warehouseError.value =
-          `CORS Error: The catalog server is blocking requests from this origin.\n\n` +
-          `The server at ${props.catalogUrl} needs to allow:\n` +
-          `- Cross-origin requests from this domain\n` +
-          `- The 'x-user-agent' header in Access-Control-Allow-Headers\n\n` +
-          `Please contact your administrator to configure CORS on the catalog server.`;
+        // Use the error message from the composable (it's already detailed)
+        warehouseError.value = errorMessage;
         console.error('CORS configuration error:', catalogError);
         return false;
       }
