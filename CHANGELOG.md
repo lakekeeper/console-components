@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.17](https://github.com/lakekeeper/console-components/compare/v0.2.16...v0.2.17) (2025-12-30)
+
+
+### Bug Fixes
+
+* project task tab respecting permission ([#54](https://github.com/lakekeeper/console-components/issues/54)) ([63ffc44](https://github.com/lakekeeper/console-components/commit/63ffc44d9bcc97b34be6c2f25a07f08e0af69a34))
+
 ## [0.2.16](https://github.com/lakekeeper/console-components/compare/v0.2.15...v0.2.16) (2025-12-30)
 
 
