@@ -244,62 +244,77 @@
               outlined></v-text-field>
           </v-col>
         </v-row>
-        <v-row>
-          <v-col>
-            <v-switch
-              v-model="warehouseObjectData['storage-profile']['push-s3-delete-disabled']"
-              color="primary"
-              :label="
-                warehouseObjectData['storage-profile']['push-s3-delete-disabled']
-                  ? `Push S3 delete is disabled`
-                  : `Push S3 delete is enabled`
-              "></v-switch>
-          </v-col>
-          <v-col>
-            <v-switch
-              v-model="warehouseObjectData['storage-profile']['path-style-access']"
-              color="primary"
-              :label="
-                warehouseObjectData['storage-profile']['path-style-access']
-                  ? `Path style access is enabled`
-                  : `Enable path style access`
-              "></v-switch>
-          </v-col>
-          <v-col>
-            <v-switch
-              v-model="warehouseObjectData['storage-profile']['allow-alternative-protocols']"
-              color="primary"
-              :label="
-                warehouseObjectData['storage-profile']['allow-alternative-protocols']
-                  ? `Alternative protocols are enabled`
-                  : `Enable alternative s3 protocols (s3a, s3n)`
-              "></v-switch>
-          </v-col>
-          <v-col>
-            <v-switch
-              v-model="warehouseObjectData['storage-profile']['legacy-md5-behavior']"
-              color="primary"
-              :label="
-                warehouseObjectData['storage-profile']['legacy-md5-behavior']
-                  ? `Legacy MD5 behavior is enabled`
-                  : `Enable legacy MD5 behavior for S3 checksums`
-              ">
-              <template #append>
-                <v-tooltip location="top" max-width="400">
-                  <template #activator="{ props: tooltipProps }">
-                    <v-icon v-bind="tooltipProps" size="small" color="info">
-                      mdi-information-outline
-                    </v-icon>
-                  </template>
-                  <span>
-                    Legacy MD5 behavior for S3 operations requiring checksums. Enable this for
-                    compatibility with older S3-compatible storage systems.
-                  </span>
-                </v-tooltip>
-              </template>
-            </v-switch>
-          </v-col>
-        </v-row>
+
+        <v-expansion-panels class="mb-4">
+          <v-expansion-panel>
+            <v-expansion-panel-title>
+              <div class="d-flex align-center">
+                <v-icon class="mr-2">mdi-cog-outline</v-icon>
+                Advanced Storage Options
+              </div>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-row>
+                <v-col>
+                  <v-switch
+                    v-model="warehouseObjectData['storage-profile']['push-s3-delete-disabled']"
+                    color="primary"
+                    :label="
+                      warehouseObjectData['storage-profile']['push-s3-delete-disabled']
+                        ? `Push S3 delete is disabled`
+                        : `Push S3 delete is enabled`
+                    "></v-switch>
+                </v-col>
+              </v-row>
+              <v-row>
+                <v-col>
+                  <v-switch
+                    v-model="warehouseObjectData['storage-profile']['path-style-access']"
+                    color="primary"
+                    :label="
+                      warehouseObjectData['storage-profile']['path-style-access']
+                        ? `Path style access is enabled`
+                        : `Enable path style access`
+                    "></v-switch>
+                </v-col>
+                <v-col>
+                  <v-switch
+                    v-model="warehouseObjectData['storage-profile']['allow-alternative-protocols']"
+                    color="primary"
+                    :label="
+                      warehouseObjectData['storage-profile']['allow-alternative-protocols']
+                        ? `Alternative protocols are enabled`
+                        : `Enable alternative s3 protocols (s3a, s3n)`
+                    "></v-switch>
+                </v-col>
+                <v-col>
+                  <v-switch
+                    v-model="warehouseObjectData['storage-profile']['legacy-md5-behavior']"
+                    color="primary"
+                    :label="
+                      warehouseObjectData['storage-profile']['legacy-md5-behavior']
+                        ? `Legacy MD5 behavior is enabled`
+                        : `Enable legacy MD5 behavior for S3 checksums`
+                    ">
+                    <template #append>
+                      <v-tooltip location="top" max-width="400">
+                        <template #activator="{ props: tooltipProps }">
+                          <v-icon v-bind="tooltipProps" size="small" color="info">
+                            mdi-information-outline
+                          </v-icon>
+                        </template>
+                        <span>
+                          Legacy MD5 behavior for S3 operations requiring checksums. Enable this for
+                          compatibility with older S3-compatible storage systems.
+                        </span>
+                      </v-tooltip>
+                    </template>
+                  </v-switch>
+                </v-col>
+              </v-row>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
 
         <v-text-field
           v-model="warehouseObjectData['storage-profile'].bucket"
