@@ -247,12 +247,17 @@
           :color="isBucketInvalid ? 'error' : 'primary'"
           :style="isBucketInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
 
-        <v-expansion-panels class="mb-4">
-          <v-expansion-panel>
+        <v-expansion-panels class="mb-4" variant="accordion">
+          <v-expansion-panel elevation="1" bg-color="grey-lighten-5">
             <v-expansion-panel-title>
               <div class="d-flex align-center">
-                <v-icon class="mr-2">mdi-cog-outline</v-icon>
-                Advanced Storage Options
+                <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
+                <div>
+                  <div class="text-subtitle-1 font-weight-medium">Advanced Storage Options</div>
+                  <div class="text-caption text-medium-emphasis">
+                    Optional: Configure S3 behaviors, endpoints, ARNs, and token validity
+                  </div>
+                </div>
               </div>
             </v-expansion-panel-title>
             <v-expansion-panel-text>
