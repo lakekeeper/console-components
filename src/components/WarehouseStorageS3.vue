@@ -235,15 +235,17 @@
               :color="isRegionInvalid ? 'error' : 'primary'"
               :style="isRegionInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-combobox>
           </v-col>
-          <v-col>
-            <v-text-field
-              v-model.number="warehouseObjectData['storage-profile']['sts-token-validity-seconds']"
-              label="STS Token Validity Seconds (default: 3600)"
-              type="number"
-              clearable
-              outlined></v-text-field>
-          </v-col>
         </v-row>
+        <v-text-field
+          v-model="warehouseObjectData['storage-profile'].bucket"
+          label="Bucket Name *"
+          placeholder="my-bucket"
+          hint="The S3 bucket where table data will be stored"
+          persistent-hint
+          :rules="[rules.required]"
+          :error="isBucketInvalid"
+          :color="isBucketInvalid ? 'error' : 'primary'"
+          :style="isBucketInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
 
         <v-expansion-panels class="mb-4">
           <v-expansion-panel>
@@ -265,8 +267,7 @@
                         : `Push S3 delete is enabled`
                     "></v-switch>
                 </v-col>
-              </v-row>
-              <v-row>
+
                 <v-col>
                   <v-switch
                     v-model="warehouseObjectData['storage-profile']['path-style-access']"
@@ -277,6 +278,8 @@
                         : `Enable path style access`
                     "></v-switch>
                 </v-col>
+              </v-row>
+              <v-row>
                 <v-col>
                   <v-switch
                     v-model="warehouseObjectData['storage-profile']['allow-alternative-protocols']"
@@ -312,68 +315,84 @@
                   </v-switch>
                 </v-col>
               </v-row>
+              <v-row>
+                <v-col>
+                  <v-text-field
+                    v-model="warehouseObjectData['storage-profile']['key-prefix']"
+                    label="Key Prefix"
+                    placeholder="path/to/warehouse"
+                    hint="Optional: Subdirectory path within the bucket for warehouse data"></v-text-field>
+
+                  <v-text-field
+                    v-model="warehouseObjectData['storage-profile']['assume-role-arn']"
+                    :disabled="
+                      warehouseObjectData['storage-credential']['credential-type'] ===
+                      'cloudflare-r2'
+                    "
+                    label="Assume Role ARN"
+                    placeholder="arn:partition:service:region:account-id:resource-id"></v-text-field>
+                  <v-text-field
+                    v-model="warehouseObjectData['storage-profile']['aws-kms-key-arn']"
+                    :disabled="
+                      warehouseObjectData['storage-credential']['credential-type'] ===
+                      'cloudflare-r2'
+                    "
+                    label="AWS KMS Key ARN"
+                    placeholder="arn:partition:service:region:account-id:resource-id"></v-text-field>
+
+                  <v-text-field
+                    v-if="
+                      warehouseObjectData['storage-credential']['credential-type'] !==
+                      'cloudflare-r2'
+                    "
+                    v-model="warehouseObjectData['storage-credential']['external-id']"
+                    label="External ID (optional)"
+                    placeholder="arn:aws:iam::123456789012..."
+                    :append-inner-icon="
+                      showPasswordExternalId ? 'mdi-eye-outline' : 'mdi-eye-off-outline'
+                    "
+                    :type="showPasswordExternalId ? 'text' : 'password'"
+                    @click:append-inner="
+                      showPasswordExternalId = !showPasswordExternalId
+                    "></v-text-field>
+                </v-col>
+              </v-row>
+              <v-row>
+                <v-col cols="6">
+                  <v-text-field
+                    v-model="warehouseObjectData['storage-profile'].endpoint"
+                    label="Endpoint"
+                    placeholder="https://s3.custom.example.com"
+                    hint="Custom S3-compatible storage endpoint"></v-text-field>
+                </v-col>
+                <v-col cols="6">
+                  <v-select
+                    v-model="warehouseObjectData['storage-profile']['remote-signing-url-style']"
+                    item-title="name"
+                    item-value="code"
+                    :items="s3UrlDetectionModes"
+                    label="Remote signing URL style"
+                    clearable
+                    placeholder="Auto-detect"
+                    hint="URL style detection mode"></v-select>
+                </v-col>
+              </v-row>
+              <v-row>
+                <v-col>
+                  <v-text-field
+                    v-model.number="
+                      warehouseObjectData['storage-profile']['sts-token-validity-seconds']
+                    "
+                    label="STS Token Validity Seconds"
+                    placeholder="3600"
+                    type="number"
+                    clearable
+                    hint="Default: 3600 seconds (1 hour)"></v-text-field>
+                </v-col>
+              </v-row>
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>
-
-        <v-text-field
-          v-model="warehouseObjectData['storage-profile'].bucket"
-          label="Bucket Name *"
-          placeholder="my-bucket"
-          hint="The S3 bucket where table data will be stored"
-          persistent-hint
-          :rules="[rules.required]"
-          :error="isBucketInvalid"
-          :color="isBucketInvalid ? 'error' : 'primary'"
-          :style="isBucketInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
-        <v-text-field
-          v-model="warehouseObjectData['storage-profile']['key-prefix']"
-          label="Key Prefix"
-          placeholder="path/to/warehouse"
-          hint="Optional: Subdirectory path within the bucket for warehouse data"></v-text-field>
-
-        <v-text-field
-          v-model="warehouseObjectData['storage-profile']['assume-role-arn']"
-          :disabled="
-            warehouseObjectData['storage-credential']['credential-type'] === 'cloudflare-r2'
-          "
-          label="Assume Role ARN"
-          placeholder="arn:partition:service:region:account-id:resource-id"></v-text-field>
-        <v-text-field
-          v-model="warehouseObjectData['storage-profile']['aws-kms-key-arn']"
-          :disabled="
-            warehouseObjectData['storage-credential']['credential-type'] === 'cloudflare-r2'
-          "
-          label="AWS KMS Key ARN"
-          placeholder="arn:partition:service:region:account-id:resource-id"></v-text-field>
-
-        <v-text-field
-          v-if="warehouseObjectData['storage-credential']['credential-type'] !== 'cloudflare-r2'"
-          v-model="warehouseObjectData['storage-credential']['external-id']"
-          label="External ID (optional)"
-          placeholder="arn:aws:iam::123456789012..."
-          :append-inner-icon="showPasswordExternalId ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-          :type="showPasswordExternalId ? 'text' : 'password'"
-          @click:append-inner="showPasswordExternalId = !showPasswordExternalId"></v-text-field>
-
-        <v-row>
-          <v-col cols="8">
-            <v-text-field
-              v-model="warehouseObjectData['storage-profile'].endpoint"
-              label="Endpoint"
-              placeholder="https://s3.custom.example.com (optional)"></v-text-field>
-          </v-col>
-          <v-col>
-            <v-select
-              v-model="warehouseObjectData['storage-profile']['remote-signing-url-style']"
-              item-title="name"
-              item-value="code"
-              :items="s3UrlDetectionModes"
-              label="Remote signing URL style (optional)"
-              clearable
-              placeholder="optional"></v-select>
-          </v-col>
-        </v-row>
 
         <v-divider class="my-4"></v-divider>
 
