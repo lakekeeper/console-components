@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.19](https://github.com/lakekeeper/console-components/compare/v0.2.18...v0.2.19) (2025-12-31)
+
+
+### Bug Fixes
+
+* ui storage options s3 ([#58](https://github.com/lakekeeper/console-components/issues/58)) ([4c0f864](https://github.com/lakekeeper/console-components/commit/4c0f864be2d419eaaad37a83746f17672e030be0))
+
 ## [0.2.18](https://github.com/lakekeeper/console-components/compare/v0.2.17...v0.2.18) (2025-12-30)
 
 
