@@ -275,8 +275,6 @@
                   : `Enable alternative s3 protocols (s3a, s3n)`
               "></v-switch>
           </v-col>
-        </v-row>
-        <v-row>
           <v-col>
             <v-switch
               v-model="warehouseObjectData['storage-profile']['legacy-md5-behavior']"
