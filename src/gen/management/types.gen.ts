@@ -1412,6 +1412,11 @@ export type S3Profile = {
      */
     'key-prefix'?: string | null;
     /**
+     * Legacy MD5 behavior for S3 operations requiring checksums.
+     * When enabled, Lakekeeper will use the legacy MD5 checksum for operations like `DeleteObjects`.
+     */
+    'legacy-md5-behavior'?: boolean | null;
+    /**
      * Path style access for S3 requests.
      * If the underlying S3 supports both, we recommend to not set `path_style_access`.
      */

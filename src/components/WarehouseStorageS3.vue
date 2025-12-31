@@ -276,6 +276,32 @@
               "></v-switch>
           </v-col>
         </v-row>
+        <v-row>
+          <v-col>
+            <v-switch
+              v-model="warehouseObjectData['storage-profile']['legacy-md5-behavior']"
+              color="primary"
+              :label="
+                warehouseObjectData['storage-profile']['legacy-md5-behavior']
+                  ? `Legacy MD5 behavior is enabled`
+                  : `Enable legacy MD5 behavior for S3 checksums`
+              ">
+              <template #append>
+                <v-tooltip location="top" max-width="400">
+                  <template #activator="{ props: tooltipProps }">
+                    <v-icon v-bind="tooltipProps" size="small" color="info">
+                      mdi-information-outline
+                    </v-icon>
+                  </template>
+                  <span>
+                    Legacy MD5 behavior for S3 operations requiring checksums. Enable this for
+                    compatibility with older S3-compatible storage systems.
+                  </span>
+                </v-tooltip>
+              </template>
+            </v-switch>
+          </v-col>
+        </v-row>
 
         <v-text-field
           v-model="warehouseObjectData['storage-profile'].bucket"
@@ -615,6 +641,7 @@ const warehouseObjectData = reactive<{
     region: '',
     'remote-signing-enabled': true,
     'sts-enabled': false,
+    'legacy-md5-behavior': false,
   },
   'storage-credential': {
     type: 's3',
