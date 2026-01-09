@@ -178,7 +178,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, toRef } from 'vue';
+import { ref, computed, watch, toRef, inject } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
@@ -200,9 +200,10 @@ const emit = defineEmits<{
   (e: 'created', tableName: string): void;
 }>();
 
+const config = inject<any>('appConfig', { enabledAuthentication: false });
 const functions = useFunctions();
 const userStore = useUserStore();
-const icebergDB = useIcebergDuckDB();
+const icebergDB = useIcebergDuckDB(config.baseUrlPrefix);
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl),
@@ -335,7 +336,7 @@ async function createTable() {
         SECRET iceberg_secret,
         ENDPOINT '${props.catalogUrl}'
       );
-      
+
       -- Create the table
       ${createTableSQL}
     `;

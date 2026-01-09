@@ -431,7 +431,7 @@ const props = defineProps<{
 }>();
 
 const config = inject<any>('appConfig', { enabledAuthentication: false });
-const icebergDB = useIcebergDuckDB();
+const icebergDB = useIcebergDuckDB(config.baseUrlPrefix);
 const csvDownload = useCsvDownload();
 const visualStore = useVisualStore();
 const storageValidation = useStorageValidation(

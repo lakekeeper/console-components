@@ -74,7 +74,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, toRef, watch } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, toRef, watch, inject } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
@@ -89,9 +89,10 @@ const props = defineProps<{
   storageType?: string; // Storage type: s3, adls, gcs, etc.
 }>();
 
+const config = inject<any>('appConfig', { enabledAuthentication: false });
 const functions = useFunctions();
 const userStore = useUserStore();
-const icebergDB = useIcebergDuckDB();
+const icebergDB = useIcebergDuckDB(config.baseUrlPrefix);
 const csvDownload = useCsvDownload();
 
 const storageValidation = useStorageValidation(
@@ -186,7 +187,7 @@ async function loadPreview() {
         SECRET iceberg_secret,
         ENDPOINT '${props.catalogUrl}'
       );
-      
+
       -- Query the table
       SELECT * FROM "${warehouseName.value}"."${props.namespaceId}"."${props.tableName}" LIMIT 1000;
     `;

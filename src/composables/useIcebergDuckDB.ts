@@ -7,8 +7,8 @@ export interface IcebergCatalogConfig {
   accessToken: string;
 }
 
-export function useIcebergDuckDB() {
-  const duckDB = useDuckDB();
+export function useIcebergDuckDB(baseUrlPrefix: string) {
+  const duckDB = useDuckDB(baseUrlPrefix);
   const isLoadingTable = ref(false);
   const loadError = ref<string | null>(null);
   const catalogConfigured = ref(false);
