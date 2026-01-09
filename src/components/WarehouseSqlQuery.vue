@@ -867,12 +867,14 @@ async function configureCatalogWithRetry(): Promise<boolean> {
     return false;
   }
 
+  const projectId = computed(() => visualStore.projectSelected['project-id']).value;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       await icebergDB.configureCatalog({
         catalogName: props.warehouseName,
         restUri: props.catalogUrl,
         accessToken: accessToken,
+        projectId: projectId,
       });
       // Success!
       return true;

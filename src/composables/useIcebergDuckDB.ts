@@ -5,6 +5,7 @@ export interface IcebergCatalogConfig {
   catalogName: string;
   restUri: string;
   accessToken: string;
+  projectId?: string;
 }
 
 export function useIcebergDuckDB(baseUrlPrefix: string) {
@@ -12,6 +13,13 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
   const isLoadingTable = ref(false);
   const loadError = ref<string | null>(null);
   const catalogConfigured = ref(false);
+
+  const addProjectIdHeader = (headers: Record<string, string>, projectId?: string) => {
+    if (projectId !== undefined) {
+      headers['x-project-id'] = projectId;
+    }
+    return headers;
+  };
 
   // Reusable CORS error message for object storage
   const createCorsErrorMessage = () =>
@@ -56,12 +64,15 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
       try {
         await fetch(testUrl, {
           method: 'GET',
-          headers: {
-            Authorization: `Bearer ${config.accessToken}`,
-            'Content-Type': 'application/json',
-            // This is the header that DuckDB sends and often causes CORS issues
-            'x-user-agent': 'duckdb-wasm',
-          },
+          headers: addProjectIdHeader(
+            {
+              Authorization: `Bearer ${config.accessToken}`,
+              'Content-Type': 'application/json',
+              // This is the header that DuckDB sends and often causes CORS issues
+              'x-user-agent': 'duckdb-wasm',
+            },
+            config.projectId,
+          ),
         });
       } catch (fetchError) {
         const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
@@ -82,17 +93,18 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
       }
 
       // Execute all setup commands in correct order FORCE INSTALL iceberg FROM core_nightly;
+      const projectIdPrefix = config.projectId !== undefined ? config.projectId + '/' : '';
       const setupQuery = `
         SET builtin_httpfs = false;
         INSTALL httpfs;
         LOAD httpfs;
-        INSTALL iceberg; 
+        INSTALL iceberg;
         LOAD iceberg;
         CREATE OR REPLACE SECRET iceberg_secret (
           TYPE iceberg,
           TOKEN '${config.accessToken}'
         );
-        ATTACH '${config.catalogName}' AS ${config.catalogName} (
+        ATTACH '${projectIdPrefix}${config.catalogName}' AS ${config.catalogName} (
           TYPE iceberg,
           SUPPORT_NESTED_NAMESPACES true,
           SUPPORT_STAGE_CREATE true,
