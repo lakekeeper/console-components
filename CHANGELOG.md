@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.21](https://github.com/lakekeeper/console-components/compare/v0.2.20...v0.2.21) (2026-01-29)
+
+
+### Bug Fixes
+
+* store/restore nav on reload ([#64](https://github.com/lakekeeper/console-components/issues/64)) ([2266414](https://github.com/lakekeeper/console-components/commit/2266414254f8c0115277f595b958af0da1f0ca8f))
+
 ## [0.2.20](https://github.com/lakekeeper/console-components/compare/v0.2.19...v0.2.20) (2026-01-29)
 
 
