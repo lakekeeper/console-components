@@ -167,17 +167,12 @@ const warehouseId = ref('my-warehouse');
 
 ### 4. Setup Router
 
-Add the required routes for authentication and configure navigation state tracking:
+Add the required routes for authentication:
 
 ```typescript
 // src/router/index.ts
 import { createRouter, createWebHistory } from 'vue-router';
-import {
-  LoginPage,
-  LogoutPage,
-  CallbackPage,
-  useNavigationStore,
-} from '@lakekeeper/console-components';
+import { LoginPage, LogoutPage, CallbackPage } from '@lakekeeper/console-components';
 
 const routes = [
   {
@@ -201,17 +196,6 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
-});
-
-// Track navigation state for restoration after re-authentication
-// This enables users to return to their previous location after token expiration or manual logout
-router.afterEach((to) => {
-  const navigationStore = useNavigationStore();
-  navigationStore.updateCurrentLocation({
-    path: to.fullPath,
-    params: to.params,
-    query: to.query,
-  });
 });
 
 export default router;

@@ -64,7 +64,6 @@ import { computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
-import { useNavigationStore } from '../stores/navigation';
 import { useConfig } from '../composables/useCatalogPermissions';
 import { useAuth } from '../composables/useAuth';
 import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT.svg';
@@ -73,7 +72,6 @@ import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE.svg';
 const router = useRouter();
 const visual = useVisualStore();
 const userStore = useUserStore();
-const navigationStore = useNavigationStore();
 const auth = useAuth();
 const config = useConfig();
 
@@ -119,23 +117,8 @@ async function login() {
   try {
     await auth.initUser();
 
-    // After initUser, check if user is now authenticated with valid token
-    if (userStore.isAuthenticated && userStore.user.access_token) {
-      // Check for saved navigation state
-      const savedNavigation = navigationStore.getNavigationState();
-
-      if (savedNavigation && !navigationStore.isExpired()) {
-        console.log('Restoring previous location:', savedNavigation.path);
-        navigationStore.clearNavigationState();
-
-        router.push({
-          path: savedNavigation.path,
-          query: savedNavigation.query,
-        });
-      } else {
-        router.push('/');
-      }
-    }
+    // After initUser, check if user is now authenticated with valid token and redirect
+    if (userStore.isAuthenticated && userStore.user.access_token) router.push('/');
   } catch (error) {
     console.error('Login error:', error);
   }
@@ -144,22 +127,9 @@ async function login() {
 onMounted(() => {
   visual.showAppOrNavBar = false;
 
-  // If already authenticated with valid token, redirect
+  // If already authenticated with valid token, redirect to home
   if (userStore.isAuthenticated && userStore.user.access_token) {
-    // Check for saved navigation state
-    const savedNavigation = navigationStore.getNavigationState();
-
-    if (savedNavigation && !navigationStore.isExpired()) {
-      console.log('Restoring previous location:', savedNavigation.path);
-      navigationStore.clearNavigationState();
-
-      router.push({
-        path: savedNavigation.path,
-        query: savedNavigation.query,
-      });
-    } else {
-      router.push('/');
-    }
+    router.push('/');
   }
 });
 

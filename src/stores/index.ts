@@ -6,7 +6,3 @@ const installPersistedStatePlugin = createPersistedStatePlugin();
 pinia.use((context) => installPersistedStatePlugin(context));
 
 export default pinia;
-
-// Export stores
-export { useNavigationStore } from './navigation';
-export type { NavigationState } from './navigation';
