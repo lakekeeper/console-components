@@ -240,9 +240,7 @@ const success = ref(false);
 // Validation rules
 const rules = {
   required: (v: string) => !!v || 'Required',
-  validIdentifier: (v: string) =>
-    /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v) ||
-    'Must be a valid identifier (letters, numbers, underscore)',
+  validIdentifier: (v: string) => v.trim().length > 0 || 'Identifier cannot be empty',
 };
 
 // Computed properties
