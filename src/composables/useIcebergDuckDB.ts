@@ -107,7 +107,7 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
         );
       `;
 
-      const res = await duckDB.executeQuery(setupQuery);
+      await duckDB.executeQuery(setupQuery);
 
       catalogConfigured.value = true;
     } catch (e) {
