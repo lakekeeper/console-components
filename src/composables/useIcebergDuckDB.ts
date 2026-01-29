@@ -108,7 +108,7 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
       `;
 
       const res = await duckDB.executeQuery(setupQuery);
-      console.log('✅ [DuckDB Iceberg] Catalog configured successfully:', res);
+
       catalogConfigured.value = true;
     } catch (e) {
       console.error('❌ [DuckDB Iceberg] Failed to configure catalog:', e);
