@@ -5,6 +5,7 @@ import { inject, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { UserManager } from 'oidc-client-ts';
 import { useUserStore } from '../stores/user';
+import { useNavigationStore } from '../stores/navigation';
 import { User } from '../common/interfaces';
 import { TokenType } from '../common/enums';
 import { useVisualStore } from '../stores/visual';
@@ -12,6 +13,7 @@ import { useVisualStore } from '../stores/visual';
 const router = useRouter();
 const visual = useVisualStore();
 const userStorage = useUserStore();
+const navigationStore = useNavigationStore();
 const auth = inject<any>('auth', null);
 const functions = inject<any>('functions');
 const config = inject<any>('appConfig');
@@ -59,7 +61,22 @@ async function init() {
     }
 
     visual.showAppOrNavBar = true;
-    router.push('/');
+
+    // Check if we have a saved navigation state to restore
+    const savedNavigation = navigationStore.getNavigationState();
+
+    if (savedNavigation && !navigationStore.isExpired()) {
+      console.log('Restoring previous location:', savedNavigation.path);
+      navigationStore.clearNavigationState(); // Clear to prevent future restores
+
+      router.push({
+        path: savedNavigation.path,
+        query: savedNavigation.query,
+      });
+    } else {
+      // No saved state or expired - go to default home page
+      router.push('/');
+    }
   } catch (error) {
     console.error('Error during callback processing:', error);
     router.push('/');
