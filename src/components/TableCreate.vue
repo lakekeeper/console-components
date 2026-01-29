@@ -321,6 +321,7 @@ async function createTable() {
     // Configure Iceberg catalog
     await icebergDB.configureCatalog({
       catalogName: warehouseName.value,
+      projectId: wh['project-id'],
       restUri: props.catalogUrl,
       accessToken: userStore.user.access_token,
     });
@@ -329,7 +330,7 @@ async function createTable() {
     const createTableSQL = sqlPreview.value;
     const query = `
       -- Attach catalog on this connection
-      ATTACH IF NOT EXISTS '${warehouseName.value}' AS ${warehouseName.value} (
+      ATTACH IF NOT EXISTS '${wh['project-id']}/${warehouseName.value}' AS "${warehouseName.value}" (
         TYPE iceberg,
         SECRET iceberg_secret,
         ENDPOINT '${props.catalogUrl}'
