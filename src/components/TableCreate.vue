@@ -240,9 +240,7 @@ const success = ref(false);
 // Validation rules
 const rules = {
   required: (v: string) => !!v || 'Required',
-  validIdentifier: (v: string) =>
-    /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(v) ||
-    'Must be a valid identifier (letters, numbers, underscore)',
+  validIdentifier: (v: string) => v.trim().length > 0 || 'Identifier cannot be empty',
 };
 
 // Computed properties
@@ -323,6 +321,7 @@ async function createTable() {
     // Configure Iceberg catalog
     await icebergDB.configureCatalog({
       catalogName: warehouseName.value,
+      projectId: wh['project-id'],
       restUri: props.catalogUrl,
       accessToken: userStore.user.access_token,
     });
@@ -331,7 +330,7 @@ async function createTable() {
     const createTableSQL = sqlPreview.value;
     const query = `
       -- Attach catalog on this connection
-      ATTACH IF NOT EXISTS '${warehouseName.value}' AS ${warehouseName.value} (
+      ATTACH IF NOT EXISTS '${wh['project-id']}/${warehouseName.value}' AS "${warehouseName.value}" (
         TYPE iceberg,
         SECRET iceberg_secret,
         ENDPOINT '${props.catalogUrl}'

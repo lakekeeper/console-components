@@ -14,13 +14,6 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
   const loadError = ref<string | null>(null);
   const catalogConfigured = ref(false);
 
-  const addProjectIdHeader = (headers: Record<string, string>, projectId?: string) => {
-    if (projectId !== undefined) {
-      headers['x-project-id'] = projectId;
-    }
-    return headers;
-  };
-
   // Reusable CORS error message for object storage
   const createCorsErrorMessage = () =>
     `CORS Error: Cannot access object storage from the browser.\n\n` +
@@ -58,21 +51,22 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
       // FIRST: Test the catalog URL directly with fetch to catch CORS errors
       // This will fail fast before DuckDB tries to connect
       // We need to test with the SAME headers that DuckDB will use, including x-user-agent
+      // Always send x-project-id header, defaulting to 'default' for the default project
+      const projectId = config.projectId || 'default';
       const testUrl = `${config.restUri}/v1/config?warehouse=${config.catalogName}`;
 
       //cors
       try {
         await fetch(testUrl, {
           method: 'GET',
-          headers: addProjectIdHeader(
-            {
-              Authorization: `Bearer ${config.accessToken}`,
-              'Content-Type': 'application/json',
-              // This is the header that DuckDB sends and often causes CORS issues
-              'x-user-agent': 'duckdb-wasm',
-            },
-            config.projectId,
-          ),
+          headers: {
+            Authorization: `Bearer ${config.accessToken}`,
+            'Content-Type': 'application/json',
+            // This is the header that DuckDB sends and often causes CORS issues
+            'x-user-agent': 'duckdb-wasm',
+            // Always include project ID - use 'default' for default project
+            'x-project-id': projectId,
+          },
         });
       } catch (fetchError) {
         const errorMsg = fetchError instanceof Error ? fetchError.message : String(fetchError);
@@ -92,8 +86,8 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
         throw fetchError;
       }
 
-      // Execute all setup commands in correct order FORCE INSTALL iceberg FROM core_nightly;
-      const projectIdPrefix = config.projectId !== undefined ? config.projectId + '/' : '';
+      // Execute all setup commands in correct order
+      // Always use 'projectId/catalogName' pattern - use 'default' for default project
       const setupQuery = `
         SET builtin_httpfs = false;
         INSTALL httpfs;
@@ -104,7 +98,7 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
           TYPE iceberg,
           TOKEN '${config.accessToken}'
         );
-        ATTACH '${projectIdPrefix}${config.catalogName}' AS ${config.catalogName} (
+        ATTACH '${projectId}/${config.catalogName}' AS "${config.catalogName}" (
           TYPE iceberg,
           SUPPORT_NESTED_NAMESPACES true,
           SUPPORT_STAGE_CREATE true,
@@ -113,8 +107,8 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
         );
       `;
 
-      const res = await duckDB.executeQuery(setupQuery);
-      console.log('✅ [DuckDB Iceberg] Catalog configured successfully:', res);
+      await duckDB.executeQuery(setupQuery);
+
       catalogConfigured.value = true;
     } catch (e) {
       console.error('❌ [DuckDB Iceberg] Failed to configure catalog:', e);

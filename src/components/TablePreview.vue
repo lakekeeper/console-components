@@ -172,6 +172,7 @@ async function loadPreview() {
     // Configure Iceberg catalog (this initializes DuckDB if needed)
     await icebergDB.configureCatalog({
       catalogName: warehouseName.value,
+      projectId: wh['project-id'],
       restUri: props.catalogUrl,
       accessToken: userStore.user.access_token,
     });
@@ -180,7 +181,7 @@ async function loadPreview() {
     // This ensures the catalog is available for the SELECT query
     const query = `
       -- Attach catalog on this connection
-      ATTACH IF NOT EXISTS '${warehouseName.value}' AS ${warehouseName.value} (
+      ATTACH IF NOT EXISTS '${wh['project-id']}/${warehouseName.value}' AS "${warehouseName.value}" (
         TYPE iceberg,
         SUPPORT_NESTED_NAMESPACES true,
         SUPPORT_STAGE_CREATE true,
