@@ -627,7 +627,7 @@ function handleTableSelected(item: {
     props.warehouseName &&
     item.namespaceId
   ) {
-    textToInsert = `${props.warehouseName}.${item.namespaceId}.${item.name}`;
+    textToInsert = `"${props.warehouseName}"."${item.namespaceId}"."${item.name}"`;
   }
 
   if (textToInsert) {
