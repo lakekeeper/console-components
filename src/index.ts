@@ -158,6 +158,8 @@ export { useVisualStore } from './stores/visual';
 export { usePermissionStore } from './stores/permissions';
 export { useUserStore } from './stores/user';
 export { useNotificationStore } from './stores/notifications';
+export { useNavigationStore } from './stores/navigation';
+export type { NavigationState } from './stores/navigation';
 
 // Export common types and enums
 export * from './common/interfaces';
