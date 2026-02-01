@@ -9,6 +9,15 @@
             color="secondary"
             density="compact"
             variant="outlined"
+            @click="openConfigDialog"
+            class="mr-2">
+            <v-icon start>mdi-cog</v-icon>
+            Task Log Config
+          </v-btn>
+          <v-btn
+            color="secondary"
+            density="compact"
+            variant="outlined"
             @click="showFilters = !showFilters"
             class="mr-2">
             <v-icon start>mdi-filter-variant</v-icon>
@@ -412,6 +421,114 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Task Log Cleanup Configuration Dialog -->
+    <v-dialog v-model="showConfigDialog" max-width="600px" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-cog</v-icon>
+          Task Log Cleanup Configuration
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="text" @click="closeConfigDialog"></v-btn>
+        </v-card-title>
+
+        <v-divider></v-divider>
+
+        <v-card-text v-if="configLoading" class="text-center pa-8">
+          <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
+          <div class="text-h6 mt-4">Loading configuration...</div>
+        </v-card-text>
+
+        <v-card-text v-else-if="configError" class="text-center pa-8">
+          <v-icon size="64" color="error">mdi-alert-circle-outline</v-icon>
+          <div class="text-h6 mt-2 text-error">Failed to load configuration</div>
+          <div class="text-body-1 mt-2 text-grey">{{ configError }}</div>
+          <v-btn class="mt-4" color="primary" variant="outlined" @click="loadConfig">
+            Try Again
+          </v-btn>
+        </v-card-text>
+
+        <v-card-text v-else class="pt-4">
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Configure how long task logs are retained and how often cleanup runs.
+          </v-alert>
+
+          <v-row>
+            <v-col cols="12">
+              <v-text-field
+                v-model="configForm.retentionDays"
+                label="Retention Period (days)"
+                type="number"
+                min="1"
+                max="365"
+                hint="How long to keep task logs before deletion (1-365 days)"
+                persistent-hint
+                density="compact"
+                :rules="[
+                  (v) => !!v || 'Retention period is required',
+                  (v) => v >= 1 || 'Must be at least 1 day',
+                  (v) => v <= 365 || 'Cannot exceed 365 days',
+                ]">
+                <template #prepend-inner>
+                  <v-icon>mdi-calendar-clock</v-icon>
+                </template>
+              </v-text-field>
+            </v-col>
+
+            <v-col cols="12">
+              <v-text-field
+                v-model="configForm.cleanupPeriodDays"
+                label="Cleanup Frequency (days)"
+                type="number"
+                min="1"
+                max="30"
+                hint="How often to run the cleanup task (1-30 days)"
+                persistent-hint
+                density="compact"
+                :rules="[
+                  (v) => !!v || 'Cleanup frequency is required',
+                  (v) => v >= 1 || 'Must be at least 1 day',
+                  (v) => v <= 30 || 'Cannot exceed 30 days',
+                ]">
+                <template #prepend-inner>
+                  <v-icon>mdi-broom</v-icon>
+                </template>
+              </v-text-field>
+            </v-col>
+
+            <v-col cols="12">
+              <v-divider class="my-2"></v-divider>
+              <div class="text-caption text-grey">
+                <strong>Current Settings:</strong>
+                <div class="mt-2">
+                  • Task logs will be deleted after
+                  <strong>{{ configForm.retentionDays || 90 }} days</strong>
+                </div>
+                <div>
+                  • Cleanup runs every
+                  <strong>{{ configForm.cleanupPeriodDays || 1 }} day(s)</strong>
+                </div>
+              </div>
+            </v-col>
+          </v-row>
+        </v-card-text>
+
+        <v-divider></v-divider>
+
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn color="secondary" variant="text" @click="closeConfigDialog">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            :loading="configSaving"
+            :disabled="!isConfigValid"
+            @click="saveConfig">
+            Save Configuration
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card-text>
 </template>
 
@@ -428,6 +545,8 @@ import type {
   ListProjectTasksRequest,
   ListProjectTasksResponse,
   GetProjectTaskDetailsResponse,
+  GetTaskLogCleanupConfig,
+  SetTaskLogCleanupConfig,
 } from '../gen/management/types.gen';
 
 // Props
@@ -474,6 +593,16 @@ const showCancelConfirmDialog = ref(false);
 const showRunNowConfirmDialog = ref(false);
 const taskToConfirm = ref<Task | null>(null);
 const taskActionLoading = ref(false);
+
+// Task log cleanup configuration modal data
+const showConfigDialog = ref(false);
+const configLoading = ref(false);
+const configSaving = ref(false);
+const configError = ref('');
+const configForm = reactive({
+  retentionDays: 90,
+  cleanupPeriodDays: 1,
+});
 
 // Pagination state
 const currentPaginationOptions = ref({
@@ -537,6 +666,15 @@ const activeFilterCount = computed(() => {
   if (filters.taskId !== '') count++;
   if (filters.parentTaskId !== '') count++;
   return count;
+});
+
+// Computed property for config validation
+const isConfigValid = computed(() => {
+  const retention = configForm.retentionDays;
+  const cleanup = configForm.cleanupPeriodDays;
+  return (
+    retention && retention >= 1 && retention <= 365 && cleanup && cleanup >= 1 && cleanup <= 30
+  );
 });
 
 // Filter functions
@@ -643,6 +781,114 @@ async function confirmRunTaskNow() {
   } finally {
     taskActionLoading.value = false;
   }
+}
+
+// Task log cleanup configuration functions
+function openConfigDialog() {
+  showConfigDialog.value = true;
+  loadConfig();
+}
+
+function closeConfigDialog() {
+  showConfigDialog.value = false;
+  configError.value = '';
+}
+
+async function loadConfig() {
+  configLoading.value = true;
+  configError.value = '';
+
+  try {
+    const config: GetTaskLogCleanupConfig = await functions.getProjectTaskLogCleanupConfig(
+      props.projectId,
+    );
+
+    // Parse ISO8601 duration to days
+    const queueConfig = config['queue-config'];
+    if (queueConfig) {
+      // Parse retention period (default 90 days)
+      if (queueConfig['retention-period']) {
+        configForm.retentionDays = parseDurationToDays(queueConfig['retention-period']);
+      } else {
+        configForm.retentionDays = 90;
+      }
+
+      // Parse cleanup period (default 1 day)
+      if (queueConfig['cleanup-period']) {
+        configForm.cleanupPeriodDays = parseDurationToDays(queueConfig['cleanup-period']);
+      } else {
+        configForm.cleanupPeriodDays = 1;
+      }
+    }
+  } catch (error: any) {
+    console.error('Failed to load task log cleanup config:', error);
+
+    if (error?.response?.status === 403) {
+      configError.value = 'You do not have permission to view this configuration.';
+    } else if (error?.response?.status === 404) {
+      configError.value = 'Configuration not found. Using default values.';
+      // Set defaults
+      configForm.retentionDays = 90;
+      configForm.cleanupPeriodDays = 1;
+    } else if (error?.response?.status >= 500) {
+      configError.value = 'Server error occurred. Please try again later.';
+    } else {
+      configError.value = error?.message || 'Failed to load configuration.';
+    }
+  } finally {
+    configLoading.value = false;
+  }
+}
+
+async function saveConfig() {
+  if (!isConfigValid.value) return;
+
+  configSaving.value = true;
+
+  try {
+    const config: SetTaskLogCleanupConfig = {
+      'queue-config': {
+        'retention-period': `P${configForm.retentionDays}D`,
+        'cleanup-period': `P${configForm.cleanupPeriodDays}D`,
+      },
+    };
+
+    await functions.setProjectTaskLogCleanupConfig(config, props.projectId, true);
+
+    closeConfigDialog();
+  } catch (error: any) {
+    console.error('Failed to save task log cleanup config:', error);
+
+    let errorMsg = 'Failed to save configuration.';
+    if (error?.response?.status === 403) {
+      errorMsg = 'You do not have permission to update this configuration.';
+    } else if (error?.response?.status >= 500) {
+      errorMsg = 'Server error occurred. Please try again later.';
+    } else if (error?.message) {
+      errorMsg = error.message;
+    }
+
+    visual.setSnackbarMsg({
+      function: 'setProjectTaskLogCleanupConfig',
+      text: errorMsg,
+      ttl: 5000,
+      ts: Date.now(),
+      type: Type.ERROR,
+    });
+  } finally {
+    configSaving.value = false;
+  }
+}
+
+// Helper function to parse ISO8601 duration to days
+function parseDurationToDays(duration: string): number {
+  // Simple parser for durations like "P90D" or "P1D"
+  const match = duration.match(/^P(\d+)D$/);
+  if (match) {
+    return parseInt(match[1], 10);
+  }
+  // Default to 1 day if parsing fails
+  return 1;
 }
 
 // Helper functions

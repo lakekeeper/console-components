@@ -689,6 +689,11 @@ export type GetTaskDetailsResponse = WarehouseTaskInfo & {
     };
 };
 
+export type GetTaskLogCleanupConfig = {
+    'max-seconds-since-last-heartbeat'?: number | null;
+    'queue-config': TaskLogCleanupConfig;
+};
+
 export type GetViewAccessResponse = {
     'allowed-actions': Array<ViewAction>;
 };
@@ -1659,6 +1664,11 @@ export type SetTabularExpirationQueueConfig = {
     'queue-config': TabularExpirationQueueConfig;
 };
 
+export type SetTaskLogCleanupConfig = {
+    'max-seconds-since-last-heartbeat'?: number | null;
+    'queue-config': TaskLogCleanupConfig;
+};
+
 /**
  * Storage secret for a warehouse.
  */
@@ -1780,6 +1790,18 @@ export type TaskAttempt = {
      * Status of this attempt
      */
     status: TaskStatus;
+};
+
+export type TaskLogCleanupConfig = {
+    /**
+     * How often to run the cleanup task in ISO8601 duration format. Defaults to once a day (P1D).
+     * If a value below 1 day is provided, it will be set to the default of 1 day.
+     */
+    'cleanup-period'?: string | null;
+    /**
+     * How long to retain task logs before deletion in ISO8601 duration format. Defaults to 90 days.
+     */
+    'retention-period'?: string | null;
 };
 
 export type TaskStatus = 'RUNNING' | 'SCHEDULED' | 'STOPPING' | 'CANCELLED' | 'SUCCESS' | 'FAILED';
@@ -3263,6 +3285,59 @@ export type RenameProjectResponses = {
      */
     200: unknown;
 };
+
+export type GetProjectTaskQueueConfigTaskLogCleanupData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/project/task-queue/task_log_cleanup/config';
+};
+
+export type GetProjectTaskQueueConfigTaskLogCleanupErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetProjectTaskQueueConfigTaskLogCleanupError = GetProjectTaskQueueConfigTaskLogCleanupErrors[keyof GetProjectTaskQueueConfigTaskLogCleanupErrors];
+
+export type GetProjectTaskQueueConfigTaskLogCleanupResponses = {
+    200: GetTaskLogCleanupConfig;
+};
+
+export type GetProjectTaskQueueConfigTaskLogCleanupResponse = GetProjectTaskQueueConfigTaskLogCleanupResponses[keyof GetProjectTaskQueueConfigTaskLogCleanupResponses];
+
+export type SetProjectTaskQueueConfigTaskLogCleanupData = {
+    body: SetTaskLogCleanupConfig;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/project/task-queue/task_log_cleanup/config';
+};
+
+export type SetProjectTaskQueueConfigTaskLogCleanupErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetProjectTaskQueueConfigTaskLogCleanupError = SetProjectTaskQueueConfigTaskLogCleanupErrors[keyof SetProjectTaskQueueConfigTaskLogCleanupErrors];
+
+export type SetProjectTaskQueueConfigTaskLogCleanupResponses = {
+    /**
+     * Project-level Task queue config set successfully
+     */
+    204: void;
+};
+
+export type SetProjectTaskQueueConfigTaskLogCleanupResponse = SetProjectTaskQueueConfigTaskLogCleanupResponses[keyof SetProjectTaskQueueConfigTaskLogCleanupResponses];
 
 export type GetProjectTaskDetailsData = {
     body?: never;

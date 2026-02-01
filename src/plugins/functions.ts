@@ -15,6 +15,8 @@ import {
   ListProjectTasksRequest,
   ListProjectTasksResponse,
   GetProjectTaskDetailsResponse,
+  GetTaskLogCleanupConfig,
+  SetTaskLogCleanupConfig,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
 import * as ice from '@/gen/iceberg/sdk.gen';
@@ -2921,6 +2923,68 @@ async function controlProjectTasks(
   }
 }
 
+async function getProjectTaskLogCleanupConfig(
+  projectId?: string,
+  notify?: boolean,
+): Promise<GetTaskLogCleanupConfig> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getProjectTaskQueueConfigTaskLogCleanup({
+      client,
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'getProjectTaskLogCleanupConfig',
+        'Task log cleanup config retrieved successfully',
+        notify,
+      );
+    }
+    return data as GetTaskLogCleanupConfig;
+  } catch (error: any) {
+    handleError(error, 'getProjectTaskLogCleanupConfig');
+    throw error;
+  }
+}
+
+async function setProjectTaskLogCleanupConfig(
+  config: SetTaskLogCleanupConfig,
+  projectId?: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { error } = await mng.setProjectTaskQueueConfigTaskLogCleanup({
+      client,
+      body: config,
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'setProjectTaskLogCleanupConfig',
+        'Task log cleanup config updated successfully',
+        notify,
+      );
+    }
+    return true;
+  } catch (error: any) {
+    handleError(error, 'setProjectTaskLogCleanupConfig');
+    throw error;
+  }
+}
+
 // Authorizer Actions - OpenFGA relations for permission delegation
 // These work with ALL authorization backends (allow-all, openfga, future backends)
 
@@ -3572,7 +3636,7 @@ function copyToClipboard(text: string) {
   });
 }
 
-async function getNewToken(auth: any) {
+async function getNewToken(auth: any, tokenDialog?: any) {
   const visual = useVisualStore();
   // const userStore = useUserStore();
 
@@ -3589,22 +3653,94 @@ async function getNewToken(auth: any) {
         ? new Date(user.token_expires_at * 1000).toLocaleString()
         : 'unknown';
 
-      // Copy to clipboard and show single success message
-      await navigator.clipboard.writeText(user.access_token);
+      // Try to copy to clipboard with Safari-compatible fallback
+      const copySuccess = await tryClipboardCopy(user.access_token);
 
-      visual.setSnackbarMsg({
-        function: 'getNewToken',
-        text: `Token copied to clipboard. Expires at: ${expiresAt}`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.SUCCESS,
-      });
+      if (copySuccess) {
+        visual.setSnackbarMsg({
+          function: 'getNewToken',
+          text: `Token copied to clipboard. Expires at: ${expiresAt}`,
+          ttl: 3000,
+          ts: Date.now(),
+          type: Type.SUCCESS,
+        });
+      } else {
+        // If copy fails and we have a dialog, show it
+        if (tokenDialog && tokenDialog.show) {
+          tokenDialog.show(user.access_token, expiresAt);
+        } else {
+          // Fallback to alert if no dialog available
+          const message = `Your access token (expires: ${expiresAt}):\n\n${user.access_token}`;
+          setTimeout(() => {
+            alert(message);
+          }, 100);
+        }
+
+        visual.setSnackbarMsg({
+          function: 'getNewToken',
+          text: `Token displayed in dialog. Please copy it manually.`,
+          ttl: 3000,
+          ts: Date.now(),
+          type: Type.INFO,
+        });
+      }
     } else {
       throw new Error('No access token available');
     }
   } catch (error) {
     handleError(error, new Error('Failed to get new token'));
   }
+}
+
+// Helper function to copy text to clipboard with multiple fallback methods for Safari compatibility
+async function tryClipboardCopy(text: string): Promise<boolean> {
+  // Method 1: Try modern clipboard API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn('Clipboard API failed:', err);
+    }
+  }
+
+  // Method 2: Try execCommand with visible textarea
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '0';
+    textArea.style.opacity = '0';
+    textArea.setAttribute('readonly', '');
+    document.body.appendChild(textArea);
+
+    // For iOS Safari
+    if (navigator.userAgent.match(/ipad|iphone/i)) {
+      const range = document.createRange();
+      range.selectNodeContents(textArea);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      textArea.setSelectionRange(0, text.length);
+    } else {
+      textArea.select();
+    }
+
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    if (successful) {
+      return true;
+    }
+  } catch (err) {
+    console.warn('execCommand copy failed:', err);
+  }
+
+  // All methods failed
+  return false;
 }
 
 export function useFunctions(config?: any) {
@@ -3735,6 +3871,8 @@ export function useFunctions(config?: any) {
     listProjectTasks,
     getProjectTaskDetails,
     controlProjectTasks,
+    getProjectTaskLogCleanupConfig,
+    setProjectTaskLogCleanupConfig,
     getNewToken,
     handleError,
   };
