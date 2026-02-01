@@ -84,11 +84,14 @@
 
     <!-- Notification Panel -->
     <NotificationPanel />
+
+    <!-- Token Dialog -->
+    <TokenDialog ref="tokenDialog" />
   </v-app-bar>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onMounted } from 'vue';
+import { computed, inject, onMounted, ref } from 'vue';
 import { useTheme } from 'vuetify';
 import { useVisualStore } from '../stores/visual';
 import { useConfig } from '../composables/useCatalogPermissions';
@@ -97,6 +100,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useRouter } from 'vue-router';
 import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT_SIDE.svg';
 import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE_SIDE.svg';
+import TokenDialog from './TokenDialog.vue';
 
 // Props
 const props = defineProps({
@@ -119,6 +123,7 @@ const visual = useVisualStore();
 const config = useConfig();
 const functions = useFunctions();
 const auth = inject<any>('auth', null);
+const tokenDialog = ref<InstanceType<typeof TokenDialog> | null>(null);
 
 const userStorage = useUserStore();
 
@@ -185,6 +190,6 @@ function goToSupport() {
 }
 
 async function getNewToken() {
-  await functions.getNewToken(auth);
+  await functions.getNewToken(auth, tokenDialog.value);
 }
 </script>

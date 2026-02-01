@@ -3572,7 +3572,7 @@ function copyToClipboard(text: string) {
   });
 }
 
-async function getNewToken(auth: any) {
+async function getNewToken(auth: any, tokenDialog?: any) {
   const visual = useVisualStore();
   // const userStore = useUserStore();
 
@@ -3601,13 +3601,16 @@ async function getNewToken(auth: any) {
           type: Type.SUCCESS,
         });
       } else {
-        // If copy fails, show token in an alert dialog that's easy to select and copy from
-        const message = `Your access token (expires: ${expiresAt}):\n\n${user.access_token}\n\nClick OK to dismiss.`;
-
-        // Use setTimeout to ensure the alert appears after any click handlers complete
-        setTimeout(() => {
-          alert(message);
-        }, 100);
+        // If copy fails and we have a dialog, show it
+        if (tokenDialog && tokenDialog.show) {
+          tokenDialog.show(user.access_token, expiresAt);
+        } else {
+          // Fallback to alert if no dialog available
+          const message = `Your access token (expires: ${expiresAt}):\n\n${user.access_token}`;
+          setTimeout(() => {
+            alert(message);
+          }, 100);
+        }
 
         visual.setSnackbarMsg({
           function: 'getNewToken',
