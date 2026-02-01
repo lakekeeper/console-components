@@ -3613,7 +3613,7 @@ async function getNewToken(auth: any) {
 
         try {
           const successful = document.execCommand('copy');
-          
+
           if (successful) {
             visual.setSnackbarMsg({
               function: 'getNewToken',
