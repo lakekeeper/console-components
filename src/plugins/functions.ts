@@ -15,6 +15,8 @@ import {
   ListProjectTasksRequest,
   ListProjectTasksResponse,
   GetProjectTaskDetailsResponse,
+  GetTaskLogCleanupConfig,
+  SetTaskLogCleanupConfig,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
 import * as ice from '@/gen/iceberg/sdk.gen';
@@ -2921,6 +2923,68 @@ async function controlProjectTasks(
   }
 }
 
+async function getProjectTaskLogCleanupConfig(
+  projectId?: string,
+  notify?: boolean,
+): Promise<GetTaskLogCleanupConfig> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getProjectTaskQueueConfigTaskLogCleanup({
+      client,
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'getProjectTaskLogCleanupConfig',
+        'Task log cleanup config retrieved successfully',
+        notify,
+      );
+    }
+    return data as GetTaskLogCleanupConfig;
+  } catch (error: any) {
+    handleError(error, 'getProjectTaskLogCleanupConfig');
+    throw error;
+  }
+}
+
+async function setProjectTaskLogCleanupConfig(
+  config: SetTaskLogCleanupConfig,
+  projectId?: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { error } = await mng.setProjectTaskQueueConfigTaskLogCleanup({
+      client,
+      body: config,
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'setProjectTaskLogCleanupConfig',
+        'Task log cleanup config updated successfully',
+        notify,
+      );
+    }
+    return true;
+  } catch (error: any) {
+    handleError(error, 'setProjectTaskLogCleanupConfig');
+    throw error;
+  }
+}
+
 // Authorizer Actions - OpenFGA relations for permission delegation
 // These work with ALL authorization backends (allow-all, openfga, future backends)
 
@@ -3807,6 +3871,8 @@ export function useFunctions(config?: any) {
     listProjectTasks,
     getProjectTaskDetails,
     controlProjectTasks,
+    getProjectTaskLogCleanupConfig,
+    setProjectTaskLogCleanupConfig,
     getNewToken,
     handleError,
   };
