@@ -3601,14 +3601,21 @@ async function getNewToken(auth: any) {
         });
       } catch (clipboardError) {
         // Fallback for Safari and browsers with strict clipboard policies
-        // Use the legacy execCommand method
+        // Use the legacy execCommand method with proper visibility
         const textArea = document.createElement('textarea');
         textArea.value = user.access_token;
-        textArea.style.position = 'fixed';
-        textArea.style.left = '-999999px';
-        textArea.style.top = '-999999px';
+        // Make it visible but off-screen (Safari requires visible elements)
+        textArea.style.position = 'absolute';
+        textArea.style.left = '-9999px';
+        textArea.style.top = '0';
+        textArea.style.width = '1px';
+        textArea.style.height = '1px';
+        textArea.style.opacity = '0';
+        textArea.setAttribute('readonly', '');
         document.body.appendChild(textArea);
-        textArea.focus();
+        
+        // Set selection range for iOS Safari
+        textArea.setSelectionRange(0, textArea.value.length);
         textArea.select();
 
         try {
@@ -3626,11 +3633,11 @@ async function getNewToken(auth: any) {
             throw new Error('Copy command failed');
           }
         } catch (execError) {
-          // If both methods fail, show the token in a dialog
+          // If both methods fail, show the full token so user can manually copy
           visual.setSnackbarMsg({
             function: 'getNewToken',
-            text: `Could not copy automatically. Token: ${user.access_token.substring(0, 20)}... (expires: ${expiresAt})`,
-            ttl: 10000,
+            text: `Please copy manually: ${user.access_token} (expires: ${expiresAt})`,
+            ttl: 15000,
             ts: Date.now(),
             type: Type.WARNING,
           });
