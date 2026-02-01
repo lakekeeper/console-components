@@ -3589,16 +3589,55 @@ async function getNewToken(auth: any) {
         ? new Date(user.token_expires_at * 1000).toLocaleString()
         : 'unknown';
 
-      // Copy to clipboard and show single success message
-      await navigator.clipboard.writeText(user.access_token);
+      // Copy to clipboard with fallback for Safari
+      try {
+        await navigator.clipboard.writeText(user.access_token);
+        visual.setSnackbarMsg({
+          function: 'getNewToken',
+          text: `Token copied to clipboard. Expires at: ${expiresAt}`,
+          ttl: 3000,
+          ts: Date.now(),
+          type: Type.SUCCESS,
+        });
+      } catch (clipboardError) {
+        // Fallback for Safari and browsers with strict clipboard policies
+        // Use the legacy execCommand method
+        const textArea = document.createElement('textarea');
+        textArea.value = user.access_token;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
 
-      visual.setSnackbarMsg({
-        function: 'getNewToken',
-        text: `Token copied to clipboard. Expires at: ${expiresAt}`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.SUCCESS,
-      });
+        try {
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+
+          if (successful) {
+            visual.setSnackbarMsg({
+              function: 'getNewToken',
+              text: `Token copied to clipboard. Expires at: ${expiresAt}`,
+              ttl: 3000,
+              ts: Date.now(),
+              type: Type.SUCCESS,
+            });
+          } else {
+            throw new Error('Copy command failed');
+          }
+        } catch (execError) {
+          document.body.removeChild(textArea);
+          // If both methods fail, show the token in a dialog
+          visual.setSnackbarMsg({
+            function: 'getNewToken',
+            text: `Could not copy automatically. Token: ${user.access_token.substring(0, 20)}... (expires: ${expiresAt})`,
+            ttl: 10000,
+            ts: Date.now(),
+            type: Type.WARNING,
+          });
+        }
+      }
     } else {
       throw new Error('No access token available');
     }
