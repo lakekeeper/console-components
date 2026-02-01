@@ -3613,8 +3613,7 @@ async function getNewToken(auth: any) {
 
         try {
           const successful = document.execCommand('copy');
-          document.body.removeChild(textArea);
-
+          
           if (successful) {
             visual.setSnackbarMsg({
               function: 'getNewToken',
@@ -3627,7 +3626,6 @@ async function getNewToken(auth: any) {
             throw new Error('Copy command failed');
           }
         } catch (execError) {
-          document.body.removeChild(textArea);
           // If both methods fail, show the token in a dialog
           visual.setSnackbarMsg({
             function: 'getNewToken',
@@ -3636,6 +3634,16 @@ async function getNewToken(auth: any) {
             ts: Date.now(),
             type: Type.WARNING,
           });
+        } finally {
+          // Clean up the textarea safely in a finally block
+          try {
+            if (textArea.parentNode) {
+              document.body.removeChild(textArea);
+            }
+          } catch (cleanupError) {
+            // Ignore cleanup errors
+            console.warn('Failed to cleanup textarea:', cleanupError);
+          }
         }
       }
     } else {
