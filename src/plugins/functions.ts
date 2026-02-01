@@ -3613,7 +3613,7 @@ async function getNewToken(auth: any) {
         textArea.style.opacity = '0';
         textArea.setAttribute('readonly', '');
         document.body.appendChild(textArea);
-        
+
         // Set selection range for iOS Safari
         textArea.setSelectionRange(0, textArea.value.length);
         textArea.select();
