@@ -55,8 +55,8 @@ const displayToken = computed(() => {
   if (showToken.value) {
     return token.value;
   }
-  // Mask the token with dots
-  return '•'.repeat(token.value.length);
+  // Show a shortened masked version
+  return '•••••••••••••• (hidden)';
 });
 
 function show(accessToken: string, expirationTime: string) {
