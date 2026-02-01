@@ -3589,9 +3589,10 @@ async function getNewToken(auth: any) {
         ? new Date(user.token_expires_at * 1000).toLocaleString()
         : 'unknown';
 
-      // Copy to clipboard with fallback for Safari
-      try {
-        await navigator.clipboard.writeText(user.access_token);
+      // Try to copy to clipboard with Safari-compatible fallback
+      const copySuccess = await tryClipboardCopy(user.access_token);
+
+      if (copySuccess) {
         visual.setSnackbarMsg({
           function: 'getNewToken',
           text: `Token copied to clipboard. Expires at: ${expiresAt}`,
@@ -3599,59 +3600,22 @@ async function getNewToken(auth: any) {
           ts: Date.now(),
           type: Type.SUCCESS,
         });
-      } catch (clipboardError) {
-        // Fallback for Safari and browsers with strict clipboard policies
-        // Use the legacy execCommand method with proper visibility
-        const textArea = document.createElement('textarea');
-        textArea.value = user.access_token;
-        // Make it visible but off-screen (Safari requires visible elements)
-        textArea.style.position = 'absolute';
-        textArea.style.left = '-9999px';
-        textArea.style.top = '0';
-        textArea.style.width = '1px';
-        textArea.style.height = '1px';
-        textArea.style.opacity = '0';
-        textArea.setAttribute('readonly', '');
-        document.body.appendChild(textArea);
+      } else {
+        // If copy fails, show token in an alert dialog that's easy to select and copy from
+        const message = `Your access token (expires: ${expiresAt}):\n\n${user.access_token}\n\nClick OK to dismiss.`;
 
-        // Set selection range for iOS Safari
-        textArea.setSelectionRange(0, textArea.value.length);
-        textArea.select();
+        // Use setTimeout to ensure the alert appears after any click handlers complete
+        setTimeout(() => {
+          alert(message);
+        }, 100);
 
-        try {
-          const successful = document.execCommand('copy');
-
-          if (successful) {
-            visual.setSnackbarMsg({
-              function: 'getNewToken',
-              text: `Token copied to clipboard. Expires at: ${expiresAt}`,
-              ttl: 3000,
-              ts: Date.now(),
-              type: Type.SUCCESS,
-            });
-          } else {
-            throw new Error('Copy command failed');
-          }
-        } catch (execError) {
-          // If both methods fail, show the full token so user can manually copy
-          visual.setSnackbarMsg({
-            function: 'getNewToken',
-            text: `Please copy manually: ${user.access_token} (expires: ${expiresAt})`,
-            ttl: 15000,
-            ts: Date.now(),
-            type: Type.WARNING,
-          });
-        } finally {
-          // Clean up the textarea safely in a finally block
-          try {
-            if (textArea.parentNode) {
-              document.body.removeChild(textArea);
-            }
-          } catch (cleanupError) {
-            // Ignore cleanup errors
-            console.warn('Failed to cleanup textarea:', cleanupError);
-          }
-        }
+        visual.setSnackbarMsg({
+          function: 'getNewToken',
+          text: `Token displayed in dialog. Please copy it manually.`,
+          ttl: 3000,
+          ts: Date.now(),
+          type: Type.INFO,
+        });
       }
     } else {
       throw new Error('No access token available');
@@ -3659,6 +3623,57 @@ async function getNewToken(auth: any) {
   } catch (error) {
     handleError(error, new Error('Failed to get new token'));
   }
+}
+
+// Helper function to copy text to clipboard with multiple fallback methods for Safari compatibility
+async function tryClipboardCopy(text: string): Promise<boolean> {
+  // Method 1: Try modern clipboard API
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn('Clipboard API failed:', err);
+    }
+  }
+
+  // Method 2: Try execCommand with visible textarea
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    textArea.style.top = '0';
+    textArea.style.opacity = '0';
+    textArea.setAttribute('readonly', '');
+    document.body.appendChild(textArea);
+
+    // For iOS Safari
+    if (navigator.userAgent.match(/ipad|iphone/i)) {
+      const range = document.createRange();
+      range.selectNodeContents(textArea);
+      const selection = window.getSelection();
+      if (selection) {
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      textArea.setSelectionRange(0, text.length);
+    } else {
+      textArea.select();
+    }
+
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+
+    if (successful) {
+      return true;
+    }
+  } catch (err) {
+    console.warn('execCommand copy failed:', err);
+  }
+
+  // All methods failed
+  return false;
 }
 
 export function useFunctions(config?: any) {
