@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.22](https://github.com/lakekeeper/console-components/compare/v0.2.21...v0.2.22) (2026-02-01)
+
+
+### Bug Fixes
+
+* token create and project task config ([#67](https://github.com/lakekeeper/console-components/issues/67)) ([ca5ca52](https://github.com/lakekeeper/console-components/commit/ca5ca5219259f45a238be8e09b1c611c781ae601))
+
 ## [0.2.21](https://github.com/lakekeeper/console-components/compare/v0.2.20...v0.2.21) (2026-01-29)
 
 
