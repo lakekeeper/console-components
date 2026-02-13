@@ -133,11 +133,26 @@
             </v-card-text>
           </v-expand-transition>
 
+          <!-- Namespace Selection (if multiple namespaces available) -->
+          <v-card-text v-if="availableNamespaces.length > 1" class="flex-grow-0 pb-0">
+            <v-autocomplete
+              v-model="selectedNamespace"
+              :items="availableNamespaces"
+              label="Select Namespace"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+              :loading="loadingNamespaces"
+              prepend-inner-icon="mdi-folder"
+              @update:model-value="onNamespaceChange"></v-autocomplete>
+          </v-card-text>
+
           <!-- Table Selection -->
           <v-card-text class="flex-grow-0">
             <v-autocomplete
               v-model="selectedTable"
-              :items="availableTables"
+              :items="filteredTables"
               label="Select Iceberg Table"
               variant="outlined"
               density="compact"
@@ -337,6 +352,8 @@ const props = defineProps<{
   useFreshToken?: boolean;
   /** Optional: Pre-populated table list (overrides auto-fetch) */
   tables?: string[];
+  /** Optional: Namespace to filter tables (e.g., 'schema1.schema2') */
+  namespace?: string;
 }>();
 
 const emit = defineEmits<{
@@ -361,12 +378,15 @@ const storageValidation = useStorageValidation(
 
 const showSettings = ref(false);
 const selectedTable = ref<string | null>(null);
+const selectedNamespace = ref<string | null>(null);
+const availableNamespaces = ref<string[]>([]);
 const hasInitialized = ref(false);
 const warehouseError = ref<string | null>(null);
 const isCheckingWarehouse = ref(false);
 const userQuestion = ref('');
 const isGenerating = ref(false);
 const loadingTables = ref(false);
+const loadingNamespaces = ref(false);
 const a2uiResponse = ref<A2UIResponse | null>(null);
 const generationStatus = ref<Status | null>(null);
 
@@ -423,6 +443,22 @@ const rendererContext = computed(() => ({
   selectedTable: selectedTable.value,
   executeQuery: executeDuckDBQuery,
 }));
+
+// Filter tables based on selected namespace
+const filteredTables = computed(() => {
+  if (!selectedNamespace.value) {
+    return availableTables.value;
+  }
+
+  // Filter tables that belong to the selected namespace
+  return availableTables.value.filter((table) => {
+    const parts = table.split('.');
+    if (parts.length < 3) return false; // catalog.namespace.table format expected
+
+    const tableNamespace = parts.slice(1, -1).join('.'); // Extract namespace part
+    return tableNamespace === selectedNamespace.value;
+  });
+});
 
 // Check if insights are available based on DuckDB and catalog status
 const isInsightsAvailable = computed(() => {
@@ -513,6 +549,7 @@ CRITICAL RULES:
 - Return ONLY valid JSON matching A2UIResponse interface
 - No explanations, no markdown code blocks, no conversational text
 - SQL queries must reference the table: ${selectedTable.value}
+${selectedNamespace.value ? `- The table is in namespace: ${selectedNamespace.value}` : ''}
 - Charts must include valid data or reference SQL results
 - Use descriptive titles and labels
 - Provide actionable insights
@@ -1238,13 +1275,97 @@ async function initializeDuckDB() {
     isCheckingWarehouse.value = false;
 
     if (success) {
-      // Load tables after successful catalog configuration
+      // Load namespaces first
+      await loadAvailableNamespaces();
+      // Then load tables after successful catalog configuration
       await loadAvailableTables();
     }
   } catch (e) {
     isCheckingWarehouse.value = false;
     warehouseError.value = 'Failed to initialize DuckDB WASM';
     console.error('DuckDB initialization failed:', e);
+  }
+}
+
+/**
+ * Load available namespaces from catalog
+ */
+async function loadAvailableNamespaces() {
+  if (!props.warehouseId) return;
+
+  loadingNamespaces.value = true;
+  try {
+    const nsResponse = await functions.listNamespaces(
+      props.warehouseId,
+      undefined,
+      undefined,
+      false,
+    );
+
+    availableNamespaces.value = nsResponse.namespaces.map((ns) => ns.join('.'));
+
+    // Auto-select namespace if specified in props
+    if (props.namespace && availableNamespaces.value.includes(props.namespace)) {
+      selectedNamespace.value = props.namespace;
+    } else if (availableNamespaces.value.length === 1) {
+      // Auto-select if only one namespace
+      selectedNamespace.value = availableNamespaces.value[0];
+    }
+  } catch (error) {
+    console.error('Failed to load namespaces:', error);
+    availableNamespaces.value = [];
+  } finally {
+    loadingNamespaces.value = false;
+  }
+}
+
+/**
+ * Handle namespace selection change
+ */
+function onNamespaceChange() {
+  // Clear selected table when namespace changes
+  selectedTable.value = null;
+  // Reload tables for new namespace
+  if (selectedNamespace.value) {
+    loadTablesForNamespace(selectedNamespace.value);
+  }
+}
+
+/**
+ * Load tables for a specific namespace
+ */
+async function loadTablesForNamespace(namespace: string) {
+  if (!props.warehouseId || !props.warehouseName) return;
+
+  loadingTables.value = true;
+  try {
+    const tablesResponse = await functions.listTables(
+      props.warehouseId,
+      namespace,
+      undefined,
+      false,
+    );
+
+    const namespaceTables: string[] = [];
+    if (tablesResponse.identifiers && tablesResponse.identifiers.length > 0) {
+      tablesResponse.identifiers.forEach((table) => {
+        const fullTableName = `${props.warehouseName}.${namespace}.${table.name}`;
+        namespaceTables.push(fullTableName);
+      });
+    }
+
+    // Update or append to available tables
+    const existingTables = availableTables.value.filter((t) => {
+      const parts = t.split('.');
+      const tableNs = parts.slice(1, -1).join('.');
+      return tableNs !== namespace;
+    });
+
+    availableTables.value = [...existingTables, ...namespaceTables].sort();
+  } catch (error) {
+    console.error(`Failed to load tables for namespace ${namespace}:`, error);
+  } finally {
+    loadingTables.value = false;
   }
 }
 
@@ -1265,17 +1386,28 @@ async function loadAvailableTables() {
   try {
     const allTables: string[] = [];
 
-    // Get all namespaces in the warehouse
-    const nsResponse = await functions.listNamespaces(
-      props.warehouseId,
-      undefined,
-      undefined,
-      false,
-    );
+    // Determine which namespaces to query
+    let namespacesToQuery: string[] = [];
+
+    if (props.namespace) {
+      // Query only specified namespace
+      namespacesToQuery = [props.namespace];
+    } else if (selectedNamespace.value) {
+      // Query only selected namespace
+      namespacesToQuery = [selectedNamespace.value];
+    } else {
+      // Query all namespaces
+      const nsResponse = await functions.listNamespaces(
+        props.warehouseId,
+        undefined,
+        undefined,
+        false,
+      );
+      namespacesToQuery = nsResponse.namespaces.map((ns) => ns.join('.'));
+    }
 
     // For each namespace, fetch tables
-    for (const namespace of nsResponse.namespaces) {
-      const namespacePath = namespace.join('.');
+    for (const namespacePath of namespacesToQuery) {
       try {
         const tablesResponse = await functions.listTables(
           props.warehouseId,
@@ -1328,6 +1460,17 @@ watch(
   (newTables) => {
     if (newTables && newTables.length > 0) {
       availableTables.value = newTables;
+    }
+  },
+);
+
+// Watch for namespace prop changes
+watch(
+  () => props.namespace,
+  (newNamespace) => {
+    if (newNamespace && availableNamespaces.value.includes(newNamespace)) {
+      selectedNamespace.value = newNamespace;
+      loadTablesForNamespace(newNamespace);
     }
   },
 );

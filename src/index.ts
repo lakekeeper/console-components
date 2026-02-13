@@ -1,6 +1,7 @@
 import type { App, Plugin } from 'vue';
 
 // Import core working components
+import AiInsightsPanel from './components/AiInsightsPanel.vue';
 import AppFooter from './components/AppFooter.vue';
 import PermissionManager from './components/PermissionManager.vue';
 import PermissionAssignDialog from './components/PermissionAssignDialog.vue';
@@ -74,6 +75,7 @@ import NotificationPanel from './components/NotificationPanel.vue';
 
 // Export individual components
 export {
+  AiInsightsPanel,
   AppFooter,
   PermissionManager,
   PermissionAssignDialog,
