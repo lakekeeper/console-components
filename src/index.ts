@@ -282,6 +282,7 @@ const components = {
   ViewDetails,
   NotificationButton,
   NotificationPanel,
+  AiInsightsPanel,
 };
 
 // Create the plugin
@@ -322,3 +323,7 @@ export type { QueryResult } from './composables/useDuckDB';
 // Export Iceberg DuckDB integration
 export { useIcebergDuckDB } from './composables/useIcebergDuckDB';
 export type {} from './composables/useIcebergDuckDB';
+
+// Export WebLLM composable
+export { useWebLLM } from './composables/useWebLLM';
+export type { WebLLMConfig } from './composables/useWebLLM';

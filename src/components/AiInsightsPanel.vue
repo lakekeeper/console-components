@@ -133,8 +133,8 @@
             </v-card-text>
           </v-expand-transition>
 
-          <!-- Namespace Selection (if multiple namespaces available) -->
-          <v-card-text v-if="availableNamespaces.length > 1" class="flex-grow-0 pb-0">
+          <!-- Namespace Selection -->
+          <v-card-text class="flex-grow-0 pb-0">
             <v-autocomplete
               v-model="selectedNamespace"
               :items="availableNamespaces"
