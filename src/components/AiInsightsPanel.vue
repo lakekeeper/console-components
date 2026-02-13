@@ -32,6 +32,63 @@
                 hide-details
                 class="mb-3"></v-select>
 
+              <!-- Local WASM LLM Settings -->
+              <template v-if="settings.mode === 'local-wasm'">
+                <v-select
+                  v-model="settings.localModel"
+                  :items="webLLM.availableModels"
+                  item-title="name"
+                  item-value="id"
+                  label="Select Model"
+                  variant="outlined"
+                  density="compact"
+                  class="mb-3">
+                  <template #item="{ props: itemProps, item }">
+                    <v-list-item v-bind="itemProps">
+                      <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
+                      <v-list-item-subtitle class="text-caption">
+                        {{ item.raw.description }}
+                      </v-list-item-subtitle>
+                    </v-list-item>
+                  </template>
+                </v-select>
+
+                <!-- Model Status -->
+                <v-alert
+                  v-if="!webLLM.isInitialized && !webLLM.isInitializing"
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3">
+                  <div class="text-caption">Model will download on first use (~2GB)</div>
+                </v-alert>
+
+                <!-- Loading Progress -->
+                <v-alert
+                  v-if="webLLM.isInitializing"
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3">
+                  <v-progress-linear indeterminate class="mb-2"></v-progress-linear>
+                  <div class="text-caption">{{ webLLM.loadingProgress }}</div>
+                </v-alert>
+
+                <!-- Initialized Status -->
+                <v-alert
+                  v-if="webLLM.isInitialized"
+                  type="success"
+                  variant="tonal"
+                  density="compact"
+                  class="mb-3">
+                  <div class="text-caption">
+                    <v-icon size="small" class="mr-1">mdi-check-circle</v-icon>
+                    Model loaded and ready
+                  </div>
+                </v-alert>
+              </template>
+
+              <!-- Remote API Settings -->
               <template v-if="settings.mode === 'remote'">
                 <v-select
                   v-model="settings.provider"
@@ -203,6 +260,7 @@ import { Chart, registerables } from 'chart.js';
 import type { ChartConfiguration } from 'chart.js';
 import { useFunctions } from '@/plugins/functions';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
+import { useWebLLM } from '@/composables/useWebLLM';
 import type { QueryResult } from '@/composables/useDuckDB';
 import { useUserStore } from '@/stores/user';
 import { useVisualStore } from '@/stores/visual';
@@ -215,6 +273,7 @@ Chart.register(...registerables);
 const functions = useFunctions();
 const userStore = useUserStore();
 const visualStore = useVisualStore();
+const webLLM = useWebLLM();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -239,6 +298,7 @@ interface LLMSettings {
   apiKey: string;
   endpoint: string;
   model: string;
+  localModel: string; // WebLLM model ID
 }
 
 /** Generation Status Alert */
@@ -305,6 +365,7 @@ const settings = ref<LLMSettings>({
   apiKey: '',
   endpoint: '',
   model: '',
+  localModel: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', // Default WebLLM model
 });
 
 const availableTables = ref<string[]>([]);
@@ -484,19 +545,26 @@ Example response structure:
   };
 
   /**
-   * Generate using local WASM LLM
+   * Generate using local WASM LLM (WebLLM)
    */
   const generateLocalWASM = async (prompt: string): Promise<A2UIResponse> => {
-    // Check if window.localLLM exists
-    const localLLM = (window as any).localLLM;
-    if (!localLLM || typeof localLLM.generate !== 'function') {
-      throw new Error(
-        'Local WASM LLM not available. Ensure window.localLLM.generate() is initialized.',
-      );
-    }
-
     try {
-      const response = await localLLM.generate(prompt);
+      // Initialize WebLLM if not already initialized
+      if (!webLLM.isInitialized.value) {
+        await webLLM.initialize({
+          modelId: settings.value.localModel,
+          onProgress: (progress) => {
+            console.log('[WebLLM Progress]', progress.text);
+          },
+        });
+      }
+
+      // Generate response
+      const response = await webLLM.generate(prompt, {
+        temperature: 0.3,
+        maxTokens: 2048,
+      });
+
       return parseA2UIResponse(response);
     } catch (error) {
       throw new Error(

@@ -79,6 +79,7 @@
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.38.6",
     "@duckdb/duckdb-wasm": "^1.32.1-dev1.0",
+    "@mlc-ai/web-llm": "^0.2.72",
     "@wdns/vue-code-block": "^2.3.5",
     "apache-arrow": "^21.1.0",
     "chart.js": "^4.4.9",
