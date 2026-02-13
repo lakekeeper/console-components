@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.24](https://github.com/lakekeeper/console-components/compare/v0.2.23...v0.2.24) (2026-02-13)
+
+
+### Bug Fixes
+
+* register form ui ([#71](https://github.com/lakekeeper/console-components/issues/71)) ([5b257a8](https://github.com/lakekeeper/console-components/commit/5b257a86ed5374a0c1140851eb9a9d7203829694))
+
 ## [0.2.23](https://github.com/lakekeeper/console-components/compare/v0.2.22...v0.2.23) (2026-02-13)
 
 
