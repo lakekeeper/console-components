@@ -255,7 +255,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, defineComponent, h, markRaw, inject, toRef } from 'vue';
+import {
+  ref,
+  computed,
+  onMounted,
+  watch,
+  defineComponent,
+  h,
+  markRaw,
+  inject,
+  toRef,
+  resolveComponent,
+} from 'vue';
 import { Chart, registerables } from 'chart.js';
 import type { ChartConfiguration } from 'chart.js';
 import { useFunctions } from '@/plugins/functions';
@@ -1051,12 +1062,6 @@ function useA2UIRenderer() {
     }
 
     return processed;
-  };
-
-  // Helper to resolve Vue components
-  const resolveComponent = (name: string) => {
-    // Return the component name as string, Vue will resolve it
-    return name;
   };
 
   return { renderComponent };
