@@ -1355,6 +1355,41 @@ async function dropTable(
   }
 }
 
+async function registerTable(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  metadataLocation: string,
+  overwrite?: boolean,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    const client = iceClient.client;
+    const { error } = await ice.registerTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+      },
+      body: {
+        name: tableName,
+        'metadata-location': metadataLocation,
+        overwrite: overwrite || false,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('registerTable', `Table '${tableName}' registered successfully`, notify);
+    }
+
+    return true;
+  } catch (error: any) {
+    handleError(error, 'registerTable', notify);
+    throw error;
+  }
+}
+
 async function getTableProtection(
   warehouseId: string,
   tableId: string,
@@ -3829,6 +3864,7 @@ export function useFunctions(config?: any) {
     updateWarehouseDeleteProfile,
     dropView,
     dropTable,
+    registerTable,
     listUser,
     deleteUser,
     createProject,
