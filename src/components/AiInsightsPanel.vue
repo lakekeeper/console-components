@@ -201,9 +201,13 @@
 import { ref, computed, onMounted, watch, defineComponent, h, markRaw } from 'vue';
 import { Chart, registerables } from 'chart.js';
 import type { ChartConfiguration } from 'chart.js';
+import { useFunctions } from '@/plugins/functions';
 
 // Register Chart.js components
 Chart.register(...registerables);
+
+// Initialize functions API
+const functions = useFunctions();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -251,11 +255,11 @@ const props = withDefaults(
   defineProps<{
     /** DuckDB composable instance (injected via useDuckDB) */
     duckdb?: any;
-    /** Pre-populated table list */
+    /** Pre-populated table list (optional, will auto-fetch from catalog if warehouseId provided) */
     tables?: string[];
-    /** Warehouse ID for table fetching */
+    /** Warehouse ID for fetching tables from Iceberg catalog */
     warehouseId?: string;
-    /** Catalog URL */
+    /** Catalog URL (reserved for future use) */
     catalogUrl?: string;
   }>(),
   {
@@ -1036,26 +1040,75 @@ function clearResults() {
 }
 
 /**
- * Load available tables from DuckDB or props
+ * Load available tables from Iceberg catalog, DuckDB, or props
  */
 async function loadAvailableTables() {
+  // Priority 1: Use explicitly provided tables
   if (props.tables && props.tables.length > 0) {
     availableTables.value = props.tables;
     return;
   }
 
-  if (!props.duckdb) return;
+  // Priority 2: Fetch from Iceberg catalog if warehouseId provided
+  if (props.warehouseId) {
+    loadingTables.value = true;
+    try {
+      const allTables: string[] = [];
 
-  loadingTables.value = true;
-  try {
-    // Query DuckDB for available tables
-    const result = await executeDuckDBQuery('SHOW TABLES');
-    availableTables.value = result.rows.map((row) => row[0] as string);
-  } catch (error) {
-    console.error('Failed to load tables:', error);
-    availableTables.value = [];
-  } finally {
-    loadingTables.value = false;
+      // Get all namespaces in the warehouse
+      const nsResponse = await functions.listNamespaces(
+        props.warehouseId,
+        undefined,
+        undefined,
+        false,
+      );
+
+      // For each namespace, fetch tables
+      for (const namespace of nsResponse.namespaces) {
+        const namespacePath = namespace.join('.');
+        try {
+          const tablesResponse = await functions.listTables(
+            props.warehouseId,
+            namespacePath,
+            undefined,
+            false,
+          );
+
+          // Build fully qualified table names: namespace.tablename
+          if (tablesResponse.identifiers && tablesResponse.identifiers.length > 0) {
+            tablesResponse.identifiers.forEach((table) => {
+              const fullTableName = `${namespacePath}.${table.name}`;
+              allTables.push(fullTableName);
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to load tables for namespace ${namespacePath}:`, error);
+          // Continue with other namespaces
+        }
+      }
+
+      availableTables.value = allTables.sort();
+    } catch (error) {
+      console.error('Failed to load tables from Iceberg catalog:', error);
+      availableTables.value = [];
+    } finally {
+      loadingTables.value = false;
+    }
+    return;
+  }
+
+  // Priority 3: Fallback to DuckDB SHOW TABLES (if available)
+  if (props.duckdb) {
+    loadingTables.value = true;
+    try {
+      const result = await executeDuckDBQuery('SHOW TABLES');
+      availableTables.value = result.rows.map((row) => row[0] as string);
+    } catch (error) {
+      console.error('Failed to load tables from DuckDB:', error);
+      availableTables.value = [];
+    } finally {
+      loadingTables.value = false;
+    }
   }
 }
 
@@ -1073,6 +1126,16 @@ watch(
   (newTables) => {
     if (newTables && newTables.length > 0) {
       availableTables.value = newTables;
+    }
+  },
+);
+
+// Watch for warehouseId changes and reload tables
+watch(
+  () => props.warehouseId,
+  () => {
+    if (props.warehouseId && (!props.tables || props.tables.length === 0)) {
+      loadAvailableTables();
     }
   },
 );
