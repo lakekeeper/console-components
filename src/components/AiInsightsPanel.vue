@@ -198,16 +198,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, defineComponent, h, markRaw } from 'vue';
+import { ref, computed, onMounted, watch, defineComponent, h, markRaw, inject, toRef } from 'vue';
 import { Chart, registerables } from 'chart.js';
 import type { ChartConfiguration } from 'chart.js';
 import { useFunctions } from '@/plugins/functions';
+import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
+import type { QueryResult } from '@/composables/useDuckDB';
+import { useUserStore } from '@/stores/user';
+import { useVisualStore } from '@/stores/visual';
+import { useStorageValidation } from '@/composables/useStorageValidation';
 
 // Register Chart.js components
 Chart.register(...registerables);
 
 // Initialize functions API
 const functions = useFunctions();
+const userStore = useUserStore();
+const visualStore = useVisualStore();
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -234,13 +241,6 @@ interface LLMSettings {
   model: string;
 }
 
-/** Query Result from DuckDB */
-interface QueryResult {
-  columns: string[];
-  rows: any[][];
-  rowCount: number;
-}
-
 /** Generation Status Alert */
 interface Status {
   type: 'success' | 'error' | 'warning' | 'info';
@@ -251,21 +251,22 @@ interface Status {
 // PROPS & EMITS
 // ═══════════════════════════════════════════════════════════════════════════════
 
-const props = withDefaults(
-  defineProps<{
-    /** DuckDB composable instance (injected via useDuckDB) */
-    duckdb?: any;
-    /** Pre-populated table list (optional, will auto-fetch from catalog if warehouseId provided) */
-    tables?: string[];
-    /** Warehouse ID for fetching tables from Iceberg catalog */
-    warehouseId?: string;
-    /** Catalog URL (reserved for future use) */
-    catalogUrl?: string;
-  }>(),
-  {
-    tables: () => [],
-  },
-);
+const props = defineProps<{
+  /** Warehouse ID (required) */
+  warehouseId: string;
+  /** Warehouse name (required for DuckDB catalog setup) */
+  warehouseName?: string;
+  /** Catalog REST API URL */
+  catalogUrl?: string;
+  /** Project ID for multi-project support */
+  projectId?: string;
+  /** Storage type: 's3', 'gcs', 'azure', etc. */
+  storageType?: string;
+  /** Whether to use fresh authentication token */
+  useFreshToken?: boolean;
+  /** Optional: Pre-populated table list (overrides auto-fetch) */
+  tables?: string[];
+}>();
 
 const emit = defineEmits<{
   (e: 'insights-generated', response: A2UIResponse): void;
@@ -273,11 +274,25 @@ const emit = defineEmits<{
 }>();
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// INITIALIZE COMPOSABLES
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const config = inject<any>('appConfig', { enabledAuthentication: false });
+const icebergDB = useIcebergDuckDB(config.baseUrlPrefix);
+const storageValidation = useStorageValidation(
+  toRef(() => props.storageType),
+  toRef(() => props.catalogUrl || ''),
+);
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const showSettings = ref(false);
 const selectedTable = ref<string | null>(null);
+const hasInitialized = ref(false);
+const warehouseError = ref<string | null>(null);
+const isCheckingWarehouse = ref(false);
 const userQuestion = ref('');
 const isGenerating = ref(false);
 const loadingTables = ref(false);
@@ -337,6 +352,34 @@ const rendererContext = computed(() => ({
   executeQuery: executeDuckDBQuery,
 }));
 
+// Check if insights are available based on DuckDB and catalog status
+const isInsightsAvailable = computed(() => {
+  if (!props.warehouseName) {
+    return { available: false, reason: 'Loading warehouse information...' };
+  }
+
+  if (isCheckingWarehouse.value) {
+    return { available: false, reason: 'Initializing DuckDB and catalog...' };
+  }
+
+  if (warehouseError.value) {
+    return { available: false, reason: warehouseError.value };
+  }
+
+  if (!props.catalogUrl) {
+    return { available: false, reason: 'No catalog URL provided' };
+  }
+
+  if (!storageValidation.isOperationAvailable.value.available) {
+    return {
+      available: false,
+      reason: storageValidation.isOperationAvailable.value.reason,
+    };
+  }
+
+  return { available: true, reason: null };
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMPOSABLES
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -347,13 +390,12 @@ const rendererContext = computed(() => ({
  */
 function useDuckDBQuery() {
   const execute = async (sql: string): Promise<QueryResult> => {
-    if (!props.duckdb) {
-      throw new Error('DuckDB instance not provided. Inject via useDuckDB() composable.');
+    if (!icebergDB.isInitialized.value || !icebergDB.catalogConfigured.value) {
+      throw new Error('DuckDB is not initialized or catalog not configured');
     }
 
     try {
-      // Assuming props.duckdb exposes executeQuery method
-      const result = await props.duckdb.executeQuery(sql);
+      const result = await icebergDB.executeQuery(sql);
       return result;
     } catch (error) {
       console.error('DuckDB query error:', error);
@@ -1040,7 +1082,101 @@ function clearResults() {
 }
 
 /**
- * Load available tables from Iceberg catalog, DuckDB, or props
+ * Configure catalog with retry logic (matches WarehouseSqlQuery pattern)
+ */
+async function configureCatalogWithRetry(): Promise<boolean> {
+  if (!props.catalogUrl || !props.warehouseName) {
+    return false;
+  }
+
+  const maxAttempts = 10;
+  const delayMs = 3000;
+
+  const accessToken = config.enabledAuthentication ? userStore.user?.access_token || '' : '';
+
+  if (!accessToken && config.enabledAuthentication) {
+    warehouseError.value = 'No access token available. Please ensure you are logged in.';
+    return false;
+  }
+
+  const projectId = props.projectId || visualStore.projectSelected?.['project-id'] || 'default';
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      await icebergDB.configureCatalog({
+        catalogName: props.warehouseName,
+        restUri: props.catalogUrl,
+        accessToken: accessToken,
+        projectId: projectId,
+      });
+      return true;
+    } catch (catalogError) {
+      const errorMessage =
+        catalogError instanceof Error ? catalogError.message : String(catalogError);
+
+      if (
+        errorMessage.includes('CORS') ||
+        errorMessage.includes('Access-Control-Allow') ||
+        errorMessage.includes('cross-origin')
+      ) {
+        warehouseError.value = errorMessage;
+        return false;
+      }
+
+      if (errorMessage.includes('Catalog') && errorMessage.includes('does not exist')) {
+        if (attempt < maxAttempts - 1) {
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          continue;
+        } else {
+          warehouseError.value = 'Warehouse catalog is not available yet. Please wait and refresh.';
+          return false;
+        }
+      } else {
+        warehouseError.value = `Failed to configure catalog: ${errorMessage}`;
+        return false;
+      }
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Initialize DuckDB and configure Iceberg catalog
+ */
+async function initializeDuckDB() {
+  if (hasInitialized.value) {
+    return;
+  }
+
+  if (!props.catalogUrl || !props.warehouseName) {
+    return;
+  }
+
+  try {
+    await icebergDB.initialize();
+    hasInitialized.value = true;
+
+    isCheckingWarehouse.value = true;
+    warehouseError.value = null;
+
+    const success = await configureCatalogWithRetry();
+
+    isCheckingWarehouse.value = false;
+
+    if (success) {
+      // Load tables after successful catalog configuration
+      await loadAvailableTables();
+    }
+  } catch (e) {
+    isCheckingWarehouse.value = false;
+    warehouseError.value = 'Failed to initialize DuckDB WASM';
+    console.error('DuckDB initialization failed:', e);
+  }
+}
+
+/**
+ * Load available tables from Iceberg catalog or props
  */
 async function loadAvailableTables() {
   // Priority 1: Use explicitly provided tables
@@ -1049,66 +1185,50 @@ async function loadAvailableTables() {
     return;
   }
 
-  // Priority 2: Fetch from Iceberg catalog if warehouseId provided
-  if (props.warehouseId) {
-    loadingTables.value = true;
-    try {
-      const allTables: string[] = [];
+  // Priority 2: Fetch from Iceberg catalog
+  if (!props.warehouseId || !props.warehouseName) return;
 
-      // Get all namespaces in the warehouse
-      const nsResponse = await functions.listNamespaces(
-        props.warehouseId,
-        undefined,
-        undefined,
-        false,
-      );
+  loadingTables.value = true;
+  try {
+    const allTables: string[] = [];
 
-      // For each namespace, fetch tables
-      for (const namespace of nsResponse.namespaces) {
-        const namespacePath = namespace.join('.');
-        try {
-          const tablesResponse = await functions.listTables(
-            props.warehouseId,
-            namespacePath,
-            undefined,
-            false,
-          );
+    // Get all namespaces in the warehouse
+    const nsResponse = await functions.listNamespaces(
+      props.warehouseId,
+      undefined,
+      undefined,
+      false,
+    );
 
-          // Build fully qualified table names: namespace.tablename
-          if (tablesResponse.identifiers && tablesResponse.identifiers.length > 0) {
-            tablesResponse.identifiers.forEach((table) => {
-              const fullTableName = `${namespacePath}.${table.name}`;
-              allTables.push(fullTableName);
-            });
-          }
-        } catch (error) {
-          console.warn(`Failed to load tables for namespace ${namespacePath}:`, error);
-          // Continue with other namespaces
+    // For each namespace, fetch tables
+    for (const namespace of nsResponse.namespaces) {
+      const namespacePath = namespace.join('.');
+      try {
+        const tablesResponse = await functions.listTables(
+          props.warehouseId,
+          namespacePath,
+          undefined,
+          false,
+        );
+
+        // Build fully qualified table names: catalog.namespace.tablename
+        if (tablesResponse.identifiers && tablesResponse.identifiers.length > 0) {
+          tablesResponse.identifiers.forEach((table) => {
+            const fullTableName = `${props.warehouseName}.${namespacePath}.${table.name}`;
+            allTables.push(fullTableName);
+          });
         }
+      } catch (error) {
+        console.warn(`Failed to load tables for namespace ${namespacePath}:`, error);
       }
-
-      availableTables.value = allTables.sort();
-    } catch (error) {
-      console.error('Failed to load tables from Iceberg catalog:', error);
-      availableTables.value = [];
-    } finally {
-      loadingTables.value = false;
     }
-    return;
-  }
 
-  // Priority 3: Fallback to DuckDB SHOW TABLES (if available)
-  if (props.duckdb) {
-    loadingTables.value = true;
-    try {
-      const result = await executeDuckDBQuery('SHOW TABLES');
-      availableTables.value = result.rows.map((row) => row[0] as string);
-    } catch (error) {
-      console.error('Failed to load tables from DuckDB:', error);
-      availableTables.value = [];
-    } finally {
-      loadingTables.value = false;
-    }
+    availableTables.value = allTables.sort();
+  } catch (error) {
+    console.error('Failed to load tables from Iceberg catalog:', error);
+    availableTables.value = [];
+  } finally {
+    loadingTables.value = false;
   }
 }
 
@@ -1117,8 +1237,17 @@ async function loadAvailableTables() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 onMounted(() => {
-  loadAvailableTables();
+  initializeDuckDB();
 });
+
+// Watch for catalog URL or warehouse name changes and reinitialize
+watch(
+  () => [props.catalogUrl, props.warehouseName],
+  () => {
+    hasInitialized.value = false;
+    initializeDuckDB();
+  },
+);
 
 // Watch for external table updates
 watch(
@@ -1126,16 +1255,6 @@ watch(
   (newTables) => {
     if (newTables && newTables.length > 0) {
       availableTables.value = newTables;
-    }
-  },
-);
-
-// Watch for warehouseId changes and reload tables
-watch(
-  () => props.warehouseId,
-  () => {
-    if (props.warehouseId && (!props.tables || props.tables.length === 0)) {
-      loadAvailableTables();
     }
   },
 );
