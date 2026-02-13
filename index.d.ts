@@ -1,6 +1,7 @@
 // Component exports
 export { default as ServerOverview } from './src/components/ServerOverview.vue';
 export { default as PermissionManager } from './src/components/PermissionManager.vue';
+export { default as AiInsightsPanel } from './src/components/AiInsightsPanel.vue';
 export { default as UserManager } from './src/components/UserManager.vue';
 export { default as WarehouseAddDialog } from './src/components/WarehouseAddDialog.vue';
 export { default as TaskManager } from './src/components/TaskManager.vue';
