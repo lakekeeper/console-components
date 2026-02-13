@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.23](https://github.com/lakekeeper/console-components/compare/v0.2.22...v0.2.23) (2026-02-13)
+
+
+### Bug Fixes
+
+* added register table ([#69](https://github.com/lakekeeper/console-components/issues/69)) ([9e5198b](https://github.com/lakekeeper/console-components/commit/9e5198b3f861f222fe34c7f6385ef34ccd3507a3))
+
 ## [0.2.22](https://github.com/lakekeeper/console-components/compare/v0.2.21...v0.2.22) (2026-02-01)
 
 
