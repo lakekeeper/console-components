@@ -25,7 +25,7 @@
             {{ warehouseName }}
             <br />
             <strong>Namespace:</strong>
-            {{ namespaceId }}
+            {{ displayNamespace }}
           </div>
         </v-alert>
 
@@ -146,6 +146,11 @@ const rules = {
 };
 
 // Computed properties
+const displayNamespace = computed(() => {
+  // Convert unit separator to dots for display
+  return props.namespaceId.split(String.fromCharCode(0x1f)).join('.');
+});
+
 const canRegister = computed(() => {
   return (
     tableName.value.trim() !== '' &&
@@ -178,9 +183,19 @@ async function registerTable() {
   success.value = false;
 
   try {
+    // Ensure namespace uses unit separator (0x1F) not dots
+    // The API expects namespace parts to be separated by the unit separator character
+    let namespaceForApi = props.namespaceId;
+
+    // If the namespace contains dots but no unit separators, it's in display format
+    // and needs to be converted to API format
+    if (namespaceForApi.includes('.') && !namespaceForApi.includes(String.fromCharCode(0x1f))) {
+      namespaceForApi = namespaceForApi.split('.').join(String.fromCharCode(0x1f));
+    }
+
     await functions.registerTable(
       props.warehouseId,
-      props.namespaceId,
+      namespaceForApi,
       tableName.value.trim(),
       metadataLocation.value.trim(),
       overwrite.value,
