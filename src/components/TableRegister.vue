@@ -37,6 +37,7 @@
           variant="outlined"
           density="comfortable"
           :rules="[rules.required, rules.validIdentifier]"
+          :disabled="isRegistering"
           class="mb-4"
           autofocus></v-text-field>
 
@@ -48,6 +49,7 @@
           variant="outlined"
           density="comfortable"
           :rules="[rules.required, rules.validUrl]"
+          :disabled="isRegistering"
           class="mb-4"
           hint="Full path to the Iceberg metadata JSON file"
           persistent-hint></v-text-field>
@@ -58,6 +60,7 @@
           label="Overwrite table if it already exists"
           density="compact"
           color="warning"
+          :disabled="isRegistering"
           class="mb-4"
           hide-details>
           <template #label>
@@ -75,22 +78,6 @@
             </v-tooltip>
           </template>
         </v-checkbox>
-
-        <!-- Error Message -->
-        <v-alert v-if="error" type="error" variant="tonal" class="mb-4">
-          {{ error }}
-        </v-alert>
-
-        <!-- Loading State -->
-        <v-alert v-if="isRegistering" type="info" variant="tonal" class="mb-4">
-          <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
-          Registering table...
-        </v-alert>
-
-        <!-- Success Message -->
-        <v-alert v-if="success" type="success" variant="tonal" class="mb-4">
-          Table registered successfully!
-        </v-alert>
       </v-card-text>
 
       <v-card-actions>
@@ -130,8 +117,6 @@ const metadataLocation = ref('');
 const overwrite = ref(false);
 const warehouseName = ref<string>('');
 const isRegistering = ref(false);
-const error = ref<string | null>(null);
-const success = ref(false);
 
 // Validation rules
 const rules = {
@@ -164,8 +149,6 @@ function resetForm() {
   tableName.value = '';
   metadataLocation.value = '';
   overwrite.value = false;
-  error.value = null;
-  success.value = false;
 }
 
 function closeDialog() {
@@ -179,8 +162,6 @@ async function registerTable() {
   if (!canRegister.value) return;
 
   isRegistering.value = true;
-  error.value = null;
-  success.value = false;
 
   try {
     // Ensure namespace uses unit separator (0x1F) not dots
@@ -202,7 +183,6 @@ async function registerTable() {
       true, // notify
     );
 
-    success.value = true;
     emit('registered', tableName.value);
 
     // Close dialog after short delay
@@ -211,7 +191,7 @@ async function registerTable() {
     }, 1500);
   } catch (err: any) {
     console.error('Failed to register table:', err);
-    error.value = err.message || 'Unknown error occurred';
+    // Error is already handled and displayed by the notification system
   } finally {
     isRegistering.value = false;
   }
