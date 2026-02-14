@@ -586,6 +586,9 @@ function useLLM() {
         ? tablesToUse.map((t) => `  - ${t}`).join('\n')
         : 'No tables available';
 
+    // Get first table for example
+    const exampleTable = tablesToUse.length > 0 ? tablesToUse[0] : 'schema.table_name';
+
     const systemPrompt = `You are a data analyst assistant. Your task is to analyze data questions and return ONLY valid A2UI JSON.
 
 A2UI is a declarative component specification for rendering insights. You may use these component types:
@@ -608,16 +611,15 @@ A2UI is a declarative component specification for rendering insights. You may us
 6. "container" - Layout container
    props: { layout?: "grid"|"flex", gap?: number, children: A2UIComponent[] }
 
-CONTEXT:
-- Namespace: ${selectedNamespace.value}
-- Available tables:
+AVAILABLE TABLES (USE ONLY THESE EXACT NAMES):
 ${tableList}
 
 CRITICAL RULES:
 - Return ONLY valid JSON matching A2UIResponse interface
 - No explanations, no markdown code blocks, no conversational text
-- SQL queries can reference any of the available tables listed above
-- Use fully qualified table names with namespace (e.g., ${selectedNamespace.value}.table_name)
+- IMPORTANT: You MUST use ONLY the exact table names listed in "AVAILABLE TABLES" above
+- DO NOT invent or assume table names - use only the tables provided
+- Use the FULL table names exactly as shown (they already include namespace/catalog)
 - Charts must include valid data or reference SQL results
 - Use descriptive titles and labels
 - Provide actionable insights
@@ -633,15 +635,15 @@ Example response structure:
     {
       "type": "sql",
       "props": {
-        "query": "SELECT category, SUM(revenue) as total FROM ${selectedNamespace.value}.sales GROUP BY category ORDER BY total DESC LIMIT 5",
+        "query": "SELECT column1, SUM(column2) as total FROM ${exampleTable} GROUP BY column1 ORDER BY total DESC LIMIT 10",
         "then": {
           "type": "chart",
           "props": {
             "chartType": "bar",
-            "title": "Top 5 Categories by Revenue",
+            "title": "Top 10 Results",
             "labels": "{{results.column[0]}}",
             "datasets": [{
-              "label": "Revenue",
+              "label": "Total",
               "data": "{{results.column[1]}}",
               "backgroundColor": ["#1976D2", "#388E3C", "#F57C00", "#7B1FA2", "#C2185B"]
             }]
