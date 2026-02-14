@@ -793,6 +793,17 @@ ${tableList}
 9. When you need to convert a column type, use: CAST(actual_column_name AS target_type)
 10. Example: To get an integer from cs_sold_date_sk, use: CAST(cs_sold_date_sk AS INTEGER)
 
+⚠️ TABLE NAME RULES - ABSOLUTELY CRITICAL:
+1. NEVER abbreviate table names (e.g., "sales" when table is "catalog_sales")
+2. NEVER invent table names (e.g., "demo.tpcds.sales" does NOT exist)
+3. Copy table names EXACTLY character-by-character from the AVAILABLE TABLES list above
+4. Examples of WRONG table references:
+   - ❌ demo.tpcds.sales (doesn't exist - use demo.tpcds.catalog_sales or demo.tpcds.store_sales)
+   - ❌ tpcds.sales (missing catalog prefix)
+   - ❌ customer (missing catalog and namespace)
+5. Before writing any FROM or JOIN, look at AVAILABLE TABLES list and copy the EXACT name
+6. If you're unsure about a table name, DO NOT guess - explain the limitation in markdown instead
+
 CRITICAL RULES:
 - Return ONLY valid JSON matching A2UIResponse interface
 - No explanations, no markdown code blocks, no conversational text
@@ -1520,6 +1531,13 @@ async function generateInsights() {
     progressMessage.value = 'Extracting SQL queries...';
     extractSqlQueries(response.components);
 
+    // Step 5.5: Validate SQL references correct tables
+    progressMessage.value = 'Validating SQL queries...';
+    const validationError = validateSqlTables(generatedSqlQueries.value);
+    if (validationError) {
+      throw new Error(`SQL validation failed: ${validationError}`);
+    }
+
     // Step 6: Rendering results
     progressMessage.value = 'Rendering insights...';
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -1767,6 +1785,47 @@ function extractSqlQueries(components: A2UIComponent[]) {
 
   components.forEach(traverse);
   generatedSqlQueries.value = queries;
+}
+
+/**
+ * Validate that SQL queries only reference tables from the selected list
+ * Returns error message if validation fails, null if OK
+ */
+function validateSqlTables(queries: string[]): string | null {
+  const validTables = selectedTables.value.length > 0 ? selectedTables.value : filteredTables.value;
+
+  // Create a set of valid table names for quick lookup
+  const validTableSet = new Set(validTables);
+
+  // Also create a set of just the table names (last part after dots) for partial matching
+  const validTableNames = new Set(validTables.map((t) => t.split('.').pop()!));
+
+  for (const query of queries) {
+    // Extract table references from SQL (FROM and JOIN clauses)
+    // Match patterns like "FROM table_name" or "JOIN table_name"
+    const fromJoinPattern = /(?:FROM|JOIN)\s+([a-zA-Z0-9_.]+)/gi;
+    let match;
+
+    while ((match = fromJoinPattern.exec(query)) !== null) {
+      const referencedTable = match[1];
+
+      // Check if this exact table name exists in our valid list
+      if (!validTableSet.has(referencedTable)) {
+        // Check if it's a partial name (like "sales" instead of "demo.tpcds.catalog_sales")
+        const tableName = referencedTable.split('.').pop()!;
+
+        if (!validTableNames.has(tableName)) {
+          return `Query references unknown table "${referencedTable}". Available tables: ${validTables.join(', ')}`;
+        } else {
+          // Table name exists but missing catalog/namespace prefix
+          const fullTableName = validTables.find((t) => t.endsWith(`.${tableName}`));
+          return `Query uses incomplete table name "${referencedTable}". Use full name: ${fullTableName}`;
+        }
+      }
+    }
+  }
+
+  return null; // All validations passed
 }
 
 /**
