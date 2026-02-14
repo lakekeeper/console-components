@@ -1877,101 +1877,107 @@ function extractSqlQueries(components: A2UIComponent[]) {
 function validateSqlColumns(queries: string[]): string | null {
   const schemas = tableSchemas.value;
 
-  // SQL keywords to exclude from column validation
-  const sqlKeywords = new Set([
-    'SELECT',
-    'FROM',
-    'WHERE',
-    'JOIN',
-    'LEFT',
-    'RIGHT',
-    'INNER',
-    'OUTER',
-    'FULL',
-    'ON',
-    'AND',
-    'OR',
-    'NOT',
-    'IN',
-    'AS',
-    'GROUP',
-    'BY',
-    'ORDER',
-    'HAVING',
-    'LIMIT',
-    'OFFSET',
-    'DISTINCT',
-    'COUNT',
-    'SUM',
-    'AVG',
-    'MIN',
-    'MAX',
-    'CAST',
-    'CASE',
-    'WHEN',
-    'THEN',
-    'ELSE',
-    'END',
-    'NULL',
-    'IS',
-    'BETWEEN',
-    'LIKE',
-    'ASC',
-    'DESC',
-    'INTEGER',
-    'BIGINT',
-    'VARCHAR',
-    'DOUBLE',
-    'DATE',
-    'TIMESTAMP',
-    'BOOL',
-    'BOOLEAN',
-    'TRUE',
-    'FALSE',
-  ]);
-
   for (const query of queries) {
-    // Extract potential column names from the query
-    // Look for identifiers that aren't SQL keywords
-    const words = query.split(/[\s,()=<>!+\-*\/]+/);
-    const potentialColumns = words.filter((word) => {
-      if (!word || word.length === 0) return false;
-      const upper = word.toUpperCase();
-      // Skip SQL keywords, numbers, and string literals
-      if (sqlKeywords.has(upper)) return false;
-      if (/^\d+$/.test(word)) return false; // Skip numbers
-      if (word.startsWith("'") || word.startsWith('"')) return false; // Skip strings
-      // Skip table references (contains dots for qualified names)
-      if (word.split('.').length > 2) return false;
-      // Keep only simple identifiers that look like column names
-      return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(word);
-    });
+    // Extract column references from SELECT, WHERE, JOIN ON, GROUP BY, ORDER BY
+    // But EXCLUDE aliases (after AS keyword)
+
+    // Remove content after AS to exclude aliases
+    const queryWithoutAliases = query.replace(/\s+AS\s+[a-zA-Z_][a-zA-Z0-9_]*/gi, '');
+
+    // Remove aggregate functions - the columns inside are what matter
+    const queryWithoutAggregates = queryWithoutAliases
+      .replace(/COUNT\s*\([^)]*\)/gi, '')
+      .replace(/SUM\s*\([^)]*\)/gi, '')
+      .replace(/AVG\s*\([^)]*\)/gi, '')
+      .replace(/MIN\s*\([^)]*\)/gi, '')
+      .replace(/MAX\s*\([^)]*\)/gi, '');
 
     // Build a set of all valid column names from all loaded schemas
     const validColumns = new Set<string>();
     for (const tableName in schemas) {
       const tableSchema = schemas[tableName];
       if (tableSchema) {
-        tableSchema.forEach((col) => validColumns.add(col.column));
+        tableSchema.forEach((col) => validColumns.add(col.column.toLowerCase()));
       }
     }
 
-    // Check each potential column against valid columns
-    for (const col of potentialColumns) {
-      const colLower = col.toLowerCase();
-      const colUpper = col.toUpperCase();
+    // Extract potential column references (simple pattern matching)
+    // Look for identifiers that could be column names
+    const columnPattern = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
+    const matches = queryWithoutAggregates.matchAll(columnPattern);
 
-      // Check if this column exists in any of the schemas (case-insensitive)
-      const foundInSchema = Array.from(validColumns).some(
-        (validCol) => validCol.toLowerCase() === colLower,
-      );
+    const sqlKeywords = new Set([
+      'select',
+      'from',
+      'where',
+      'join',
+      'left',
+      'right',
+      'inner',
+      'outer',
+      'full',
+      'on',
+      'and',
+      'or',
+      'not',
+      'in',
+      'group',
+      'by',
+      'order',
+      'having',
+      'limit',
+      'offset',
+      'distinct',
+      'count',
+      'sum',
+      'avg',
+      'min',
+      'max',
+      'cast',
+      'case',
+      'when',
+      'then',
+      'else',
+      'end',
+      'null',
+      'is',
+      'between',
+      'like',
+      'asc',
+      'desc',
+      'integer',
+      'bigint',
+      'varchar',
+      'double',
+      'date',
+      'timestamp',
+      'bool',
+      'boolean',
+      'true',
+      'false',
+      'as',
+    ]);
 
-      if (!foundInSchema) {
-        // This might be a column name that doesn't exist
-        // Double-check it's not an alias or partial calculation
-        if (col.length > 2 && !col.includes('_total') && !col.includes('_count')) {
-          return `Query references column "${col}" which doesn't exist in the loaded table schemas. Available columns: ${Array.from(validColumns).slice(0, 10).join(', ')}...`;
-        }
+    for (const match of matches) {
+      const identifier = match[1].toLowerCase();
+
+      // Skip SQL keywords
+      if (sqlKeywords.has(identifier)) continue;
+
+      // Skip if it's a table name (they contain schema prefix)
+      if (query.toLowerCase().includes(`${identifier}.`)) continue;
+
+      // Check if this looks like a column reference
+      const looksLikeColumn =
+        query.toLowerCase().includes(`${identifier} =`) ||
+        query.toLowerCase().includes(`= ${identifier}`) ||
+        query.toLowerCase().includes(`${identifier},`) ||
+        query.toLowerCase().includes(`, ${identifier}`) ||
+        query.toLowerCase().includes(`(${identifier}`) ||
+        query.toLowerCase().includes(`${identifier})`);
+
+      if (looksLikeColumn && !validColumns.has(identifier)) {
+        return `Query references column "${identifier}" which doesn't exist in the loaded table schemas. Available columns: ${Array.from(validColumns).slice(0, 10).join(', ')}...`;
       }
     }
   }
