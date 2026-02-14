@@ -98,6 +98,7 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
           TYPE iceberg,
           TOKEN '${config.accessToken}'
         );
+        DETACH IF EXISTS "${config.catalogName}";
         ATTACH '${projectId}/${config.catalogName}' AS "${config.catalogName}" (
           TYPE iceberg,
           SUPPORT_NESTED_NAMESPACES true,

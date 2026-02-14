@@ -502,6 +502,8 @@ const storageValidation = useStorageValidation(
 
 const PROMPT_STORAGE_KEY = 'ai-insights-prompt';
 const SYSTEM_PROMPT_STORAGE_KEY = 'ai-insights-system-prompt';
+const SELECTED_NAMESPACE_STORAGE_KEY = 'ai-insights-selected-namespace';
+const SELECTED_TABLES_STORAGE_KEY = 'ai-insights-selected-tables';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATE
@@ -772,14 +774,20 @@ AVAILABLE TABLES (USE ONLY THESE EXACT NAMES):
 ${tableList}
 
 ⚠️ CRITICAL COLUMN RULES - READ CAREFULLY:
-1. NEVER invent or guess column names
+1. NEVER invent or guess column names - this is the #1 cause of query failures
 2. ONLY use columns explicitly listed above for each table
-3. If a column doesn't exist in the schema, DO NOT use it
+3. If a column doesn't exist in the schema, DO NOT use it - DO NOT assume it exists
 4. When aggregating, use actual numeric columns from the schema
 5. Before writing SELECT, verify EVERY column exists in the table's schema above
 6. Example: If you need to sum values, look for columns with type INTEGER, DECIMAL, DOUBLE, etc.
 7. If you cannot find appropriate columns for a query, explain the limitation in a markdown component
 8. Double-check: Every column in your SQL must appear in the "Columns:" list for that table
+9. COMMON MISTAKES TO AVOID:
+   - ❌ Using c_current_addr_sk when only c_customer_sk exists
+   - ❌ Using column names from other databases/examples
+   - ❌ Assuming columns exist based on naming patterns
+   - ✅ ONLY use columns from the "Columns:" list above
+10. Validation will REJECT queries with non-existent columns
 
 ⚠️ SQL SYNTAX RULES (DuckDB):
 1. CAST syntax: Use CAST(column_name AS type) - NEVER use CAST(id AS column_name AS type)
@@ -1186,7 +1194,22 @@ function useA2UIRenderer() {
     const items = (rows || []).map((row: any[]) => {
       const item: Record<string, any> = {};
       (columns || []).forEach((col: string, idx: number) => {
-        item[col] = row[idx];
+        // Convert BigInt to Number for proper rendering and sorting
+        // Also handles json-bigint string representations
+        const value = row[idx];
+        if (typeof value === 'bigint') {
+          item[col] = Number(value);
+        } else if (typeof value === 'string' && /^\d+$/.test(value)) {
+          // Handle json-bigint storeAsString: true format
+          const num = Number(value);
+          if (!isNaN(num) && num.toString() === value) {
+            item[col] = num;
+          } else {
+            item[col] = value;
+          }
+        } else {
+          item[col] = value;
+        }
       });
       return item;
     });
@@ -1399,6 +1422,21 @@ function useA2UIRenderer() {
   ): A2UIComponent => {
     const processed = { ...component };
 
+    // Helper to convert values (handles BigInt, numbers, strings)
+    // Uses Number() for BigInt (similar to json-bigint's storeAsString: false behavior)
+    const convertValue = (val: any): any => {
+      if (typeof val === 'bigint') {
+        // Convert BigInt to number - safe for chart values < Number.MAX_SAFE_INTEGER
+        return Number(val);
+      }
+      // Also handle string representations of numbers from json-bigint
+      if (typeof val === 'string' && /^\d+$/.test(val)) {
+        const num = Number(val);
+        if (!isNaN(num)) return num;
+      }
+      return val;
+    };
+
     if (processed.props) {
       processed.props = { ...processed.props };
 
@@ -1406,7 +1444,7 @@ function useA2UIRenderer() {
       if (typeof processed.props.labels === 'string' && processed.props.labels.includes('{{')) {
         const match = processed.props.labels.match(/\{\{results\.column\[(\d+)\]\}\}/);
         if (match && results.columns[parseInt(match[1])]) {
-          processed.props.labels = results.rows.map((row) => row[parseInt(match[1])]);
+          processed.props.labels = results.rows.map((row) => convertValue(row[parseInt(match[1])]));
         }
       }
 
@@ -1418,7 +1456,7 @@ function useA2UIRenderer() {
             if (match && results.columns[parseInt(match[1])]) {
               return {
                 ...dataset,
-                data: results.rows.map((row) => row[parseInt(match[1])]),
+                data: results.rows.map((row) => convertValue(row[parseInt(match[1])])),
               };
             }
           }
@@ -1531,11 +1569,16 @@ async function generateInsights() {
     progressMessage.value = 'Extracting SQL queries...';
     extractSqlQueries(response.components);
 
-    // Step 5.5: Validate SQL references correct tables
+    // Step 5.5: Validate SQL references correct tables and columns
     progressMessage.value = 'Validating SQL queries...';
-    const validationError = validateSqlTables(generatedSqlQueries.value);
-    if (validationError) {
-      throw new Error(`SQL validation failed: ${validationError}`);
+    const tableValidationError = validateSqlTables(generatedSqlQueries.value);
+    if (tableValidationError) {
+      throw new Error(`SQL table validation failed: ${tableValidationError}`);
+    }
+    
+    const columnValidationError = validateSqlColumns(generatedSqlQueries.value);
+    if (columnValidationError) {
+      throw new Error(`SQL column validation failed: ${columnValidationError}`);
     }
 
     // Step 6: Rendering results
@@ -1549,10 +1592,12 @@ async function generateInsights() {
     };
 
     // Add to notification panel
+    const namespaceInfo = selectedNamespace.value ? ` [${selectedNamespace.value}]` : '';
+    const tablesInfo = selectedTables.value.length > 0 ? ` (${selectedTables.value.length} tables)` : '';
     notificationStore.addNotification({
       function: 'AI Insights',
       stack: selectedTables.value,
-      text: `Generated insights for: "${userQuestion.value}"`,
+      text: `Generated insights${namespaceInfo}${tablesInfo}: "${userQuestion.value}"`,
       type: Type.SUCCESS,
     });
 
@@ -1567,10 +1612,11 @@ async function generateInsights() {
     };
 
     // Add error to notification panel
+    const namespaceInfo = selectedNamespace.value ? ` [${selectedNamespace.value}]` : '';
     notificationStore.addNotification({
       function: 'AI Insights',
       stack: selectedTables.value,
-      text: `Failed to generate insights: ${errorMessage}`,
+      text: `Failed to generate insights${namespaceInfo}: ${errorMessage}`,
       type: Type.ERROR,
     });
 
@@ -1682,8 +1728,29 @@ async function initializeDuckDB() {
     if (success) {
       // Load namespaces first
       await loadAvailableNamespaces();
+      
+      // Restore persisted namespace selection if it exists in available namespaces
+      const persistedNamespace = localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY);
+      if (persistedNamespace && availableNamespaces.value.includes(persistedNamespace)) {
+        selectedNamespace.value = persistedNamespace;
+      }
+      
       // Then load tables after successful catalog configuration
       await loadAvailableTables();
+      
+      // Restore persisted table selection if it exists in available tables
+      const persistedTables = localStorage.getItem(SELECTED_TABLES_STORAGE_KEY);
+      if (persistedTables) {
+        try {
+          const parsedTables = JSON.parse(persistedTables);
+          // Only restore tables that are still available
+          selectedTables.value = parsedTables.filter((t: string) => 
+            availableTables.value.includes(t)
+          );
+        } catch (error) {
+          console.warn('Failed to restore persisted tables:', error);
+        }
+      }
     }
   } catch (e) {
     isCheckingWarehouse.value = false;
@@ -1785,6 +1852,72 @@ function extractSqlQueries(components: A2UIComponent[]) {
 
   components.forEach(traverse);
   generatedSqlQueries.value = queries;
+}
+
+/**
+ * Validate that SQL queries only reference columns that exist in the schemas
+ * Returns error message if validation fails, null if OK
+ */
+function validateSqlColumns(queries: string[]): string | null {
+  const schemas = tableSchemas.value;
+  
+  // SQL keywords to exclude from column validation
+  const sqlKeywords = new Set([
+    'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL',
+    'ON', 'AND', 'OR', 'NOT', 'IN', 'AS', 'GROUP', 'BY', 'ORDER', 'HAVING',
+    'LIMIT', 'OFFSET', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX',
+    'CAST', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'NULL', 'IS', 'BETWEEN',
+    'LIKE', 'ASC', 'DESC', 'INTEGER', 'BIGINT', 'VARCHAR', 'DOUBLE', 'DATE',
+    'TIMESTAMP', 'BOOL', 'BOOLEAN', 'TRUE', 'FALSE'
+  ]);
+  
+  for (const query of queries) {
+    // Extract potential column names from the query
+    // Look for identifiers that aren't SQL keywords
+    const words = query.split(/[\s,()=<>!+\-*\/]+/);
+    const potentialColumns = words.filter(word => {
+      if (!word || word.length === 0) return false;
+      const upper = word.toUpperCase();
+      // Skip SQL keywords, numbers, and string literals
+      if (sqlKeywords.has(upper)) return false;
+      if (/^\d+$/.test(word)) return false; // Skip numbers
+      if (word.startsWith("'") || word.startsWith('"')) return false; // Skip strings
+      // Skip table references (contains dots for qualified names)
+      if (word.split('.').length > 2) return false;
+      // Keep only simple identifiers that look like column names
+      return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(word);
+    });
+    
+    // Build a set of all valid column names from all loaded schemas
+    const validColumns = new Set<string>();
+    for (const tableName in schemas) {
+      const tableSchema = schemas[tableName];
+      if (tableSchema) {
+        tableSchema.forEach(col => validColumns.add(col.column));
+      }
+    }
+    
+    // Check each potential column against valid columns
+    for (const col of potentialColumns) {
+      const colLower = col.toLowerCase();
+      const colUpper = col.toUpperCase();
+      
+      // Check if this column exists in any of the schemas (case-insensitive)
+      const foundInSchema = Array.from(validColumns).some(validCol => 
+        validCol.toLowerCase() === colLower
+      );
+      
+      if (!foundInSchema) {
+        // This might be a column name that doesn't exist
+        // Double-check it's not an alias or partial calculation
+        if (col.length > 2 && !col.includes('_total') && !col.includes('_count')) {
+          return `Query references column "${col}" which doesn't exist in the loaded table schemas. Available columns: ${Array.from(validColumns).slice(0, 10).join(', ')}...`;
+        }
+      }
+    }
+  }
+  
+  return null;
 }
 
 /**
@@ -1928,6 +2061,64 @@ function saveSystemPromptToLocalStorage() {
     localStorage.setItem(SYSTEM_PROMPT_STORAGE_KEY, customSystemPrompt.value);
   } catch (error) {
     console.warn('Failed to save system prompt to localStorage:', error);
+  }
+}
+
+/**
+ * Save selected namespace to localStorage
+ */
+function saveSelectedNamespaceToLocalStorage() {
+  try {
+    if (selectedNamespace.value) {
+      localStorage.setItem(SELECTED_NAMESPACE_STORAGE_KEY, selectedNamespace.value);
+    } else {
+      localStorage.removeItem(SELECTED_NAMESPACE_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to save selected namespace to localStorage:', error);
+  }
+}
+
+/**
+ * Load selected namespace from localStorage
+ */
+function loadSelectedNamespaceFromLocalStorage() {
+  try {
+    const saved = localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY);
+    if (saved) {
+      selectedNamespace.value = saved;
+    }
+  } catch (error) {
+    console.warn('Failed to load selected namespace from localStorage:', error);
+  }
+}
+
+/**
+ * Save selected tables to localStorage
+ */
+function saveSelectedTablesToLocalStorage() {
+  try {
+    if (selectedTables.value.length > 0) {
+      localStorage.setItem(SELECTED_TABLES_STORAGE_KEY, JSON.stringify(selectedTables.value));
+    } else {
+      localStorage.removeItem(SELECTED_TABLES_STORAGE_KEY);
+    }
+  } catch (error) {
+    console.warn('Failed to save selected tables to localStorage:', error);
+  }
+}
+
+/**
+ * Load selected tables from localStorage
+ */
+function loadSelectedTablesFromLocalStorage() {
+  try {
+    const saved = localStorage.getItem(SELECTED_TABLES_STORAGE_KEY);
+    if (saved) {
+      selectedTables.value = JSON.parse(saved);
+    }
+  } catch (error) {
+    console.warn('Failed to load selected tables from localStorage:', error);
   }
 }
 
@@ -2147,9 +2338,9 @@ async function loadAvailableTables() {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 onMounted(() => {
-  initializeDuckDB();
   loadPromptFromLocalStorage();
   loadSystemPromptFromLocalStorage();
+  initializeDuckDB();
 });
 
 // Watch for catalog URL or warehouse name changes and reinitialize
@@ -2203,6 +2394,16 @@ watch(
 watch(userQuestion, (newQuestion) => {
   savePromptToLocalStorage();
 });
+
+// Watch for selected namespace changes and persist to localStorage
+watch(selectedNamespace, (newNamespace) => {
+  saveSelectedNamespaceToLocalStorage();
+});
+
+// Watch for selected tables changes and persist to localStorage
+watch(selectedTables, (newTables) => {
+  saveSelectedTablesToLocalStorage();
+}, { deep: true });
 
 // Watch for external table updates
 watch(
