@@ -20,19 +20,29 @@ export function useWebLLM() {
    */
   const availableModels = [
     {
-      id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
-      name: 'Llama 3.2 3B (Fast, ~2GB)',
-      description: 'Best balance of speed and quality',
+      id: 'Llama-3.1-8B-Instruct-q4f16_1-MLC',
+      name: 'Llama 3.1 8B (Recommended, ~5GB)',
+      description: 'Best for SQL and complex reasoning',
     },
     {
-      id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
-      name: 'Llama 3.2 1B (Fastest, ~800MB)',
-      description: 'Fastest option, good for simple queries',
+      id: 'Qwen2.5-7B-Instruct-q4f16_1-MLC',
+      name: 'Qwen 2.5 7B (~4.5GB)',
+      description: 'Excellent for coding and SQL tasks',
+    },
+    {
+      id: 'Llama-3.2-3B-Instruct-q4f16_1-MLC',
+      name: 'Llama 3.2 3B (Fast, ~2GB)',
+      description: 'Good balance of speed and quality',
     },
     {
       id: 'Phi-3.5-mini-instruct-q4f16_1-MLC',
       name: 'Phi 3.5 Mini (~2.5GB)',
       description: 'Microsoft model, good accuracy',
+    },
+    {
+      id: 'Llama-3.2-1B-Instruct-q4f16_1-MLC',
+      name: 'Llama 3.2 1B (Fastest, ~800MB)',
+      description: 'Fastest option for simple queries',
     },
   ];
 
@@ -49,7 +59,7 @@ export function useWebLLM() {
     loadingProgress.value = 'Starting initialization...';
 
     try {
-      const modelId = config?.modelId || 'Llama-3.2-3B-Instruct-q4f16_1-MLC';
+      const modelId = config?.modelId || 'Llama-3.1-8B-Instruct-q4f16_1-MLC';
 
       // Create engine with progress tracking
       engineInstance = await webllm.CreateMLCEngine(modelId, {

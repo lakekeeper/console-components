@@ -346,7 +346,10 @@
               <A2UIRenderer :components="a2uiResponse.components" :context="rendererContext" />
 
               <!-- SQL Queries Section -->
-              <v-expansion-panels v-if="generatedSqlQueries.length > 0" v-model="showSqlPanel" class="mt-4">
+              <v-expansion-panels
+                v-if="generatedSqlQueries.length > 0"
+                v-model="showSqlPanel"
+                class="mt-4">
                 <v-expansion-panel value="sql">
                   <v-expansion-panel-title>
                     <div class="d-flex align-center">
@@ -525,7 +528,7 @@ const settings = ref<LLMSettings>({
   apiKey: '',
   endpoint: '',
   model: '',
-  localModel: 'Llama-3.2-3B-Instruct-q4f16_1-MLC', // Default WebLLM model
+  localModel: 'Llama-3.1-8B-Instruct-q4f16_1-MLC', // Default: Best for SQL and reasoning
 });
 
 const availableTables = ref<string[]>([]);
@@ -771,6 +774,18 @@ ${tableList}
 6. Example: If you need to sum values, look for columns with type INTEGER, DECIMAL, DOUBLE, etc.
 7. If you cannot find appropriate columns for a query, explain the limitation in a markdown component
 8. Double-check: Every column in your SQL must appear in the "Columns:" list for that table
+
+⚠️ SQL SYNTAX RULES (DuckDB):
+1. CAST syntax: Use CAST(column_name AS type) - NEVER use CAST(id AS column_name AS type)
+2. Valid types for CAST: INTEGER, BIGINT, VARCHAR, DOUBLE, DATE, TIMESTAMP
+3. Column references: Use actual column names from the schema, not placeholders like "id"
+4. Correct example: CAST(cs_sold_date_sk AS INTEGER)
+5. WRONG example: CAST(id AS cs_sold_date_sk AS INTEGER) ❌ - This will cause "syntax error at or near AS"
+6. WRONG example: CAST(id AS cs_sold_date_sk) ❌ - Don't use column name as the type
+7. Always verify SQL syntax before including it in the response
+8. Use standard SQL operators: +, -, *, /, %, =, <, >, <=, >=, !=
+9. When you need to convert a column type, use: CAST(actual_column_name AS target_type)
+10. Example: To get an integer from cs_sold_date_sk, use: CAST(cs_sold_date_sk AS INTEGER)
 
 CRITICAL RULES:
 - Return ONLY valid JSON matching A2UIResponse interface
@@ -2082,6 +2097,20 @@ watch(
           message: 'Token refreshed - please reload if queries fail',
         };
       }
+    }
+  },
+);
+
+// Watch for local model changes - dispose old model when switching
+watch(
+  () => settings.value.localModel,
+  async (newModel, oldModel) => {
+    if (newModel !== oldModel && webLLM.isInitialized.value) {
+      console.log('[AiInsightsPanel] Local model changed, disposing old model...');
+      await webLLM.dispose();
+      console.log(
+        '[AiInsightsPanel] Old model disposed. New model will initialize on next generation.',
+      );
     }
   },
 );
