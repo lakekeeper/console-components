@@ -337,8 +337,8 @@
                 size="64"
                 color="primary"
                 class="mb-4"></v-progress-circular>
-              <div class="text-h6 mb-2">Generating insights...</div>
-              <div class="text-body-2 text-grey">Analyzing your data with AI</div>
+              <div class="text-h6 mb-2">{{ progressMessage || 'Generating insights...' }}</div>
+              <div class="text-body-2 text-grey">Please wait while AI analyzes your data</div>
             </div>
 
             <!-- A2UI Components Renderer -->
@@ -356,20 +356,22 @@
                     </div>
                   </v-expansion-panel-title>
                   <v-expansion-panel-text>
-                    <div v-for="(sql, idx) in generatedSqlQueries" :key="idx" class="mb-3">
-                      <div class="d-flex align-center justify-space-between mb-2">
-                        <div class="text-caption text-grey">Query {{ idx + 1 }}</div>
-                        <v-btn
-                          size="x-small"
-                          variant="text"
-                          prepend-icon="mdi-content-copy"
-                          @click="copySqlToClipboard(sql)">
-                          Copy
-                        </v-btn>
+                    <div class="sql-queries-container">
+                      <div v-for="(sql, idx) in generatedSqlQueries" :key="idx" class="mb-3">
+                        <div class="d-flex align-center justify-space-between mb-2">
+                          <div class="text-caption text-grey">Query {{ idx + 1 }}</div>
+                          <v-btn
+                            size="x-small"
+                            variant="text"
+                            prepend-icon="mdi-content-copy"
+                            @click="copySqlToClipboard(sql)">
+                            Copy
+                          </v-btn>
+                        </div>
+                        <v-card variant="outlined" class="pa-3 sql-card">
+                          <pre class="sql-code">{{ formatSql(sql) }}</pre>
+                        </v-card>
                       </div>
-                      <v-card variant="outlined" class="pa-3">
-                        <pre class="sql-code">{{ sql }}</pre>
-                      </v-card>
                     </div>
                   </v-expansion-panel-text>
                 </v-expansion-panel>
@@ -514,6 +516,7 @@ const generatedSqlQueries = ref<string[]>([]);
 const customSystemPrompt = ref<string>('');
 const isExportingPDF = ref(false);
 const a2uiContainerRef = ref<HTMLElement | null>(null);
+const progressMessage = ref<string>('');
 
 const settings = ref<LLMSettings>({
   mode: 'local-wasm',
@@ -695,6 +698,8 @@ function buildDefaultSystemPrompt(): string {
 
   // Build table list with schemas
   let tableList = '';
+  let exampleColumns = ['column1', 'column2'];
+
   if (tablesToUse.length > 0) {
     tableList = tablesToUse
       .map((table) => {
@@ -707,6 +712,12 @@ function buildDefaultSystemPrompt(): string {
         }
       })
       .join('\n');
+
+    // Get example columns from first table for the example query
+    const firstTableSchema = tableSchemas.value[tablesToUse[0]];
+    if (firstTableSchema && firstTableSchema.length >= 2) {
+      exampleColumns = [firstTableSchema[0].column, firstTableSchema[1].column];
+    }
   } else {
     tableList = 'No tables available';
   }
@@ -738,6 +749,14 @@ A2UI is a declarative component specification for rendering insights. You may us
 AVAILABLE TABLES (USE ONLY THESE EXACT NAMES):
 ${tableList}
 
+⚠️ CRITICAL COLUMN RULES - READ CAREFULLY:
+1. NEVER invent or guess column names
+2. ONLY use columns explicitly listed above for each table
+3. If a column doesn't exist in the schema, DO NOT use it
+4. When aggregating, use actual numeric columns from the schema
+5. Before writing SELECT, verify EVERY column exists in the table's schema above
+6. Example: If you need to sum values, look for columns with type INTEGER, DECIMAL, DOUBLE, etc.
+
 CRITICAL RULES:
 - Return ONLY valid JSON matching A2UIResponse interface
 - No explanations, no markdown code blocks, no conversational text
@@ -761,7 +780,7 @@ Example response structure:
     {
       "type": "sql",
       "props": {
-        "query": "SELECT column1, SUM(column2) as total FROM ${exampleTable} GROUP BY column1 ORDER BY total DESC LIMIT 10",
+        "query": "SELECT ${exampleColumns[0]}, COUNT(*) as total FROM ${exampleTable} GROUP BY ${exampleColumns[0]} ORDER BY total DESC LIMIT 10",
         "then": {
           "type": "chart",
           "props": {
@@ -793,10 +812,25 @@ function useLLM() {
     // Get current table context
     const tablesToUse =
       selectedTables.value.length > 0 ? selectedTables.value : filteredTables.value;
-    const tableList =
-      tablesToUse.length > 0
-        ? tablesToUse.map((t) => `  - ${t}`).join('\n')
-        : 'No tables available';
+
+    // Build table list WITH SCHEMAS (not just names)
+    let tableList = '';
+    if (tablesToUse.length > 0) {
+      tableList = tablesToUse
+        .map((table) => {
+          const schema = tableSchemas.value[table];
+          if (schema && schema.length > 0) {
+            const columns = schema.map((col) => `${col.column} (${col.type})`).join(', ');
+            return `  - ${table}\n    Columns: ${columns}`;
+          } else {
+            return `  - ${table}\n    Columns: (schema not available)`;
+          }
+        })
+        .join('\n');
+    } else {
+      tableList = 'No tables available';
+    }
+
     const exampleTable = tablesToUse.length > 0 ? tablesToUse[0] : 'schema.table_name';
 
     // Build base prompt (custom or default)
@@ -818,6 +852,14 @@ function useLLM() {
     }
 
     const fullPrompt = `${systemPrompt}\n\nUser Question: ${prompt}\n\nReturn A2UI JSON:`;
+
+    // Debug logging
+    console.log('[AiInsightsPanel] Tables with schemas being sent to LLM:', tablesToUse);
+    console.log('[AiInsightsPanel] Table schemas:', tableSchemas.value);
+    console.log(
+      '[AiInsightsPanel] Full prompt preview (first 500 chars):',
+      fullPrompt.substring(0, 500),
+    );
 
     if (settings.value.mode === 'local-wasm') {
       return await generateLocalWASM(fullPrompt);
@@ -1384,17 +1426,57 @@ async function generateInsights() {
   generationStatus.value = null;
   a2uiResponse.value = null;
   generatedSqlQueries.value = [];
+  progressMessage.value = 'Preparing request...';
 
   try {
+    // Step 1: Verify schemas are loaded
+    progressMessage.value = 'Verifying table schemas...';
+    const schemasLoaded = selectedTables.value.every((table) => {
+      const schema = tableSchemas.value[table];
+      const loaded = schema && schema.length > 0;
+      if (!loaded) {
+        console.warn(`[AiInsightsPanel] Schema not loaded for ${table}`);
+      }
+      return loaded;
+    });
+
+    if (!schemasLoaded) {
+      console.log('[AiInsightsPanel] Fetching missing schemas...');
+      await fetchTableSchemas(selectedTables.value);
+      console.log('[AiInsightsPanel] Schemas loaded:', tableSchemas.value);
+    } else {
+      console.log('[AiInsightsPanel] All schemas already loaded');
+    }
+
+    // Step 2: Building prompt
+    progressMessage.value = 'Building analysis prompt...';
+    await new Promise((resolve) => setTimeout(resolve, 100)); // Small delay for UI update
+
+    // Step 3: Sending to LLM
+    if (settings.value.mode === 'local-wasm') {
+      progressMessage.value = 'Running local LLM inference...';
+    } else {
+      progressMessage.value = `Sending request to ${settings.value.provider}...`;
+    }
+
     const response = await generateA2UI(userQuestion.value);
+
+    // Step 4: Processing response
+    progressMessage.value = 'Processing AI response...';
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // Validate response
     if (!response.components || response.components.length === 0) {
       throw new Error('LLM returned empty response');
     }
 
-    // Extract SQL queries from response
+    // Step 5: Extract SQL queries
+    progressMessage.value = 'Extracting SQL queries...';
     extractSqlQueries(response.components);
+
+    // Step 6: Rendering results
+    progressMessage.value = 'Rendering insights...';
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     a2uiResponse.value = response;
     generationStatus.value = {
@@ -1412,6 +1494,7 @@ async function generateInsights() {
     emit('error', error instanceof Error ? error : new Error('Unknown error'));
   } finally {
     isGenerating.value = false;
+    progressMessage.value = '';
   }
 }
 
@@ -1635,6 +1718,49 @@ async function copySqlToClipboard(sql: string) {
       message: 'Failed to copy SQL to clipboard',
     };
   }
+}
+
+/**
+ * Format SQL for better readability
+ */
+function formatSql(sql: string): string {
+  if (!sql) return '';
+
+  // Basic SQL formatting with indentation
+  let formatted = sql
+    // Add newlines before major keywords
+    .replace(
+      /\b(SELECT|FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT|JOIN|LEFT JOIN|RIGHT JOIN|INNER JOIN|OUTER JOIN|ON|AND|OR|UNION)\b/gi,
+      '\n$1',
+    )
+    // Add newlines after commas in SELECT
+    .replace(/,\s*(?=\w)/g, ',\n  ')
+    // Clean up extra whitespace
+    .replace(/\n\s*\n/g, '\n')
+    .trim();
+
+  // Add indentation
+  const lines = formatted.split('\n');
+  let indent = 0;
+  const formattedLines = lines.map((line) => {
+    const trimmed = line.trim();
+
+    // Decrease indent before these keywords
+    if (/^(FROM|WHERE|GROUP BY|ORDER BY|HAVING|LIMIT)/i.test(trimmed)) {
+      indent = 0;
+    }
+
+    const indented = '  '.repeat(indent) + trimmed;
+
+    // Increase indent after SELECT, JOIN
+    if (/^(SELECT)/i.test(trimmed)) {
+      indent = 1;
+    }
+
+    return indented;
+  });
+
+  return formattedLines.join('\n');
 }
 
 /**
@@ -2003,6 +2129,16 @@ watch(
 
 .v-theme--dark .sql-code {
   color: #ecf0f1;
+}
+
+.sql-queries-container {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.sql-card {
+  max-height: 400px;
+  overflow: auto;
 }
 
 /* Dark mode support */
