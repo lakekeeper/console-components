@@ -346,8 +346,8 @@
               <A2UIRenderer :components="a2uiResponse.components" :context="rendererContext" />
 
               <!-- SQL Queries Section -->
-              <v-expansion-panels v-if="generatedSqlQueries.length > 0" class="mt-4">
-                <v-expansion-panel>
+              <v-expansion-panels v-if="generatedSqlQueries.length > 0" v-model="showSqlPanel" class="mt-4">
+                <v-expansion-panel value="sql">
                   <v-expansion-panel-title>
                     <div class="d-flex align-center">
                       <v-icon class="mr-2">mdi-database-search</v-icon>
@@ -500,6 +500,7 @@ const SYSTEM_PROMPT_STORAGE_KEY = 'ai-insights-system-prompt';
 
 const showSettings = ref(false);
 const showPromptEditor = ref(false);
+const showSqlPanel = ref<string[]>([]);
 const selectedNamespace = ref<string | null>(null);
 const selectedTables = ref<string[]>([]);
 const availableNamespaces = ref<string[]>([]);
