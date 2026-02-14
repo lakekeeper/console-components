@@ -363,20 +363,73 @@
                   </v-expansion-panel-title>
                   <v-expansion-panel-text>
                     <div class="sql-queries-container">
-                      <div v-for="(sql, idx) in generatedSqlQueries" :key="idx" class="mb-3">
+                      <div v-for="(sql, idx) in generatedSqlQueries" :key="idx" class="mb-4">
                         <div class="d-flex align-center justify-space-between mb-2">
-                          <div class="text-caption text-grey">Query {{ idx + 1 }}</div>
-                          <v-btn
-                            size="x-small"
-                            variant="text"
-                            prepend-icon="mdi-content-copy"
-                            @click="copySqlToClipboard(sql)">
-                            Copy
-                          </v-btn>
+                          <div class="text-caption text-grey font-weight-medium">
+                            Query {{ idx + 1 }}
+                          </div>
+                          <div class="d-flex gap-2">
+                            <v-btn
+                              size="x-small"
+                              variant="text"
+                              prepend-icon="mdi-content-copy"
+                              @click="copySqlToClipboard(editableSqlQueries[idx] || sql)">
+                              Copy
+                            </v-btn>
+                            <v-btn
+                              size="x-small"
+                              variant="text"
+                              prepend-icon="mdi-restore"
+                              :disabled="!editableSqlQueries[idx]"
+                              @click="resetSqlQuery(idx)">
+                              Reset
+                            </v-btn>
+                          </div>
                         </div>
-                        <v-card variant="outlined" class="pa-3 sql-card">
-                          <pre class="sql-code">{{ formatSql(sql) }}</pre>
-                        </v-card>
+                        <v-textarea
+                          v-model="editableSqlQueries[idx]"
+                          :placeholder="formatSql(sql)"
+                          variant="outlined"
+                          density="compact"
+                          rows="6"
+                          auto-grow
+                          class="sql-editor mb-2"
+                          :class="{
+                            'sql-modified':
+                              editableSqlQueries[idx] && editableSqlQueries[idx] !== sql,
+                          }"
+                          style="
+                            font-family: 'Courier New', monospace;
+                            font-size: 12px;
+                          "></v-textarea>
+                        <div class="d-flex justify-space-between align-center">
+                          <div v-if="queryResults[idx]" class="text-caption text-success">
+                            <v-icon size="small" color="success">mdi-check-circle</v-icon>
+                            {{ queryResults[idx].rowCount }} rows returned
+                          </div>
+                          <div v-else></div>
+                          <div class="d-flex gap-2">
+                            <v-btn
+                              v-if="queryResults[idx]"
+                              color="secondary"
+                              size="small"
+                              prepend-icon="mdi-chart-box"
+                              :loading="regeneratingVisualization === idx"
+                              :disabled="regeneratingVisualization >= 0"
+                              @click="regenerateVisualizationForQuery(idx)">
+                              Generate Visualization
+                            </v-btn>
+                            <v-btn
+                              color="primary"
+                              size="small"
+                              prepend-icon="mdi-play"
+                              :loading="executingSqlIndex === idx"
+                              :disabled="!editableSqlQueries[idx]?.trim() || executingSqlIndex >= 0"
+                              @click="executeCustomSql(idx)">
+                              Run Query
+                            </v-btn>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </v-expansion-panel-text>
@@ -527,6 +580,10 @@ const loadingNamespaces = ref(false);
 const a2uiResponse = ref<A2UIResponse | null>(null);
 const generationStatus = ref<Status | null>(null);
 const generatedSqlQueries = ref<string[]>([]);
+const editableSqlQueries = ref<string[]>([]);
+const executingSqlIndex = ref<number>(-1);
+const queryResults = ref<Record<number, QueryResult>>({});
+const regeneratingVisualization = ref<number>(-1);
 const customSystemPrompt = ref<string>('');
 const isExportingPDF = ref(false);
 const a2uiContainerRef = ref<HTMLElement | null>(null);
@@ -1634,6 +1691,8 @@ async function generateInsights() {
  * Regenerate insights with same question
  */
 function regenerateInsights() {
+  queryResults.value = {};
+  editableSqlQueries.value = [];
   generateInsights();
 }
 
@@ -1643,6 +1702,8 @@ function regenerateInsights() {
 function clearResults() {
   a2uiResponse.value = null;
   generationStatus.value = null;
+  queryResults.value = {};
+  editableSqlQueries.value = [];
 }
 
 /**
@@ -1868,6 +1929,8 @@ function extractSqlQueries(components: A2UIComponent[]) {
 
   components.forEach(traverse);
   generatedSqlQueries.value = queries;
+  // Initialize editable queries with formatted originals
+  editableSqlQueries.value = queries.map((q) => formatSql(q));
 }
 
 /**
@@ -2091,6 +2154,145 @@ function formatSql(sql: string): string {
   });
 
   return formattedLines.join('\n');
+}
+
+/**
+ * Reset edited SQL query to original
+ */
+function resetSqlQuery(index: number) {
+  if (index >= 0 && index < generatedSqlQueries.value.length) {
+    editableSqlQueries.value[index] = formatSql(generatedSqlQueries.value[index]);
+  }
+}
+
+/**
+ * Execute custom/edited SQL query
+ */
+async function executeCustomSql(index: number) {
+  const sql = editableSqlQueries.value[index];
+  if (!sql || !sql.trim()) {
+    generationStatus.value = {
+      type: 'error',
+      message: 'SQL query is empty',
+    };
+    return;
+  }
+
+  executingSqlIndex.value = index;
+  generationStatus.value = null;
+
+  try {
+    // Execute the query
+    const { execute } = useDuckDBQuery();
+    const result = await execute(sql);
+
+    // Store the results for visualization generation
+    queryResults.value[index] = result;
+
+    // Show success message with row count
+    generationStatus.value = {
+      type: 'success',
+      message: `Query executed successfully! Returned ${result.rowCount} row(s). Click "Generate Visualization" to create charts.`,
+    };
+
+    // Auto-hide success message after 3 seconds
+    setTimeout(() => {
+      if (generationStatus.value?.type === 'success') {
+        generationStatus.value = null;
+      }
+    }, 5000);
+
+    console.log('[AiInsightsPanel] Query results:', result);
+  } catch (error) {
+    console.error('Custom SQL execution error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to execute query';
+
+    generationStatus.value = {
+      type: 'error',
+      message: `Query execution failed: ${errorMessage}`,
+    };
+  } finally {
+    executingSqlIndex.value = -1;
+  }
+}
+
+/**
+ * Regenerate A2UI visualization for a specific query's results
+ */
+async function regenerateVisualizationForQuery(index: number) {
+  const sql = editableSqlQueries.value[index];
+  const result = queryResults.value[index];
+
+  if (!sql || !result) {
+    generationStatus.value = {
+      type: 'error',
+      message: 'No query results available. Run the query first.',
+    };
+    return;
+  }
+
+  regeneratingVisualization.value = index;
+  progressMessage.value = 'Generating visualization from query results...';
+
+  try {
+    // Prepare a minimal prompt for the LLM to generate A2UI for these specific results
+    const visualizationPrompt = `Given this SQL query and its results, generate A2UI JSON visualization components.
+
+SQL Query:
+${sql}
+
+Results Summary:
+- Columns: ${result.columns.join(', ')}
+- Row count: ${result.rowCount}
+- Sample data (first 3 rows): ${JSON.stringify(result.rows.slice(0, 3))}
+
+Generate appropriate visualization components (charts, tables, KPIs) for this data.
+Return ONLY valid A2UI JSON (no markdown, no explanations).`;
+
+    // Use the LLM to generate A2UI
+    const llmResponse = await generateA2UI(visualizationPrompt);
+
+    if (!llmResponse.components || llmResponse.components.length === 0) {
+      throw new Error('LLM returned empty visualization');
+    }
+
+    // Append the new components to the existing response
+    if (a2uiResponse.value) {
+      // Add a divider and the new components
+      const divider: A2UIComponent = {
+        type: 'markdown',
+        props: { content: '---\n### Updated Query Results' },
+      };
+
+      a2uiResponse.value.components.push(divider, ...llmResponse.components);
+    } else {
+      // If no existing response, create new one
+      a2uiResponse.value = llmResponse;
+    }
+
+    generationStatus.value = {
+      type: 'success',
+      message: 'Visualization generated successfully!',
+    };
+
+    setTimeout(() => {
+      if (generationStatus.value?.message === 'Visualization generated successfully!') {
+        generationStatus.value = null;
+      }
+    }, 3000);
+  } catch (error) {
+    console.error('Visualization generation error:', error);
+    const errorMessage =
+      error instanceof Error ? error.message : 'Failed to generate visualization';
+
+    generationStatus.value = {
+      type: 'error',
+      message: `Visualization failed: ${errorMessage}`,
+    };
+  } finally {
+    regeneratingVisualization.value = -1;
+    progressMessage.value = '';
+  }
 }
 
 /**
@@ -2565,6 +2767,22 @@ watch(
 .sql-queries-container {
   max-height: 500px;
   overflow-y: auto;
+}
+
+.sql-editor :deep(textarea) {
+  font-family: 'Courier New', monospace !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+}
+
+.sql-modified {
+  border-left: 3px solid #1976d2 !important;
+}
+
+.sql-modified :deep(.v-field__outline__start),
+.sql-modified :deep(.v-field__outline__notch),
+.sql-modified :deep(.v-field__outline__end) {
+  border-color: #1976d2 !important;
 }
 
 .sql-card {
