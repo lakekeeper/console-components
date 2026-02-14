@@ -216,7 +216,7 @@
               multiple
               chips
               closable-chips
-              :loading="loadingTables"
+              :loading="loadingTables || loadingSchemas"
               :disabled="!selectedNamespace || filteredTables.length === 0"
               prepend-inner-icon="mdi-table">
               <template #prepend-item>
@@ -525,6 +525,8 @@ const settings = ref<LLMSettings>({
 });
 
 const availableTables = ref<string[]>([]);
+const tableSchemas = ref<Record<string, Array<{ column: string; type: string }>>>({});
+const loadingSchemas = ref(false);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // COMPUTED
@@ -652,12 +654,63 @@ function useDuckDBQuery() {
 }
 
 /**
+ * Fetch table schemas using DuckDB DESCRIBE
+ */
+async function fetchTableSchemas(tables: string[]) {
+  if (!icebergDB.isInitialized.value || !icebergDB.catalogConfigured.value) {
+    console.warn('[AiInsightsPanel] Cannot fetch schemas - DuckDB not initialized');
+    return;
+  }
+
+  loadingSchemas.value = true;
+  const schemas: Record<string, Array<{ column: string; type: string }>> = {};
+
+  for (const table of tables) {
+    try {
+      const result = await icebergDB.executeQuery(`DESCRIBE ${table}`);
+
+      // Extract column info from DESCRIBE result
+      const columns = result.rows.map((row) => ({
+        column: String(row[0] || ''),
+        type: String(row[1] || ''),
+      }));
+
+      schemas[table] = columns;
+      console.log(`[AiInsightsPanel] Fetched schema for ${table}:`, columns.length, 'columns');
+    } catch (error) {
+      console.error(`[AiInsightsPanel] Failed to fetch schema for ${table}:`, error);
+      // Continue with other tables even if one fails
+    }
+  }
+
+  tableSchemas.value = schemas;
+  loadingSchemas.value = false;
+}
+
+/**
  * Build default system prompt
  */
 function buildDefaultSystemPrompt(): string {
   const tablesToUse = selectedTables.value.length > 0 ? selectedTables.value : filteredTables.value;
-  const tableList =
-    tablesToUse.length > 0 ? tablesToUse.map((t) => `  - ${t}`).join('\n') : 'No tables available';
+
+  // Build table list with schemas
+  let tableList = '';
+  if (tablesToUse.length > 0) {
+    tableList = tablesToUse
+      .map((table) => {
+        const schema = tableSchemas.value[table];
+        if (schema && schema.length > 0) {
+          const columns = schema.map((col) => `${col.column} (${col.type})`).join(', ');
+          return `  - ${table}\n    Columns: ${columns}`;
+        } else {
+          return `  - ${table}\n    Columns: (schema not loaded - use DESCRIBE ${table} to see columns)`;
+        }
+      })
+      .join('\n');
+  } else {
+    tableList = 'No tables available';
+  }
+
   const exampleTable = tablesToUse.length > 0 ? tablesToUse[0] : 'schema.table_name';
 
   return `You are a data analyst assistant. Your task is to analyze data questions and return ONLY valid A2UI JSON.
@@ -688,9 +741,11 @@ ${tableList}
 CRITICAL RULES:
 - Return ONLY valid JSON matching A2UIResponse interface
 - No explanations, no markdown code blocks, no conversational text
-- IMPORTANT: You MUST use ONLY the exact table names listed in "AVAILABLE TABLES" above
-- DO NOT invent or assume table names - use only the tables provided
+- IMPORTANT: You MUST use ONLY the exact table names and column names listed in "AVAILABLE TABLES" above
+- DO NOT invent column names - use only the columns shown in the table schemas
+- DO NOT assume table names - use only the tables provided with their full names
 - Use the FULL table names exactly as shown (they already include namespace/catalog)
+- All column names are case-sensitive - use them exactly as shown
 - Charts must include valid data or reference SQL results
 - Use descriptive titles and labels
 - Provide actionable insights
@@ -1527,6 +1582,15 @@ function toggleAllTables() {
 }
 
 /**
+ * Handle table selection change - fetch schemas
+ */
+watch(selectedTables, async (newTables) => {
+  if (newTables.length > 0 && icebergDB.isInitialized.value && icebergDB.catalogConfigured.value) {
+    await fetchTableSchemas(newTables);
+  }
+});
+
+/**
  * Extract SQL queries from A2UI components recursively
  */
 function extractSqlQueries(components: A2UIComponent[]) {
@@ -1832,6 +1896,30 @@ watch(
   () => {
     hasInitialized.value = false;
     initializeDuckDB();
+  },
+);
+
+// Watch for token refresh and reconfigure catalog
+watch(
+  () => userStore.user?.access_token,
+  async (newToken, oldToken) => {
+    // Only reconfigure if token actually changed and catalog was already initialized
+    if (newToken && oldToken && newToken !== oldToken && hasInitialized.value) {
+      console.log('[AiInsightsPanel] Access token refreshed, reconfiguring catalog...');
+
+      // Reconfigure catalog with new token
+      const success = await configureCatalogWithRetry();
+
+      if (success) {
+        console.log('[AiInsightsPanel] Catalog reconfigured with new token');
+      } else {
+        console.error('[AiInsightsPanel] Failed to reconfigure catalog with new token');
+        generationStatus.value = {
+          type: 'warning',
+          message: 'Token refreshed - please reload if queries fail',
+        };
+      }
+    }
   },
 );
 
