@@ -396,6 +396,7 @@ import {
   computed,
   onMounted,
   watch,
+  nextTick,
   defineComponent,
   h,
   markRaw,
@@ -516,6 +517,7 @@ const selectedNamespace = ref<string | null>(null);
 const selectedTables = ref<string[]>([]);
 const availableNamespaces = ref<string[]>([]);
 const hasInitialized = ref(false);
+const isRestoringFromStorage = ref(false);
 const warehouseError = ref<string | null>(null);
 const isCheckingWarehouse = ref(false);
 const userQuestion = ref('');
@@ -1730,14 +1732,17 @@ async function initializeDuckDB() {
       // Load namespaces first
       await loadAvailableNamespaces();
 
+      // Load all tables first (before restoring selections)
+      await loadAvailableTables();
+
+      // Now restore persisted selections without triggering handlers/watchers
+      isRestoringFromStorage.value = true;
+
       // Restore persisted namespace selection if it exists in available namespaces
       const persistedNamespace = localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY);
       if (persistedNamespace && availableNamespaces.value.includes(persistedNamespace)) {
         selectedNamespace.value = persistedNamespace;
       }
-
-      // Then load tables after successful catalog configuration
-      await loadAvailableTables();
 
       // Restore persisted table selection if it exists in available tables
       const persistedTables = localStorage.getItem(SELECTED_TABLES_STORAGE_KEY);
@@ -1752,6 +1757,10 @@ async function initializeDuckDB() {
           console.warn('Failed to restore persisted tables:', error);
         }
       }
+
+      // Re-enable watchers after restoration is complete
+      await nextTick(); // Ensure Vue has processed the updates
+      isRestoringFromStorage.value = false;
     }
   } catch (e) {
     isCheckingWarehouse.value = false;
@@ -1796,6 +1805,11 @@ async function loadAvailableNamespaces() {
  * Handle namespace selection change
  */
 function onNamespaceChange() {
+  // Don't handle changes during restoration from localStorage
+  if (isRestoringFromStorage.value) {
+    return;
+  }
+
   // Clear selected tables when namespace changes
   selectedTables.value = [];
   // Reload tables for new namespace
@@ -2441,14 +2455,20 @@ watch(userQuestion, (newQuestion) => {
 
 // Watch for selected namespace changes and persist to localStorage
 watch(selectedNamespace, (newNamespace) => {
-  saveSelectedNamespaceToLocalStorage();
+  // Don't save during initial restoration to prevent conflicts
+  if (!isRestoringFromStorage.value) {
+    saveSelectedNamespaceToLocalStorage();
+  }
 });
 
 // Watch for selected tables changes and persist to localStorage
 watch(
   selectedTables,
   (newTables) => {
-    saveSelectedTablesToLocalStorage();
+    // Don't save during initial restoration to prevent conflicts
+    if (!isRestoringFromStorage.value) {
+      saveSelectedTablesToLocalStorage();
+    }
   },
   { deep: true },
 );
