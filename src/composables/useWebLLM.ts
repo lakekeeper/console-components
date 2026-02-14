@@ -59,7 +59,7 @@ export function useWebLLM() {
     loadingProgress.value = 'Starting initialization...';
 
     try {
-      const modelId = config?.modelId || 'Llama-3.1-8B-Instruct-q4f16_1-MLC';
+      const modelId = config?.modelId || 'Qwen2.5-7B-Instruct-q4f16_1-MLC';
 
       // Create engine with progress tracking
       engineInstance = await webllm.CreateMLCEngine(modelId, {

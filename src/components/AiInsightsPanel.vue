@@ -60,7 +60,11 @@
                   variant="tonal"
                   density="compact"
                   class="mb-3">
-                  <div class="text-caption">Model will download on first use (~2GB)</div>
+                  <div class="text-caption">
+                    Model downloads on first use.
+                    <strong>Size varies by model (0.8GB - 5GB)</strong>.
+                    Larger models may impact performance on low-memory devices.
+                  </div>
                 </v-alert>
 
                 <!-- Loading Progress -->
@@ -245,8 +249,7 @@
               hide-details
               :disabled="!selectedNamespace || selectedTables.length === 0"
               placeholder="e.g., What are the top 10 products by revenue? Show me trends over time."
-              class="mb-3"
-              @input="savePromptToLocalStorage"></v-textarea>
+              class="mb-3"></v-textarea>
 
             <v-btn
               color="primary"
@@ -408,7 +411,9 @@ import { useWebLLM } from '@/composables/useWebLLM';
 import type { QueryResult } from '@/composables/useDuckDB';
 import { useUserStore } from '@/stores/user';
 import { useVisualStore } from '@/stores/visual';
+import { useNotificationStore } from '@/stores/notifications';
 import { useStorageValidation } from '@/composables/useStorageValidation';
+import { Type } from '@/common/enums';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -417,6 +422,7 @@ Chart.register(...registerables);
 const functions = useFunctions();
 const userStore = useUserStore();
 const visualStore = useVisualStore();
+const notificationStore = useNotificationStore();
 const webLLM = useWebLLM();
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -528,7 +534,7 @@ const settings = ref<LLMSettings>({
   apiKey: '',
   endpoint: '',
   model: '',
-  localModel: 'Llama-3.1-8B-Instruct-q4f16_1-MLC', // Default: Best for SQL and reasoning
+  localModel: 'Qwen2.5-7B-Instruct-q4f16_1-MLC', // Default: Best balance for SQL tasks
 });
 
 const availableTables = ref<string[]>([]);
@@ -1524,13 +1530,32 @@ async function generateInsights() {
       message: 'Insights generated successfully',
     };
 
+    // Add to notification panel
+    notificationStore.addNotification({
+      function: 'AI Insights',
+      stack: selectedTables.value,
+      text: `Generated insights for: "${userQuestion.value}"`,
+      type: Type.SUCCESS,
+    });
+
     emit('insights-generated', response);
   } catch (error) {
     console.error('Insight generation error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to generate insights';
+    
     generationStatus.value = {
       type: 'error',
-      message: error instanceof Error ? error.message : 'Failed to generate insights',
+      message: errorMessage,
     };
+
+    // Add error to notification panel
+    notificationStore.addNotification({
+      function: 'AI Insights',
+      stack: selectedTables.value,
+      text: `Failed to generate insights: ${errorMessage}`,
+      type: Type.ERROR,
+    });
+
     emit('error', error instanceof Error ? error : new Error('Unknown error'));
   } finally {
     isGenerating.value = false;
@@ -2112,6 +2137,14 @@ watch(
         '[AiInsightsPanel] Old model disposed. New model will initialize on next generation.',
       );
     }
+  },
+);
+
+// Watch for user question changes and persist to localStorage
+watch(
+  userQuestion,
+  (newQuestion) => {
+    savePromptToLocalStorage();
   },
 );
 
