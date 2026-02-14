@@ -1575,7 +1575,7 @@ async function generateInsights() {
     if (tableValidationError) {
       throw new Error(`SQL table validation failed: ${tableValidationError}`);
     }
-    
+
     const columnValidationError = validateSqlColumns(generatedSqlQueries.value);
     if (columnValidationError) {
       throw new Error(`SQL column validation failed: ${columnValidationError}`);
@@ -1593,7 +1593,8 @@ async function generateInsights() {
 
     // Add to notification panel
     const namespaceInfo = selectedNamespace.value ? ` [${selectedNamespace.value}]` : '';
-    const tablesInfo = selectedTables.value.length > 0 ? ` (${selectedTables.value.length} tables)` : '';
+    const tablesInfo =
+      selectedTables.value.length > 0 ? ` (${selectedTables.value.length} tables)` : '';
     notificationStore.addNotification({
       function: 'AI Insights',
       stack: selectedTables.value,
@@ -1728,24 +1729,24 @@ async function initializeDuckDB() {
     if (success) {
       // Load namespaces first
       await loadAvailableNamespaces();
-      
+
       // Restore persisted namespace selection if it exists in available namespaces
       const persistedNamespace = localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY);
       if (persistedNamespace && availableNamespaces.value.includes(persistedNamespace)) {
         selectedNamespace.value = persistedNamespace;
       }
-      
+
       // Then load tables after successful catalog configuration
       await loadAvailableTables();
-      
+
       // Restore persisted table selection if it exists in available tables
       const persistedTables = localStorage.getItem(SELECTED_TABLES_STORAGE_KEY);
       if (persistedTables) {
         try {
           const parsedTables = JSON.parse(persistedTables);
           // Only restore tables that are still available
-          selectedTables.value = parsedTables.filter((t: string) => 
-            availableTables.value.includes(t)
+          selectedTables.value = parsedTables.filter((t: string) =>
+            availableTables.value.includes(t),
           );
         } catch (error) {
           console.warn('Failed to restore persisted tables:', error);
@@ -1860,22 +1861,65 @@ function extractSqlQueries(components: A2UIComponent[]) {
  */
 function validateSqlColumns(queries: string[]): string | null {
   const schemas = tableSchemas.value;
-  
+
   // SQL keywords to exclude from column validation
   const sqlKeywords = new Set([
-    'SELECT', 'FROM', 'WHERE', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'FULL',
-    'ON', 'AND', 'OR', 'NOT', 'IN', 'AS', 'GROUP', 'BY', 'ORDER', 'HAVING',
-    'LIMIT', 'OFFSET', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX',
-    'CAST', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'NULL', 'IS', 'BETWEEN',
-    'LIKE', 'ASC', 'DESC', 'INTEGER', 'BIGINT', 'VARCHAR', 'DOUBLE', 'DATE',
-    'TIMESTAMP', 'BOOL', 'BOOLEAN', 'TRUE', 'FALSE'
+    'SELECT',
+    'FROM',
+    'WHERE',
+    'JOIN',
+    'LEFT',
+    'RIGHT',
+    'INNER',
+    'OUTER',
+    'FULL',
+    'ON',
+    'AND',
+    'OR',
+    'NOT',
+    'IN',
+    'AS',
+    'GROUP',
+    'BY',
+    'ORDER',
+    'HAVING',
+    'LIMIT',
+    'OFFSET',
+    'DISTINCT',
+    'COUNT',
+    'SUM',
+    'AVG',
+    'MIN',
+    'MAX',
+    'CAST',
+    'CASE',
+    'WHEN',
+    'THEN',
+    'ELSE',
+    'END',
+    'NULL',
+    'IS',
+    'BETWEEN',
+    'LIKE',
+    'ASC',
+    'DESC',
+    'INTEGER',
+    'BIGINT',
+    'VARCHAR',
+    'DOUBLE',
+    'DATE',
+    'TIMESTAMP',
+    'BOOL',
+    'BOOLEAN',
+    'TRUE',
+    'FALSE',
   ]);
-  
+
   for (const query of queries) {
     // Extract potential column names from the query
     // Look for identifiers that aren't SQL keywords
     const words = query.split(/[\s,()=<>!+\-*\/]+/);
-    const potentialColumns = words.filter(word => {
+    const potentialColumns = words.filter((word) => {
       if (!word || word.length === 0) return false;
       const upper = word.toUpperCase();
       // Skip SQL keywords, numbers, and string literals
@@ -1887,26 +1931,26 @@ function validateSqlColumns(queries: string[]): string | null {
       // Keep only simple identifiers that look like column names
       return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(word);
     });
-    
+
     // Build a set of all valid column names from all loaded schemas
     const validColumns = new Set<string>();
     for (const tableName in schemas) {
       const tableSchema = schemas[tableName];
       if (tableSchema) {
-        tableSchema.forEach(col => validColumns.add(col.column));
+        tableSchema.forEach((col) => validColumns.add(col.column));
       }
     }
-    
+
     // Check each potential column against valid columns
     for (const col of potentialColumns) {
       const colLower = col.toLowerCase();
       const colUpper = col.toUpperCase();
-      
+
       // Check if this column exists in any of the schemas (case-insensitive)
-      const foundInSchema = Array.from(validColumns).some(validCol => 
-        validCol.toLowerCase() === colLower
+      const foundInSchema = Array.from(validColumns).some(
+        (validCol) => validCol.toLowerCase() === colLower,
       );
-      
+
       if (!foundInSchema) {
         // This might be a column name that doesn't exist
         // Double-check it's not an alias or partial calculation
@@ -1916,7 +1960,7 @@ function validateSqlColumns(queries: string[]): string | null {
       }
     }
   }
-  
+
   return null;
 }
 
@@ -2401,9 +2445,13 @@ watch(selectedNamespace, (newNamespace) => {
 });
 
 // Watch for selected tables changes and persist to localStorage
-watch(selectedTables, (newTables) => {
-  saveSelectedTablesToLocalStorage();
-}, { deep: true });
+watch(
+  selectedTables,
+  (newTables) => {
+    saveSelectedTablesToLocalStorage();
+  },
+  { deep: true },
+);
 
 // Watch for external table updates
 watch(
