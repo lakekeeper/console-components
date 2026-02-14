@@ -144,16 +144,26 @@
                   </div>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
+                  <v-alert
+                    v-if="!customSystemPrompt"
+                    type="info"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-3">
+                    <div class="text-caption">
+                      You're viewing the default prompt. Edit it to customize, or it will
+                      auto-update with your table selection.
+                    </div>
+                  </v-alert>
                   <v-textarea
-                    v-model="customSystemPrompt"
+                    v-model="displayedSystemPrompt"
                     label="Edit system prompt"
                     rows="12"
                     variant="outlined"
                     density="compact"
                     hint="Tip: Use {{AVAILABLE_TABLES}} and {{EXAMPLE_TABLE}} placeholders - they'll be auto-replaced with current selection"
                     persistent-hint
-                    class="mb-2"
-                    @input="saveSystemPromptToLocalStorage"></v-textarea>
+                    class="mb-2"></v-textarea>
                   <div class="d-flex gap-2">
                     <v-btn
                       size="small"
@@ -163,8 +173,14 @@
                       Reset to Default
                     </v-btn>
                     <v-spacer></v-spacer>
-                    <v-chip size="small" variant="tonal">
-                      {{ customSystemPrompt.length }} chars
+                    <v-chip
+                      size="small"
+                      :variant="customSystemPrompt ? 'tonal' : 'outlined'"
+                      :color="customSystemPrompt ? 'primary' : 'default'">
+                      {{ customSystemPrompt ? 'Custom' : 'Default' }} ({{
+                        displayedSystemPrompt.length
+                      }}
+                      chars)
                     </v-chip>
                   </div>
                 </v-expansion-panel-text>
@@ -280,6 +296,16 @@
             Insights
             <v-spacer></v-spacer>
             <v-btn
+              icon="mdi-file-pdf-box"
+              size="small"
+              variant="text"
+              :disabled="isGenerating || isExportingPDF"
+              :loading="isExportingPDF"
+              @click="exportToPDF">
+              <v-icon>mdi-file-pdf-box</v-icon>
+              <v-tooltip activator="parent" location="bottom">Export as PDF</v-tooltip>
+            </v-btn>
+            <v-btn
               icon="mdi-refresh"
               size="small"
               variant="text"
@@ -316,7 +342,7 @@
             </div>
 
             <!-- A2UI Components Renderer -->
-            <div v-else-if="a2uiResponse" class="a2ui-container">
+            <div v-else-if="a2uiResponse" ref="a2uiContainerRef" class="a2ui-container">
               <A2UIRenderer :components="a2uiResponse.components" :context="rendererContext" />
 
               <!-- SQL Queries Section -->
@@ -486,6 +512,8 @@ const a2uiResponse = ref<A2UIResponse | null>(null);
 const generationStatus = ref<Status | null>(null);
 const generatedSqlQueries = ref<string[]>([]);
 const customSystemPrompt = ref<string>('');
+const isExportingPDF = ref(false);
+const a2uiContainerRef = ref<HTMLElement | null>(null);
 
 const settings = ref<LLMSettings>({
   mode: 'local-wasm',
@@ -535,6 +563,18 @@ const exampleQuestions = computed(() => [
   'Calculate key metrics',
   'Find anomalies',
 ]);
+
+// Computed property for effective system prompt display
+const displayedSystemPrompt = computed({
+  get: () => {
+    // If custom prompt exists, use it; otherwise show current default
+    return customSystemPrompt.value || buildDefaultSystemPrompt();
+  },
+  set: (value: string) => {
+    customSystemPrompt.value = value;
+    saveSystemPromptToLocalStorage();
+  },
+});
 
 const rendererContext = computed(() => ({
   selectedTables: selectedTables.value,
@@ -1587,12 +1627,87 @@ function loadSystemPromptFromLocalStorage() {
  * Reset system prompt to default
  */
 function resetSystemPrompt() {
-  customSystemPrompt.value = buildDefaultSystemPrompt();
-  saveSystemPromptToLocalStorage();
+  customSystemPrompt.value = '';
+  localStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY);
   generationStatus.value = {
     type: 'info',
-    message: 'System prompt reset to default',
+    message: 'System prompt reset to default (will auto-update with table selection)',
   };
+  setTimeout(() => {
+    if (generationStatus.value?.message.includes('reset')) {
+      generationStatus.value = null;
+    }
+  }, 3000);
+}
+
+/**
+ * Export A2UI results as PDF
+ */
+async function exportToPDF() {
+  if (!a2uiContainerRef.value || !a2uiResponse.value) return;
+
+  isExportingPDF.value = true;
+  generationStatus.value = {
+    type: 'info',
+    message: 'Generating PDF...',
+  };
+
+  try {
+    // Dynamically import html2pdf to avoid bundling if not used
+    const html2pdf = (await import('html2pdf.js')).default;
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const filename = `ai-insights-${selectedNamespace.value || 'report'}-${timestamp}.pdf`;
+
+    const opt = {
+      margin: 10,
+      filename: filename,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      },
+      jsPDF: {
+        unit: 'mm',
+        format: 'a4',
+        orientation: 'portrait',
+      },
+      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+    };
+
+    await html2pdf().set(opt).from(a2uiContainerRef.value).save();
+
+    generationStatus.value = {
+      type: 'success',
+      message: 'PDF exported successfully',
+    };
+  } catch (error) {
+    console.error('PDF export error:', error);
+
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
+    // Check if it's a missing dependency issue
+    if (errorMessage.includes('Cannot find module') || errorMessage.includes('html2pdf')) {
+      generationStatus.value = {
+        type: 'error',
+        message: 'PDF export requires html2pdf.js. Run: npm install html2pdf.js',
+      };
+    } else {
+      generationStatus.value = {
+        type: 'error',
+        message: `Failed to export PDF: ${errorMessage}`,
+      };
+    }
+  } finally {
+    isExportingPDF.value = false;
+    // Clear status after 5 seconds
+    setTimeout(() => {
+      if (generationStatus.value?.message.includes('PDF')) {
+        generationStatus.value = null;
+      }
+    }, 5000);
+  }
 }
 
 /**
