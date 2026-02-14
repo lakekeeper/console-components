@@ -91,7 +91,9 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
         await duckDB.executeQuery(`DETACH DATABASE "${config.catalogName}";`);
       } catch (detachError) {
         // Ignore - database may not exist yet
-        console.log(`[DuckDB Iceberg] Detach skipped (database may not exist): ${detachError instanceof Error ? detachError.message : String(detachError)}`);
+        console.log(
+          `[DuckDB Iceberg] Detach skipped (database may not exist): ${detachError instanceof Error ? detachError.message : String(detachError)}`,
+        );
       }
 
       // Execute all setup commands in correct order
