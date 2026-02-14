@@ -1847,30 +1847,34 @@ async function exportToPDF() {
   };
 
   try {
-    // Dynamically import html2pdf to avoid bundling if not used
-    const html2pdf = (await import('html2pdf.js')).default;
+    // Dynamically import jsPDF to avoid bundling if not used
+    const { jsPDF } = await import('jspdf');
 
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `ai-insights-${selectedNamespace.value || 'report'}-${timestamp}.pdf`;
 
-    const opt = {
-      margin: 10,
-      filename: filename,
-      image: { type: 'jpeg', quality: 0.98 },
+    // Create new PDF document
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    // Use html() method which preserves text as selectable text (not images)
+    await pdf.html(a2uiContainerRef.value, {
+      callback: function (doc) {
+        doc.save(filename);
+      },
+      margin: [10, 10, 10, 10],
+      autoPaging: 'text',
       html2canvas: {
-        scale: 2,
+        scale: 0.265, // Scale to fit A4 width (~210mm)
         useCORS: true,
         logging: false,
       },
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait',
-      },
-      pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-    };
-
-    await html2pdf().set(opt).from(a2uiContainerRef.value).save();
+      width: 190, // A4 width minus margins
+      windowWidth: 800, // Source width for scaling
+    });
 
     generationStatus.value = {
       type: 'success',
@@ -1882,10 +1886,10 @@ async function exportToPDF() {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 
     // Check if it's a missing dependency issue
-    if (errorMessage.includes('Cannot find module') || errorMessage.includes('html2pdf')) {
+    if (errorMessage.includes('Cannot find module') || errorMessage.includes('jspdf')) {
       generationStatus.value = {
         type: 'error',
-        message: 'PDF export requires html2pdf.js. Run: npm install html2pdf.js',
+        message: 'PDF export requires jsPDF. Run: npm install jspdf',
       };
     } else {
       generationStatus.value = {
