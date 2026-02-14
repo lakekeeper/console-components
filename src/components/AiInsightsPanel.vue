@@ -756,15 +756,19 @@ ${tableList}
 4. When aggregating, use actual numeric columns from the schema
 5. Before writing SELECT, verify EVERY column exists in the table's schema above
 6. Example: If you need to sum values, look for columns with type INTEGER, DECIMAL, DOUBLE, etc.
+7. If you cannot find appropriate columns for a query, explain the limitation in a markdown component
+8. Double-check: Every column in your SQL must appear in the "Columns:" list for that table
 
 CRITICAL RULES:
 - Return ONLY valid JSON matching A2UIResponse interface
 - No explanations, no markdown code blocks, no conversational text
+- VALIDATE EVERY COLUMN: Before using ANY column in SQL, verify it exists in the schema above
 - IMPORTANT: You MUST use ONLY the exact table names and column names listed in "AVAILABLE TABLES" above
 - DO NOT invent column names - use only the columns shown in the table schemas
 - DO NOT assume table names - use only the tables provided with their full names
 - Use the FULL table names exactly as shown (they already include namespace/catalog)
 - All column names are case-sensitive - use them exactly as shown
+- If the data doesn't support the question, explain this in a markdown component instead of making up columns
 - Charts must include valid data or reference SQL results
 - Use descriptive titles and labels
 - Provide actionable insights
