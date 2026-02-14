@@ -1729,20 +1729,20 @@ async function initializeDuckDB() {
     isCheckingWarehouse.value = false;
 
     if (success) {
+      // Prevent handlers from running during restoration
+      isRestoringFromStorage.value = true;
+
       // Load namespaces first
       await loadAvailableNamespaces();
 
-      // Load all tables first (before restoring selections)
-      await loadAvailableTables();
-
-      // Now restore persisted selections without triggering handlers/watchers
-      isRestoringFromStorage.value = true;
-
-      // Restore persisted namespace selection if it exists in available namespaces
+      // Restore persisted namespace selection BEFORE loading tables
       const persistedNamespace = localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY);
       if (persistedNamespace && availableNamespaces.value.includes(persistedNamespace)) {
         selectedNamespace.value = persistedNamespace;
       }
+
+      // Now load tables (which may use selectedNamespace.value)
+      await loadAvailableTables();
 
       // Restore persisted table selection if it exists in available tables
       const persistedTables = localStorage.getItem(SELECTED_TABLES_STORAGE_KEY);
@@ -1786,11 +1786,11 @@ async function loadAvailableNamespaces() {
 
     availableNamespaces.value = nsResponse.namespaces.map((ns) => ns.join('.'));
 
-    // Auto-select namespace if specified in props
-    if (props.namespace && availableNamespaces.value.includes(props.namespace)) {
+    // Only auto-select if not restoring from storage and props specify a namespace
+    if (!isRestoringFromStorage.value && props.namespace && availableNamespaces.value.includes(props.namespace)) {
       selectedNamespace.value = props.namespace;
-    } else if (availableNamespaces.value.length === 1) {
-      // Auto-select if only one namespace
+    } else if (!isRestoringFromStorage.value && availableNamespaces.value.length === 1 && !localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY)) {
+      // Auto-select if only one namespace and no saved preference
       selectedNamespace.value = availableNamespaces.value[0];
     }
   } catch (error) {
