@@ -151,15 +151,32 @@
           <!-- Table Selection -->
           <v-card-text class="flex-grow-0">
             <v-autocomplete
-              v-model="selectedTable"
+              v-model="selectedTables"
               :items="filteredTables"
-              label="Select Iceberg Table"
+              label="Select Tables"
               variant="outlined"
               density="compact"
               hide-details
               clearable
+              multiple
+              chips
+              closable-chips
               :loading="loadingTables"
-              prepend-inner-icon="mdi-table"></v-autocomplete>
+              :disabled="!selectedNamespace || filteredTables.length === 0"
+              prepend-inner-icon="mdi-table">
+              <template #prepend-item>
+                <v-list-item title="All Tables" @click="toggleAllTables">
+                  <template #prepend>
+                    <v-checkbox-btn
+                      :model-value="selectedTables.length === filteredTables.length"
+                      :indeterminate="
+                        selectedTables.length > 0 && selectedTables.length < filteredTables.length
+                      "></v-checkbox-btn>
+                  </template>
+                </v-list-item>
+                <v-divider class="mb-2"></v-divider>
+              </template>
+            </v-autocomplete>
           </v-card-text>
 
           <!-- Question Input -->
@@ -171,16 +188,17 @@
               auto-grow
               rows="4"
               hide-details
-              :disabled="!selectedTable"
+              :disabled="!selectedNamespace || selectedTables.length === 0"
               placeholder="e.g., What are the top 10 products by revenue? Show me trends over time."
-              class="mb-3"></v-textarea>
+              class="mb-3"
+              @input="savePromptToLocalStorage"></v-textarea>
 
             <v-btn
               color="primary"
               size="large"
               block
               :loading="isGenerating"
-              :disabled="!selectedTable || !userQuestion.trim()"
+              :disabled="!selectedNamespace || selectedTables.length === 0 || !userQuestion.trim()"
               @click="generateInsights">
               <v-icon start>mdi-sparkles</v-icon>
               Generate Insights
@@ -199,7 +217,7 @@
             </v-alert>
 
             <!-- Example Questions -->
-            <div v-if="!userQuestion && selectedTable" class="mt-4">
+            <div v-if="!userQuestion && selectedTables.length > 0" class="mt-4">
               <div class="text-caption text-grey mb-2">Example questions:</div>
               <v-chip
                 v-for="(example, idx) in exampleQuestions"
@@ -261,6 +279,36 @@
             <!-- A2UI Components Renderer -->
             <div v-else-if="a2uiResponse" class="a2ui-container">
               <A2UIRenderer :components="a2uiResponse.components" :context="rendererContext" />
+
+              <!-- SQL Queries Section -->
+              <v-expansion-panels v-if="generatedSqlQueries.length > 0" class="mt-4">
+                <v-expansion-panel>
+                  <v-expansion-panel-title>
+                    <div class="d-flex align-center">
+                      <v-icon class="mr-2">mdi-database-search</v-icon>
+                      <span class="font-weight-medium">Generated SQL Queries</span>
+                      <v-chip size="x-small" class="ml-2">{{ generatedSqlQueries.length }}</v-chip>
+                    </div>
+                  </v-expansion-panel-title>
+                  <v-expansion-panel-text>
+                    <div v-for="(sql, idx) in generatedSqlQueries" :key="idx" class="mb-3">
+                      <div class="d-flex align-center justify-space-between mb-2">
+                        <div class="text-caption text-grey">Query {{ idx + 1 }}</div>
+                        <v-btn
+                          size="x-small"
+                          variant="text"
+                          prepend-icon="mdi-content-copy"
+                          @click="copySqlToClipboard(sql)">
+                          Copy
+                        </v-btn>
+                      </div>
+                      <v-card variant="outlined" class="pa-3">
+                        <pre class="sql-code">{{ sql }}</pre>
+                      </v-card>
+                    </div>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
             </div>
           </v-card-text>
         </v-card>
@@ -373,12 +421,18 @@ const storageValidation = useStorageValidation(
 );
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const PROMPT_STORAGE_KEY = 'ai-insights-prompt';
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const showSettings = ref(false);
-const selectedTable = ref<string | null>(null);
 const selectedNamespace = ref<string | null>(null);
+const selectedTables = ref<string[]>([]);
 const availableNamespaces = ref<string[]>([]);
 const hasInitialized = ref(false);
 const warehouseError = ref<string | null>(null);
@@ -389,9 +443,10 @@ const loadingTables = ref(false);
 const loadingNamespaces = ref(false);
 const a2uiResponse = ref<A2UIResponse | null>(null);
 const generationStatus = ref<Status | null>(null);
+const generatedSqlQueries = ref<string[]>([]);
 
 const settings = ref<LLMSettings>({
-  mode: 'remote',
+  mode: 'local-wasm',
   provider: 'openai',
   apiKey: '',
   endpoint: '',
@@ -440,7 +495,7 @@ const exampleQuestions = computed(() => [
 ]);
 
 const rendererContext = computed(() => ({
-  selectedTable: selectedTable.value,
+  selectedTables: selectedTables.value,
   executeQuery: executeDuckDBQuery,
 }));
 
@@ -523,6 +578,14 @@ function useLLM() {
    * Generate A2UI JSON from user question using configured LLM
    */
   const generateA2UI = async (prompt: string): Promise<A2UIResponse> => {
+    // Build table list for prompt - use selected tables or all filtered tables
+    const tablesToUse =
+      selectedTables.value.length > 0 ? selectedTables.value : filteredTables.value;
+    const tableList =
+      tablesToUse.length > 0
+        ? tablesToUse.map((t) => `  - ${t}`).join('\n')
+        : 'No tables available';
+
     const systemPrompt = `You are a data analyst assistant. Your task is to analyze data questions and return ONLY valid A2UI JSON.
 
 A2UI is a declarative component specification for rendering insights. You may use these component types:
@@ -539,20 +602,26 @@ A2UI is a declarative component specification for rendering insights. You may us
 4. "markdown" - Rendered markdown text
    props: { content: string }
 
-5. "sql" - SQL query to execute against DuckDB (table name: ${selectedTable.value})
+5. "sql" - SQL query to execute against DuckDB
    props: { query: string, then: A2UIComponent } - the "then" component renders using query results
 
 6. "container" - Layout container
    props: { layout?: "grid"|"flex", gap?: number, children: A2UIComponent[] }
 
+CONTEXT:
+- Namespace: ${selectedNamespace.value}
+- Available tables:
+${tableList}
+
 CRITICAL RULES:
 - Return ONLY valid JSON matching A2UIResponse interface
 - No explanations, no markdown code blocks, no conversational text
-- SQL queries must reference the table: ${selectedTable.value}
-${selectedNamespace.value ? `- The table is in namespace: ${selectedNamespace.value}` : ''}
+- SQL queries can reference any of the available tables listed above
+- Use fully qualified table names with namespace (e.g., ${selectedNamespace.value}.table_name)
 - Charts must include valid data or reference SQL results
 - Use descriptive titles and labels
 - Provide actionable insights
+- You can JOIN multiple tables if relevant to the question
 
 Example response structure:
 {
@@ -564,7 +633,7 @@ Example response structure:
     {
       "type": "sql",
       "props": {
-        "query": "SELECT category, SUM(revenue) as total FROM ${selectedTable.value} GROUP BY category ORDER BY total DESC LIMIT 5",
+        "query": "SELECT category, SUM(revenue) as total FROM ${selectedNamespace.value}.sales GROUP BY category ORDER BY total DESC LIMIT 5",
         "then": {
           "type": "chart",
           "props": {
@@ -1143,11 +1212,13 @@ const { generateA2UI } = useLLM();
  * Generate insights from user question
  */
 async function generateInsights() {
-  if (!selectedTable.value || !userQuestion.value.trim()) return;
+  if (!selectedNamespace.value || selectedTables.value.length === 0 || !userQuestion.value.trim())
+    return;
 
   isGenerating.value = true;
   generationStatus.value = null;
   a2uiResponse.value = null;
+  generatedSqlQueries.value = [];
 
   try {
     const response = await generateA2UI(userQuestion.value);
@@ -1156,6 +1227,9 @@ async function generateInsights() {
     if (!response.components || response.components.length === 0) {
       throw new Error('LLM returned empty response');
     }
+
+    // Extract SQL queries from response
+    extractSqlQueries(response.components);
 
     a2uiResponse.value = response;
     generationStatus.value = {
@@ -1323,11 +1397,94 @@ async function loadAvailableNamespaces() {
  * Handle namespace selection change
  */
 function onNamespaceChange() {
-  // Clear selected table when namespace changes
-  selectedTable.value = null;
+  // Clear selected tables when namespace changes
+  selectedTables.value = [];
   // Reload tables for new namespace
   if (selectedNamespace.value) {
     loadTablesForNamespace(selectedNamespace.value);
+  }
+}
+
+/**
+ * Toggle select all tables
+ */
+function toggleAllTables() {
+  if (selectedTables.value.length === filteredTables.value.length) {
+    selectedTables.value = [];
+  } else {
+    selectedTables.value = [...filteredTables.value];
+  }
+}
+
+/**
+ * Extract SQL queries from A2UI components recursively
+ */
+function extractSqlQueries(components: A2UIComponent[]) {
+  const queries: string[] = [];
+
+  function traverse(comp: A2UIComponent) {
+    if (comp.type === 'sql' && comp.props?.query) {
+      queries.push(comp.props.query);
+      // Also check the 'then' component
+      if (comp.props.then) {
+        traverse(comp.props.then);
+      }
+    }
+    if (comp.type === 'container' && comp.props?.children) {
+      comp.props.children.forEach(traverse);
+    }
+  }
+
+  components.forEach(traverse);
+  generatedSqlQueries.value = queries;
+}
+
+/**
+ * Copy SQL to clipboard
+ */
+async function copySqlToClipboard(sql: string) {
+  try {
+    await navigator.clipboard.writeText(sql);
+    generationStatus.value = {
+      type: 'success',
+      message: 'SQL copied to clipboard',
+    };
+    setTimeout(() => {
+      if (generationStatus.value?.message === 'SQL copied to clipboard') {
+        generationStatus.value = null;
+      }
+    }, 2000);
+  } catch (error) {
+    console.error('Failed to copy SQL:', error);
+    generationStatus.value = {
+      type: 'error',
+      message: 'Failed to copy SQL to clipboard',
+    };
+  }
+}
+
+/**
+ * Save prompt to localStorage
+ */
+function savePromptToLocalStorage() {
+  try {
+    localStorage.setItem(PROMPT_STORAGE_KEY, userQuestion.value);
+  } catch (error) {
+    console.warn('Failed to save prompt to localStorage:', error);
+  }
+}
+
+/**
+ * Load prompt from localStorage
+ */
+function loadPromptFromLocalStorage() {
+  try {
+    const saved = localStorage.getItem(PROMPT_STORAGE_KEY);
+    if (saved) {
+      userQuestion.value = saved;
+    }
+  } catch (error) {
+    console.warn('Failed to load prompt from localStorage:', error);
   }
 }
 
@@ -1443,6 +1600,7 @@ async function loadAvailableTables() {
 
 onMounted(() => {
   initializeDuckDB();
+  loadPromptFromLocalStorage();
 });
 
 // Watch for catalog URL or warehouse name changes and reinitialize
@@ -1520,6 +1678,20 @@ watch(
   font-size: 1.1rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
+}
+
+.sql-code {
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #2c3e50;
+}
+
+.v-theme--dark .sql-code {
+  color: #ecf0f1;
 }
 
 /* Dark mode support */
