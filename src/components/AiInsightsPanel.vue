@@ -666,9 +666,21 @@ async function fetchTableSchemas(tables: string[]) {
   }
 
   loadingSchemas.value = true;
-  const schemas: Record<string, Array<{ column: string; type: string }>> = {};
+  const schemas: Record<string, Array<{ column: string; type: string }>> = {
+    ...tableSchemas.value,
+  };
 
-  for (const table of tables) {
+  // Only fetch schemas for tables we don't already have
+  const tablesToFetch = tables.filter((table) => !schemas[table] || schemas[table].length === 0);
+
+  if (tablesToFetch.length === 0) {
+    console.log('[AiInsightsPanel] All schemas already loaded');
+    loadingSchemas.value = false;
+    return;
+  }
+
+  console.log(`[AiInsightsPanel] Fetching schemas for ${tablesToFetch.length} tables...`);
+  for (const table of tablesToFetch) {
     try {
       const result = await icebergDB.executeQuery(`DESCRIBE ${table}`);
 
@@ -879,15 +891,19 @@ function useLLM() {
     try {
       // Initialize WebLLM if not already initialized
       if (!webLLM.isInitialized.value) {
+        progressMessage.value = 'Initializing local AI model...';
         await webLLM.initialize({
           modelId: settings.value.localModel,
           onProgress: (progress) => {
             console.log('[WebLLM Progress]', progress.text);
+            // Update UI with detailed progress
+            progressMessage.value = `Loading AI model: ${progress.text}`;
           },
         });
       }
 
       // Generate response
+      progressMessage.value = 'Generating insights with AI...';
       const response = await webLLM.generate(prompt, {
         temperature: 0.3,
         maxTokens: 2048,
@@ -1445,6 +1461,10 @@ async function generateInsights() {
     });
 
     if (!schemasLoaded) {
+      const missingCount = selectedTables.value.filter(
+        (table) => !tableSchemas.value[table] || tableSchemas.value[table].length === 0,
+      ).length;
+      progressMessage.value = `Loading schemas for ${missingCount} table${missingCount > 1 ? 's' : ''}...`;
       console.log('[AiInsightsPanel] Fetching missing schemas...');
       await fetchTableSchemas(selectedTables.value);
       console.log('[AiInsightsPanel] Schemas loaded:', tableSchemas.value);
@@ -1671,11 +1691,19 @@ function toggleAllTables() {
 /**
  * Handle table selection change - fetch schemas
  */
-watch(selectedTables, async (newTables) => {
-  if (newTables.length > 0 && icebergDB.isInitialized.value && icebergDB.catalogConfigured.value) {
-    await fetchTableSchemas(newTables);
-  }
-});
+watch(
+  selectedTables,
+  async (newTables) => {
+    if (
+      newTables.length > 0 &&
+      icebergDB.isInitialized.value &&
+      icebergDB.catalogConfigured.value
+    ) {
+      await fetchTableSchemas(newTables);
+    }
+  },
+  { deep: true },
+);
 
 /**
  * Extract SQL queries from A2UI components recursively
