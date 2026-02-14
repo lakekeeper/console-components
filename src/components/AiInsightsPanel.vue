@@ -1728,20 +1728,21 @@ async function initializeDuckDB() {
 
     isCheckingWarehouse.value = false;
 
+    // Load namespaces first (uses REST API, not DuckDB)
+    // This runs WITHOUT isRestoringFromStorage flag so auto-select works
+    await loadAvailableNamespaces();
+
+    // Now prevent handlers from running while we restore/override selections
+    isRestoringFromStorage.value = true;
+
+    // Check if we should restore from localStorage (overrides auto-select)
+    const persistedNamespace = localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY);
+    if (persistedNamespace && availableNamespaces.value.includes(persistedNamespace)) {
+      selectedNamespace.value = persistedNamespace;
+    }
+
     if (success) {
-      // Prevent handlers from running during restoration
-      isRestoringFromStorage.value = true;
-
-      // Load namespaces first
-      await loadAvailableNamespaces();
-
-      // Restore persisted namespace selection BEFORE loading tables
-      const persistedNamespace = localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY);
-      if (persistedNamespace && availableNamespaces.value.includes(persistedNamespace)) {
-        selectedNamespace.value = persistedNamespace;
-      }
-
-      // Now load tables (which may use selectedNamespace.value)
+      // Only load tables if DuckDB catalog is configured
       await loadAvailableTables();
 
       // Restore persisted table selection if it exists in available tables
@@ -1757,11 +1758,11 @@ async function initializeDuckDB() {
           console.warn('Failed to restore persisted tables:', error);
         }
       }
-
-      // Re-enable watchers after restoration is complete
-      await nextTick(); // Ensure Vue has processed the updates
-      isRestoringFromStorage.value = false;
     }
+
+    // Re-enable watchers after restoration is complete
+    await nextTick(); // Ensure Vue has processed the updates
+    isRestoringFromStorage.value = false;
   } catch (e) {
     isCheckingWarehouse.value = false;
     warehouseError.value = 'Failed to initialize DuckDB WASM';
@@ -1786,19 +1787,11 @@ async function loadAvailableNamespaces() {
 
     availableNamespaces.value = nsResponse.namespaces.map((ns) => ns.join('.'));
 
-    // Only auto-select if not restoring from storage and props specify a namespace
-    if (
-      !isRestoringFromStorage.value &&
-      props.namespace &&
-      availableNamespaces.value.includes(props.namespace)
-    ) {
+    // Auto-select namespace if specified in props
+    if (props.namespace && availableNamespaces.value.includes(props.namespace)) {
       selectedNamespace.value = props.namespace;
-    } else if (
-      !isRestoringFromStorage.value &&
-      availableNamespaces.value.length === 1 &&
-      !localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY)
-    ) {
-      // Auto-select if only one namespace and no saved preference
+    } else if (availableNamespaces.value.length === 1) {
+      // Auto-select if only one namespace
       selectedNamespace.value = availableNamespaces.value[0];
     }
   } catch (error) {

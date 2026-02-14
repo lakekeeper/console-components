@@ -86,6 +86,14 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
         throw fetchError;
       }
 
+      // Try to detach existing catalog if it exists (ignore errors if it doesn't exist)
+      try {
+        await duckDB.executeQuery(`DETACH DATABASE "${config.catalogName}";`);
+      } catch (detachError) {
+        // Ignore - database may not exist yet
+        console.log(`[DuckDB Iceberg] Detach skipped (database may not exist): ${detachError instanceof Error ? detachError.message : String(detachError)}`);
+      }
+
       // Execute all setup commands in correct order
       // Always use 'projectId/catalogName' pattern - use 'default' for default project
       const setupQuery = `
@@ -98,7 +106,6 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
           TYPE iceberg,
           TOKEN '${config.accessToken}'
         );
-        DETACH IF EXISTS "${config.catalogName}";
         ATTACH '${projectId}/${config.catalogName}' AS "${config.catalogName}" (
           TYPE iceberg,
           SUPPORT_NESTED_NAMESPACES true,
