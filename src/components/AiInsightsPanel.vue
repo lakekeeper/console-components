@@ -133,6 +133,45 @@
             </v-card-text>
           </v-expand-transition>
 
+          <!-- System Prompt Editor -->
+          <v-card-text class="flex-grow-0 pb-0">
+            <v-expansion-panels v-model="showPromptEditor" variant="accordion">
+              <v-expansion-panel value="prompt">
+                <v-expansion-panel-title>
+                  <div class="d-flex align-center">
+                    <v-icon class="mr-2" size="small">mdi-file-document-edit</v-icon>
+                    <span class="text-subtitle-2">System Prompt (Advanced)</span>
+                  </div>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                  <v-textarea
+                    v-model="customSystemPrompt"
+                    label="Edit system prompt"
+                    rows="12"
+                    variant="outlined"
+                    density="compact"
+                    hint="Tip: Use {{AVAILABLE_TABLES}} and {{EXAMPLE_TABLE}} placeholders - they'll be auto-replaced with current selection"
+                    persistent-hint
+                    class="mb-2"
+                    @input="saveSystemPromptToLocalStorage"></v-textarea>
+                  <div class="d-flex gap-2">
+                    <v-btn
+                      size="small"
+                      variant="outlined"
+                      prepend-icon="mdi-restore"
+                      @click="resetSystemPrompt">
+                      Reset to Default
+                    </v-btn>
+                    <v-spacer></v-spacer>
+                    <v-chip size="small" variant="tonal">
+                      {{ customSystemPrompt.length }} chars
+                    </v-chip>
+                  </div>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+          </v-card-text>
+
           <!-- Namespace Selection -->
           <v-card-text class="flex-grow-0 pb-0">
             <v-autocomplete
@@ -425,12 +464,14 @@ const storageValidation = useStorageValidation(
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const PROMPT_STORAGE_KEY = 'ai-insights-prompt';
+const SYSTEM_PROMPT_STORAGE_KEY = 'ai-insights-system-prompt';
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const showSettings = ref(false);
+const showPromptEditor = ref(false);
 const selectedNamespace = ref<string | null>(null);
 const selectedTables = ref<string[]>([]);
 const availableNamespaces = ref<string[]>([]);
@@ -444,6 +485,7 @@ const loadingNamespaces = ref(false);
 const a2uiResponse = ref<A2UIResponse | null>(null);
 const generationStatus = ref<Status | null>(null);
 const generatedSqlQueries = ref<string[]>([]);
+const customSystemPrompt = ref<string>('');
 
 const settings = ref<LLMSettings>({
   mode: 'local-wasm',
@@ -570,26 +612,15 @@ function useDuckDBQuery() {
 }
 
 /**
- * LLM Composable
- * Abstracts LLM interaction - supports local WASM and remote APIs
+ * Build default system prompt
  */
-function useLLM() {
-  /**
-   * Generate A2UI JSON from user question using configured LLM
-   */
-  const generateA2UI = async (prompt: string): Promise<A2UIResponse> => {
-    // Build table list for prompt - use selected tables or all filtered tables
-    const tablesToUse =
-      selectedTables.value.length > 0 ? selectedTables.value : filteredTables.value;
-    const tableList =
-      tablesToUse.length > 0
-        ? tablesToUse.map((t) => `  - ${t}`).join('\n')
-        : 'No tables available';
+function buildDefaultSystemPrompt(): string {
+  const tablesToUse = selectedTables.value.length > 0 ? selectedTables.value : filteredTables.value;
+  const tableList =
+    tablesToUse.length > 0 ? tablesToUse.map((t) => `  - ${t}`).join('\n') : 'No tables available';
+  const exampleTable = tablesToUse.length > 0 ? tablesToUse[0] : 'schema.table_name';
 
-    // Get first table for example
-    const exampleTable = tablesToUse.length > 0 ? tablesToUse[0] : 'schema.table_name';
-
-    const systemPrompt = `You are a data analyst assistant. Your task is to analyze data questions and return ONLY valid A2UI JSON.
+  return `You are a data analyst assistant. Your task is to analyze data questions and return ONLY valid A2UI JSON.
 
 A2UI is a declarative component specification for rendering insights. You may use these component types:
 
@@ -653,6 +684,43 @@ Example response structure:
     }
   ]
 }`;
+}
+
+/**
+ * LLM Composable
+ * Abstracts LLM interaction - supports local WASM and remote APIs
+ */
+function useLLM() {
+  /**
+   * Generate A2UI JSON from user question using configured LLM
+   */
+  const generateA2UI = async (prompt: string): Promise<A2UIResponse> => {
+    // Get current table context
+    const tablesToUse =
+      selectedTables.value.length > 0 ? selectedTables.value : filteredTables.value;
+    const tableList =
+      tablesToUse.length > 0
+        ? tablesToUse.map((t) => `  - ${t}`).join('\n')
+        : 'No tables available';
+    const exampleTable = tablesToUse.length > 0 ? tablesToUse[0] : 'schema.table_name';
+
+    // Build base prompt (custom or default)
+    let systemPrompt = customSystemPrompt.value.trim()
+      ? customSystemPrompt.value
+      : buildDefaultSystemPrompt();
+
+    // Always inject current table list (replaces placeholders or appends)
+    if (systemPrompt.includes('{{AVAILABLE_TABLES}}')) {
+      systemPrompt = systemPrompt.replace(/\{\{AVAILABLE_TABLES\}\}/g, tableList);
+    } else if (customSystemPrompt.value.trim()) {
+      // For custom prompts without placeholder, append current table list
+      systemPrompt = `${systemPrompt}\n\nAVAILABLE TABLES (USE ONLY THESE EXACT NAMES):\n${tableList}`;
+    }
+
+    // Replace example table placeholder
+    if (systemPrompt.includes('{{EXAMPLE_TABLE}}')) {
+      systemPrompt = systemPrompt.replace(/\{\{EXAMPLE_TABLE\}\}/g, exampleTable);
+    }
 
     const fullPrompt = `${systemPrompt}\n\nUser Question: ${prompt}\n\nReturn A2UI JSON:`;
 
@@ -1491,6 +1559,43 @@ function loadPromptFromLocalStorage() {
 }
 
 /**
+ * Save system prompt to localStorage
+ */
+function saveSystemPromptToLocalStorage() {
+  try {
+    localStorage.setItem(SYSTEM_PROMPT_STORAGE_KEY, customSystemPrompt.value);
+  } catch (error) {
+    console.warn('Failed to save system prompt to localStorage:', error);
+  }
+}
+
+/**
+ * Load system prompt from localStorage
+ */
+function loadSystemPromptFromLocalStorage() {
+  try {
+    const saved = localStorage.getItem(SYSTEM_PROMPT_STORAGE_KEY);
+    if (saved) {
+      customSystemPrompt.value = saved;
+    }
+  } catch (error) {
+    console.warn('Failed to load system prompt from localStorage:', error);
+  }
+}
+
+/**
+ * Reset system prompt to default
+ */
+function resetSystemPrompt() {
+  customSystemPrompt.value = buildDefaultSystemPrompt();
+  saveSystemPromptToLocalStorage();
+  generationStatus.value = {
+    type: 'info',
+    message: 'System prompt reset to default',
+  };
+}
+
+/**
  * Load tables for a specific namespace
  */
 async function loadTablesForNamespace(namespace: string) {
@@ -1603,6 +1708,7 @@ async function loadAvailableTables() {
 onMounted(() => {
   initializeDuckDB();
   loadPromptFromLocalStorage();
+  loadSystemPromptFromLocalStorage();
 });
 
 // Watch for catalog URL or warehouse name changes and reinitialize
