@@ -1787,9 +1787,17 @@ async function loadAvailableNamespaces() {
     availableNamespaces.value = nsResponse.namespaces.map((ns) => ns.join('.'));
 
     // Only auto-select if not restoring from storage and props specify a namespace
-    if (!isRestoringFromStorage.value && props.namespace && availableNamespaces.value.includes(props.namespace)) {
+    if (
+      !isRestoringFromStorage.value &&
+      props.namespace &&
+      availableNamespaces.value.includes(props.namespace)
+    ) {
       selectedNamespace.value = props.namespace;
-    } else if (!isRestoringFromStorage.value && availableNamespaces.value.length === 1 && !localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY)) {
+    } else if (
+      !isRestoringFromStorage.value &&
+      availableNamespaces.value.length === 1 &&
+      !localStorage.getItem(SELECTED_NAMESPACE_STORAGE_KEY)
+    ) {
       // Auto-select if only one namespace and no saved preference
       selectedNamespace.value = availableNamespaces.value[0];
     }
