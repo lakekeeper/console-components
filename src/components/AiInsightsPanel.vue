@@ -62,8 +62,8 @@
                   class="mb-3">
                   <div class="text-caption">
                     Model downloads on first use.
-                    <strong>Size varies by model (0.8GB - 5GB)</strong>.
-                    Larger models may impact performance on low-memory devices.
+                    <strong>Size varies by model (0.8GB - 5GB)</strong>
+                    . Larger models may impact performance on low-memory devices.
                   </div>
                 </v-alert>
 
@@ -1542,7 +1542,7 @@ async function generateInsights() {
   } catch (error) {
     console.error('Insight generation error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to generate insights';
-    
+
     generationStatus.value = {
       type: 'error',
       message: errorMessage,
@@ -2141,12 +2141,9 @@ watch(
 );
 
 // Watch for user question changes and persist to localStorage
-watch(
-  userQuestion,
-  (newQuestion) => {
-    savePromptToLocalStorage();
-  },
-);
+watch(userQuestion, (newQuestion) => {
+  savePromptToLocalStorage();
+});
 
 // Watch for external table updates
 watch(
