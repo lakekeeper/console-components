@@ -402,6 +402,19 @@ watch(openedItems, async (newOpened, oldOpened) => {
       }
     }
   }
+
+  // Find newly closed items and mark them for reload
+  const newlyClosed = oldOpened.filter((id) => !newOpened.includes(id));
+
+  for (const itemId of newlyClosed) {
+    const item = findItemById(treeItems.value, itemId);
+    if (item && (item.type === 'warehouse' || item.type === 'namespace')) {
+      // Mark as not loaded so it will refresh when expanded again
+      item.loaded = false;
+      // Force reactivity
+      treeItems.value = [...treeItems.value];
+    }
+  }
 });
 
 // Helper to find item by ID in tree

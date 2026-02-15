@@ -379,6 +379,19 @@ watch(openedItems, async (newOpened, oldOpened) => {
       }
     }
   }
+
+  // Find newly closed items and mark them for reload
+  const newlyClosed = oldOpened.filter((id) => !newOpened.includes(id));
+
+  for (const itemId of newlyClosed) {
+    const item = findItemById(treeItems.value, itemId);
+    if (item && (item.type === 'namespace' || item.type === 'table' || item.type === 'view')) {
+      // Mark as not loaded so it will refresh when expanded again
+      item.loaded = false;
+      // Force reactivity
+      treeItems.value = [...treeItems.value];
+    }
+  }
 });
 
 // Helper to find item by ID in tree
@@ -513,11 +526,11 @@ async function handleNavigate(item: TreeItem) {
       const apiNamespace = item.namespaceId ? namespacePathToApiFormat(item.namespaceId) : '';
 
       if (item.type === 'namespace') {
-        await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
+        await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
       } else if (item.type === 'table') {
-        await functions.loadTable(item.warehouseId, apiNamespace, item.name);
+        await functions.loadTable(item.warehouseId, apiNamespace, item.name, false);
       } else if (item.type === 'view') {
-        await functions.loadView(item.warehouseId, apiNamespace, item.name);
+        await functions.loadView(item.warehouseId, apiNamespace, item.name, false);
       }
 
       // Permission granted, proceed with navigation
