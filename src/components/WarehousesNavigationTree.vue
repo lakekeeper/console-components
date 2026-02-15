@@ -189,6 +189,11 @@ async function loadWarehouses() {
 async function refreshWarehouses() {
   openedItems.value = [];
   await loadWarehouses();
+  
+  // Clear saved state on refresh
+  if (visualStore.projectSelected['project-id']) {
+    delete visualStore.warehouseTreeState[visualStore.projectSelected['project-id']];
+  }
 }
 
 // Load namespaces for a warehouse
@@ -361,18 +366,42 @@ function navigateToTab(item: TreeItem, tab: string) {
 }
 
 onMounted(() => {
-  loadWarehouses();
+  // Try to restore saved state first
+  const savedState = visualStore.warehouseTreeState[projectId.value];
+  if (savedState && savedState.treeItems.length > 0) {
+    treeItems.value = savedState.treeItems;
+    openedItems.value = savedState.openedItems || [];
+  } else {
+    loadWarehouses();
+  }
 });
+
+// Save tree state when it changes
+watch([treeItems, openedItems], () => {
+  if (projectId.value && treeItems.value.length > 0) {
+    visualStore.warehouseTreeState[projectId.value] = {
+      treeItems: treeItems.value,
+      openedItems: openedItems.value,
+    };
+  }
+}, { deep: true });
 
 // Watch for project changes and reload warehouses
 watch(projectId, () => {
-  loadWarehouses();
+  const savedState = visualStore.warehouseTreeState[projectId.value];
+  if (savedState && savedState.treeItems.length > 0) {
+    treeItems.value = savedState.treeItems;
+    openedItems.value = savedState.openedItems || [];
+  } else {
+    loadWarehouses();
+  }
 });
 
-// Watch for warehouseId changes and reload
+// Watch for warehouseId changes and reload (filtering mode)
 watch(
   () => props.warehouseId,
   () => {
+    // In filter mode, always reload (don't use saved state)
     loadWarehouses();
   },
 );

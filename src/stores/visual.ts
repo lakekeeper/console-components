@@ -41,6 +41,10 @@ export const useVisualStore = defineStore(
     const savedSqlQuery = ref(''); // Store last SQL query (deprecated - use warehouseSqlData)
     const isNavigationCollapsed = ref(false); // Navigation tree collapsed state
 
+    // Warehouse navigation tree state
+    // Key: projectId, Value: { openedItems, treeItems }
+    const warehouseTreeState = ref<Record<string, { openedItems: string[]; treeItems: any[] }>>({});
+
     // Multi-tab SQL editor state - warehouse-specific
     // Key: warehouseId, Value: { activeTabId, tabs[] }
     const warehouseSqlData = ref<Record<string, WarehouseSqlData>>({});
@@ -260,6 +264,7 @@ export const useVisualStore = defineStore(
       savedSqlQuery,
       warehouseSqlData,
       isNavigationCollapsed,
+      warehouseTreeState,
       projectList,
       projectSelected,
       snackbarMsg,
