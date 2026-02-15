@@ -13,7 +13,7 @@
       </v-btn>
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
-    <div class="flex-grow-1 tree-scroll-container">
+    <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
         :items="treeItems"
@@ -84,7 +84,7 @@
           </div>
         </template>
       </v-treeview>
-    </div>
+    </v-sheet>
   </v-sheet>
 </template>
 
@@ -379,26 +379,9 @@ watch(
 </script>
 
 <style scoped>
-.tree-scroll-container {
-  overflow: auto;
-  min-height: 0;
-  position: relative;
-}
-
 .tree-view {
   font-size: 0.75rem;
-  width: max-content;
-  min-width: 100%;
-}
-
-.tree-view :deep(.v-treeview-window) {
-  width: max-content !important;
-  min-width: 100%;
-}
-
-.tree-view :deep(.v-list) {
-  width: max-content !important;
-  min-width: 100%;
+  min-width: max-content;
 }
 
 /* Prevent text wrapping in tree items */
@@ -428,12 +411,14 @@ watch(
 }
 
 .tree-view :deep(.v-list-item) {
+  overflow-x: auto !important;
   min-width: max-content;
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .tree-view :deep(.v-list-item-title) {
   white-space: nowrap !important;
+  overflow-x: auto !important;
 }
 
 .tree-item-container {
