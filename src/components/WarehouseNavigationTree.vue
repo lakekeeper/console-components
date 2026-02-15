@@ -456,7 +456,12 @@ onMounted(() => {
   background-color: transparent !important;
 }
 
-.tree-view :deep(.v-treeview) {
+/* Force transparency on all treeview internal components */
+.tree-view :deep(.v-treeview),
+.tree-view :deep(.v-treeview-node),
+.tree-view :deep(.v-treeview-node__root),
+.tree-view :deep(.v-list),
+.tree-view :deep(.v-list-item__overlay) {
   background-color: transparent !important;
 }
 
@@ -469,13 +474,9 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* Subtle alternating row colors for better visibility */
-.tree-view :deep(.v-treeview-item:nth-of-type(odd) .v-list-item) {
-  background-color: transparent;
-}
-
-.tree-view :deep(.v-treeview-item:nth-of-type(even) .v-list-item) {
-  background-color: rgba(var(--v-theme-on-surface), 0.02);
+/* Remove all row backgrounds for complete transparency */
+.tree-view :deep(.v-treeview-item .v-list-item) {
+  background-color: transparent !important;
 }
 
 .tree-view :deep(.v-list-item:hover) {
