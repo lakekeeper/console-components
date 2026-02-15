@@ -468,7 +468,7 @@ async function handleNavigate(item: TreeItem) {
       visualStore.setSnackbarMsg({
         function: 'handleNavigate',
         text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
-        ttl: 5000,
+        ttl: 3000,
         ts: Date.now(),
         type: Type.ERROR,
       });
