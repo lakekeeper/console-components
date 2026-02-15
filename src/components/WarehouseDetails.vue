@@ -1,66 +1,9 @@
 <template>
   <v-container fluid class="pa-0">
     <div style="display: flex; height: calc(100vh - 200px); position: relative">
-      <!-- Left: Navigation Tree -->
-      <v-expand-x-transition>
-        <div v-show="!isNavigationCollapsed" style="display: flex; height: 100%">
-          <div
-            :style="{
-              width: leftWidth + 'px',
-              minWidth: '200px',
-              maxWidth: '800px',
-              height: '100%',
-              overflow: 'visible',
-              borderRight: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
-            }">
-            <WarehouseNavigationTree
-              v-if="warehouse.id && warehouse.name"
-              :warehouse-id="warehouse.id"
-              :warehouse-name="warehouse.name"
-              :navigation-mode="true"
-              @navigate="handleNavigate" />
-            <div v-else class="pa-4 text-center text-grey">
-              <v-progress-circular indeterminate size="32" class="mb-2" />
-              <div class="text-caption">Loading warehouse...</div>
-            </div>
-          </div>
-
-          <!-- Resizable Divider -->
-          <div
-            @mousedown="startResize"
-            style="
-              width: 5px;
-              cursor: col-resize;
-              user-select: none;
-              flex-shrink: 0;
-              transition: background 0.3s;
-            "
-            :style="{
-              background:
-                dividerHover || isResizing ? '#2196F3' : 'rgba(var(--v-theme-on-surface), 0.12)',
-            }"
-            @mouseenter="dividerHover = true"
-            @mouseleave="dividerHover = false"></div>
-        </div>
-      </v-expand-x-transition>
-
       <!-- Right: Warehouse Details Content -->
       <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
         <v-container fluid class="pa-6">
-          <div class="mb-4">
-            <!-- Collapse/Expand Button -->
-            <v-btn
-              icon
-              size="small"
-              variant="text"
-              @click="toggleNavigation"
-              class="mr-2"
-              :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
-              <v-icon>
-                {{ isNavigationCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left' }}
-              </v-icon>
-            </v-btn>
-          </div>
           <v-row>
             <!-- General Information Section -->
             <v-col cols="12" md="6">
@@ -343,23 +286,15 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, inject, ref } from 'vue';
-import { useRouter } from 'vue-router';
-import WarehouseNavigationTree from './WarehouseNavigationTree.vue';
+import { reactive, onMounted, inject } from 'vue';
 
 const props = defineProps<{
   warehouseId: string;
 }>();
 
-const router = useRouter();
+// const router = useRouter();
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
-
-// Resizable layout state
-const leftWidth = ref(300); // Initial width in pixels
-const dividerHover = ref(false);
-const isResizing = ref(false);
-const isNavigationCollapsed = ref(false);
 
 const warehouse = reactive<any>({
   'delete-profile': { type: 'hard' },
@@ -392,61 +327,6 @@ async function loadWarehouse() {
     }
   } catch (error) {
     console.error('Failed to load warehouse:', error);
-  }
-}
-
-function startResize(e: MouseEvent) {
-  isResizing.value = true;
-  const startX = e.clientX;
-  const startWidth = leftWidth.value;
-
-  function onMouseMove(e: MouseEvent) {
-    const delta = e.clientX - startX;
-    const newWidth = startWidth + delta;
-    // Constrain between 200px and 800px
-    leftWidth.value = Math.max(200, Math.min(800, newWidth));
-  }
-
-  function onMouseUp() {
-    isResizing.value = false;
-    document.removeEventListener('mousemove', onMouseMove);
-    document.removeEventListener('mouseup', onMouseUp);
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-  }
-
-  document.addEventListener('mousemove', onMouseMove);
-  document.addEventListener('mouseup', onMouseUp);
-  document.body.style.cursor = 'col-resize';
-  document.body.style.userSelect = 'none';
-}
-
-function toggleNavigation() {
-  isNavigationCollapsed.value = !isNavigationCollapsed.value;
-}
-
-function handleNavigate(item: {
-  type: string;
-  warehouseId: string;
-  namespaceId?: string;
-  name: string;
-  tab?: string;
-}) {
-  // Convert namespace path from dot notation to API format for routing
-  const namespaceForRoute = item.namespaceId?.split('.').join('\x1F');
-
-  if (item.type === 'namespace' && namespaceForRoute) {
-    const route = `/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}`;
-    // Add tab as query parameter if provided
-    if (item.tab) {
-      router.push({ path: route, query: { tab: item.tab } });
-    } else {
-      router.push(route);
-    }
-  } else if (item.type === 'table' && namespaceForRoute) {
-    router.push(`/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}/table/${item.name}`);
-  } else if (item.type === 'view' && namespaceForRoute) {
-    router.push(`/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}/view/${item.name}`);
   }
 }
 

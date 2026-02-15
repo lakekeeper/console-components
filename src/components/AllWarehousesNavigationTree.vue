@@ -129,9 +129,9 @@ const hoveredItem = ref<string | null>(null);
 const projectId = computed(() => visualStore.projectSelected['project-id']);
 
 // Helper function to convert namespace path from API format to display format
-function apiFormatToNamespacePath(apiPath: string): string {
-  return apiPath.split('\x1F').join('.');
-}
+// function apiFormatToNamespacePath(apiPath: string): string {
+//   return apiPath.split('\x1F').join('.');
+// }
 
 // Helper function to convert namespace path with dots to API format
 function namespacePathToApiFormat(nsPath: string): string {
