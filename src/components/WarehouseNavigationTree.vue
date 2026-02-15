@@ -3,7 +3,7 @@
     <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0 nav-header">
       Warehouse: {{ warehouseName }}
     </v-sheet>
-    <v-divider></v-divider>
+    <v-divider class="border-opacity-25"></v-divider>
     <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"

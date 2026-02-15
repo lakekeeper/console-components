@@ -13,33 +13,40 @@
   <v-container v-else fluid class="pa-0">
     <div style="display: flex; height: calc(100vh - 200px); position: relative">
       <!-- Left: Navigation Tree -->
-      <div
-        v-if="!isNavigationCollapsed"
-        :style="{
-          width: leftWidth + 'px',
-          minWidth: '200px',
-          maxWidth: '800px',
-          height: '100%',
-          overflow: 'visible',
-          borderRight: '1px solid #e0e0e0',
-        }">
-        <AllWarehousesNavigationTree @navigate="handleNavigate" />
-      </div>
+      <Transition name="slide-x">
+        <div
+          v-if="!isNavigationCollapsed"
+          :style="{
+            width: leftWidth + 'px',
+            minWidth: '200px',
+            maxWidth: '800px',
+            height: '100%',
+            overflow: 'visible',
+            borderRight: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
+          }">
+          <AllWarehousesNavigationTree @navigate="handleNavigate" />
+        </div>
+      </Transition>
 
       <!-- Resizable Divider -->
-      <div
-        v-if="!isNavigationCollapsed"
-        @mousedown="startResize"
-        style="
-          width: 5px;
-          cursor: col-resize;
-          user-select: none;
-          flex-shrink: 0;
-          transition: background 0.5s;
-        "
-        :style="{ background: dividerHover || isResizing ? '#2196F3' : '#e0e0e0' }"
-        @mouseenter="dividerHover = true"
-        @mouseleave="dividerHover = false"></div>
+      <Transition name="slide-x">
+        <div
+          v-if="!isNavigationCollapsed"
+          @mousedown="startResize"
+          style="
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            flex-shrink: 0;
+            transition: background 0.3s;
+          "
+          :style="{
+            background:
+              dividerHover || isResizing ? '#2196F3' : 'rgba(var(--v-theme-on-surface), 0.12)',
+          }"
+          @mouseenter="dividerHover = true"
+          @mouseleave="dividerHover = false"></div>
+      </Transition>
 
       <!-- Right: Warehouse List Content -->
       <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
@@ -362,3 +369,20 @@ function handleNavigate(item: {
   }
 }
 </script>
+
+<style scoped>
+.slide-x-enter-active,
+.slide-x-leave-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-x-enter-from {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.slide-x-leave-to {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+</style>

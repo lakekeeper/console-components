@@ -2,42 +2,49 @@
   <v-container fluid class="pa-0">
     <div style="display: flex; height: calc(100vh - 200px); position: relative">
       <!-- Left: Navigation Tree -->
-      <div
-        v-if="!isNavigationCollapsed"
-        :style="{
-          width: leftWidth + 'px',
-          minWidth: '200px',
-          maxWidth: '800px',
-          height: '100%',
-          overflow: 'visible',
-          borderRight: '1px solid #e0e0e0',
-        }">
-        <WarehouseNavigationTree
-          v-if="warehouse.id && warehouse.name"
-          :warehouse-id="warehouse.id"
-          :warehouse-name="warehouse.name"
-          :navigation-mode="true"
-          @navigate="handleNavigate" />
-        <div v-else class="pa-4 text-center text-grey">
-          <v-progress-circular indeterminate size="32" class="mb-2" />
-          <div class="text-caption">Loading warehouse...</div>
+      <Transition name="slide-x">
+        <div
+          v-if="!isNavigationCollapsed"
+          :style="{
+            width: leftWidth + 'px',
+            minWidth: '200px',
+            maxWidth: '800px',
+            height: '100%',
+            overflow: 'visible',
+            borderRight: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
+          }">
+          <WarehouseNavigationTree
+            v-if="warehouse.id && warehouse.name"
+            :warehouse-id="warehouse.id"
+            :warehouse-name="warehouse.name"
+            :navigation-mode="true"
+            @navigate="handleNavigate" />
+          <div v-else class="pa-4 text-center text-grey">
+            <v-progress-circular indeterminate size="32" class="mb-2" />
+            <div class="text-caption">Loading warehouse...</div>
+          </div>
         </div>
-      </div>
+      </Transition>
 
       <!-- Resizable Divider -->
-      <div
-        v-if="!isNavigationCollapsed"
-        @mousedown="startResize"
-        style="
-          width: 5px;
-          cursor: col-resize;
-          user-select: none;
-          flex-shrink: 0;
-          transition: background 0.5s;
-        "
-        :style="{ background: dividerHover || isResizing ? '#2196F3' : '#e0e0e0' }"
-        @mouseenter="dividerHover = true"
-        @mouseleave="dividerHover = false"></div>
+      <Transition name="slide-x">
+        <div
+          v-if="!isNavigationCollapsed"
+          @mousedown="startResize"
+          style="
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            flex-shrink: 0;
+            transition: background 0.3s;
+          "
+          :style="{
+            background:
+              dividerHover || isResizing ? '#2196F3' : 'rgba(var(--v-theme-on-surface), 0.12)',
+          }"
+          @mouseenter="dividerHover = true"
+          @mouseleave="dividerHover = false"></div>
+      </Transition>
 
       <!-- Right: Warehouse Details Content -->
       <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
@@ -465,3 +472,20 @@ function formatSeconds(seconds?: number): string {
   return parts.length > 0 ? parts.join(' ') : `${seconds}s`;
 }
 </script>
+
+<style scoped>
+.slide-x-enter-active,
+.slide-x-leave-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-x-enter-from {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+.slide-x-leave-to {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+</style>

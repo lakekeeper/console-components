@@ -12,7 +12,7 @@
         <v-icon size="small">mdi-refresh</v-icon>
       </v-btn>
     </v-sheet>
-    <v-divider></v-divider>
+    <v-divider class="border-opacity-25"></v-divider>
     <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
