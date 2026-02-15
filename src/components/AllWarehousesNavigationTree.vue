@@ -54,31 +54,30 @@
                 <v-btn
                   icon
                   size="x-small"
-                  variant="tonal"
-                  color="primary"
+                  variant="text"
                   v-bind="props"
                   class="tree-item-action-btn"
                   @click.stop
                   title="Go to namespace tab">
-                  <v-icon size="small">mdi-dots-vertical</v-icon>
+                  <v-icon size="x-small">mdi-open-in-new</v-icon>
                 </v-btn>
               </template>
               <v-list density="compact">
-                <v-list-item @click="navigateToTab(item, 'namespaces')">
+                <v-list-item @click="navigateToTab(item, 'namespaces')" density="compact">
                   <v-list-item-title>
-                    <v-icon size="small" class="mr-2">mdi-folder-multiple</v-icon>
+                    <v-icon size="x-small" class="mr-2">mdi-folder-multiple</v-icon>
                     Namespaces
                   </v-list-item-title>
                 </v-list-item>
-                <v-list-item @click="navigateToTab(item, 'tables')">
+                <v-list-item @click="navigateToTab(item, 'tables')" density="compact">
                   <v-list-item-title>
-                    <v-icon size="small" class="mr-2">mdi-table</v-icon>
+                    <v-icon size="x-small" class="mr-2">mdi-table</v-icon>
                     Tables
                   </v-list-item-title>
                 </v-list-item>
-                <v-list-item @click="navigateToTab(item, 'views')">
+                <v-list-item @click="navigateToTab(item, 'views')" density="compact">
                   <v-list-item-title>
-                    <v-icon size="small" class="mr-2">mdi-eye-outline</v-icon>
+                    <v-icon size="x-small" class="mr-2">mdi-eye-outline</v-icon>
                     Views
                   </v-list-item-title>
                 </v-list-item>
