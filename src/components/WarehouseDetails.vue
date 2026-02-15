@@ -2,8 +2,8 @@
   <v-container fluid class="pa-0">
     <div style="display: flex; height: calc(100vh - 200px); position: relative">
       <!-- Left: Navigation Tree -->
-      <Transition name="slide-x">
-        <div v-if="!isNavigationCollapsed" style="display: flex; height: 100%">
+      <v-expand-x-transition>
+        <div v-show="!isNavigationCollapsed" style="display: flex; height: 100%">
           <div
             :style="{
               width: leftWidth + 'px',
@@ -42,7 +42,7 @@
             @mouseenter="dividerHover = true"
             @mouseleave="dividerHover = false"></div>
         </div>
-      </Transition>
+      </v-expand-x-transition>
 
       <!-- Right: Warehouse Details Content -->
       <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
@@ -470,21 +470,3 @@ function formatSeconds(seconds?: number): string {
   return parts.length > 0 ? parts.join(' ') : `${seconds}s`;
 }
 </script>
-
-<style scoped>
-.slide-x-enter-active,
-.slide-x-leave-active {
-  transition: all 0.3s ease-out;
-  overflow: hidden;
-}
-
-.slide-x-enter-from {
-  transform: translateX(-100%);
-  opacity: 0;
-}
-
-.slide-x-leave-to {
-  transform: translateX(-100%);
-  opacity: 0;
-}
-</style>
