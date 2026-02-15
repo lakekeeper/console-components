@@ -4,6 +4,19 @@
       <span class="text-subtitle-1">{{ namespacePath }}.{{ viewName }}</span>
     </v-toolbar-title>
     <template #prepend>
+      <!-- Collapse/Expand Button -->
+      <v-btn
+        icon
+        size="default"
+        variant="tonal"
+        color="primary"
+        @click="toggleNavigation"
+        class="mr-3"
+        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
+        <v-icon>
+          {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
+        </v-icon>
+      </v-btn>
       <v-icon>mdi-table</v-icon>
     </template>
     <v-spacer></v-spacer>
@@ -20,6 +33,7 @@
 
 <script lang="ts" setup>
 import { ref, computed } from 'vue';
+import { useVisualStore } from '@/stores/visual';
 import SearchTabular from './SearchTabular.vue';
 
 const props = defineProps<{
@@ -28,11 +42,23 @@ const props = defineProps<{
   viewName: string;
 }>();
 
+const visual = useVisualStore();
 const showSearchDialog = ref(false);
+
+const isNavigationCollapsed = computed({
+  get: () => visual.isNavigationCollapsed,
+  set: (value: boolean) => {
+    visual.isNavigationCollapsed = value;
+  },
+});
 
 const namespacePath = computed(() => {
   return props.namespaceId.split(String.fromCharCode(0x1f)).join('.');
 });
+
+function toggleNavigation() {
+  isNavigationCollapsed.value = !isNavigationCollapsed.value;
+}
 
 function openSearchDialog() {
   showSearchDialog.value = true;

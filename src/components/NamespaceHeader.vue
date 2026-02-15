@@ -10,6 +10,19 @@
       </span>
     </v-toolbar-title>
     <template #prepend>
+      <!-- Collapse/Expand Button -->
+      <v-btn
+        icon
+        size="default"
+        variant="tonal"
+        color="primary"
+        @click="toggleNavigation"
+        class="mr-3"
+        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
+        <v-icon>
+          {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
+        </v-icon>
+      </v-btn>
       <v-icon>mdi-folder-open</v-icon>
     </template>
     <v-spacer></v-spacer>
@@ -31,6 +44,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 import SearchTabular from './SearchTabular.vue';
 
@@ -40,8 +54,20 @@ const props = defineProps<{
 }>();
 
 const functions = useFunctions();
+const visual = useVisualStore();
 const showSearchDialog = ref(false);
 const namespace = ref<GetNamespaceResponse>({ namespace: [] });
+
+const isNavigationCollapsed = computed({
+  get: () => visual.isNavigationCollapsed,
+  set: (value: boolean) => {
+    visual.isNavigationCollapsed = value;
+  },
+});
+
+function toggleNavigation() {
+  isNavigationCollapsed.value = !isNavigationCollapsed.value;
+}
 
 const namespaceName = computed(() => {
   const ns = namespace.value.namespace;
