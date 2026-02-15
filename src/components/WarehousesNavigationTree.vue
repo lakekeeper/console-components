@@ -109,6 +109,7 @@
 import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
+import { Type } from '@/common/enums';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -453,6 +454,13 @@ async function handleNavigate(item: TreeItem) {
     }
   } catch {
     // Silently block navigation — user lacks access
+    visualStore.setSnackbarMsg({
+      function: 'handleNavigate',
+      text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
+      ttl: 5000,
+      ts: Date.now(),
+      type: Type.ERROR,
+    });
     return;
   }
 
@@ -472,7 +480,13 @@ async function navigateToTab(item: TreeItem, tab: string) {
       const apiNamespace = namespacePathToApiFormat(item.namespaceId);
       await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
     } catch {
-      // Silently block navigation — user lacks access
+      visualStore.setSnackbarMsg({
+        function: 'navigateToTab',
+        text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
+        ttl: 5000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
       return;
     }
 
