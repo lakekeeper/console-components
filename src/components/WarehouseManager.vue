@@ -14,38 +14,36 @@
     <div style="display: flex; height: calc(100vh - 200px); position: relative">
       <!-- Left: Navigation Tree -->
       <Transition name="slide-x">
-        <div
-          v-if="!isNavigationCollapsed"
-          :style="{
-            width: leftWidth + 'px',
-            minWidth: '200px',
-            maxWidth: '800px',
-            height: '100%',
-            overflow: 'visible',
-            borderRight: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
-          }">
-          <AllWarehousesNavigationTree @navigate="handleNavigate" />
-        </div>
-      </Transition>
+        <div v-if="!isNavigationCollapsed" style="display: flex; height: 100%">
+          <div
+            :style="{
+              width: leftWidth + 'px',
+              minWidth: '200px',
+              maxWidth: '800px',
+              height: '100%',
+              overflow: 'visible',
+              borderRight: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
+            }">
+            <AllWarehousesNavigationTree @navigate="handleNavigate" />
+          </div>
 
-      <!-- Resizable Divider -->
-      <Transition name="slide-x">
-        <div
-          v-if="!isNavigationCollapsed"
-          @mousedown="startResize"
-          style="
-            width: 5px;
-            cursor: col-resize;
-            user-select: none;
-            flex-shrink: 0;
-            transition: background 0.3s;
-          "
-          :style="{
-            background:
-              dividerHover || isResizing ? '#2196F3' : 'rgba(var(--v-theme-on-surface), 0.12)',
-          }"
-          @mouseenter="dividerHover = true"
-          @mouseleave="dividerHover = false"></div>
+          <!-- Resizable Divider -->
+          <div
+            @mousedown="startResize"
+            style="
+              width: 5px;
+              cursor: col-resize;
+              user-select: none;
+              flex-shrink: 0;
+              transition: background 0.3s;
+            "
+            :style="{
+              background:
+                dividerHover || isResizing ? '#2196F3' : 'rgba(var(--v-theme-on-surface), 0.12)',
+            }"
+            @mouseenter="dividerHover = true"
+            @mouseleave="dividerHover = false"></div>
+        </div>
       </Transition>
 
       <!-- Right: Warehouse List Content -->
@@ -374,6 +372,7 @@ function handleNavigate(item: {
 .slide-x-enter-active,
 .slide-x-leave-active {
   transition: all 0.3s ease-out;
+  overflow: hidden;
 }
 
 .slide-x-enter-from {
