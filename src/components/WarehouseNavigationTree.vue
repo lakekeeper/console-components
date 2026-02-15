@@ -1,6 +1,6 @@
 <template>
   <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden">
-    <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0" color="grey-lighten-4">
+    <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0 nav-header">
       Warehouse: {{ warehouseName }}
     </v-sheet>
     <v-divider></v-divider>
@@ -464,23 +464,27 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* Alternating row colors for better visibility */
-.tree-view :deep(.v-list-item:nth-child(odd)) {
-  background-color: #fafafa;
+.nav-header {
+  background-color: rgba(var(--v-theme-surface-variant));
 }
 
-.tree-view :deep(.v-list-item:nth-child(even)) {
-  background-color: #ffffff;
+/* Alternating row colors for better visibility */
+.tree-view :deep(.v-treeview-item:nth-of-type(odd) .v-list-item) {
+  background-color: rgba(var(--v-theme-surface));
+}
+
+.tree-view :deep(.v-treeview-item:nth-of-type(even) .v-list-item) {
+  background-color: rgba(var(--v-theme-surface-variant), 0.3);
 }
 
 .tree-view :deep(.v-list-item:hover) {
-  background-color: #e3f2fd !important;
+  background-color: rgba(var(--v-theme-primary), 0.1) !important;
 }
 
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .tree-view :deep(.v-list-item-title) {

@@ -1,8 +1,6 @@
 <template>
   <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden">
-    <v-sheet
-      class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center"
-      color="grey-lighten-4">
+    <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
       <span class="flex-grow-1">All Warehouses</span>
       <v-btn
         icon
@@ -62,22 +60,22 @@
                   <v-icon size="x-small">mdi-open-in-new</v-icon>
                 </v-btn>
               </template>
-              <v-list density="compact">
+              <v-list density="compact" class="compact-menu">
                 <v-list-item @click="navigateToTab(item, 'namespaces')" density="compact">
-                  <v-list-item-title>
-                    <v-icon size="x-small" class="mr-2">mdi-folder-multiple</v-icon>
+                  <v-list-item-title class="text-caption">
+                    <v-icon size="x-small" class="mr-1">mdi-folder-multiple</v-icon>
                     Namespaces
                   </v-list-item-title>
                 </v-list-item>
                 <v-list-item @click="navigateToTab(item, 'tables')" density="compact">
-                  <v-list-item-title>
-                    <v-icon size="x-small" class="mr-2">mdi-table</v-icon>
+                  <v-list-item-title class="text-caption">
+                    <v-icon size="x-small" class="mr-1">mdi-table</v-icon>
                     Tables
                   </v-list-item-title>
                 </v-list-item>
                 <v-list-item @click="navigateToTab(item, 'views')" density="compact">
-                  <v-list-item-title>
-                    <v-icon size="x-small" class="mr-2">mdi-eye-outline</v-icon>
+                  <v-list-item-title class="text-caption">
+                    <v-icon size="x-small" class="mr-1">mdi-eye-outline</v-icon>
                     Views
                   </v-list-item-title>
                 </v-list-item>
@@ -362,23 +360,27 @@ watch(projectId, () => {
   white-space: nowrap;
 }
 
-/* Alternating row colors for better visibility */
-.tree-view :deep(.v-list-item:nth-child(odd)) {
-  background-color: #fafafa;
+.nav-header {
+  background-color: rgba(var(--v-theme-surface-variant));
 }
 
-.tree-view :deep(.v-list-item:nth-child(even)) {
-  background-color: #ffffff;
+/* Alternating row colors for better visibility */
+.tree-view :deep(.v-treeview-item:nth-of-type(odd) .v-list-item) {
+  background-color: rgba(var(--v-theme-surface));
+}
+
+.tree-view :deep(.v-treeview-item:nth-of-type(even) .v-list-item) {
+  background-color: rgba(var(--v-theme-surface-variant), 0.3);
 }
 
 .tree-view :deep(.v-list-item:hover) {
-  background-color: #e3f2fd !important;
+  background-color: rgba(var(--v-theme-primary), 0.1) !important;
 }
 
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .tree-view :deep(.v-list-item-title) {
@@ -406,5 +408,16 @@ watch(projectId, () => {
 
 .tree-item-action-btn {
   flex-shrink: 0;
+}
+
+.compact-menu :deep(.v-list-item) {
+  min-height: 28px !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+}
+
+.compact-menu :deep(.v-list-item-title) {
+  font-size: 0.75rem !important;
+  line-height: 1.2 !important;
 }
 </style>
