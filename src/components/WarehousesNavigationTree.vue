@@ -1,5 +1,5 @@
 <template>
-  <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden">
+  <v-sheet class="d-flex flex-column" style="height: 100%; overflow: hidden">
     <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
       <span class="flex-grow-1">{{ headerTitle }}</span>
       <v-btn
