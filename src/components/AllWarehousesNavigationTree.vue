@@ -130,14 +130,14 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
     const response = await functions.listNamespaces(item.warehouseId);
 
     if (response && response.namespaces) {
-      const namespaceItems: TreeItem[] = response.namespaces.map((ns: any) => {
-        const namespacePath = Array.isArray(ns.namespace)
-          ? ns.namespace.join('.')
-          : apiFormatToNamespacePath(ns.namespace);
+      const namespaceItems: TreeItem[] = response.namespaces.map((ns: string[]) => {
+        // ns is already an array like ["f-inance"] or ["finance", "sub"]
+        const namespacePath = ns.join('.');
+        const displayName = ns[ns.length - 1]; // Display only the last segment
 
         return {
           id: `namespace-${item.warehouseId}-${namespacePath}`,
-          name: ns.namespace[ns.namespace.length - 1] || namespacePath, // Display only the last segment
+          name: displayName,
           type: 'namespace' as const,
           warehouseId: item.warehouseId,
           namespaceId: namespacePath,
