@@ -11,7 +11,8 @@
         item-value="id"
         density="compact"
         open-on-click
-        class="tree-view pa-2">
+        class="tree-view pa-2"
+        style="background-color: transparent !important">
         <template v-slot:prepend="{ item }">
           <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
