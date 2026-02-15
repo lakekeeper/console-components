@@ -448,11 +448,11 @@ async function handleNavigate(item: TreeItem) {
       const apiNamespace = item.namespaceId ? namespacePathToApiFormat(item.namespaceId) : '';
 
       if (item.type === 'namespace') {
-        await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
+        await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
       } else if (item.type === 'table') {
-        await functions.loadTable(item.warehouseId, apiNamespace, item.name);
+        await functions.loadTable(item.warehouseId, apiNamespace, item.name, false);
       } else if (item.type === 'view') {
-        await functions.loadView(item.warehouseId, apiNamespace, item.name);
+        await functions.loadView(item.warehouseId, apiNamespace, item.name, false);
       }
 
       // Permission granted, proceed with navigation
