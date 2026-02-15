@@ -1,7 +1,18 @@
 <template>
   <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden">
-    <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0" color="grey-lighten-4">
-      All Warehouses
+    <v-sheet
+      class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center"
+      color="grey-lighten-4">
+      <span class="flex-grow-1">All Warehouses</span>
+      <v-btn
+        icon
+        size="x-small"
+        variant="text"
+        @click="refreshWarehouses"
+        :loading="isLoading"
+        title="Refresh warehouses">
+        <v-icon size="small">mdi-refresh</v-icon>
+      </v-btn>
     </v-sheet>
     <v-divider></v-divider>
     <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
@@ -68,6 +79,7 @@ interface TreeItem {
 
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
+const isLoading = ref(false);
 
 // Get projectId from visual store
 const projectId = computed(() => visualStore.projectSelected['project-id']);
@@ -84,6 +96,7 @@ function namespacePathToApiFormat(nsPath: string): string {
 
 // Load all warehouses
 async function loadWarehouses() {
+  isLoading.value = true;
   try {
     const response = await functions.listWarehouses(false);
     if (response && response.warehouses) {
@@ -98,7 +111,15 @@ async function loadWarehouses() {
     }
   } catch (error) {
     console.error('Error loading warehouses:', error);
+  } finally {
+    isLoading.value = false;
   }
+}
+
+// Refresh warehouses and reset tree state
+async function refreshWarehouses() {
+  openedItems.value = [];
+  await loadWarehouses();
 }
 
 // Load namespaces for a warehouse
@@ -127,6 +148,9 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
 
       item.children = namespaceItems;
       item.loaded = true;
+
+      // Force reactivity by creating a new array reference
+      treeItems.value = [...treeItems.value];
     }
   } catch (error) {
     console.error('Error loading namespaces for warehouse:', item.name, error);
@@ -178,6 +202,9 @@ async function loadChildrenForNamespace(item: TreeItem) {
 
     item.children = children;
     item.loaded = true;
+
+    // Force reactivity by creating a new array reference
+    treeItems.value = [...treeItems.value];
   } catch (error) {
     console.error('Error loading children for namespace:', item.name, error);
   }

@@ -49,13 +49,14 @@
               <!-- Collapse/Expand Button -->
               <v-btn
                 icon
-                size="small"
-                variant="text"
+                size="default"
+                variant="tonal"
+                color="primary"
                 @click="toggleNavigation"
-                class="mr-2"
+                class="mr-3"
                 :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
                 <v-icon>
-                  {{ isNavigationCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left' }}
+                  {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
                 </v-icon>
               </v-btn>
               <v-icon>mdi-warehouse</v-icon>
