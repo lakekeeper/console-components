@@ -48,7 +48,6 @@ import TableRegister from './components/TableRegister.vue';
 import WarehouseSqlQuery from './components/WarehouseSqlQuery.vue';
 import WarehouseNavigationTree from './components/WarehouseNavigationTree.vue';
 import WarehousesNavigationTree from './components/WarehousesNavigationTree.vue';
-import NavigableLayout from './components/NavigableLayout.vue';
 import ViewHeader from './components/ViewHeader.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
@@ -129,7 +128,6 @@ export {
   NotificationButton,
   NotificationPanel,
   WarehousesNavigationTree,
-  NavigableLayout,
 };
 
 // Export composables
