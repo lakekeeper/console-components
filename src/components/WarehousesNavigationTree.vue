@@ -363,7 +363,7 @@ async function handleNavigate(item: TreeItem) {
   if (item.type === 'namespace' || item.type === 'table' || item.type === 'view') {
     try {
       const apiNamespace = item.namespaceId ? namespacePathToApiFormat(item.namespaceId) : '';
-      
+
       if (item.type === 'namespace') {
         await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
       } else if (item.type === 'table') {
@@ -399,7 +399,7 @@ async function navigateToTab(item: TreeItem, tab: string) {
     try {
       const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
       await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
-      
+
       // Permission granted, proceed with navigation
       emit('navigate', {
         type: item.type,

@@ -440,7 +440,7 @@ async function handleNavigate(item: TreeItem) {
   if (item.type === 'namespace' || item.type === 'table' || item.type === 'view') {
     try {
       const apiNamespace = item.namespaceId ? namespacePathToApiFormat(item.namespaceId) : '';
-      
+
       if (item.type === 'namespace') {
         await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
       } else if (item.type === 'table') {
