@@ -110,6 +110,7 @@ import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
+import { f } from 'vue-router/dist/router-CWoNjPRp.mjs';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -481,7 +482,7 @@ async function navigateToTab(item: TreeItem, tab: string) {
     // Check permission by trying to load namespace metadata
     try {
       const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
-      await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
+      await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
 
       // Permission granted, proceed with navigation
       emit('navigate', {
