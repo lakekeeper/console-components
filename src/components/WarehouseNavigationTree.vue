@@ -71,8 +71,11 @@
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
+import { Type } from '@/common/enums';
 
 const functions = useFunctions();
+const visualStore = useVisualStore();
 
 const props = defineProps<{
   warehouseId: string;
@@ -432,16 +435,38 @@ function handleItemClick(item: TreeItem) {
   }
 }
 
-function handleNavigate(item: TreeItem) {
-  // Only emit navigation for namespace, table, and view types
+async function handleNavigate(item: TreeItem) {
+  // Check permissions for namespace, table, and view before navigating
   if (item.type === 'namespace' || item.type === 'table' || item.type === 'view') {
-    emit('navigate', {
-      type: item.type,
-      warehouseId: item.warehouseId,
-      namespaceId: item.namespaceId,
-      name: item.name,
-      id: item.id,
-    });
+    try {
+      const apiNamespace = item.namespaceId ? namespacePathToApiFormat(item.namespaceId) : '';
+      
+      if (item.type === 'namespace') {
+        await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
+      } else if (item.type === 'table') {
+        await functions.loadTable(item.warehouseId, apiNamespace, item.name);
+      } else if (item.type === 'view') {
+        await functions.loadView(item.warehouseId, apiNamespace, item.name);
+      }
+
+      // Permission granted, proceed with navigation
+      emit('navigate', {
+        type: item.type,
+        warehouseId: item.warehouseId,
+        namespaceId: item.namespaceId,
+        name: item.name,
+        id: item.id,
+      });
+    } catch (error) {
+      // Permission denied or error
+      visualStore.setSnackbarMsg({
+        function: 'handleNavigate',
+        text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
+        ttl: 5000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
   }
 }
 

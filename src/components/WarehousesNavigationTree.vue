@@ -95,6 +95,7 @@
 import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
+import { Type } from '@/common/enums';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -345,14 +346,9 @@ function findItemById(items: TreeItem[], id: string): TreeItem | null {
   return null;
 }
 
-function handleNavigate(item: TreeItem) {
-  // Emit navigation for warehouse, namespace, table, and view types
-  if (
-    item.type === 'warehouse' ||
-    item.type === 'namespace' ||
-    item.type === 'table' ||
-    item.type === 'view'
-  ) {
+async function handleNavigate(item: TreeItem) {
+  // Warehouses don't need permission checks - they're already visible in the list
+  if (item.type === 'warehouse') {
     emit('navigate', {
       type: item.type,
       warehouseId: item.warehouseId,
@@ -360,19 +356,69 @@ function handleNavigate(item: TreeItem) {
       name: item.name,
       id: item.id,
     });
+    return;
+  }
+
+  // Check permissions for namespace, table, and view before navigating
+  if (item.type === 'namespace' || item.type === 'table' || item.type === 'view') {
+    try {
+      const apiNamespace = item.namespaceId ? namespacePathToApiFormat(item.namespaceId) : '';
+      
+      if (item.type === 'namespace') {
+        await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
+      } else if (item.type === 'table') {
+        await functions.loadTable(item.warehouseId, apiNamespace, item.name);
+      } else if (item.type === 'view') {
+        await functions.loadView(item.warehouseId, apiNamespace, item.name);
+      }
+
+      // Permission granted, proceed with navigation
+      emit('navigate', {
+        type: item.type,
+        warehouseId: item.warehouseId,
+        namespaceId: item.namespaceId,
+        name: item.name,
+        id: item.id,
+      });
+    } catch (error) {
+      // Permission denied or error
+      visualStore.setSnackbarMsg({
+        function: 'handleNavigate',
+        text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
+        ttl: 5000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
   }
 }
 
-function navigateToTab(item: TreeItem, tab: string) {
+async function navigateToTab(item: TreeItem, tab: string) {
   if (item.type === 'namespace') {
-    emit('navigate', {
-      type: item.type,
-      warehouseId: item.warehouseId,
-      namespaceId: item.namespaceId,
-      name: item.name,
-      id: item.id,
-      tab: tab,
-    });
+    // Check permission by trying to load namespace metadata
+    try {
+      const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
+      await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace);
+      
+      // Permission granted, proceed with navigation
+      emit('navigate', {
+        type: item.type,
+        warehouseId: item.warehouseId,
+        namespaceId: item.namespaceId,
+        name: item.name,
+        id: item.id,
+        tab: tab,
+      });
+    } catch (error) {
+      // Permission denied or error
+      visualStore.setSnackbarMsg({
+        function: 'navigateToTab',
+        text: `Access denied: You don't have permission to access namespace "${item.name}"`,
+        ttl: 5000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
   }
 }
 
