@@ -308,8 +308,28 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
       // Force reactivity by creating a new array reference
       treeItems.value = [...treeItems.value];
     }
-  } catch (error) {
-    console.error('Error loading namespaces for warehouse:', item.name, error);
+  } catch (error: any) {
+    const code = error?.error?.code || error?.status || error?.response?.status || 0;
+    const message = error?.error?.message || error?.message || 'An unknown error occurred';
+    if (code === 403 || code === 404) {
+      visualStore.setSnackbarMsg({
+        function: 'loadNamespacesForWarehouse',
+        text: `Access denied: warehouse "${item.name}"`,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    } else {
+      visualStore.setSnackbarMsg({
+        function: 'loadNamespacesForWarehouse',
+        text: message,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
+    // Collapse the node back on error
+    openedItems.value = openedItems.value.filter((id) => id !== item.id);
   }
 }
 
@@ -381,8 +401,28 @@ async function loadChildrenForNamespace(item: TreeItem) {
 
     // Force reactivity by creating a new array reference
     treeItems.value = [...treeItems.value];
-  } catch (error) {
-    console.error('Error loading children for namespace:', item.name, error);
+  } catch (error: any) {
+    const code = error?.error?.code || error?.status || error?.response?.status || 0;
+    const message = error?.error?.message || error?.message || 'An unknown error occurred';
+    if (code === 403 || code === 404) {
+      visualStore.setSnackbarMsg({
+        function: 'loadChildrenForNamespace',
+        text: `Access denied: namespace "${item.name}"`,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    } else {
+      visualStore.setSnackbarMsg({
+        function: 'loadChildrenForNamespace',
+        text: message,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
+    // Collapse the node back on error
+    openedItems.value = openedItems.value.filter((id) => id !== item.id);
   }
 }
 
@@ -458,7 +498,7 @@ async function handleNavigate(item: TreeItem) {
     if (code === 403 || code === 404) {
       visualStore.setSnackbarMsg({
         function: 'handleNavigate',
-        text: 'Access denied',
+        text: `Access denied: ${item.type} "${item.name}"`,
         ttl: 3000,
         ts: Date.now(),
         type: Type.ERROR,
@@ -496,7 +536,7 @@ async function navigateToTab(item: TreeItem, tab: string) {
       if (code === 403 || code === 404) {
         visualStore.setSnackbarMsg({
           function: 'navigateToTab',
-          text: 'Access denied',
+          text: `Access denied: ${item.type} "${item.name}"`,
           ttl: 3000,
           ts: Date.now(),
           type: Type.ERROR,

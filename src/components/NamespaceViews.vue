@@ -141,7 +141,7 @@ async function routeToView(item: ViewIdentifierExtended) {
     if (code === 403 || code === 404) {
       visual.setSnackbarMsg({
         function: 'routeToView',
-        text: 'Access denied',
+        text: `Access denied: view "${item.name}"`,
         ttl: 3000,
         ts: Date.now(),
         type: Type.ERROR,

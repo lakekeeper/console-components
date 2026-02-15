@@ -223,7 +223,7 @@ async function routeToNamespace(item: Item) {
     if (code === 403 || code === 404) {
       visual.setSnackbarMsg({
         function: 'routeToNamespace',
-        text: 'Access denied',
+        text: `Access denied: ${item.type} "${item.name}"`,
         ttl: 3000,
         ts: Date.now(),
         type: Type.ERROR,

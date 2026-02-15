@@ -141,7 +141,7 @@ async function routeToTable(item: TableIdentifierExtended) {
     if (code === 403 || code === 404) {
       visual.setSnackbarMsg({
         function: 'routeToTable',
-        text: 'Access denied',
+        text: `Access denied: table "${item.name}"`,
         ttl: 3000,
         ts: Date.now(),
         type: Type.ERROR,
