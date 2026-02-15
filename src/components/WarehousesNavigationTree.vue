@@ -109,8 +109,6 @@
 import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
-import { Type } from '@/common/enums';
-import { f } from 'vue-router/dist/router-CWoNjPRp.mjs';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -431,78 +429,61 @@ function findItemById(items: TreeItem[], id: string): TreeItem | null {
 }
 
 async function handleNavigate(item: TreeItem) {
-  // Warehouses don't need permission checks - they're already visible in the list
   if (item.type === 'warehouse') {
     emit('navigate', {
       type: item.type,
       warehouseId: item.warehouseId,
-      namespaceId: item.namespaceId,
       name: item.name,
       id: item.id,
     });
     return;
   }
 
-  // Check permissions for namespace, table, and view before navigating
-  if (item.type === 'namespace' || item.type === 'table' || item.type === 'view') {
-    try {
-      const apiNamespace = item.namespaceId ? namespacePathToApiFormat(item.namespaceId) : '';
-
-      if (item.type === 'namespace') {
-        await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
-      } else if (item.type === 'table') {
-        await functions.loadTable(item.warehouseId, apiNamespace, item.name, false);
-      } else if (item.type === 'view') {
-        await functions.loadView(item.warehouseId, apiNamespace, item.name, false);
-      }
-
-      // Permission granted, proceed with navigation
-      emit('navigate', {
-        type: item.type,
-        warehouseId: item.warehouseId,
-        namespaceId: item.namespaceId,
-        name: item.name,
-        id: item.id,
-      });
-    } catch (error) {
-      // Permission denied or error
-      visualStore.setSnackbarMsg({
-        function: 'handleNavigate',
-        text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
+  // Permission pre-check with notify=false (completely silent)
+  try {
+    if (item.type === 'namespace' && item.namespaceId) {
+      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+      await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
+    } else if (item.type === 'table' && item.namespaceId) {
+      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+      await functions.loadTable(item.warehouseId, apiNamespace, item.name, false);
+    } else if (item.type === 'view' && item.namespaceId) {
+      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+      await functions.loadView(item.warehouseId, apiNamespace, item.name, false);
     }
+  } catch {
+    // Silently block navigation — user lacks access
+    return;
   }
+
+  emit('navigate', {
+    type: item.type,
+    warehouseId: item.warehouseId,
+    namespaceId: item.namespaceId,
+    name: item.name,
+    id: item.id,
+  });
 }
 
 async function navigateToTab(item: TreeItem, tab: string) {
-  if (item.type === 'namespace') {
-    // Check permission by trying to load namespace metadata
+  if (item.type === 'namespace' && item.namespaceId) {
+    // Permission pre-check with notify=false (completely silent)
     try {
-      const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
+      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
       await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
-
-      // Permission granted, proceed with navigation
-      emit('navigate', {
-        type: item.type,
-        warehouseId: item.warehouseId,
-        namespaceId: item.namespaceId,
-        name: item.name,
-        id: item.id,
-        tab: tab,
-      });
-    } catch (error) {
-      // Permission denied or error
-      visualStore.setSnackbarMsg({
-        function: 'navigateToTab',
-        text: `Access denied: You don't have permission to access namespace "${item.name}"`,
-        ttl: 5000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
+    } catch {
+      // Silently block navigation — user lacks access
+      return;
     }
+
+    emit('navigate', {
+      type: item.type,
+      warehouseId: item.warehouseId,
+      namespaceId: item.namespaceId,
+      name: item.name,
+      id: item.id,
+      tab: tab,
+    });
   }
 }
 

@@ -86,11 +86,8 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
-import { useVisualStore } from '@/stores/visual';
-import { Type } from '@/common/enums';
 
 const functions = useFunctions();
-const visualStore = useVisualStore();
 
 const props = defineProps<{
   warehouseId: string;
@@ -535,37 +532,32 @@ function handleItemClick(item: TreeItem) {
 }
 
 async function handleNavigate(item: TreeItem) {
-  // Check permissions for namespace, table, and view before navigating
+  // Navigate for namespace, table, and view types
   if (item.type === 'namespace' || item.type === 'table' || item.type === 'view') {
+    // Permission pre-check with notify=false (completely silent)
     try {
-      const apiNamespace = item.namespaceId ? namespacePathToApiFormat(item.namespaceId) : '';
-
-      if (item.type === 'namespace') {
-        await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
-      } else if (item.type === 'table') {
-        await functions.loadTable(item.warehouseId, apiNamespace, item.name, false);
-      } else if (item.type === 'view') {
-        await functions.loadView(item.warehouseId, apiNamespace, item.name, false);
+      if (item.type === 'namespace' && item.namespaceId) {
+        const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+        await functions.loadNamespaceMetadata(props.warehouseId, apiNamespace, false);
+      } else if (item.type === 'table' && item.namespaceId) {
+        const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+        await functions.loadTable(props.warehouseId, apiNamespace, item.name, false);
+      } else if (item.type === 'view' && item.namespaceId) {
+        const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+        await functions.loadView(props.warehouseId, apiNamespace, item.name, false);
       }
-
-      // Permission granted, proceed with navigation
-      emit('navigate', {
-        type: item.type,
-        warehouseId: item.warehouseId,
-        namespaceId: item.namespaceId,
-        name: item.name,
-        id: item.id,
-      });
-    } catch (error) {
-      // Permission denied or error
-      visualStore.setSnackbarMsg({
-        function: 'handleNavigate',
-        text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
-        ttl: 5000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
+    } catch {
+      // Silently block navigation — user lacks access
+      return;
     }
+
+    emit('navigate', {
+      type: item.type,
+      warehouseId: item.warehouseId,
+      namespaceId: item.namespaceId,
+      name: item.name,
+      id: item.id,
+    });
   }
 }
 

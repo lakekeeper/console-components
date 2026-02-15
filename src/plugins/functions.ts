@@ -226,9 +226,9 @@ export function handleError(error: any, functionError: Error | string, notify?: 
     //   return;
     // }
 
-    // Only show notification if notify is true (default false)
-
-    setError(error, 3000, functionName, Type.ERROR, notify ?? false);
+    // Pass notify through to setError to control both snackbar and notification behavior
+    // notify=false: completely silent, notify=true: snackbar + notification, notify=undefined: snackbar only
+    setError(error, 3000, functionName, Type.ERROR, notify);
   } catch (newError: any) {
     if (typeof newError === 'string' && error.includes('net::ERR_CONNECTION_REFUSED')) {
       console.error('Connection refused');
@@ -291,14 +291,16 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       return; // Exit early to prevent snackbar from showing
     }
 
-    // Always show snackbar for immediate user feedback
-    visual.setSnackbarMsg({
-      function: functionCaused,
-      text: message,
-      ttl,
-      ts: Date.now(),
-      type,
-    });
+    // Show snackbar for immediate user feedback unless notify is explicitly false
+    if (notify !== false) {
+      visual.setSnackbarMsg({
+        function: functionCaused,
+        text: message,
+        ttl,
+        ts: Date.now(),
+        type,
+      });
+    }
 
     // Only add to notification store for persistent notifications if notify is true
     if (notify) {
