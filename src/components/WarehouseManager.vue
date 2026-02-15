@@ -11,95 +11,91 @@
     </v-responsive>
   </v-container>
   <v-container v-else fluid class="pa-0">
-    <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
-      <span>
-        <v-toolbar class="mb-4" color="transparent" density="compact" flat>
-          <template #prepend>
-            <!-- Collapse/Expand Button -->
-            <v-btn
-              icon
-              size="default"
-              variant="tonal"
-              color="primary"
-              @click="toggleNavigation"
-              class="mr-3"
-              :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
-              <v-icon>
-                {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
-              </v-icon>
-            </v-btn>
-            <v-icon>mdi-warehouse</v-icon>
-          </template>
-          <v-toolbar-title>
-            <span class="text-subtitle-1">Warehouses</span>
-          </v-toolbar-title>
+    <v-toolbar class="mb-4" color="transparent" density="compact" flat>
+      <template #prepend>
+        <!-- Collapse/Expand Button -->
+        <v-btn
+          icon
+          size="default"
+          variant="tonal"
+          color="primary"
+          @click="toggleNavigation"
+          class="mr-3"
+          :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
+          <v-icon>
+            {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
+          </v-icon>
+        </v-btn>
+        <v-icon>mdi-warehouse</v-icon>
+      </template>
+      <v-toolbar-title>
+        <span class="text-subtitle-1">Warehouses</span>
+      </v-toolbar-title>
+      <v-spacer></v-spacer>
+      <WarehouseAddDialog
+        v-if="canCreateWarehouse"
+        v-bind="addWarehouseProps"
+        @added-warehouse="listWarehouse" />
+    </v-toolbar>
+
+    <v-data-table
+      v-if="canListWarehouses"
+      height="60vh"
+      fixed-header
+      :headers="headers"
+      hover
+      items-per-page="50"
+      :items="filteredWarehouses"
+      :sort-by="sortBy"
+      :items-per-page-options="[
+        { title: '50 items', value: 50 },
+        { title: '100 items', value: 100 },
+      ]">
+      <template #top>
+        <v-toolbar color="transparent" density="compact" flat>
           <v-spacer></v-spacer>
-          <WarehouseAddDialog
-            v-if="canCreateWarehouse"
-            v-bind="addWarehouseProps"
-            @added-warehouse="listWarehouse" />
+          <v-text-field
+            v-model="searchWarehouse"
+            label="Filter results"
+            prepend-inner-icon="mdi-filter"
+            variant="underlined"
+            hide-details
+            clearable></v-text-field>
         </v-toolbar>
+      </template>
+      <template #item.name="{ item }">
+        <td @click="navigateToWarehouse(item)" style="cursor: pointer !important">
+          <span style="display: flex; align-items: center">
+            <component :is="getStorageIcon(item)" />
+            <v-icon class="mr-2">mdi-database</v-icon>
+            {{ item.name }}
+          </span>
+        </td>
+      </template>
+      <template #item.status="{ item }">
+        <v-chip
+          :color="item.status === 'active' ? 'success' : 'warning'"
+          size="small"
+          :prepend-icon="item.status === 'active' ? 'mdi-check-circle' : 'mdi-pause-circle'">
+          {{ item.status }}
+        </v-chip>
+      </template>
+      <template #item.actions="{ item }">
+        <DeleteConfirmDialog
+          v-if="item.can_delete"
+          type="warehouse"
+          :name="item.name"
+          @confirmed="deleteWarehouse(item.id)" />
+      </template>
+      <template #no-data>
+        <WarehouseAddDialog
+          v-if="canCreateWarehouse"
+          v-bind="addWarehouseProps"
+          @added-warehouse="listWarehouse" />
+      </template>
+    </v-data-table>
 
-        <v-data-table
-          v-if="canListWarehouses"
-          height="60vh"
-          fixed-header
-          :headers="headers"
-          hover
-          items-per-page="50"
-          :items="filteredWarehouses"
-          :sort-by="sortBy"
-          :items-per-page-options="[
-            { title: '50 items', value: 50 },
-            { title: '100 items', value: 100 },
-          ]">
-          <template #top>
-            <v-toolbar color="transparent" density="compact" flat>
-              <v-spacer></v-spacer>
-              <v-text-field
-                v-model="searchWarehouse"
-                label="Filter results"
-                prepend-inner-icon="mdi-filter"
-                variant="underlined"
-                hide-details
-                clearable></v-text-field>
-            </v-toolbar>
-          </template>
-          <template #item.name="{ item }">
-            <td @click="navigateToWarehouse(item)" style="cursor: pointer !important">
-              <span style="display: flex; align-items: center">
-                <component :is="getStorageIcon(item)" />
-                <v-icon class="mr-2">mdi-database</v-icon>
-                {{ item.name }}
-              </span>
-            </td>
-          </template>
-          <template #item.status="{ item }">
-            <v-chip
-              :color="item.status === 'active' ? 'success' : 'warning'"
-              size="small"
-              :prepend-icon="item.status === 'active' ? 'mdi-check-circle' : 'mdi-pause-circle'">
-              {{ item.status }}
-            </v-chip>
-          </template>
-          <template #item.actions="{ item }">
-            <DeleteConfirmDialog
-              v-if="item.can_delete"
-              type="warehouse"
-              :name="item.name"
-              @confirmed="deleteWarehouse(item.id)" />
-          </template>
-          <template #no-data>
-            <WarehouseAddDialog
-              v-if="canCreateWarehouse"
-              v-bind="addWarehouseProps"
-              @added-warehouse="listWarehouse" />
-          </template>
-        </v-data-table>
-
-        <div v-else>You don't have permission to list warehouses</div>
-      </span>
-    </div>
+    <div v-else>You don't have permission to list warehouses</div>
   </v-container>
 </template>
 

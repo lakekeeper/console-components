@@ -13,7 +13,7 @@
       </v-btn>
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
-    <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
+    <v-sheet class="flex-grow-1" style="overflow: auto">
       <v-treeview
         v-model:opened="openedItems"
         :items="treeItems"
@@ -411,14 +411,12 @@ watch(
 }
 
 .tree-view :deep(.v-list-item) {
-  overflow-x: auto !important;
   min-width: max-content;
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .tree-view :deep(.v-list-item-title) {
   white-space: nowrap !important;
-  overflow-x: auto !important;
 }
 
 .tree-item-container {
