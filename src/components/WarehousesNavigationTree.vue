@@ -3,14 +3,28 @@
     <v-sheet
       color="transparent"
       class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
-      <span class="flex-grow-1">{{ headerTitle }}</span>
+      <span class="flex-grow-1 mr-2">{{ headerTitle }}</span>
+      <v-text-field
+        v-model="searchFilter"
+        density="compact"
+        variant="outlined"
+        placeholder="Filter..."
+        hide-details
+        clearable
+        class="filter-field"
+        style="max-width: 150px;">
+        <template #prepend-inner>
+          <v-icon size="x-small">mdi-filter</v-icon>
+        </template>
+      </v-text-field>
       <v-btn
         icon
         size="x-small"
         variant="text"
         @click="refreshWarehouses"
         :loading="isLoading"
-        title="Refresh warehouses">
+        title="Refresh warehouses"
+        class="ml-2">
         <v-icon size="small">mdi-refresh</v-icon>
       </v-btn>
     </v-sheet>
@@ -18,7 +32,7 @@
     <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
-        :items="treeItems"
+        :items="filteredTreeItems"
         item-value="id"
         density="compact"
         open-on-click
@@ -133,6 +147,7 @@ const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
+const searchFilter = ref('');
 
 // Get projectId from visual store
 const projectId = computed(() => visualStore.projectSelected['project-id']);
@@ -151,6 +166,61 @@ const headerTitle = computed(() => {
     return props.warehouseName;
   }
   return 'All Warehouses';
+});
+
+// Filter tree items based on search
+const filteredTreeItems = computed(() => {
+  if (!searchFilter.value || searchFilter.value.trim() === '') {
+    return treeItems.value;
+  }
+
+  const filterLower = searchFilter.value.toLowerCase();
+  
+  function filterItems(items: TreeItem[]): TreeItem[] {
+    const result: TreeItem[] = [];
+    
+    for (const item of items) {
+      const nameMatch = item.name.toLowerCase().includes(filterLower);
+      const hasMatchingChildren = item.children && item.children.length > 0;
+      
+      if (nameMatch || hasMatchingChildren) {
+        const filteredItem = { ...item };
+        
+        if (item.children && item.children.length > 0) {
+          filteredItem.children = filterItems(item.children);
+        }
+        
+        // Include if name matches or has matching children
+        if (nameMatch || (filteredItem.children && filteredItem.children.length > 0)) {
+          result.push(filteredItem);
+        }
+      }
+    }
+    
+    return result;
+  }
+  
+  return filterItems(treeItems.value);
+});
+
+// Auto-expand filtered items
+watch(searchFilter, (newValue) => {
+  if (newValue && newValue.trim() !== '') {
+    // Expand all items that have matches
+    const itemsToOpen: string[] = [];
+    
+    function collectOpenItems(items: TreeItem[]) {
+      for (const item of items) {
+        if (item.children && item.children.length > 0) {
+          itemsToOpen.push(item.id);
+          collectOpenItems(item.children);
+        }
+      }
+    }
+    
+    collectOpenItems(filteredTreeItems.value);
+    openedItems.value = itemsToOpen;
+  }
 });
 
 // Helper function to convert namespace path from API format to display format
@@ -561,5 +631,14 @@ onBeforeUnmount(() => {
 .compact-menu :deep(.v-list-item-title) {
   font-size: 0.75rem !important;
   line-height: 1.2 !important;
+}
+
+.filter-field :deep(.v-field) {
+  font-size: 0.75rem !important;
+}
+
+.filter-field :deep(.v-field__input) {
+  min-height: 28px !important;
+  padding: 4px 8px !important;
 }
 </style>

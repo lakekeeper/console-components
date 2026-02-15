@@ -1,13 +1,26 @@
 <template>
   <v-sheet class="d-flex flex-column" color="transparent" height="100%" style="overflow: hidden">
-    <v-sheet color="transparent" class="text-subtitle-2 py-2 px-3 flex-shrink-0 nav-header">
-      Warehouse: {{ warehouseName }}
+    <v-sheet color="transparent" class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
+      <span class="flex-grow-1 mr-2">Warehouse: {{ warehouseName }}</span>
+      <v-text-field
+        v-model="searchFilter"
+        density="compact"
+        variant="outlined"
+        placeholder="Filter..."
+        hide-details
+        clearable
+        class="filter-field"
+        style="max-width: 150px;">
+        <template #prepend-inner>
+          <v-icon size="x-small">mdi-filter</v-icon>
+        </template>
+      </v-text-field>
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
     <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
-        :items="treeItems"
+        :items="filteredTreeItems"
         item-value="id"
         density="compact"
         open-on-click
@@ -69,7 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
@@ -107,6 +120,62 @@ interface TreeItem {
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const hoveredItem = ref<string | null>(null);
+const searchFilter = ref('');
+
+// Filter tree items based on search
+const filteredTreeItems = computed(() => {
+  if (!searchFilter.value || searchFilter.value.trim() === '') {
+    return treeItems.value;
+  }
+
+  const filterLower = searchFilter.value.toLowerCase();
+  
+  function filterItems(items: TreeItem[]): TreeItem[] {
+    const result: TreeItem[] = [];
+    
+    for (const item of items) {
+      const nameMatch = item.name.toLowerCase().includes(filterLower);
+      const hasMatchingChildren = item.children && item.children.length > 0;
+      
+      if (nameMatch || hasMatchingChildren) {
+        const filteredItem = { ...item };
+        
+        if (item.children && item.children.length > 0) {
+          filteredItem.children = filterItems(item.children);
+        }
+        
+        // Include if name matches or has matching children
+        if (nameMatch || (filteredItem.children && filteredItem.children.length > 0)) {
+          result.push(filteredItem);
+        }
+      }
+    }
+    
+    return result;
+  }
+  
+  return filterItems(treeItems.value);
+});
+
+// Auto-expand filtered items
+watch(searchFilter, (newValue) => {
+  if (newValue && newValue.trim() !== '') {
+    // Expand all items that have matches
+    const itemsToOpen: string[] = [];
+    
+    function collectOpenItems(items: TreeItem[]) {
+      for (const item of items) {
+        if (item.children && item.children.length > 0) {
+          itemsToOpen.push(item.id);
+          collectOpenItems(item.children);
+        }
+      }
+    }
+    
+    collectOpenItems(filteredTreeItems.value);
+    openedItems.value = itemsToOpen;
+  }
+});
 
 // Helper function to convert namespace path with dots to API format
 function namespacePathToApiFormat(nsPath: string): string {
@@ -546,6 +615,15 @@ onMounted(() => {
 
 .tree-item-title:hover {
   text-decoration: underline;
+}
+
+.filter-field :deep(.v-field) {
+  font-size: 0.75rem !important;
+}
+
+.filter-field :deep(.v-field__input) {
+  min-height: 28px !important;
+  padding: 4px 8px !important;
 }
 
 /* Vuetify v-sheet handles scrolling natively */
