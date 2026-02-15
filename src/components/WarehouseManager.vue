@@ -10,80 +10,128 @@
       </v-row>
     </v-responsive>
   </v-container>
-  <span v-else>
-    <v-toolbar class="mb-4" color="transparent" density="compact" flat>
-      <v-toolbar-title>
-        <span class="text-subtitle-1">Warehouses</span>
-      </v-toolbar-title>
-      <template #prepend>
-        <v-icon>mdi-warehouse</v-icon>
-      </template>
-      <v-spacer></v-spacer>
-      <WarehouseAddDialog
-        v-if="canCreateWarehouse"
-        v-bind="addWarehouseProps"
-        @added-warehouse="listWarehouse" />
-    </v-toolbar>
+  <v-container v-else fluid class="pa-0">
+    <div style="display: flex; height: calc(100vh - 200px); position: relative">
+      <!-- Left: Navigation Tree -->
+      <div
+        v-if="!isNavigationCollapsed"
+        :style="{
+          width: leftWidth + 'px',
+          minWidth: '200px',
+          maxWidth: '800px',
+          height: '100%',
+          overflow: 'visible',
+          borderRight: '1px solid #e0e0e0',
+        }">
+        <AllWarehousesNavigationTree @navigate="handleNavigate" />
+      </div>
 
-    <v-data-table
-      v-if="canListWarehouses"
-      height="60vh"
-      fixed-header
-      :headers="headers"
-      hover
-      items-per-page="50"
-      :items="filteredWarehouses"
-      :sort-by="sortBy"
-      :items-per-page-options="[
-        { title: '50 items', value: 50 },
-        { title: '100 items', value: 100 },
-      ]">
-      <template #top>
-        <v-toolbar color="transparent" density="compact" flat>
-          <v-spacer></v-spacer>
-          <v-text-field
-            v-model="searchWarehouse"
-            label="Filter results"
-            prepend-inner-icon="mdi-filter"
-            variant="underlined"
-            hide-details
-            clearable></v-text-field>
-        </v-toolbar>
-      </template>
-      <template #item.name="{ item }">
-        <td @click="navigateToWarehouse(item)" style="cursor: pointer !important">
-          <span style="display: flex; align-items: center">
-            <component :is="getStorageIcon(item)" />
-            <v-icon class="mr-2">mdi-database</v-icon>
-            {{ item.name }}
-          </span>
-        </td>
-      </template>
-      <template #item.status="{ item }">
-        <v-chip
-          :color="item.status === 'active' ? 'success' : 'warning'"
-          size="small"
-          :prepend-icon="item.status === 'active' ? 'mdi-check-circle' : 'mdi-pause-circle'">
-          {{ item.status }}
-        </v-chip>
-      </template>
-      <template #item.actions="{ item }">
-        <DeleteConfirmDialog
-          v-if="item.can_delete"
-          type="warehouse"
-          :name="item.name"
-          @confirmed="deleteWarehouse(item.id)" />
-      </template>
-      <template #no-data>
-        <WarehouseAddDialog
-          v-if="canCreateWarehouse"
-          v-bind="addWarehouseProps"
-          @added-warehouse="listWarehouse" />
-      </template>
-    </v-data-table>
+      <!-- Resizable Divider -->
+      <div
+        v-if="!isNavigationCollapsed"
+        @mousedown="startResize"
+        style="
+          width: 5px;
+          cursor: col-resize;
+          user-select: none;
+          flex-shrink: 0;
+          transition: background 0.5s;
+        "
+        :style="{ background: dividerHover || isResizing ? '#2196F3' : '#e0e0e0' }"
+        @mouseenter="dividerHover = true"
+        @mouseleave="dividerHover = false"></div>
 
-    <div v-else>You don't have permission to list warehouses</div>
-  </span>
+      <!-- Right: Warehouse List Content -->
+      <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
+        <span>
+          <v-toolbar class="mb-4" color="transparent" density="compact" flat>
+            <template #prepend>
+              <!-- Collapse/Expand Button -->
+              <v-btn
+                icon
+                size="small"
+                variant="text"
+                @click="toggleNavigation"
+                class="mr-2"
+                :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
+                <v-icon>
+                  {{ isNavigationCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-left' }}
+                </v-icon>
+              </v-btn>
+              <v-icon>mdi-warehouse</v-icon>
+            </template>
+            <v-toolbar-title>
+              <span class="text-subtitle-1">Warehouses</span>
+            </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <WarehouseAddDialog
+              v-if="canCreateWarehouse"
+              v-bind="addWarehouseProps"
+              @added-warehouse="listWarehouse" />
+          </v-toolbar>
+
+          <v-data-table
+            v-if="canListWarehouses"
+            height="60vh"
+            fixed-header
+            :headers="headers"
+            hover
+            items-per-page="50"
+            :items="filteredWarehouses"
+            :sort-by="sortBy"
+            :items-per-page-options="[
+              { title: '50 items', value: 50 },
+              { title: '100 items', value: 100 },
+            ]">
+            <template #top>
+              <v-toolbar color="transparent" density="compact" flat>
+                <v-spacer></v-spacer>
+                <v-text-field
+                  v-model="searchWarehouse"
+                  label="Filter results"
+                  prepend-inner-icon="mdi-filter"
+                  variant="underlined"
+                  hide-details
+                  clearable></v-text-field>
+              </v-toolbar>
+            </template>
+            <template #item.name="{ item }">
+              <td @click="navigateToWarehouse(item)" style="cursor: pointer !important">
+                <span style="display: flex; align-items: center">
+                  <component :is="getStorageIcon(item)" />
+                  <v-icon class="mr-2">mdi-database</v-icon>
+                  {{ item.name }}
+                </span>
+              </td>
+            </template>
+            <template #item.status="{ item }">
+              <v-chip
+                :color="item.status === 'active' ? 'success' : 'warning'"
+                size="small"
+                :prepend-icon="item.status === 'active' ? 'mdi-check-circle' : 'mdi-pause-circle'">
+                {{ item.status }}
+              </v-chip>
+            </template>
+            <template #item.actions="{ item }">
+              <DeleteConfirmDialog
+                v-if="item.can_delete"
+                type="warehouse"
+                :name="item.name"
+                @confirmed="deleteWarehouse(item.id)" />
+            </template>
+            <template #no-data>
+              <WarehouseAddDialog
+                v-if="canCreateWarehouse"
+                v-bind="addWarehouseProps"
+                @added-warehouse="listWarehouse" />
+            </template>
+          </v-data-table>
+
+          <div v-else>You don't have permission to list warehouses</div>
+        </span>
+      </div>
+    </div>
+  </v-container>
 </template>
 
 <script lang="ts" setup>
@@ -99,6 +147,7 @@ import { Header } from '@/common/interfaces';
 import { VIcon, VImg } from 'vuetify/components';
 import WarehouseAddDialog from './WarehouseAddDialog.vue';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
+import AllWarehousesNavigationTree from './AllWarehousesNavigationTree.vue';
 
 // Import SVG assets
 import s3Icon from '@/assets/s3.svg';
@@ -111,6 +160,12 @@ const notify = true;
 
 const projectId = computed(() => visual.projectSelected['project-id']);
 const { loading, canCreateWarehouse, canListWarehouses } = useProjectPermissions(projectId);
+
+// Resizable layout state
+const leftWidth = ref(300); // Initial width in pixels
+const dividerHover = ref(false);
+const isResizing = ref(false);
+const isNavigationCollapsed = ref(false);
 
 const searchWarehouse = ref('');
 
@@ -245,6 +300,57 @@ async function deleteWarehouse(id: string) {
     await listWarehouse();
   } catch (error) {
     console.error('Error deleting warehouse:', error);
+  }
+}
+
+function startResize(e: MouseEvent) {
+  isResizing.value = true;
+  const startX = e.clientX;
+  const startWidth = leftWidth.value;
+
+  function onMouseMove(e: MouseEvent) {
+    const delta = e.clientX - startX;
+    const newWidth = startWidth + delta;
+    // Constrain between 200px and 800px
+    leftWidth.value = Math.max(200, Math.min(800, newWidth));
+  }
+
+  function onMouseUp() {
+    isResizing.value = false;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+
+function toggleNavigation() {
+  isNavigationCollapsed.value = !isNavigationCollapsed.value;
+}
+
+function handleNavigate(item: {
+  type: string;
+  warehouseId: string;
+  namespaceId?: string;
+  name: string;
+}) {
+  // Convert namespace path from dot notation to API format for routing
+  const namespaceForRoute = item.namespaceId?.split('.').join('\x1F');
+
+  if (item.type === 'warehouse') {
+    visual.whId = item.warehouseId;
+    router.push(`/warehouse/${item.warehouseId}`);
+  } else if (item.type === 'namespace' && namespaceForRoute) {
+    router.push(`/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}`);
+  } else if (item.type === 'table' && namespaceForRoute) {
+    router.push(`/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}/table/${item.name}`);
+  } else if (item.type === 'view' && namespaceForRoute) {
+    router.push(`/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}/view/${item.name}`);
   }
 }
 </script>

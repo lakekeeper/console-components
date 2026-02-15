@@ -47,6 +47,7 @@ import TableCreate from './components/TableCreate.vue';
 import TableRegister from './components/TableRegister.vue';
 import WarehouseSqlQuery from './components/WarehouseSqlQuery.vue';
 import WarehouseNavigationTree from './components/WarehouseNavigationTree.vue';
+import AllWarehousesNavigationTree from './components/AllWarehousesNavigationTree.vue';
 import ViewHeader from './components/ViewHeader.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
@@ -126,6 +127,7 @@ export {
   ViewDetails,
   NotificationButton,
   NotificationPanel,
+  AllWarehousesNavigationTree,
 };
 
 // Export composables
@@ -255,6 +257,7 @@ const components = {
   WarehouseStatisticsDialog,
   SearchTabular,
   WarehouseNamespaces,
+  AllWarehousesNavigationTree,
   NamespaceNamespaces,
   NamespaceTables,
   NamespaceDeleted,

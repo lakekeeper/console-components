@@ -26,12 +26,20 @@
           <div
             class="tree-item-container"
             @mouseenter="hoveredItem = item.id"
-            @mouseleave="hoveredItem = null">
+            @mouseleave="hoveredItem = null"
+            @click="navigationMode ? handleNavigate(item) : undefined"
+            :style="{
+              cursor:
+                navigationMode &&
+                (item.type === 'namespace' || item.type === 'table' || item.type === 'view')
+                  ? 'pointer'
+                  : 'default',
+            }">
             <span class="tree-item-title text-caption" :title="item.fieldType || item.name">
               {{ item.name }}
             </span>
             <v-btn
-              v-if="item.type === 'table' || item.type === 'view'"
+              v-if="!navigationMode && (item.type === 'table' || item.type === 'view')"
               icon
               size="x-small"
               variant="text"
@@ -42,7 +50,7 @@
               <v-icon size="small">mdi-plus-circle-outline</v-icon>
             </v-btn>
             <v-btn
-              v-if="item.type === 'field'"
+              v-if="!navigationMode && item.type === 'field'"
               icon
               size="x-small"
               variant="text"
@@ -68,10 +76,15 @@ const functions = useFunctions();
 const props = defineProps<{
   warehouseId: string;
   warehouseName: string;
+  navigationMode?: boolean; // If true, clicking navigates instead of inserting text
 }>();
 
 const emit = defineEmits<{
   (e: 'item-selected', item: { type: string; namespaceId?: string; name: string }): void;
+  (
+    e: 'navigate',
+    item: { type: string; warehouseId: string; namespaceId?: string; name: string; id?: string },
+  ): void;
 }>();
 
 interface TreeItem {
@@ -414,6 +427,19 @@ function handleItemClick(item: TreeItem) {
       type: item.type,
       namespaceId: item.namespaceId,
       name: item.name,
+    });
+  }
+}
+
+function handleNavigate(item: TreeItem) {
+  // Only emit navigation for namespace, table, and view types
+  if (item.type === 'namespace' || item.type === 'table' || item.type === 'view') {
+    emit('navigate', {
+      type: item.type,
+      warehouseId: item.warehouseId,
+      namespaceId: item.namespaceId,
+      name: item.name,
+      id: item.id,
     });
   }
 }
