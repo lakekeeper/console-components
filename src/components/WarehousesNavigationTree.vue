@@ -283,7 +283,7 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
   if (item.loaded) return;
 
   try {
-    const response = await functions.listNamespaces(item.warehouseId);
+    const response = await functions.listNamespaces(item.warehouseId, undefined, undefined, false);
 
     if (response && response.namespaces) {
       const namespaceItems: TreeItem[] = response.namespaces.map((ns: string[]) => {
@@ -322,9 +322,9 @@ async function loadChildrenForNamespace(item: TreeItem) {
 
     // Load sub-namespaces, tables and views in parallel
     const [namespacesResponse, tablesResponse, viewsResponse] = await Promise.all([
-      functions.listNamespaces(item.warehouseId, apiNamespace),
-      functions.listTables(item.warehouseId, apiNamespace),
-      functions.listViews(item.warehouseId, apiNamespace),
+      functions.listNamespaces(item.warehouseId, apiNamespace, undefined, false),
+      functions.listTables(item.warehouseId, apiNamespace, undefined, false),
+      functions.listViews(item.warehouseId, apiNamespace, undefined, false),
     ]);
 
     const children: TreeItem[] = [];

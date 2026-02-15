@@ -187,7 +187,7 @@ function namespacePathToApiFormat(nsPath: string): string {
 // Load root namespaces on mount
 async function loadNamespaces() {
   try {
-    const response = await functions.listNamespaces(props.warehouseId);
+    const response = await functions.listNamespaces(props.warehouseId, undefined, undefined, false);
 
     if (response.namespaces && Array.isArray(response.namespaces)) {
       treeItems.value = response.namespaces.map((nsArray: string[]) => {
@@ -217,13 +217,28 @@ async function loadChildrenForNamespace(item: TreeItem) {
     const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
 
     // Load child namespaces
-    const namespacesResponse = await functions.listNamespaces(props.warehouseId, apiNamespace);
+    const namespacesResponse = await functions.listNamespaces(
+      props.warehouseId,
+      apiNamespace,
+      undefined,
+      false,
+    );
 
     // Load tables
-    const tablesResponse = await functions.listTables(props.warehouseId, apiNamespace);
+    const tablesResponse = await functions.listTables(
+      props.warehouseId,
+      apiNamespace,
+      undefined,
+      false,
+    );
 
     // Load views
-    const viewsResponse = await functions.listViews(props.warehouseId, apiNamespace);
+    const viewsResponse = await functions.listViews(
+      props.warehouseId,
+      apiNamespace,
+      undefined,
+      false,
+    );
 
     const childNamespaces = namespacesResponse.namespaces || [];
     const tables = tablesResponse.identifiers || [];
