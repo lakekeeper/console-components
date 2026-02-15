@@ -1,10 +1,10 @@
 <template>
-  <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden">
-    <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0 nav-header">
+  <v-sheet class="d-flex flex-column" color="transparent" height="100%" style="overflow: hidden">
+    <v-sheet color="transparent" class="text-subtitle-2 py-2 px-3 flex-shrink-0 nav-header">
       Warehouse: {{ warehouseName }}
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
-    <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
+    <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
         :items="treeItems"
@@ -464,17 +464,13 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-.nav-header {
-  background-color: rgba(var(--v-theme-surface-variant));
-}
-
-/* Alternating row colors for better visibility */
+/* Subtle alternating row colors for better visibility */
 .tree-view :deep(.v-treeview-item:nth-of-type(odd) .v-list-item) {
-  background-color: rgba(var(--v-theme-surface));
+  background-color: transparent;
 }
 
 .tree-view :deep(.v-treeview-item:nth-of-type(even) .v-list-item) {
-  background-color: rgba(var(--v-theme-surface-variant), 0.3);
+  background-color: rgba(var(--v-theme-on-surface), 0.02);
 }
 
 .tree-view :deep(.v-list-item:hover) {
