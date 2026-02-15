@@ -442,6 +442,11 @@ onBeforeUnmount(() => {
 .tree-view {
   font-size: 0.75rem;
   min-width: max-content;
+  background-color: transparent !important;
+}
+
+.tree-view :deep(.v-treeview) {
+  background-color: transparent !important;
 }
 
 /* Prevent text wrapping in tree items */
