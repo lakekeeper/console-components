@@ -16,6 +16,19 @@
       </span>
     </v-toolbar-title>
     <template #prepend>
+      <!-- Collapse/Expand Button -->
+      <v-btn
+        icon
+        size="default"
+        variant="tonal"
+        color="primary"
+        @click="toggleNavigation"
+        class="mr-3"
+        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
+        <v-icon>
+          {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
+        </v-icon>
+      </v-btn>
       <v-icon>mdi-database</v-icon>
     </template>
     <v-spacer></v-spacer>
@@ -42,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted } from 'vue';
+import { ref, reactive, watch, onMounted, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import SearchTabular from './SearchTabular.vue';
@@ -93,6 +106,16 @@ const stats = reactive({
   timestamp: '1900-01-01T00:00:00Z',
   'updated-at': '1900-01-01T00:00:00.000000Z',
 });
+
+const isNavigationCollapsed = computed({
+  get: () => visual.isNavigationCollapsed,
+  set: (value: boolean) => {
+    visual.isNavigationCollapsed = value;
+  },
+});
+function toggleNavigation() {
+  isNavigationCollapsed.value = !isNavigationCollapsed.value;
+}
 
 async function loadWarehouse() {
   try {
