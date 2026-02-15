@@ -452,15 +452,26 @@ async function handleNavigate(item: TreeItem) {
       const apiNamespace = namespacePathToApiFormat(item.namespaceId);
       await functions.loadView(item.warehouseId, apiNamespace, item.name, false);
     }
-  } catch {
-    // Silently block navigation — user lacks access
-    visualStore.setSnackbarMsg({
-      function: 'handleNavigate',
-      text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
-      ttl: 5000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
+  } catch (error: any) {
+    const code = error?.error?.code || error?.status || error?.response?.status || 0;
+    const message = error?.error?.message || error?.message || 'An unknown error occurred';
+    if (code === 403 || code === 404) {
+      visualStore.setSnackbarMsg({
+        function: 'handleNavigate',
+        text: 'Access denied',
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    } else {
+      visualStore.setSnackbarMsg({
+        function: 'handleNavigate',
+        text: message,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
     return;
   }
 
@@ -479,14 +490,26 @@ async function navigateToTab(item: TreeItem, tab: string) {
     try {
       const apiNamespace = namespacePathToApiFormat(item.namespaceId);
       await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
-    } catch {
-      visualStore.setSnackbarMsg({
-        function: 'navigateToTab',
-        text: `Access denied: You don't have permission to access ${item.type} "${item.name}"`,
-        ttl: 5000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
+    } catch (error: any) {
+      const code = error?.error?.code || error?.status || error?.response?.status || 0;
+      const message = error?.error?.message || error?.message || 'An unknown error occurred';
+      if (code === 403 || code === 404) {
+        visualStore.setSnackbarMsg({
+          function: 'navigateToTab',
+          text: 'Access denied',
+          ttl: 3000,
+          ts: Date.now(),
+          type: Type.ERROR,
+        });
+      } else {
+        visualStore.setSnackbarMsg({
+          function: 'navigateToTab',
+          text: message,
+          ttl: 3000,
+          ts: Date.now(),
+          type: Type.ERROR,
+        });
+      }
       return;
     }
 

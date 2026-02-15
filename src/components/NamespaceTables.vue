@@ -50,6 +50,8 @@
 import { reactive, ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
+import { Type } from '@/common/enums';
 import type { Header, Options } from '@/common/interfaces';
 import type { TableIdentifier } from '@/gen/iceberg/types.gen';
 
@@ -66,6 +68,7 @@ const props = defineProps<{
 
 const router = useRouter();
 const functions = useFunctions();
+const visual = useVisualStore();
 const notify = true;
 
 const searchTbl = ref('');
@@ -130,6 +133,30 @@ async function deleteTableWithOptions(e: any, item: TableIdentifierExtended) {
 }
 
 async function routeToTable(item: TableIdentifierExtended) {
+  try {
+    await functions.loadTable(props.warehouseId, props.namespacePath, item.name, false);
+  } catch (error: any) {
+    const code = error?.error?.code || error?.status || error?.response?.status || 0;
+    const message = error?.error?.message || error?.message || 'An unknown error occurred';
+    if (code === 403 || code === 404) {
+      visual.setSnackbarMsg({
+        function: 'routeToTable',
+        text: 'Access denied',
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    } else {
+      visual.setSnackbarMsg({
+        function: 'routeToTable',
+        text: message,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
+    return;
+  }
   router.push(
     `/warehouse/${props.warehouseId}/namespace/${props.namespacePath}/table/${encodeURIComponent(item.name)}`,
   );

@@ -82,9 +82,10 @@
 import { reactive, ref, watch, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
 import type { Header, Item, Options } from '@/common/interfaces';
-import { StatusIntent } from '@/common/enums';
+import { StatusIntent, Type } from '@/common/enums';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 
 const props = defineProps<{
@@ -94,6 +95,7 @@ const props = defineProps<{
 
 const router = useRouter();
 const functions = useFunctions();
+const visual = useVisualStore();
 const notify = true;
 
 const namespaceId = ref('');
@@ -212,6 +214,31 @@ async function routeToNamespace(item: Item) {
 
   const namespacePath =
     item.parentPath.length > 0 ? `${item.parentPath.join(String.fromCharCode(0x1f))}` : item.name;
+
+  try {
+    await functions.loadNamespaceMetadata(props.warehouseId, namespacePath, false);
+  } catch (error: any) {
+    const code = error?.error?.code || error?.status || error?.response?.status || 0;
+    const message = error?.error?.message || error?.message || 'An unknown error occurred';
+    if (code === 403 || code === 404) {
+      visual.setSnackbarMsg({
+        function: 'routeToNamespace',
+        text: 'Access denied',
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    } else {
+      visual.setSnackbarMsg({
+        function: 'routeToNamespace',
+        text: message,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
+    return;
+  }
   router.push(`/warehouse/${props.warehouseId}/namespace/${namespacePath}`);
 }
 

@@ -1,33 +1,17 @@
 <template>
-  <v-sheet class="d-flex flex-column" color="transparent" height="100%" style="overflow: hidden">
-    <v-sheet
-      color="transparent"
-      class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
-      <span class="flex-grow-1 mr-2">Warehouse: {{ warehouseName }}</span>
-      <v-text-field
-        v-model="searchFilter"
-        density="compact"
-        variant="outlined"
-        placeholder="Filter..."
-        hide-details
-        clearable
-        class="filter-field"
-        style="max-width: 150px">
-        <template #prepend-inner>
-          <v-icon size="x-small">mdi-filter</v-icon>
-        </template>
-      </v-text-field>
+  <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden">
+    <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0" color="grey-lighten-4">
+      Warehouse: {{ warehouseName }}
     </v-sheet>
-    <v-divider class="border-opacity-25"></v-divider>
-    <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
+    <v-divider></v-divider>
+    <v-sheet class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
-        :items="filteredTreeItems"
+        :items="treeItems"
         item-value="id"
         density="compact"
         open-on-click
-        class="tree-view pa-2"
-        style="background-color: transparent !important">
+        class="tree-view pa-2">
         <template v-slot:prepend="{ item }">
           <v-icon size="small" v-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
@@ -42,20 +26,12 @@
           <div
             class="tree-item-container"
             @mouseenter="hoveredItem = item.id"
-            @mouseleave="hoveredItem = null"
-            @click="navigationMode ? handleNavigate(item) : undefined"
-            :style="{
-              cursor:
-                navigationMode &&
-                (item.type === 'namespace' || item.type === 'table' || item.type === 'view')
-                  ? 'pointer'
-                  : 'default',
-            }">
+            @mouseleave="hoveredItem = null">
             <span class="tree-item-title text-caption" :title="item.fieldType || item.name">
               {{ item.name }}
             </span>
             <v-btn
-              v-if="!navigationMode && (item.type === 'table' || item.type === 'view')"
+              v-if="item.type === 'table' || item.type === 'view'"
               icon
               size="x-small"
               variant="text"
@@ -66,7 +42,7 @@
               <v-icon size="small">mdi-plus-circle-outline</v-icon>
             </v-btn>
             <v-btn
-              v-if="!navigationMode && item.type === 'field'"
+              v-if="item.type === 'field'"
               icon
               size="x-small"
               variant="text"
@@ -84,7 +60,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 
 const functions = useFunctions();
@@ -92,15 +68,10 @@ const functions = useFunctions();
 const props = defineProps<{
   warehouseId: string;
   warehouseName: string;
-  navigationMode?: boolean; // If true, clicking navigates instead of inserting text
 }>();
 
 const emit = defineEmits<{
   (e: 'item-selected', item: { type: string; namespaceId?: string; name: string }): void;
-  (
-    e: 'navigate',
-    item: { type: string; warehouseId: string; namespaceId?: string; name: string; id?: string },
-  ): void;
 }>();
 
 interface TreeItem {
@@ -119,62 +90,6 @@ interface TreeItem {
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const hoveredItem = ref<string | null>(null);
-const searchFilter = ref('');
-
-// Filter tree items based on search
-const filteredTreeItems = computed(() => {
-  if (!searchFilter.value || searchFilter.value.trim() === '') {
-    return treeItems.value;
-  }
-
-  const filterLower = searchFilter.value.toLowerCase();
-
-  function filterItems(items: TreeItem[]): TreeItem[] {
-    const result: TreeItem[] = [];
-
-    for (const item of items) {
-      const nameMatch = item.name.toLowerCase().includes(filterLower);
-      const hasMatchingChildren = item.children && item.children.length > 0;
-
-      if (nameMatch || hasMatchingChildren) {
-        const filteredItem = { ...item };
-
-        if (item.children && item.children.length > 0) {
-          filteredItem.children = filterItems(item.children);
-        }
-
-        // Include if name matches or has matching children
-        if (nameMatch || (filteredItem.children && filteredItem.children.length > 0)) {
-          result.push(filteredItem);
-        }
-      }
-    }
-
-    return result;
-  }
-
-  return filterItems(treeItems.value);
-});
-
-// Auto-expand filtered items
-watch(searchFilter, (newValue) => {
-  if (newValue && newValue.trim() !== '') {
-    // Expand all items that have matches
-    const itemsToOpen: string[] = [];
-
-    function collectOpenItems(items: TreeItem[]) {
-      for (const item of items) {
-        if (item.children && item.children.length > 0) {
-          itemsToOpen.push(item.id);
-          collectOpenItems(item.children);
-        }
-      }
-    }
-
-    collectOpenItems(filteredTreeItems.value);
-    openedItems.value = itemsToOpen;
-  }
-});
 
 // Helper function to convert namespace path with dots to API format
 function namespacePathToApiFormat(nsPath: string): string {
@@ -184,7 +99,7 @@ function namespacePathToApiFormat(nsPath: string): string {
 // Load root namespaces on mount
 async function loadNamespaces() {
   try {
-    const response = await functions.listNamespaces(props.warehouseId, undefined, undefined, false);
+    const response = await functions.listNamespaces(props.warehouseId);
 
     if (response.namespaces && Array.isArray(response.namespaces)) {
       treeItems.value = response.namespaces.map((nsArray: string[]) => {
@@ -214,28 +129,13 @@ async function loadChildrenForNamespace(item: TreeItem) {
     const apiNamespace = namespacePathToApiFormat(item.namespaceId!);
 
     // Load child namespaces
-    const namespacesResponse = await functions.listNamespaces(
-      props.warehouseId,
-      apiNamespace,
-      undefined,
-      false,
-    );
+    const namespacesResponse = await functions.listNamespaces(props.warehouseId, apiNamespace);
 
     // Load tables
-    const tablesResponse = await functions.listTables(
-      props.warehouseId,
-      apiNamespace,
-      undefined,
-      false,
-    );
+    const tablesResponse = await functions.listTables(props.warehouseId, apiNamespace);
 
     // Load views
-    const viewsResponse = await functions.listViews(
-      props.warehouseId,
-      apiNamespace,
-      undefined,
-      false,
-    );
+    const viewsResponse = await functions.listViews(props.warehouseId, apiNamespace);
 
     const childNamespaces = namespacesResponse.namespaces || [];
     const tables = tablesResponse.identifiers || [];
@@ -391,19 +291,6 @@ watch(openedItems, async (newOpened, oldOpened) => {
       }
     }
   }
-
-  // Find newly closed items and mark them for reload
-  const newlyClosed = oldOpened.filter((id) => !newOpened.includes(id));
-
-  for (const itemId of newlyClosed) {
-    const item = findItemById(treeItems.value, itemId);
-    if (item && (item.type === 'namespace' || item.type === 'table' || item.type === 'view')) {
-      // Mark as not loaded so it will refresh when expanded again
-      item.loaded = false;
-      // Force reactivity
-      treeItems.value = [...treeItems.value];
-    }
-  }
 });
 
 // Helper to find item by ID in tree
@@ -531,36 +418,6 @@ function handleItemClick(item: TreeItem) {
   }
 }
 
-async function handleNavigate(item: TreeItem) {
-  // Navigate for namespace, table, and view types
-  if (item.type === 'namespace' || item.type === 'table' || item.type === 'view') {
-    // Permission pre-check with notify=false (completely silent)
-    try {
-      if (item.type === 'namespace' && item.namespaceId) {
-        const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-        await functions.loadNamespaceMetadata(props.warehouseId, apiNamespace, false);
-      } else if (item.type === 'table' && item.namespaceId) {
-        const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-        await functions.loadTable(props.warehouseId, apiNamespace, item.name, false);
-      } else if (item.type === 'view' && item.namespaceId) {
-        const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-        await functions.loadView(props.warehouseId, apiNamespace, item.name, false);
-      }
-    } catch {
-      // Silently block navigation — user lacks access
-      return;
-    }
-
-    emit('navigate', {
-      type: item.type,
-      warehouseId: item.warehouseId,
-      namespaceId: item.namespaceId,
-      name: item.name,
-      id: item.id,
-    });
-  }
-}
-
 onMounted(() => {
   loadNamespaces();
 });
@@ -570,16 +427,6 @@ onMounted(() => {
 .tree-view {
   font-size: 0.75rem;
   min-width: max-content;
-  background-color: transparent !important;
-}
-
-/* Force transparency on all treeview internal components */
-.tree-view :deep(.v-treeview),
-.tree-view :deep(.v-treeview-node),
-.tree-view :deep(.v-treeview-node__root),
-.tree-view :deep(.v-list),
-.tree-view :deep(.v-list-item__overlay) {
-  background-color: transparent !important;
 }
 
 /* Prevent text wrapping in tree items */
@@ -591,19 +438,9 @@ onMounted(() => {
   white-space: nowrap;
 }
 
-/* Remove all row backgrounds for complete transparency */
-.tree-view :deep(.v-treeview-item .v-list-item) {
-  background-color: transparent !important;
-}
-
-.tree-view :deep(.v-list-item:hover) {
-  background-color: rgba(var(--v-theme-primary), 0.1) !important;
-}
-
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .tree-view :deep(.v-list-item-title) {
@@ -637,15 +474,6 @@ onMounted(() => {
 
 .tree-item-title:hover {
   text-decoration: underline;
-}
-
-.filter-field :deep(.v-field) {
-  font-size: 0.75rem !important;
-}
-
-.filter-field :deep(.v-field__input) {
-  min-height: 28px !important;
-  padding: 4px 8px !important;
 }
 
 /* Vuetify v-sheet handles scrolling natively */
