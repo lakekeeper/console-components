@@ -223,8 +223,8 @@ async function loadChildrenForNamespace(item: TreeItem) {
     // Add sub-namespaces
     if (namespacesResponse && namespacesResponse.namespaces) {
       namespacesResponse.namespaces.forEach((ns: string[]) => {
-        // Build the full path including parent
-        const subNamespacePath = item.namespaceId + '.' + ns.join('.');
+        // API returns full namespace path, not relative
+        const subNamespacePath = ns.join('.');
         const displayName = ns[ns.length - 1];
 
         children.push({
