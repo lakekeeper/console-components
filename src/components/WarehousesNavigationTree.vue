@@ -189,7 +189,7 @@ async function loadWarehouses() {
 async function refreshWarehouses() {
   openedItems.value = [];
   await loadWarehouses();
-  
+
   // Clear saved state on refresh
   if (visualStore.projectSelected['project-id']) {
     delete visualStore.warehouseTreeState[visualStore.projectSelected['project-id']];
@@ -377,14 +377,18 @@ onMounted(() => {
 });
 
 // Save tree state when it changes
-watch([treeItems, openedItems], () => {
-  if (projectId.value && treeItems.value.length > 0) {
-    visualStore.warehouseTreeState[projectId.value] = {
-      treeItems: treeItems.value,
-      openedItems: openedItems.value,
-    };
-  }
-}, { deep: true });
+watch(
+  [treeItems, openedItems],
+  () => {
+    if (projectId.value && treeItems.value.length > 0) {
+      visualStore.warehouseTreeState[projectId.value] = {
+        treeItems: treeItems.value,
+        openedItems: openedItems.value,
+      };
+    }
+  },
+  { deep: true },
+);
 
 // Watch for project changes and reload warehouses
 watch(projectId, () => {
