@@ -34,8 +34,8 @@
             class="tree-item-container"
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
-            <span 
-              class="tree-item-title text-caption" 
+            <span
+              class="tree-item-title text-caption"
               :title="item.name"
               @click="handleNavigate(item)"
               :style="{
@@ -102,7 +102,14 @@ const visualStore = useVisualStore();
 const emit = defineEmits<{
   (
     e: 'navigate',
-    item: { type: string; warehouseId: string; namespaceId?: string; name: string; id?: string; tab?: string },
+    item: {
+      type: string;
+      warehouseId: string;
+      namespaceId?: string;
+      name: string;
+      id?: string;
+      tab?: string;
+    },
   ): void;
 }>();
 
