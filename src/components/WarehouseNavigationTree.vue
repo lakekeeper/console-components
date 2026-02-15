@@ -464,9 +464,23 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+/* Alternating row colors for better visibility */
+.tree-view :deep(.v-list-item:nth-child(odd)) {
+  background-color: #fafafa;
+}
+
+.tree-view :deep(.v-list-item:nth-child(even)) {
+  background-color: #ffffff;
+}
+
+.tree-view :deep(.v-list-item:hover) {
+  background-color: #e3f2fd !important;
+}
+
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .tree-view :deep(.v-list-item-title) {

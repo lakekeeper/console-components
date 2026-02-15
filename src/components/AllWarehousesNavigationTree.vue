@@ -32,19 +32,58 @@
         <template v-slot:title="{ item }">
           <div
             class="tree-item-container"
-            @click="handleNavigate(item)"
-            :style="{
-              cursor:
-                item.type === 'warehouse' ||
-                item.type === 'namespace' ||
-                item.type === 'table' ||
-                item.type === 'view'
-                  ? 'pointer'
-                  : 'default',
-            }">
-            <span class="tree-item-title text-caption" :title="item.name">
+            @mouseenter="hoveredItem = item.id"
+            @mouseleave="hoveredItem = null">
+            <span 
+              class="tree-item-title text-caption" 
+              :title="item.name"
+              @click="handleNavigate(item)"
+              :style="{
+                cursor:
+                  item.type === 'warehouse' ||
+                  item.type === 'namespace' ||
+                  item.type === 'table' ||
+                  item.type === 'view'
+                    ? 'pointer'
+                    : 'default',
+              }">
               {{ item.name }}
             </span>
+            <v-menu v-if="item.type === 'namespace'">
+              <template v-slot:activator="{ props }">
+                <v-btn
+                  icon
+                  size="x-small"
+                  variant="tonal"
+                  color="primary"
+                  v-bind="props"
+                  class="tree-item-action-btn"
+                  @click.stop
+                  title="Go to namespace tab">
+                  <v-icon size="small">mdi-dots-vertical</v-icon>
+                </v-btn>
+              </template>
+              <v-list density="compact">
+                <v-list-item @click="navigateToTab(item, 'namespaces')">
+                  <v-list-item-title>
+                    <v-icon size="small" class="mr-2">mdi-folder-multiple</v-icon>
+                    Namespaces
+                  </v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="navigateToTab(item, 'tables')">
+                  <v-list-item-title>
+                    <v-icon size="small" class="mr-2">mdi-table</v-icon>
+                    Tables
+                  </v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="navigateToTab(item, 'views')">
+                  <v-list-item-title>
+                    <v-icon size="small" class="mr-2">mdi-eye-outline</v-icon>
+                    Views
+                  </v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-menu>
           </div>
         </template>
       </v-treeview>
@@ -63,7 +102,7 @@ const visualStore = useVisualStore();
 const emit = defineEmits<{
   (
     e: 'navigate',
-    item: { type: string; warehouseId: string; namespaceId?: string; name: string; id?: string },
+    item: { type: string; warehouseId: string; namespaceId?: string; name: string; id?: string; tab?: string },
   ): void;
 }>();
 
@@ -80,6 +119,7 @@ interface TreeItem {
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
+const hoveredItem = ref<string | null>(null);
 
 // Get projectId from visual store
 const projectId = computed(() => visualStore.projectSelected['project-id']);
@@ -157,20 +197,40 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
   }
 }
 
-// Load tables and views for a namespace
+// Load sub-namespaces, tables and views for a namespace
 async function loadChildrenForNamespace(item: TreeItem) {
   if (item.loaded || !item.namespaceId) return;
 
   try {
     const apiNamespace = namespacePathToApiFormat(item.namespaceId);
 
-    // Load both tables and views in parallel
-    const [tablesResponse, viewsResponse] = await Promise.all([
+    // Load sub-namespaces, tables and views in parallel
+    const [namespacesResponse, tablesResponse, viewsResponse] = await Promise.all([
+      functions.listNamespaces(item.warehouseId, apiNamespace),
       functions.listTables(item.warehouseId, apiNamespace),
       functions.listViews(item.warehouseId, apiNamespace),
     ]);
 
     const children: TreeItem[] = [];
+
+    // Add sub-namespaces
+    if (namespacesResponse && namespacesResponse.namespaces) {
+      namespacesResponse.namespaces.forEach((ns: string[]) => {
+        // Build the full path including parent
+        const subNamespacePath = item.namespaceId + '.' + ns.join('.');
+        const displayName = ns[ns.length - 1];
+
+        children.push({
+          id: `namespace-${item.warehouseId}-${subNamespacePath}`,
+          name: displayName,
+          type: 'namespace',
+          warehouseId: item.warehouseId,
+          namespaceId: subNamespacePath,
+          children: [],
+          loaded: false,
+        });
+      });
+    }
 
     // Add tables
     if (tablesResponse && tablesResponse.identifiers) {
@@ -258,6 +318,19 @@ function handleNavigate(item: TreeItem) {
   }
 }
 
+function navigateToTab(item: TreeItem, tab: string) {
+  if (item.type === 'namespace') {
+    emit('navigate', {
+      type: item.type,
+      warehouseId: item.warehouseId,
+      namespaceId: item.namespaceId,
+      name: item.name,
+      id: item.id,
+      tab: tab,
+    });
+  }
+}
+
 onMounted(() => {
   loadWarehouses();
 });
@@ -283,9 +356,23 @@ watch(projectId, () => {
   white-space: nowrap;
 }
 
+/* Alternating row colors for better visibility */
+.tree-view :deep(.v-list-item:nth-child(odd)) {
+  background-color: #fafafa;
+}
+
+.tree-view :deep(.v-list-item:nth-child(even)) {
+  background-color: #ffffff;
+}
+
+.tree-view :deep(.v-list-item:hover) {
+  background-color: #e3f2fd !important;
+}
+
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .tree-view :deep(.v-list-item-title) {
@@ -309,5 +396,9 @@ watch(projectId, () => {
 
 .tree-item-title:hover {
   text-decoration: underline;
+}
+
+.tree-item-action-btn {
+  flex-shrink: 0;
 }
 </style>

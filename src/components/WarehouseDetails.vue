@@ -425,12 +425,19 @@ function handleNavigate(item: {
   warehouseId: string;
   namespaceId?: string;
   name: string;
+  tab?: string;
 }) {
   // Convert namespace path from dot notation to API format for routing
   const namespaceForRoute = item.namespaceId?.split('.').join('\x1F');
 
   if (item.type === 'namespace' && namespaceForRoute) {
-    router.push(`/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}`);
+    const route = `/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}`;
+    // Add tab as query parameter if provided
+    if (item.tab) {
+      router.push({ path: route, query: { tab: item.tab } });
+    } else {
+      router.push(route);
+    }
   } else if (item.type === 'table' && namespaceForRoute) {
     router.push(`/warehouse/${item.warehouseId}/namespace/${namespaceForRoute}/table/${item.name}`);
   } else if (item.type === 'view' && namespaceForRoute) {
