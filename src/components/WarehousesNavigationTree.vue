@@ -13,7 +13,7 @@
       </v-btn>
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
-    <v-sheet class="flex-grow-1 tree-scroll-container" style="min-height: 0">
+    <div class="flex-grow-1 tree-scroll-container">
       <v-treeview
         v-model:opened="openedItems"
         :items="treeItems"
@@ -84,7 +84,7 @@
           </div>
         </template>
       </v-treeview>
-    </v-sheet>
+    </div>
   </v-sheet>
 </template>
 
@@ -381,6 +381,8 @@ watch(
 <style scoped>
 .tree-scroll-container {
   overflow: auto;
+  min-height: 0;
+  position: relative;
 }
 
 .tree-view {
