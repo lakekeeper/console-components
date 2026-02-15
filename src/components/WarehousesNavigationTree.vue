@@ -553,6 +553,9 @@ async function navigateToTab(item: TreeItem, tab: string) {
       return;
     }
 
+    // Set requested tab in visual store so the namespace page can switch to it
+    visualStore.requestedNamespaceTab = tab;
+
     emit('navigate', {
       type: item.type,
       warehouseId: item.warehouseId,
