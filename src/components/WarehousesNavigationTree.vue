@@ -1,6 +1,8 @@
 <template>
   <v-sheet class="d-flex flex-column" color="transparent" style="height: 100%; overflow: hidden">
-    <v-sheet color="transparent" class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
+    <v-sheet
+      color="transparent"
+      class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
       <span class="flex-grow-1">{{ headerTitle }}</span>
       <v-btn
         icon
