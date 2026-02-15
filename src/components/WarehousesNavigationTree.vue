@@ -12,7 +12,7 @@
         hide-details
         clearable
         class="filter-field"
-        style="max-width: 150px;">
+        style="max-width: 150px">
         <template #prepend-inner>
           <v-icon size="x-small">mdi-filter</v-icon>
         </template>
@@ -175,31 +175,31 @@ const filteredTreeItems = computed(() => {
   }
 
   const filterLower = searchFilter.value.toLowerCase();
-  
+
   function filterItems(items: TreeItem[]): TreeItem[] {
     const result: TreeItem[] = [];
-    
+
     for (const item of items) {
       const nameMatch = item.name.toLowerCase().includes(filterLower);
       const hasMatchingChildren = item.children && item.children.length > 0;
-      
+
       if (nameMatch || hasMatchingChildren) {
         const filteredItem = { ...item };
-        
+
         if (item.children && item.children.length > 0) {
           filteredItem.children = filterItems(item.children);
         }
-        
+
         // Include if name matches or has matching children
         if (nameMatch || (filteredItem.children && filteredItem.children.length > 0)) {
           result.push(filteredItem);
         }
       }
     }
-    
+
     return result;
   }
-  
+
   return filterItems(treeItems.value);
 });
 
@@ -208,7 +208,7 @@ watch(searchFilter, (newValue) => {
   if (newValue && newValue.trim() !== '') {
     // Expand all items that have matches
     const itemsToOpen: string[] = [];
-    
+
     function collectOpenItems(items: TreeItem[]) {
       for (const item of items) {
         if (item.children && item.children.length > 0) {
@@ -217,7 +217,7 @@ watch(searchFilter, (newValue) => {
         }
       }
     }
-    
+
     collectOpenItems(filteredTreeItems.value);
     openedItems.value = itemsToOpen;
   }

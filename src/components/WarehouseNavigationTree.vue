@@ -1,6 +1,8 @@
 <template>
   <v-sheet class="d-flex flex-column" color="transparent" height="100%" style="overflow: hidden">
-    <v-sheet color="transparent" class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
+    <v-sheet
+      color="transparent"
+      class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
       <span class="flex-grow-1 mr-2">Warehouse: {{ warehouseName }}</span>
       <v-text-field
         v-model="searchFilter"
@@ -10,7 +12,7 @@
         hide-details
         clearable
         class="filter-field"
-        style="max-width: 150px;">
+        style="max-width: 150px">
         <template #prepend-inner>
           <v-icon size="x-small">mdi-filter</v-icon>
         </template>
@@ -129,31 +131,31 @@ const filteredTreeItems = computed(() => {
   }
 
   const filterLower = searchFilter.value.toLowerCase();
-  
+
   function filterItems(items: TreeItem[]): TreeItem[] {
     const result: TreeItem[] = [];
-    
+
     for (const item of items) {
       const nameMatch = item.name.toLowerCase().includes(filterLower);
       const hasMatchingChildren = item.children && item.children.length > 0;
-      
+
       if (nameMatch || hasMatchingChildren) {
         const filteredItem = { ...item };
-        
+
         if (item.children && item.children.length > 0) {
           filteredItem.children = filterItems(item.children);
         }
-        
+
         // Include if name matches or has matching children
         if (nameMatch || (filteredItem.children && filteredItem.children.length > 0)) {
           result.push(filteredItem);
         }
       }
     }
-    
+
     return result;
   }
-  
+
   return filterItems(treeItems.value);
 });
 
@@ -162,7 +164,7 @@ watch(searchFilter, (newValue) => {
   if (newValue && newValue.trim() !== '') {
     // Expand all items that have matches
     const itemsToOpen: string[] = [];
-    
+
     function collectOpenItems(items: TreeItem[]) {
       for (const item of items) {
         if (item.children && item.children.length > 0) {
@@ -171,7 +173,7 @@ watch(searchFilter, (newValue) => {
         }
       }
     }
-    
+
     collectOpenItems(filteredTreeItems.value);
     openedItems.value = itemsToOpen;
   }
