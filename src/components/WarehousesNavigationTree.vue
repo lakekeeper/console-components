@@ -1,7 +1,7 @@
 <template>
   <v-sheet class="d-flex flex-column" height="100%" style="overflow: hidden">
     <v-sheet class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
-      <span class="flex-grow-1">All Warehouses</span>
+      <span class="flex-grow-1">{{ headerTitle }}</span>
       <v-btn
         icon
         size="x-small"
@@ -93,6 +93,11 @@ import { ref, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 
+const props = defineProps<{
+  warehouseId?: string; // Optional: filter to show only this warehouse
+  warehouseName?: string; // Optional: warehouse name for header
+}>();
+
 const functions = useFunctions();
 const visualStore = useVisualStore();
 
@@ -128,6 +133,14 @@ const hoveredItem = ref<string | null>(null);
 // Get projectId from visual store
 const projectId = computed(() => visualStore.projectSelected['project-id']);
 
+// Computed header title
+const headerTitle = computed(() => {
+  if (props.warehouseId && props.warehouseName) {
+    return props.warehouseName;
+  }
+  return 'All Warehouses';
+});
+
 // Helper function to convert namespace path from API format to display format
 // function apiFormatToNamespacePath(apiPath: string): string {
 //   return apiPath.split('\x1F').join('.');
@@ -144,7 +157,14 @@ async function loadWarehouses() {
   try {
     const response = await functions.listWarehouses(false);
     if (response && response.warehouses) {
-      treeItems.value = response.warehouses.map((warehouse: any) => ({
+      let warehouses = response.warehouses;
+
+      // Filter to specific warehouse if warehouseId prop is provided
+      if (props.warehouseId) {
+        warehouses = warehouses.filter((wh: any) => wh.id === props.warehouseId);
+      }
+
+      treeItems.value = warehouses.map((warehouse: any) => ({
         id: `warehouse-${warehouse.id}`,
         name: warehouse.name,
         type: 'warehouse' as const,
@@ -152,6 +172,11 @@ async function loadWarehouses() {
         children: [],
         loaded: false,
       }));
+
+      // Auto-expand the warehouse if filtering to specific one
+      if (props.warehouseId && treeItems.value.length > 0) {
+        openedItems.value = [treeItems.value[0].id];
+      }
     }
   } catch (error) {
     console.error('Error loading warehouses:', error);
@@ -343,6 +368,14 @@ onMounted(() => {
 watch(projectId, () => {
   loadWarehouses();
 });
+
+// Watch for warehouseId changes and reload
+watch(
+  () => props.warehouseId,
+  () => {
+    loadWarehouses();
+  },
+);
 </script>
 
 <style scoped>

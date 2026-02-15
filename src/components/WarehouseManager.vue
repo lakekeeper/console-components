@@ -24,7 +24,7 @@
               overflow: 'visible',
               borderRight: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
             }">
-            <AllWarehousesNavigationTree @navigate="handleNavigate" />
+            <WarehousesNavigationTree @navigate="handleNavigate" />
           </div>
 
           <!-- Resizable Divider -->
@@ -153,7 +153,7 @@ import { Header } from '@/common/interfaces';
 import { VIcon, VImg } from 'vuetify/components';
 import WarehouseAddDialog from './WarehouseAddDialog.vue';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
-import AllWarehousesNavigationTree from './AllWarehousesNavigationTree.vue';
+import WarehousesNavigationTree from './WarehousesNavigationTree.vue';
 
 // Import SVG assets
 import s3Icon from '@/assets/s3.svg';
@@ -171,7 +171,12 @@ const { loading, canCreateWarehouse, canListWarehouses } = useProjectPermissions
 const leftWidth = ref(300); // Initial width in pixels
 const dividerHover = ref(false);
 const isResizing = ref(false);
-const isNavigationCollapsed = ref(false);
+const isNavigationCollapsed = computed({
+  get: () => visual.isNavigationCollapsed,
+  set: (value: boolean) => {
+    visual.isNavigationCollapsed = value;
+  },
+});
 
 const searchWarehouse = ref('');
 
