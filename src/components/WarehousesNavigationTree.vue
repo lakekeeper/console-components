@@ -13,7 +13,7 @@
       </v-btn>
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
-    <v-sheet class="flex-grow-1 tree-scroll-container">
+    <v-sheet class="flex-grow-1 tree-scroll-container" style="min-height: 0">
       <v-treeview
         v-model:opened="openedItems"
         :items="treeItems"
