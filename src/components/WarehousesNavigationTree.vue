@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 
@@ -132,6 +132,14 @@ const hoveredItem = ref<string | null>(null);
 
 // Get projectId from visual store
 const projectId = computed(() => visualStore.projectSelected['project-id']);
+
+// Storage key for tree state (different for all warehouses vs single warehouse filter)
+const storageKey = computed(() => {
+  if (props.warehouseId) {
+    return `${projectId.value}-${props.warehouseId}`;
+  }
+  return projectId.value;
+});
 
 // Computed header title
 const headerTitle = computed(() => {
@@ -191,8 +199,8 @@ async function refreshWarehouses() {
   await loadWarehouses();
 
   // Clear saved state on refresh
-  if (visualStore.projectSelected['project-id']) {
-    delete visualStore.warehouseTreeState[visualStore.projectSelected['project-id']];
+  if (storageKey.value) {
+    delete visualStore.warehouseTreeState[storageKey.value];
   }
 }
 
@@ -367,7 +375,7 @@ function navigateToTab(item: TreeItem, tab: string) {
 
 onMounted(() => {
   // Try to restore saved state first
-  const savedState = visualStore.warehouseTreeState[projectId.value];
+  const savedState = visualStore.warehouseTreeState[storageKey.value];
   if (savedState && savedState.treeItems.length > 0) {
     treeItems.value = savedState.treeItems;
     openedItems.value = savedState.openedItems || [];
@@ -380,8 +388,8 @@ onMounted(() => {
 watch(
   [treeItems, openedItems],
   () => {
-    if (projectId.value && treeItems.value.length > 0) {
-      visualStore.warehouseTreeState[projectId.value] = {
+    if (storageKey.value && treeItems.value.length > 0) {
+      visualStore.warehouseTreeState[storageKey.value] = {
         treeItems: treeItems.value,
         openedItems: openedItems.value,
       };
@@ -392,7 +400,7 @@ watch(
 
 // Watch for project changes and reload warehouses
 watch(projectId, () => {
-  const savedState = visualStore.warehouseTreeState[projectId.value];
+  const savedState = visualStore.warehouseTreeState[storageKey.value];
   if (savedState && savedState.treeItems.length > 0) {
     treeItems.value = savedState.treeItems;
     openedItems.value = savedState.openedItems || [];
@@ -405,10 +413,27 @@ watch(projectId, () => {
 watch(
   () => props.warehouseId,
   () => {
-    // In filter mode, always reload (don't use saved state)
-    loadWarehouses();
+    // When warehouse filter changes, reload fresh data
+    const savedState = visualStore.warehouseTreeState[storageKey.value];
+    if (savedState && savedState.treeItems.length > 0) {
+      treeItems.value = savedState.treeItems;
+      openedItems.value = savedState.openedItems || [];
+    } else {
+      loadWarehouses();
+    }
   },
 );
+
+// Clean up on unmount
+onBeforeUnmount(() => {
+  // Save final state before unmounting
+  if (storageKey.value && treeItems.value.length > 0) {
+    visualStore.warehouseTreeState[storageKey.value] = {
+      treeItems: treeItems.value,
+      openedItems: openedItems.value,
+    };
+  }
+});
 </script>
 
 <style scoped>
