@@ -388,6 +388,65 @@ function clearSearch() {
   searchResults.value = [];
 }
 
+// Expand tree to show the full path for a search result (warehouse → ns → subns → item)
+async function expandTreeToPath(warehouseId: string, namespacePath: string) {
+  // 1. Find and expand the warehouse node
+  const warehouseNodeId = `warehouse-${warehouseId}`;
+  let warehouseNode = findItemById(treeItems.value, warehouseNodeId);
+
+  if (!warehouseNode) return; // Warehouse not in tree
+
+  if (!warehouseNode.loaded) {
+    await loadNamespacesForWarehouse(warehouseNode);
+  }
+  if (!openedItems.value.includes(warehouseNodeId)) {
+    openedItems.value = [...openedItems.value, warehouseNodeId];
+  }
+
+  // 2. Walk down the namespace path segments: e.g. "finance.sub.deep" → ["finance", "finance.sub", "finance.sub.deep"]
+  const segments = namespacePath.split('.');
+  let currentPath = '';
+
+  for (let i = 0; i < segments.length; i++) {
+    currentPath = i === 0 ? segments[0] : `${currentPath}.${segments[i]}`;
+    const nsNodeId = `namespace-${warehouseId}-${currentPath}`;
+    const nsNode = findItemById(treeItems.value, nsNodeId);
+
+    if (!nsNode) break; // Node not found at this level, stop
+
+    if (!nsNode.loaded) {
+      await loadChildrenForNamespace(nsNode);
+    }
+    if (!openedItems.value.includes(nsNodeId)) {
+      openedItems.value = [...openedItems.value, nsNodeId];
+    }
+  }
+}
+
+// Save the expanded state for a specific warehouse so the target page tree picks it up
+// This handles the case where the "all warehouses" tree (storageKey=projectId)
+// navigates to a warehouse-specific page (storageKey=projectId-warehouseId)
+function saveWarehouseSubtreeState(warehouseId: string) {
+  const warehouseNodeId = `warehouse-${warehouseId}`;
+  const warehouseNode = findItemById(treeItems.value, warehouseNodeId);
+  if (!warehouseNode) return;
+
+  const warehouseSpecificKey = `${projectId.value}-${warehouseId}`;
+
+  // Build the tree with just this warehouse as root
+  const subtree: TreeItem[] = [{ ...warehouseNode }];
+
+  // Collect opened items that belong to this warehouse
+  const subtreeOpenedItems = openedItems.value.filter(
+    (id) => id === warehouseNodeId || id.includes(warehouseId),
+  );
+
+  visualStore.warehouseTreeState[warehouseSpecificKey] = {
+    treeItems: subtree,
+    openedItems: subtreeOpenedItems,
+  };
+}
+
 // Navigate to a search result
 async function navigateToSearchResult(result: {
   id: string;
@@ -428,6 +487,16 @@ async function navigateToSearchResult(result: {
     }
     return;
   }
+
+  // Expand the tree to show the full path to this item
+  await expandTreeToPath(result.warehouseId, result.namespaceId);
+
+  // Save the expanded warehouse subtree to the warehouse-specific storage key
+  // so the target page's tree instance picks up the expanded state
+  saveWarehouseSubtreeState(result.warehouseId);
+
+  // Dismiss search results so the tree is visible
+  dismissSearch();
 
   emit('navigate', {
     type: result.type,
@@ -730,6 +799,9 @@ async function handleNavigate(item: TreeItem) {
     return;
   }
 
+  // Save warehouse subtree state so the target page's tree picks up the expanded state
+  saveWarehouseSubtreeState(item.warehouseId);
+
   emit('navigate', {
     type: item.type,
     warehouseId: item.warehouseId,
@@ -770,6 +842,9 @@ async function navigateToTab(item: TreeItem, tab: string) {
 
     // Set requested tab in visual store so the namespace page can switch to it
     visualStore.requestedNamespaceTab = tab;
+
+    // Save warehouse subtree state so the target page's tree picks up the expanded state
+    saveWarehouseSubtreeState(item.warehouseId);
 
     emit('navigate', {
       type: item.type,
