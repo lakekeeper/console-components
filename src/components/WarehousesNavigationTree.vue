@@ -810,14 +810,23 @@ async function navigateToTab(item: TreeItem, tab: string) {
   }
 }
 
-onMounted(() => {
-  // Try to restore saved state first
+onMounted(async () => {
+  // Always load fresh warehouses to avoid stale/deleted warehouse IDs
+  await loadWarehouses();
+
+  // Restore opened state from cache if available
   const savedState = visualStore.warehouseTreeState[storageKey.value];
-  if (savedState && savedState.treeItems.length > 0) {
-    treeItems.value = savedState.treeItems;
-    openedItems.value = savedState.openedItems || [];
-  } else {
-    loadWarehouses();
+  if (savedState && savedState.openedItems.length > 0) {
+    // Only restore opened items that still exist in the fresh tree
+    const validIds = new Set<string>();
+    const collectIds = (items: TreeItem[]) => {
+      for (const item of items) {
+        validIds.add(item.id);
+        if (item.children) collectIds(item.children);
+      }
+    };
+    collectIds(treeItems.value);
+    openedItems.value = savedState.openedItems.filter((id) => validIds.has(id));
   }
 });
 
@@ -837,13 +846,7 @@ watch(
 
 // Watch for project changes and reload warehouses
 watch(projectId, () => {
-  const savedState = visualStore.warehouseTreeState[storageKey.value];
-  if (savedState && savedState.treeItems.length > 0) {
-    treeItems.value = savedState.treeItems;
-    openedItems.value = savedState.openedItems || [];
-  } else {
-    loadWarehouses();
-  }
+  loadWarehouses();
 });
 
 // Watch for warehouseId changes and reload (filtering mode)
@@ -855,14 +858,8 @@ watch(
       selectedSearchWarehouse.value = newId;
     }
 
-    // When warehouse filter changes, reload fresh data
-    const savedState = visualStore.warehouseTreeState[storageKey.value];
-    if (savedState && savedState.treeItems.length > 0) {
-      treeItems.value = savedState.treeItems;
-      openedItems.value = savedState.openedItems || [];
-    } else {
-      loadWarehouses();
-    }
+    // Always reload fresh data when warehouse filter changes
+    loadWarehouses();
   },
 );
 
