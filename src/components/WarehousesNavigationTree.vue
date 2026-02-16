@@ -32,7 +32,21 @@
       </v-text-field>
     </v-sheet>
     <!-- Warehouse Search -->
-    <v-sheet v-if="props.warehouseId" color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
+    <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
+      <v-select
+        v-if="!props.warehouseId"
+        v-model="selectedSearchWarehouse"
+        :items="warehouseOptions"
+        density="compact"
+        variant="outlined"
+        placeholder="Select warehouse to search..."
+        hide-details
+        clearable
+        class="filter-field mb-1">
+        <template #prepend-inner>
+          <v-icon size="x-small">mdi-warehouse</v-icon>
+        </template>
+      </v-select>
       <v-text-field
         v-model="searchQuery"
         density="compact"
@@ -42,6 +56,7 @@
         clearable
         class="filter-field"
         :loading="isSearching"
+        :disabled="!searchWarehouseId"
         @keyup.enter="performSearch"
         @click:clear="clearSearch">
         <template #prepend-inner>
@@ -52,7 +67,7 @@
             icon
             size="x-small"
             variant="text"
-            :disabled="!searchQuery || isSearching"
+            :disabled="!searchQuery || isSearching || !searchWarehouseId"
             @click="performSearch"
             title="Search warehouse (fuzzy)">
             <v-icon size="small">mdi-arrow-right</v-icon>
@@ -246,6 +261,7 @@ const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
 const searchFilter = ref('');
 const searchQuery = ref('');
+const selectedSearchWarehouse = ref<string | null>(null);
 const isSearching = ref(false);
 const hasSearched = ref(false);
 const searchResults = ref<
@@ -278,6 +294,16 @@ const headerTitle = computed(() => {
   }
   return 'All Warehouses';
 });
+
+// Effective warehouse ID for search: prop takes priority, otherwise user-selected
+const searchWarehouseId = computed(() => props.warehouseId || selectedSearchWarehouse.value);
+
+// Warehouse options for the picker (only needed when no warehouseId prop)
+const warehouseOptions = computed(() =>
+  treeItems.value
+    .filter((item) => item.type === 'warehouse')
+    .map((item) => ({ title: item.name, value: item.warehouseId })),
+);
 
 // Filter tree items based on search
 const filteredTreeItems = computed(() => {
@@ -342,13 +368,13 @@ function dismissSearch() {
 
 // Perform API search (fuzzy, requires warehouseId)
 async function performSearch() {
-  if (!searchQuery.value?.trim() || !props.warehouseId) return;
+  if (!searchQuery.value?.trim() || !searchWarehouseId.value) return;
 
   isSearching.value = true;
   hasSearched.value = true;
 
   try {
-    const response = await functions.searchTabular(props.warehouseId, {
+    const response = await functions.searchTabular(searchWarehouseId.value, {
       search: searchQuery.value.trim(),
     });
 
@@ -358,7 +384,7 @@ async function performSearch() {
       namespace: result['namespace-name'].join('.'),
       type: result['tabular-id'].type,
       distance: result.distance ?? null,
-      warehouseId: props.warehouseId!,
+      warehouseId: searchWarehouseId.value!,
       namespaceId: result['namespace-name'].join('.'),
     }));
   } catch (error: any) {
