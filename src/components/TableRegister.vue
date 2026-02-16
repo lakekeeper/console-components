@@ -103,6 +103,20 @@
             hide-details="auto"
             style="flex: 2"></v-text-field>
 
+          <v-tooltip location="top">
+            <template #activator="{ props: tooltipProps }">
+              <v-btn
+                v-bind="tooltipProps"
+                :icon="entry.overwrite ? 'mdi-file-replace' : 'mdi-file-replace-outline'"
+                size="x-small"
+                :variant="entry.overwrite ? 'flat' : 'text'"
+                :color="entry.overwrite ? 'warning' : 'default'"
+                :disabled="isRegistering"
+                @click="entry.overwrite = !entry.overwrite"></v-btn>
+            </template>
+            <span>{{ entry.overwrite ? 'Overwrite enabled' : 'Click to enable overwrite' }}</span>
+          </v-tooltip>
+
           <!-- Status indicator -->
           <v-icon v-if="entry.status === 'success'" color="success" size="small" title="Registered">
             mdi-check-circle
@@ -141,30 +155,6 @@
           class="mb-4">
           Add Table
         </v-btn>
-
-        <!-- Overwrite Toggle -->
-        <v-checkbox
-          v-model="overwrite"
-          density="compact"
-          color="warning"
-          :disabled="isRegistering"
-          class="mb-2"
-          hide-details>
-          <template #label>
-            <span>Overwrite tables if they already exist</span>
-            <v-tooltip location="top" max-width="400">
-              <template #activator="{ props: tooltipProps }">
-                <v-icon v-bind="tooltipProps" size="small" color="info" class="ml-2">
-                  mdi-information-outline
-                </v-icon>
-              </template>
-              <span>
-                If enabled, tables will be re-registered even if a table with the same name already
-                exists in the namespace.
-              </span>
-            </v-tooltip>
-          </template>
-        </v-checkbox>
 
         <!-- Results summary after registration -->
         <v-alert
@@ -220,6 +210,7 @@ import { useFunctions } from '@/plugins/functions';
 interface TableEntry {
   name: string;
   metadataLocation: string;
+  overwrite: boolean;
   status: 'idle' | 'loading' | 'success' | 'error';
   errorMessage: string;
 }
@@ -236,7 +227,6 @@ const emit = defineEmits<{
 const functions = useFunctions();
 
 const dialog = ref(false);
-const overwrite = ref(false);
 const warehouseName = ref<string>('');
 const isRegistering = ref(false);
 const registrationDone = ref(false);
@@ -248,7 +238,7 @@ const fileInput = ref<HTMLInputElement | null>(null);
 const tableEntries = ref<TableEntry[]>([createEmptyEntry()]);
 
 function createEmptyEntry(): TableEntry {
-  return { name: '', metadataLocation: '', status: 'idle', errorMessage: '' };
+  return { name: '', metadataLocation: '', overwrite: false, status: 'idle', errorMessage: '' };
 }
 
 // Validation rules
@@ -306,9 +296,9 @@ function downloadTemplate(format: 'csv' | 'json') {
 
   if (format === 'csv') {
     content = [
-      'name,metadata_location',
-      'orders,s3://my-bucket/warehouse/orders/metadata/v1.metadata.json',
-      'customers,s3://my-bucket/warehouse/customers/metadata/v1.metadata.json',
+      'name,metadata_location,overwrite',
+      'orders,s3://my-bucket/warehouse/orders/metadata/v1.metadata.json,false',
+      'customers,s3://my-bucket/warehouse/customers/metadata/v1.metadata.json,false',
     ].join('\n');
     filename = 'register_tables_template.csv';
     mimeType = 'text/csv';
@@ -318,10 +308,12 @@ function downloadTemplate(format: 'csv' | 'json') {
         {
           name: 'orders',
           metadata_location: 's3://my-bucket/warehouse/orders/metadata/v1.metadata.json',
+          overwrite: false,
         },
         {
           name: 'customers',
           metadata_location: 's3://my-bucket/warehouse/customers/metadata/v1.metadata.json',
+          overwrite: false,
         },
       ],
       null,
@@ -374,6 +366,7 @@ function handleFileUpload(event: Event) {
         .map((e) => ({
           name: e.name.trim(),
           metadataLocation: e.metadata_location.trim(),
+          overwrite: (e as any).overwrite === true || (e as any).overwrite === 'true',
           status: 'idle' as const,
           errorMessage: '',
         }));
@@ -411,6 +404,7 @@ function parseCsv(content: string): { name: string; metadata_location: string }[
   const locIdx = header.findIndex(
     (h) => h === 'metadata_location' || h === 'metadata-location' || h === 'metadatalocation',
   );
+  const overwriteIdx = header.indexOf('overwrite');
 
   if (nameIdx === -1 || locIdx === -1) {
     importError.value = 'CSV must have "name" and "metadata_location" columns';
@@ -419,13 +413,16 @@ function parseCsv(content: string): { name: string; metadata_location: string }[
 
   return lines.slice(1).map((line) => {
     const cols = line.split(',').map((c) => c.trim());
-    return { name: cols[nameIdx] || '', metadata_location: cols[locIdx] || '' };
+    return {
+      name: cols[nameIdx] || '',
+      metadata_location: cols[locIdx] || '',
+      overwrite: overwriteIdx !== -1 ? cols[overwriteIdx] === 'true' : false,
+    };
   });
 }
 
 function resetForm() {
   tableEntries.value = [createEmptyEntry()];
-  overwrite.value = false;
   registrationDone.value = false;
   totalAttempted.value = 0;
   succeededCount.value = 0;
@@ -464,7 +461,7 @@ async function registerTables() {
         namespaceForApi,
         entry.name.trim(),
         entry.metadataLocation.trim(),
-        overwrite.value,
+        entry.overwrite,
         false, // don't notify per-table — we show results in the dialog
       );
 
