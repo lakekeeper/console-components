@@ -16,12 +16,28 @@
       </v-btn>
     </v-sheet>
     <!-- Search / Filter input -->
-    <v-sheet color="transparent" class="px-3 pb-2 flex-shrink-0">
+    <v-sheet color="transparent" class="px-3 pb-1 flex-shrink-0">
       <v-text-field
         v-model="searchFilter"
         density="compact"
         variant="outlined"
-        :placeholder="props.warehouseId ? 'Filter or press Enter to search...' : 'Filter...'"
+        placeholder="Filter tree..."
+        hide-details
+        clearable
+        class="filter-field"
+        @click:clear="clearFilter">
+        <template #prepend-inner>
+          <v-icon size="x-small">mdi-filter</v-icon>
+        </template>
+      </v-text-field>
+    </v-sheet>
+    <!-- Warehouse Search -->
+    <v-sheet v-if="props.warehouseId" color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
+      <v-text-field
+        v-model="searchQuery"
+        density="compact"
+        variant="outlined"
+        placeholder="Search tables & views..."
         hide-details
         clearable
         class="filter-field"
@@ -29,17 +45,17 @@
         @keyup.enter="performSearch"
         @click:clear="clearSearch">
         <template #prepend-inner>
-          <v-icon size="x-small">mdi-filter</v-icon>
+          <v-icon size="x-small">mdi-magnify</v-icon>
         </template>
-        <template v-if="props.warehouseId" #append-inner>
+        <template #append-inner>
           <v-btn
             icon
             size="x-small"
             variant="text"
-            :disabled="!searchFilter || isSearching"
+            :disabled="!searchQuery || isSearching"
             @click="performSearch"
             title="Search warehouse (fuzzy)">
-            <v-icon size="small">mdi-magnify</v-icon>
+            <v-icon size="small">mdi-arrow-right</v-icon>
           </v-btn>
         </template>
       </v-text-field>
@@ -229,6 +245,7 @@ const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
 const searchFilter = ref('');
+const searchQuery = ref('');
 const isSearching = ref(false);
 const hasSearched = ref(false);
 const searchResults = ref<
@@ -325,14 +342,14 @@ function dismissSearch() {
 
 // Perform API search (fuzzy, requires warehouseId)
 async function performSearch() {
-  if (!searchFilter.value?.trim() || !props.warehouseId) return;
+  if (!searchQuery.value?.trim() || !props.warehouseId) return;
 
   isSearching.value = true;
   hasSearched.value = true;
 
   try {
     const response = await functions.searchTabular(props.warehouseId, {
-      search: searchFilter.value.trim(),
+      search: searchQuery.value.trim(),
     });
 
     searchResults.value = (response.tabulars || []).map((result: SearchTabular) => ({
@@ -359,9 +376,14 @@ async function performSearch() {
   }
 }
 
-// Clear filter and search results
-function clearSearch() {
+// Clear filter
+function clearFilter() {
   searchFilter.value = '';
+}
+
+// Clear search results
+function clearSearch() {
+  searchQuery.value = '';
   hasSearched.value = false;
   searchResults.value = [];
 }
