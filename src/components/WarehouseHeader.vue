@@ -41,16 +41,6 @@
       @update-credentials="updateCredentials"
       @update-delprofile="updateDelProfile"
       @update-profile="updateProfile" />
-    <v-btn
-      prepend-icon="mdi-magnify"
-      class="mr-2"
-      size="small"
-      variant="outlined"
-      @click="showSearchDialog = true"
-      aria-label="Search tables and views">
-      Search Warehouse
-    </v-btn>
-    <SearchTabular v-model="showSearchDialog" :warehouse-id="warehouse.id" />
   </v-toolbar>
 </template>
 
@@ -58,7 +48,6 @@
 import { ref, reactive, watch, onMounted, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
-import SearchTabular from './SearchTabular.vue';
 import type {
   GetWarehouseResponse,
   GetWarehouseStatisticsResponse,
@@ -76,7 +65,6 @@ const functions = useFunctions();
 const visual = useVisualStore();
 const notify = true;
 const processStatus = ref('starting');
-const showSearchDialog = ref(false);
 
 const warehouse = reactive<GetWarehouseResponse>({
   'delete-profile': { type: 'hard' },

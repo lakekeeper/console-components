@@ -28,7 +28,6 @@ import TaskDetails from './components/TaskDetails.vue';
 import WarehouseManager from './components/WarehouseManager.vue';
 import WarehouseHeader from './components/WarehouseHeader.vue';
 import WarehouseStatisticsDialog from './components/WarehouseStatisticsDialog.vue';
-import SearchTabular from './components/SearchTabular.vue';
 import WarehouseNamespaces from './components/WarehouseNamespaces.vue';
 import NamespaceNamespaces from './components/NamespaceNamespaces.vue';
 import NamespaceTables from './components/NamespaceTables.vue';
@@ -113,7 +112,6 @@ export {
   WarehouseManager,
   WarehouseHeader,
   WarehouseStatisticsDialog,
-  SearchTabular,
   WarehouseNamespaces,
   NamespaceNamespaces,
   NamespaceTables,
@@ -255,7 +253,6 @@ const components = {
   WarehouseManager,
   WarehouseHeader,
   WarehouseStatisticsDialog,
-  SearchTabular,
   WarehouseNamespaces,
   WarehousesNavigationTree,
   NamespaceNamespaces,

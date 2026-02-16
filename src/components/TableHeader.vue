@@ -22,21 +22,12 @@
       <v-icon>mdi-table</v-icon>
     </template>
     <v-spacer></v-spacer>
-    <v-btn
-      icon="mdi-magnify"
-      variant="text"
-      @click="showSearchDialog = true"
-      aria-label="Search tables and views"></v-btn>
-
-    <!-- Search Modal -->
-    <SearchTabular v-model="showSearchDialog" :warehouse-id="warehouseId" />
   </v-toolbar>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useVisualStore } from '@/stores/visual';
-import SearchTabular from './SearchTabular.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -45,7 +36,6 @@ const props = defineProps<{
 }>();
 
 const visual = useVisualStore();
-const showSearchDialog = ref(false);
 
 const isNavigationCollapsed = computed({
   get: () => visual.isNavigationCollapsed,

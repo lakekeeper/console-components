@@ -26,18 +26,6 @@
       <v-icon>mdi-folder-open</v-icon>
     </template>
     <v-spacer></v-spacer>
-    <v-btn
-      prepend-icon="mdi-magnify"
-      class="mr-2"
-      size="small"
-      variant="outlined"
-      @click="showSearchDialog = true"
-      aria-label="Search tables and views">
-      Search warehouse
-    </v-btn>
-
-    <!-- Search Modal -->
-    <SearchTabular v-model="showSearchDialog" :warehouse-id="warehouseId" />
   </v-toolbar>
 </template>
 
@@ -46,7 +34,6 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
-import SearchTabular from './SearchTabular.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -55,7 +42,6 @@ const props = defineProps<{
 
 const functions = useFunctions();
 const visual = useVisualStore();
-const showSearchDialog = ref(false);
 const namespace = ref<GetNamespaceResponse>({ namespace: [] });
 
 const isNavigationCollapsed = computed({
