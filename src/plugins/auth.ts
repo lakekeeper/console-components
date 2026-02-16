@@ -190,7 +190,20 @@ export function createAuth(config: AuthConfig) {
 
   const signOut = async () => {
     try {
-      await userManager.signoutRedirect();
+      // AWS Cognito logout endpoint expects `client_id` and `logout_uri` instead of
+      // the standard OIDC `post_logout_redirect_uri` and `id_token_hint`.
+      // See: https://github.com/authts/oidc-client-ts/issues/1385
+      const isCognito = config.idpAuthority.includes('cognito');
+      const signoutArgs = isCognito
+        ? {
+            extraQueryParams: {
+              client_id: config.idpClientId,
+              logout_uri: oidcSettings.post_logout_redirect_uri || window.location.origin,
+            },
+          }
+        : undefined;
+
+      await userManager.signoutRedirect(signoutArgs);
       accessToken.value = '';
       isAuthenticated.value = false;
     } catch (error) {
