@@ -811,23 +811,43 @@ async function navigateToTab(item: TreeItem, tab: string) {
 }
 
 onMounted(async () => {
-  // Always load fresh warehouses to avoid stale/deleted warehouse IDs
-  await loadWarehouses();
-
-  // Restore opened state from cache if available
   const savedState = visualStore.warehouseTreeState[storageKey.value];
-  if (savedState && savedState.openedItems.length > 0) {
-    // Only restore opened items that still exist in the fresh tree
-    const validIds = new Set<string>();
-    const collectIds = (items: TreeItem[]) => {
-      for (const item of items) {
-        validIds.add(item.id);
-        if (item.children) collectIds(item.children);
+
+  if (savedState && savedState.treeItems.length > 0) {
+    // Validate cached warehouses against the server to remove stale/deleted ones
+    try {
+      const response = await functions.listWarehouses(false);
+      if (response && response.warehouses) {
+        let serverWarehouses = response.warehouses;
+        if (props.warehouseId) {
+          serverWarehouses = serverWarehouses.filter((wh: any) => wh.id === props.warehouseId);
+        }
+        const validWarehouseIds = new Set(serverWarehouses.map((wh: any) => wh.id));
+
+        // Filter cached tree to only include warehouses that still exist
+        const validTreeItems = savedState.treeItems.filter((item: TreeItem) =>
+          validWarehouseIds.has(item.warehouseId),
+        );
+
+        if (validTreeItems.length > 0) {
+          treeItems.value = validTreeItems;
+          // Filter opened items to those belonging to valid warehouses
+          openedItems.value = (savedState.openedItems || []).filter((id: string) =>
+            validTreeItems.some(
+              (wh: TreeItem) =>
+                id === wh.id || id.includes(wh.warehouseId),
+            ),
+          );
+          return;
+        }
       }
-    };
-    collectIds(treeItems.value);
-    openedItems.value = savedState.openedItems.filter((id) => validIds.has(id));
+    } catch {
+      // If validation fails, fall through to fresh load
+    }
   }
+
+  // No valid cache — load fresh
+  await loadWarehouses();
 });
 
 // Save tree state when it changes
