@@ -15,33 +15,17 @@
         <v-icon size="small">mdi-refresh</v-icon>
       </v-btn>
     </v-sheet>
-    <!-- Search / Filter input -->
-    <v-sheet color="transparent" class="px-3 pb-1 flex-shrink-0">
-      <v-text-field
-        v-model="searchFilter"
-        density="compact"
-        variant="outlined"
-        placeholder="Filter tree..."
-        hide-details
-        clearable
-        class="filter-field"
-        @click:clear="clearFilter">
-        <template #prepend-inner>
-          <v-icon size="x-small">mdi-filter</v-icon>
-        </template>
-      </v-text-field>
-    </v-sheet>
     <!-- Warehouse Search -->
     <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
       <v-select
-        v-if="!props.warehouseId"
         v-model="selectedSearchWarehouse"
         :items="warehouseOptions"
         density="compact"
         variant="outlined"
-        placeholder="Select warehouse to search..."
+        :placeholder="props.warehouseId ? '' : 'Select warehouse to search...'"
         hide-details
-        clearable
+        :clearable="!props.warehouseId"
+        :readonly="!!props.warehouseId"
         class="filter-field mb-1">
         <template #prepend-inner>
           <v-icon size="x-small">mdi-warehouse</v-icon>
@@ -82,7 +66,7 @@
       v-if="hasSearched"
       color="transparent"
       class="flex-shrink-0"
-      style="max-height: 50%; overflow-y: auto">
+      style="height: 240px; overflow-y: auto">
       <div v-if="isSearching" class="text-center py-3">
         <v-progress-circular color="primary" indeterminate size="20"></v-progress-circular>
         <div class="text-caption mt-1">Searching...</div>
@@ -143,7 +127,7 @@
     <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
-        :items="filteredTreeItems"
+        :items="treeItems"
         item-value="id"
         density="compact"
         open-on-click
@@ -259,9 +243,8 @@ const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
-const searchFilter = ref('');
 const searchQuery = ref('');
-const selectedSearchWarehouse = ref<string | null>(null);
+const selectedSearchWarehouse = ref<string | null>(props.warehouseId || null);
 const isSearching = ref(false);
 const hasSearched = ref(false);
 const searchResults = ref<
@@ -305,61 +288,6 @@ const warehouseOptions = computed(() =>
     .map((item) => ({ title: item.name, value: item.warehouseId })),
 );
 
-// Filter tree items based on search
-const filteredTreeItems = computed(() => {
-  if (!searchFilter.value || searchFilter.value.trim() === '') {
-    return treeItems.value;
-  }
-
-  const filterLower = searchFilter.value.toLowerCase();
-
-  function filterItems(items: TreeItem[]): TreeItem[] {
-    const result: TreeItem[] = [];
-
-    for (const item of items) {
-      const nameMatch = item.name.toLowerCase().includes(filterLower);
-      const hasMatchingChildren = item.children && item.children.length > 0;
-
-      if (nameMatch || hasMatchingChildren) {
-        const filteredItem = { ...item };
-
-        if (item.children && item.children.length > 0) {
-          filteredItem.children = filterItems(item.children);
-        }
-
-        // Include if name matches or has matching children
-        if (nameMatch || (filteredItem.children && filteredItem.children.length > 0)) {
-          result.push(filteredItem);
-        }
-      }
-    }
-
-    return result;
-  }
-
-  return filterItems(treeItems.value);
-});
-
-// Auto-expand filtered items
-watch(searchFilter, (newValue) => {
-  if (newValue && newValue.trim() !== '') {
-    // Expand all items that have matches
-    const itemsToOpen: string[] = [];
-
-    function collectOpenItems(items: TreeItem[]) {
-      for (const item of items) {
-        if (item.children && item.children.length > 0) {
-          itemsToOpen.push(item.id);
-          collectOpenItems(item.children);
-        }
-      }
-    }
-
-    collectOpenItems(filteredTreeItems.value);
-    openedItems.value = itemsToOpen;
-  }
-});
-
 // Dismiss search results
 function dismissSearch() {
   hasSearched.value = false;
@@ -400,11 +328,6 @@ async function performSearch() {
   } finally {
     isSearching.value = false;
   }
-}
-
-// Clear filter
-function clearFilter() {
-  searchFilter.value = '';
 }
 
 // Clear search results
@@ -922,7 +845,12 @@ watch(projectId, () => {
 // Watch for warehouseId changes and reload (filtering mode)
 watch(
   () => props.warehouseId,
-  () => {
+  (newId) => {
+    // Sync the warehouse selector when prop changes
+    if (newId) {
+      selectedSearchWarehouse.value = newId;
+    }
+
     // When warehouse filter changes, reload fresh data
     const savedState = visualStore.warehouseTreeState[storageKey.value];
     if (savedState && savedState.treeItems.length > 0) {
