@@ -18,23 +18,27 @@
     <!-- Warehouse Search -->
     <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
       <v-select
+        v-if="!props.warehouseId"
         v-model="selectedSearchWarehouse"
         :items="warehouseOptions"
         density="compact"
         variant="outlined"
-        :placeholder="props.warehouseId ? '' : 'Select warehouse to search...'"
+        placeholder="Select warehouse to search..."
         hide-details
-        :clearable="!props.warehouseId"
-        :readonly="!!props.warehouseId"
+        clearable
         class="filter-field mb-1">
         <template #prepend-inner>
           <v-icon size="x-small">mdi-warehouse</v-icon>
         </template>
       </v-select>
+      <div v-else class="text-caption d-flex align-center mb-1 px-1" style="min-height: 28px">
+        <v-icon size="x-small" class="mr-1">mdi-warehouse</v-icon>
+        {{ props.warehouseName || selectedSearchWarehouse }}
+      </div>
       <v-text-field
         v-model="searchQuery"
         density="compact"
-        variant="outlined"
+        :variant="!props.warehouseId ? 'outlined' : 'filled'"
         placeholder="Search tables & views..."
         hide-details
         clearable
@@ -273,7 +277,7 @@ const storageKey = computed(() => {
 // Computed header title
 const headerTitle = computed(() => {
   if (props.warehouseId && props.warehouseName) {
-    return props.warehouseName;
+    return 'Selected Warehouse:';
   }
   return 'All Warehouses';
 });
