@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.25](https://github.com/lakekeeper/console-components/compare/v0.2.24...v0.2.25) (2026-02-16)
+
+
+### Bug Fixes
+
+* ui improvements ([#73](https://github.com/lakekeeper/console-components/issues/73)) ([e90ff0d](https://github.com/lakekeeper/console-components/commit/e90ff0d916bd30c8784b53fa94c6455376137b98))
+
 ## [0.2.24](https://github.com/lakekeeper/console-components/compare/v0.2.23...v0.2.24) (2026-02-13)
 
 
