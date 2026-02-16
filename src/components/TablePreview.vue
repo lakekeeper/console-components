@@ -214,12 +214,9 @@ onMounted(() => {
 });
 
 // Watch for table/namespace/warehouse changes and reload preview
-watch(
-  [() => props.tableName, () => props.namespaceId, () => props.warehouseId],
-  () => {
-    loadPreview();
-  },
-);
+watch([() => props.tableName, () => props.namespaceId, () => props.warehouseId], () => {
+  loadPreview();
+});
 
 // Watch for storage type changes and reload preview when it becomes available and supported
 watch(
