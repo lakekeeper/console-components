@@ -151,6 +151,7 @@ const showS3HttpWarning = storageValidation.shouldShowHttpWarning;
 async function loadPreview() {
   isLoading.value = true;
   error.value = null;
+  queryResults.value = null;
 
   // Wait for storage type to be available, then check if it's supported using composable
   if (!props.storageType) {
@@ -177,21 +178,8 @@ async function loadPreview() {
       accessToken: userStore.user.access_token,
     });
 
-    // Execute preview query - include ATTACH in same connection
-    // This ensures the catalog is available for the SELECT query
-    const query = `
-      -- Attach catalog on this connection
-      ATTACH IF NOT EXISTS '${wh['project-id']}/${warehouseName.value}' AS "${warehouseName.value}" (
-        TYPE iceberg,
-        SUPPORT_NESTED_NAMESPACES true,
-        SUPPORT_STAGE_CREATE true,
-        SECRET iceberg_secret,
-        ENDPOINT '${props.catalogUrl}'
-      );
-
-      -- Query the table
-      SELECT * FROM "${warehouseName.value}"."${props.namespaceId}"."${props.tableName}" LIMIT 1000;
-    `;
+    // Execute preview query - catalog is already attached by configureCatalog
+    const query = `SELECT * FROM "${warehouseName.value}"."${props.namespaceId}"."${props.tableName}" LIMIT 1000;`;
 
     const results = await icebergDB.executeQuery(query);
     queryResults.value = results;
