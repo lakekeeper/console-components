@@ -4,19 +4,17 @@
       color="transparent"
       class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
       <span class="flex-grow-1 mr-2">{{ headerTitle }}</span>
-      <v-text-field
-        v-model="searchFilter"
-        density="compact"
-        variant="outlined"
-        placeholder="Filter..."
-        hide-details
-        clearable
-        class="filter-field"
-        style="max-width: 150px">
-        <template #prepend-inner>
-          <v-icon size="x-small">mdi-filter</v-icon>
-        </template>
-      </v-text-field>
+      <v-btn
+        v-if="props.warehouseId"
+        icon
+        size="x-small"
+        :variant="isSearchMode ? 'tonal' : 'text'"
+        :color="isSearchMode ? 'primary' : undefined"
+        @click="toggleSearchMode"
+        :title="isSearchMode ? 'Switch to filter' : 'Search warehouse'"
+        class="ml-1">
+        <v-icon size="small">{{ isSearchMode ? 'mdi-magnify' : 'mdi-magnify' }}</v-icon>
+      </v-btn>
       <v-btn
         icon
         size="x-small"
@@ -24,12 +22,92 @@
         @click="refreshWarehouses"
         :loading="isLoading"
         title="Refresh warehouses"
-        class="ml-2">
+        class="ml-1">
         <v-icon size="small">mdi-refresh</v-icon>
       </v-btn>
     </v-sheet>
+    <!-- Filter / Search input -->
+    <v-sheet color="transparent" class="px-3 pb-2 flex-shrink-0">
+      <v-text-field
+        v-model="searchFilter"
+        density="compact"
+        variant="outlined"
+        :placeholder="isSearchMode ? 'Search tables & views...' : 'Filter...'"
+        hide-details
+        clearable
+        class="filter-field"
+        :loading="isSearching"
+        @keyup.enter="isSearchMode ? performSearch() : undefined"
+        @click:clear="clearSearch">
+        <template #prepend-inner>
+          <v-icon size="x-small">{{ isSearchMode ? 'mdi-magnify' : 'mdi-filter' }}</v-icon>
+        </template>
+        <template v-if="isSearchMode" #append-inner>
+          <v-btn
+            icon
+            size="x-small"
+            variant="text"
+            :disabled="!searchFilter || isSearching"
+            @click="performSearch"
+            title="Search">
+            <v-icon size="small">mdi-arrow-right</v-icon>
+          </v-btn>
+        </template>
+      </v-text-field>
+    </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
-    <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
+
+    <!-- Search Results -->
+    <v-sheet
+      v-if="isSearchMode && hasSearched"
+      color="transparent"
+      class="flex-grow-1"
+      style="overflow-y: auto; overflow-x: auto">
+      <div v-if="isSearching" class="text-center py-4">
+        <v-progress-circular color="primary" indeterminate size="24"></v-progress-circular>
+        <div class="text-caption mt-1">Searching...</div>
+      </div>
+      <div v-else-if="searchResults.length === 0" class="text-center py-4">
+        <v-icon size="32" color="grey">mdi-table-search</v-icon>
+        <div class="text-caption mt-1 text-grey">No results found</div>
+      </div>
+      <v-list v-else density="compact" class="pa-2 search-results-list" bg-color="transparent">
+        <v-list-item
+          v-for="result in searchResults"
+          :key="result.id"
+          density="compact"
+          class="search-result-item"
+          @click="navigateToSearchResult(result)">
+          <template #prepend>
+            <v-icon size="small" :color="result.type === 'table' ? 'blue' : 'green'">
+              {{ result.type === 'table' ? 'mdi-table' : 'mdi-eye-outline' }}
+            </v-icon>
+          </template>
+          <v-list-item-title class="text-caption">
+            {{ result.name }}
+          </v-list-item-title>
+          <v-list-item-subtitle class="text-caption" style="font-size: 0.65rem !important">
+            {{ result.namespace }}
+          </v-list-item-subtitle>
+          <template #append>
+            <v-chip
+              v-if="result.distance !== null && result.distance !== undefined"
+              size="x-small"
+              :color="result.distance <= 0.2 ? 'success' : result.distance <= 0.5 ? 'warning' : 'error'"
+              variant="flat">
+              {{ Math.round((1 - result.distance) * 100) }}%
+            </v-chip>
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-sheet>
+
+    <!-- Tree View -->
+    <v-sheet
+      v-show="!isSearchMode || !hasSearched"
+      color="transparent"
+      class="flex-grow-1"
+      style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
         :items="filteredTreeItems"
@@ -110,6 +188,7 @@ import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
+import type { SearchTabular } from '@/gen/management/types.gen';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -148,6 +227,12 @@ const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
 const searchFilter = ref('');
+const isSearchMode = ref(false);
+const isSearching = ref(false);
+const hasSearched = ref(false);
+const searchResults = ref<
+  { id: string; name: string; namespace: string; type: string; distance: number | null; warehouseId: string; namespaceId: string }[]
+>([]);
 
 // Get projectId from visual store
 const projectId = computed(() => visualStore.projectSelected['project-id']);
@@ -203,8 +288,9 @@ const filteredTreeItems = computed(() => {
   return filterItems(treeItems.value);
 });
 
-// Auto-expand filtered items
+// Auto-expand filtered items (only in filter mode)
 watch(searchFilter, (newValue) => {
+  if (isSearchMode.value) return; // Don't auto-expand in search mode
   if (newValue && newValue.trim() !== '') {
     // Expand all items that have matches
     const itemsToOpen: string[] = [];
@@ -222,6 +308,102 @@ watch(searchFilter, (newValue) => {
     openedItems.value = itemsToOpen;
   }
 });
+
+// Toggle between filter and search modes
+function toggleSearchMode() {
+  isSearchMode.value = !isSearchMode.value;
+  searchFilter.value = '';
+  hasSearched.value = false;
+  searchResults.value = [];
+}
+
+// Perform API search
+async function performSearch() {
+  if (!searchFilter.value?.trim() || !props.warehouseId) return;
+
+  isSearching.value = true;
+  hasSearched.value = true;
+
+  try {
+    const response = await functions.searchTabular(props.warehouseId, {
+      search: searchFilter.value.trim(),
+    });
+
+    searchResults.value = (response.tabulars || []).map((result: SearchTabular) => ({
+      id: result['tabular-id'].id,
+      name: result['tabular-name'],
+      namespace: result['namespace-name'].join('.'),
+      type: result['tabular-id'].type,
+      distance: result.distance ?? null,
+      warehouseId: props.warehouseId!,
+      namespaceId: result['namespace-name'].join('.'),
+    }));
+  } catch (error: any) {
+    console.error('Search failed:', error);
+    searchResults.value = [];
+    visualStore.setSnackbarMsg({
+      function: 'searchTabular',
+      text: error?.error?.message || error?.message || 'Search failed',
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.ERROR,
+    });
+  } finally {
+    isSearching.value = false;
+  }
+}
+
+// Clear search results
+function clearSearch() {
+  searchFilter.value = '';
+  if (isSearchMode.value) {
+    hasSearched.value = false;
+    searchResults.value = [];
+  }
+}
+
+// Navigate to a search result
+async function navigateToSearchResult(result: { id: string; name: string; namespace: string; type: string; warehouseId: string; namespaceId: string }) {
+  const apiNamespace = namespacePathToApiFormat(result.namespaceId);
+
+  // Permission pre-check with notify=false (completely silent)
+  try {
+    if (result.type === 'table') {
+      await functions.loadTable(result.warehouseId, apiNamespace, result.name, false);
+    } else if (result.type === 'view') {
+      await functions.loadView(result.warehouseId, apiNamespace, result.name, false);
+    }
+  } catch (error: any) {
+    const code = error?.error?.code || error?.status || error?.response?.status || 0;
+    const message = error?.error?.message || error?.message || 'An unknown error occurred';
+    if (code === 403 || code === 404) {
+      visualStore.setSnackbarMsg({
+        function: 'navigateToSearchResult',
+        text: `Access denied: ${result.type} "${result.name}"`,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    } else {
+      visualStore.setSnackbarMsg({
+        function: 'navigateToSearchResult',
+        text: message,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
+    return;
+  }
+
+  emit('navigate', {
+    type: result.type,
+    warehouseId: result.warehouseId,
+    namespaceId: result.namespaceId,
+    name: result.name,
+    id: result.id,
+  });
+}
 
 // Helper function to convert namespace path from API format to display format
 // function apiFormatToNamespacePath(apiPath: string): string {
@@ -715,5 +897,19 @@ onBeforeUnmount(() => {
 .filter-field :deep(.v-field__input) {
   min-height: 28px !important;
   padding: 4px 8px !important;
+}
+
+.search-results-list :deep(.v-list-item) {
+  min-height: 36px !important;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  cursor: pointer;
+}
+
+.search-results-list :deep(.v-list-item:hover) {
+  background-color: rgba(var(--v-theme-primary), 0.1) !important;
+}
+
+.search-result-item :deep(.v-list-item-subtitle) {
+  opacity: 0.6;
 }
 </style>
