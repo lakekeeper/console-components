@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="dialog" max-width="900px" persistent>
+  <v-dialog v-model="dialog" max-width="1000px" persistent>
     <template #activator="{ props: dialogProps }">
       <v-btn
         v-bind="dialogProps"
@@ -76,73 +76,82 @@
           </v-chip>
         </div>
 
-        <!-- Table entries list -->
-        <div
+        <!-- Column headers -->
+        <v-row dense class="text-caption text-medium-emphasis mb-1 px-1" no-gutters>
+          <v-col cols="3">Table Name</v-col>
+          <v-col cols="5">Metadata Location</v-col>
+          <v-col cols="2" class="text-center">Overwrite</v-col>
+          <v-col cols="2" class="text-center">Actions</v-col>
+        </v-row>
+
+        <v-divider class="mb-2"></v-divider>
+
+        <!-- Table entries -->
+        <v-row
           v-for="(entry, index) in tableEntries"
           :key="index"
-          class="d-flex align-center ga-2 mb-2">
-          <v-text-field
-            v-model="entry.name"
-            label="Table Name"
-            placeholder="my_table"
-            variant="outlined"
-            density="compact"
-            :rules="[rules.required, rules.validIdentifier]"
-            :disabled="isRegistering"
-            hide-details="auto"
-            style="flex: 1"></v-text-field>
+          dense
+          no-gutters
+          align="center"
+          class="mb-2">
+          <v-col cols="3" class="pr-2">
+            <v-text-field
+              v-model="entry.name"
+              placeholder="my_table"
+              variant="outlined"
+              density="compact"
+              :rules="[rules.required, rules.validIdentifier]"
+              :disabled="isRegistering"
+              hide-details="auto"></v-text-field>
+          </v-col>
 
-          <v-text-field
-            v-model="entry.metadataLocation"
-            label="Metadata Location"
-            placeholder="s3://bucket/path/to/metadata/v1.metadata.json"
-            variant="outlined"
-            density="compact"
-            :rules="[rules.required, rules.validUrl]"
-            :disabled="isRegistering"
-            hide-details="auto"
-            style="flex: 2"></v-text-field>
+          <v-col cols="5" class="pr-2">
+            <v-text-field
+              v-model="entry.metadataLocation"
+              placeholder="s3://bucket/path/to/v1.metadata.json"
+              variant="outlined"
+              density="compact"
+              :rules="[rules.required, rules.validUrl]"
+              :disabled="isRegistering"
+              hide-details="auto"></v-text-field>
+          </v-col>
 
-          <v-tooltip location="top">
-            <template #activator="{ props: tooltipProps }">
-              <v-btn
-                v-bind="tooltipProps"
-                :icon="entry.overwrite ? 'mdi-file-replace' : 'mdi-file-replace-outline'"
-                size="x-small"
-                :variant="entry.overwrite ? 'flat' : 'text'"
-                :color="entry.overwrite ? 'warning' : 'default'"
-                :disabled="isRegistering"
-                @click="entry.overwrite = !entry.overwrite"></v-btn>
-            </template>
-            <span>{{ entry.overwrite ? 'Overwrite enabled' : 'Click to enable overwrite' }}</span>
-          </v-tooltip>
+          <v-col cols="2" class="d-flex justify-center">
+            <v-checkbox
+              v-model="entry.overwrite"
+              density="compact"
+              color="warning"
+              :disabled="isRegistering"
+              hide-details></v-checkbox>
+          </v-col>
 
-          <!-- Status indicator -->
-          <v-icon v-if="entry.status === 'success'" color="success" size="small" title="Registered">
-            mdi-check-circle
-          </v-icon>
-          <v-tooltip v-else-if="entry.status === 'error'" location="top" max-width="400">
-            <template #activator="{ props: tooltipProps }">
-              <v-icon v-bind="tooltipProps" color="error" size="small">mdi-alert-circle</v-icon>
-            </template>
-            <span>{{ entry.errorMessage }}</span>
-          </v-tooltip>
-          <v-progress-circular
-            v-else-if="entry.status === 'loading'"
-            indeterminate
-            size="20"
-            width="2"
-            color="primary"></v-progress-circular>
-          <div v-else style="width: 20px"></div>
+          <v-col cols="2" class="d-flex justify-center align-center ga-1">
+            <!-- Status indicator -->
+            <v-icon v-if="entry.status === 'success'" color="success" size="small">
+              mdi-check-circle
+            </v-icon>
+            <v-tooltip v-else-if="entry.status === 'error'" location="top" max-width="400">
+              <template #activator="{ props: tooltipProps }">
+                <v-icon v-bind="tooltipProps" color="error" size="small">mdi-alert-circle</v-icon>
+              </template>
+              <span>{{ entry.errorMessage }}</span>
+            </v-tooltip>
+            <v-progress-circular
+              v-else-if="entry.status === 'loading'"
+              indeterminate
+              size="18"
+              width="2"
+              color="primary"></v-progress-circular>
 
-          <v-btn
-            icon="mdi-close"
-            size="x-small"
-            variant="text"
-            color="error"
-            :disabled="isRegistering || tableEntries.length <= 1"
-            @click="removeEntry(index)"></v-btn>
-        </div>
+            <v-btn
+              icon="mdi-close"
+              size="x-small"
+              variant="text"
+              color="error"
+              :disabled="isRegistering || tableEntries.length <= 1"
+              @click="removeEntry(index)"></v-btn>
+          </v-col>
+        </v-row>
 
         <!-- Add row button -->
         <v-btn
