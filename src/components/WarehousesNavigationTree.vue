@@ -833,10 +833,7 @@ onMounted(async () => {
           treeItems.value = validTreeItems;
           // Filter opened items to those belonging to valid warehouses
           openedItems.value = (savedState.openedItems || []).filter((id: string) =>
-            validTreeItems.some(
-              (wh: TreeItem) =>
-                id === wh.id || id.includes(wh.warehouseId),
-            ),
+            validTreeItems.some((wh: TreeItem) => id === wh.id || id.includes(wh.warehouseId)),
           );
           return;
         }
