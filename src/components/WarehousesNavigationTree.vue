@@ -5,17 +5,6 @@
       class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
       <span class="flex-grow-1 mr-2">{{ headerTitle }}</span>
       <v-btn
-        v-if="props.warehouseId"
-        icon
-        size="x-small"
-        :variant="isSearchMode ? 'tonal' : 'text'"
-        :color="isSearchMode ? 'primary' : undefined"
-        @click="toggleSearchMode"
-        :title="isSearchMode ? 'Switch to filter' : 'Search warehouse'"
-        class="ml-1">
-        <v-icon size="small">{{ isSearchMode ? 'mdi-magnify' : 'mdi-magnify' }}</v-icon>
-      </v-btn>
-      <v-btn
         icon
         size="x-small"
         variant="text"
@@ -26,90 +15,101 @@
         <v-icon size="small">mdi-refresh</v-icon>
       </v-btn>
     </v-sheet>
-    <!-- Filter / Search input -->
+    <!-- Search / Filter input -->
     <v-sheet color="transparent" class="px-3 pb-2 flex-shrink-0">
       <v-text-field
         v-model="searchFilter"
         density="compact"
         variant="outlined"
-        :placeholder="isSearchMode ? 'Search tables & views...' : 'Filter...'"
+        :placeholder="props.warehouseId ? 'Filter or press Enter to search...' : 'Filter...'"
         hide-details
         clearable
         class="filter-field"
         :loading="isSearching"
-        @keyup.enter="isSearchMode ? performSearch() : undefined"
+        @keyup.enter="performSearch"
         @click:clear="clearSearch">
         <template #prepend-inner>
-          <v-icon size="x-small">{{ isSearchMode ? 'mdi-magnify' : 'mdi-filter' }}</v-icon>
+          <v-icon size="x-small">mdi-filter</v-icon>
         </template>
-        <template v-if="isSearchMode" #append-inner>
+        <template v-if="props.warehouseId" #append-inner>
           <v-btn
             icon
             size="x-small"
             variant="text"
             :disabled="!searchFilter || isSearching"
             @click="performSearch"
-            title="Search">
-            <v-icon size="small">mdi-arrow-right</v-icon>
+            title="Search warehouse (fuzzy)">
+            <v-icon size="small">mdi-magnify</v-icon>
           </v-btn>
         </template>
       </v-text-field>
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
 
-    <!-- Search Results -->
+    <!-- Search Results (shown above tree when results exist) -->
     <v-sheet
-      v-if="isSearchMode && hasSearched"
+      v-if="hasSearched"
       color="transparent"
-      class="flex-grow-1"
-      style="overflow-y: auto; overflow-x: auto">
-      <div v-if="isSearching" class="text-center py-4">
-        <v-progress-circular color="primary" indeterminate size="24"></v-progress-circular>
+      class="flex-shrink-0"
+      style="max-height: 50%; overflow-y: auto">
+      <div v-if="isSearching" class="text-center py-3">
+        <v-progress-circular color="primary" indeterminate size="20"></v-progress-circular>
         <div class="text-caption mt-1">Searching...</div>
       </div>
-      <div v-else-if="searchResults.length === 0" class="text-center py-4">
-        <v-icon size="32" color="grey">mdi-table-search</v-icon>
+      <div v-else-if="searchResults.length === 0" class="text-center py-3">
+        <v-icon size="24" color="grey">mdi-table-search</v-icon>
         <div class="text-caption mt-1 text-grey">No results found</div>
       </div>
-      <v-list v-else density="compact" class="pa-2 search-results-list" bg-color="transparent">
-        <v-list-item
-          v-for="result in searchResults"
-          :key="result.id"
-          density="compact"
-          class="search-result-item"
-          @click="navigateToSearchResult(result)">
-          <template #prepend>
-            <v-icon size="small" :color="result.type === 'table' ? 'blue' : 'green'">
-              {{ result.type === 'table' ? 'mdi-table' : 'mdi-eye-outline' }}
-            </v-icon>
-          </template>
-          <v-list-item-title class="text-caption">
-            {{ result.name }}
-          </v-list-item-title>
-          <v-list-item-subtitle class="text-caption" style="font-size: 0.65rem !important">
-            {{ result.namespace }}
-          </v-list-item-subtitle>
-          <template #append>
-            <v-chip
-              v-if="result.distance !== null && result.distance !== undefined"
-              size="x-small"
-              :color="
-                result.distance <= 0.2 ? 'success' : result.distance <= 0.5 ? 'warning' : 'error'
-              "
-              variant="flat">
-              {{ Math.round((1 - result.distance) * 100) }}%
-            </v-chip>
-          </template>
-        </v-list-item>
-      </v-list>
+      <div v-else>
+        <div class="d-flex align-center px-3 pt-2">
+          <span class="text-caption text-medium-emphasis flex-grow-1">
+            {{ searchResults.length }} result(s)
+          </span>
+          <v-btn
+            size="x-small"
+            variant="text"
+            @click="dismissSearch"
+            title="Dismiss search results">
+            <v-icon size="small">mdi-close</v-icon>
+          </v-btn>
+        </div>
+        <v-list density="compact" class="pa-2 pt-0 search-results-list" bg-color="transparent">
+          <v-list-item
+            v-for="result in searchResults"
+            :key="result.id"
+            density="compact"
+            class="search-result-item"
+            @click="navigateToSearchResult(result)">
+            <template #prepend>
+              <v-icon size="small" :color="result.type === 'table' ? 'blue' : 'green'">
+                {{ result.type === 'table' ? 'mdi-table' : 'mdi-eye-outline' }}
+              </v-icon>
+            </template>
+            <v-list-item-title class="text-caption">
+              {{ result.name }}
+            </v-list-item-title>
+            <v-list-item-subtitle class="text-caption" style="font-size: 0.65rem !important">
+              {{ result.namespace }}
+            </v-list-item-subtitle>
+            <template #append>
+              <v-chip
+                v-if="result.distance !== null && result.distance !== undefined"
+                size="x-small"
+                :color="
+                  result.distance <= 0.2 ? 'success' : result.distance <= 0.5 ? 'warning' : 'error'
+                "
+                variant="flat">
+                {{ Math.round((1 - result.distance) * 100) }}%
+              </v-chip>
+            </template>
+          </v-list-item>
+        </v-list>
+      </div>
+      <v-divider class="border-opacity-25"></v-divider>
     </v-sheet>
 
-    <!-- Tree View -->
-    <v-sheet
-      v-show="!isSearchMode || !hasSearched"
-      color="transparent"
-      class="flex-grow-1"
-      style="overflow-y: auto; overflow-x: auto">
+    <!-- Tree View (always visible, filtered by text input) -->
+    <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
         :items="filteredTreeItems"
@@ -229,7 +229,6 @@ const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
 const searchFilter = ref('');
-const isSearchMode = ref(false);
 const isSearching = ref(false);
 const hasSearched = ref(false);
 const searchResults = ref<
@@ -298,9 +297,8 @@ const filteredTreeItems = computed(() => {
   return filterItems(treeItems.value);
 });
 
-// Auto-expand filtered items (only in filter mode)
+// Auto-expand filtered items
 watch(searchFilter, (newValue) => {
-  if (isSearchMode.value) return; // Don't auto-expand in search mode
   if (newValue && newValue.trim() !== '') {
     // Expand all items that have matches
     const itemsToOpen: string[] = [];
@@ -319,15 +317,13 @@ watch(searchFilter, (newValue) => {
   }
 });
 
-// Toggle between filter and search modes
-function toggleSearchMode() {
-  isSearchMode.value = !isSearchMode.value;
-  searchFilter.value = '';
+// Dismiss search results
+function dismissSearch() {
   hasSearched.value = false;
   searchResults.value = [];
 }
 
-// Perform API search
+// Perform API search (fuzzy, requires warehouseId)
 async function performSearch() {
   if (!searchFilter.value?.trim() || !props.warehouseId) return;
 
@@ -363,13 +359,11 @@ async function performSearch() {
   }
 }
 
-// Clear search results
+// Clear filter and search results
 function clearSearch() {
   searchFilter.value = '';
-  if (isSearchMode.value) {
-    hasSearched.value = false;
-    searchResults.value = [];
-  }
+  hasSearched.value = false;
+  searchResults.value = [];
 }
 
 // Navigate to a search result
