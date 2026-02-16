@@ -93,7 +93,9 @@
             <v-chip
               v-if="result.distance !== null && result.distance !== undefined"
               size="x-small"
-              :color="result.distance <= 0.2 ? 'success' : result.distance <= 0.5 ? 'warning' : 'error'"
+              :color="
+                result.distance <= 0.2 ? 'success' : result.distance <= 0.5 ? 'warning' : 'error'
+              "
               variant="flat">
               {{ Math.round((1 - result.distance) * 100) }}%
             </v-chip>
@@ -231,7 +233,15 @@ const isSearchMode = ref(false);
 const isSearching = ref(false);
 const hasSearched = ref(false);
 const searchResults = ref<
-  { id: string; name: string; namespace: string; type: string; distance: number | null; warehouseId: string; namespaceId: string }[]
+  {
+    id: string;
+    name: string;
+    namespace: string;
+    type: string;
+    distance: number | null;
+    warehouseId: string;
+    namespaceId: string;
+  }[]
 >([]);
 
 // Get projectId from visual store
@@ -363,7 +373,14 @@ function clearSearch() {
 }
 
 // Navigate to a search result
-async function navigateToSearchResult(result: { id: string; name: string; namespace: string; type: string; warehouseId: string; namespaceId: string }) {
+async function navigateToSearchResult(result: {
+  id: string;
+  name: string;
+  namespace: string;
+  type: string;
+  warehouseId: string;
+  namespaceId: string;
+}) {
   const apiNamespace = namespacePathToApiFormat(result.namespaceId);
 
   // Permission pre-check with notify=false (completely silent)
