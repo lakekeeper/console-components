@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="dialog" max-width="800px" persistent>
+  <v-dialog v-model="dialog" max-width="1000px" persistent>
     <template #activator="{ props: dialogProps }">
       <v-btn
         v-bind="dialogProps"
@@ -13,7 +13,7 @@
 
     <v-card>
       <v-card-title class="d-flex justify-space-between align-center">
-        <span class="text-h5">Register Existing Table</span>
+        <span class="text-h5">Register Tables</span>
         <v-btn icon="mdi-close" variant="text" @click="closeDialog"></v-btn>
       </v-card-title>
 
@@ -29,67 +29,183 @@
           </div>
         </v-alert>
 
-        <!-- Table Name -->
-        <v-text-field
-          v-model="tableName"
-          label="Table Name"
-          placeholder="my_table"
-          variant="outlined"
-          density="comfortable"
-          :rules="[rules.required, rules.validIdentifier]"
-          :disabled="isRegistering"
-          class="mb-4"
-          autofocus></v-text-field>
+        <!-- Import from file -->
+        <div class="d-flex align-center mb-4 ga-2">
+          <v-btn
+            size="small"
+            variant="tonal"
+            color="primary"
+            prepend-icon="mdi-upload"
+            @click="triggerFileUpload"
+            :disabled="isRegistering">
+            Import from CSV / JSON
+          </v-btn>
+          <v-menu>
+            <template #activator="{ props: menuProps }">
+              <v-btn
+                v-bind="menuProps"
+                size="small"
+                variant="tonal"
+                prepend-icon="mdi-download"
+                :disabled="isRegistering">
+                Download Template
+              </v-btn>
+            </template>
+            <v-list density="compact">
+              <v-list-item @click="downloadTemplate('csv')" prepend-icon="mdi-file-delimited">
+                <v-list-item-title>CSV Template</v-list-item-title>
+              </v-list-item>
+              <v-list-item @click="downloadTemplate('json')" prepend-icon="mdi-code-json">
+                <v-list-item-title>JSON Template</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-menu>
+          <input
+            ref="fileInput"
+            type="file"
+            accept=".csv,.json"
+            style="display: none"
+            @change="handleFileUpload" />
+          <v-chip
+            v-if="importError"
+            color="error"
+            size="small"
+            closable
+            @click:close="importError = ''">
+            {{ importError }}
+          </v-chip>
+        </div>
 
-        <!-- Metadata Location -->
-        <v-text-field
-          v-model="metadataLocation"
-          label="Metadata Location"
-          placeholder="s3://bucket/path/to/metadata/v1.metadata.json"
-          variant="outlined"
-          density="comfortable"
-          :rules="[rules.required, rules.validUrl]"
-          :disabled="isRegistering"
-          class="mb-4"
-          hint="Full path to the Iceberg metadata JSON file"
-          persistent-hint></v-text-field>
+        <!-- Column headers -->
+        <v-row dense class="text-caption text-medium-emphasis mb-1 px-1" no-gutters>
+          <v-col cols="3">Table Name</v-col>
+          <v-col cols="5">Metadata Location</v-col>
+          <v-col cols="2" class="text-center">Overwrite</v-col>
+          <v-col cols="2" class="text-center">Actions</v-col>
+        </v-row>
 
-        <!-- Overwrite Toggle -->
-        <v-checkbox
-          v-model="overwrite"
-          label="Overwrite table if it already exists"
-          density="compact"
-          color="warning"
-          :disabled="isRegistering"
-          class="mb-4"
-          hide-details>
-          <template #label>
-            <span>Overwrite table if it already exists</span>
-            <v-tooltip location="top" max-width="400">
+        <v-divider class="mb-2"></v-divider>
+
+        <!-- Table entries -->
+        <v-row
+          v-for="(entry, index) in tableEntries"
+          :key="index"
+          dense
+          no-gutters
+          align="center"
+          class="mb-2">
+          <v-col cols="3" class="pr-2">
+            <v-text-field
+              v-model="entry.name"
+              placeholder="my_table"
+              variant="outlined"
+              density="compact"
+              :rules="[rules.required, rules.validIdentifier]"
+              :disabled="isRegistering"
+              hide-details="auto"></v-text-field>
+          </v-col>
+
+          <v-col cols="5" class="pr-2">
+            <v-text-field
+              v-model="entry.metadataLocation"
+              placeholder="s3://bucket/path/to/v1.metadata.json"
+              variant="outlined"
+              density="compact"
+              :rules="[rules.required, rules.validUrl]"
+              :disabled="isRegistering"
+              hide-details="auto"></v-text-field>
+          </v-col>
+
+          <v-col cols="2" class="d-flex justify-center">
+            <v-checkbox
+              v-model="entry.overwrite"
+              density="compact"
+              color="warning"
+              :disabled="isRegistering"
+              hide-details></v-checkbox>
+          </v-col>
+
+          <v-col cols="2" class="d-flex justify-center align-center ga-1">
+            <!-- Status indicator -->
+            <v-icon v-if="entry.status === 'success'" color="success" size="small">
+              mdi-check-circle
+            </v-icon>
+            <v-tooltip v-else-if="entry.status === 'error'" location="top" max-width="400">
               <template #activator="{ props: tooltipProps }">
-                <v-icon v-bind="tooltipProps" size="small" color="info" class="ml-2">
-                  mdi-information-outline
-                </v-icon>
+                <v-icon v-bind="tooltipProps" color="error" size="small">mdi-alert-circle</v-icon>
               </template>
-              <span>
-                If enabled, the table will be re-registered even if a table with this name already
-                exists in the namespace.
-              </span>
+              <span>{{ entry.errorMessage }}</span>
             </v-tooltip>
-          </template>
-        </v-checkbox>
+            <v-progress-circular
+              v-else-if="entry.status === 'loading'"
+              indeterminate
+              size="18"
+              width="2"
+              color="primary"></v-progress-circular>
+
+            <v-btn
+              icon="mdi-close"
+              size="x-small"
+              variant="text"
+              color="error"
+              :disabled="isRegistering || tableEntries.length <= 1"
+              @click="removeEntry(index)"></v-btn>
+          </v-col>
+        </v-row>
+
+        <!-- Add row button -->
+        <v-btn
+          size="small"
+          variant="text"
+          color="primary"
+          prepend-icon="mdi-plus"
+          @click="addEntry"
+          :disabled="isRegistering"
+          class="mb-4">
+          Add Table
+        </v-btn>
+
+        <!-- Results summary after registration -->
+        <v-alert
+          v-if="registrationDone && failedEntries.length > 0"
+          type="warning"
+          variant="tonal"
+          class="mt-4">
+          <div class="text-body-2">
+            <strong>
+              {{ succeededCount }} of {{ totalAttempted }} table(s) registered successfully.
+            </strong>
+            <div class="mt-2">
+              <div v-for="entry in failedEntries" :key="entry.name" class="d-flex align-center">
+                <v-icon size="x-small" color="error" class="mr-1">mdi-close-circle</v-icon>
+                <strong>{{ entry.name }}:</strong>
+                &nbsp;{{ entry.errorMessage }}
+              </div>
+            </div>
+          </div>
+        </v-alert>
+        <v-alert
+          v-else-if="registrationDone && failedEntries.length === 0"
+          type="success"
+          variant="tonal"
+          class="mt-4">
+          All {{ totalAttempted }} table(s) registered successfully.
+        </v-alert>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn variant="text" @click="closeDialog" :disabled="isRegistering">Cancel</v-btn>
+        <v-btn variant="text" @click="closeDialog" :disabled="isRegistering">
+          {{ registrationDone ? 'Close' : 'Cancel' }}
+        </v-btn>
         <v-btn
+          v-if="!registrationDone"
           color="secondary"
           variant="elevated"
-          @click="registerTable"
+          @click="registerTables"
           :disabled="!canRegister || isRegistering"
           :loading="isRegistering">
-          Register Table
+          Register {{ validEntries.length }} Table{{ validEntries.length !== 1 ? 's' : '' }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -99,6 +215,14 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+
+interface TableEntry {
+  name: string;
+  metadataLocation: string;
+  overwrite: boolean;
+  status: 'idle' | 'loading' | 'success' | 'error';
+  errorMessage: string;
+}
 
 const props = defineProps<{
   warehouseId: string;
@@ -112,11 +236,19 @@ const emit = defineEmits<{
 const functions = useFunctions();
 
 const dialog = ref(false);
-const tableName = ref('');
-const metadataLocation = ref('');
-const overwrite = ref(false);
 const warehouseName = ref<string>('');
 const isRegistering = ref(false);
+const registrationDone = ref(false);
+const totalAttempted = ref(0);
+const succeededCount = ref(0);
+const importError = ref('');
+const fileInput = ref<HTMLInputElement | null>(null);
+
+const tableEntries = ref<TableEntry[]>([createEmptyEntry()]);
+
+function createEmptyEntry(): TableEntry {
+  return { name: '', metadataLocation: '', overwrite: false, status: 'idle', errorMessage: '' };
+}
 
 // Validation rules
 const rules = {
@@ -124,7 +256,6 @@ const rules = {
   validIdentifier: (v: string) => v.trim().length > 0 || 'Identifier cannot be empty',
   validUrl: (v: string) => {
     if (!v) return 'Required';
-    // Basic validation for cloud storage URLs
     const urlPattern = /^(s3[a-z]*|gs|abfss?|wasbs?|https?):\/\/.+/i;
     return urlPattern.test(v.trim()) || 'Must be a valid cloud storage URL';
   },
@@ -132,69 +263,229 @@ const rules = {
 
 // Computed properties
 const displayNamespace = computed(() => {
-  // Convert unit separator to dots for display
   return props.namespaceId.split(String.fromCharCode(0x1f)).join('.');
 });
 
-const canRegister = computed(() => {
-  return (
-    tableName.value.trim() !== '' &&
-    metadataLocation.value.trim() !== '' &&
-    rules.validUrl(metadataLocation.value) === true
+const validEntries = computed(() => {
+  return tableEntries.value.filter(
+    (e) =>
+      e.name.trim() !== '' &&
+      e.metadataLocation.trim() !== '' &&
+      rules.validUrl(e.metadataLocation) === true,
   );
 });
 
+const failedEntries = computed(() => {
+  return tableEntries.value.filter((e) => e.status === 'error');
+});
+
+const canRegister = computed(() => {
+  return validEntries.value.length > 0;
+});
+
 // Methods
+function addEntry() {
+  tableEntries.value.push(createEmptyEntry());
+}
+
+function removeEntry(index: number) {
+  if (tableEntries.value.length > 1) {
+    tableEntries.value.splice(index, 1);
+  }
+}
+
+function triggerFileUpload() {
+  fileInput.value?.click();
+}
+
+function downloadTemplate(format: 'csv' | 'json') {
+  let content: string;
+  let filename: string;
+  let mimeType: string;
+
+  if (format === 'csv') {
+    content = [
+      'name,metadata_location,overwrite',
+      'orders,s3://my-bucket/warehouse/orders/metadata/v1.metadata.json,false',
+      'customers,s3://my-bucket/warehouse/customers/metadata/v1.metadata.json,false',
+    ].join('\n');
+    filename = 'register_tables_template.csv';
+    mimeType = 'text/csv';
+  } else {
+    content = JSON.stringify(
+      [
+        {
+          name: 'orders',
+          metadata_location: 's3://my-bucket/warehouse/orders/metadata/v1.metadata.json',
+          overwrite: false,
+        },
+        {
+          name: 'customers',
+          metadata_location: 's3://my-bucket/warehouse/customers/metadata/v1.metadata.json',
+          overwrite: false,
+        },
+      ],
+      null,
+      2,
+    );
+    filename = 'register_tables_template.json';
+    mimeType = 'application/json';
+  }
+
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function handleFileUpload(event: Event) {
+  const target = event.target as HTMLInputElement;
+  const file = target.files?.[0];
+  if (!file) return;
+
+  importError.value = '';
+  const reader = new FileReader();
+
+  reader.onload = (e) => {
+    try {
+      const content = e.target?.result as string;
+      let entries: { name: string; metadata_location: string }[] = [];
+
+      if (file.name.endsWith('.json')) {
+        const parsed = JSON.parse(content);
+        entries = Array.isArray(parsed) ? parsed : [parsed];
+      } else if (file.name.endsWith('.csv')) {
+        entries = parseCsv(content);
+      } else {
+        importError.value = 'Unsupported file type. Use .csv or .json';
+        return;
+      }
+
+      if (entries.length === 0) {
+        importError.value = 'No valid entries found in file';
+        return;
+      }
+
+      // Validate and add entries
+      const newEntries: TableEntry[] = entries
+        .filter((e) => e.name && e.metadata_location)
+        .map((e) => ({
+          name: e.name.trim(),
+          metadataLocation: e.metadata_location.trim(),
+          overwrite: (e as any).overwrite === true || (e as any).overwrite === 'true',
+          status: 'idle' as const,
+          errorMessage: '',
+        }));
+
+      if (newEntries.length === 0) {
+        importError.value = 'No entries with both name and metadata_location found';
+        return;
+      }
+
+      // Replace the empty first row or append
+      if (tableEntries.value.length === 1 && tableEntries.value[0].name === '') {
+        tableEntries.value = newEntries;
+      } else {
+        tableEntries.value.push(...newEntries);
+      }
+    } catch (err: any) {
+      importError.value = `Failed to parse file: ${err.message}`;
+    }
+  };
+
+  reader.readAsText(file);
+  // Reset input so same file can be re-uploaded
+  target.value = '';
+}
+
+function parseCsv(content: string): { name: string; metadata_location: string }[] {
+  const lines = content
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length < 2) return [];
+
+  const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
+  const nameIdx = header.indexOf('name');
+  const locIdx = header.findIndex(
+    (h) => h === 'metadata_location' || h === 'metadata-location' || h === 'metadatalocation',
+  );
+  const overwriteIdx = header.indexOf('overwrite');
+
+  if (nameIdx === -1 || locIdx === -1) {
+    importError.value = 'CSV must have "name" and "metadata_location" columns';
+    return [];
+  }
+
+  return lines.slice(1).map((line) => {
+    const cols = line.split(',').map((c) => c.trim());
+    return {
+      name: cols[nameIdx] || '',
+      metadata_location: cols[locIdx] || '',
+      overwrite: overwriteIdx !== -1 ? cols[overwriteIdx] === 'true' : false,
+    };
+  });
+}
+
 function resetForm() {
-  tableName.value = '';
-  metadataLocation.value = '';
-  overwrite.value = false;
+  tableEntries.value = [createEmptyEntry()];
+  registrationDone.value = false;
+  totalAttempted.value = 0;
+  succeededCount.value = 0;
+  importError.value = '';
 }
 
 function closeDialog() {
   if (!isRegistering.value) {
     dialog.value = false;
-    setTimeout(resetForm, 300); // Reset after transition
+    setTimeout(resetForm, 300);
   }
 }
 
-async function registerTable() {
+async function registerTables() {
   if (!canRegister.value) return;
 
   isRegistering.value = true;
+  registrationDone.value = false;
 
-  try {
-    // Ensure namespace uses unit separator (0x1F) not dots
-    // The API expects namespace parts to be separated by the unit separator character
-    let namespaceForApi = props.namespaceId;
-
-    // If the namespace contains dots but no unit separators, it's in display format
-    // and needs to be converted to API format
-    if (namespaceForApi.includes('.') && !namespaceForApi.includes(String.fromCharCode(0x1f))) {
-      namespaceForApi = namespaceForApi.split('.').join(String.fromCharCode(0x1f));
-    }
-
-    await functions.registerTable(
-      props.warehouseId,
-      namespaceForApi,
-      tableName.value.trim(),
-      metadataLocation.value.trim(),
-      overwrite.value,
-      true, // notify
-    );
-
-    emit('registered', tableName.value);
-
-    // Close dialog after short delay
-    setTimeout(() => {
-      closeDialog();
-    }, 1500);
-  } catch (err: any) {
-    console.error('Failed to register table:', err);
-    // Error is already handled and displayed by the notification system
-  } finally {
-    isRegistering.value = false;
+  let namespaceForApi = props.namespaceId;
+  if (namespaceForApi.includes('.') && !namespaceForApi.includes(String.fromCharCode(0x1f))) {
+    namespaceForApi = namespaceForApi.split('.').join(String.fromCharCode(0x1f));
   }
+
+  const toRegister = validEntries.value;
+  totalAttempted.value = toRegister.length;
+  succeededCount.value = 0;
+
+  for (const entry of toRegister) {
+    entry.status = 'loading';
+    entry.errorMessage = '';
+
+    try {
+      await functions.registerTable(
+        props.warehouseId,
+        namespaceForApi,
+        entry.name.trim(),
+        entry.metadataLocation.trim(),
+        entry.overwrite,
+        false, // don't notify per-table — we show results in the dialog
+      );
+
+      entry.status = 'success';
+      succeededCount.value++;
+      emit('registered', entry.name);
+    } catch (err: any) {
+      entry.status = 'error';
+      entry.errorMessage =
+        err?.error?.message || err?.message || err?.toString() || 'Registration failed';
+    }
+  }
+
+  registrationDone.value = true;
+  isRegistering.value = false;
 }
 
 // Load warehouse name when dialog opens

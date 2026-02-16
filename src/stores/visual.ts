@@ -39,6 +39,14 @@ export const useVisualStore = defineStore(
     const wahrehouseName = ref('');
     const namespacePath = ref('');
     const savedSqlQuery = ref(''); // Store last SQL query (deprecated - use warehouseSqlData)
+    const isNavigationCollapsed = ref(false); // Navigation tree collapsed state
+
+    // Requested tab for namespace detail page (set by navigation tree context menu)
+    const requestedNamespaceTab = ref<string | null>(null);
+
+    // Warehouse navigation tree state
+    // Key: projectId, Value: { openedItems, treeItems }
+    const warehouseTreeState = ref<Record<string, { openedItems: string[]; treeItems: any[] }>>({});
 
     // Multi-tab SQL editor state - warehouse-specific
     // Key: warehouseId, Value: { activeTabId, tabs[] }
@@ -258,6 +266,9 @@ export const useVisualStore = defineStore(
       navBarShow,
       savedSqlQuery,
       warehouseSqlData,
+      isNavigationCollapsed,
+      requestedNamespaceTab,
+      warehouseTreeState,
       projectList,
       projectSelected,
       snackbarMsg,

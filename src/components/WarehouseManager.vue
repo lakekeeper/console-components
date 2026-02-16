@@ -10,14 +10,27 @@
       </v-row>
     </v-responsive>
   </v-container>
-  <span v-else>
+  <v-container v-else fluid class="pa-0">
     <v-toolbar class="mb-4" color="transparent" density="compact" flat>
+      <template #prepend>
+        <!-- Collapse/Expand Button -->
+        <v-btn
+          icon
+          size="default"
+          variant="tonal"
+          color="primary"
+          @click="toggleNavigation"
+          class="mr-3"
+          :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
+          <v-icon>
+            {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
+          </v-icon>
+        </v-btn>
+        <v-icon>mdi-warehouse</v-icon>
+      </template>
       <v-toolbar-title>
         <span class="text-subtitle-1">Warehouses</span>
       </v-toolbar-title>
-      <template #prepend>
-        <v-icon>mdi-warehouse</v-icon>
-      </template>
       <v-spacer></v-spacer>
       <WarehouseAddDialog
         v-if="canCreateWarehouse"
@@ -83,7 +96,7 @@
     </v-data-table>
 
     <div v-else>You don't have permission to list warehouses</div>
-  </span>
+  </v-container>
 </template>
 
 <script lang="ts" setup>
@@ -111,6 +124,13 @@ const notify = true;
 
 const projectId = computed(() => visual.projectSelected['project-id']);
 const { loading, canCreateWarehouse, canListWarehouses } = useProjectPermissions(projectId);
+
+const isNavigationCollapsed = computed({
+  get: () => visual.isNavigationCollapsed,
+  set: (value: boolean) => {
+    visual.isNavigationCollapsed = value;
+  },
+});
 
 const searchWarehouse = ref('');
 
@@ -246,5 +266,9 @@ async function deleteWarehouse(id: string) {
   } catch (error) {
     console.error('Error deleting warehouse:', error);
   }
+}
+
+function toggleNavigation() {
+  isNavigationCollapsed.value = !isNavigationCollapsed.value;
 }
 </script>

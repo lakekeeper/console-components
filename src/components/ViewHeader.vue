@@ -4,23 +4,28 @@
       <span class="text-subtitle-1">{{ namespacePath }}.{{ viewName }}</span>
     </v-toolbar-title>
     <template #prepend>
+      <!-- Collapse/Expand Button -->
+      <v-btn
+        icon
+        size="default"
+        variant="tonal"
+        color="primary"
+        @click="toggleNavigation"
+        class="mr-3"
+        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
+        <v-icon>
+          {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
+        </v-icon>
+      </v-btn>
       <v-icon>mdi-table</v-icon>
     </template>
     <v-spacer></v-spacer>
-    <v-btn
-      icon="mdi-magnify"
-      variant="text"
-      @click="openSearchDialog"
-      aria-label="Search tables and views"></v-btn>
   </v-toolbar>
-
-  <!-- Search Modal -->
-  <SearchTabular v-model="showSearchDialog" :warehouse-id="warehouseId" />
 </template>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue';
-import SearchTabular from './SearchTabular.vue';
+import { computed } from 'vue';
+import { useVisualStore } from '@/stores/visual';
 
 const props = defineProps<{
   warehouseId: string;
@@ -28,13 +33,20 @@ const props = defineProps<{
   viewName: string;
 }>();
 
-const showSearchDialog = ref(false);
+const visual = useVisualStore();
+
+const isNavigationCollapsed = computed({
+  get: () => visual.isNavigationCollapsed,
+  set: (value: boolean) => {
+    visual.isNavigationCollapsed = value;
+  },
+});
 
 const namespacePath = computed(() => {
   return props.namespaceId.split(String.fromCharCode(0x1f)).join('.');
 });
 
-function openSearchDialog() {
-  showSearchDialog.value = true;
+function toggleNavigation() {
+  isNavigationCollapsed.value = !isNavigationCollapsed.value;
 }
 </script>

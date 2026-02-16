@@ -37,6 +37,16 @@ watch(
   () => snackbarMsg.value.ts,
   (newVal) => {
     if (newVal) {
+      // Check if the same message already exists in the snackbar
+      const isDuplicate = snackbarMsgs.value.some(
+        (msg) => msg.text === snackbarMsg.value.text && msg.visible,
+      );
+
+      if (isDuplicate) {
+        // Skip adding duplicate message
+        return;
+      }
+
       const currentMsgId = msgIdCounter++;
       snackbarMsgs.value.push({
         id: currentMsgId,
