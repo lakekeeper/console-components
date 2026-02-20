@@ -126,15 +126,37 @@ export function createAuth(config: AuthConfig) {
     lastExpiringNotification = now;
   });
 
-  // Event fired when token has expired
-  userManager.events.addAccessTokenExpired(() => {
-    console.warn('Access token expired');
+  // Event fired when token has expired — attempt silent renew, redirect if that fails.
+  // This covers the common case where the laptop was asleep / tab was backgrounded
+  // and the automaticSilentRenew timer never got a chance to fire before expiry.
+  userManager.events.addAccessTokenExpired(async () => {
+    console.warn('Access token expired — attempting silent renew');
+    try {
+      const user = await userManager.signinSilent();
+      if (user) {
+        // Silent renew succeeded — userLoaded event will update the store
+        return;
+      }
+    } catch (e) {
+      console.warn('Silent renew after expiry failed:', e);
+    }
+
+    // Renew failed — redirect to login
     accessToken.value = '';
     isAuthenticated.value = false;
+    const userStore = useUserStore();
+    userStore.unsetUser();
+    await userManager.removeUser();
+
+    try {
+      await userManager.signinRedirect();
+    } catch (redirectError) {
+      console.error('Failed to redirect to login after token expiry:', redirectError);
+    }
   });
 
   userManager.events.addSilentRenewError(async (error) => {
-    console.error('Silent renew error - logging out user:', error);
+    console.error('Silent renew error - redirecting to login:', error);
     // Clear auth state
     accessToken.value = '';
     isAuthenticated.value = false;
@@ -147,8 +169,12 @@ export function createAuth(config: AuthConfig) {
     // Explicitly remove OIDC user from sessionStorage to prevent stale state
     await userManager.removeUser();
 
-    // Note: The app should handle redirecting to login via router navigation guard
-    // when it detects isAuthenticated is false
+    // Redirect to login so the user gets a fresh session
+    try {
+      await userManager.signinRedirect();
+    } catch (redirectError) {
+      console.error('Failed to redirect to login after silent renew error:', redirectError);
+    }
   });
 
   userManager.events.addUserSignedOut(async () => {

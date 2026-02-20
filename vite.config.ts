@@ -15,6 +15,8 @@ export default defineConfig({
         compilerOptions: {
           hoistStatic: false,
           prefixIdentifiers: true,
+          // ldrs web components (l-helix, l-hourglass, etc.)
+          isCustomElement: (tag) => tag.startsWith('l-'),
         },
       },
     }),

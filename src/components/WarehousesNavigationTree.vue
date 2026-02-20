@@ -138,7 +138,40 @@
         class="tree-view pa-2"
         style="background-color: transparent !important">
         <template v-slot:prepend="{ item }">
-          <v-icon size="small" v-if="item.type === 'warehouse'">mdi-database</v-icon>
+          <!-- Warehouse: cloud provider icon -->
+          <v-icon
+            v-if="
+              item.type === 'warehouse' && item.storageType === 's3' && item.storageFlavor === 'aws'
+            "
+            size="small"
+            color="orange">
+            mdi-aws
+          </v-icon>
+          <v-icon
+            v-else-if="
+              item.type === 'warehouse' &&
+              item.storageType === 's3' &&
+              item.storageEndpoint?.includes('cloudflarestorage')
+            "
+            size="small">
+            <v-img :src="cfIcon" width="18" height="18" />
+          </v-icon>
+          <v-icon v-else-if="item.type === 'warehouse' && item.storageType === 's3'" size="small">
+            <v-img :src="s3Icon" width="18" height="18" />
+          </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'adls'"
+            size="small"
+            color="primary">
+            mdi-microsoft-azure
+          </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'gcs'"
+            size="small"
+            color="info">
+            mdi-google-cloud
+          </v-icon>
+          <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
           <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
@@ -210,6 +243,8 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
 import type { SearchTabular } from '@/gen/management/types.gen';
+import s3Icon from '@/assets/s3.svg';
+import cfIcon from '@/assets/cf.svg';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -241,6 +276,10 @@ interface TreeItem {
   warehouseId: string;
   namespaceId?: string; // Full namespace path with dots (e.g., 'finance.sub')
   loaded?: boolean;
+  /** Storage profile type — only set on warehouse nodes. */
+  storageType?: 's3' | 'adls' | 'gcs';
+  storageFlavor?: string;
+  storageEndpoint?: string;
 }
 
 const treeItems = ref<TreeItem[]>([]);
@@ -483,14 +522,20 @@ async function loadWarehouses() {
         warehouses = warehouses.filter((wh: any) => wh.id === props.warehouseId);
       }
 
-      treeItems.value = warehouses.map((warehouse: any) => ({
-        id: `warehouse-${warehouse.id}`,
-        name: warehouse.name,
-        type: 'warehouse' as const,
-        warehouseId: warehouse.id,
-        children: [],
-        loaded: false,
-      }));
+      treeItems.value = warehouses.map((warehouse: any) => {
+        const sp = warehouse['storage-profile'];
+        return {
+          id: `warehouse-${warehouse.id}`,
+          name: warehouse.name,
+          type: 'warehouse' as const,
+          warehouseId: warehouse.id,
+          children: [],
+          loaded: false,
+          storageType: sp?.type,
+          storageFlavor: sp?.flavor,
+          storageEndpoint: sp?.endpoint,
+        };
+      });
 
       // Auto-expand the warehouse if filtering to specific one
       if (props.warehouseId && treeItems.value.length > 0) {
@@ -765,49 +810,37 @@ async function handleNavigate(item: TreeItem) {
 }
 
 async function navigateToTab(item: TreeItem, tab: string) {
-  if (item.type === 'namespace' && item.namespaceId) {
-    // Permission pre-check with notify=false (completely silent)
-    try {
-      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-      await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
-    } catch (error: any) {
-      const code = error?.error?.code || error?.status || error?.response?.status || 0;
-      const message = error?.error?.message || error?.message || 'An unknown error occurred';
-      if (code === 403 || code === 404) {
-        visualStore.setSnackbarMsg({
-          function: 'navigateToTab',
-          text: `Access denied: ${item.type} "${item.name}"`,
-          ttl: 3000,
-          ts: Date.now(),
-          type: Type.ERROR,
-        });
-      } else {
-        visualStore.setSnackbarMsg({
-          function: 'navigateToTab',
-          text: message,
-          ttl: 3000,
-          ts: Date.now(),
-          type: Type.ERROR,
-        });
-      }
-      return;
-    }
+  if (item.type !== 'namespace' || !item.namespaceId) return;
 
-    // Set requested tab in visual store so the namespace page can switch to it
-    visualStore.requestedNamespaceTab = tab;
-
-    // Save warehouse subtree state so the target page's tree picks up the expanded state
-    saveWarehouseSubtreeState(item.warehouseId);
-
-    emit('navigate', {
-      type: item.type,
-      warehouseId: item.warehouseId,
-      namespaceId: item.namespaceId,
-      name: item.name,
-      id: item.id,
-      tab: tab,
+  // Permission pre-check — identical to handleNavigate for namespaces
+  try {
+    const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+    await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
+  } catch (error: any) {
+    const code = error?.error?.code || error?.status || error?.response?.status || 0;
+    const message = error?.error?.message || error?.message || 'An unknown error occurred';
+    visualStore.setSnackbarMsg({
+      function: 'navigateToTab',
+      text: code === 403 || code === 404 ? `Access denied: ${item.type} "${item.name}"` : message,
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.ERROR,
     });
+    return;
   }
+
+  saveWarehouseSubtreeState(item.warehouseId);
+
+  // Emit as a namespace navigation with the requested tab.
+  // The consuming app should build the namespace URL and pass the tab as a query param.
+  emit('navigate', {
+    type: item.type,
+    warehouseId: item.warehouseId,
+    namespaceId: item.namespaceId,
+    name: item.name,
+    id: item.id,
+    tab,
+  });
 }
 
 onMounted(async () => {
