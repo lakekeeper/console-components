@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.26](https://github.com/lakekeeper/console-components/compare/v0.2.25...v0.2.26) (2026-02-20)
+
+
+### Bug Fixes
+
+* query overload LoQE development ([#75](https://github.com/lakekeeper/console-components/issues/75)) ([0e681aa](https://github.com/lakekeeper/console-components/commit/0e681aad6e09a48b4b3e64a23b7c1e260a55c35a))
+
 ## [0.2.25](https://github.com/lakekeeper/console-components/compare/v0.2.24...v0.2.25) (2026-02-16)
 
 
