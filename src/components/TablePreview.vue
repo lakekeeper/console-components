@@ -46,7 +46,11 @@
       <div class="d-flex justify-space-between align-center mb-4">
         <div class="text-h6">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
         <div class="d-flex align-center gap-2">
-          <v-chip color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
+          <v-chip v-if="queryResults.truncated" color="warning" variant="flat">
+            {{ queryResults.rowCount.toLocaleString() }} of
+            {{ queryResults.totalRowCount.toLocaleString() }} rows (truncated)
+          </v-chip>
+          <v-chip v-else color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
           <v-btn
             size="small"
             variant="outlined"

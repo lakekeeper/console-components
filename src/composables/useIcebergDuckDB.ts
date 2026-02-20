@@ -62,7 +62,7 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
           headers: {
             Authorization: `Bearer ${config.accessToken}`,
             'Content-Type': 'application/json',
-            // This is the header that DuckDB sends and often causes CORS issues
+            // This is the header that sends and often causes CORS issues
             'x-user-agent': 'duckdb-wasm',
             // Always include project ID - use 'default' for default project
             'x-project-id': projectId,
@@ -107,7 +107,7 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
         );
       `;
 
-      await duckDB.executeQuery(setupQuery);
+      await duckDB.executeQuery(setupQuery, { maxRows: Infinity, skipGuardrails: true });
 
       catalogConfigured.value = true;
     } catch (e) {
@@ -127,9 +127,12 @@ export function useIcebergDuckDB(baseUrlPrefix: string) {
   /**
    * Wrapper around executeQuery that detects S3 CORS errors
    */
-  async function executeQuery(query: string) {
+  async function executeQuery(
+    query: string,
+    options?: { maxRows?: number; skipGuardrails?: boolean },
+  ) {
     try {
-      return await duckDB.executeQuery(query);
+      return await duckDB.executeQuery(query, options);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
 

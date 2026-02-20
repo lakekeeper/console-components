@@ -1,14 +1,30 @@
 import { ref, type Ref } from 'vue';
 import * as duckdb from '@duckdb/duckdb-wasm';
 import type { AsyncDuckDB, AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
+import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
 
 let dbInstance: AsyncDuckDB | null = null;
 let workerInstance: Worker | null = null;
 
+/**
+ * Hard cap on rows materialized into JS to prevent browser OOM crashes.
+ * DuckDB WASM loads the full Arrow result in WASM memory; this limit only
+ * controls how many rows we copy into the JS heap for display.
+ *
+ * @deprecated Use `useDuckDBSettingsStore().maxResultRows` instead.
+ *             This constant is kept for backward compatibility.
+ */
+export const MAX_RESULT_ROWS = DUCKDB_DEFAULTS.maxResultRows;
+
 export interface QueryResult {
   columns: string[];
   rows: any[][];
+  /** Number of rows returned to JS (may be capped by MAX_RESULT_ROWS). */
   rowCount: number;
+  /** Total rows produced by the query before truncation. */
+  totalRowCount: number;
+  /** True when the result was truncated to MAX_RESULT_ROWS. */
+  truncated: boolean;
 }
 
 export function useDuckDB(baseUrlPrefix: string) {
@@ -89,7 +105,10 @@ export function useDuckDB(baseUrlPrefix: string) {
     }
   }
 
-  async function executeQuery(sql: string): Promise<QueryResult> {
+  async function executeQuery(
+    sql: string,
+    options?: { maxRows?: number; skipGuardrails?: boolean },
+  ): Promise<QueryResult> {
     if (!dbInstance) {
       await initialize();
     }
@@ -98,16 +117,59 @@ export function useDuckDB(baseUrlPrefix: string) {
       throw new Error('DuckDB is not initialized');
     }
 
+    const settingsStore = useDuckDBSettingsStore();
+
+    // ── Memory guardrail ──────────────────────────────────────────
+    if (!options?.skipGuardrails) {
+      const memCheck = settingsStore.checkMemory();
+      if (!memCheck.ok && memCheck.reason === 'blocked') {
+        throw new Error(memCheck.message);
+      }
+    }
+
+    const limit = options?.maxRows ?? settingsStore.maxResultRows;
+    const timeoutMs = options?.skipGuardrails ? 0 : settingsStore.queryTimeoutMs;
+
     let conn: AsyncDuckDBConnection | null = null;
     try {
       conn = await dbInstance.connect();
-      const result = await conn.query(sql);
+
+      // ── Timeout guardrail ─────────────────────────────────────
+      let result: any;
+      if (timeoutMs > 0) {
+        const queryPromise = conn.query(sql);
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
+                    `You can increase the timeout in Settings.`,
+                ),
+              ),
+            timeoutMs,
+          );
+        });
+        result = await Promise.race([queryPromise, timeoutPromise]);
+      } else {
+        result = await conn.query(sql);
+      }
 
       // Convert Arrow table to plain JSON structure
-      const columns = result.schema.fields.map((f) => f.name);
+      const columns = result.schema.fields.map((f: any) => f.name);
       const rows: any[][] = [];
+      const totalRows = result.numRows;
+      const rowsToRead = Math.min(totalRows, limit);
 
-      for (let i = 0; i < result.numRows; i++) {
+      // ── Result-size guardrail (works on all browsers) ──────────
+      if (!options?.skipGuardrails) {
+        const sizeCheck = settingsStore.checkResultSize(rowsToRead, columns.length);
+        if (!sizeCheck.ok) {
+          throw new Error(sizeCheck.message);
+        }
+      }
+
+      for (let i = 0; i < rowsToRead; i++) {
         const row: any[] = [];
         for (let j = 0; j < result.numCols; j++) {
           const col = result.getChildAt(j);
@@ -119,7 +181,9 @@ export function useDuckDB(baseUrlPrefix: string) {
       return {
         columns,
         rows,
-        rowCount: result.numRows,
+        rowCount: rows.length,
+        totalRowCount: totalRows,
+        truncated: totalRows > limit,
       };
     } finally {
       if (conn) {
@@ -160,6 +224,53 @@ export function useDuckDB(baseUrlPrefix: string) {
     isInitialized.value = false;
   }
 
+  /**
+   * Free DuckDB WASM memory without tearing down the engine.
+   * Runs CHECKPOINT + PRAGMA shrink_memory to return buffer-manager
+   * pages back to the WASM linear memory / OS.
+   */
+  async function freeMemory(): Promise<{
+    idleConnectionsClosed: number;
+    beforeMB: number | null;
+    afterMB: number | null;
+  }> {
+    if (!dbInstance) {
+      return { idleConnectionsClosed: 0, beforeMB: null, afterMB: null };
+    }
+
+    const perf = performance as any;
+    const beforeMB: number | null = perf.memory?.usedJSHeapSize
+      ? Math.round(perf.memory.usedJSHeapSize / (1024 * 1024))
+      : null;
+
+    let conn: AsyncDuckDBConnection | null = null;
+    try {
+      conn = await dbInstance.connect();
+      try {
+        await conn.query('CHECKPOINT');
+      } catch {
+        /* non-critical */
+      }
+      try {
+        await conn.query('PRAGMA shrink_memory');
+      } catch {
+        /* may not exist in older builds */
+      }
+    } finally {
+      if (conn) {
+        await conn.close();
+      }
+    }
+
+    const afterMB: number | null = perf.memory?.usedJSHeapSize
+      ? Math.round(perf.memory.usedJSHeapSize / (1024 * 1024))
+      : null;
+
+    console.log(`[DuckDB] freeMemory: memory ${beforeMB ?? '?'}→${afterMB ?? '?'} MB`);
+
+    return { idleConnectionsClosed: 0, beforeMB, afterMB };
+  }
+
   return {
     isInitialized,
     isInitializing,
@@ -168,5 +279,6 @@ export function useDuckDB(baseUrlPrefix: string) {
     executeQuery,
     registerTable,
     cleanup,
+    freeMemory,
   };
 }

@@ -53,6 +53,7 @@
                   </v-btn>
                   Browser SQL Playground
                   <v-spacer />
+                  <DuckDBSettingsDialog :on-free-memory="handleFreeMemory" />
                   <v-chip v-if="isCheckingWarehouse" color="info" size="small">
                     <v-icon start>mdi-loading mdi-spin</v-icon>
                     Checking Warehouse...
@@ -219,6 +220,18 @@
                       </v-btn>
                     </div>
 
+                    <!-- Memory Warning -->
+                    <v-alert
+                      v-if="memoryWarning"
+                      type="warning"
+                      icon="mdi-memory"
+                      closable
+                      @click:close="memoryWarning = null"
+                      class="mb-4"
+                      density="compact">
+                      {{ memoryWarning }}
+                    </v-alert>
+
                     <!-- Error Display -->
                     <v-alert
                       v-if="error"
@@ -239,8 +252,19 @@
                           <span>Query {{ activeQueryName }} Results</span>
                         </div>
                         <v-spacer />
-                        <v-chip size="small" class="mr-2">
-                          {{ queryResult.rowCount }} row{{ queryResult.rowCount !== 1 ? 's' : '' }}
+                        <v-chip
+                          size="small"
+                          class="mr-2"
+                          :color="queryResult.truncated ? 'warning' : undefined">
+                          <span v-if="queryResult.truncated">
+                            {{ queryResult.rowCount.toLocaleString() }} of
+                            {{ queryResult.totalRowCount.toLocaleString() }} rows
+                          </span>
+                          <span v-else>
+                            {{ queryResult.rowCount }} row{{
+                              queryResult.rowCount !== 1 ? 's' : ''
+                            }}
+                          </span>
                         </v-chip>
                         <v-btn
                           size="small"
@@ -253,6 +277,18 @@
                         </v-btn>
                       </v-card-title>
                       <v-card-text class="pa-0">
+                        <!-- Truncation warning -->
+                        <v-alert
+                          v-if="queryResult.truncated"
+                          type="warning"
+                          variant="tonal"
+                          density="compact"
+                          class="ma-2">
+                          Result truncated to {{ MAX_RESULT_ROWS.toLocaleString() }} rows (query
+                          produced {{ queryResult.totalRowCount.toLocaleString() }} rows). Add a
+                          <code>LIMIT</code>
+                          clause to your query to control the result size.
+                        </v-alert>
                         <v-table density="compact" fixed-header :height="tableHeight + 'px'">
                           <thead>
                             <tr>
@@ -406,12 +442,15 @@
 import { ref, onMounted, onBeforeUnmount, computed, watch, toRef, inject } from 'vue';
 import { useIcebergDuckDB } from '../composables/useIcebergDuckDB';
 import type { QueryResult } from '../composables/useDuckDB';
+import { MAX_RESULT_ROWS } from '../composables/useDuckDB';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
+import { useDuckDBSettingsStore } from '../stores/duckdbSettings';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 import WarehouseNavigationTree from './WarehouseNavigationTree.vue';
 import SqlEditor from './SqlEditor.vue';
+import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
 
 // export type WarehouseSqlQueryProps = {
 //   warehouseId: string;
@@ -434,6 +473,7 @@ const config = inject<any>('appConfig', { enabledAuthentication: false });
 const icebergDB = useIcebergDuckDB(config.baseUrlPrefix);
 const csvDownload = useCsvDownload();
 const visualStore = useVisualStore();
+const duckdbSettings = useDuckDBSettingsStore();
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl || ''),
@@ -442,6 +482,7 @@ const sqlQuery = ref('');
 const queryResult = ref<QueryResult | null>(null);
 const isExecuting = ref(false);
 const error = ref<string | null>(null);
+const memoryWarning = ref<string | null>(null);
 const isCheckingWarehouse = ref(false);
 const warehouseError = ref<string | null>(null);
 const hasInitialized = ref(false);
@@ -801,6 +842,13 @@ watch(sqlQuery, (newValue) => {
 async function executeQuery() {
   if (!sqlQuery.value.trim() || !props.warehouseId) return;
 
+  // Memory warning check (non-blocking — user sees it but query still executes)
+  memoryWarning.value = null;
+  const memCheck = duckdbSettings.checkMemory();
+  if (!memCheck.ok && memCheck.reason === 'warning') {
+    memoryWarning.value = memCheck.message;
+  }
+
   isExecuting.value = true;
   error.value = null;
   queryResult.value = null;
@@ -832,6 +880,13 @@ function downloadCSV() {
   csvDownload.downloadCSV(queryResult.value, {
     baseFilename: 'query_results',
   });
+}
+
+async function handleFreeMemory() {
+  // Clear local result arrays to release JS-heap memory
+  queryResult.value = null;
+  // Run CHECKPOINT + PRAGMA shrink_memory inside DuckDB WASM
+  return icebergDB.freeMemory();
 }
 
 function formatCell(value: any): string {

@@ -47,6 +47,7 @@ import TableRegister from './components/TableRegister.vue';
 import WarehouseSqlQuery from './components/WarehouseSqlQuery.vue';
 import WarehouseNavigationTree from './components/WarehouseNavigationTree.vue';
 import WarehousesNavigationTree from './components/WarehousesNavigationTree.vue';
+import LoQEExplorer from './components/LoQEExplorer.vue';
 import ViewHeader from './components/ViewHeader.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
@@ -126,6 +127,7 @@ export {
   NotificationButton,
   NotificationPanel,
   WarehousesNavigationTree,
+  LoQEExplorer,
 };
 
 // Export composables
@@ -280,6 +282,7 @@ const components = {
   ViewDetails,
   NotificationButton,
   NotificationPanel,
+  LoQEExplorer,
 };
 
 // Create the plugin
@@ -314,9 +317,33 @@ export { default as LogoutPage } from './components/LogoutPage.vue';
 export { default as CallbackPage } from './components/CallbackPage.vue';
 
 // Export DuckDB composable
-export { useDuckDB } from './composables/useDuckDB';
+export { useDuckDB, MAX_RESULT_ROWS } from './composables/useDuckDB';
 export type { QueryResult } from './composables/useDuckDB';
+
+// Export  settings store
+export {
+  useDuckDBSettingsStore,
+  DUCKDB_DEFAULTS,
+  ROW_LIMIT_OPTIONS,
+  TIMEOUT_OPTIONS,
+} from './stores/duckdbSettings';
+export type { DuckDBSettings } from './stores/duckdbSettings';
+export { default as DuckDBSettingsDialog } from './components/DuckDBSettingsDialog.vue';
 
 // Export Iceberg DuckDB integration
 export { useIcebergDuckDB } from './composables/useIcebergDuckDB';
 export type {} from './composables/useIcebergDuckDB';
+
+// Export LoQE — Local Query Engine DuckDB
+export { useLoQE } from './composables/useLoQE';
+export { LoQEEngine } from './composables/loqe/LoQEEngine';
+export { useLoQEStore } from './stores/loqe';
+export type {
+  LoQEConfig,
+  LoQEQueryResult,
+  LoQECatalogConfig,
+  LoQEExtension,
+  LoQEHistoryEntry,
+  LoQEPersistedCatalog,
+  AttachedCatalog,
+} from './composables/loqe/types';
