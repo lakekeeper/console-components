@@ -17,7 +17,134 @@
       </v-btn>
     </v-sheet>
 
-    <v-divider />
+    <!-- Search -->
+    <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
+      <v-select
+        v-model="selectedSearchWarehouse"
+        :items="warehouseOptions"
+        density="compact"
+        variant="outlined"
+        placeholder="Select warehouse to search…"
+        hide-details
+        clearable
+        class="filter-field mb-1">
+        <template #prepend-inner>
+          <v-icon size="x-small">mdi-warehouse</v-icon>
+        </template>
+      </v-select>
+      <v-text-field
+        v-model="searchQuery"
+        density="compact"
+        variant="outlined"
+        placeholder="Search tables & views…"
+        hide-details
+        clearable
+        class="filter-field"
+        :loading="isSearching"
+        :disabled="!selectedSearchWarehouse"
+        @keyup.enter="performSearch"
+        @click:clear="clearSearch">
+        <template #prepend-inner>
+          <v-icon size="x-small">mdi-magnify</v-icon>
+        </template>
+        <template #append-inner>
+          <v-btn
+            icon
+            size="x-small"
+            variant="text"
+            :disabled="!searchQuery || isSearching || !selectedSearchWarehouse"
+            @click="performSearch"
+            title="Search warehouse (fuzzy)">
+            <v-icon size="small">mdi-arrow-right</v-icon>
+          </v-btn>
+        </template>
+      </v-text-field>
+    </v-sheet>
+
+    <v-divider class="border-opacity-25" />
+
+    <!-- Search Results -->
+    <v-sheet
+      v-if="hasSearched"
+      color="transparent"
+      class="flex-shrink-0"
+      style="max-height: 240px; overflow-y: auto">
+      <div v-if="isSearching" class="text-center py-3">
+        <v-progress-circular color="primary" indeterminate size="20" />
+        <div class="text-caption mt-1">Searching…</div>
+      </div>
+      <div v-else-if="searchResults.length === 0" class="text-center py-3">
+        <v-icon size="24" color="grey">mdi-table-search</v-icon>
+        <div class="text-caption mt-1 text-grey">No results found</div>
+      </div>
+      <div v-else>
+        <div class="d-flex align-center px-3 pt-2">
+          <span class="text-caption text-medium-emphasis flex-grow-1">
+            {{ searchResults.length }} result(s)
+          </span>
+          <v-checkbox
+            v-model="visualStore.dismissSearchOnClick"
+            density="compact"
+            hide-details
+            class="flex-grow-0 mr-1"
+            style="transform: scale(0.7); transform-origin: right center"
+            title="Auto-close search results after clicking a result">
+            <template #label>
+              <span class="text-caption" style="font-size: 0.65rem !important; white-space: nowrap">
+                Auto-close
+              </span>
+            </template>
+          </v-checkbox>
+          <v-btn
+            size="x-small"
+            variant="text"
+            @click="dismissSearch"
+            title="Dismiss search results">
+            <v-icon size="small">mdi-close</v-icon>
+          </v-btn>
+        </div>
+        <v-list density="compact" class="pa-2 pt-0 search-results-list" bg-color="transparent">
+          <v-list-item
+            v-for="result in searchResults"
+            :key="result.id"
+            density="compact"
+            class="search-result-item"
+            @click="handleSearchResultClick(result)">
+            <template #prepend>
+              <v-icon size="small" :color="result.type === 'table' ? 'blue' : 'green'">
+                {{ result.type === 'table' ? 'mdi-table' : 'mdi-eye-outline' }}
+              </v-icon>
+            </template>
+            <v-list-item-title class="text-caption">
+              {{ result.name }}
+            </v-list-item-title>
+            <v-list-item-subtitle class="text-caption" style="font-size: 0.65rem !important">
+              {{ result.namespace }}
+            </v-list-item-subtitle>
+            <template #append>
+              <v-chip
+                v-if="result.distance !== null && result.distance !== undefined"
+                size="x-small"
+                :color="
+                  result.distance <= 0.2 ? 'success' : result.distance <= 0.5 ? 'warning' : 'error'
+                "
+                variant="flat">
+                {{ Math.round((1 - result.distance) * 100) }}%
+              </v-chip>
+              <v-btn
+                icon
+                size="x-small"
+                variant="text"
+                @click.stop="insertSearchResult(result)"
+                title="Insert into SQL editor">
+                <v-icon size="small">mdi-plus-circle-outline</v-icon>
+              </v-btn>
+            </template>
+          </v-list-item>
+        </v-list>
+      </div>
+      <v-divider class="border-opacity-25" />
+    </v-sheet>
 
     <!-- Loading state -->
     <div v-if="isLoading && treeItems.length === 0" class="text-center py-4">
@@ -95,6 +222,8 @@
         <template v-slot:title="{ item }">
           <div
             class="tree-item-container"
+            :class="{ 'tree-item-active': item.id === lastFocusedNodeId }"
+            :data-node-id="item.id"
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
             <span class="tree-item-title text-caption" :title="item.fieldType || item.name">
@@ -145,11 +274,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, computed, nextTick } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 // import { useUserStore } from '@/stores/user';
+import { Type } from '@/common/enums';
 import type { AttachedCatalog } from '../composables/loqe/types';
+import type { SearchTabular } from '@/gen/management/types.gen';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
 
@@ -212,6 +343,32 @@ const openedItems = ref<string[]>([]);
 const hoveredItem = ref<string | null>(null);
 const isLoading = ref(false);
 
+// Search state
+const searchQuery = ref('');
+const selectedSearchWarehouse = ref<string | null>(null);
+const isSearching = ref(false);
+const hasSearched = ref(false);
+const lastFocusedNodeId = ref<string | null>(null);
+const searchResults = ref<
+  {
+    id: string;
+    name: string;
+    namespace: string;
+    type: string;
+    distance: number | null;
+    warehouseId: string;
+    warehouseName: string;
+    namespaceId: string;
+  }[]
+>([]);
+
+// Warehouse options for search picker
+const warehouseOptions = computed(() =>
+  treeItems.value
+    .filter((item) => item.type === 'warehouse')
+    .map((item) => ({ title: item.name, value: item.warehouseId })),
+);
+
 // Cached warehouse metadata (warehouseId → name)
 const warehouseNames = new Map<string, string>();
 
@@ -229,6 +386,130 @@ function isWarehouseAttached(warehouseId: string): boolean {
 
 function getCatalogUrl(): string {
   return functions.icebergCatalogUrlSuffixed();
+}
+
+// ── Search ────────────────────────────────────────────────────────────
+
+async function performSearch() {
+  if (!searchQuery.value?.trim() || !selectedSearchWarehouse.value) return;
+
+  isSearching.value = true;
+  hasSearched.value = true;
+
+  try {
+    const response = await functions.searchTabular(selectedSearchWarehouse.value, {
+      search: searchQuery.value.trim(),
+    });
+
+    const whName = warehouseNames.get(selectedSearchWarehouse.value) || '';
+
+    searchResults.value = (response.tabulars || []).map((result: SearchTabular) => ({
+      id: result['tabular-id'].id,
+      name: result['tabular-name'],
+      namespace: result['namespace-name'].join('.'),
+      type: result['tabular-id'].type,
+      distance: result.distance ?? null,
+      warehouseId: selectedSearchWarehouse.value!,
+      warehouseName: whName,
+      namespaceId: result['namespace-name'].join('.'),
+    }));
+  } catch (error: any) {
+    console.error('[LoQE Tree] Search failed:', error);
+    searchResults.value = [];
+    visualStore.setSnackbarMsg({
+      function: 'searchTabular',
+      text: error?.error?.message || error?.message || 'Search failed',
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.ERROR,
+    });
+  } finally {
+    isSearching.value = false;
+  }
+}
+
+function clearSearch() {
+  searchQuery.value = '';
+  hasSearched.value = false;
+  searchResults.value = [];
+}
+
+function dismissSearch() {
+  hasSearched.value = false;
+  searchResults.value = [];
+}
+
+async function expandTreeToPath(warehouseId: string, namespacePath: string) {
+  const whNodeId = `wh-${warehouseId}`;
+  const whNode = findItemById(treeItems.value, whNodeId);
+  if (!whNode) return;
+
+  if (!whNode.loaded) {
+    await loadNamespacesForWarehouse(whNode);
+  }
+  if (!openedItems.value.includes(whNodeId)) {
+    openedItems.value = [...openedItems.value, whNodeId];
+  }
+
+  const segments = namespacePath.split('.');
+  let currentPath = '';
+
+  for (let i = 0; i < segments.length; i++) {
+    currentPath = i === 0 ? segments[0] : `${currentPath}.${segments[i]}`;
+    const nsNodeId = `ns-${warehouseId}-${currentPath}`;
+    const nsNode = findItemById(treeItems.value, nsNodeId);
+    if (!nsNode) break;
+
+    if (!nsNode.loaded) {
+      await loadChildrenForNamespace(nsNode);
+    }
+    if (!openedItems.value.includes(nsNodeId)) {
+      openedItems.value = [...openedItems.value, nsNodeId];
+    }
+  }
+}
+
+async function handleSearchResultClick(result: (typeof searchResults.value)[0]) {
+  // Collapse previously focused search result table/view
+  if (lastFocusedNodeId.value && openedItems.value.includes(lastFocusedNodeId.value)) {
+    openedItems.value = openedItems.value.filter((id) => id !== lastFocusedNodeId.value);
+  }
+
+  // Expand tree to the result's namespace
+  await expandTreeToPath(result.warehouseId, result.namespaceId);
+
+  // Expand the table/view node itself to show its fields
+  const prefix = result.type === 'table' ? 'table' : 'view';
+  const itemNodeId = `${prefix}-${result.warehouseId}-${result.namespaceId}-${result.name}`;
+  const itemNode = findItemById(treeItems.value, itemNodeId);
+  if (itemNode && !itemNode.loaded) {
+    await loadFieldsForTableOrView(itemNode);
+  }
+  if (!openedItems.value.includes(itemNodeId)) {
+    openedItems.value = [...openedItems.value, itemNodeId];
+  }
+  lastFocusedNodeId.value = itemNodeId;
+
+  // Auto-dismiss search results if the option is enabled
+  if (visualStore.dismissSearchOnClick) {
+    dismissSearch();
+  }
+
+  // Scroll the node into view after DOM settles
+  await nextTick();
+  await nextTick();
+  const el = document.querySelector(`[data-node-id="${itemNodeId}"]`);
+  el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function insertSearchResult(result: (typeof searchResults.value)[0]) {
+  emit('item-selected', {
+    type: result.type,
+    warehouseId: result.warehouseId,
+    warehouseName: result.warehouseName,
+    namespaceId: result.namespaceId,
+    name: result.name,
+  });
 }
 
 // ── Load warehouses ───────────────────────────────────────────────────
@@ -492,7 +773,7 @@ function findItemById(items: TreeItem[], id: string): TreeItem | null {
   return null;
 }
 
-// ── Icon/color helpers (same as WarehouseNavigationTree) ──────────────
+// ── Icon/color helpers ────────────────────────────────────────────────
 
 function getTypeIcon(fieldType: string): string {
   const type = fieldType.toLowerCase();
@@ -642,5 +923,40 @@ watch(projectId, () => {
 
 .tree-item-container:hover .tree-item-insert-btn {
   opacity: 1 !important;
+}
+
+.tree-item-active {
+  background-color: rgba(var(--v-theme-primary), 0.15);
+  border-radius: 4px;
+  margin: -2px -4px;
+  padding: 2px 4px;
+}
+
+.tree-item-active .tree-item-title {
+  color: rgb(var(--v-theme-primary));
+  font-weight: 600;
+}
+
+.filter-field :deep(.v-field) {
+  font-size: 0.75rem !important;
+}
+
+.filter-field :deep(.v-field__input) {
+  min-height: 28px !important;
+  padding: 4px 8px !important;
+}
+
+.search-results-list :deep(.v-list-item) {
+  min-height: 36px !important;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  cursor: pointer;
+}
+
+.search-results-list :deep(.v-list-item:hover) {
+  background-color: rgba(var(--v-theme-primary), 0.1) !important;
+}
+
+.search-result-item :deep(.v-list-item-subtitle) {
+  opacity: 0.6;
 }
 </style>
