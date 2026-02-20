@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.27](https://github.com/lakekeeper/console-components/compare/v0.2.26...v0.2.27) (2026-02-20)
+
+
+### Bug Fixes
+
+* add fuzzy search with scroll-to-node and active highlight ([#77](https://github.com/lakekeeper/console-components/issues/77)) ([7e1fd7b](https://github.com/lakekeeper/console-components/commit/7e1fd7b3a9121d157e706d001d9d22869450db90))
+
 ## [0.2.26](https://github.com/lakekeeper/console-components/compare/v0.2.25...v0.2.26) (2026-02-20)
 
 
