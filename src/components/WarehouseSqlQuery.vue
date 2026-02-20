@@ -1,3 +1,4 @@
+<!-- @deprecated Use LoQEExplorer instead. This component will be removed in a future release. -->
 <template>
   <v-container fluid class="pa-0">
     <div style="display: flex; height: calc(100vh - 200px); position: relative">

@@ -131,14 +131,14 @@ const tableRows = computed(() => {
   });
 });
 
-// Check if preview is available - following same logic as WarehouseSqlQuery
+// Check if preview is available
 const isPreviewAvailable = computed(() => {
   // Wait for storage type to be loaded first
   if (!props.storageType) {
     return { available: false, reason: 'Loading warehouse information...' };
   }
 
-  // Use composable for storage validation (same as WarehouseSqlQuery)
+  // Use composable for storage validation
   if (!storageValidation.isOperationAvailable.value.available) {
     return {
       available: false,
