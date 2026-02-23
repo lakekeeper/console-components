@@ -399,6 +399,20 @@
               <!-- Storage Layout -->
               <v-divider class="my-4"></v-divider>
               <h4 class="text-subtitle-2 mb-2">Storage Layout</h4>
+              <v-alert
+                v-if="storageLayoutType !== 'default'"
+                type="warning"
+                variant="tonal"
+                density="compact"
+                class="mb-4">
+                <strong>Always include <code>{uuid}</code> in templates.</strong>
+                Storage paths are assigned once at creation time and are never updated when a table
+                or namespace is renamed. If a template relies solely on <code>{name}</code> and an
+                object is later renamed and re-created with the same name, Lakekeeper will reject
+                the creation because the path is already in use. Using <code>{uuid}</code> (alone
+                or combined with <code>{name}</code>) guarantees each object always has a distinct,
+                collision-free storage path.
+              </v-alert>
               <v-select
                 v-model="storageLayoutType"
                 :items="storageLayoutOptions"
