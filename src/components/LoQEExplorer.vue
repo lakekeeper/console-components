@@ -10,21 +10,16 @@
 
       <v-spacer />
 
+      <v-chip color="primary" size="small" variant="tonal" class="mr-2">
+        <v-icon start size="x-small">mdi-check-circle</v-icon>
+        powered by DuckDB WASM
+      </v-chip>
       <!-- Status chips -->
       <v-chip v-if="loqe.isInitializing.value" color="info" size="small" class="mr-2">
         <v-icon start size="x-small">mdi-loading mdi-spin</v-icon>
         Initialising…
       </v-chip>
 
-      <v-chip
-        v-else-if="loqe.isInitialized.value"
-        color="primary"
-        size="small"
-        variant="tonal"
-        class="mr-2">
-        <v-icon start size="x-small">mdi-check-circle</v-icon>
-        powered by DuckDB WASM
-      </v-chip>
       <v-chip
         v-else-if="loqe.isInitialized.value"
         color="success"
