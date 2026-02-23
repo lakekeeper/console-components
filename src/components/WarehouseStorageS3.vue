@@ -399,6 +399,76 @@
           </v-expansion-panel>
         </v-expansion-panels>
 
+        <!-- Storage Layout Section -->
+        <v-expansion-panels class="mb-4" variant="accordion">
+          <v-expansion-panel elevation="1" bg-color="grey-lighten-5">
+            <v-expansion-panel-title>
+              <div class="d-flex align-center">
+                <v-icon class="mr-2" color="primary">mdi-folder-table-outline</v-icon>
+                <div>
+                  <div class="text-subtitle-1 font-weight-medium">Storage Layout</div>
+                  <div class="text-caption text-medium-emphasis">
+                    Optional: Control how namespace and table paths are constructed
+                  </div>
+                </div>
+              </div>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+                Controls how namespace and table paths are constructed under the warehouse base
+                location. Templates may use
+                <code>{uuid}</code>
+                and
+                <code>{name}</code>
+                as placeholders.
+              </v-alert>
+              <v-select
+                v-model="storageLayoutType"
+                :items="storageLayoutOptions"
+                item-title="name"
+                item-value="code"
+                label="Layout Type"
+                hint="How directories are organized under the warehouse base location"
+                persistent-hint>
+                <template #item="{ props: itemProps, item }">
+                  <v-list-item v-bind="itemProps" :subtitle="item.raw.description"></v-list-item>
+                </template>
+              </v-select>
+
+              <v-text-field
+                v-if="storageLayoutType === 'table-only'"
+                v-model="storageLayoutTable"
+                label="Table Template *"
+                placeholder="{uuid}"
+                hint="Template for table path segments. Must contain {uuid} to avoid collisions."
+                persistent-hint
+                class="mt-4"
+                :rules="[rules.required, rules.containsUuid]"></v-text-field>
+
+              <template
+                v-if="
+                  storageLayoutType === 'parent-namespace-and-table' ||
+                  storageLayoutType === 'full-hierarchy'
+                ">
+                <v-text-field
+                  v-model="storageLayoutNamespace"
+                  label="Namespace Template"
+                  placeholder="{name}"
+                  hint="Template for namespace path segments. Use {uuid} and/or {name}."
+                  persistent-hint
+                  class="mt-4"></v-text-field>
+                <v-text-field
+                  v-model="storageLayoutTable"
+                  label="Table Template"
+                  placeholder="{name}-{uuid}"
+                  hint="Template for table path segments. Use {uuid} and/or {name}."
+                  persistent-hint
+                  class="mt-2"></v-text-field>
+              </template>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+
         <v-divider class="my-4"></v-divider>
 
         <!-- Credential Vending Options -->
@@ -633,6 +703,7 @@ import {
   S3Credential,
   S3Profile,
   StorageCredential,
+  StorageLayout,
   StorageProfile,
 } from '@/gen/management/types.gen';
 import { Intent, ObjectType } from '@/common/enums';
@@ -691,6 +762,79 @@ const warehouseObjectData = reactive<{
 
 // Track whether to save as JSON
 const shouldSaveAsJson = ref(false);
+
+// Storage Layout management
+const storageLayoutOptions = [
+  {
+    name: 'Default',
+    code: 'default',
+    description: 'Same as parent-namespace-and-table with {uuid} segments',
+  },
+  {
+    name: 'Table Only',
+    code: 'table-only',
+    description: 'No namespace directories; tables directly under base location',
+  },
+  {
+    name: 'Parent Namespace & Table',
+    code: 'parent-namespace-and-table',
+    description: 'One directory per direct-parent namespace, one per table',
+  },
+  {
+    name: 'Full Hierarchy',
+    code: 'full-hierarchy',
+    description: 'One directory per namespace level, one per table',
+  },
+];
+
+const storageLayoutType = ref<
+  'default' | 'table-only' | 'parent-namespace-and-table' | 'full-hierarchy'
+>('default');
+const storageLayoutTable = ref('');
+const storageLayoutNamespace = ref('');
+
+const buildStorageLayout = (): StorageLayout | null => {
+  if (storageLayoutType.value === 'default') return { type: 'default' };
+  if (storageLayoutType.value === 'table-only') {
+    return { type: 'table-only', table: storageLayoutTable.value || '{uuid}' };
+  }
+  if (storageLayoutType.value === 'parent-namespace-and-table') {
+    return {
+      type: 'parent-namespace-and-table',
+      namespace: storageLayoutNamespace.value || '{name}',
+      table: storageLayoutTable.value || '{name}-{uuid}',
+    };
+  }
+  if (storageLayoutType.value === 'full-hierarchy') {
+    return {
+      type: 'full-hierarchy',
+      namespace: storageLayoutNamespace.value || '{name}',
+      table: storageLayoutTable.value || '{name}-{uuid}',
+    };
+  }
+  return null;
+};
+
+watch(storageLayoutType, () => {
+  syncStorageLayoutToProfile();
+});
+
+watch(storageLayoutTable, () => {
+  syncStorageLayoutToProfile();
+});
+
+watch(storageLayoutNamespace, () => {
+  syncStorageLayoutToProfile();
+});
+
+const syncStorageLayoutToProfile = () => {
+  const layout = buildStorageLayout();
+  if (layout) {
+    warehouseObjectData['storage-profile']['storage-layout'] = layout;
+  } else {
+    warehouseObjectData['storage-profile']['storage-layout'] = undefined;
+  }
+};
 
 // STS Session Tags management
 const stsSessionTagsArray = ref<Array<{ key: string; value: string }>>([]);
@@ -755,6 +899,8 @@ const regions = [
 const rules = {
   required: (value: any) => !!value || 'Required.',
   noSlash: (value: string) => !value.includes('/') || 'Cannot contain "/"',
+  containsUuid: (value: string) =>
+    !value || value.includes('{uuid}') || 'Must contain {uuid} to avoid collisions',
   // Dynamic rules based on credential type
   requiredForAccessKey: (value: any) => {
     if (warehouseObjectData['storage-credential']['credential-type'] === 'access-key') {
@@ -945,6 +1091,21 @@ const emitNewProfile = () => {
 onMounted(() => {
   if (props.warehouseObject) {
     Object.assign(warehouseObjectData, props.warehouseObject);
+
+    // Initialize storage layout from existing data
+    const existingLayout = warehouseObjectData['storage-profile']['storage-layout'];
+    if (existingLayout) {
+      storageLayoutType.value = existingLayout.type;
+      if (existingLayout.type === 'table-only') {
+        storageLayoutTable.value = existingLayout.table || '';
+      } else if (
+        existingLayout.type === 'parent-namespace-and-table' ||
+        existingLayout.type === 'full-hierarchy'
+      ) {
+        storageLayoutNamespace.value = existingLayout.namespace || '';
+        storageLayoutTable.value = existingLayout.table || '';
+      }
+    }
 
     // Initialize STS session tags array from existing data
     const existingTags = warehouseObjectData['storage-profile']['sts-session-tags'];
