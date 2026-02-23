@@ -395,40 +395,17 @@
                     hint="Default: 3600 seconds (1 hour)"></v-text-field>
                 </v-col>
               </v-row>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
 
-        <!-- Storage Layout Section -->
-        <v-expansion-panels class="mb-4" variant="accordion">
-          <v-expansion-panel elevation="1" bg-color="grey-lighten-5">
-            <v-expansion-panel-title>
-              <div class="d-flex align-center">
-                <v-icon class="mr-2" color="primary">mdi-folder-table-outline</v-icon>
-                <div>
-                  <div class="text-subtitle-1 font-weight-medium">Storage Layout</div>
-                  <div class="text-caption text-medium-emphasis">
-                    Optional: Control how namespace and table paths are constructed
-                  </div>
-                </div>
-              </div>
-            </v-expansion-panel-title>
-            <v-expansion-panel-text>
-              <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-                Controls how namespace and table paths are constructed under the warehouse base
-                location. Templates may use
-                <code>{uuid}</code>
-                and
-                <code>{name}</code>
-                as placeholders.
-              </v-alert>
+              <!-- Storage Layout -->
+              <v-divider class="my-4"></v-divider>
+              <h4 class="text-subtitle-2 mb-2">Storage Layout</h4>
               <v-select
                 v-model="storageLayoutType"
                 :items="storageLayoutOptions"
                 item-title="name"
                 item-value="code"
                 label="Layout Type"
-                hint="How directories are organized under the warehouse base location"
+                hint="How namespace and table paths are constructed under the base location"
                 persistent-hint>
                 <template #item="{ props: itemProps, item }">
                   <v-list-item v-bind="itemProps" :subtitle="item.raw.description"></v-list-item>

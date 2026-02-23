@@ -214,29 +214,22 @@
           placeholder="path/to/warehouse"
           hint="Optional: Subdirectory path within the filesystem for warehouse data"></v-text-field>
 
-        <!-- Storage Layout Section -->
+        <!-- Advanced Options -->
         <v-expansion-panels class="mb-4" variant="accordion">
           <v-expansion-panel elevation="1" bg-color="grey-lighten-5">
             <v-expansion-panel-title>
               <div class="d-flex align-center">
-                <v-icon class="mr-2" color="primary">mdi-folder-table-outline</v-icon>
+                <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
                 <div>
-                  <div class="text-subtitle-1 font-weight-medium">Storage Layout</div>
+                  <div class="text-subtitle-1 font-weight-medium">Advanced Options</div>
                   <div class="text-caption text-medium-emphasis">
-                    Optional: Control how namespace and table paths are constructed
+                    Optional: Storage layout and other advanced settings
                   </div>
                 </div>
               </div>
             </v-expansion-panel-title>
             <v-expansion-panel-text>
-              <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-                Controls how namespace and table paths are constructed under the warehouse base
-                location. Templates may use
-                <code>{uuid}</code>
-                and
-                <code>{name}</code>
-                as placeholders.
-              </v-alert>
+              <h4 class="text-subtitle-2 mb-2">Storage Layout</h4>
               <v-select
                 v-model="storageLayoutType"
                 :items="storageLayoutOptions"
