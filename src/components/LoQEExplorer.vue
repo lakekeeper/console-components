@@ -18,7 +18,7 @@
 
       <v-chip
         v-else-if="loqe.isInitialized.value"
-        color="success"
+        color="primary"
         size="small"
         variant="tonal"
         class="mr-2">
