@@ -23,6 +23,15 @@
         variant="tonal"
         class="mr-2">
         <v-icon start size="x-small">mdi-check-circle</v-icon>
+        powered by DuckDB WASM
+      </v-chip>
+      <v-chip
+        v-else-if="loqe.isInitialized.value"
+        color="success"
+        size="small"
+        variant="tonal"
+        class="mr-2">
+        <v-icon start size="x-small">mdi-check-circle</v-icon>
         Ready
       </v-chip>
 
