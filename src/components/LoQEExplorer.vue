@@ -6,14 +6,13 @@
         <v-icon class="mr-1" size="small">mdi-database-cog-outline</v-icon>
         LoQE
         <span class="text-caption text-grey ml-1">Local Query Engine</span>
+        <v-chip color="primary" size="x-small" variant="tonal" class="ml-2" label>
+          DuckDB WASM
+        </v-chip>
       </v-toolbar-title>
 
       <v-spacer />
 
-      <v-chip color="primary" size="small" variant="tonal" class="mr-2">
-        <v-icon start size="x-small">mdi-check-circle</v-icon>
-        powered by DuckDB WASM
-      </v-chip>
       <!-- Status chips -->
       <v-chip v-if="loqe.isInitializing.value" color="info" size="small" class="mr-2">
         <v-icon start size="x-small">mdi-loading mdi-spin</v-icon>
