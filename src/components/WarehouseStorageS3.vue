@@ -809,9 +809,9 @@ const storageLayoutType = ref<'default' | 'table-only' | 'full-hierarchy'>('defa
 const storageLayoutTable = ref('{uuid}');
 const storageLayoutNamespace = ref('{uuid}');
 
-const fakeUuid = () => Math.random().toString(36).substring(2, 14);
+const exampleUuid = '00000000-0000-0000-0000-000000000000';
 const renderTemplate = (tpl: string, name: string) =>
-  tpl.replace(/\{name\}/g, name).replace(/\{uuid\}/g, fakeUuid());
+  tpl.replace(/\{name\}/g, name).replace(/\{uuid\}/g, exampleUuid);
 
 const storageLayoutExample = computed(() => {
   const nsTpl = storageLayoutNamespace.value || '{uuid}';
