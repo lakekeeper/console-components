@@ -458,8 +458,9 @@
                 variant="tonal"
                 density="compact"
                 class="mt-2">
-                Template does not contain <code>{uuid}</code>. This may cause collisions if tables
-                are renamed and re-created.
+                Template does not contain
+                <code>{uuid}</code>
+                . This may cause collisions if tables are renamed and re-created.
               </v-alert>
               <v-alert
                 v-if="storageLayoutType === 'table-only'"
@@ -494,8 +495,9 @@
                   variant="tonal"
                   density="compact"
                   class="mt-2">
-                  Table template does not contain <code>{uuid}</code>. This may cause collisions if
-                  tables are renamed and re-created.
+                  Table template does not contain
+                  <code>{uuid}</code>
+                  . This may cause collisions if tables are renamed and re-created.
                 </v-alert>
                 <v-alert type="info" variant="tonal" density="compact" class="mt-3">
                   <strong>Example path</strong>
