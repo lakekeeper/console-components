@@ -105,11 +105,53 @@
               </v-list-item-subtitle>
             </v-list-item>
 
+            <!-- Active Partition Details -->
+            <v-list-item v-if="activePartitionSpec">
+              <v-list-item-title>Active Partition (spec {{ activePartitionSpec['spec-id'] }})</v-list-item-title>
+              <v-list-item-subtitle>
+                <template v-if="activePartitionSpec.fields.length === 0">
+                  <v-chip size="small" color="grey" variant="flat">Unpartitioned</v-chip>
+                </template>
+                <template v-else>
+                  <v-chip
+                    v-for="field in activePartitionSpec.fields"
+                    :key="field.name"
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    class="mr-1 mb-1">
+                    {{ formatPartitionField(field) }}
+                  </v-chip>
+                </template>
+              </v-list-item-subtitle>
+            </v-list-item>
+
             <v-list-item
               v-if="table.metadata['sort-orders'] && table.metadata['sort-orders'].length > 0">
               <v-list-item-title>Sort Orders</v-list-item-title>
               <v-list-item-subtitle>
                 {{ table.metadata['sort-orders'].length }}
+              </v-list-item-subtitle>
+            </v-list-item>
+
+            <!-- Active Sort Order Details -->
+            <v-list-item v-if="activeSortOrder">
+              <v-list-item-title>Active Sort Order (order {{ activeSortOrder['order-id'] }})</v-list-item-title>
+              <v-list-item-subtitle>
+                <template v-if="activeSortOrder.fields.length === 0">
+                  <v-chip size="small" color="grey" variant="flat">Unsorted</v-chip>
+                </template>
+                <template v-else>
+                  <v-chip
+                    v-for="(field, idx) in activeSortOrder.fields"
+                    :key="idx"
+                    size="small"
+                    color="info"
+                    variant="outlined"
+                    class="mr-1 mb-1">
+                    {{ formatSortField(field) }}
+                  </v-chip>
+                </template>
               </v-list-item-subtitle>
             </v-list-item>
           </v-list>
@@ -179,6 +221,82 @@
               </v-treeview>
             </v-expansion-panel-text>
           </v-expansion-panel>
+
+          <!-- Schema Evolution -->
+          <v-expansion-panel v-if="allSchemas.length > 1">
+            <v-expansion-panel-title>
+              <div class="d-flex align-center">
+                <v-icon class="mr-2">mdi-history</v-icon>
+                Schema Evolution
+                <v-chip size="x-small" color="primary" variant="outlined" class="ml-2">
+                  {{ allSchemas.length }} versions
+                </v-chip>
+              </div>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-table density="compact">
+                <thead>
+                  <tr>
+                    <th style="width: 100px">Schema ID</th>
+                    <th style="width: 80px">Fields</th>
+                    <th>Changes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="schema in allSchemas"
+                    :key="schema['schema-id']"
+                    :class="{
+                      'font-weight-medium':
+                        schema['schema-id'] === table.metadata['current-schema-id'],
+                    }">
+                    <td>
+                      {{ schema['schema-id'] }}
+                      <v-chip
+                        v-if="schema['schema-id'] === table.metadata['current-schema-id']"
+                        size="x-small"
+                        color="success"
+                        variant="flat"
+                        class="ml-1">
+                        current
+                      </v-chip>
+                    </td>
+                    <td>{{ schema.fields?.length || 0 }}</td>
+                    <td>
+                      <template v-if="schemaFieldDiffs[schema['schema-id'] ?? 0]">
+                        <v-chip
+                          v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].added"
+                          :key="'add-' + name"
+                          size="x-small"
+                          color="success"
+                          variant="flat"
+                          class="mr-1 mb-1">
+                          + {{ name }}
+                        </v-chip>
+                        <v-chip
+                          v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].removed"
+                          :key="'rm-' + name"
+                          size="x-small"
+                          color="error"
+                          variant="flat"
+                          class="mr-1 mb-1">
+                          - {{ name }}
+                        </v-chip>
+                        <span
+                          v-if="
+                            schemaFieldDiffs[schema['schema-id'] ?? 0].added.length === 0 &&
+                            schemaFieldDiffs[schema['schema-id'] ?? 0].removed.length === 0
+                          "
+                          class="text-grey">
+                          {{ schema['schema-id'] === 0 ? 'Initial schema' : 'No field changes' }}
+                        </span>
+                      </template>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
         </v-expansion-panels>
       </v-col>
     </v-row>
@@ -197,7 +315,7 @@ import { computed } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import { transformFields } from '../common/schemaUtils';
-import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
+import type { LoadTableResult, Snapshot, PartitionField, SortField } from '../gen/iceberg/types.gen';
 
 // Props
 const props = defineProps<{
@@ -234,6 +352,90 @@ const getCurrentSnapshot = (): Snapshot | null => {
     ) || null
   );
 };
+
+// Build a map of field-id → field-name across all schemas for resolving source-ids
+const fieldNameMap = computed(() => {
+  const map: Record<number, string> = {};
+  if (props.table.metadata.schemas) {
+    for (const schema of props.table.metadata.schemas) {
+      if (schema.fields) {
+        for (const field of schema.fields) {
+          map[field.id] = field.name;
+        }
+      }
+    }
+  }
+  return map;
+});
+
+const resolveFieldName = (sourceId: number): string => {
+  return fieldNameMap.value[sourceId] || `field-${sourceId}`;
+};
+
+const formatPartitionField = (field: PartitionField): string => {
+  const name = resolveFieldName(field['source-id']);
+  if (field.transform === 'identity') return name;
+  return `${field.transform}(${name})`;
+};
+
+const formatSortField = (field: SortField): string => {
+  const name = resolveFieldName(field['source-id']);
+  const transform = field.transform === 'identity' ? name : `${field.transform}(${name})`;
+  return `${transform} ${field.direction} ${field['null-order']}`;
+};
+
+// Active partition spec
+const activePartitionSpec = computed(() => {
+  const specs = props.table.metadata['partition-specs'];
+  const defaultId = props.table.metadata['default-spec-id'];
+  if (!specs) return null;
+  return specs.find((s) => s['spec-id'] === defaultId) || specs[0] || null;
+});
+
+// Active sort order
+const activeSortOrder = computed(() => {
+  const orders = props.table.metadata['sort-orders'];
+  const defaultId = props.table.metadata['default-sort-order-id'];
+  if (!orders) return null;
+  return orders.find((o) => o['order-id'] === defaultId) || orders[0] || null;
+});
+
+// Schema evolution — collect all schemas and diff fields
+const allSchemas = computed(() => {
+  const schemas = props.table.metadata.schemas;
+  if (!schemas) return [];
+  return [...schemas].sort((a, b) => (a['schema-id'] ?? 0) - (b['schema-id'] ?? 0));
+});
+
+const schemaFieldDiffs = computed(() => {
+  const schemas = allSchemas.value;
+  const diffs: Record<number, { added: string[]; removed: string[] }> = {};
+
+  for (let i = 0; i < schemas.length; i++) {
+    const schema = schemas[i];
+    const id = schema['schema-id'] ?? i;
+    if (i === 0) {
+      diffs[id] = { added: [], removed: [] };
+      continue;
+    }
+    const prevFields = new Set(
+      (schemas[i - 1].fields || []).map((f) => `${f.name}:${typeof f.type === 'string' ? f.type : 'complex'}`),
+    );
+    const currFields = new Set(
+      (schema.fields || []).map((f) => `${f.name}:${typeof f.type === 'string' ? f.type : 'complex'}`),
+    );
+    const added: string[] = [];
+    const removed: string[] = [];
+    for (const f of currFields) {
+      if (!prevFields.has(f)) added.push(f.split(':')[0]);
+    }
+    for (const f of prevFields) {
+      if (!currFields.has(f)) removed.push(f.split(':')[0]);
+    }
+    diffs[id] = { added, removed };
+  }
+  return diffs;
+});
 
 // Computed properties
 const currentSnapshot = computed(() => getCurrentSnapshot());
