@@ -398,7 +398,16 @@
 
               <!-- Storage Layout -->
               <v-divider class="my-4"></v-divider>
-              <h4 class="text-subtitle-2 mb-2">Storage Layout</h4>
+              <h4 class="text-subtitle-2 mb-2 d-flex align-center">
+                Storage Layout
+                <a
+                  href="https://docs.lakekeeper.io/docs/nightly/storage/#storage-layout"
+                  target="_blank"
+                  rel="noopener noreferrer">
+                  <v-icon class="ml-2" size="small" color="info">mdi-information-outline</v-icon>
+                  <v-tooltip activator="parent" location="top">More docs on Storage Layout</v-tooltip>
+                </a>
+              </h4>
               <v-alert
                 v-if="storageLayoutType !== 'default'"
                 type="warning"
@@ -443,23 +452,36 @@
                 class="mt-4"
                 :rules="[rules.required, rules.containsUuid]"></v-text-field>
 
-              <template
-                v-if="
-                  storageLayoutType === 'parent-namespace-and-table' ||
-                  storageLayoutType === 'full-hierarchy'
-                ">
+              <template v-if="storageLayoutType === 'parent-namespace-and-table'">
                 <v-text-field
                   v-model="storageLayoutNamespace"
                   label="Namespace Template"
-                  placeholder="{name}"
-                  hint="Template for namespace path segments. Use {uuid} and/or {name}."
+                  placeholder="{name}-{uuid}"
+                  hint="Only the direct parent namespace gets a directory. Path: base/<ns-segment>/<table-segment>"
                   persistent-hint
                   class="mt-4"></v-text-field>
                 <v-text-field
                   v-model="storageLayoutTable"
                   label="Table Template"
                   placeholder="{name}-{uuid}"
-                  hint="Template for table path segments. Use {uuid} and/or {name}."
+                  hint="Template for the table directory. Path example: base/parent_ns-001/<table-segment>"
+                  persistent-hint
+                  class="mt-2"></v-text-field>
+              </template>
+
+              <template v-if="storageLayoutType === 'full-hierarchy'">
+                <v-text-field
+                  v-model="storageLayoutNamespace"
+                  label="Namespace Template"
+                  placeholder="{name}-{uuid}"
+                  hint="Applied to every namespace level. Path: base/<ns1>/<ns2>/…/<table-segment>. E.g. grandparent/parent/table"
+                  persistent-hint
+                  class="mt-4"></v-text-field>
+                <v-text-field
+                  v-model="storageLayoutTable"
+                  label="Table Template"
+                  placeholder="{name}-{uuid}"
+                  hint="Template for the table directory. Path example: base/grandparent-001/parent-002/<table-segment>"
                   persistent-hint
                   class="mt-2"></v-text-field>
               </template>
@@ -776,12 +798,14 @@ const storageLayoutOptions = [
   {
     name: 'Parent Namespace & Table',
     code: 'parent-namespace-and-table',
-    description: 'One directory per direct-parent namespace, one per table',
+    description:
+      'base/<parent-ns-segment>/<table-segment> — only the direct parent namespace becomes a directory',
   },
   {
     name: 'Full Hierarchy',
     code: 'full-hierarchy',
-    description: 'One directory per namespace level, one per table',
+    description:
+      'base/<ns1-segment>/<ns2-segment>/…/<table-segment> — every namespace level becomes a directory',
   },
 ];
 
