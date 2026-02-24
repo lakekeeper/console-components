@@ -268,7 +268,11 @@
                 item-title="name"
                 item-value="code"
                 label="Layout Type"
-                :hint="storageLayoutType !== 'default' ? 'How directories are organized under the warehouse base location' : ''"
+                :hint="
+                  storageLayoutType !== 'default'
+                    ? 'How directories are organized under the warehouse base location'
+                    : ''
+                "
                 :persistent-hint="storageLayoutType !== 'default'">
                 <template #item="{ props: itemProps, item }">
                   <v-list-item v-bind="itemProps" :subtitle="item.raw.description"></v-list-item>

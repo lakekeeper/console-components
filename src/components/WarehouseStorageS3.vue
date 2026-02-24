@@ -437,7 +437,11 @@
                 item-title="name"
                 item-value="code"
                 label="Layout Type"
-                :hint="storageLayoutType !== 'default' ? 'How namespace and table paths are constructed under the base location' : ''"
+                :hint="
+                  storageLayoutType !== 'default'
+                    ? 'How namespace and table paths are constructed under the base location'
+                    : ''
+                "
                 :persistent-hint="storageLayoutType !== 'default'">
                 <template #item="{ props: itemProps, item }">
                   <v-list-item v-bind="itemProps" :subtitle="item.raw.description"></v-list-item>
