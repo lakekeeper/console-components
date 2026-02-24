@@ -66,7 +66,6 @@ import SnackbarMessage from './components/SnackbarMessage.vue';
 import BreadcrumbsFromUrl from './components/BreadcrumbsFromUrl.vue';
 import DeleteDialog from './components/DeleteDialog.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
-import ServerInformation from './components/ServerInformation.vue';
 import ServerOverview from './components/ServerOverview.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
@@ -92,7 +91,6 @@ export {
   BreadcrumbsFromUrl,
   DeleteDialog,
   TaskConfigDialog,
-  ServerInformation,
   ServerOverview,
   UserManager,
   ProjectNameAddOrEditDialog,
@@ -234,7 +232,6 @@ const components = {
   BreadcrumbsFromUrl,
   DeleteDialog,
   TaskConfigDialog,
-  ServerInformation,
   ServerOverview,
   UserManager,
   AuthenticationDisabledWarningBanner,

@@ -320,6 +320,96 @@
           </v-card-text>
         </v-card>
       </v-col>
+
+      <!-- UI Configuration Card — always rendered, no auth or server needed -->
+      <v-col cols="12">
+        <v-card>
+          <v-card-title class="d-flex align-center">
+            <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
+            UI Configuration
+          </v-card-title>
+          <v-divider></v-divider>
+          <v-card-text>
+            <v-table density="compact">
+              <thead>
+                <tr>
+                  <th class="text-left" style="width: 280px">Setting</th>
+                  <th class="text-left">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="font-weight-medium">Lakekeeper URL</td>
+                  <td>
+                    <code>{{ appConfig.icebergCatalogUrl || '(auto-detected from browser)' }}</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="font-weight-medium">Base URL Prefix</td>
+                  <td>
+                    <code>{{ appConfig.baseUrlPrefix || '(none)' }}</code>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="font-weight-medium">Authentication Enabled</td>
+                  <td>
+                    <v-chip
+                      :color="appConfig.enabledAuthentication ? 'success' : 'warning'"
+                      size="small"
+                      variant="flat">
+                      {{ appConfig.enabledAuthentication ? 'Yes' : 'No' }}
+                    </v-chip>
+                  </td>
+                </tr>
+                <template v-if="appConfig.enabledAuthentication">
+                  <tr>
+                    <td class="font-weight-medium">IdP Authority</td>
+                    <td>
+                      <code>{{ appConfig.idpAuthority || '(not set)' }}</code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="font-weight-medium">IdP Client ID</td>
+                    <td>
+                      <code>{{ appConfig.idpClientId || '(not set)' }}</code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="font-weight-medium">IdP Scope</td>
+                    <td>
+                      <code>{{ appConfig.idpScope || '(not set)' }}</code>
+                    </td>
+                  </tr>
+                  <tr v-if="appConfig.idpResource">
+                    <td class="font-weight-medium">IdP Resource</td>
+                    <td>
+                      <code>{{ appConfig.idpResource }}</code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="font-weight-medium">IdP Token Type</td>
+                    <td>
+                      <code>{{ appConfig.idpTokenType || 'access_token' }}</code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="font-weight-medium">IdP Redirect Path</td>
+                    <td>
+                      <code>{{ appConfig.idpRedirectPath || '(not set)' }}</code>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="font-weight-medium">IdP Logout Redirect Path</td>
+                    <td>
+                      <code>{{ appConfig.idpLogoutRedirectPath || '(not set)' }}</code>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </v-table>
+          </v-card-text>
+        </v-card>
+      </v-col>
     </v-row>
   </v-container>
 </template>
@@ -328,6 +418,7 @@
 import { onMounted, ref, inject } from 'vue';
 
 const functions = inject<any>('functions');
+const appConfig = inject<any>('appConfig', {});
 const projectInfo = ref<any>({});
 
 async function copyToClipboard(text: string) {
@@ -377,7 +468,12 @@ function formatDate(dateString: string): string {
 
 onMounted(async () => {
   if (functions) {
-    projectInfo.value = await functions.getServerInfo();
+    try {
+      projectInfo.value = await functions.getServerInfo();
+    } catch {
+      // Server info may fail if unauthenticated or server is down — that's OK,
+      // the UI Configuration section still renders.
+    }
   }
 });
 </script>
