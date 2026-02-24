@@ -236,7 +236,9 @@
                   target="_blank"
                   rel="noopener noreferrer">
                   <v-icon class="ml-2" size="small" color="info">mdi-information-outline</v-icon>
-                  <v-tooltip activator="parent" location="top">More docs on Storage Layout</v-tooltip>
+                  <v-tooltip activator="parent" location="top">
+                    More docs on Storage Layout
+                  </v-tooltip>
                 </a>
               </h4>
               <v-alert
