@@ -204,12 +204,20 @@
               <v-text-field
                 v-if="storageLayoutType === 'table-only'"
                 v-model="storageLayoutTable"
-                label="Table Template *"
+                label="Table Template"
                 placeholder="{uuid}"
-                hint="Template for table path segments. Must contain {uuid} to avoid collisions."
+                hint="Template for table path segments."
                 persistent-hint
-                class="mt-4"
-                :rules="[rules.required, rules.containsUuid]"></v-text-field>
+                class="mt-4"></v-text-field>
+              <v-alert
+                v-if="storageLayoutType === 'table-only' && !storageLayoutTable.includes('{uuid}')"
+                type="warning"
+                variant="tonal"
+                density="compact"
+                class="mt-2">
+                Template does not contain <code>{uuid}</code>. This may cause collisions if tables
+                are renamed and re-created.
+              </v-alert>
               <v-alert
                 v-if="storageLayoutType === 'table-only'"
                 type="info"
@@ -237,6 +245,15 @@
                   hint="Template for the table directory."
                   persistent-hint
                   class="mt-2"></v-text-field>
+                <v-alert
+                  v-if="!storageLayoutTable.includes('{uuid}')"
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                  class="mt-2">
+                  Table template does not contain <code>{uuid}</code>. This may cause collisions if
+                  tables are renamed and re-created.
+                </v-alert>
                 <v-alert type="info" variant="tonal" density="compact" class="mt-3">
                   <strong>Example path</strong>
                   (namespace "marketing", table "customer"):
@@ -503,8 +520,6 @@ watch(credentialType, (newValue) => {
 const rules = {
   required: (value: any) => !!value || 'Required.',
   noSlash: (value: string) => !value.includes('/') || 'Cannot contain "/"',
-  containsUuid: (value: string) =>
-    !value || value.includes('{uuid}') || 'Must contain {uuid} to avoid collisions',
   validJson: (value: string) => {
     try {
       JSON.parse(value);
