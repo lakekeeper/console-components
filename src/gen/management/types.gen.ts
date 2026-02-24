@@ -1684,44 +1684,41 @@ export type StorageCredential = (S3Credential & {
 });
 
 /**
- * Controls how namespace and table paths are constructed under the warehouse base location.
+ * Controls how namespace and tabular paths are constructed under the warehouse base location.
  *
- * - `default` / omitted: same as `parent-namespace-and-table` with `"{uuid}"` segments.
- * - `parent-namespace-and-table`: one directory per direct-parent namespace, one per table.
- * - `full-hierarchy`: one directory per namespace level, one per table.
- * - `table-only`: no namespace directories; all tables are placed directly under the base location.
+ * - `default` / omitted: one directory per direct-parent namespace, one per tabular, both with `"{uuid}"` segments.
+ * - `full-hierarchy`: one directory per namespace level, one per tabular.
+ * - `tabular-only`: no namespace directories; all tabulars are placed directly under the base location.
  *
  * Segment templates may use `{uuid}` and `{name}` as placeholders.
  */
 export type StorageLayout = {
     type: 'default';
 } | (StorageLayoutFlat & {
-    type: 'table-only';
-}) | (StorageLayoutParentNamespaceAndTable & {
-    type: 'parent-namespace-and-table';
+    type: 'tabular-only';
 }) | (StorageLayoutFullHierarchy & {
     type: 'full-hierarchy';
 });
 
 /**
- * No namespace directories; all tables are placed directly under the base location.
+ * No namespace directories; all tabulars are placed directly under the base location.
  *
- * For a table `my_table` (uuid `…002`) the path is: `<base>/<table-segment>`.
- * The table template must contain `{uuid}` to avoid collisions between tables with the same name.
+ * For a tabular `my_tabular` (uuid `…002`) the path is: `<base>/<tabular-segment>`.
+ * The tabular template must contain `{uuid}` to avoid collisions between tabulars with the same name.
  */
 export type StorageLayoutFlat = {
-    table: StorageLayoutTableTemplate;
+    tabular: StorageLayoutTabularTemplate;
 };
 
 /**
- * One directory per namespace level, one per table.
+ * One directory per namespace level, one per tabular.
  *
- * For a table `my_table` (uuid `…003`) in `grandparent_ns` / `parent_ns` the path is:
- * `<base>/<grandparent-segment>/<parent-segment>/<table-segment>`.
+ * For a tabular `my_tabular` (uuid `…003`) in `grandparent_ns` / `parent_ns` the path is:
+ * `<base>/<grandparent-segment>/<parent-segment>/<tabular-segment>`.
  */
 export type StorageLayoutFullHierarchy = {
     namespace: StorageLayoutNamespaceTemplate;
-    table: StorageLayoutTableTemplate;
+    tabular: StorageLayoutTabularTemplate;
 };
 
 /**
@@ -1730,20 +1727,9 @@ export type StorageLayoutFullHierarchy = {
 export type StorageLayoutNamespaceTemplate = string;
 
 /**
- * One directory per direct-parent namespace, one per table.
- *
- * For a table `my_table` (uuid `…002`) in namespace `my_ns` (uuid `…001`) the path is:
- * `<base>/<namespace-segment>/<table-segment>`.
+ * Template string for tabular names. Placeholders {uuid} and {name} (with curly braces) will be replaced with the actual tabular UUID and name respectively. The {name} value is percent-encoded (URL percent-encoding) so spaces and special characters are escaped (e.g. "my tabular" becomes "my%20tabular"). The {uuid} value is inserted as-is without encoding. Example: "{name}-{uuid}" for a tabular named "my tabular" renders to "my%20tabular-550e8400-e29b-41d4-a716-446655440002".
  */
-export type StorageLayoutParentNamespaceAndTable = {
-    namespace: StorageLayoutNamespaceTemplate;
-    table: StorageLayoutTableTemplate;
-};
-
-/**
- * Template string for table names. Placeholders {uuid} and {name} (with curly braces) will be replaced with the actual table UUID and name respectively. The {name} value is percent-encoded (URL percent-encoding) so spaces and special characters are escaped (e.g. "my table" becomes "my%20table"). The {uuid} value is inserted as-is without encoding. Example: "{name}-{uuid}" for a table named "my table" renders to "my%20table-550e8400-e29b-41d4-a716-446655440002".
- */
-export type StorageLayoutTableTemplate = string;
+export type StorageLayoutTabularTemplate = string;
 
 /**
  * Storage profile for a warehouse.
