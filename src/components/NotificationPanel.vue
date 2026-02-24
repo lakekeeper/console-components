@@ -262,6 +262,28 @@
                             {{ getNotificationDescription(notification) }}
                           </div>
 
+                          <!-- Error ID -->
+                          <div
+                            v-if="getErrorId(notification)"
+                            class="text-caption mb-2 d-flex align-center">
+                            <v-icon size="x-small" class="mr-1" color="grey">
+                              mdi-identifier
+                            </v-icon>
+                            <span class="text-grey-darken-1">Error ID:</span>
+                            <code class="ml-1 text-primary" style="font-size: 11px">
+                              {{ getErrorId(notification) }}
+                            </code>
+                            <v-btn
+                              icon
+                              size="x-small"
+                              variant="text"
+                              class="ml-1"
+                              @click.stop="functions.copyToClipboard(getErrorId(notification)!)"
+                              :title="'Copy Error ID'">
+                              <v-icon size="x-small">mdi-content-copy</v-icon>
+                            </v-btn>
+                          </div>
+
                           <div class="d-flex align-center justify-space-between">
                             <div class="text-caption text-grey">
                               <span>{{ formatTime(notification.timestamp) }}</span>
@@ -631,6 +653,16 @@ function getNotificationDescription(notification: NotificationEvent): string {
   return notification.text.length > maxLength
     ? notification.text.substring(0, maxLength) + '...'
     : notification.text;
+}
+
+function getErrorId(notification: NotificationEvent): string | null {
+  if (!notification.stack || notification.stack.length === 0) return null;
+  for (const item of notification.stack) {
+    if (item.includes('Error ID:')) {
+      return item.split('Error ID:')[1]?.trim() || null;
+    }
+  }
+  return null;
 }
 
 // Make Type enum available in template

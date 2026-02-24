@@ -306,7 +306,7 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
     if (notify) {
       notificationStore.addNotification({
         function: functionCaused,
-        stack: [],
+        stack: error?.error?.stack || [],
         text: message,
         type,
       });
