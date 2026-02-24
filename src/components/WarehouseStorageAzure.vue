@@ -539,9 +539,7 @@ const storageLayoutExample = computed(() => {
     return renderTemplate(tblTpl, 'customer');
   }
   if (storageLayoutType.value === 'full-hierarchy') {
-    return (
-      renderTemplate(nsTpl, 'marketing') + '/' + renderTemplate(tblTpl, 'customer')
-    );
+    return renderTemplate(nsTpl, 'marketing') + '/' + renderTemplate(tblTpl, 'customer');
   }
   return '';
 });
