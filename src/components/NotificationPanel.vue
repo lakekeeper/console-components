@@ -368,7 +368,7 @@
             v-if="selectedNotification.stack && selectedNotification.stack.length > 0"
             class="mb-3">
             <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">
-              More Information
+              More Information in Lakekeeper logs
             </div>
             <v-list dense class="pa-0">
               <v-list-item
