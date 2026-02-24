@@ -448,7 +448,7 @@
                 v-if="storageLayoutType === 'table-only'"
                 v-model="storageLayoutTable"
                 label="Table Template"
-                placeholder="{uuid}"
+                placeholder="tabular-{name}-{uuid}"
                 hint="Template for table path segments."
                 persistent-hint
                 class="mt-4"></v-text-field>
@@ -478,7 +478,7 @@
                 <v-text-field
                   v-model="storageLayoutNamespace"
                   label="Namespace Template"
-                  placeholder="namespace-{name}-{uuid}"
+                  placeholder="ns-{name}-{uuid}"
                   hint="Applied to every namespace level. Path: base/<ns1>/<ns2>/…/<table-segment>"
                   persistent-hint
                   class="mt-4"></v-text-field>
@@ -825,16 +825,16 @@ const storageLayoutOptions = [
 ];
 
 const storageLayoutType = ref<'default' | 'table-only' | 'full-hierarchy'>('default');
-const storageLayoutTable = ref('{uuid}');
-const storageLayoutNamespace = ref('{uuid}');
+const storageLayoutTable = ref('tabular-{name}-{uuid}');
+const storageLayoutNamespace = ref('ns-{name}-{uuid}');
 
 const exampleUuid = '00000000-0000-0000-0000-000000000000';
 const renderTemplate = (tpl: string, name: string) =>
   tpl.replace(/\{name\}/g, name).replace(/\{uuid\}/g, exampleUuid);
 
 const storageLayoutExample = computed(() => {
-  const nsTpl = storageLayoutNamespace.value || '{uuid}';
-  const tblTpl = storageLayoutTable.value || '{uuid}';
+  const nsTpl = storageLayoutNamespace.value || 'ns-{name}-{uuid}';
+  const tblTpl = storageLayoutTable.value || 'tabular-{name}-{uuid}';
   if (storageLayoutType.value === 'table-only') {
     return renderTemplate(tblTpl, 'customer');
   }
@@ -847,13 +847,13 @@ const storageLayoutExample = computed(() => {
 const buildStorageLayout = (): StorageLayout | null => {
   if (storageLayoutType.value === 'default') return { type: 'default' };
   if (storageLayoutType.value === 'table-only') {
-    return { type: 'table-only', table: storageLayoutTable.value || '{uuid}' };
+    return { type: 'table-only', table: storageLayoutTable.value || 'tabular-{name}-{uuid}' };
   }
   if (storageLayoutType.value === 'full-hierarchy') {
     return {
       type: 'full-hierarchy',
-      namespace: storageLayoutNamespace.value || '{uuid}',
-      table: storageLayoutTable.value || '{uuid}',
+      namespace: storageLayoutNamespace.value || 'ns-{name}-{uuid}',
+      table: storageLayoutTable.value || 'tabular-{name}-{uuid}',
     };
   }
   return null;
