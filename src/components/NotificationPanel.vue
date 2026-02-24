@@ -266,9 +266,7 @@
                           <div
                             v-if="getErrorId(notification)"
                             class="text-caption mb-2 d-flex align-center">
-                            <v-icon size="x-small" class="mr-1" color="grey">
-                              mdi-identifier
-                            </v-icon>
+                            <v-icon size="x-small" class="mr-1" color="grey">mdi-identifier</v-icon>
                             <span class="text-grey-darken-1">Error ID:</span>
                             <code class="ml-1 text-primary" style="font-size: 11px">
                               {{ getErrorId(notification) }}
