@@ -109,7 +109,9 @@
               <tr v-if="projectInfo['license-status']['license-id']">
                 <td class="font-weight-medium">License ID</td>
                 <td>
-                  <span class="text-truncate d-inline-block" style="max-width: 200px; vertical-align: middle">
+                  <span
+                    class="text-truncate d-inline-block"
+                    style="max-width: 200px; vertical-align: middle">
                     {{ projectInfo['license-status']['license-id'] }}
                   </span>
                   <v-btn
