@@ -107,7 +107,9 @@
 
             <!-- Active Partition Details -->
             <v-list-item v-if="activePartitionSpec">
-              <v-list-item-title>Active Partition (spec {{ activePartitionSpec['spec-id'] }})</v-list-item-title>
+              <v-list-item-title>
+                Active Partition (spec {{ activePartitionSpec['spec-id'] }})
+              </v-list-item-title>
               <v-list-item-subtitle>
                 <template v-if="activePartitionSpec.fields.length === 0">
                   <v-chip size="small" color="grey" variant="flat">Unpartitioned</v-chip>
@@ -136,7 +138,9 @@
 
             <!-- Active Sort Order Details -->
             <v-list-item v-if="activeSortOrder">
-              <v-list-item-title>Active Sort Order (order {{ activeSortOrder['order-id'] }})</v-list-item-title>
+              <v-list-item-title>
+                Active Sort Order (order {{ activeSortOrder['order-id'] }})
+              </v-list-item-title>
               <v-list-item-subtitle>
                 <template v-if="activeSortOrder.fields.length === 0">
                   <v-chip size="small" color="grey" variant="flat">Unsorted</v-chip>
@@ -315,7 +319,12 @@ import { computed } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import { transformFields } from '../common/schemaUtils';
-import type { LoadTableResult, Snapshot, PartitionField, SortField } from '../gen/iceberg/types.gen';
+import type {
+  LoadTableResult,
+  Snapshot,
+  PartitionField,
+  SortField,
+} from '../gen/iceberg/types.gen';
 
 // Props
 const props = defineProps<{
@@ -419,10 +428,14 @@ const schemaFieldDiffs = computed(() => {
       continue;
     }
     const prevFields = new Set(
-      (schemas[i - 1].fields || []).map((f) => `${f.name}:${typeof f.type === 'string' ? f.type : 'complex'}`),
+      (schemas[i - 1].fields || []).map(
+        (f) => `${f.name}:${typeof f.type === 'string' ? f.type : 'complex'}`,
+      ),
     );
     const currFields = new Set(
-      (schema.fields || []).map((f) => `${f.name}:${typeof f.type === 'string' ? f.type : 'complex'}`),
+      (schema.fields || []).map(
+        (f) => `${f.name}:${typeof f.type === 'string' ? f.type : 'complex'}`,
+      ),
     );
     const added: string[] = [];
     const removed: string[] = [];
