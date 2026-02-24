@@ -216,7 +216,7 @@
 
         <!-- Advanced Options -->
         <v-expansion-panels class="mb-4" variant="accordion">
-          <v-expansion-panel elevation="1" bg-color="grey-lighten-5">
+          <v-expansion-panel elevation="1">
             <v-expansion-panel-title>
               <div class="d-flex align-center">
                 <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
