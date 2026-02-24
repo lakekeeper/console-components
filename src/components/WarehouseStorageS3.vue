@@ -453,6 +453,17 @@
                 persistent-hint
                 class="mt-4"
                 :rules="[rules.required, rules.containsUuid]"></v-text-field>
+              <v-alert
+                v-if="storageLayoutType === 'table-only'"
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mt-3">
+                <strong>Example path</strong>
+                (table "customer"):
+                <br />
+                <code class="mt-1 d-block">{{ storageLayoutExample }}</code>
+              </v-alert>
 
               <template v-if="storageLayoutType === 'full-hierarchy'">
                 <v-text-field
@@ -470,16 +481,10 @@
                   persistent-hint
                   class="mt-2"></v-text-field>
                 <v-alert type="info" variant="tonal" density="compact" class="mt-3">
-                  <strong>Example:</strong>
-                  namespace template
-                  <code>namespace-{name}-{uuid}</code>
-                  , table template
-                  <code>tabular-{name}-{uuid}</code>
-                  , namespace "marketing", table "customer":
+                  <strong>Example path</strong>
+                  (namespace "marketing", table "customer"):
                   <br />
-                  <code class="mt-1 d-block">
-                    namespace-marketing-a1b2c3d4/tabular-customer-e5f6g7h8
-                  </code>
+                  <code class="mt-1 d-block">{{ storageLayoutExample }}</code>
                 </v-alert>
               </template>
             </v-expansion-panel-text>
@@ -803,6 +808,24 @@ const storageLayoutOptions = [
 const storageLayoutType = ref<'default' | 'table-only' | 'full-hierarchy'>('default');
 const storageLayoutTable = ref('{uuid}');
 const storageLayoutNamespace = ref('{uuid}');
+
+const fakeUuid = () => Math.random().toString(36).substring(2, 14);
+const renderTemplate = (tpl: string, name: string) =>
+  tpl.replace(/\{name\}/g, name).replace(/\{uuid\}/g, fakeUuid());
+
+const storageLayoutExample = computed(() => {
+  const nsTpl = storageLayoutNamespace.value || '{uuid}';
+  const tblTpl = storageLayoutTable.value || '{uuid}';
+  if (storageLayoutType.value === 'table-only') {
+    return renderTemplate(tblTpl, 'customer');
+  }
+  if (storageLayoutType.value === 'full-hierarchy') {
+    return (
+      renderTemplate(nsTpl, 'marketing') + '/' + renderTemplate(tblTpl, 'customer')
+    );
+  }
+  return '';
+});
 
 const buildStorageLayout = (): StorageLayout | null => {
   if (storageLayoutType.value === 'default') return { type: 'default' };
