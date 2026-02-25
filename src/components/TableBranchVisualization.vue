@@ -559,10 +559,7 @@ function renderChart() {
     .attr('y', '-30%')
     .attr('width', '160%')
     .attr('height', '160%');
-  glowFilter
-    .append('feGaussianBlur')
-    .attr('stdDeviation', 3)
-    .attr('result', 'blur');
+  glowFilter.append('feGaussianBlur').attr('stdDeviation', 3).attr('result', 'blur');
   const glowMerge = glowFilter.append('feMerge');
   glowMerge.append('feMergeNode').attr('in', 'blur');
   glowMerge.append('feMergeNode').attr('in', 'SourceGraphic');
@@ -575,10 +572,7 @@ function renderChart() {
     .attr('y', '-50%')
     .attr('width', '200%')
     .attr('height', '200%');
-  nodeGlow
-    .append('feGaussianBlur')
-    .attr('stdDeviation', 4)
-    .attr('result', 'blur');
+  nodeGlow.append('feGaussianBlur').attr('stdDeviation', 4).attr('result', 'blur');
   const nodeMerge = nodeGlow.append('feMerge');
   nodeMerge.append('feMergeNode').attr('in', 'blur');
   nodeMerge.append('feMergeNode').attr('in', 'SourceGraphic');
@@ -591,10 +585,7 @@ function renderChart() {
     .attr('y', '-80%')
     .attr('width', '260%')
     .attr('height', '260%');
-  pulseFilter
-    .append('feGaussianBlur')
-    .attr('stdDeviation', 6)
-    .attr('result', 'blur');
+  pulseFilter.append('feGaussianBlur').attr('stdDeviation', 6).attr('result', 'blur');
   const pulseMerge = pulseFilter.append('feMerge');
   pulseMerge.append('feMergeNode').attr('in', 'blur');
   pulseMerge.append('feMergeNode').attr('in', 'SourceGraphic');
@@ -753,7 +744,8 @@ function renderChart() {
   nodeGroups.each(function (d) {
     d.branchLabels.forEach((label, idx) => {
       // Small rounded rect behind the label
-      const textNode = d3.select(this)
+      const textNode = d3
+        .select(this)
         .append('text')
         .attr('x', d.x)
         .attr('y', d.y - d.radius - 10 - idx * 18)
