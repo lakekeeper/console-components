@@ -25,7 +25,7 @@
               <v-btn size="x-small" class="zoom-label" @click="resetZoom">
                 {{ Math.round(currentZoom * 100) }}%
               </v-btn>
-              <v-btn size="x-small" icon="mdi-minus" @click="zoomOut"></v-btn>
+              <v-btn size="x-small" icon="mdi-minus" class="mr-2" @click="zoomOut"></v-btn>
               <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
             </v-btn-group>
           </div>
@@ -64,17 +64,17 @@
 
                 <!-- Core info -->
                 <div class="detail-row">
-                  <span class="detail-label">ID</span>
+                  <span class="detail-label mr-2">ID</span>
                   <span class="detail-value text-caption">
                     {{ selectedSnapshot['snapshot-id'] }}
                   </span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Schema</span>
+                  <span class="detail-label mr-2">Schema</span>
                   <span class="detail-value text-caption">{{ selectedSnapshot['schema-id'] }}</span>
                 </div>
                 <div class="detail-row">
-                  <span class="detail-label">Time</span>
+                  <span class="detail-label mr-2">Time</span>
                   <span class="detail-value text-caption">
                     {{
                       selectedSnapshot['timestamp-ms']
@@ -84,13 +84,13 @@
                   </span>
                 </div>
                 <div v-if="selectedSnapshot['parent-snapshot-id']" class="detail-row">
-                  <span class="detail-label">Parent</span>
+                  <span class="detail-label mr-2">Parent</span>
                   <span class="detail-value text-caption">
                     {{ selectedSnapshot['parent-snapshot-id'] }}
                   </span>
                 </div>
                 <div v-if="selectedSnapshot.summary?.operation" class="detail-row">
-                  <span class="detail-label">Op</span>
+                  <span class="detail-label mr-2">Op</span>
                   <v-chip
                     :color="getOperationColor(selectedSnapshot.summary.operation)"
                     size="x-small"
@@ -100,7 +100,7 @@
                   </v-chip>
                 </div>
                 <div v-if="selectedSnapshot['manifest-list']" class="detail-row">
-                  <span class="detail-label">Manifest</span>
+                  <span class="detail-label mr-2">Manifest</span>
                   <span
                     class="detail-value text-caption text-truncate"
                     style="max-width: 200px"
@@ -124,7 +124,7 @@
                           v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
                           :key="key"
                           class="summary-row">
-                          <span class="summary-key">{{ formatSummaryKey(key) }}:</span>
+                          <span class="summary-key mr-2">{{ formatSummaryKey(key) }}:</span>
                           <span class="summary-val">{{ formatSummaryValue(value) }}</span>
                         </div>
                       </div>
@@ -1077,14 +1077,16 @@ onBeforeUnmount(() => {
 <style scoped>
 .chart-outer {
   position: relative;
+  z-index: 0;
+  height: 500px;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 8px;
-  overflow: hidden;
   background: rgba(var(--v-theme-surface), 1);
 }
 
 .chart-container {
-  height: 500px;
+  height: 100%;
+  overflow: hidden;
   touch-action: none;
   user-select: none;
 }
