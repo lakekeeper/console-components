@@ -243,7 +243,10 @@ async function loadPreview() {
     let query: string;
     if (selectedSnapshot.value) {
       // Use TIMESTAMP-based time travel to avoid snapshot-id BigInt precision loss
-      const tsIso = new Date(Number(selectedSnapshot.value)).toISOString().replace('T', ' ').replace('Z', '');
+      const tsIso = new Date(Number(selectedSnapshot.value))
+        .toISOString()
+        .replace('T', ' ')
+        .replace('Z', '');
       query = `SELECT * FROM ${tablePath} AT (TIMESTAMP => TIMESTAMP '${tsIso}') LIMIT 1000;`;
     } else {
       query = `SELECT * FROM ${tablePath} LIMIT 1000;`;
