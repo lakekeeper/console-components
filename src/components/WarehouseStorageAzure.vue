@@ -280,31 +280,33 @@
               </v-select>
 
               <v-text-field
-                v-if="storageLayoutType === 'table-only'"
+                v-if="storageLayoutType === 'tabular-only'"
                 v-model="storageLayoutTable"
-                label="Table Template"
+                label="Tabular Template"
                 placeholder="tabular-{name}-{uuid}"
-                hint="Template for table path segments."
+                hint="Template for tabular path segments."
                 persistent-hint
                 class="mt-4"></v-text-field>
               <v-alert
-                v-if="storageLayoutType === 'table-only' && !storageLayoutTable.includes('{uuid}')"
+                v-if="
+                  storageLayoutType === 'tabular-only' && !storageLayoutTable.includes('{uuid}')
+                "
                 type="warning"
                 variant="tonal"
                 density="compact"
                 class="mt-2">
                 Template does not contain
                 <code>{uuid}</code>
-                . This may cause collisions if tables are renamed and re-created.
+                . This may cause collisions if tabulars are renamed and re-created.
               </v-alert>
               <v-alert
-                v-if="storageLayoutType === 'table-only'"
+                v-if="storageLayoutType === 'tabular-only'"
                 type="info"
                 variant="tonal"
                 density="compact"
                 class="mt-3">
                 <strong>Example path</strong>
-                (table "customer"):
+                (tabular "customer"):
                 <br />
                 <code class="mt-1 d-block">{{ storageLayoutExample }}</code>
               </v-alert>
@@ -314,14 +316,14 @@
                   v-model="storageLayoutNamespace"
                   label="Namespace Template"
                   placeholder="ns-{name}-{uuid}"
-                  hint="Applied to every namespace level. Path: base/<ns1>/<ns2>/…/<table-segment>"
+                  hint="Applied to every namespace level. Path: base/<ns1>/<ns2>/…/<tabular-segment>"
                   persistent-hint
                   class="mt-4"></v-text-field>
                 <v-text-field
                   v-model="storageLayoutTable"
-                  label="Table Template"
+                  label="Tabular Template"
                   placeholder="tabular-{name}-{uuid}"
-                  hint="Template for the table directory."
+                  hint="Template for the tabular directory."
                   persistent-hint
                   class="mt-2"></v-text-field>
                 <v-alert
@@ -330,13 +332,13 @@
                   variant="tonal"
                   density="compact"
                   class="mt-2">
-                  Table template does not contain
+                  Tabular template does not contain
                   <code>{uuid}</code>
-                  . This may cause collisions if tables are renamed and re-created.
+                  . This may cause collisions if tabulars are renamed and re-created.
                 </v-alert>
                 <v-alert type="info" variant="tonal" density="compact" class="mt-3">
                   <strong>Example path</strong>
-                  (namespace "marketing", table "customer"):
+                  (namespace "marketing", tabular "customer"):
                   <br />
                   <code class="mt-1 d-block">{{ storageLayoutExample }}</code>
                 </v-alert>
@@ -532,22 +534,22 @@ const storageLayoutOptions = [
   {
     name: 'Default',
     code: 'default',
-    description: 'Uses {uuid} segments for namespace and table directories',
+    description: 'Uses {uuid} segments for namespace and tabular directories',
   },
   {
-    name: 'Table Only',
-    code: 'table-only',
-    description: 'No namespace directories; tables directly under base location',
+    name: 'Tabular Only',
+    code: 'tabular-only',
+    description: 'No namespace directories; tabulars directly under base location',
   },
   {
     name: 'Full Hierarchy',
     code: 'full-hierarchy',
     description:
-      'base/<ns1-segment>/<ns2-segment>/…/<table-segment> — every namespace level becomes a directory',
+      'base/<ns1-segment>/<ns2-segment>/…/<tabular-segment> — every namespace level becomes a directory',
   },
 ];
 
-const storageLayoutType = ref<'default' | 'table-only' | 'full-hierarchy'>('default');
+const storageLayoutType = ref<'default' | 'tabular-only' | 'full-hierarchy'>('default');
 const storageLayoutTable = ref('tabular-{name}-{uuid}');
 const storageLayoutNamespace = ref('ns-{name}-{uuid}');
 
@@ -558,7 +560,7 @@ const renderTemplate = (tpl: string, name: string) =>
 const storageLayoutExample = computed(() => {
   const nsTpl = storageLayoutNamespace.value || 'ns-{name}-{uuid}';
   const tblTpl = storageLayoutTable.value || 'tabular-{name}-{uuid}';
-  if (storageLayoutType.value === 'table-only') {
+  if (storageLayoutType.value === 'tabular-only') {
     return renderTemplate(tblTpl, 'customer');
   }
   if (storageLayoutType.value === 'full-hierarchy') {
@@ -569,14 +571,14 @@ const storageLayoutExample = computed(() => {
 
 const buildStorageLayout = (): StorageLayout | null => {
   if (storageLayoutType.value === 'default') return { type: 'default' };
-  if (storageLayoutType.value === 'table-only') {
-    return { type: 'table-only', table: storageLayoutTable.value || 'tabular-{name}-{uuid}' };
+  if (storageLayoutType.value === 'tabular-only') {
+    return { type: 'tabular-only', tabular: storageLayoutTable.value || 'tabular-{name}-{uuid}' };
   }
   if (storageLayoutType.value === 'full-hierarchy') {
     return {
       type: 'full-hierarchy',
       namespace: storageLayoutNamespace.value || 'ns-{name}-{uuid}',
-      table: storageLayoutTable.value || 'tabular-{name}-{uuid}',
+      tabular: storageLayoutTable.value || 'tabular-{name}-{uuid}',
     };
   }
   return null;
@@ -750,17 +752,12 @@ onMounted(() => {
   // Initialize storage layout from existing data
   const existingLayout = warehouseObjectData['storage-profile']['storage-layout'];
   if (existingLayout) {
-    // Map deprecated parent-namespace-and-table to full-hierarchy
-    storageLayoutType.value =
-      existingLayout.type === 'parent-namespace-and-table' ? 'full-hierarchy' : existingLayout.type;
-    if (existingLayout.type === 'table-only') {
-      storageLayoutTable.value = existingLayout.table || '{uuid}';
-    } else if (
-      existingLayout.type === 'parent-namespace-and-table' ||
-      existingLayout.type === 'full-hierarchy'
-    ) {
+    storageLayoutType.value = existingLayout.type;
+    if (existingLayout.type === 'tabular-only') {
+      storageLayoutTable.value = existingLayout.tabular || '{uuid}';
+    } else if (existingLayout.type === 'full-hierarchy') {
       storageLayoutNamespace.value = existingLayout.namespace || '{uuid}';
-      storageLayoutTable.value = existingLayout.table || '{uuid}';
+      storageLayoutTable.value = existingLayout.tabular || '{uuid}';
     }
   }
 });
