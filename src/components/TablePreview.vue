@@ -56,7 +56,10 @@
             style="max-width: 180px"
             label="Branch"
             prepend-inner-icon="mdi-source-branch"
-            @update:model-value="selectedSnapshot = null; loadPreview()"></v-select>
+            @update:model-value="
+              selectedSnapshot = null;
+              loadPreview();
+            "></v-select>
           <v-select
             v-if="timeTravelOptions.length > 1"
             v-model="selectedSnapshot"
