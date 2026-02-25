@@ -200,6 +200,24 @@
           Table Health
         </v-toolbar-title>
         <v-spacer></v-spacer>
+        <v-select
+          v-if="branchOptions.length > 1"
+          v-model="selectedBranch"
+          :items="branchOptions"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="max-width: 180px"
+          class="mr-2"
+          prepend-inner-icon="mdi-source-branch"></v-select>
+        <v-chip
+          v-else
+          size="x-small"
+          variant="outlined"
+          class="mr-2"
+          prepend-icon="mdi-source-branch">
+          {{ selectedBranch }}
+        </v-chip>
         <v-dialog max-width="600">
           <template #activator="{ props: dialogProps }">
             <v-btn
@@ -668,11 +686,36 @@ interface HealthCheck {
   reasoning: { label: string; value: string }[];
 }
 
-const summaryNum = (key: string): number | null => {
-  const val = currentSnapshot.value?.summary?.[key];
-  if (val === undefined || val === null) return null;
-  const n = Number(val);
-  return isNaN(n) ? null : n;
+// Branch selector for health analysis
+const branchOptions = computed(() => {
+  const refs = props.table.metadata.refs;
+  if (!refs) return [{ title: 'main', value: 'main' }];
+  return Object.entries(refs)
+    .filter(([, ref]) => ref.type === 'branch')
+    .map(([name]) => ({ title: name, value: name }));
+});
+
+const selectedBranch = ref<string>('main');
+
+const healthBranchSnapshot = computed<Snapshot | null>(() => {
+  const refs = props.table.metadata.refs;
+  const allSnapshots = props.table.metadata.snapshots;
+  if (!refs || !allSnapshots) return currentSnapshot.value;
+  const branchRef = refs[selectedBranch.value];
+  if (!branchRef) return currentSnapshot.value;
+  const snapId = String(branchRef['snapshot-id']);
+  return allSnapshots.find((s) => String(s['snapshot-id']) === snapId) || currentSnapshot.value;
+});
+
+const healthSummaryNum = (...keys: string[]): number | null => {
+  for (const key of keys) {
+    const val = healthBranchSnapshot.value?.summary?.[key];
+    if (val !== undefined && val !== null) {
+      const n = Number(val);
+      if (!isNaN(n)) return n;
+    }
+  }
+  return null;
 };
 
 const formatBytes = (bytes: number): string => {
@@ -682,17 +725,57 @@ const formatBytes = (bytes: number): string => {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 };
 
+// Walk the selected branch by following parent-snapshot-id from branch tip
+const healthBranchSnapshots = computed<Snapshot[]>(() => {
+  const allSnapshots = props.table.metadata.snapshots;
+  if (!allSnapshots || allSnapshots.length === 0) return [];
+  const snapshotMap = new Map<string, Snapshot>();
+  for (const s of allSnapshots) {
+    if (s['snapshot-id']) snapshotMap.set(String(s['snapshot-id']), s);
+  }
+  const chain: Snapshot[] = [];
+  // Start from the selected branch's tip snapshot
+  const refs = props.table.metadata.refs;
+  let startId: string | number | undefined;
+  if (refs && refs[selectedBranch.value]) {
+    startId = refs[selectedBranch.value]['snapshot-id'];
+  } else {
+    startId = props.table.metadata['current-snapshot-id'];
+  }
+  let id: string | number | undefined = startId;
+  while (id !== undefined && id !== null) {
+    const snap = snapshotMap.get(String(id));
+    if (!snap) break;
+    chain.push(snap);
+    id = snap['parent-snapshot-id'];
+  }
+  return chain;
+});
+
 const healthChecks = computed<HealthCheck[]>(() => {
-  if (!currentSnapshot.value?.summary) return [];
+  if (!healthBranchSnapshot.value?.summary) return [];
   const checks: HealthCheck[] = [];
 
-  const dataFiles = summaryNum('total-data-files-count');
-  const deleteFiles = summaryNum('total-delete-files-count');
-  const eqDeletes = summaryNum('total-equality-deletes-count');
-  const posDeletes = summaryNum('total-position-deletes-count');
-  const totalRecords = summaryNum('total-records-count');
-  const totalSize = summaryNum('total-files-size-in-bytes');
-  const snapshotCount = props.table.metadata.snapshots?.length ?? 0;
+  const dataFiles = healthSummaryNum('total-data-files-count', 'total-data-files');
+  const deleteFiles = healthSummaryNum('total-delete-files-count', 'total-delete-files');
+  const eqDeletes = healthSummaryNum('total-equality-deletes-count', 'total-equality-deletes');
+  const posDeletes = healthSummaryNum('total-position-deletes-count', 'total-position-deletes');
+  const totalRecords = healthSummaryNum('total-records-count', 'total-records');
+  const totalSize = healthSummaryNum('total-files-size-in-bytes', 'total-files-size');
+  const totalSnapshotCount = props.table.metadata.snapshots?.length ?? 0;
+  const branchSnapshotCount = healthBranchSnapshots.value.length;
+
+  // Analyze branch operation history
+  const opCounts: Record<string, number> = {};
+  for (const snap of healthBranchSnapshots.value) {
+    const op = snap.summary?.['operation'] ?? 'unknown';
+    opCounts[op] = (opCounts[op] ?? 0) + 1;
+  }
+  const deleteOps = opCounts['delete'] ?? 0;
+  const overwriteOps = opCounts['overwrite'] ?? 0;
+  const appendOps = opCounts['append'] ?? 0;
+  const replaceOps = opCounts['replace'] ?? 0;
+  const mutatingOps = deleteOps + overwriteOps + replaceOps;
 
   // Small files detection
   if (dataFiles !== null && totalSize !== null && dataFiles > 0) {
@@ -741,10 +824,10 @@ const healthChecks = computed<HealthCheck[]>(() => {
           },
         ],
       });
-    } else if (dataFiles > 1) {
+    } else {
       checks.push({
         label: 'File sizes healthy',
-        detail: `${dataFiles} data files, avg ${formatBytes(avgFileSize)}.`,
+        detail: `${dataFiles} data file${dataFiles > 1 ? 's' : ''}, avg ${formatBytes(avgFileSize)}.`,
         severity: 'Good',
         color: 'success',
         icon: 'mdi-file-check-outline',
@@ -755,11 +838,36 @@ const healthChecks = computed<HealthCheck[]>(() => {
             value: `${totalSize!.toLocaleString()} (${formatBytes(totalSize!)})`,
           },
           { label: 'Avg file size', value: `${formatBytes(avgFileSize)}` },
-          { label: 'Threshold', value: 'avg ≥ 1 MB (or ≥ 8 MB with >10 files)' },
+          {
+            label: 'Threshold',
+            value: 'avg < 1 MB → Warning/Critical, avg < 8 MB with >10 files → Warning',
+          },
           { label: 'Result', value: `${formatBytes(avgFileSize)} is within healthy range → Good` },
         ],
       });
     }
+  } else {
+    checks.push({
+      label: 'File sizes',
+      detail:
+        dataFiles === 0
+          ? 'No data files yet.'
+          : 'File size data not available in snapshot summary.',
+      severity: 'Good',
+      color: 'success',
+      icon: 'mdi-file-check-outline',
+      reasoning: [
+        { label: 'total-data-files-count', value: `${dataFiles ?? 'N/A'}` },
+        { label: 'total-files-size-in-bytes', value: `${totalSize ?? 'N/A'}` },
+        {
+          label: 'Result',
+          value:
+            dataFiles === 0
+              ? 'No data files — nothing to check'
+              : 'Metrics unavailable in snapshot summary',
+        },
+      ],
+    });
   }
 
   // Delete files accumulation
@@ -793,80 +901,173 @@ const healthChecks = computed<HealthCheck[]>(() => {
         },
       ],
     });
+  } else {
+    checks.push({
+      label: 'Delete files',
+      detail: 'No delete files. Table is clean.',
+      severity: 'Good',
+      color: 'success',
+      icon: 'mdi-delete-off-outline',
+      reasoning: [
+        { label: 'total-delete-files-count', value: `${deleteFiles ?? 0}` },
+        { label: 'total-equality-deletes-count', value: `${eqDeletes ?? 0}` },
+        { label: 'total-position-deletes-count', value: `${posDeletes ?? 0}` },
+        { label: 'Result', value: 'No delete files present → Good' },
+      ],
+    });
   }
 
-  // Snapshot accumulation
-  if (snapshotCount > 100) {
+  // Branch operation history
+  if (branchSnapshotCount > 0) {
+    const opSummary = Object.entries(opCounts)
+      .map(([op, count]) => `${count} ${op}`)
+      .join(', ');
+    const mutatingRatio = branchSnapshotCount > 0 ? mutatingOps / branchSnapshotCount : 0;
+    let severity: HealthCheck['severity'] = 'Good';
+    let color = 'success';
+    if (mutatingRatio > 0.5 && mutatingOps > 5) {
+      severity = 'Warning';
+      color = 'warning';
+    } else if (mutatingOps > 0) {
+      severity = 'Info';
+      color = 'info';
+    }
     checks.push({
-      label: 'Many snapshots accumulated',
-      detail: `${snapshotCount} snapshots. Consider running snapshot expiration to reduce metadata size.`,
-      severity: snapshotCount > 500 ? 'Critical' : 'Warning',
-      color: snapshotCount > 500 ? 'error' : 'warning',
-      icon: 'mdi-camera-burst',
+      label: mutatingOps > 0 ? 'Mutating operations detected' : 'Append-only history',
+      detail:
+        mutatingOps > 0
+          ? `${mutatingOps} delete/overwrite/replace operation${mutatingOps > 1 ? 's' : ''} across ${branchSnapshotCount} snapshots on "${selectedBranch.value}". Frequent mutations may indicate need for compaction.`
+          : `All ${branchSnapshotCount} snapshots on "${selectedBranch.value}" are appends.`,
+      severity,
+      color,
+      icon: mutatingOps > 0 ? 'mdi-swap-horizontal' : 'mdi-plus-circle-outline',
       reasoning: [
-        { label: 'Snapshot count', value: `${snapshotCount} (from metadata.snapshots.length)` },
-        { label: 'Threshold', value: '> 500 → Critical, > 100 → Warning' },
+        { label: 'Branch', value: `${selectedBranch.value}` },
+        { label: 'Branch snapshots', value: `${branchSnapshotCount}` },
+        { label: 'Operations breakdown', value: opSummary },
+        {
+          label: 'Mutating operations',
+          value: `${mutatingOps} (delete: ${deleteOps}, overwrite: ${overwriteOps}, replace: ${replaceOps})`,
+        },
+        {
+          label: 'Mutating ratio',
+          value: `${mutatingOps}/${branchSnapshotCount} = ${(mutatingRatio * 100).toFixed(0)}%`,
+        },
+        {
+          label: 'Threshold',
+          value: 'ratio > 50% with > 5 mutations → Warning, any mutations → Info, none → Good',
+        },
         {
           label: 'Result',
-          value: `${snapshotCount} snapshots → ${snapshotCount > 500 ? 'Critical' : 'Warning'}`,
+          value: `${(mutatingRatio * 100).toFixed(0)}% mutating, ${mutatingOps} mutations → ${severity}`,
         },
       ],
     });
-  } else if (snapshotCount > 0) {
+  }
+
+  // Snapshot accumulation
+  if (totalSnapshotCount > 100) {
+    checks.push({
+      label: 'Many snapshots accumulated',
+      detail: `${totalSnapshotCount} total snapshots (${branchSnapshotCount} on "${selectedBranch.value}"). Consider running snapshot expiration to reduce metadata size.`,
+      severity: totalSnapshotCount > 500 ? 'Critical' : 'Warning',
+      color: totalSnapshotCount > 500 ? 'error' : 'warning',
+      icon: 'mdi-camera-burst',
+      reasoning: [
+        {
+          label: 'Total snapshots',
+          value: `${totalSnapshotCount} (all branches, from metadata.snapshots.length)`,
+        },
+        {
+          label: `"${selectedBranch.value}" branch snapshots`,
+          value: `${branchSnapshotCount} (following parent chain from branch tip)`,
+        },
+        { label: 'Other snapshots', value: `${totalSnapshotCount - branchSnapshotCount}` },
+        { label: 'Threshold', value: '> 500 total → Critical, > 100 total → Warning' },
+        {
+          label: 'Result',
+          value: `${totalSnapshotCount} total snapshots → ${totalSnapshotCount > 500 ? 'Critical' : 'Warning'}`,
+        },
+      ],
+    });
+  } else if (totalSnapshotCount > 0) {
     checks.push({
       label: 'Snapshot count',
-      detail: `${snapshotCount} snapshot${snapshotCount > 1 ? 's' : ''}.`,
+      detail: `${totalSnapshotCount} total snapshot${totalSnapshotCount > 1 ? 's' : ''} (${branchSnapshotCount} on "${selectedBranch.value}").`,
       severity: 'Good',
       color: 'success',
       icon: 'mdi-camera-outline',
       reasoning: [
-        { label: 'Snapshot count', value: `${snapshotCount} (from metadata.snapshots.length)` },
-        { label: 'Threshold', value: '> 500 → Critical, > 100 → Warning, ≤ 100 → Good' },
-        { label: 'Result', value: `${snapshotCount} ≤ 100 → Good` },
+        {
+          label: 'Total snapshots',
+          value: `${totalSnapshotCount} (all branches, from metadata.snapshots.length)`,
+        },
+        {
+          label: `"${selectedBranch.value}" branch snapshots`,
+          value: `${branchSnapshotCount} (following parent chain from branch tip)`,
+        },
+        { label: 'Other snapshots', value: `${totalSnapshotCount - branchSnapshotCount}` },
+        {
+          label: 'Threshold',
+          value: '> 500 total → Critical, > 100 total → Warning, ≤ 100 → Good',
+        },
+        { label: 'Result', value: `${totalSnapshotCount} ≤ 100 → Good` },
       ],
     });
   }
 
-  // Many data files (even if not small) — may indicate need for compaction
+  // File count check
   if (dataFiles !== null && dataFiles > 1000) {
-    const alreadyHasSmallFileCheck = checks.some((c) => c.label.includes('Small files'));
-    if (!alreadyHasSmallFileCheck) {
-      checks.push({
-        label: 'High file count',
-        detail: `${dataFiles.toLocaleString()} data files. Large file counts increase planning time. Consider compaction.`,
-        severity: dataFiles > 10000 ? 'Warning' : 'Info',
-        color: dataFiles > 10000 ? 'warning' : 'info',
-        icon: 'mdi-file-multiple-outline',
-        reasoning: [
-          { label: 'total-data-files-count', value: `${dataFiles.toLocaleString()}` },
-          { label: 'Threshold', value: '> 10,000 → Warning, > 1,000 → Info' },
-          {
-            label: 'Result',
-            value: `${dataFiles.toLocaleString()} files → ${dataFiles > 10000 ? 'Warning' : 'Info'}`,
-          },
-        ],
-      });
-    }
+    checks.push({
+      label: 'High file count',
+      detail: `${dataFiles.toLocaleString()} data files. Large file counts increase planning time. Consider compaction.`,
+      severity: dataFiles > 10000 ? 'Warning' : 'Info',
+      color: dataFiles > 10000 ? 'warning' : 'info',
+      icon: 'mdi-file-multiple-outline',
+      reasoning: [
+        { label: 'total-data-files-count', value: `${dataFiles.toLocaleString()}` },
+        { label: 'Threshold', value: '> 10,000 → Warning, > 1,000 → Info, ≤ 1,000 → Good' },
+        {
+          label: 'Result',
+          value: `${dataFiles.toLocaleString()} files → ${dataFiles > 10000 ? 'Warning' : 'Info'}`,
+        },
+      ],
+    });
+  } else {
+    checks.push({
+      label: 'File count',
+      detail: `${(dataFiles ?? 0).toLocaleString()} data files.`,
+      severity: 'Good',
+      color: 'success',
+      icon: 'mdi-file-multiple-outline',
+      reasoning: [
+        { label: 'total-data-files-count', value: `${(dataFiles ?? 0).toLocaleString()}` },
+        { label: 'Threshold', value: '> 10,000 → Warning, > 1,000 → Info, ≤ 1,000 → Good' },
+        { label: 'Result', value: `${(dataFiles ?? 0).toLocaleString()} ≤ 1,000 → Good` },
+      ],
+    });
   }
 
   // Table size summary (informational)
-  if (totalSize !== null && totalRecords !== null) {
-    checks.push({
-      label: 'Table size',
-      detail: `${totalRecords.toLocaleString()} records across ${formatBytes(totalSize)}.`,
-      severity: 'Good',
-      color: 'success',
-      icon: 'mdi-database-outline',
-      reasoning: [
-        { label: 'total-records-count', value: `${totalRecords.toLocaleString()}` },
-        {
-          label: 'total-files-size-in-bytes',
-          value: `${totalSize.toLocaleString()} (${formatBytes(totalSize)})`,
-        },
-        { label: 'Result', value: 'Informational metric — no threshold applied' },
-      ],
-    });
-  }
+  checks.push({
+    label: 'Table size',
+    detail:
+      totalSize !== null && totalRecords !== null
+        ? `${totalRecords.toLocaleString()} records across ${formatBytes(totalSize)}.`
+        : 'Size data not available in snapshot summary.',
+    severity: 'Good',
+    color: 'success',
+    icon: 'mdi-database-outline',
+    reasoning: [
+      { label: 'total-records-count', value: `${totalRecords?.toLocaleString() ?? 'N/A'}` },
+      {
+        label: 'total-files-size-in-bytes',
+        value:
+          totalSize !== null ? `${totalSize.toLocaleString()} (${formatBytes(totalSize)})` : 'N/A',
+      },
+      { label: 'Result', value: 'Informational metric — no threshold applied' },
+    ],
+  });
 
   return checks;
 });
