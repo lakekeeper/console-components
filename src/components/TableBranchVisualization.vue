@@ -292,7 +292,18 @@ const branches = computed<BranchMeta[]>(() => {
   sorted.forEach((s) => snapshotMap.set(s['snapshot-id'], s));
 
   let colorIdx = 0;
-  Object.entries(refs).forEach(([name, refData]: [string, any]) => {
+
+  // Process main/master first so it gets the primary color
+  const refEntries = Object.entries(refs);
+  const mainEntry = refEntries.find(
+    ([name, refData]: [string, any]) =>
+      refData.type === 'branch' && (name === 'main' || name === 'master'),
+  );
+  const orderedEntries = mainEntry
+    ? [mainEntry, ...refEntries.filter((e) => e !== mainEntry)]
+    : refEntries;
+
+  orderedEntries.forEach(([name, refData]: [string, any]) => {
     if (refData.type !== 'branch') return;
     result.push({
       name,
@@ -384,7 +395,10 @@ const graphNodes = computed<GraphNode[]>(() => {
     const x = 60 + index * spacingX;
     const y = originY + row * spacingY;
     const sc = getSchemaChangeInfo(snapshot);
-    const ownerBranch = branches.value.find((b) => b.ancestry.includes(sid));
+    const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
+    const ownerBranch =
+      (mainBr?.ancestry.includes(sid) ? mainBr : null) ||
+      branches.value.find((b) => b.ancestry.includes(sid));
     const isDropped = ownerBranch?.type === 'dropped';
     const branchColor = ownerBranch?.color || '#666';
     const tipBranches = tipMap.get(sid) || [];
@@ -783,6 +797,91 @@ function renderChart() {
         `Seq ${d.sequenceNumber} | ID ${d.snapshotId}${d.schemaChange ? ` | Schema ${d.schemaChange.from}\u2192${d.schemaChange.to}` : ''}`,
     );
 
+  // ── Merge indicators ──
+  // When a non-main branch shares the same tip as main, draw a visible merge track
+  const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
+  if (mainBr && rootG) {
+    const localNodeMap = new Map<any, GraphNode>();
+    graphNodes.value.forEach((n) => localNodeMap.set(n.snapshotId, n));
+
+    let mergeIdx = 0;
+    branches.value.forEach((branch) => {
+      if (branch === mainBr || branch.type === 'dropped') return;
+      // Check if branch tip equals main tip (merged branch)
+      if (String(branch.tipSnapshotId) !== String(mainBr.tipSnapshotId)) return;
+
+      const tipNode = localNodeMap.get(branch.tipSnapshotId);
+      if (!tipNode) return;
+
+      mergeIdx++;
+      const offsetY = -40 * mergeIdx;
+      const trackLen = 70;
+      const mergeG = rootG!.append('g').attr('class', 'merge-track');
+
+      // Curved merge line from offset into tip
+      const curvePath = [
+        `M ${tipNode.x - trackLen} ${tipNode.y + offsetY}`,
+        `Q ${tipNode.x - 20} ${tipNode.y + offsetY} ${tipNode.x - tipNode.radius - 2} ${tipNode.y}`,
+      ].join(' ');
+
+      // Glow behind
+      mergeG
+        .append('path')
+        .attr('d', curvePath)
+        .attr('stroke', branch.color)
+        .attr('stroke-width', 7)
+        .attr('fill', 'none')
+        .attr('opacity', 0.15)
+        .attr('filter', 'url(#lineGlow)');
+
+      // Dashed merge line
+      mergeG
+        .append('path')
+        .attr('d', curvePath)
+        .attr('stroke', branch.color)
+        .attr('stroke-width', 2.5)
+        .attr('fill', 'none')
+        .attr('stroke-linecap', 'round')
+        .attr('stroke-dasharray', '6 4')
+        .attr('opacity', 0.8);
+
+      // Small station dot at start of merge track
+      mergeG
+        .append('circle')
+        .attr('cx', tipNode.x - trackLen)
+        .attr('cy', tipNode.y + offsetY)
+        .attr('r', 4)
+        .attr('fill', branch.color)
+        .attr('stroke', 'white')
+        .attr('stroke-width', 1.5);
+
+      // Branch name label
+      mergeG
+        .append('text')
+        .attr('x', tipNode.x - trackLen - 8)
+        .attr('y', tipNode.y + offsetY + 3)
+        .attr('font-size', 9)
+        .attr('font-weight', '700')
+        .attr('fill', branch.color)
+        .attr('text-anchor', 'end')
+        .style('text-transform', 'uppercase')
+        .style('letter-spacing', '0.04em')
+        .text(branch.name);
+
+      // "merged" subtitle
+      mergeG
+        .append('text')
+        .attr('x', tipNode.x - trackLen - 8)
+        .attr('y', tipNode.y + offsetY + 14)
+        .attr('font-size', 7)
+        .attr('font-weight', '600')
+        .attr('fill', branch.color)
+        .attr('text-anchor', 'end')
+        .style('opacity', 0.6)
+        .text('merged');
+    });
+  }
+
   // Auto fit
   setTimeout(fitToView, 50);
 }
@@ -813,9 +912,9 @@ function fitToView() {
 
   const xs = graphNodes.value.map((n) => n.x);
   const ys = graphNodes.value.map((n) => n.y);
-  const minX = Math.min(...xs) - 30;
+  const minX = Math.min(...xs) - 80;
   const maxX = Math.max(...xs) + 30;
-  const minY = Math.min(...ys) - 40;
+  const minY = Math.min(...ys) - 60;
   const maxY = Math.max(...ys) + 40;
 
   const gW = maxX - minX;
@@ -1000,6 +1099,8 @@ onBeforeUnmount(() => {
   height: 500px;
   touch-action: none;
   user-select: none;
+  position: relative;
+  z-index: 0;
 }
 
 /* Animated flow dashes on links */
@@ -1114,13 +1215,13 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 3px 0;
+  padding: 4px 0;
   border-bottom: 1px solid rgba(var(--v-border-color), 0.06);
 }
 
 .detail-label {
   flex-shrink: 0;
-  width: 56px;
+  width: 64px;
   font-size: 0.72rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -1132,6 +1233,7 @@ onBeforeUnmount(() => {
   flex: 1;
   min-width: 0;
   font-size: 0.75rem;
+  margin-left: 4px;
 }
 
 .details-panels :deep(.v-expansion-panel) {
@@ -1156,19 +1258,28 @@ onBeforeUnmount(() => {
 
 .summary-row {
   display: flex;
-  gap: 6px;
-  padding: 2px 0;
+  gap: 10px;
+  padding: 3px 0;
   font-size: 0.75rem;
   line-height: 1.4;
 }
 
 .summary-key {
   flex-shrink: 0;
+  min-width: 100px;
   font-weight: 600;
   color: rgba(var(--v-theme-on-surface), 0.6);
 }
 
+.summary-key::after {
+  content: ':';
+}
+
 .summary-val {
+  flex: 1;
+  min-width: 0;
+  margin-left: 4px;
   color: rgba(var(--v-theme-on-surface), 0.85);
+  word-break: break-word;
 }
 </style>
