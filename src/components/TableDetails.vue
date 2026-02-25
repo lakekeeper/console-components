@@ -295,24 +295,40 @@
         </v-chip>
       </v-toolbar>
       <v-divider></v-divider>
-      <v-list density="compact">
-        <v-list-item v-for="check in healthChecks" :key="check.label">
-          <template #prepend>
-            <v-icon :color="check.color" size="small" class="mr-2">{{ check.icon }}</v-icon>
-          </template>
-          <v-list-item-title class="text-body-2">
-            {{ check.label }}
-          </v-list-item-title>
-          <v-list-item-subtitle class="text-wrap">
-            {{ check.detail }}
-          </v-list-item-subtitle>
-          <template #append>
-            <v-chip :color="check.color" size="x-small" variant="flat">
-              {{ check.severity }}
-            </v-chip>
-          </template>
-        </v-list-item>
-      </v-list>
+      <v-expansion-panels variant="accordion" flat>
+        <v-expansion-panel v-for="check in healthChecks" :key="check.label">
+          <v-expansion-panel-title class="py-2">
+            <template #default>
+              <div class="d-flex align-center flex-grow-1">
+                <v-icon :color="check.color" size="small" class="mr-3">{{ check.icon }}</v-icon>
+                <div class="flex-grow-1">
+                  <div class="text-body-2 font-weight-medium">{{ check.label }}</div>
+                  <div class="text-caption text-medium-emphasis text-wrap">{{ check.detail }}</div>
+                </div>
+                <v-chip :color="check.color" size="x-small" variant="flat" class="ml-2 mr-2">
+                  {{ check.severity }}
+                </v-chip>
+              </div>
+            </template>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-table density="compact" class="text-caption">
+              <thead>
+                <tr>
+                  <th class="text-left" style="width: 45%">Metric</th>
+                  <th class="text-left">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(row, idx) in check.reasoning" :key="idx">
+                  <td class="font-mono text-medium-emphasis">{{ row.label }}</td>
+                  <td class="font-mono">{{ row.value }}</td>
+                </tr>
+              </tbody>
+            </v-table>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
     </v-card>
 
     <!-- Properties Section -->
@@ -649,6 +665,7 @@ interface HealthCheck {
   severity: 'Good' | 'Info' | 'Warning' | 'Critical';
   color: string;
   icon: string;
+  reasoning: { label: string; value: string }[];
 }
 
 const summaryNum = (key: string): number | null => {
@@ -688,6 +705,19 @@ const healthChecks = computed<HealthCheck[]>(() => {
         severity: dataFiles > 10 ? 'Critical' : 'Warning',
         color: dataFiles > 10 ? 'error' : 'warning',
         icon: 'mdi-file-alert-outline',
+        reasoning: [
+          { label: 'total-data-files-count', value: `${dataFiles}` },
+          {
+            label: 'total-files-size-in-bytes',
+            value: `${totalSize!.toLocaleString()} (${formatBytes(totalSize!)})`,
+          },
+          { label: 'Avg file size', value: `${formatBytes(avgFileSize)}` },
+          { label: 'Threshold', value: 'avg < 1 MB with > 1 file' },
+          {
+            label: 'Result',
+            value: `${formatBytes(avgFileSize)} < 1 MB, ${dataFiles} files > 1 → ${dataFiles > 10 ? 'Critical (>10 files)' : 'Warning (≤10 files)'}`,
+          },
+        ],
       });
     } else if (avgFileSize < 8 * 1024 * 1024 && dataFiles > 10) {
       // Moderately small files — only flag when there are many
@@ -697,6 +727,19 @@ const healthChecks = computed<HealthCheck[]>(() => {
         severity: 'Warning',
         color: 'warning',
         icon: 'mdi-file-alert-outline',
+        reasoning: [
+          { label: 'total-data-files-count', value: `${dataFiles}` },
+          {
+            label: 'total-files-size-in-bytes',
+            value: `${totalSize!.toLocaleString()} (${formatBytes(totalSize!)})`,
+          },
+          { label: 'Avg file size', value: `${formatBytes(avgFileSize)}` },
+          { label: 'Threshold', value: 'avg < 8 MB with > 10 files' },
+          {
+            label: 'Result',
+            value: `${formatBytes(avgFileSize)} < 8 MB, ${dataFiles} files > 10 → Warning`,
+          },
+        ],
       });
     } else if (dataFiles > 1) {
       checks.push({
@@ -705,6 +748,16 @@ const healthChecks = computed<HealthCheck[]>(() => {
         severity: 'Good',
         color: 'success',
         icon: 'mdi-file-check-outline',
+        reasoning: [
+          { label: 'total-data-files-count', value: `${dataFiles}` },
+          {
+            label: 'total-files-size-in-bytes',
+            value: `${totalSize!.toLocaleString()} (${formatBytes(totalSize!)})`,
+          },
+          { label: 'Avg file size', value: `${formatBytes(avgFileSize)}` },
+          { label: 'Threshold', value: 'avg ≥ 1 MB (or ≥ 8 MB with >10 files)' },
+          { label: 'Result', value: `${formatBytes(avgFileSize)} is within healthy range → Good` },
+        ],
       });
     }
   }
@@ -721,6 +774,24 @@ const healthChecks = computed<HealthCheck[]>(() => {
       severity,
       color: severity === 'Critical' ? 'error' : severity === 'Warning' ? 'warning' : 'info',
       icon: 'mdi-delete-clock-outline',
+      reasoning: [
+        { label: 'total-delete-files-count', value: `${deleteFiles}` },
+        { label: 'total-data-files-count', value: `${dataFiles ?? 'N/A'}` },
+        { label: 'total-equality-deletes-count', value: `${eqDeletes ?? 'N/A'}` },
+        { label: 'total-position-deletes-count', value: `${posDeletes ?? 'N/A'}` },
+        {
+          label: 'Delete-to-data ratio',
+          value: `${deleteFiles} / ${dataFiles ?? '?'} = ${deleteRatio.toFixed(2)}`,
+        },
+        {
+          label: 'Threshold',
+          value: 'ratio > 0.5 or > 100 delete files → Critical, > 10 → Warning, else Info',
+        },
+        {
+          label: 'Result',
+          value: `ratio ${deleteRatio.toFixed(2)}, ${deleteFiles} delete files → ${severity}`,
+        },
+      ],
     });
   }
 
@@ -732,6 +803,14 @@ const healthChecks = computed<HealthCheck[]>(() => {
       severity: snapshotCount > 500 ? 'Critical' : 'Warning',
       color: snapshotCount > 500 ? 'error' : 'warning',
       icon: 'mdi-camera-burst',
+      reasoning: [
+        { label: 'Snapshot count', value: `${snapshotCount} (from metadata.snapshots.length)` },
+        { label: 'Threshold', value: '> 500 → Critical, > 100 → Warning' },
+        {
+          label: 'Result',
+          value: `${snapshotCount} snapshots → ${snapshotCount > 500 ? 'Critical' : 'Warning'}`,
+        },
+      ],
     });
   } else if (snapshotCount > 0) {
     checks.push({
@@ -740,6 +819,11 @@ const healthChecks = computed<HealthCheck[]>(() => {
       severity: 'Good',
       color: 'success',
       icon: 'mdi-camera-outline',
+      reasoning: [
+        { label: 'Snapshot count', value: `${snapshotCount} (from metadata.snapshots.length)` },
+        { label: 'Threshold', value: '> 500 → Critical, > 100 → Warning, ≤ 100 → Good' },
+        { label: 'Result', value: `${snapshotCount} ≤ 100 → Good` },
+      ],
     });
   }
 
@@ -753,6 +837,14 @@ const healthChecks = computed<HealthCheck[]>(() => {
         severity: dataFiles > 10000 ? 'Warning' : 'Info',
         color: dataFiles > 10000 ? 'warning' : 'info',
         icon: 'mdi-file-multiple-outline',
+        reasoning: [
+          { label: 'total-data-files-count', value: `${dataFiles.toLocaleString()}` },
+          { label: 'Threshold', value: '> 10,000 → Warning, > 1,000 → Info' },
+          {
+            label: 'Result',
+            value: `${dataFiles.toLocaleString()} files → ${dataFiles > 10000 ? 'Warning' : 'Info'}`,
+          },
+        ],
       });
     }
   }
@@ -765,6 +857,14 @@ const healthChecks = computed<HealthCheck[]>(() => {
       severity: 'Good',
       color: 'success',
       icon: 'mdi-database-outline',
+      reasoning: [
+        { label: 'total-records-count', value: `${totalRecords.toLocaleString()}` },
+        {
+          label: 'total-files-size-in-bytes',
+          value: `${totalSize.toLocaleString()} (${formatBytes(totalSize)})`,
+        },
+        { label: 'Result', value: 'Informational metric — no threshold applied' },
+      ],
     });
   }
 
