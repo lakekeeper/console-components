@@ -1114,8 +1114,6 @@ onBeforeUnmount(() => {
 .branch-layout {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  max-height: calc(100vh - 200px);
 }
 
 .chart-outer {
@@ -1135,9 +1133,7 @@ onBeforeUnmount(() => {
 }
 
 .details-scroll-area {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+  flex: 0 0 auto;
 }
 
 /* Animated flow dashes on links */
