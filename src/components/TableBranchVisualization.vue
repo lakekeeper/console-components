@@ -33,9 +33,7 @@
             :key="entry.name"
             class="legend-item"
             :style="{ opacity: entry.opacity }">
-            <span
-              class="legend-dot"
-              :style="{ backgroundColor: entry.color }"></span>
+            <span class="legend-dot" :style="{ backgroundColor: entry.color }"></span>
             <span class="legend-text">{{ entry.name }}</span>
           </span>
           <span class="legend-item">
@@ -81,7 +79,9 @@
               </div>
               <div v-if="selectedSnapshot['parent-snapshot-id']" class="detail-row">
                 <span class="detail-label">Parent</span>
-                <span class="detail-value text-caption">{{ selectedSnapshot['parent-snapshot-id'] }}</span>
+                <span class="detail-value text-caption">
+                  {{ selectedSnapshot['parent-snapshot-id'] }}
+                </span>
               </div>
               <div v-if="selectedSnapshot.summary?.operation" class="detail-row">
                 <span class="detail-label">Op</span>
@@ -94,13 +94,19 @@
               </div>
               <div v-if="selectedSnapshot['manifest-list']" class="detail-row">
                 <span class="detail-label">Manifest</span>
-                <span class="detail-value text-caption text-truncate" style="max-width: 200px" :title="selectedSnapshot['manifest-list']">
+                <span
+                  class="detail-value text-caption text-truncate"
+                  style="max-width: 200px"
+                  :title="selectedSnapshot['manifest-list']">
                   {{ selectedSnapshot['manifest-list'] }}
                 </span>
               </div>
 
               <!-- Collapsible: Operational Summary -->
-              <v-expansion-panels v-if="selectedSnapshot.summary" variant="accordion" class="mt-3 details-panels">
+              <v-expansion-panels
+                v-if="selectedSnapshot.summary"
+                variant="accordion"
+                class="mt-3 details-panels">
                 <v-expansion-panel>
                   <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
                     Summary
@@ -157,11 +163,26 @@
                               {{ getFieldIcon(field) }}
                             </v-icon>
                           </template>
-                          <v-list-item-title class="text-caption" :class="isFieldNew(field, selectedSnapshot) ? 'text-success font-weight-bold' : ''">
+                          <v-list-item-title
+                            class="text-caption"
+                            :class="
+                              isFieldNew(field, selectedSnapshot)
+                                ? 'text-success font-weight-bold'
+                                : ''
+                            ">
                             {{ field.name }}
-                            <v-chip v-if="isFieldNew(field, selectedSnapshot)" size="x-small" color="success" variant="flat" class="ml-1">new</v-chip>
+                            <v-chip
+                              v-if="isFieldNew(field, selectedSnapshot)"
+                              size="x-small"
+                              color="success"
+                              variant="flat"
+                              class="ml-1">
+                              new
+                            </v-chip>
                           </v-list-item-title>
-                          <v-list-item-subtitle class="text-caption" style="font-size: 0.7rem !important">
+                          <v-list-item-subtitle
+                            class="text-caption"
+                            style="font-size: 0.7rem !important">
                             {{ getFieldTypeString(field.type) }}
                             <span v-if="field.required" class="text-error">*</span>
                           </v-list-item-subtitle>
