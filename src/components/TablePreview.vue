@@ -168,7 +168,7 @@ const branchSnapshots = computed<any[]>(() => {
   }
   if (!tipId) return [];
   // Walk parent chain
-  const chain: Snapshot[] = [];
+  const chain: any[] = [];
   let id: string | undefined = tipId;
   while (id) {
     const snap = snapshotMap.get(id);
