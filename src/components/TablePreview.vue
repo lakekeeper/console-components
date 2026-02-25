@@ -47,13 +47,24 @@
         <div class="text-h6">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
         <div class="d-flex align-center gap-2">
           <v-select
+            v-if="branchOptions.length > 1"
+            v-model="selectedBranch"
+            :items="branchOptions"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 180px"
+            label="Branch"
+            prepend-inner-icon="mdi-source-branch"
+            @update:model-value="selectedSnapshot = null; loadPreview()"></v-select>
+          <v-select
             v-if="timeTravelOptions.length > 1"
             v-model="selectedSnapshot"
             :items="timeTravelOptions"
             density="compact"
             variant="outlined"
             hide-details
-            style="max-width: 340px"
+            style="max-width: 360px"
             label="Time Travel"
             prepend-inner-icon="mdi-clock-outline"
             clearable
@@ -97,11 +108,6 @@ import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 
-interface SnapshotOption {
-  title: string;
-  value: string;
-}
-
 const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
@@ -125,8 +131,69 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 const queryResults = ref<any>(null);
 const warehouseName = ref<string | undefined>(undefined);
+const loadedTable = ref<any>(null);
 const selectedSnapshot = ref<string | null>(null);
-const timeTravelOptions = ref<SnapshotOption[]>([]);
+const selectedBranch = ref<string>('main');
+
+// Resolved table metadata (fetched with json-bigint to preserve snapshot IDs)
+const tableMetadata = computed(() => loadedTable.value);
+
+// Available branches from refs
+const branchOptions = computed(() => {
+  const refs = tableMetadata.value?.metadata?.refs;
+  if (!refs) return [{ title: 'main', value: 'main' }];
+  return Object.entries(refs)
+    .filter(([, r]) => (r as any).type === 'branch')
+    .map(([name]) => ({ title: name, value: name }));
+});
+
+// Walk branch parent chain to get snapshots on the selected branch
+const branchSnapshots = computed<any[]>(() => {
+  const meta = tableMetadata.value?.metadata;
+  if (!meta?.snapshots) return [];
+  const snapshotMap = new Map<string, any>();
+  for (const s of meta.snapshots) {
+    if (s['snapshot-id']) snapshotMap.set(String(s['snapshot-id']), s);
+  }
+  // Find branch tip
+  const refs = meta.refs;
+  let tipId: string | undefined;
+  if (refs && refs[selectedBranch.value]) {
+    tipId = String(refs[selectedBranch.value]['snapshot-id']);
+  } else if (meta['current-snapshot-id']) {
+    tipId = String(meta['current-snapshot-id']);
+  }
+  if (!tipId) return [];
+  // Walk parent chain
+  const chain: Snapshot[] = [];
+  let id: string | undefined = tipId;
+  while (id) {
+    const snap = snapshotMap.get(id);
+    if (!snap) break;
+    chain.push(snap);
+    id = snap['parent-snapshot-id'] ? String(snap['parent-snapshot-id']) : undefined;
+  }
+  return chain;
+});
+
+// Time travel dropdown options from branch snapshots
+const timeTravelOptions = computed(() => {
+  const snaps = branchSnapshots.value;
+  if (snaps.length === 0) return [];
+  return [
+    { title: 'Latest (current)', value: '' },
+    ...snaps.map((s) => {
+      const ts = new Date(s['timestamp-ms']).toISOString().replace('T', ' ').replace('Z', '');
+      const op = s.summary?.operation ?? '';
+      const seq = s['sequence-number'] ?? '';
+      const snapId = String(s['snapshot-id']);
+      return {
+        title: `#${seq} — ${ts} — ${op} (${snapId})`,
+        value: snapId,
+      };
+    }),
+  ];
+});
 
 // Compute headers from results
 const tableHeaders = computed(() => {
@@ -193,6 +260,20 @@ async function loadPreview() {
     const wh = await functions.getWarehouse(props.warehouseId);
     warehouseName.value = wh.name;
 
+    // Load table metadata via loadTableCustomized (uses json-bigint to preserve snapshot IDs)
+    if (!loadedTable.value) {
+      try {
+        loadedTable.value = await functions.loadTableCustomized(
+          props.warehouseId,
+          props.namespaceId,
+          props.tableName,
+        );
+      } catch {
+        // Non-critical — time travel just won't be available
+        loadedTable.value = null;
+      }
+    }
+
     // Configure Iceberg catalog (this initializes DuckDB if needed)
     await icebergDB.configureCatalog({
       catalogName: warehouseName.value,
@@ -203,39 +284,10 @@ async function loadPreview() {
 
     const tablePath = `"${warehouseName.value}"."${props.namespaceId}"."${props.tableName}"`;
 
-    // Load snapshot list from DuckDB (BigInt-safe) for time travel dropdown
-    if (timeTravelOptions.value.length === 0) {
-      try {
-        const snapResult = await icebergDB.executeQuery(
-          `SELECT sequence_number, snapshot_id, timestamp_ms FROM iceberg_snapshots(${tablePath}) ORDER BY sequence_number DESC;`,
-        );
-        if (snapResult?.rows?.length) {
-          // snapshot_id comes back as BigInt string from DuckDB — no precision loss
-          const seqIdx = snapResult.columns.indexOf('sequence_number');
-          const idIdx = snapResult.columns.indexOf('snapshot_id');
-          const tsIdx = snapResult.columns.indexOf('timestamp_ms');
-          const options: SnapshotOption[] = [{ title: 'Latest (current)', value: '' }];
-          for (const row of snapResult.rows) {
-            const seq = String(row[seqIdx]);
-            const snapId = String(row[idIdx]);
-            const tsMs = Number(row[tsIdx]);
-            const ts = new Date(tsMs).toISOString().replace('T', ' ').replace('Z', '');
-            options.push({
-              title: `#${seq} — ${ts} (${snapId})`,
-              value: snapId,
-            });
-          }
-          timeTravelOptions.value = options;
-        }
-      } catch {
-        // Non-critical — time travel just won't be available
-        timeTravelOptions.value = [];
-      }
-    }
-
     // Build query with optional time travel
     let query: string;
     if (selectedSnapshot.value) {
+      // snapshot IDs are BigInt-safe strings from loadTableCustomized (json-bigint)
       query = `SELECT * FROM ${tablePath} AT (VERSION => ${selectedSnapshot.value}) LIMIT 1000;`;
     } else {
       query = `SELECT * FROM ${tablePath} LIMIT 1000;`;
@@ -263,6 +315,9 @@ onMounted(() => {
 
 // Watch for table/namespace/warehouse changes and reload preview
 watch([() => props.tableName, () => props.namespaceId, () => props.warehouseId], () => {
+  loadedTable.value = null;
+  selectedSnapshot.value = null;
+  selectedBranch.value = 'main';
   loadPreview();
 });
 
