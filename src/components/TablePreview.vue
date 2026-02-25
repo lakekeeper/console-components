@@ -46,6 +46,18 @@
       <div class="d-flex justify-space-between align-center mb-4">
         <div class="text-h6">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
         <div class="d-flex align-center gap-2">
+          <v-select
+            v-if="timeTravelOptions.length > 1"
+            v-model="selectedSnapshot"
+            :items="timeTravelOptions"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 340px"
+            label="Time Travel"
+            prepend-inner-icon="mdi-clock-outline"
+            clearable
+            @update:model-value="loadPreview"></v-select>
           <v-chip v-if="queryResults.truncated" color="warning" variant="flat">
             {{ queryResults.rowCount.toLocaleString() }} of
             {{ queryResults.totalRowCount.toLocaleString() }} rows (truncated)
@@ -84,6 +96,7 @@ import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
+import type { Snapshot } from '../gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -91,6 +104,7 @@ const props = defineProps<{
   tableName: string;
   catalogUrl: string; // Now required from parent
   storageType?: string; // Storage type: s3, adls, gcs, etc.
+  snapshots?: Snapshot[]; // Optional: pass from parent to avoid extra API call
 }>();
 
 const config = inject<any>('appConfig', { enabledAuthentication: false });
@@ -108,6 +122,32 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 const queryResults = ref<any>(null);
 const warehouseName = ref<string | undefined>(undefined);
+const loadedSnapshots = ref<Snapshot[]>([]);
+const selectedSnapshot = ref<string | null>(null);
+
+// Time travel options built from snapshots
+const availableSnapshots = computed<Snapshot[]>(() => {
+  return props.snapshots ?? loadedSnapshots.value;
+});
+
+const timeTravelOptions = computed(() => {
+  const snaps = availableSnapshots.value;
+  if (!snaps || snaps.length === 0) return [];
+  // Sort by timestamp descending (most recent first)
+  const sorted = [...snaps].sort((a, b) => b['timestamp-ms'] - a['timestamp-ms']);
+  return [
+    { title: 'Latest (current)', value: '' },
+    ...sorted.map((s, idx) => {
+      const ts = new Date(s['timestamp-ms']).toISOString().replace('T', ' ').replace('Z', '');
+      const op = s.summary?.operation ?? '';
+      const id = String(s['snapshot-id']);
+      return {
+        title: `${ts} — ${op} (${id.slice(0, 8)}…)`,
+        value: id,
+      };
+    }),
+  ];
+});
 
 // Compute headers from results
 const tableHeaders = computed(() => {
@@ -174,6 +214,21 @@ async function loadPreview() {
     const wh = await functions.getWarehouse(props.warehouseId);
     warehouseName.value = wh.name;
 
+    // Load snapshots if not provided via props
+    if (!props.snapshots || props.snapshots.length === 0) {
+      try {
+        const tableResult = await functions.loadTable(
+          props.warehouseId,
+          props.namespaceId,
+          props.tableName,
+        );
+        loadedSnapshots.value = (tableResult.metadata?.snapshots as Snapshot[]) ?? [];
+      } catch {
+        // Non-critical — time travel just won't be available
+        loadedSnapshots.value = [];
+      }
+    }
+
     // Configure Iceberg catalog (this initializes DuckDB if needed)
     await icebergDB.configureCatalog({
       catalogName: warehouseName.value,
@@ -182,8 +237,14 @@ async function loadPreview() {
       accessToken: userStore.user.access_token,
     });
 
-    // Execute preview query - catalog is already attached by configureCatalog
-    const query = `SELECT * FROM "${warehouseName.value}"."${props.namespaceId}"."${props.tableName}" LIMIT 1000;`;
+    // Build query with optional time travel
+    const tablePath = `"${warehouseName.value}"."${props.namespaceId}"."${props.tableName}"`;
+    let query: string;
+    if (selectedSnapshot.value) {
+      query = `SELECT * FROM ${tablePath} AT (VERSION => ${selectedSnapshot.value}) LIMIT 1000;`;
+    } else {
+      query = `SELECT * FROM ${tablePath} LIMIT 1000;`;
+    }
 
     const results = await icebergDB.executeQuery(query);
     queryResults.value = results;
