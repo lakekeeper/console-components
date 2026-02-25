@@ -200,6 +200,96 @@
           Table Health
         </v-toolbar-title>
         <v-spacer></v-spacer>
+        <v-dialog max-width="600">
+          <template #activator="{ props: dialogProps }">
+            <v-btn
+              v-bind="dialogProps"
+              icon="mdi-information-outline"
+              size="x-small"
+              variant="text"
+              color="info"
+              class="mr-1"></v-btn>
+          </template>
+          <template #default="{ isActive }">
+            <v-card>
+              <v-card-title class="d-flex align-center">
+                <v-icon class="mr-2" color="info">mdi-information-outline</v-icon>
+                Health Check Logic
+              </v-card-title>
+              <v-divider></v-divider>
+              <v-card-text class="text-body-2">
+                <p class="mb-3">
+                  Health checks are derived from the current snapshot's summary statistics. No
+                  additional API calls are made.
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="warning" class="mr-1">mdi-file-alert-outline</v-icon>
+                  Small Files
+                </h4>
+                <p class="mb-3">
+                  Compares average file size (total size ÷ file count) against targets. Files under
+                  <strong>1 MB</strong>
+                  avg are flagged as very small; under
+                  <strong>8 MB</strong>
+                  avg (with 10+ files) as small. Optimal Iceberg file sizes are
+                  <strong>128–512 MB</strong>
+                  . Small files increase query planning time and metadata overhead. Fix with
+                  compaction or larger write batches.
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="warning" class="mr-1">
+                    mdi-delete-clock-outline
+                  </v-icon>
+                  Delete Files
+                </h4>
+                <p class="mb-3">
+                  Checks for positional or equality delete files. These cause merge-on-read overhead
+                  at query time. Severity increases with the ratio of delete files to data files.
+                  Running compaction merges deletes into data files.
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="warning" class="mr-1">mdi-camera-burst</v-icon>
+                  Snapshot Count
+                </h4>
+                <p class="mb-3">
+                  Counts total snapshots in table metadata. Over
+                  <strong>100</strong>
+                  snapshots increases metadata file sizes and load times. Over
+                  <strong>500</strong>
+                  is critical. Fix with snapshot expiration (
+                  <code>expire_snapshots</code>
+                  ).
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="info" class="mr-1">mdi-file-multiple-outline</v-icon>
+                  High File Count
+                </h4>
+                <p class="mb-3">
+                  Flags tables with over
+                  <strong>1,000</strong>
+                  data files (even if file sizes are healthy). High file counts increase query
+                  planning time. Fix with compaction.
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="success" class="mr-1">mdi-database-outline</v-icon>
+                  Table Size
+                </h4>
+                <p>
+                  Informational — shows total record count and data size from the snapshot summary.
+                </p>
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn variant="text" @click="isActive.value = false">Close</v-btn>
+              </v-card-actions>
+            </v-card>
+          </template>
+        </v-dialog>
         <v-chip :color="overallHealthColor" size="small" variant="flat" class="mr-2">
           {{ overallHealthLabel }}
         </v-chip>
@@ -590,15 +680,25 @@ const healthChecks = computed<HealthCheck[]>(() => {
   // Small files detection
   if (dataFiles !== null && totalSize !== null && dataFiles > 0) {
     const avgFileSize = totalSize / dataFiles;
-    if (avgFileSize < 8 * 1024 * 1024 && dataFiles > 10) {
+    // Very tiny files (< 1 MB avg) — flag even with few files
+    if (avgFileSize < 1024 * 1024 && dataFiles > 1) {
+      checks.push({
+        label: 'Very small files detected',
+        detail: `${dataFiles} data files with avg size ${formatBytes(avgFileSize)}. Files are significantly undersized (target: 128–512 MB). Consider compaction or increasing write batch sizes.`,
+        severity: dataFiles > 10 ? 'Critical' : 'Warning',
+        color: dataFiles > 10 ? 'error' : 'warning',
+        icon: 'mdi-file-alert-outline',
+      });
+    } else if (avgFileSize < 8 * 1024 * 1024 && dataFiles > 10) {
+      // Moderately small files — only flag when there are many
       checks.push({
         label: 'Small files detected',
         detail: `${dataFiles} data files with avg size ${formatBytes(avgFileSize)}. Consider compaction to improve read performance (target: 128–512 MB per file).`,
-        severity: avgFileSize < 1024 * 1024 ? 'Critical' : 'Warning',
-        color: avgFileSize < 1024 * 1024 ? 'error' : 'warning',
+        severity: 'Warning',
+        color: 'warning',
         icon: 'mdi-file-alert-outline',
       });
-    } else if (dataFiles > 10) {
+    } else if (dataFiles > 1) {
       checks.push({
         label: 'File sizes healthy',
         detail: `${dataFiles} data files, avg ${formatBytes(avgFileSize)}.`,
