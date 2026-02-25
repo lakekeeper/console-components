@@ -1,210 +1,219 @@
 <template>
-  <div class="pa-4">
-    <div
+  <v-container fluid class="pa-0">
+    <v-row
       v-if="!table.metadata.refs || Object.keys(table.metadata.refs).length === 0"
-      class="text-center pa-8">
-      <v-icon size="64" color="grey-lighten-1">mdi-source-branch-remove</v-icon>
-      <div class="text-h6 mt-2 text-grey-lighten-1">No branches found</div>
-      <div class="text-body-1 text-grey-lighten-1">This table has no branch references</div>
-    </div>
+      justify="center"
+      class="pa-8">
+      <v-col cols="12" class="text-center">
+        <v-icon size="64" color="grey-lighten-1">mdi-source-branch-remove</v-icon>
+        <div class="text-h6 mt-2 text-grey-lighten-1">No branches found</div>
+        <div class="text-body-1 text-grey-lighten-1">This table has no branch references</div>
+      </v-col>
+    </v-row>
 
-    <div v-else class="graph-wrapper">
-      <!-- Full-width chart with overlays -->
-      <div class="chart-outer">
-        <!-- D3 renders the SVG here -->
-        <div ref="chartRef" class="chart-container"></div>
+    <v-row v-else no-gutters>
+      <v-col cols="12">
+        <!-- Full-width chart with overlays -->
+        <div class="chart-outer">
+          <!-- D3 renders the SVG here -->
+          <div ref="chartRef" class="chart-container"></div>
 
-        <!-- Floating zoom controls — top-left -->
-        <div class="zoom-overlay">
-          <v-btn-group variant="flat" density="compact" class="zoom-group">
-            <v-btn size="x-small" icon="mdi-plus" @click="zoomIn"></v-btn>
-            <v-btn size="x-small" class="zoom-label" @click="resetZoom">
-              {{ Math.round(currentZoom * 100) }}%
-            </v-btn>
-            <v-btn size="x-small" icon="mdi-minus" @click="zoomOut"></v-btn>
-            <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
-          </v-btn-group>
-        </div>
-
-        <!-- Subtle inline legend — bottom-left -->
-        <div class="legend-overlay">
-          <span
-            v-for="entry in legendEntries"
-            :key="entry.name"
-            class="legend-item"
-            :style="{ opacity: entry.opacity }">
-            <span class="legend-dot" :style="{ backgroundColor: entry.color }"></span>
-            <span class="legend-text">{{ entry.name }}</span>
-          </span>
-          <span class="legend-item">
-            <span class="legend-dot legend-dot--schema"></span>
-            <span class="legend-text">schema change</span>
-          </span>
-        </div>
-
-        <!-- Slide-in details panel — right edge -->
-        <v-slide-x-reverse-transition>
-          <div v-if="selectedSnapshot" class="details-drawer">
-            <div class="details-drawer-inner">
-              <div class="d-flex align-center justify-space-between mb-2">
-                <span class="text-subtitle-1 font-weight-bold d-flex align-center">
-                  <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
-                  Snapshot #{{ selectedSnapshot['sequence-number'] }}
-                </span>
-                <v-btn
-                  icon="mdi-close"
-                  size="x-small"
-                  variant="text"
-                  @click="selectedSnapshot = null"></v-btn>
-              </div>
-
-              <!-- Core info -->
-              <div class="detail-row">
-                <span class="detail-label">ID</span>
-                <span class="detail-value text-caption">{{ selectedSnapshot['snapshot-id'] }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Schema</span>
-                <span class="detail-value text-caption">{{ selectedSnapshot['schema-id'] }}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Time</span>
-                <span class="detail-value text-caption">
-                  {{
-                    selectedSnapshot['timestamp-ms']
-                      ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
-                      : '—'
-                  }}
-                </span>
-              </div>
-              <div v-if="selectedSnapshot['parent-snapshot-id']" class="detail-row">
-                <span class="detail-label">Parent</span>
-                <span class="detail-value text-caption">
-                  {{ selectedSnapshot['parent-snapshot-id'] }}
-                </span>
-              </div>
-              <div v-if="selectedSnapshot.summary?.operation" class="detail-row">
-                <span class="detail-label">Op</span>
-                <v-chip
-                  :color="getOperationColor(selectedSnapshot.summary.operation)"
-                  size="x-small"
-                  variant="flat"
-                  class="ml-1">
-                  {{ selectedSnapshot.summary.operation }}
-                </v-chip>
-              </div>
-              <div v-if="selectedSnapshot['manifest-list']" class="detail-row">
-                <span class="detail-label">Manifest</span>
-                <span
-                  class="detail-value text-caption text-truncate"
-                  style="max-width: 200px"
-                  :title="selectedSnapshot['manifest-list']">
-                  {{ selectedSnapshot['manifest-list'] }}
-                </span>
-              </div>
-
-              <!-- Collapsible: Operational Summary -->
-              <v-expansion-panels
-                v-if="selectedSnapshot.summary"
-                variant="accordion"
-                class="mt-3 details-panels">
-                <v-expansion-panel>
-                  <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
-                    Summary
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <div class="summary-grid">
-                      <div
-                        v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
-                        :key="key"
-                        class="summary-row">
-                        <span class="summary-key">{{ formatSummaryKey(key) }}</span>
-                        <span class="summary-val">{{ formatSummaryValue(value) }}</span>
-                      </div>
-                    </div>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
-
-              <!-- Collapsible: Schema Information -->
-              <v-expansion-panels variant="accordion" class="mt-2 details-panels">
-                <v-expansion-panel>
-                  <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
-                    Schema
-                    <v-chip
-                      v-if="getSchemaChanges(selectedSnapshot)"
-                      size="x-small"
-                      color="warning"
-                      variant="flat"
-                      class="ml-2">
-                      Changed
-                    </v-chip>
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <div v-if="!getEffectiveSchemaInfo(selectedSnapshot)" class="text-center pa-2">
-                      <div class="text-caption text-grey-lighten-1">
-                        Schema not available (ID: {{ getEffectiveSchemaId(selectedSnapshot) }})
-                      </div>
-                    </div>
-                    <div v-else style="max-height: 220px; overflow-y: auto">
-                      <div class="text-caption mb-1" style="opacity: 0.7">
-                        Schema ID {{ getEffectiveSchemaId(selectedSnapshot) }}
-                      </div>
-                      <v-list density="compact" class="pa-0">
-                        <v-list-item
-                          v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
-                          :key="field.id"
-                          class="pa-0 px-1"
-                          style="min-height: 28px">
-                          <template #prepend>
-                            <v-icon
-                              :color="isFieldNew(field, selectedSnapshot) ? 'success' : undefined"
-                              size="x-small"
-                              class="mr-1">
-                              {{ getFieldIcon(field) }}
-                            </v-icon>
-                          </template>
-                          <v-list-item-title
-                            class="text-caption"
-                            :class="
-                              isFieldNew(field, selectedSnapshot)
-                                ? 'text-success font-weight-bold'
-                                : ''
-                            ">
-                            {{ field.name }}
-                            <v-chip
-                              v-if="isFieldNew(field, selectedSnapshot)"
-                              size="x-small"
-                              color="success"
-                              variant="flat"
-                              class="ml-1">
-                              new
-                            </v-chip>
-                          </v-list-item-title>
-                          <v-list-item-subtitle
-                            class="text-caption"
-                            style="font-size: 0.7rem !important">
-                            {{ getFieldTypeString(field.type) }}
-                            <span v-if="field.required" class="text-error">*</span>
-                          </v-list-item-subtitle>
-                        </v-list-item>
-                      </v-list>
-                    </div>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </div>
+          <!-- Floating zoom controls — top-left -->
+          <div class="zoom-overlay">
+            <v-btn-group variant="flat" density="compact" class="zoom-group">
+              <v-btn size="x-small" icon="mdi-plus" @click="zoomIn"></v-btn>
+              <v-btn size="x-small" class="zoom-label" @click="resetZoom">
+                {{ Math.round(currentZoom * 100) }}%
+              </v-btn>
+              <v-btn size="x-small" icon="mdi-minus" @click="zoomOut"></v-btn>
+              <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
+            </v-btn-group>
           </div>
-        </v-slide-x-reverse-transition>
 
-        <!-- Click hint (no selection) -->
-        <div v-if="!selectedSnapshot" class="hint-overlay">
-          <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
-          <span class="text-caption">Click a node for details</span>
+          <!-- Subtle inline legend — bottom-left -->
+          <div class="legend-overlay">
+            <span
+              v-for="entry in legendEntries"
+              :key="entry.name"
+              class="legend-item"
+              :style="{ opacity: entry.opacity }">
+              <span class="legend-dot" :style="{ backgroundColor: entry.color }"></span>
+              <span class="legend-text">{{ entry.name }}</span>
+            </span>
+            <span class="legend-item">
+              <span class="legend-dot legend-dot--schema"></span>
+              <span class="legend-text">schema change</span>
+            </span>
+          </div>
+
+          <!-- Slide-in details panel — right edge -->
+          <v-slide-x-reverse-transition>
+            <div v-if="selectedSnapshot" class="details-drawer">
+              <div class="details-drawer-inner">
+                <div class="d-flex align-center justify-space-between mb-2">
+                  <span class="text-subtitle-1 font-weight-bold d-flex align-center">
+                    <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
+                    Snapshot #{{ selectedSnapshot['sequence-number'] }}
+                  </span>
+                  <v-btn
+                    icon="mdi-close"
+                    size="x-small"
+                    variant="text"
+                    @click="selectedSnapshot = null"></v-btn>
+                </div>
+
+                <!-- Core info -->
+                <div class="detail-row">
+                  <span class="detail-label">ID</span>
+                  <span class="detail-value text-caption">
+                    {{ selectedSnapshot['snapshot-id'] }}
+                  </span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Schema</span>
+                  <span class="detail-value text-caption">{{ selectedSnapshot['schema-id'] }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Time</span>
+                  <span class="detail-value text-caption">
+                    {{
+                      selectedSnapshot['timestamp-ms']
+                        ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
+                        : '—'
+                    }}
+                  </span>
+                </div>
+                <div v-if="selectedSnapshot['parent-snapshot-id']" class="detail-row">
+                  <span class="detail-label">Parent</span>
+                  <span class="detail-value text-caption">
+                    {{ selectedSnapshot['parent-snapshot-id'] }}
+                  </span>
+                </div>
+                <div v-if="selectedSnapshot.summary?.operation" class="detail-row">
+                  <span class="detail-label">Op</span>
+                  <v-chip
+                    :color="getOperationColor(selectedSnapshot.summary.operation)"
+                    size="x-small"
+                    variant="flat"
+                    class="ml-1">
+                    {{ selectedSnapshot.summary.operation }}
+                  </v-chip>
+                </div>
+                <div v-if="selectedSnapshot['manifest-list']" class="detail-row">
+                  <span class="detail-label">Manifest</span>
+                  <span
+                    class="detail-value text-caption text-truncate"
+                    style="max-width: 200px"
+                    :title="selectedSnapshot['manifest-list']">
+                    {{ selectedSnapshot['manifest-list'] }}
+                  </span>
+                </div>
+
+                <!-- Collapsible: Operational Summary -->
+                <v-expansion-panels
+                  v-if="selectedSnapshot.summary"
+                  variant="accordion"
+                  class="mt-3 details-panels">
+                  <v-expansion-panel>
+                    <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
+                      Summary
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <div class="summary-grid">
+                        <div
+                          v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
+                          :key="key"
+                          class="summary-row">
+                          <span class="summary-key">{{ formatSummaryKey(key) }}:</span>
+                          <span class="summary-val">{{ formatSummaryValue(value) }}</span>
+                        </div>
+                      </div>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+
+                <!-- Collapsible: Schema Information -->
+                <v-expansion-panels variant="accordion" class="mt-2 details-panels">
+                  <v-expansion-panel>
+                    <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
+                      Schema
+                      <v-chip
+                        v-if="getSchemaChanges(selectedSnapshot)"
+                        size="x-small"
+                        color="warning"
+                        variant="flat"
+                        class="ml-2">
+                        Changed
+                      </v-chip>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <div
+                        v-if="!getEffectiveSchemaInfo(selectedSnapshot)"
+                        class="text-center pa-2">
+                        <div class="text-caption text-grey-lighten-1">
+                          Schema not available (ID: {{ getEffectiveSchemaId(selectedSnapshot) }})
+                        </div>
+                      </div>
+                      <div v-else style="max-height: 220px; overflow-y: auto">
+                        <div class="text-caption mb-1" style="opacity: 0.7">
+                          Schema ID {{ getEffectiveSchemaId(selectedSnapshot) }}
+                        </div>
+                        <v-list density="compact" class="pa-0">
+                          <v-list-item
+                            v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
+                            :key="field.id"
+                            class="pa-0 px-1"
+                            style="min-height: 28px">
+                            <template #prepend>
+                              <v-icon
+                                :color="isFieldNew(field, selectedSnapshot) ? 'success' : undefined"
+                                size="x-small"
+                                class="mr-1">
+                                {{ getFieldIcon(field) }}
+                              </v-icon>
+                            </template>
+                            <v-list-item-title
+                              class="text-caption"
+                              :class="
+                                isFieldNew(field, selectedSnapshot)
+                                  ? 'text-success font-weight-bold'
+                                  : ''
+                              ">
+                              {{ field.name }}
+                              <v-chip
+                                v-if="isFieldNew(field, selectedSnapshot)"
+                                size="x-small"
+                                color="success"
+                                variant="flat"
+                                class="ml-1">
+                                new
+                              </v-chip>
+                            </v-list-item-title>
+                            <v-list-item-subtitle
+                              class="text-caption"
+                              style="font-size: 0.7rem !important">
+                              {{ getFieldTypeString(field.type) }}
+                              <span v-if="field.required" class="text-error">*</span>
+                            </v-list-item-subtitle>
+                          </v-list-item>
+                        </v-list>
+                      </div>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </div>
+            </div>
+          </v-slide-x-reverse-transition>
+
+          <!-- Click hint (no selection) -->
+          <div v-if="!selectedSnapshot" class="hint-overlay">
+            <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
+            <span class="text-caption">Click a node for details</span>
+          </div>
         </div>
-      </div>
-    </div>
-  </div>
+      </v-col>
+    </v-row>
+  </v-container>
 </template>
 
 <script lang="ts" setup>
@@ -292,18 +301,7 @@ const branches = computed<BranchMeta[]>(() => {
   sorted.forEach((s) => snapshotMap.set(s['snapshot-id'], s));
 
   let colorIdx = 0;
-
-  // Process main/master first so it gets the primary color
-  const refEntries = Object.entries(refs);
-  const mainEntry = refEntries.find(
-    ([name, refData]: [string, any]) =>
-      refData.type === 'branch' && (name === 'main' || name === 'master'),
-  );
-  const orderedEntries = mainEntry
-    ? [mainEntry, ...refEntries.filter((e) => e !== mainEntry)]
-    : refEntries;
-
-  orderedEntries.forEach(([name, refData]: [string, any]) => {
+  Object.entries(refs).forEach(([name, refData]: [string, any]) => {
     if (refData.type !== 'branch') return;
     result.push({
       name,
@@ -376,6 +374,26 @@ const graphNodes = computed<GraphNode[]>(() => {
     });
   });
 
+  // Detect merged branches (same tip as main) and use snapshot-log to
+  // move their exclusive snapshots onto a separate branch row.
+  const snapshotLog = (props.table.metadata as any)['snapshot-log'] as
+    | { 'snapshot-id': number; 'timestamp-ms': number }[]
+    | undefined;
+  const mergedBranchExclusiveIds = new Set<string>();
+  if (mainBranch && snapshotLog && snapshotLog.length > 0) {
+    const logIds = new Set(snapshotLog.map((e) => String(e['snapshot-id'])));
+    namedBranches.forEach((branch, idx) => {
+      if (String(branch.tipSnapshotId) !== String(mainBranch.tipSnapshotId)) return;
+      // Snapshots in shared ancestry that are NOT in the log were committed on this branch
+      branch.ancestry.forEach((id) => {
+        if (String(id) !== String(branch.tipSnapshotId) && !logIds.has(String(id))) {
+          snapshotRow.set(id, -(idx + 1));
+          mergedBranchExclusiveIds.add(String(id));
+        }
+      });
+    });
+  }
+
   // Horizontal layout: x = time (left→right), y = branch row
   const spacingX = 90;
   const spacingY = 100;
@@ -395,9 +413,11 @@ const graphNodes = computed<GraphNode[]>(() => {
     const x = 60 + index * spacingX;
     const y = originY + row * spacingY;
     const sc = getSchemaChangeInfo(snapshot);
+    // Prefer main for shared nodes, else use the branch whose row this snapshot is on
     const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
     const ownerBranch =
-      (mainBr?.ancestry.includes(sid) ? mainBr : null) ||
+      (row === 0 && mainBr?.ancestry.includes(sid) ? mainBr : null) ||
+      branches.value.find((b) => b.ancestry.includes(sid) && snapshotRow.get(sid) !== undefined) ||
       branches.value.find((b) => b.ancestry.includes(sid));
     const isDropped = ownerBranch?.type === 'dropped';
     const branchColor = ownerBranch?.color || '#666';
@@ -465,8 +485,66 @@ const graphLinks = computed<GraphLink[]>(() => {
     links.push({ id: key, path, color, opacity });
   }
 
-  branches.value.forEach((branch) => {
+  // Determine which branches are merged into main (same tip)
+  const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
+  const snapshotLog2 = (props.table.metadata as any)['snapshot-log'] as
+    | { 'snapshot-id': number }[]
+    | undefined;
+  const mergedExclusiveIds = new Set<string>();
+  if (mainBr && snapshotLog2 && snapshotLog2.length > 0) {
+    const logIds2 = new Set(snapshotLog2.map((e) => String(e['snapshot-id'])));
+    branches.value.forEach((branch) => {
+      if (branch === mainBr || branch.type !== 'branch') return;
+      if (String(branch.tipSnapshotId) !== String(mainBr.tipSnapshotId)) return;
+      branch.ancestry.forEach((id) => {
+        if (String(id) !== String(branch.tipSnapshotId) && !logIds2.has(String(id))) {
+          mergedExclusiveIds.add(String(id));
+        }
+      });
+    });
+  }
+
+  // Process merged branches first so their colored links take priority
+  const sortedBranches = [...branches.value].sort((a, b) => {
+    const aM =
+      mainBr &&
+      a !== mainBr &&
+      a.type === 'branch' &&
+      String(a.tipSnapshotId) === String(mainBr.tipSnapshotId);
+    const bM =
+      mainBr &&
+      b !== mainBr &&
+      b.type === 'branch' &&
+      String(b.tipSnapshotId) === String(mainBr.tipSnapshotId);
+    if (aM && !bM) return -1;
+    if (!aM && bM) return 1;
+    return 0;
+  });
+
+  sortedBranches.forEach((branch) => {
+    const isMerged =
+      mainBr &&
+      branch !== mainBr &&
+      branch.type === 'branch' &&
+      mergedExclusiveIds.size > 0 &&
+      String(branch.tipSnapshotId) === String(mainBr.tipSnapshotId);
     const opacity = branch.type === 'dropped' ? 0.5 : 0.8;
+
+    if (isMerged) {
+      // Only create links where at least one endpoint is branch-exclusive
+      for (let i = 0; i < branch.ancestry.length - 1; i++) {
+        const child = nodeMap.get(branch.ancestry[i]);
+        const parent = nodeMap.get(branch.ancestry[i + 1]);
+        if (child && parent) {
+          const childExcl = mergedExclusiveIds.has(String(branch.ancestry[i]));
+          const parentExcl = mergedExclusiveIds.has(String(branch.ancestry[i + 1]));
+          if (childExcl || parentExcl) {
+            addLink(parent, child, branch.color, 0.8);
+          }
+        }
+      }
+      return;
+    }
 
     // Chain edges
     for (let i = 0; i < branch.ancestry.length - 1; i++) {
@@ -477,9 +555,8 @@ const graphLinks = computed<GraphLink[]>(() => {
 
     // Divergence from main
     if (branch.type === 'branch' && branch.name !== 'main' && branch.name !== 'master') {
-      const mainBranch = branches.value.find((b) => b.name === 'main' || b.name === 'master');
-      if (mainBranch) {
-        const mainSet = new Set(mainBranch.ancestry);
+      if (mainBr) {
+        const mainSet = new Set(mainBr.ancestry);
         for (let i = 0; i < branch.ancestry.length; i++) {
           if (mainSet.has(branch.ancestry[i]) && i > 0) {
             const from = nodeMap.get(branch.ancestry[i]);
@@ -797,91 +874,6 @@ function renderChart() {
         `Seq ${d.sequenceNumber} | ID ${d.snapshotId}${d.schemaChange ? ` | Schema ${d.schemaChange.from}\u2192${d.schemaChange.to}` : ''}`,
     );
 
-  // ── Merge indicators ──
-  // When a non-main branch shares the same tip as main, draw a visible merge track
-  const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
-  if (mainBr && rootG) {
-    const localNodeMap = new Map<any, GraphNode>();
-    graphNodes.value.forEach((n) => localNodeMap.set(n.snapshotId, n));
-
-    let mergeIdx = 0;
-    branches.value.forEach((branch) => {
-      if (branch === mainBr || branch.type === 'dropped') return;
-      // Check if branch tip equals main tip (merged branch)
-      if (String(branch.tipSnapshotId) !== String(mainBr.tipSnapshotId)) return;
-
-      const tipNode = localNodeMap.get(branch.tipSnapshotId);
-      if (!tipNode) return;
-
-      mergeIdx++;
-      const offsetY = -40 * mergeIdx;
-      const trackLen = 70;
-      const mergeG = rootG!.append('g').attr('class', 'merge-track');
-
-      // Curved merge line from offset into tip
-      const curvePath = [
-        `M ${tipNode.x - trackLen} ${tipNode.y + offsetY}`,
-        `Q ${tipNode.x - 20} ${tipNode.y + offsetY} ${tipNode.x - tipNode.radius - 2} ${tipNode.y}`,
-      ].join(' ');
-
-      // Glow behind
-      mergeG
-        .append('path')
-        .attr('d', curvePath)
-        .attr('stroke', branch.color)
-        .attr('stroke-width', 7)
-        .attr('fill', 'none')
-        .attr('opacity', 0.15)
-        .attr('filter', 'url(#lineGlow)');
-
-      // Dashed merge line
-      mergeG
-        .append('path')
-        .attr('d', curvePath)
-        .attr('stroke', branch.color)
-        .attr('stroke-width', 2.5)
-        .attr('fill', 'none')
-        .attr('stroke-linecap', 'round')
-        .attr('stroke-dasharray', '6 4')
-        .attr('opacity', 0.8);
-
-      // Small station dot at start of merge track
-      mergeG
-        .append('circle')
-        .attr('cx', tipNode.x - trackLen)
-        .attr('cy', tipNode.y + offsetY)
-        .attr('r', 4)
-        .attr('fill', branch.color)
-        .attr('stroke', 'white')
-        .attr('stroke-width', 1.5);
-
-      // Branch name label
-      mergeG
-        .append('text')
-        .attr('x', tipNode.x - trackLen - 8)
-        .attr('y', tipNode.y + offsetY + 3)
-        .attr('font-size', 9)
-        .attr('font-weight', '700')
-        .attr('fill', branch.color)
-        .attr('text-anchor', 'end')
-        .style('text-transform', 'uppercase')
-        .style('letter-spacing', '0.04em')
-        .text(branch.name);
-
-      // "merged" subtitle
-      mergeG
-        .append('text')
-        .attr('x', tipNode.x - trackLen - 8)
-        .attr('y', tipNode.y + offsetY + 14)
-        .attr('font-size', 7)
-        .attr('font-weight', '600')
-        .attr('fill', branch.color)
-        .attr('text-anchor', 'end')
-        .style('opacity', 0.6)
-        .text('merged');
-    });
-  }
-
   // Auto fit
   setTimeout(fitToView, 50);
 }
@@ -912,9 +904,9 @@ function fitToView() {
 
   const xs = graphNodes.value.map((n) => n.x);
   const ys = graphNodes.value.map((n) => n.y);
-  const minX = Math.min(...xs) - 80;
+  const minX = Math.min(...xs) - 30;
   const maxX = Math.max(...xs) + 30;
-  const minY = Math.min(...ys) - 60;
+  const minY = Math.min(...ys) - 40;
   const maxY = Math.max(...ys) + 40;
 
   const gW = maxX - minX;
@@ -1083,13 +1075,9 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.graph-wrapper {
-  width: 100%;
-}
-
 .chart-outer {
   position: relative;
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 8px;
   overflow: hidden;
   background: rgba(var(--v-theme-surface), 1);
@@ -1099,8 +1087,6 @@ onBeforeUnmount(() => {
   height: 500px;
   touch-action: none;
   user-select: none;
-  position: relative;
-  z-index: 0;
 }
 
 /* Animated flow dashes on links */
@@ -1214,8 +1200,8 @@ onBeforeUnmount(() => {
 .detail-row {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 4px 0;
+  gap: 12px;
+  padding: 5px 0;
   border-bottom: 1px solid rgba(var(--v-border-color), 0.06);
 }
 
@@ -1227,13 +1213,14 @@ onBeforeUnmount(() => {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: rgba(var(--v-theme-on-surface), 0.5);
+  padding-right: 4px;
 }
 
 .detail-value {
   flex: 1;
   min-width: 0;
   font-size: 0.75rem;
-  margin-left: 4px;
+  margin-left: 8px;
 }
 
 .details-panels :deep(.v-expansion-panel) {
@@ -1258,27 +1245,24 @@ onBeforeUnmount(() => {
 
 .summary-row {
   display: flex;
-  gap: 10px;
-  padding: 3px 0;
+  gap: 14px;
+  padding: 4px 0;
   font-size: 0.75rem;
   line-height: 1.4;
 }
 
 .summary-key {
   flex-shrink: 0;
-  min-width: 100px;
+  min-width: 110px;
   font-weight: 600;
   color: rgba(var(--v-theme-on-surface), 0.6);
-}
-
-.summary-key::after {
-  content: ':';
+  padding-right: 4px;
 }
 
 .summary-val {
   flex: 1;
   min-width: 0;
-  margin-left: 4px;
+  margin-left: 8px;
   color: rgba(var(--v-theme-on-surface), 0.85);
   word-break: break-word;
 }
