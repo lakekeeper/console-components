@@ -227,11 +227,32 @@
             <v-icon class="mr-2">mdi-file-tree</v-icon>
             Schema Fields
             <v-chip size="x-small" variant="outlined" class="ml-2">
-              {{ currentSchemaInfo?.fields?.length || 0 }} fields
+              {{ selectedSchemaInfo?.fields?.length || 0 }} fields
+            </v-chip>
+            <v-chip
+              v-if="
+                selectedSchemaId !== null &&
+                selectedSchemaId !== table.metadata['current-schema-id']
+              "
+              size="x-small"
+              color="warning"
+              variant="flat"
+              class="ml-2">
+              schema {{ selectedSchemaId }}
             </v-chip>
           </div>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
+          <v-select
+            v-if="allSchemas.length > 1"
+            v-model="selectedSchemaId"
+            :items="schemaVersionOptions"
+            density="compact"
+            variant="outlined"
+            label="Schema Version"
+            class="mb-3"
+            style="max-width: 400px"
+            hide-details></v-select>
           <v-treeview :items="schemaFieldsTransformed" open-on-click>
             <template #prepend="{ item }">
               <v-icon v-if="item.datatype == 'string'" size="small">mdi-alphabetical</v-icon>
@@ -339,7 +360,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import { transformFields } from '../common/schemaUtils';
@@ -478,9 +499,24 @@ const schemaFieldDiffs = computed(() => {
 const currentSnapshot = computed(() => getCurrentSnapshot());
 const currentSchemaInfo = computed(() => getCurrentSchema());
 
+const selectedSchemaId = ref<number | null>(null);
+
+const schemaVersionOptions = computed(() => {
+  return allSchemas.value.map((s) => ({
+    title: `Schema ${s['schema-id']}${s['schema-id'] === props.table.metadata['current-schema-id'] ? ' (current)' : ''} — ${s.fields?.length || 0} fields`,
+    value: s['schema-id'] ?? 0,
+  }));
+});
+
+const selectedSchemaInfo = computed(() => {
+  const id = selectedSchemaId.value;
+  if (id === null) return currentSchemaInfo.value;
+  return allSchemas.value.find((s) => s['schema-id'] === id) || currentSchemaInfo.value;
+});
+
 const schemaFieldsTransformed = computed(() => {
-  if (!currentSchemaInfo.value?.fields) return [];
-  return transformFields(currentSchemaInfo.value.fields);
+  if (!selectedSchemaInfo.value?.fields) return [];
+  return transformFields(selectedSchemaInfo.value.fields);
 });
 </script>
 
