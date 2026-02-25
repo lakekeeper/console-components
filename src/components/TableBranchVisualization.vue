@@ -11,9 +11,9 @@
       </v-col>
     </v-row>
 
-    <template v-else>
-      <!-- Row 1: Fixed D3 chart -->
-      <v-row no-gutters>
+    <div v-else class="branch-layout">
+      <!-- Row 1: Fixed D3 chart — never scrolls -->
+      <v-row no-gutters class="flex-grow-0 flex-shrink-0">
         <v-col cols="12">
           <div class="chart-outer">
             <div ref="chartRef" class="chart-container"></div>
@@ -32,18 +32,46 @@
 
             <!-- Legend — bottom-left -->
             <div class="legend-overlay">
-              <span
+              <v-chip
                 v-for="entry in legendEntries"
                 :key="entry.name"
-                class="legend-item"
+                size="x-small"
+                variant="tonal"
+                class="legend-chip"
                 :style="{ opacity: entry.opacity }">
-                <span class="legend-dot" :style="{ backgroundColor: entry.color }"></span>
-                <span class="legend-text">{{ entry.name }}</span>
-              </span>
-              <span class="legend-item">
-                <span class="legend-dot legend-dot--schema"></span>
-                <span class="legend-text">schema change</span>
-              </span>
+                <template #prepend>
+                  <svg width="14" height="14" class="mr-1">
+                    <circle
+                      cx="7"
+                      cy="7"
+                      r="6"
+                      fill="none"
+                      :stroke="entry.color"
+                      stroke-width="1"
+                      opacity="0.5" />
+                    <circle cx="7" cy="7" r="4" :fill="entry.color" />
+                    <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
+                  </svg>
+                </template>
+                {{ entry.name }}
+              </v-chip>
+              <v-chip size="x-small" variant="tonal" class="legend-chip">
+                <template #prepend>
+                  <svg width="14" height="14" class="mr-1">
+                    <circle
+                      cx="7"
+                      cy="7"
+                      r="6"
+                      fill="none"
+                      stroke="#f57c00"
+                      stroke-width="1"
+                      opacity="0.5" />
+                    <circle cx="7" cy="7" r="4" fill="#ff9800" />
+                    <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
+                  </svg>
+                </template>
+                schema change
+              </v-chip>
             </div>
 
             <!-- Click hint -->
@@ -56,10 +84,10 @@
       </v-row>
 
       <!-- Row 2: Scrollable details (appears on node click) -->
-      <v-slide-y-transition>
-        <v-row v-if="selectedSnapshot" no-gutters>
-          <v-col cols="12">
-            <div class="details-panel">
+      <v-row no-gutters class="details-scroll-area">
+        <v-col cols="12">
+          <v-slide-y-transition>
+            <div v-if="selectedSnapshot" class="details-panel">
               <div class="details-panel-inner">
                 <div class="d-flex align-center justify-space-between mb-2">
                   <span class="text-subtitle-1 font-weight-bold d-flex align-center">
@@ -217,10 +245,10 @@
                 </v-expansion-panels>
               </div>
             </div>
-          </v-col>
-        </v-row>
-      </v-slide-y-transition>
-    </template>
+          </v-slide-y-transition>
+        </v-col>
+      </v-row>
+    </div>
   </v-container>
 </template>
 
@@ -1083,6 +1111,13 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+.branch-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: calc(100vh - 200px);
+}
+
 .chart-outer {
   position: relative;
   z-index: 0;
@@ -1097,6 +1132,12 @@ onBeforeUnmount(() => {
   overflow: hidden;
   touch-action: none;
   user-select: none;
+}
+
+.details-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Animated flow dashes on links */
@@ -1139,37 +1180,17 @@ onBeforeUnmount(() => {
   z-index: 2;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  padding: 4px 10px;
-  background: rgba(var(--v-theme-surface), 0.7);
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(var(--v-theme-surface), 0.8);
   backdrop-filter: blur(4px);
-  border-radius: 4px;
-  font-size: 0.72rem;
+  border-radius: 6px;
   pointer-events: none;
 }
 
-.legend-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  opacity: 0.85;
-}
-
-.legend-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.legend-dot--schema {
-  background: #ff9800;
-  border: 1.5px solid #f57c00;
-}
-
-.legend-text {
-  white-space: nowrap;
-  color: rgba(var(--v-theme-on-surface), 0.7);
+.legend-chip {
+  font-size: 0.7rem !important;
+  pointer-events: none;
 }
 
 /* Hint overlay */
