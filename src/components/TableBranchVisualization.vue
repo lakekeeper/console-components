@@ -435,10 +435,7 @@ function zoomOut() {
 
 function resetZoom() {
   if (!svgRef.value || !zoomBehavior) return;
-  d3.select(svgRef.value)
-    .transition()
-    .duration(500)
-    .call(zoomBehavior.transform, d3.zoomIdentity);
+  d3.select(svgRef.value).transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
 }
 
 function fitToView() {
@@ -474,15 +471,7 @@ function fitToView() {
 }
 
 // ─── Branch Colors ───────────────────────────────────────────────────────────
-const BRANCH_COLORS = [
-  '#1976d2',
-  '#388e3c',
-  '#f57c00',
-  '#d32f2f',
-  '#7b1fa2',
-  '#00796b',
-  '#c2185b',
-];
+const BRANCH_COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f', '#7b1fa2', '#00796b', '#c2185b'];
 const DROPPED_COLOR = '#9e9e9e';
 
 // ─── Graph Data Model ────────────────────────────────────────────────────────
@@ -772,9 +761,7 @@ const graphLinks = computed<GraphLink[]>(() => {
     // Dropped branch divergence: parent on main → first dropped snapshot
     if (branch.type === 'dropped' && branch.ancestry.length > 0) {
       const lastDroppedId = branch.ancestry[branch.ancestry.length - 1];
-      const lastDroppedSnap = props.snapshotHistory.find(
-        (s) => s['snapshot-id'] === lastDroppedId,
-      );
+      const lastDroppedSnap = props.snapshotHistory.find((s) => s['snapshot-id'] === lastDroppedId);
       if (lastDroppedSnap?.['parent-snapshot-id']) {
         const parentId = lastDroppedSnap['parent-snapshot-id'];
         const key = `dropped-diverge-${parentId}-${lastDroppedId}`;
@@ -853,9 +840,7 @@ function getSchemaChanges(snapshot: Snapshot): boolean {
 }
 
 function isFieldNew(field: any, snapshot: Snapshot): boolean {
-  const idx = props.snapshotHistory.findIndex(
-    (s) => s['snapshot-id'] === snapshot['snapshot-id'],
-  );
+  const idx = props.snapshotHistory.findIndex((s) => s['snapshot-id'] === snapshot['snapshot-id']);
   if (idx === props.snapshotHistory.length - 1) return false;
   const nextVersion = props.snapshotHistory[idx + 1];
   const nextSchema = getSchemaInfo(nextVersion['schema-id']);
