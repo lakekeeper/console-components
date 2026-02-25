@@ -111,6 +111,30 @@ import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 
+// Local types for json-bigint parsed metadata (BigInt IDs stored as strings)
+interface BigIntSnapshot {
+  'snapshot-id': string;
+  'parent-snapshot-id'?: string;
+  'timestamp-ms': number;
+  'sequence-number'?: number;
+  summary?: { operation?: string; [key: string]: string | undefined };
+}
+
+interface BigIntRef {
+  type: 'branch' | 'tag';
+  'snapshot-id': string;
+}
+
+interface BigIntTableMetadata {
+  snapshots?: BigIntSnapshot[];
+  refs?: Record<string, BigIntRef>;
+  'current-snapshot-id'?: string;
+}
+
+interface BigIntLoadTableResult {
+  metadata: BigIntTableMetadata;
+}
+
 const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
@@ -134,27 +158,27 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 const queryResults = ref<any>(null);
 const warehouseName = ref<string | undefined>(undefined);
-const loadedTable = ref<any>(null);
+const loadedTable = ref<BigIntLoadTableResult | null>(null);
 const selectedSnapshot = ref<string | null>(null);
 const selectedBranch = ref<string>('main');
 
 // Resolved table metadata (fetched with json-bigint to preserve snapshot IDs)
-const tableMetadata = computed(() => loadedTable.value);
+const tableMetadata = computed<BigIntLoadTableResult | null>(() => loadedTable.value);
 
 // Available branches from refs
 const branchOptions = computed(() => {
   const refs = tableMetadata.value?.metadata?.refs;
   if (!refs) return [{ title: 'main', value: 'main' }];
   return Object.entries(refs)
-    .filter(([, r]) => (r as any).type === 'branch')
+    .filter(([, r]) => r.type === 'branch')
     .map(([name]) => ({ title: name, value: name }));
 });
 
 // Walk branch parent chain to get snapshots on the selected branch
-const branchSnapshots = computed<any[]>(() => {
+const branchSnapshots = computed<BigIntSnapshot[]>(() => {
   const meta = tableMetadata.value?.metadata;
   if (!meta?.snapshots) return [];
-  const snapshotMap = new Map<string, any>();
+  const snapshotMap = new Map<string, BigIntSnapshot>();
   for (const s of meta.snapshots) {
     if (s['snapshot-id']) snapshotMap.set(String(s['snapshot-id']), s);
   }
@@ -168,7 +192,7 @@ const branchSnapshots = computed<any[]>(() => {
   }
   if (!tipId) return [];
   // Walk parent chain
-  const chain: any[] = [];
+  const chain: BigIntSnapshot[] = [];
   let id: string | undefined = tipId;
   while (id) {
     const snap = snapshotMap.get(id);
@@ -266,11 +290,11 @@ async function loadPreview() {
     // Load table metadata via loadTableCustomized (uses json-bigint to preserve snapshot IDs)
     if (!loadedTable.value) {
       try {
-        loadedTable.value = await functions.loadTableCustomized(
+        loadedTable.value = (await functions.loadTableCustomized(
           props.warehouseId,
           props.namespaceId,
           props.tableName,
-        );
+        )) as BigIntLoadTableResult;
       } catch {
         // Non-critical — time travel just won't be available
         loadedTable.value = null;
