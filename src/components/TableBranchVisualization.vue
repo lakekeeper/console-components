@@ -296,15 +296,7 @@ let rootG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 
 // ─── Branch Colors ───────────────────────────────────────────────────────────
-const BRANCH_COLORS = [
-  '#1976d2',
-  '#388e3c',
-  '#f57c00',
-  '#d32f2f',
-  '#7b1fa2',
-  '#00796b',
-  '#c2185b',
-];
+const BRANCH_COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f', '#7b1fa2', '#00796b', '#c2185b'];
 const DROPPED_COLOR = '#9e9e9e';
 
 // ─── Data Model ──────────────────────────────────────────────────────────────
@@ -616,7 +608,12 @@ function renderChart() {
     .attr('y', '-20%')
     .attr('width', '140%')
     .attr('height', '140%');
-  filter.append('feDropShadow').attr('dx', 2).attr('dy', 2).attr('stdDeviation', 2).attr('flood-opacity', 0.3);
+  filter
+    .append('feDropShadow')
+    .attr('dx', 2)
+    .attr('dy', 2)
+    .attr('stdDeviation', 2)
+    .attr('flood-opacity', 0.3);
 
   // Root group for zoom/pan
   rootG = svg.append('g');
@@ -785,7 +782,10 @@ function fitToView() {
   const tx = containerW / 2 - ((minX + maxX) / 2) * scale;
   const ty = containerH / 2 - ((minY + maxY) / 2) * scale;
 
-  svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  svg
+    .transition()
+    .duration(500)
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
 }
 
 // ─── Schema helpers ──────────────────────────────────────────────────────────
@@ -817,9 +817,7 @@ function getSchemaChanges(snapshot: Snapshot): boolean {
 }
 
 function isFieldNew(field: any, snapshot: Snapshot): boolean {
-  const idx = props.snapshotHistory.findIndex(
-    (s) => s['snapshot-id'] === snapshot['snapshot-id'],
-  );
+  const idx = props.snapshotHistory.findIndex((s) => s['snapshot-id'] === snapshot['snapshot-id']);
   if (idx === props.snapshotHistory.length - 1) return false;
   const nextVersion = props.snapshotHistory[idx + 1];
   const nextSchema = getSchemaInfo(nextVersion['schema-id']);
@@ -924,9 +922,7 @@ watch(selectedSnapshot, (snap) => {
   if (!rootG) return;
   rootG
     .selectAll<SVGCircleElement, GraphNode>('.nodes circle')
-    .attr('stroke-width', (d) =>
-      snap && snap['snapshot-id'] === d.snapshotId ? 4 : 2.5,
-    );
+    .attr('stroke-width', (d) => (snap && snap['snapshot-id'] === d.snapshotId ? 4 : 2.5));
 });
 
 onBeforeUnmount(() => {
