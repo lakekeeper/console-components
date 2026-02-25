@@ -15,10 +15,9 @@
 
     <div v-else class="graph-container">
       <v-row>
-        <!-- Graph Column -->
+        <!-- Graph Column — D3 renders everything inside this div -->
         <v-col cols="12" lg="8">
           <v-card variant="outlined" class="pa-4">
-            <!-- Zoom Controls -->
             <div class="d-flex align-center mb-3">
               <v-btn-group variant="outlined" size="x-small">
                 <v-btn size="small" @click="zoomIn" prepend-icon="mdi-magnify-plus"></v-btn>
@@ -37,116 +36,8 @@
               </v-btn>
             </div>
 
-            <div ref="graphContainer" class="graph-content" :style="{ height: '650px' }">
-              <svg ref="svgRef" width="100%" height="100%" class="branch-graph">
-                <g ref="zoomGroup">
-                  <defs>
-                    <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-opacity="0.3" />
-                    </filter>
-                  </defs>
-
-                  <!-- Branch paths -->
-                  <path
-                    v-for="link in graphLinks"
-                    :key="link.id"
-                    :d="link.path"
-                    :stroke="link.color"
-                    stroke-width="3"
-                    fill="none"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    :opacity="link.dropped ? 0.5 : 0.8" />
-
-                  <!-- Snapshot nodes -->
-                  <g
-                    v-for="node in graphNodes"
-                    :key="node.id"
-                    style="cursor: pointer"
-                    @click="selectSnapshot(node.snapshotId)">
-                    <circle
-                      :cx="node.x"
-                      :cy="node.y"
-                      :r="node.radius"
-                      :fill="node.color"
-                      :stroke="node.strokeColor"
-                      :stroke-width="
-                        selectedSnapshot?.['snapshot-id'] === node.snapshotId ? 4 : 2.5
-                      "
-                      filter="url(#nodeShadow)" />
-
-                    <!-- Sequence number -->
-                    <text
-                      :x="node.x"
-                      :y="node.y - 2"
-                      font-size="10"
-                      font-weight="bold"
-                      fill="white"
-                      text-anchor="middle"
-                      style="pointer-events: none">
-                      {{ node.sequenceNumber }}
-                    </text>
-
-                    <!-- Schema change indicator inside node -->
-                    <text
-                      v-if="node.schemaChange"
-                      :x="node.x"
-                      :y="node.y + 8"
-                      font-size="8"
-                      font-weight="bold"
-                      fill="white"
-                      text-anchor="middle"
-                      style="pointer-events: none; opacity: 0.9">
-                      S{{ node.schemaChange.from }}&rarr;{{ node.schemaChange.to }}
-                    </text>
-
-                    <!-- Schema change badge -->
-                    <circle
-                      v-if="node.schemaChange"
-                      :cx="node.x + node.radius - 2"
-                      :cy="node.y - node.radius + 2"
-                      r="6"
-                      fill="#ff5722"
-                      stroke="white"
-                      stroke-width="1"
-                      style="pointer-events: none" />
-                    <text
-                      v-if="node.schemaChange"
-                      :x="node.x + node.radius - 2"
-                      :y="node.y - node.radius + 5"
-                      font-size="8"
-                      font-weight="bold"
-                      fill="white"
-                      text-anchor="middle"
-                      style="pointer-events: none">
-                      S
-                    </text>
-
-                    <!-- Branch labels on tip nodes -->
-                    <text
-                      v-for="label in node.branchLabels"
-                      :key="label.name"
-                      :x="node.x + node.radius + 8"
-                      :y="node.y + 4"
-                      font-size="12"
-                      font-weight="600"
-                      :fill="label.color"
-                      style="pointer-events: none">
-                      {{ label.name }}
-                    </text>
-
-                    <title>
-                      Seq {{ node.sequenceNumber }} | ID {{ node.snapshotId
-                      }}{{
-                        node.schemaChange
-                          ? ` | Schema ${node.schemaChange.from}\u2192${node.schemaChange.to}`
-                          : ''
-                      }}
-                    </title>
-                  </g>
-                </g>
-              </svg>
-            </div>
+            <!-- D3 will create and own the SVG inside this div -->
+            <div ref="chartRef" class="chart-container"></div>
           </v-card>
 
           <!-- Legend -->
@@ -199,7 +90,7 @@
           </v-card>
         </v-col>
 
-        <!-- Details Column -->
+        <!-- Details Column (Vue-managed) -->
         <v-col cols="12" lg="4">
           <v-card variant="outlined" class="pa-4" style="height: 70vh">
             <div v-if="!selectedSnapshot" class="text-center pa-8">
@@ -384,7 +275,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import * as d3 from 'd3';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
@@ -394,178 +285,37 @@ const props = defineProps<{
   snapshotHistory: Snapshot[];
 }>();
 
-// ─── Refs ────────────────────────────────────────────────────────────────────
-const svgRef = ref<SVGSVGElement | null>(null);
-const zoomGroup = ref<SVGGElement | null>(null);
-const graphContainer = ref<HTMLDivElement | null>(null);
+// ─── State ───────────────────────────────────────────────────────────────────
+const chartRef = ref<HTMLDivElement | null>(null);
 const selectedSnapshot = ref<Snapshot | null>(null);
 const currentZoom = ref(1);
 
-// ─── D3 Zoom ─────────────────────────────────────────────────────────────────
+// D3 selections — kept outside Vue reactivity
+let svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
+let rootG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 
-function initZoom() {
-  if (!svgRef.value || !zoomGroup.value) return;
-
-  const svg = d3.select(svgRef.value);
-  const g = d3.select(zoomGroup.value);
-
-  zoomBehavior = d3
-    .zoom<SVGSVGElement, unknown>()
-    .scaleExtent([0.1, 4])
-    .on('zoom', (event: d3.D3ZoomEvent<SVGSVGElement, unknown>) => {
-      g.attr('transform', event.transform.toString());
-      currentZoom.value = event.transform.k;
-    });
-
-  svg.call(zoomBehavior);
-  // Disable double-click zoom to avoid accidental resets
-  svg.on('dblclick.zoom', null);
-}
-
-function zoomIn() {
-  if (!svgRef.value || !zoomBehavior) return;
-  d3.select(svgRef.value).transition().duration(300).call(zoomBehavior.scaleBy, 1.3);
-}
-
-function zoomOut() {
-  if (!svgRef.value || !zoomBehavior) return;
-  d3.select(svgRef.value).transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
-}
-
-function resetZoom() {
-  if (!svgRef.value || !zoomBehavior) return;
-  d3.select(svgRef.value).transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
-}
-
-function fitToView() {
-  if (!svgRef.value || !zoomBehavior || !graphContainer.value || graphNodes.value.length === 0)
-    return;
-
-  const containerRect = graphContainer.value.getBoundingClientRect();
-  const padding = 60;
-
-  // Bounding box of all nodes
-  const xs = graphNodes.value.map((n) => n.x);
-  const ys = graphNodes.value.map((n) => n.y);
-  const minX = Math.min(...xs) - 40;
-  const maxX = Math.max(...xs) + 140; // extra room for branch labels
-  const minY = Math.min(...ys) - 30;
-  const maxY = Math.max(...ys) + 30;
-
-  const graphW = maxX - minX;
-  const graphH = maxY - minY;
-  const scale = Math.min(
-    (containerRect.width - padding * 2) / graphW,
-    (containerRect.height - padding * 2) / graphH,
-    2,
-  );
-
-  const tx = containerRect.width / 2 - ((minX + maxX) / 2) * scale;
-  const ty = containerRect.height / 2 - ((minY + maxY) / 2) * scale;
-
-  d3.select(svgRef.value)
-    .transition()
-    .duration(500)
-    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
-}
-
 // ─── Branch Colors ───────────────────────────────────────────────────────────
-const BRANCH_COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f', '#7b1fa2', '#00796b', '#c2185b'];
+const BRANCH_COLORS = [
+  '#1976d2',
+  '#388e3c',
+  '#f57c00',
+  '#d32f2f',
+  '#7b1fa2',
+  '#00796b',
+  '#c2185b',
+];
 const DROPPED_COLOR = '#9e9e9e';
 
-// ─── Graph Data Model ────────────────────────────────────────────────────────
+// ─── Data Model ──────────────────────────────────────────────────────────────
 
 interface BranchMeta {
   name: string;
   type: 'branch' | 'tag' | 'dropped';
   color: string;
   tipSnapshotId: number;
-  /** Ordered ancestor chain: tip first, root last */
   ancestry: number[];
 }
-
-function traceAncestry(tipId: number, snapshotMap: Map<number, Snapshot>): number[] {
-  const chain: number[] = [];
-  let id: number | undefined = tipId;
-  const visited = new Set<number>();
-  while (id != null && !visited.has(id)) {
-    visited.add(id);
-    const snap = snapshotMap.get(id);
-    if (!snap) break;
-    chain.push(id);
-    id = snap['parent-snapshot-id'] ?? undefined;
-  }
-  return chain;
-}
-
-/** Build branch metadata from table refs + detect dropped branches */
-const branches = computed<BranchMeta[]>(() => {
-  const result: BranchMeta[] = [];
-  const refs = props.table.metadata.refs;
-  if (!refs) return result;
-
-  const sorted = [...props.snapshotHistory].sort(
-    (a, b) => (a['sequence-number'] || 0) - (b['sequence-number'] || 0),
-  );
-  const snapshotMap = new Map<number, Snapshot>();
-  sorted.forEach((s) => snapshotMap.set(s['snapshot-id'], s));
-
-  let colorIdx = 0;
-
-  // Named refs
-  Object.entries(refs).forEach(([name, refData]: [string, any]) => {
-    if (refData.type !== 'branch') return;
-    const ancestry = traceAncestry(refData['snapshot-id'], snapshotMap);
-    result.push({
-      name,
-      type: 'branch',
-      color: BRANCH_COLORS[colorIdx++ % BRANCH_COLORS.length],
-      tipSnapshotId: refData['snapshot-id'],
-      ancestry,
-    });
-  });
-
-  // Detect dropped branches: snapshots not reachable from any named branch
-  const reachable = new Set<number>();
-  result.forEach((b) => b.ancestry.forEach((id) => reachable.add(id)));
-
-  const unreachable = sorted.filter((s) => !reachable.has(s['snapshot-id']));
-  if (unreachable.length > 0) {
-    const childrenMap = new Map<number, number[]>();
-    sorted.forEach((s) => {
-      const pid = s['parent-snapshot-id'];
-      if (pid != null) {
-        if (!childrenMap.has(pid)) childrenMap.set(pid, []);
-        childrenMap.get(pid)!.push(s['snapshot-id']);
-      }
-    });
-
-    const unreachableIds = new Set(unreachable.map((s) => s['snapshot-id']));
-    // Tips = unreachable snapshots with no unreachable children
-    const tips = unreachable.filter((s) => {
-      const children = childrenMap.get(s['snapshot-id']) || [];
-      return !children.some((c) => unreachableIds.has(c));
-    });
-
-    tips.forEach((tip) => {
-      const ancestry = traceAncestry(tip['snapshot-id'], snapshotMap);
-      const droppedAncestry = ancestry.filter((id) => unreachableIds.has(id));
-      if (droppedAncestry.length === 0) return;
-      result.push({
-        name: `dropped-seq-${tip['sequence-number']}`,
-        type: 'dropped',
-        color: DROPPED_COLOR,
-        tipSnapshotId: tip['snapshot-id'],
-        ancestry: droppedAncestry,
-      });
-    });
-  }
-
-  return result;
-});
-
-// ─── Layout: D3 scales for node positioning ──────────────────────────────────
 
 interface GraphNode {
   id: string;
@@ -584,8 +334,87 @@ interface GraphLink {
   id: string;
   path: string;
   color: string;
-  dropped: boolean;
+  opacity: number;
 }
+
+// ─── Ancestry helper ─────────────────────────────────────────────────────────
+
+function traceAncestry(tipId: number, snapshotMap: Map<number, Snapshot>): number[] {
+  const chain: number[] = [];
+  let id: number | undefined = tipId;
+  const visited = new Set<number>();
+  while (id != null && !visited.has(id)) {
+    visited.add(id);
+    const snap = snapshotMap.get(id);
+    if (!snap) break;
+    chain.push(id);
+    id = snap['parent-snapshot-id'] ?? undefined;
+  }
+  return chain;
+}
+
+// ─── Computed: branches ──────────────────────────────────────────────────────
+
+const branches = computed<BranchMeta[]>(() => {
+  const result: BranchMeta[] = [];
+  const refs = props.table.metadata.refs;
+  if (!refs) return result;
+
+  const sorted = [...props.snapshotHistory].sort(
+    (a, b) => (a['sequence-number'] || 0) - (b['sequence-number'] || 0),
+  );
+  const snapshotMap = new Map<number, Snapshot>();
+  sorted.forEach((s) => snapshotMap.set(s['snapshot-id'], s));
+
+  let colorIdx = 0;
+  Object.entries(refs).forEach(([name, refData]: [string, any]) => {
+    if (refData.type !== 'branch') return;
+    result.push({
+      name,
+      type: 'branch',
+      color: BRANCH_COLORS[colorIdx++ % BRANCH_COLORS.length],
+      tipSnapshotId: refData['snapshot-id'],
+      ancestry: traceAncestry(refData['snapshot-id'], snapshotMap),
+    });
+  });
+
+  // Dropped branches
+  const reachable = new Set<number>();
+  result.forEach((b) => b.ancestry.forEach((id) => reachable.add(id)));
+
+  const unreachable = sorted.filter((s) => !reachable.has(s['snapshot-id']));
+  if (unreachable.length > 0) {
+    const childrenMap = new Map<number, number[]>();
+    sorted.forEach((s) => {
+      const pid = s['parent-snapshot-id'];
+      if (pid != null) {
+        if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+        childrenMap.get(pid)!.push(s['snapshot-id']);
+      }
+    });
+    const unreachableIds = new Set(unreachable.map((s) => s['snapshot-id']));
+    const tips = unreachable.filter((s) => {
+      const children = childrenMap.get(s['snapshot-id']) || [];
+      return !children.some((c) => unreachableIds.has(c));
+    });
+    tips.forEach((tip) => {
+      const ancestry = traceAncestry(tip['snapshot-id'], snapshotMap);
+      const droppedAncestry = ancestry.filter((id) => unreachableIds.has(id));
+      if (droppedAncestry.length === 0) return;
+      result.push({
+        name: `dropped-seq-${tip['sequence-number']}`,
+        type: 'dropped',
+        color: DROPPED_COLOR,
+        tipSnapshotId: tip['snapshot-id'],
+        ancestry: droppedAncestry,
+      });
+    });
+  }
+
+  return result;
+});
+
+// ─── Computed: nodes ─────────────────────────────────────────────────────────
 
 const graphNodes = computed<GraphNode[]>(() => {
   if (!props.snapshotHistory.length || branches.value.length === 0) return [];
@@ -594,93 +423,64 @@ const graphNodes = computed<GraphNode[]>(() => {
     (a, b) => (a['sequence-number'] || 0) - (b['sequence-number'] || 0),
   );
 
-  // Assign each snapshot to a column (branch lane)
   const mainBranch = branches.value.find((b) => b.name === 'main' || b.name === 'master');
   const namedBranches = branches.value.filter((b) => b.type === 'branch' && b !== mainBranch);
   const droppedBranches = branches.value.filter((b) => b.type === 'dropped');
 
   const snapshotColumn = new Map<number, number>();
-
-  // Main → column 0
-  if (mainBranch) {
-    mainBranch.ancestry.forEach((id) => snapshotColumn.set(id, 0));
-  }
-
-  // Named branches → columns 1, 2, 3…
+  if (mainBranch) mainBranch.ancestry.forEach((id) => snapshotColumn.set(id, 0));
   namedBranches.forEach((branch, idx) => {
-    const col = idx + 1;
     branch.ancestry.forEach((id) => {
-      if (!snapshotColumn.has(id)) snapshotColumn.set(id, col);
+      if (!snapshotColumn.has(id)) snapshotColumn.set(id, idx + 1);
     });
   });
-
-  // Dropped branches → columns -1, -2…
   droppedBranches.forEach((branch, idx) => {
-    const col = -(idx + 1);
     branch.ancestry.forEach((id) => {
-      if (!snapshotColumn.has(id)) snapshotColumn.set(id, col);
+      if (!snapshotColumn.has(id)) snapshotColumn.set(id, -(idx + 1));
     });
   });
 
-  // D3 scales
   const spacingX = 120;
   const spacingY = 80;
-  const allColumns = Array.from(snapshotColumn.values());
-  const minCol = Math.min(...allColumns, 0);
+  const allCols = Array.from(snapshotColumn.values());
+  const minCol = Math.min(...allCols, 0);
+  const maxCol = Math.max(...allCols, 0);
   const originX = Math.abs(minCol) * spacingX + 100;
+  const totalH = sorted.length * spacingY + 100;
 
-  const xScale = d3
-    .scaleLinear()
-    .domain([minCol, Math.max(...allColumns, 0)])
-    .range([originX + minCol * spacingX, originX + Math.max(...allColumns, 0) * spacingX]);
-
-  const totalHeight = sorted.length * spacingY + 100;
-  const yScale = d3
-    .scaleLinear()
-    .domain([0, sorted.length - 1])
-    .range([totalHeight - 50, 50]);
-
-  // Branch tip map
   const tipMap = new Map<number, BranchMeta[]>();
   branches.value.forEach((b) => {
     if (!tipMap.has(b.tipSnapshotId)) tipMap.set(b.tipSnapshotId, []);
     tipMap.get(b.tipSnapshotId)!.push(b);
   });
 
-  const nodes: GraphNode[] = [];
-
-  sorted.forEach((snapshot, index) => {
+  return sorted.map((snapshot, index) => {
     const sid = snapshot['snapshot-id'];
     const col = snapshotColumn.get(sid) ?? 0;
-    const x = xScale(col);
-    const y = yScale(index);
-    const schemaChange = getSchemaChangeInfo(snapshot);
-
-    const tipBranches = tipMap.get(sid) || [];
-    const branchLabels = tipBranches.map((b) => ({ name: b.name, color: b.color }));
-
+    const x = originX + col * spacingX;
+    const y = totalH - 50 - index * spacingY;
+    const sc = getSchemaChangeInfo(snapshot);
     const ownerBranch = branches.value.find((b) => b.ancestry.includes(sid));
     const isDropped = ownerBranch?.type === 'dropped';
     const branchColor = ownerBranch?.color || '#666';
+    const tipBranches = tipMap.get(sid) || [];
 
-    nodes.push({
+    return {
       id: `node-${sid}`,
       snapshotId: sid,
       x,
       y,
-      radius: schemaChange ? 15 : 12,
-      color: schemaChange ? '#ff9800' : branchColor,
-      strokeColor: schemaChange ? '#f57c00' : isDropped ? '#757575' : branchColor,
+      radius: sc ? 15 : 12,
+      color: sc ? '#ff9800' : branchColor,
+      strokeColor: sc ? '#f57c00' : isDropped ? '#757575' : branchColor,
       sequenceNumber: snapshot['sequence-number'] || 0,
-      branchLabels,
-      schemaChange: schemaChange || undefined,
-    });
+      branchLabels: tipBranches.map((b) => ({ name: b.name, color: b.color })),
+      schemaChange: sc || undefined,
+    };
   });
-
-  return nodes;
 });
 
-// ─── Links: d3.linkVertical for smooth curves ────────────────────────────────
+// ─── Computed: links ─────────────────────────────────────────────────────────
 
 const graphLinks = computed<GraphLink[]>(() => {
   if (graphNodes.value.length === 0) return [];
@@ -696,88 +496,65 @@ const graphLinks = computed<GraphLink[]>(() => {
   const links: GraphLink[] = [];
   const seen = new Set<string>();
 
+  function addLink(
+    parentNode: GraphNode,
+    childNode: GraphNode,
+    color: string,
+    opacity: number,
+    keyPrefix = '',
+  ) {
+    const key = `${keyPrefix}${parentNode.snapshotId}-${childNode.snapshotId}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    const sameCol = Math.abs(childNode.x - parentNode.x) < 5;
+    let path: string;
+    if (sameCol) {
+      path = `M ${parentNode.x} ${parentNode.y - parentNode.radius} L ${childNode.x} ${childNode.y + childNode.radius}`;
+    } else {
+      path =
+        linkGen({
+          source: [parentNode.x, parentNode.y - parentNode.radius],
+          target: [childNode.x, childNode.y + childNode.radius],
+        }) || '';
+    }
+    links.push({ id: key, path, color, opacity });
+  }
+
   branches.value.forEach((branch) => {
-    // Draw edges along the ancestry chain
+    const opacity = branch.type === 'dropped' ? 0.5 : 0.8;
+
+    // Chain edges
     for (let i = 0; i < branch.ancestry.length - 1; i++) {
-      const childId = branch.ancestry[i];
-      const parentId = branch.ancestry[i + 1];
-      const key = `${parentId}-${childId}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      const childNode = nodeMap.get(childId);
-      const parentNode = nodeMap.get(parentId);
-      if (!childNode || !parentNode) continue;
-
-      const sameColumn = Math.abs(childNode.x - parentNode.x) < 5;
-      let path: string;
-
-      if (sameColumn) {
-        path = `M ${parentNode.x} ${parentNode.y - parentNode.radius} L ${childNode.x} ${childNode.y + childNode.radius}`;
-      } else {
-        path =
-          linkGen({
-            source: [parentNode.x, parentNode.y - parentNode.radius],
-            target: [childNode.x, childNode.y + childNode.radius],
-          }) || '';
-      }
-
-      links.push({ id: key, path, color: branch.color, dropped: branch.type === 'dropped' });
+      const child = nodeMap.get(branch.ancestry[i]);
+      const parent = nodeMap.get(branch.ancestry[i + 1]);
+      if (child && parent) addLink(parent, child, branch.color, opacity);
     }
 
-    // Divergence link from main to first branch-exclusive snapshot
+    // Divergence from main
     if (branch.type === 'branch' && branch.name !== 'main' && branch.name !== 'master') {
       const mainBranch = branches.value.find((b) => b.name === 'main' || b.name === 'master');
       if (mainBranch) {
         const mainSet = new Set(mainBranch.ancestry);
-        let divergeIdx = -1;
         for (let i = 0; i < branch.ancestry.length; i++) {
-          if (mainSet.has(branch.ancestry[i])) {
-            divergeIdx = i;
+          if (mainSet.has(branch.ancestry[i]) && i > 0) {
+            const from = nodeMap.get(branch.ancestry[i]);
+            const to = nodeMap.get(branch.ancestry[i - 1]);
+            if (from && to) addLink(from, to, branch.color, 0.8, 'diverge-');
             break;
-          }
-        }
-        if (divergeIdx > 0) {
-          const firstBranchId = branch.ancestry[divergeIdx - 1];
-          const divergeId = branch.ancestry[divergeIdx];
-          const key = `diverge-${divergeId}-${firstBranchId}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            const fromNode = nodeMap.get(divergeId);
-            const toNode = nodeMap.get(firstBranchId);
-            if (fromNode && toNode) {
-              const path =
-                linkGen({
-                  source: [fromNode.x, fromNode.y - fromNode.radius],
-                  target: [toNode.x, toNode.y + toNode.radius],
-                }) || '';
-              links.push({ id: key, path, color: branch.color, dropped: false });
-            }
           }
         }
       }
     }
 
-    // Dropped branch divergence: parent on main → first dropped snapshot
+    // Dropped branch divergence
     if (branch.type === 'dropped' && branch.ancestry.length > 0) {
-      const lastDroppedId = branch.ancestry[branch.ancestry.length - 1];
-      const lastDroppedSnap = props.snapshotHistory.find((s) => s['snapshot-id'] === lastDroppedId);
-      if (lastDroppedSnap?.['parent-snapshot-id']) {
-        const parentId = lastDroppedSnap['parent-snapshot-id'];
-        const key = `dropped-diverge-${parentId}-${lastDroppedId}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          const fromNode = nodeMap.get(parentId);
-          const toNode = nodeMap.get(lastDroppedId);
-          if (fromNode && toNode) {
-            const path =
-              linkGen({
-                source: [fromNode.x, fromNode.y - fromNode.radius],
-                target: [toNode.x, toNode.y + toNode.radius],
-              }) || '';
-            links.push({ id: key, path, color: DROPPED_COLOR, dropped: true });
-          }
-        }
+      const lastId = branch.ancestry[branch.ancestry.length - 1];
+      const lastSnap = props.snapshotHistory.find((s) => s['snapshot-id'] === lastId);
+      if (lastSnap?.['parent-snapshot-id']) {
+        const from = nodeMap.get(lastSnap['parent-snapshot-id']);
+        const to = nodeMap.get(lastId);
+        if (from && to) addLink(from, to, DROPPED_COLOR, 0.5, 'drop-');
       }
     }
   });
@@ -785,7 +562,7 @@ const graphLinks = computed<GraphLink[]>(() => {
   return links;
 });
 
-// ─── Legend ───────────────────────────────────────────────────────────────────
+// ─── Legend (Vue-rendered) ───────────────────────────────────────────────────
 
 const legendEntries = computed(() => {
   const entries: { name: string; color: string; type: string; opacity: number }[] = [];
@@ -798,7 +575,6 @@ const legendEntries = computed(() => {
       entries.push({ name: b.name, color: b.color, type: b.type, opacity: 1 });
     }
   });
-
   if (droppedCount > 0) {
     entries.push({
       name: `dropped branches (${droppedCount})`,
@@ -807,9 +583,210 @@ const legendEntries = computed(() => {
       opacity: 0.7,
     });
   }
-
   return entries;
 });
+
+// ─── D3 Rendering ────────────────────────────────────────────────────────────
+
+function renderChart() {
+  if (!chartRef.value) return;
+
+  const container = chartRef.value;
+  const width = container.clientWidth || 800;
+  const height = 650;
+
+  // Tear down previous SVG
+  d3.select(container).selectAll('svg').remove();
+
+  // Create fresh SVG
+  svg = d3
+    .select(container)
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .style('display', 'block')
+    .style('background', 'rgba(var(--v-theme-surface))');
+
+  // Filter definition
+  const defs = svg.append('defs');
+  const filter = defs
+    .append('filter')
+    .attr('id', 'nodeShadow')
+    .attr('x', '-20%')
+    .attr('y', '-20%')
+    .attr('width', '140%')
+    .attr('height', '140%');
+  filter.append('feDropShadow').attr('dx', 2).attr('dy', 2).attr('stdDeviation', 2).attr('flood-opacity', 0.3);
+
+  // Root group for zoom/pan
+  rootG = svg.append('g');
+
+  // ── Zoom behavior ──
+  zoomBehavior = d3
+    .zoom<SVGSVGElement, unknown>()
+    .scaleExtent([0.1, 5])
+    .on('zoom', (event) => {
+      rootG!.attr('transform', event.transform.toString());
+      currentZoom.value = event.transform.k;
+    });
+
+  svg.call(zoomBehavior);
+  svg.on('dblclick.zoom', null); // disable double-click zoom
+
+  // ── Draw links ──
+  const linksG = rootG.append('g').attr('class', 'links');
+  linksG
+    .selectAll('path')
+    .data(graphLinks.value)
+    .join('path')
+    .attr('d', (d) => d.path)
+    .attr('stroke', (d) => d.color)
+    .attr('stroke-width', 3)
+    .attr('fill', 'none')
+    .attr('stroke-linecap', 'round')
+    .attr('stroke-linejoin', 'round')
+    .attr('opacity', (d) => d.opacity);
+
+  // ── Draw nodes ──
+  const nodesG = rootG.append('g').attr('class', 'nodes');
+  const nodeGroups = nodesG
+    .selectAll('g')
+    .data(graphNodes.value)
+    .join('g')
+    .style('cursor', 'pointer')
+    .on('click', (_event, d) => {
+      const snap = props.snapshotHistory.find((s) => s['snapshot-id'] === d.snapshotId);
+      if (snap) selectedSnapshot.value = snap;
+    });
+
+  // Circle
+  nodeGroups
+    .append('circle')
+    .attr('cx', (d) => d.x)
+    .attr('cy', (d) => d.y)
+    .attr('r', (d) => d.radius)
+    .attr('fill', (d) => d.color)
+    .attr('stroke', (d) => d.strokeColor)
+    .attr('stroke-width', 2.5)
+    .attr('filter', 'url(#nodeShadow)');
+
+  // Sequence number
+  nodeGroups
+    .append('text')
+    .attr('x', (d) => d.x)
+    .attr('y', (d) => d.y - 2)
+    .attr('font-size', 10)
+    .attr('font-weight', 'bold')
+    .attr('fill', 'white')
+    .attr('text-anchor', 'middle')
+    .style('pointer-events', 'none')
+    .text((d) => d.sequenceNumber);
+
+  // Schema change label inside node
+  nodeGroups
+    .filter((d) => !!d.schemaChange)
+    .append('text')
+    .attr('x', (d) => d.x)
+    .attr('y', (d) => d.y + 8)
+    .attr('font-size', 8)
+    .attr('font-weight', 'bold')
+    .attr('fill', 'white')
+    .attr('text-anchor', 'middle')
+    .style('pointer-events', 'none')
+    .style('opacity', 0.9)
+    .text((d) => `S${d.schemaChange!.from}\u2192${d.schemaChange!.to}`);
+
+  // Schema change badge circle
+  nodeGroups
+    .filter((d) => !!d.schemaChange)
+    .append('circle')
+    .attr('cx', (d) => d.x + d.radius - 2)
+    .attr('cy', (d) => d.y - d.radius + 2)
+    .attr('r', 6)
+    .attr('fill', '#ff5722')
+    .attr('stroke', 'white')
+    .attr('stroke-width', 1)
+    .style('pointer-events', 'none');
+
+  // Schema change badge text
+  nodeGroups
+    .filter((d) => !!d.schemaChange)
+    .append('text')
+    .attr('x', (d) => d.x + d.radius - 2)
+    .attr('y', (d) => d.y - d.radius + 5)
+    .attr('font-size', 8)
+    .attr('font-weight', 'bold')
+    .attr('fill', 'white')
+    .attr('text-anchor', 'middle')
+    .style('pointer-events', 'none')
+    .text('S');
+
+  // Branch labels on tip nodes
+  nodeGroups.each(function (d) {
+    d.branchLabels.forEach((label, idx) => {
+      d3.select(this)
+        .append('text')
+        .attr('x', d.x + d.radius + 8)
+        .attr('y', d.y + 4 + idx * 16)
+        .attr('font-size', 12)
+        .attr('font-weight', '600')
+        .attr('fill', label.color)
+        .style('pointer-events', 'none')
+        .text(label.name);
+    });
+  });
+
+  // Tooltip
+  nodeGroups
+    .append('title')
+    .text(
+      (d) =>
+        `Seq ${d.sequenceNumber} | ID ${d.snapshotId}${d.schemaChange ? ` | Schema ${d.schemaChange.from}\u2192${d.schemaChange.to}` : ''}`,
+    );
+
+  // Auto fit
+  setTimeout(fitToView, 50);
+}
+
+// ─── Zoom controls ───────────────────────────────────────────────────────────
+
+function zoomIn() {
+  if (!svg || !zoomBehavior) return;
+  svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.3);
+}
+
+function zoomOut() {
+  if (!svg || !zoomBehavior) return;
+  svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
+}
+
+function resetZoom() {
+  if (!svg || !zoomBehavior) return;
+  svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
+}
+
+function fitToView() {
+  if (!svg || !zoomBehavior || !chartRef.value || graphNodes.value.length === 0) return;
+
+  const containerW = chartRef.value.clientWidth || 800;
+  const containerH = 650;
+  const pad = 60;
+
+  const xs = graphNodes.value.map((n) => n.x);
+  const ys = graphNodes.value.map((n) => n.y);
+  const minX = Math.min(...xs) - 40;
+  const maxX = Math.max(...xs) + 140;
+  const minY = Math.min(...ys) - 30;
+  const maxY = Math.max(...ys) + 30;
+
+  const gW = maxX - minX;
+  const gH = maxY - minY;
+  const scale = Math.min((containerW - pad * 2) / gW, (containerH - pad * 2) / gH, 2);
+  const tx = containerW / 2 - ((minX + maxX) / 2) * scale;
+  const ty = containerH / 2 - ((minY + maxY) / 2) * scale;
+
+  svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
 
 // ─── Schema helpers ──────────────────────────────────────────────────────────
 
@@ -840,17 +817,14 @@ function getSchemaChanges(snapshot: Snapshot): boolean {
 }
 
 function isFieldNew(field: any, snapshot: Snapshot): boolean {
-  const idx = props.snapshotHistory.findIndex((s) => s['snapshot-id'] === snapshot['snapshot-id']);
+  const idx = props.snapshotHistory.findIndex(
+    (s) => s['snapshot-id'] === snapshot['snapshot-id'],
+  );
   if (idx === props.snapshotHistory.length - 1) return false;
   const nextVersion = props.snapshotHistory[idx + 1];
   const nextSchema = getSchemaInfo(nextVersion['schema-id']);
   if (!nextSchema) return true;
   return !nextSchema.fields.some((f: any) => f.id === field.id);
-}
-
-function selectSnapshot(snapshotId: number) {
-  const snapshot = props.snapshotHistory.find((s) => s['snapshot-id'] === snapshotId);
-  if (snapshot) selectedSnapshot.value = snapshot;
 }
 
 // ─── Formatting helpers ──────────────────────────────────────────────────────
@@ -932,23 +906,32 @@ function getOperationColor(operation: string): string {
   return map[operation?.toLowerCase()] || 'default';
 }
 
-// ─── Lifecycle ───────────────────────────────────────────────────────────────
+// ─── Lifecycle: D3 owns the SVG ─────────────────────────────────────────────
 
-onMounted(() => {
-  nextTick(() => {
-    initZoom();
-    setTimeout(fitToView, 100);
-  });
-});
-
+// Render when the container div appears and when data changes
 watch(
-  () => props.snapshotHistory.length,
-  () => nextTick(() => setTimeout(fitToView, 100)),
+  [chartRef, () => props.snapshotHistory.length],
+  () => {
+    if (chartRef.value && props.snapshotHistory.length > 0) {
+      renderChart();
+    }
+  },
+  { immediate: true },
 );
 
+// Update selected node highlight when selection changes
+watch(selectedSnapshot, (snap) => {
+  if (!rootG) return;
+  rootG
+    .selectAll<SVGCircleElement, GraphNode>('.nodes circle')
+    .attr('stroke-width', (d) =>
+      snap && snap['snapshot-id'] === d.snapshotId ? 4 : 2.5,
+    );
+});
+
 onBeforeUnmount(() => {
-  if (svgRef.value) {
-    d3.select(svgRef.value).on('.zoom', null);
+  if (chartRef.value) {
+    d3.select(chartRef.value).selectAll('svg').remove();
   }
 });
 </script>
@@ -958,15 +941,13 @@ onBeforeUnmount(() => {
   width: 100%;
 }
 
-.graph-content {
+.chart-container {
+  height: 650px;
   overflow: hidden;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 4px;
-}
-
-.branch-graph {
-  background: rgba(var(--v-theme-surface));
-  display: block;
+  touch-action: none;
+  user-select: none;
 }
 
 .summary-grid {
