@@ -137,13 +137,14 @@ const timeTravelOptions = computed(() => {
   const sorted = [...snaps].sort((a, b) => b['timestamp-ms'] - a['timestamp-ms']);
   return [
     { title: 'Latest (current)', value: '' },
-    ...sorted.map((s, idx) => {
+    ...sorted.map((s) => {
       const ts = new Date(s['timestamp-ms']).toISOString().replace('T', ' ').replace('Z', '');
       const op = s.summary?.operation ?? '';
-      const id = String(s['snapshot-id']);
+      // Use timestamp-ms as the value — snapshot-id exceeds Number.MAX_SAFE_INTEGER
+      // and loses precision when parsed as JS number
       return {
-        title: `${ts} — ${op} (${id.slice(0, 8)}…)`,
-        value: id,
+        title: `${ts} — ${op}`,
+        value: String(s['timestamp-ms']),
       };
     }),
   ];
@@ -241,7 +242,9 @@ async function loadPreview() {
     const tablePath = `"${warehouseName.value}"."${props.namespaceId}"."${props.tableName}"`;
     let query: string;
     if (selectedSnapshot.value) {
-      query = `SELECT * FROM ${tablePath} AT (VERSION => ${selectedSnapshot.value}) LIMIT 1000;`;
+      // Use TIMESTAMP-based time travel to avoid snapshot-id BigInt precision loss
+      const tsIso = new Date(Number(selectedSnapshot.value)).toISOString().replace('T', ' ').replace('Z', '');
+      query = `SELECT * FROM ${tablePath} AT (TIMESTAMP => TIMESTAMP '${tsIso}') LIMIT 1000;`;
     } else {
       query = `SELECT * FROM ${tablePath} LIMIT 1000;`;
     }
