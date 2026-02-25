@@ -13,7 +13,7 @@
 
     <div v-else class="branch-layout">
       <!-- Row 1: Fixed D3 chart — never scrolls -->
-      <v-row no-gutters class="flex-grow-0 flex-shrink-0">
+      <v-row no-gutters class="flex-grow-0 flex-shrink-0 ml-2 pl-2">
         <v-col cols="12">
           <div class="chart-outer">
             <div ref="chartRef" class="chart-container"></div>
