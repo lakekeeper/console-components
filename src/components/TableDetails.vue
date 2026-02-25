@@ -773,7 +773,7 @@ const healthChecks = computed<HealthCheck[]>(() => {
   }
   const deleteOps = opCounts['delete'] ?? 0;
   const overwriteOps = opCounts['overwrite'] ?? 0;
-  const appendOps = opCounts['append'] ?? 0;
+
   const replaceOps = opCounts['replace'] ?? 0;
   const mutatingOps = deleteOps + overwriteOps + replaceOps;
 
