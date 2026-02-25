@@ -96,15 +96,18 @@ import { useUserStore } from '@/stores/user';
 import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
-import type { Snapshot } from '../gen/iceberg/types.gen';
+
+interface SnapshotOption {
+  title: string;
+  value: string;
+}
 
 const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   tableName: string;
-  catalogUrl: string; // Now required from parent
-  storageType?: string; // Storage type: s3, adls, gcs, etc.
-  snapshots?: Snapshot[]; // Optional: pass from parent to avoid extra API call
+  catalogUrl: string;
+  storageType?: string;
 }>();
 
 const config = inject<any>('appConfig', { enabledAuthentication: false });
@@ -122,33 +125,8 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 const queryResults = ref<any>(null);
 const warehouseName = ref<string | undefined>(undefined);
-const loadedSnapshots = ref<Snapshot[]>([]);
 const selectedSnapshot = ref<string | null>(null);
-
-// Time travel options built from snapshots
-const availableSnapshots = computed<Snapshot[]>(() => {
-  return props.snapshots ?? loadedSnapshots.value;
-});
-
-const timeTravelOptions = computed(() => {
-  const snaps = availableSnapshots.value;
-  if (!snaps || snaps.length === 0) return [];
-  // Sort by timestamp descending (most recent first)
-  const sorted = [...snaps].sort((a, b) => b['timestamp-ms'] - a['timestamp-ms']);
-  return [
-    { title: 'Latest (current)', value: '' },
-    ...sorted.map((s) => {
-      const ts = new Date(s['timestamp-ms']).toISOString().replace('T', ' ').replace('Z', '');
-      const op = s.summary?.operation ?? '';
-      // Use timestamp-ms as the value — snapshot-id exceeds Number.MAX_SAFE_INTEGER
-      // and loses precision when parsed as JS number
-      return {
-        title: `${ts} — ${op}`,
-        value: String(s['timestamp-ms']),
-      };
-    }),
-  ];
-});
+const timeTravelOptions = ref<SnapshotOption[]>([]);
 
 // Compute headers from results
 const tableHeaders = computed(() => {
@@ -215,21 +193,6 @@ async function loadPreview() {
     const wh = await functions.getWarehouse(props.warehouseId);
     warehouseName.value = wh.name;
 
-    // Load snapshots if not provided via props
-    if (!props.snapshots || props.snapshots.length === 0) {
-      try {
-        const tableResult = await functions.loadTable(
-          props.warehouseId,
-          props.namespaceId,
-          props.tableName,
-        );
-        loadedSnapshots.value = (tableResult.metadata?.snapshots as Snapshot[]) ?? [];
-      } catch {
-        // Non-critical — time travel just won't be available
-        loadedSnapshots.value = [];
-      }
-    }
-
     // Configure Iceberg catalog (this initializes DuckDB if needed)
     await icebergDB.configureCatalog({
       catalogName: warehouseName.value,
@@ -238,16 +201,42 @@ async function loadPreview() {
       accessToken: userStore.user.access_token,
     });
 
-    // Build query with optional time travel
     const tablePath = `"${warehouseName.value}"."${props.namespaceId}"."${props.tableName}"`;
+
+    // Load snapshot list from DuckDB (BigInt-safe) for time travel dropdown
+    if (timeTravelOptions.value.length === 0) {
+      try {
+        const snapResult = await icebergDB.executeQuery(
+          `SELECT sequence_number, snapshot_id, timestamp_ms FROM iceberg_snapshots(${tablePath}) ORDER BY sequence_number DESC;`,
+        );
+        if (snapResult?.rows?.length) {
+          // snapshot_id comes back as BigInt string from DuckDB — no precision loss
+          const seqIdx = snapResult.columns.indexOf('sequence_number');
+          const idIdx = snapResult.columns.indexOf('snapshot_id');
+          const tsIdx = snapResult.columns.indexOf('timestamp_ms');
+          const options: SnapshotOption[] = [{ title: 'Latest (current)', value: '' }];
+          for (const row of snapResult.rows) {
+            const seq = String(row[seqIdx]);
+            const snapId = String(row[idIdx]);
+            const tsMs = Number(row[tsIdx]);
+            const ts = new Date(tsMs).toISOString().replace('T', ' ').replace('Z', '');
+            options.push({
+              title: `#${seq} — ${ts} (${snapId})`,
+              value: snapId,
+            });
+          }
+          timeTravelOptions.value = options;
+        }
+      } catch {
+        // Non-critical — time travel just won't be available
+        timeTravelOptions.value = [];
+      }
+    }
+
+    // Build query with optional time travel
     let query: string;
     if (selectedSnapshot.value) {
-      // Use TIMESTAMP-based time travel to avoid snapshot-id BigInt precision loss
-      const tsIso = new Date(Number(selectedSnapshot.value))
-        .toISOString()
-        .replace('T', ' ')
-        .replace('Z', '');
-      query = `SELECT * FROM ${tablePath} AT (TIMESTAMP => TIMESTAMP '${tsIso}') LIMIT 1000;`;
+      query = `SELECT * FROM ${tablePath} AT (VERSION => ${selectedSnapshot.value}) LIMIT 1000;`;
     } else {
       query = `SELECT * FROM ${tablePath} LIMIT 1000;`;
     }
