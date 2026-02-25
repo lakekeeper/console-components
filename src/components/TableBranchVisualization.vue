@@ -65,7 +65,7 @@
               </div>
               <div class="detail-row">
                 <span class="detail-label">Schema</span>
-                <span class="detail-value">{{ selectedSnapshot['schema-id'] }}</span>
+                <span class="detail-value text-caption">{{ selectedSnapshot['schema-id'] }}</span>
               </div>
               <div class="detail-row">
                 <span class="detail-label">Time</span>
@@ -88,7 +88,8 @@
                 <v-chip
                   :color="getOperationColor(selectedSnapshot.summary.operation)"
                   size="x-small"
-                  variant="flat">
+                  variant="flat"
+                  class="ml-1">
                   {{ selectedSnapshot.summary.operation }}
                 </v-chip>
               </div>
@@ -411,13 +412,25 @@ const graphLinks = computed<GraphLink[]>(() => {
   const nodeMap = new Map<number, GraphNode>();
   graphNodes.value.forEach((n) => nodeMap.set(n.snapshotId, n));
 
-  const linkGen = d3
-    .linkHorizontal<{ source: [number, number]; target: [number, number] }, [number, number]>()
-    .source((d) => d.source)
-    .target((d) => d.target);
-
   const links: GraphLink[] = [];
   const seen = new Set<string>();
+
+  // Metro-style path: horizontal → rounded corner → vertical → rounded corner → horizontal
+  function metroPath(x1: number, y1: number, x2: number, y2: number, r = 14): string {
+    const dy = y2 - y1;
+    if (Math.abs(dy) < 5) return `M ${x1} ${y1} L ${x2} ${y2}`;
+    const midX = (x1 + x2) / 2;
+    const signY = dy > 0 ? 1 : -1;
+    const clampR = Math.min(r, Math.abs(dy) / 2, Math.abs(midX - x1));
+    return [
+      `M ${x1} ${y1}`,
+      `L ${midX - clampR} ${y1}`,
+      `Q ${midX} ${y1} ${midX} ${y1 + signY * clampR}`,
+      `L ${midX} ${y2 - signY * clampR}`,
+      `Q ${midX} ${y2} ${midX + clampR} ${y2}`,
+      `L ${x2} ${y2}`,
+    ].join(' ');
+  }
 
   function addLink(
     parentNode: GraphNode,
@@ -430,17 +443,11 @@ const graphLinks = computed<GraphLink[]>(() => {
     if (seen.has(key)) return;
     seen.add(key);
 
-    const sameRow = Math.abs(childNode.y - parentNode.y) < 5;
-    let path: string;
-    if (sameRow) {
-      path = `M ${parentNode.x + parentNode.radius} ${parentNode.y} L ${childNode.x - childNode.radius} ${childNode.y}`;
-    } else {
-      path =
-        linkGen({
-          source: [parentNode.x + parentNode.radius, parentNode.y],
-          target: [childNode.x - childNode.radius, childNode.y],
-        }) || '';
-    }
+    const x1 = parentNode.x + parentNode.radius;
+    const y1 = parentNode.y;
+    const x2 = childNode.x - childNode.radius;
+    const y2 = childNode.y;
+    const path = metroPath(x1, y1, x2, y2);
     links.push({ id: key, path, color, opacity });
   }
 
@@ -529,21 +536,76 @@ function renderChart() {
     .attr('height', height)
     .style('display', 'block');
 
-  // Filter definition
   const defs = svg.append('defs');
-  const filter = defs
+
+  // ── Dot-grid pattern ──
+  defs
+    .append('pattern')
+    .attr('id', 'dotGrid')
+    .attr('width', 20)
+    .attr('height', 20)
+    .attr('patternUnits', 'userSpaceOnUse')
+    .append('circle')
+    .attr('cx', 10)
+    .attr('cy', 10)
+    .attr('r', 0.8)
+    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.08)');
+
+  // ── Glow filter for links ──
+  const glowFilter = defs
     .append('filter')
-    .attr('id', 'nodeShadow')
-    .attr('x', '-20%')
-    .attr('y', '-20%')
-    .attr('width', '140%')
-    .attr('height', '140%');
-  filter
-    .append('feDropShadow')
-    .attr('dx', 1)
-    .attr('dy', 1)
-    .attr('stdDeviation', 2)
-    .attr('flood-opacity', 0.25);
+    .attr('id', 'lineGlow')
+    .attr('x', '-30%')
+    .attr('y', '-30%')
+    .attr('width', '160%')
+    .attr('height', '160%');
+  glowFilter
+    .append('feGaussianBlur')
+    .attr('stdDeviation', 3)
+    .attr('result', 'blur');
+  const glowMerge = glowFilter.append('feMerge');
+  glowMerge.append('feMergeNode').attr('in', 'blur');
+  glowMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  // ── Glow filter for nodes ──
+  const nodeGlow = defs
+    .append('filter')
+    .attr('id', 'nodeGlow')
+    .attr('x', '-50%')
+    .attr('y', '-50%')
+    .attr('width', '200%')
+    .attr('height', '200%');
+  nodeGlow
+    .append('feGaussianBlur')
+    .attr('stdDeviation', 4)
+    .attr('result', 'blur');
+  const nodeMerge = nodeGlow.append('feMerge');
+  nodeMerge.append('feMergeNode').attr('in', 'blur');
+  nodeMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  // ── Selected-pulse filter ──
+  const pulseFilter = defs
+    .append('filter')
+    .attr('id', 'selectedPulse')
+    .attr('x', '-80%')
+    .attr('y', '-80%')
+    .attr('width', '260%')
+    .attr('height', '260%');
+  pulseFilter
+    .append('feGaussianBlur')
+    .attr('stdDeviation', 6)
+    .attr('result', 'blur');
+  const pulseMerge = pulseFilter.append('feMerge');
+  pulseMerge.append('feMergeNode').attr('in', 'blur');
+  pulseMerge.append('feMergeNode').attr('in', 'SourceGraphic');
+
+  // Background rect with dot grid
+  svg
+    .append('rect')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', 'url(#dotGrid)')
+    .style('pointer-events', 'none');
 
   // Root group for zoom/pan
   rootG = svg.append('g');
@@ -558,9 +620,24 @@ function renderChart() {
     });
 
   svg.call(zoomBehavior);
-  svg.on('dblclick.zoom', null); // disable double-click zoom
+  svg.on('dblclick.zoom', null);
 
-  // ── Draw links ──
+  // ── Draw link glow layer (behind) ──
+  const glowG = rootG.append('g').attr('class', 'link-glow');
+  glowG
+    .selectAll('path')
+    .data(graphLinks.value)
+    .join('path')
+    .attr('d', (d) => d.path)
+    .attr('stroke', (d) => d.color)
+    .attr('stroke-width', 8)
+    .attr('fill', 'none')
+    .attr('stroke-linecap', 'round')
+    .attr('stroke-linejoin', 'round')
+    .attr('opacity', (d) => d.opacity * 0.25)
+    .attr('filter', 'url(#lineGlow)');
+
+  // ── Draw solid links ──
   const linksG = rootG.append('g').attr('class', 'links');
   linksG
     .selectAll('path')
@@ -574,6 +651,22 @@ function renderChart() {
     .attr('stroke-linejoin', 'round')
     .attr('opacity', (d) => d.opacity);
 
+  // ── Animated flow dashes (direction indicator) ──
+  const flowG = rootG.append('g').attr('class', 'link-flow');
+  flowG
+    .selectAll('path')
+    .data(graphLinks.value)
+    .join('path')
+    .attr('d', (d) => d.path)
+    .attr('stroke', 'white')
+    .attr('stroke-width', 1.5)
+    .attr('fill', 'none')
+    .attr('stroke-linecap', 'round')
+    .attr('stroke-linejoin', 'round')
+    .attr('stroke-dasharray', '4 12')
+    .attr('opacity', (d) => d.opacity * 0.5)
+    .attr('class', 'flow-dash');
+
   // ── Draw nodes ──
   const nodesG = rootG.append('g').attr('class', 'nodes');
   const nodeGroups = nodesG
@@ -586,81 +679,107 @@ function renderChart() {
       if (snap) selectedSnapshot.value = snap;
     });
 
-  // Circle
+  // Outer ring (station ring — always visible)
   nodeGroups
     .append('circle')
+    .attr('class', 'node-ring')
+    .attr('cx', (d) => d.x)
+    .attr('cy', (d) => d.y)
+    .attr('r', (d) => d.radius + 4)
+    .attr('fill', 'none')
+    .attr('stroke', (d) => d.color)
+    .attr('stroke-width', 1.5)
+    .attr('opacity', 0.4)
+    .attr('filter', 'url(#nodeGlow)');
+
+  // Main circle (inner solid)
+  nodeGroups
+    .append('circle')
+    .attr('class', 'node-fill')
     .attr('cx', (d) => d.x)
     .attr('cy', (d) => d.y)
     .attr('r', (d) => d.radius)
     .attr('fill', (d) => d.color)
     .attr('stroke', (d) => d.strokeColor)
-    .attr('stroke-width', 2.5)
-    .attr('filter', 'url(#nodeShadow)');
+    .attr('stroke-width', 2);
 
-  // Sequence number
+  // Inner bright dot
+  nodeGroups
+    .append('circle')
+    .attr('cx', (d) => d.x)
+    .attr('cy', (d) => d.y)
+    .attr('r', 3)
+    .attr('fill', 'white')
+    .attr('opacity', 0.7)
+    .style('pointer-events', 'none');
+
+  // Sequence number (below node)
   nodeGroups
     .append('text')
     .attr('x', (d) => d.x)
-    .attr('y', (d) => d.y - 2)
-    .attr('font-size', 10)
-    .attr('font-weight', 'bold')
-    .attr('fill', 'white')
+    .attr('y', (d) => d.y + d.radius + 14)
+    .attr('font-size', 9)
+    .attr('font-weight', '600')
+    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.6)')
     .attr('text-anchor', 'middle')
     .style('pointer-events', 'none')
-    .text((d) => d.sequenceNumber);
+    .text((d) => `#${d.sequenceNumber}`);
 
-  // Schema change label inside node
-  nodeGroups
-    .filter((d) => !!d.schemaChange)
-    .append('text')
-    .attr('x', (d) => d.x)
-    .attr('y', (d) => d.y + 8)
-    .attr('font-size', 8)
-    .attr('font-weight', 'bold')
-    .attr('fill', 'white')
-    .attr('text-anchor', 'middle')
-    .style('pointer-events', 'none')
-    .style('opacity', 0.9)
-    .text((d) => `S${d.schemaChange!.from}\u2192${d.schemaChange!.to}`);
-
-  // Schema change badge circle
+  // Schema change badge
   nodeGroups
     .filter((d) => !!d.schemaChange)
     .append('circle')
-    .attr('cx', (d) => d.x + d.radius - 2)
-    .attr('cy', (d) => d.y - d.radius + 2)
+    .attr('cx', (d) => d.x + d.radius)
+    .attr('cy', (d) => d.y - d.radius)
     .attr('r', 6)
     .attr('fill', '#ff5722')
-    .attr('stroke', 'white')
-    .attr('stroke-width', 1)
+    .attr('stroke', 'rgba(var(--v-theme-surface), 1)')
+    .attr('stroke-width', 1.5)
     .style('pointer-events', 'none');
 
-  // Schema change badge text
   nodeGroups
     .filter((d) => !!d.schemaChange)
     .append('text')
-    .attr('x', (d) => d.x + d.radius - 2)
-    .attr('y', (d) => d.y - d.radius + 5)
-    .attr('font-size', 8)
+    .attr('x', (d) => d.x + d.radius)
+    .attr('y', (d) => d.y - d.radius + 3.5)
+    .attr('font-size', 7)
     .attr('font-weight', 'bold')
     .attr('fill', 'white')
     .attr('text-anchor', 'middle')
     .style('pointer-events', 'none')
     .text('S');
 
-  // Branch labels on tip nodes — above the node for horizontal layout
+  // Branch labels (above node — like station name)
   nodeGroups.each(function (d) {
     d.branchLabels.forEach((label, idx) => {
-      d3.select(this)
+      // Small rounded rect behind the label
+      const textNode = d3.select(this)
         .append('text')
         .attr('x', d.x)
-        .attr('y', d.y - d.radius - 8 - idx * 14)
-        .attr('font-size', 11)
-        .attr('font-weight', '600')
+        .attr('y', d.y - d.radius - 10 - idx * 18)
+        .attr('font-size', 10)
+        .attr('font-weight', '700')
         .attr('fill', label.color)
         .attr('text-anchor', 'middle')
         .style('pointer-events', 'none')
+        .style('text-transform', 'uppercase')
+        .style('letter-spacing', '0.05em')
         .text(label.name);
+
+      // Underline accent
+      const bbox = (textNode.node() as SVGTextElement)?.getBBox();
+      if (bbox) {
+        d3.select(this)
+          .insert('line', 'text')
+          .attr('x1', bbox.x)
+          .attr('y1', bbox.y + bbox.height + 1)
+          .attr('x2', bbox.x + bbox.width)
+          .attr('y2', bbox.y + bbox.height + 1)
+          .attr('stroke', label.color)
+          .attr('stroke-width', 1.5)
+          .attr('opacity', 0.5)
+          .style('pointer-events', 'none');
+      }
     });
   });
 
@@ -851,9 +970,18 @@ watch(
 // Update selected node highlight when selection changes
 watch(selectedSnapshot, (snap) => {
   if (!rootG) return;
+  // Solid circle highlight
   rootG
-    .selectAll<SVGCircleElement, GraphNode>('.nodes circle')
-    .attr('stroke-width', (d) => (snap && snap['snapshot-id'] === d.snapshotId ? 4 : 2.5));
+    .selectAll<SVGCircleElement, GraphNode>('.nodes .node-fill')
+    .attr('stroke-width', (d) => (snap && snap['snapshot-id'] === d.snapshotId ? 3.5 : 2));
+  // Outer ring pulse on selected
+  rootG
+    .selectAll<SVGCircleElement, GraphNode>('.nodes .node-ring')
+    .attr('opacity', (d) => (snap && snap['snapshot-id'] === d.snapshotId ? 0.9 : 0.4))
+    .attr('stroke-width', (d) => (snap && snap['snapshot-id'] === d.snapshotId ? 2.5 : 1.5))
+    .attr('filter', (d) =>
+      snap && snap['snapshot-id'] === d.snapshotId ? 'url(#selectedPulse)' : 'url(#nodeGlow)',
+    );
 });
 
 onBeforeUnmount(() => {
@@ -873,12 +1001,24 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   border-radius: 8px;
   overflow: hidden;
+  background: rgba(var(--v-theme-surface), 1);
 }
 
 .chart-container {
   height: 500px;
   touch-action: none;
   user-select: none;
+}
+
+/* Animated flow dashes on links */
+.chart-container :deep(.flow-dash) {
+  animation: dashFlow 1.2s linear infinite;
+}
+
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -16;
+  }
 }
 
 /* Floating zoom controls */
@@ -999,6 +1139,7 @@ onBeforeUnmount(() => {
 .detail-value {
   flex: 1;
   min-width: 0;
+  font-size: 0.75rem;
 }
 
 .details-panels :deep(.v-expansion-panel) {
@@ -1008,6 +1149,7 @@ onBeforeUnmount(() => {
 .details-panels :deep(.v-expansion-panel-title) {
   min-height: 32px !important;
   padding: 4px 8px !important;
+  font-size: 0.75rem !important;
 }
 
 .details-panels :deep(.v-expansion-panel-text__wrapper) {
@@ -1025,6 +1167,7 @@ onBeforeUnmount(() => {
   gap: 6px;
   padding: 2px 0;
   font-size: 0.75rem;
+  line-height: 1.4;
 }
 
 .summary-key {
