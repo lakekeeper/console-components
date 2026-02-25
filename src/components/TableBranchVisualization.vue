@@ -1,10 +1,5 @@
 <template>
   <div class="pa-4">
-    <div class="text-h6 mb-4 d-flex align-center">
-      <v-icon class="mr-2">mdi-source-branch</v-icon>
-      Branch Graph
-    </div>
-
     <div
       v-if="!table.metadata.refs || Object.keys(table.metadata.refs).length === 0"
       class="text-center pa-8">
@@ -13,174 +8,122 @@
       <div class="text-body-1 text-grey-lighten-1">This table has no branch references</div>
     </div>
 
-    <div v-else class="graph-container">
-      <v-row>
-        <!-- Graph Column — D3 renders everything inside this div -->
-        <v-col cols="12" lg="8">
-          <v-card variant="outlined" class="pa-4">
-            <div class="d-flex align-center mb-3">
-              <v-btn-group variant="outlined" size="x-small">
-                <v-btn size="small" @click="zoomIn" prepend-icon="mdi-magnify-plus"></v-btn>
-                <v-btn size="small" @click="resetZoom" prepend-icon="mdi-magnify">
-                  {{ Math.round(currentZoom * 100) }}%
-                </v-btn>
-                <v-btn size="small" @click="zoomOut" prepend-icon="mdi-magnify-minus"></v-btn>
-              </v-btn-group>
-              <v-btn
-                size="small"
-                variant="text"
-                class="ml-2"
-                prepend-icon="mdi-fit-to-screen"
-                @click="fitToView">
-                Fit
-              </v-btn>
-            </div>
+    <div v-else class="graph-wrapper">
+      <!-- Full-width chart with overlays -->
+      <div class="chart-outer">
+        <!-- D3 renders the SVG here -->
+        <div ref="chartRef" class="chart-container"></div>
 
-            <!-- D3 will create and own the SVG inside this div -->
-            <div ref="chartRef" class="chart-container"></div>
-          </v-card>
+        <!-- Floating zoom controls — top-left -->
+        <div class="zoom-overlay">
+          <v-btn-group variant="flat" density="compact" class="zoom-group">
+            <v-btn size="x-small" icon="mdi-plus" @click="zoomIn"></v-btn>
+            <v-btn size="x-small" class="zoom-label" @click="resetZoom">
+              {{ Math.round(currentZoom * 100) }}%
+            </v-btn>
+            <v-btn size="x-small" icon="mdi-minus" @click="zoomOut"></v-btn>
+            <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
+          </v-btn-group>
+        </div>
 
-          <!-- Legend -->
-          <v-card variant="outlined" class="mt-4 pa-3">
-            <div class="text-subtitle-2 mb-2">Legend</div>
-            <div class="d-flex flex-wrap gap-4 mb-3">
-              <div v-for="entry in legendEntries" :key="entry.name" class="d-flex align-center">
-                <div
-                  class="mr-2"
-                  :style="{
-                    backgroundColor: entry.color,
-                    width: '16px',
-                    height: '3px',
-                    borderRadius: '2px',
-                    opacity: entry.opacity,
-                  }"></div>
-                <span
-                  class="text-body-2"
-                  :class="{ 'text-grey-darken-1': entry.type === 'dropped' }">
-                  {{ entry.name }}
+        <!-- Subtle inline legend — bottom-left -->
+        <div class="legend-overlay">
+          <span
+            v-for="entry in legendEntries"
+            :key="entry.name"
+            class="legend-item"
+            :style="{ opacity: entry.opacity }">
+            <span
+              class="legend-dot"
+              :style="{ backgroundColor: entry.color }"></span>
+            <span class="legend-text">{{ entry.name }}</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-dot legend-dot--schema"></span>
+            <span class="legend-text">schema change</span>
+          </span>
+        </div>
+
+        <!-- Slide-in details panel — right edge -->
+        <v-slide-x-reverse-transition>
+          <div v-if="selectedSnapshot" class="details-drawer">
+            <div class="details-drawer-inner">
+              <div class="d-flex align-center justify-space-between mb-2">
+                <span class="text-subtitle-1 font-weight-bold d-flex align-center">
+                  <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
+                  Snapshot #{{ selectedSnapshot['sequence-number'] }}
                 </span>
-              </div>
-            </div>
-            <div class="d-flex flex-wrap gap-4 align-center">
-              <div class="d-flex align-center">
-                <div class="mr-2" style="position: relative">
-                  <div
-                    style="
-                      width: 16px;
-                      height: 16px;
-                      border-radius: 50%;
-                      background-color: #ff9800;
-                      border: 2px solid #f57c00;
-                    "></div>
-                  <div
-                    style="
-                      position: absolute;
-                      top: -2px;
-                      right: -2px;
-                      width: 8px;
-                      height: 8px;
-                      border-radius: 50%;
-                      background-color: #ff5722;
-                      border: 1px solid white;
-                    "></div>
-                </div>
-                <span class="text-body-2">Schema Changed</span>
-              </div>
-            </div>
-          </v-card>
-        </v-col>
-
-        <!-- Details Column (Vue-managed) -->
-        <v-col cols="12" lg="4">
-          <v-card variant="outlined" class="pa-4" style="height: 70vh">
-            <div v-if="!selectedSnapshot" class="text-center pa-8">
-              <v-icon size="64" color="grey-lighten-2">mdi-cursor-default-click</v-icon>
-              <div class="text-h6 mt-2 text-grey-lighten-1">Select a Node</div>
-              <div class="text-body-2 text-grey-lighten-1">
-                Click on any node in the graph to view snapshot details
-              </div>
-            </div>
-
-            <div v-else style="height: 100%; overflow-y: auto">
-              <div class="d-flex align-center justify-space-between mb-4">
-                <div class="text-h6 d-flex align-center">
-                  <v-icon class="mr-2">mdi-camera-outline</v-icon>
-                  Snapshot Details
-                </div>
                 <v-btn
                   icon="mdi-close"
-                  size="small"
-                  variant="flat"
+                  size="x-small"
+                  variant="text"
                   @click="selectedSnapshot = null"></v-btn>
               </div>
 
-              <v-card variant="outlined" class="mb-4">
-                <v-card-title class="text-h6">
-                  ID: {{ selectedSnapshot['snapshot-id'] }}
-                </v-card-title>
-                <v-card-text>
-                  <div class="mb-2">
-                    <strong>Sequence:</strong>
-                    {{ selectedSnapshot['sequence-number'] }}
-                  </div>
-                  <div class="mb-2">
-                    <strong>Schema ID:</strong>
-                    {{ selectedSnapshot['schema-id'] }}
-                  </div>
-                  <div class="mb-2">
-                    <strong>Timestamp:</strong>
-                    {{
-                      selectedSnapshot['timestamp-ms']
-                        ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
-                        : 'N/A'
-                    }}
-                  </div>
-                  <div v-if="selectedSnapshot['parent-snapshot-id']" class="mb-2">
-                    <strong>Parent:</strong>
-                    {{ selectedSnapshot['parent-snapshot-id'] }}
-                  </div>
-                  <div v-if="selectedSnapshot.summary?.operation" class="mb-2">
-                    <strong>Operation:</strong>
-                    <v-chip
-                      :color="getOperationColor(selectedSnapshot.summary.operation)"
-                      size="small"
-                      variant="flat"
-                      class="ml-1">
-                      {{ selectedSnapshot.summary.operation }}
-                    </v-chip>
-                  </div>
-                  <div v-if="selectedSnapshot['manifest-list']" class="mb-2">
-                    <strong>Manifest List:</strong>
-                    <div class="text-caption text-wrap">
-                      {{ selectedSnapshot['manifest-list'] }}
-                    </div>
-                  </div>
-                </v-card-text>
-              </v-card>
+              <!-- Core info -->
+              <div class="detail-row">
+                <span class="detail-label">ID</span>
+                <span class="detail-value text-caption">{{ selectedSnapshot['snapshot-id'] }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Schema</span>
+                <span class="detail-value">{{ selectedSnapshot['schema-id'] }}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Time</span>
+                <span class="detail-value text-caption">
+                  {{
+                    selectedSnapshot['timestamp-ms']
+                      ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
+                      : '—'
+                  }}
+                </span>
+              </div>
+              <div v-if="selectedSnapshot['parent-snapshot-id']" class="detail-row">
+                <span class="detail-label">Parent</span>
+                <span class="detail-value text-caption">{{ selectedSnapshot['parent-snapshot-id'] }}</span>
+              </div>
+              <div v-if="selectedSnapshot.summary?.operation" class="detail-row">
+                <span class="detail-label">Op</span>
+                <v-chip
+                  :color="getOperationColor(selectedSnapshot.summary.operation)"
+                  size="x-small"
+                  variant="flat">
+                  {{ selectedSnapshot.summary.operation }}
+                </v-chip>
+              </div>
+              <div v-if="selectedSnapshot['manifest-list']" class="detail-row">
+                <span class="detail-label">Manifest</span>
+                <span class="detail-value text-caption text-truncate" style="max-width: 200px" :title="selectedSnapshot['manifest-list']">
+                  {{ selectedSnapshot['manifest-list'] }}
+                </span>
+              </div>
 
-              <!-- Operational Summary -->
-              <v-expansion-panels v-if="selectedSnapshot.summary" class="mb-4">
+              <!-- Collapsible: Operational Summary -->
+              <v-expansion-panels v-if="selectedSnapshot.summary" variant="accordion" class="mt-3 details-panels">
                 <v-expansion-panel>
-                  <v-expansion-panel-title>Operational Summary</v-expansion-panel-title>
+                  <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
+                    Summary
+                  </v-expansion-panel-title>
                   <v-expansion-panel-text>
                     <div class="summary-grid">
                       <div
                         v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
                         :key="key"
-                        class="mb-2">
-                        <strong>{{ formatSummaryKey(key) }}:</strong>
-                        <span class="ml-2">{{ formatSummaryValue(value) }}</span>
+                        class="summary-row">
+                        <span class="summary-key">{{ formatSummaryKey(key) }}</span>
+                        <span class="summary-val">{{ formatSummaryValue(value) }}</span>
                       </div>
                     </div>
                   </v-expansion-panel-text>
                 </v-expansion-panel>
               </v-expansion-panels>
 
-              <!-- Schema Information -->
-              <v-expansion-panels v-if="selectedSnapshot">
+              <!-- Collapsible: Schema Information -->
+              <v-expansion-panels variant="accordion" class="mt-2 details-panels">
                 <v-expansion-panel>
-                  <v-expansion-panel-title>
-                    Schema Information
+                  <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
+                    Schema
                     <v-chip
                       v-if="getSchemaChanges(selectedSnapshot)"
                       size="x-small"
@@ -191,74 +134,36 @@
                     </v-chip>
                   </v-expansion-panel-title>
                   <v-expansion-panel-text>
-                    <div v-if="!getEffectiveSchemaInfo(selectedSnapshot)" class="text-center pa-4">
-                      <v-icon size="48" color="grey-lighten-2">mdi-information-outline</v-icon>
-                      <div class="text-body-1 text-grey-lighten-1 mt-2">
-                        Schema information not available
-                      </div>
-                      <div class="text-caption text-grey-lighten-2">
-                        Snapshot Schema ID: {{ selectedSnapshot['schema-id'] }}
-                      </div>
-                      <div class="text-caption text-grey-lighten-2">
-                        Table Current Schema ID: {{ table.metadata['current-schema-id'] }}
-                      </div>
-                      <div class="text-caption text-grey-lighten-2">
-                        Effective Schema ID: {{ getEffectiveSchemaId(selectedSnapshot) }}
-                      </div>
-                      <div class="text-caption text-grey-lighten-2 mt-1">
-                        Available schemas: {{ table.metadata.schemas?.length || 0 }}
-                      </div>
-                      <div
-                        v-if="table.metadata.schemas && table.metadata.schemas.length > 0"
-                        class="text-caption text-grey-lighten-2 mt-1">
-                        Schema IDs:
-                        {{ table.metadata.schemas.map((s: any) => s['schema-id']).join(', ') }}
+                    <div v-if="!getEffectiveSchemaInfo(selectedSnapshot)" class="text-center pa-2">
+                      <div class="text-caption text-grey-lighten-1">
+                        Schema not available (ID: {{ getEffectiveSchemaId(selectedSnapshot) }})
                       </div>
                     </div>
-                    <div
-                      v-else
-                      class="schema-fields-container"
-                      style="max-height: 300px; overflow-y: auto">
-                      <div class="mb-2 text-caption">
-                        Using
-                        {{
-                          getEffectiveSchemaId(selectedSnapshot) === selectedSnapshot['schema-id']
-                            ? 'snapshot'
-                            : 'table current'
-                        }}
-                        schema (ID: {{ getEffectiveSchemaId(selectedSnapshot) }})
+                    <div v-else style="max-height: 220px; overflow-y: auto">
+                      <div class="text-caption mb-1" style="opacity: 0.7">
+                        Schema ID {{ getEffectiveSchemaId(selectedSnapshot) }}
                       </div>
-                      <v-list density="compact">
+                      <v-list density="compact" class="pa-0">
                         <v-list-item
                           v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
                           :key="field.id"
-                          class="pa-1">
+                          class="pa-0 px-1"
+                          style="min-height: 28px">
                           <template #prepend>
                             <v-icon
                               :color="isFieldNew(field, selectedSnapshot) ? 'success' : undefined"
-                              size="small">
+                              size="x-small"
+                              class="mr-1">
                               {{ getFieldIcon(field) }}
                             </v-icon>
                           </template>
-                          <v-list-item-title
-                            :class="
-                              isFieldNew(field, selectedSnapshot)
-                                ? 'text-success font-weight-bold'
-                                : ''
-                            ">
+                          <v-list-item-title class="text-caption" :class="isFieldNew(field, selectedSnapshot) ? 'text-success font-weight-bold' : ''">
                             {{ field.name }}
-                            <v-chip
-                              v-if="isFieldNew(field, selectedSnapshot)"
-                              size="x-small"
-                              color="success"
-                              variant="flat"
-                              class="ml-2">
-                              New
-                            </v-chip>
+                            <v-chip v-if="isFieldNew(field, selectedSnapshot)" size="x-small" color="success" variant="flat" class="ml-1">new</v-chip>
                           </v-list-item-title>
-                          <v-list-item-subtitle>
+                          <v-list-item-subtitle class="text-caption" style="font-size: 0.7rem !important">
                             {{ getFieldTypeString(field.type) }}
-                            <span v-if="field.required" class="text-error ml-1">*</span>
+                            <span v-if="field.required" class="text-error">*</span>
                           </v-list-item-subtitle>
                         </v-list-item>
                       </v-list>
@@ -267,9 +172,15 @@
                 </v-expansion-panel>
               </v-expansion-panels>
             </div>
-          </v-card>
-        </v-col>
-      </v-row>
+          </div>
+        </v-slide-x-reverse-transition>
+
+        <!-- Click hint (no selection) -->
+        <div v-if="!selectedSnapshot" class="hint-overlay">
+          <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
+          <span class="text-caption">Click a node for details</span>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -419,26 +330,25 @@ const graphNodes = computed<GraphNode[]>(() => {
   const namedBranches = branches.value.filter((b) => b.type === 'branch' && b !== mainBranch);
   const droppedBranches = branches.value.filter((b) => b.type === 'dropped');
 
-  const snapshotColumn = new Map<number, number>();
-  if (mainBranch) mainBranch.ancestry.forEach((id) => snapshotColumn.set(id, 0));
+  const snapshotRow = new Map<number, number>();
+  if (mainBranch) mainBranch.ancestry.forEach((id) => snapshotRow.set(id, 0));
   namedBranches.forEach((branch, idx) => {
     branch.ancestry.forEach((id) => {
-      if (!snapshotColumn.has(id)) snapshotColumn.set(id, idx + 1);
+      if (!snapshotRow.has(id)) snapshotRow.set(id, -(idx + 1));
     });
   });
   droppedBranches.forEach((branch, idx) => {
     branch.ancestry.forEach((id) => {
-      if (!snapshotColumn.has(id)) snapshotColumn.set(id, -(idx + 1));
+      if (!snapshotRow.has(id)) snapshotRow.set(id, idx + 1);
     });
   });
 
-  const spacingX = 120;
-  const spacingY = 80;
-  const allCols = Array.from(snapshotColumn.values());
-  const minCol = Math.min(...allCols, 0);
-  const maxCol = Math.max(...allCols, 0);
-  const originX = Math.abs(minCol) * spacingX + 100;
-  const totalH = sorted.length * spacingY + 100;
+  // Horizontal layout: x = time (left→right), y = branch row
+  const spacingX = 90;
+  const spacingY = 100;
+  const allRows = Array.from(snapshotRow.values());
+  const minRow = Math.min(...allRows, 0);
+  const originY = Math.abs(minRow) * spacingY + 80;
 
   const tipMap = new Map<number, BranchMeta[]>();
   branches.value.forEach((b) => {
@@ -448,9 +358,9 @@ const graphNodes = computed<GraphNode[]>(() => {
 
   return sorted.map((snapshot, index) => {
     const sid = snapshot['snapshot-id'];
-    const col = snapshotColumn.get(sid) ?? 0;
-    const x = originX + col * spacingX;
-    const y = totalH - 50 - index * spacingY;
+    const row = snapshotRow.get(sid) ?? 0;
+    const x = 60 + index * spacingX;
+    const y = originY + row * spacingY;
     const sc = getSchemaChangeInfo(snapshot);
     const ownerBranch = branches.value.find((b) => b.ancestry.includes(sid));
     const isDropped = ownerBranch?.type === 'dropped';
@@ -462,7 +372,7 @@ const graphNodes = computed<GraphNode[]>(() => {
       snapshotId: sid,
       x,
       y,
-      radius: sc ? 15 : 12,
+      radius: sc ? 14 : 11,
       color: sc ? '#ff9800' : branchColor,
       strokeColor: sc ? '#f57c00' : isDropped ? '#757575' : branchColor,
       sequenceNumber: snapshot['sequence-number'] || 0,
@@ -481,7 +391,7 @@ const graphLinks = computed<GraphLink[]>(() => {
   graphNodes.value.forEach((n) => nodeMap.set(n.snapshotId, n));
 
   const linkGen = d3
-    .linkVertical<{ source: [number, number]; target: [number, number] }, [number, number]>()
+    .linkHorizontal<{ source: [number, number]; target: [number, number] }, [number, number]>()
     .source((d) => d.source)
     .target((d) => d.target);
 
@@ -499,15 +409,15 @@ const graphLinks = computed<GraphLink[]>(() => {
     if (seen.has(key)) return;
     seen.add(key);
 
-    const sameCol = Math.abs(childNode.x - parentNode.x) < 5;
+    const sameRow = Math.abs(childNode.y - parentNode.y) < 5;
     let path: string;
-    if (sameCol) {
-      path = `M ${parentNode.x} ${parentNode.y - parentNode.radius} L ${childNode.x} ${childNode.y + childNode.radius}`;
+    if (sameRow) {
+      path = `M ${parentNode.x + parentNode.radius} ${parentNode.y} L ${childNode.x - childNode.radius} ${childNode.y}`;
     } else {
       path =
         linkGen({
-          source: [parentNode.x, parentNode.y - parentNode.radius],
-          target: [childNode.x, childNode.y + childNode.radius],
+          source: [parentNode.x + parentNode.radius, parentNode.y],
+          target: [childNode.x - childNode.radius, childNode.y],
         }) || '';
     }
     links.push({ id: key, path, color, opacity });
@@ -585,7 +495,7 @@ function renderChart() {
 
   const container = chartRef.value;
   const width = container.clientWidth || 800;
-  const height = 650;
+  const height = container.clientHeight || 500;
 
   // Tear down previous SVG
   d3.select(container).selectAll('svg').remove();
@@ -596,8 +506,7 @@ function renderChart() {
     .append('svg')
     .attr('width', width)
     .attr('height', height)
-    .style('display', 'block')
-    .style('background', 'rgba(var(--v-theme-surface))');
+    .style('display', 'block');
 
   // Filter definition
   const defs = svg.append('defs');
@@ -610,10 +519,10 @@ function renderChart() {
     .attr('height', '140%');
   filter
     .append('feDropShadow')
-    .attr('dx', 2)
-    .attr('dy', 2)
+    .attr('dx', 1)
+    .attr('dy', 1)
     .attr('stdDeviation', 2)
-    .attr('flood-opacity', 0.3);
+    .attr('flood-opacity', 0.25);
 
   // Root group for zoom/pan
   rootG = svg.append('g');
@@ -718,16 +627,17 @@ function renderChart() {
     .style('pointer-events', 'none')
     .text('S');
 
-  // Branch labels on tip nodes
+  // Branch labels on tip nodes — above the node for horizontal layout
   nodeGroups.each(function (d) {
     d.branchLabels.forEach((label, idx) => {
       d3.select(this)
         .append('text')
-        .attr('x', d.x + d.radius + 8)
-        .attr('y', d.y + 4 + idx * 16)
-        .attr('font-size', 12)
+        .attr('x', d.x)
+        .attr('y', d.y - d.radius - 8 - idx * 14)
+        .attr('font-size', 11)
         .attr('font-weight', '600')
         .attr('fill', label.color)
+        .attr('text-anchor', 'middle')
         .style('pointer-events', 'none')
         .text(label.name);
     });
@@ -766,15 +676,15 @@ function fitToView() {
   if (!svg || !zoomBehavior || !chartRef.value || graphNodes.value.length === 0) return;
 
   const containerW = chartRef.value.clientWidth || 800;
-  const containerH = 650;
-  const pad = 60;
+  const containerH = chartRef.value.clientHeight || 500;
+  const pad = 50;
 
   const xs = graphNodes.value.map((n) => n.x);
   const ys = graphNodes.value.map((n) => n.y);
-  const minX = Math.min(...xs) - 40;
-  const maxX = Math.max(...xs) + 140;
-  const minY = Math.min(...ys) - 30;
-  const maxY = Math.max(...ys) + 30;
+  const minX = Math.min(...xs) - 30;
+  const maxX = Math.max(...xs) + 30;
+  const minY = Math.min(...ys) - 40;
+  const maxY = Math.max(...ys) + 40;
 
   const gW = maxX - minX;
   const gH = maxY - minY;
@@ -933,29 +843,176 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.graph-container {
+.graph-wrapper {
   width: 100%;
 }
 
-.chart-container {
-  height: 650px;
-  overflow: hidden;
+.chart-outer {
+  position: relative;
   border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 4px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.chart-container {
+  height: 500px;
   touch-action: none;
   user-select: none;
 }
 
-.summary-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+/* Floating zoom controls */
+.zoom-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
 }
 
-.summary-grid > div {
-  padding: 4px 8px;
-  background: rgba(var(--v-theme-surface-variant), 0.3);
+.zoom-group {
+  background: rgba(var(--v-theme-surface), 0.85);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.zoom-label {
+  min-width: 48px !important;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle legend */
+.legend-overlay {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 10px;
+  background: rgba(var(--v-theme-surface), 0.7);
+  backdrop-filter: blur(4px);
   border-radius: 4px;
-  border-left: 3px solid rgba(var(--v-theme-primary), 0.5);
+  font-size: 0.72rem;
+  pointer-events: none;
+}
+
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.85;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot--schema {
+  background: #ff9800;
+  border: 1.5px solid #f57c00;
+}
+
+.legend-text {
+  white-space: nowrap;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+}
+
+/* Hint overlay */
+.hint-overlay {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: rgba(var(--v-theme-surface), 0.7);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Slide-in details drawer */
+.details-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  max-width: 40%;
+  z-index: 3;
+  background: rgba(var(--v-theme-surface), 0.95);
+  backdrop-filter: blur(8px);
+  border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  overflow-y: auto;
+}
+
+.details-drawer-inner {
+  padding: 14px 16px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.06);
+}
+
+.detail-label {
+  flex-shrink: 0;
+  width: 56px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+}
+
+.detail-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.details-panels :deep(.v-expansion-panel) {
+  background: transparent !important;
+}
+
+.details-panels :deep(.v-expansion-panel-title) {
+  min-height: 32px !important;
+  padding: 4px 8px !important;
+}
+
+.details-panels :deep(.v-expansion-panel-text__wrapper) {
+  padding: 4px 8px 8px !important;
+}
+
+.summary-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.summary-row {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 0.75rem;
+}
+
+.summary-key {
+  flex-shrink: 0;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
+.summary-val {
+  color: rgba(var(--v-theme-on-surface), 0.85);
 }
 </style>
