@@ -11,45 +11,56 @@
       </v-col>
     </v-row>
 
-    <v-row v-else no-gutters>
-      <v-col cols="12">
-        <!-- Full-width chart with overlays -->
-        <div class="chart-outer">
-          <!-- D3 renders the SVG here -->
-          <div ref="chartRef" class="chart-container"></div>
+    <template v-else>
+      <!-- Row 1: Fixed D3 chart -->
+      <v-row no-gutters>
+        <v-col cols="12">
+          <div class="chart-outer">
+            <div ref="chartRef" class="chart-container"></div>
 
-          <!-- Floating zoom controls — top-left -->
-          <div class="zoom-overlay">
-            <v-btn-group variant="flat" density="compact" class="zoom-group">
-              <v-btn size="x-small" icon="mdi-plus" @click="zoomIn"></v-btn>
-              <v-btn size="x-small" class="zoom-label" @click="resetZoom">
-                {{ Math.round(currentZoom * 100) }}%
-              </v-btn>
-              <v-btn size="x-small" icon="mdi-minus" class="mr-2" @click="zoomOut"></v-btn>
-              <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
-            </v-btn-group>
+            <!-- Floating zoom controls — top-left -->
+            <div class="zoom-overlay">
+              <v-btn-group variant="flat" density="compact" class="zoom-group">
+                <v-btn size="x-small" icon="mdi-plus" @click="zoomIn"></v-btn>
+                <v-btn size="x-small" class="zoom-label" @click="resetZoom">
+                  {{ Math.round(currentZoom * 100) }}%
+                </v-btn>
+                <v-btn size="x-small" icon="mdi-minus" class="mr-2" @click="zoomOut"></v-btn>
+                <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
+              </v-btn-group>
+            </div>
+
+            <!-- Legend — bottom-left -->
+            <div class="legend-overlay">
+              <span
+                v-for="entry in legendEntries"
+                :key="entry.name"
+                class="legend-item"
+                :style="{ opacity: entry.opacity }">
+                <span class="legend-dot" :style="{ backgroundColor: entry.color }"></span>
+                <span class="legend-text">{{ entry.name }}</span>
+              </span>
+              <span class="legend-item">
+                <span class="legend-dot legend-dot--schema"></span>
+                <span class="legend-text">schema change</span>
+              </span>
+            </div>
+
+            <!-- Click hint -->
+            <div v-if="!selectedSnapshot" class="hint-overlay">
+              <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
+              <span class="text-caption">Click a node for details</span>
+            </div>
           </div>
+        </v-col>
+      </v-row>
 
-          <!-- Subtle inline legend — bottom-left -->
-          <div class="legend-overlay">
-            <span
-              v-for="entry in legendEntries"
-              :key="entry.name"
-              class="legend-item"
-              :style="{ opacity: entry.opacity }">
-              <span class="legend-dot" :style="{ backgroundColor: entry.color }"></span>
-              <span class="legend-text">{{ entry.name }}</span>
-            </span>
-            <span class="legend-item">
-              <span class="legend-dot legend-dot--schema"></span>
-              <span class="legend-text">schema change</span>
-            </span>
-          </div>
-
-          <!-- Slide-in details panel — right edge -->
-          <v-slide-x-reverse-transition>
-            <div v-if="selectedSnapshot" class="details-drawer">
-              <div class="details-drawer-inner">
+      <!-- Row 2: Scrollable details (appears on node click) -->
+      <v-slide-y-transition>
+        <v-row v-if="selectedSnapshot" no-gutters>
+          <v-col cols="12">
+            <div class="details-panel">
+              <div class="details-panel-inner">
                 <div class="d-flex align-center justify-space-between mb-2">
                   <span class="text-subtitle-1 font-weight-bold d-flex align-center">
                     <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
@@ -71,7 +82,9 @@
                 </div>
                 <div class="detail-row">
                   <span class="detail-label mr-2">Schema</span>
-                  <span class="detail-value text-caption">{{ selectedSnapshot['schema-id'] }}</span>
+                  <span class="detail-value text-caption">
+                    {{ selectedSnapshot['schema-id'] }}
+                  </span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label mr-2">Time</span>
@@ -151,10 +164,11 @@
                         v-if="!getEffectiveSchemaInfo(selectedSnapshot)"
                         class="text-center pa-2">
                         <div class="text-caption text-grey-lighten-1">
-                          Schema not available (ID: {{ getEffectiveSchemaId(selectedSnapshot) }})
+                          Schema not available (ID:
+                          {{ getEffectiveSchemaId(selectedSnapshot) }})
                         </div>
                       </div>
-                      <div v-else style="max-height: 220px; overflow-y: auto">
+                      <div v-else>
                         <div class="text-caption mb-1" style="opacity: 0.7">
                           Schema ID {{ getEffectiveSchemaId(selectedSnapshot) }}
                         </div>
@@ -203,16 +217,10 @@
                 </v-expansion-panels>
               </div>
             </div>
-          </v-slide-x-reverse-transition>
-
-          <!-- Click hint (no selection) -->
-          <div v-if="!selectedSnapshot" class="hint-overlay">
-            <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
-            <span class="text-caption">Click a node for details</span>
-          </div>
-        </div>
-      </v-col>
-    </v-row>
+          </v-col>
+        </v-row>
+      </v-slide-y-transition>
+    </template>
   </v-container>
 </template>
 
@@ -1180,22 +1188,17 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* Slide-in details drawer */
-.details-drawer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 320px;
-  max-width: 40%;
-  z-index: 3;
-  background: rgba(var(--v-theme-surface), 0.95);
-  backdrop-filter: blur(8px);
-  border-left: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+/* Details panel — below chart, scrollable */
+.details-panel {
+  max-height: 350px;
   overflow-y: auto;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: rgba(var(--v-theme-surface), 0.98);
 }
 
-.details-drawer-inner {
+.details-panel-inner {
   padding: 14px 16px;
 }
 
