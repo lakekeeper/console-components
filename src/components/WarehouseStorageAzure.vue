@@ -572,7 +572,10 @@ const storageLayoutExample = computed(() => {
 const buildStorageLayout = (): StorageLayout | null => {
   if (storageLayoutType.value === 'default') return { type: 'default' };
   if (storageLayoutType.value === 'tabular-only') {
-    return { type: 'tabular-only', tabular: storageLayoutTable.value || 'tabular-{name}-{uuid}' };
+    return {
+      type: 'tabular-only',
+      tabular: storageLayoutTable.value || 'tabular-{name}-{uuid}',
+    };
   }
   if (storageLayoutType.value === 'full-hierarchy') {
     return {
@@ -754,10 +757,12 @@ onMounted(() => {
   if (existingLayout) {
     storageLayoutType.value = existingLayout.type;
     if (existingLayout.type === 'tabular-only') {
-      storageLayoutTable.value = existingLayout.tabular || '{uuid}';
+      storageLayoutTable.value =
+        (existingLayout as any).tabular || (existingLayout as any).table || '{uuid}';
     } else if (existingLayout.type === 'full-hierarchy') {
-      storageLayoutNamespace.value = existingLayout.namespace || '{uuid}';
-      storageLayoutTable.value = existingLayout.tabular || '{uuid}';
+      storageLayoutNamespace.value = (existingLayout as any).namespace || '{uuid}';
+      storageLayoutTable.value =
+        (existingLayout as any).tabular || (existingLayout as any).table || '{uuid}';
     }
   }
 });
