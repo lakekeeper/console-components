@@ -192,6 +192,39 @@
       </v-col>
     </v-row>
 
+    <!-- Table Health -->
+    <v-card v-if="healthChecks.length > 0" variant="outlined" class="mb-4" elevation="1">
+      <v-toolbar color="transparent" density="compact" flat>
+        <v-toolbar-title class="text-subtitle-1">
+          <v-icon class="mr-2" :color="overallHealthColor">mdi-heart-pulse</v-icon>
+          Table Health
+        </v-toolbar-title>
+        <v-spacer></v-spacer>
+        <v-chip :color="overallHealthColor" size="small" variant="flat" class="mr-2">
+          {{ overallHealthLabel }}
+        </v-chip>
+      </v-toolbar>
+      <v-divider></v-divider>
+      <v-list density="compact">
+        <v-list-item v-for="check in healthChecks" :key="check.label">
+          <template #prepend>
+            <v-icon :color="check.color" size="small" class="mr-2">{{ check.icon }}</v-icon>
+          </template>
+          <v-list-item-title class="text-body-2">
+            {{ check.label }}
+          </v-list-item-title>
+          <v-list-item-subtitle class="text-wrap">
+            {{ check.detail }}
+          </v-list-item-subtitle>
+          <template #append>
+            <v-chip :color="check.color" size="x-small" variant="flat">
+              {{ check.severity }}
+            </v-chip>
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-card>
+
     <!-- Properties Section -->
     <v-card
       v-if="table.metadata.properties && Object.keys(table.metadata.properties).length > 0"
@@ -517,6 +550,137 @@ const selectedSchemaInfo = computed(() => {
 const schemaFieldsTransformed = computed(() => {
   if (!selectedSchemaInfo.value?.fields) return [];
   return transformFields(selectedSchemaInfo.value.fields);
+});
+
+// --- Table Health ---
+interface HealthCheck {
+  label: string;
+  detail: string;
+  severity: 'Good' | 'Info' | 'Warning' | 'Critical';
+  color: string;
+  icon: string;
+}
+
+const summaryNum = (key: string): number | null => {
+  const val = currentSnapshot.value?.summary?.[key];
+  if (val === undefined || val === null) return null;
+  const n = Number(val);
+  return isNaN(n) ? null : n;
+};
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
+const healthChecks = computed<HealthCheck[]>(() => {
+  if (!currentSnapshot.value?.summary) return [];
+  const checks: HealthCheck[] = [];
+
+  const dataFiles = summaryNum('total-data-files-count');
+  const deleteFiles = summaryNum('total-delete-files-count');
+  const eqDeletes = summaryNum('total-equality-deletes-count');
+  const posDeletes = summaryNum('total-position-deletes-count');
+  const totalRecords = summaryNum('total-records-count');
+  const totalSize = summaryNum('total-files-size-in-bytes');
+  const snapshotCount = props.table.metadata.snapshots?.length ?? 0;
+
+  // Small files detection
+  if (dataFiles !== null && totalSize !== null && dataFiles > 0) {
+    const avgFileSize = totalSize / dataFiles;
+    if (avgFileSize < 8 * 1024 * 1024 && dataFiles > 10) {
+      checks.push({
+        label: 'Small files detected',
+        detail: `${dataFiles} data files with avg size ${formatBytes(avgFileSize)}. Consider compaction to improve read performance (target: 128–512 MB per file).`,
+        severity: avgFileSize < 1024 * 1024 ? 'Critical' : 'Warning',
+        color: avgFileSize < 1024 * 1024 ? 'error' : 'warning',
+        icon: 'mdi-file-alert-outline',
+      });
+    } else if (dataFiles > 10) {
+      checks.push({
+        label: 'File sizes healthy',
+        detail: `${dataFiles} data files, avg ${formatBytes(avgFileSize)}.`,
+        severity: 'Good',
+        color: 'success',
+        icon: 'mdi-file-check-outline',
+      });
+    }
+  }
+
+  // Delete files accumulation
+  if (deleteFiles !== null && deleteFiles > 0) {
+    const deleteRatio = dataFiles ? deleteFiles / dataFiles : deleteFiles;
+    const totalDeletes = (eqDeletes ?? 0) + (posDeletes ?? 0);
+    const severity: HealthCheck['severity'] =
+      deleteRatio > 0.5 || deleteFiles > 100 ? 'Critical' : deleteFiles > 10 ? 'Warning' : 'Info';
+    checks.push({
+      label: 'Delete files present',
+      detail: `${deleteFiles} delete file${deleteFiles > 1 ? 's' : ''}${totalDeletes > 0 ? ` (${totalDeletes.toLocaleString()} deletes)` : ''}. Run compaction to merge deletes into data files.`,
+      severity,
+      color: severity === 'Critical' ? 'error' : severity === 'Warning' ? 'warning' : 'info',
+      icon: 'mdi-delete-clock-outline',
+    });
+  }
+
+  // Snapshot accumulation
+  if (snapshotCount > 100) {
+    checks.push({
+      label: 'Many snapshots accumulated',
+      detail: `${snapshotCount} snapshots. Consider running snapshot expiration to reduce metadata size.`,
+      severity: snapshotCount > 500 ? 'Critical' : 'Warning',
+      color: snapshotCount > 500 ? 'error' : 'warning',
+      icon: 'mdi-camera-burst',
+    });
+  } else if (snapshotCount > 0) {
+    checks.push({
+      label: 'Snapshot count',
+      detail: `${snapshotCount} snapshot${snapshotCount > 1 ? 's' : ''}.`,
+      severity: 'Good',
+      color: 'success',
+      icon: 'mdi-camera-outline',
+    });
+  }
+
+  // Many data files (even if not small) — may indicate need for compaction
+  if (dataFiles !== null && dataFiles > 1000) {
+    const alreadyHasSmallFileCheck = checks.some((c) => c.label.includes('Small files'));
+    if (!alreadyHasSmallFileCheck) {
+      checks.push({
+        label: 'High file count',
+        detail: `${dataFiles.toLocaleString()} data files. Large file counts increase planning time. Consider compaction.`,
+        severity: dataFiles > 10000 ? 'Warning' : 'Info',
+        color: dataFiles > 10000 ? 'warning' : 'info',
+        icon: 'mdi-file-multiple-outline',
+      });
+    }
+  }
+
+  // Table size summary (informational)
+  if (totalSize !== null && totalRecords !== null) {
+    checks.push({
+      label: 'Table size',
+      detail: `${totalRecords.toLocaleString()} records across ${formatBytes(totalSize)}.`,
+      severity: 'Good',
+      color: 'success',
+      icon: 'mdi-database-outline',
+    });
+  }
+
+  return checks;
+});
+
+const overallHealthColor = computed(() => {
+  if (healthChecks.value.some((c) => c.severity === 'Critical')) return 'error';
+  if (healthChecks.value.some((c) => c.severity === 'Warning')) return 'warning';
+  return 'success';
+});
+
+const overallHealthLabel = computed(() => {
+  if (healthChecks.value.some((c) => c.severity === 'Critical')) return 'Needs Attention';
+  if (healthChecks.value.some((c) => c.severity === 'Warning')) return 'Minor Issues';
+  return 'Healthy';
 });
 </script>
 
