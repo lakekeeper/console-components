@@ -87,7 +87,10 @@
       <v-row no-gutters class="details-scroll-area">
         <v-col cols="12">
           <v-slide-y-transition>
-            <div v-if="selectedSnapshot" class="details-panel">
+            <div
+              v-if="selectedSnapshot"
+              class="details-panel"
+              style="max-height: 30vh; overflow-y: auto">
               <div class="details-panel-inner">
                 <div class="d-flex align-center justify-space-between mb-2">
                   <span class="text-subtitle-1 font-weight-bold d-flex align-center">
