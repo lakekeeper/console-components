@@ -103,7 +103,7 @@
         <v-card
           v-if="table.metadata.properties && Object.keys(table.metadata.properties).length > 0"
           variant="outlined"
-          class="mb-4"
+          class="fill-height"
           elevation="1">
           <v-toolbar color="transparent" density="compact" flat>
             <v-toolbar-title class="text-subtitle-1">
