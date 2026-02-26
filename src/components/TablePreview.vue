@@ -49,66 +49,34 @@
       <v-card variant="outlined" class="mb-4" density="compact">
         <div class="d-flex align-center flex-wrap ga-3 pa-3">
           <!-- Branch selector -->
-          <div v-if="branchOptions.length > 1" class="d-flex align-center">
-            <v-icon size="small" class="mr-2 text-medium-emphasis">mdi-source-branch</v-icon>
-            <v-btn-toggle
-              v-model="selectedBranch"
-              mandatory
-              density="compact"
-              variant="outlined"
-              divided
-              color="primary"
-              @update:model-value="
-                selectedSnapshot = null;
-                selectedTimestamp = '';
-                loadPreview();
-              ">
-              <v-btn
-                v-for="branch in branchOptions"
-                :key="branch.value"
-                :value="branch.value"
-                size="small">
-                {{ branch.title }}
-              </v-btn>
-            </v-btn-toggle>
-          </div>
+          <v-select
+            v-if="branchOptions.length > 1"
+            v-model="selectedBranch"
+            :items="branchOptions"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 180px"
+            label="Branch"
+            prepend-inner-icon="mdi-source-branch"
+            @update:model-value="
+              selectedSnapshot = null;
+              loadPreview();
+            "></v-select>
 
-          <v-divider v-if="branchOptions.length > 1" vertical class="mx-1"></v-divider>
-
-          <!-- Time Travel -->
-          <div
-            v-if="branchSnapshots.length > 1"
-            class="d-flex align-center flex-grow-1"
-            style="min-width: 280px">
-            <v-icon size="small" class="mr-2 text-medium-emphasis">mdi-clock-outline</v-icon>
-            <input
-              v-model="selectedTimestamp"
-              type="datetime-local"
-              class="time-travel-input mr-2"
-              :max="maxTimestamp"
-              :min="minTimestamp"
-              title="Filter snapshots by date"
-              @input="onTimestampFilter" />
-            <v-select
-              v-model="selectedSnapshot"
-              :items="filteredTimeTravelOptions"
-              density="compact"
-              variant="outlined"
-              hide-details
-              style="max-width: 380px; min-width: 240px"
-              placeholder="Latest (current)"
-              prepend-inner-icon="mdi-camera-burst"
-              clearable
-              @update:model-value="onSnapshotSelect"></v-select>
-            <v-btn
-              v-if="selectedSnapshot || selectedTimestamp"
-              icon="mdi-close-circle"
-              size="x-small"
-              variant="text"
-              color="error"
-              class="ml-1"
-              @click="clearTimeTravel"></v-btn>
-          </div>
+          <!-- Snapshot time travel -->
+          <v-select
+            v-if="allTimeTravelOptions.length > 1"
+            v-model="selectedSnapshot"
+            :items="allTimeTravelOptions"
+            density="compact"
+            variant="outlined"
+            hide-details
+            style="max-width: 400px; min-width: 280px"
+            label="Time Travel"
+            prepend-inner-icon="mdi-clock-outline"
+            clearable
+            @update:model-value="loadPreview"></v-select>
 
           <v-spacer></v-spacer>
 
@@ -204,7 +172,6 @@ const warehouseName = ref<string | undefined>(undefined);
 const loadedTable = ref<BigIntLoadTableResult | null>(null);
 const selectedSnapshot = ref<string | null>(null);
 const selectedBranch = ref<string>('main');
-const selectedTimestamp = ref<string>('');
 
 // Resolved table metadata (fetched with json-bigint to preserve snapshot IDs)
 const tableMetadata = computed<BigIntLoadTableResult | null>(() => loadedTable.value);
@@ -247,12 +214,6 @@ const branchSnapshots = computed<BigIntSnapshot[]>(() => {
   return chain;
 });
 
-// Current branch tip snapshot id
-const currentTipId = computed(() => {
-  const snaps = branchSnapshots.value;
-  return snaps.length > 0 ? String(snaps[0]['snapshot-id']) : null;
-});
-
 // Full time travel options from branch snapshots
 const allTimeTravelOptions = computed(() => {
   const snaps = branchSnapshots.value;
@@ -266,77 +227,9 @@ const allTimeTravelOptions = computed(() => {
     return {
       title: `#${seq} — ${ts} — ${op}`,
       value: snapId,
-      timestampMs: s['timestamp-ms'],
     };
   });
 });
-
-// Filtered options based on datetime input
-const filteredTimeTravelOptions = computed(() => {
-  const all = allTimeTravelOptions.value;
-  if (!selectedTimestamp.value) return all;
-  const targetMs = new Date(selectedTimestamp.value).getTime();
-  // Show snapshots at or before the selected datetime
-  return all.filter((opt) => opt.timestampMs <= targetMs);
-});
-
-// Min/max for datetime picker
-const maxTimestamp = computed(() => {
-  const snaps = branchSnapshots.value;
-  if (snaps.length === 0) return '';
-  return toLocalDatetime(snaps[0]['timestamp-ms']);
-});
-
-const minTimestamp = computed(() => {
-  const snaps = branchSnapshots.value;
-  if (snaps.length === 0) return '';
-  return toLocalDatetime(snaps[snaps.length - 1]['timestamp-ms']);
-});
-
-function toLocalDatetime(ms: number): string {
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function onTimestampFilter() {
-  // When the datetime filter changes, auto-select the nearest snapshot at or before that time
-  if (!selectedTimestamp.value) return;
-  const targetMs = new Date(selectedTimestamp.value).getTime();
-  const snaps = branchSnapshots.value;
-  let best: BigIntSnapshot | null = null;
-  for (const s of snaps) {
-    if (s['timestamp-ms'] <= targetMs) {
-      best = s;
-      break;
-    }
-  }
-  if (best) {
-    selectedSnapshot.value = String(best['snapshot-id']);
-    loadPreview();
-  }
-}
-
-function onSnapshotSelect() {
-  // Sync datetime picker when a snapshot is selected from dropdown
-  if (selectedSnapshot.value) {
-    const snap = branchSnapshots.value.find(
-      (s) => String(s['snapshot-id']) === selectedSnapshot.value,
-    );
-    if (snap) {
-      selectedTimestamp.value = toLocalDatetime(snap['timestamp-ms']);
-    }
-  } else {
-    selectedTimestamp.value = '';
-  }
-  loadPreview();
-}
-
-function clearTimeTravel() {
-  selectedSnapshot.value = null;
-  selectedTimestamp.value = '';
-  loadPreview();
-}
 
 // Compute headers from results
 const tableHeaders = computed(() => {
@@ -460,7 +353,6 @@ onMounted(() => {
 watch([() => props.tableName, () => props.namespaceId, () => props.warehouseId], () => {
   loadedTable.value = null;
   selectedSnapshot.value = null;
-  selectedTimestamp.value = '';
   selectedBranch.value = 'main';
   loadPreview();
 });
@@ -495,21 +387,5 @@ onBeforeUnmount(async () => {
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.time-travel-input {
-  font-size: 0.8125rem;
-  padding: 4px 8px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.25);
-  border-radius: 4px;
-  background: transparent;
-  color: rgb(var(--v-theme-on-surface));
-  outline: none;
-  height: 32px;
-  min-width: 170px;
-}
-
-.time-travel-input:focus {
-  border-color: rgb(var(--v-theme-primary));
 }
 </style>
