@@ -1,88 +1,120 @@
 <template>
   <v-card-text>
-    <!-- Table Information — single full-width table -->
-    <v-card variant="outlined" class="mb-4" elevation="1">
-      <v-toolbar color="transparent" density="compact" flat>
-        <v-toolbar-title class="text-subtitle-1">
-          <v-icon class="mr-2" color="primary">mdi-information-outline</v-icon>
-          Table Information
-        </v-toolbar-title>
-        <v-spacer></v-spacer>
-        <v-chip
-          v-if="table.metadata['format-version']"
-          size="small"
-          color="primary"
+    <v-row>
+      <v-col>
+        <!-- Table Information — single full-width table -->
+        <v-card variant="outlined" class="mb-4" elevation="1">
+          <v-toolbar color="transparent" density="compact" flat>
+            <v-toolbar-title class="text-subtitle-1">
+              <v-icon class="mr-2" color="primary">mdi-information-outline</v-icon>
+              Table Information
+            </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <v-chip
+              v-if="table.metadata['format-version']"
+              size="small"
+              color="primary"
+              variant="outlined"
+              class="mr-2">
+              v{{ table.metadata['format-version'] }}
+            </v-chip>
+          </v-toolbar>
+          <v-divider></v-divider>
+          <v-table density="compact">
+            <tbody>
+              <tr>
+                <td class="font-weight-medium" style="width: 200px">Table UUID</td>
+                <td>
+                  <span class="font-mono">{{ table.metadata['table-uuid'] }}</span>
+                  <v-btn
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    @click="copyToClipboard(table.metadata['table-uuid'])"></v-btn>
+                </td>
+              </tr>
+              <tr>
+                <td class="font-weight-medium">Format Version</td>
+                <td>{{ table.metadata['format-version'] }}</td>
+              </tr>
+              <tr v-if="table.metadata.location">
+                <td class="font-weight-medium">Data Location</td>
+                <td>
+                  <span class="font-mono text-wrap">{{ table.metadata.location }}</span>
+                  <v-btn
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    @click="copyToClipboard(table.metadata.location)"></v-btn>
+                </td>
+              </tr>
+              <tr v-if="table['metadata-location']">
+                <td class="font-weight-medium">Metadata Location</td>
+                <td>
+                  <span class="font-mono text-wrap">{{ table['metadata-location'] }}</span>
+                  <v-btn
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    @click="copyToClipboard(table['metadata-location'])"></v-btn>
+                </td>
+              </tr>
+              <tr v-if="table.metadata['last-updated-ms']">
+                <td class="font-weight-medium">Last Updated</td>
+                <td>{{ formatTimestamp(table.metadata['last-updated-ms']) }}</td>
+              </tr>
+              <tr v-if="table.metadata['current-schema-id'] !== undefined">
+                <td class="font-weight-medium">Current Schema ID</td>
+                <td>{{ table.metadata['current-schema-id'] }}</td>
+              </tr>
+              <tr v-if="table.metadata['current-snapshot-id']">
+                <td class="font-weight-medium">Current Snapshot ID</td>
+                <td>
+                  <span class="font-mono">{{ table.metadata['current-snapshot-id'] }}</span>
+                  <v-btn
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    @click="copyToClipboard(String(table.metadata['current-snapshot-id']))"></v-btn>
+                </td>
+              </tr>
+              <tr v-if="table.metadata['last-sequence-number'] !== undefined">
+                <td class="font-weight-medium">Last Sequence Number</td>
+                <td>{{ table.metadata['last-sequence-number'] }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card>
+      </v-col>
+      <v-col>
+        <!-- Properties Section -->
+        <v-card
+          v-if="table.metadata.properties && Object.keys(table.metadata.properties).length > 0"
           variant="outlined"
-          class="mr-2">
-          v{{ table.metadata['format-version'] }}
-        </v-chip>
-      </v-toolbar>
-      <v-divider></v-divider>
-      <v-table density="compact">
-        <tbody>
-          <tr>
-            <td class="font-weight-medium" style="width: 200px">Table UUID</td>
-            <td>
-              <span class="font-mono">{{ table.metadata['table-uuid'] }}</span>
-              <v-btn
-                icon="mdi-content-copy"
-                size="x-small"
-                variant="text"
-                @click="copyToClipboard(table.metadata['table-uuid'])"></v-btn>
-            </td>
-          </tr>
-          <tr>
-            <td class="font-weight-medium">Format Version</td>
-            <td>{{ table.metadata['format-version'] }}</td>
-          </tr>
-          <tr v-if="table.metadata.location">
-            <td class="font-weight-medium">Data Location</td>
-            <td>
-              <span class="font-mono text-wrap">{{ table.metadata.location }}</span>
-              <v-btn
-                icon="mdi-content-copy"
-                size="x-small"
-                variant="text"
-                @click="copyToClipboard(table.metadata.location)"></v-btn>
-            </td>
-          </tr>
-          <tr v-if="table['metadata-location']">
-            <td class="font-weight-medium">Metadata Location</td>
-            <td>
-              <span class="font-mono text-wrap">{{ table['metadata-location'] }}</span>
-              <v-btn
-                icon="mdi-content-copy"
-                size="x-small"
-                variant="text"
-                @click="copyToClipboard(table['metadata-location'])"></v-btn>
-            </td>
-          </tr>
-          <tr v-if="table.metadata['last-updated-ms']">
-            <td class="font-weight-medium">Last Updated</td>
-            <td>{{ formatTimestamp(table.metadata['last-updated-ms']) }}</td>
-          </tr>
-          <tr v-if="table.metadata['current-schema-id'] !== undefined">
-            <td class="font-weight-medium">Current Schema ID</td>
-            <td>{{ table.metadata['current-schema-id'] }}</td>
-          </tr>
-          <tr v-if="table.metadata['current-snapshot-id']">
-            <td class="font-weight-medium">Current Snapshot ID</td>
-            <td>
-              <span class="font-mono">{{ table.metadata['current-snapshot-id'] }}</span>
-              <v-btn
-                icon="mdi-content-copy"
-                size="x-small"
-                variant="text"
-                @click="copyToClipboard(String(table.metadata['current-snapshot-id']))"></v-btn>
-            </td>
-          </tr>
-          <tr v-if="table.metadata['last-sequence-number'] !== undefined">
-            <td class="font-weight-medium">Last Sequence Number</td>
-            <td>{{ table.metadata['last-sequence-number'] }}</td>
-          </tr>
-        </tbody>
-      </v-table>
-    </v-card>
+          class="mb-4"
+          elevation="1">
+          <v-toolbar color="transparent" density="compact" flat>
+            <v-toolbar-title class="text-subtitle-1">
+              <v-icon class="mr-2">mdi-cog-outline</v-icon>
+              Table Properties
+            </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <v-chip size="x-small" variant="outlined" class="mr-2">
+              {{ Object.keys(table.metadata.properties).length }}
+            </v-chip>
+          </v-toolbar>
+          <v-divider></v-divider>
+          <v-table density="compact">
+            <tbody>
+              <tr v-for="(value, key) in table.metadata.properties" :key="key">
+                <td class="font-weight-medium" style="width: 300px">{{ key }}</td>
+                <td class="font-mono text-wrap">{{ value }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card>
+      </v-col>
+    </v-row>
 
     <!-- Stats & Structure row -->
     <v-row class="mb-4">
@@ -402,33 +434,6 @@
           </div>
         </div>
       </div>
-    </v-card>
-
-    <!-- Properties Section -->
-    <v-card
-      v-if="table.metadata.properties && Object.keys(table.metadata.properties).length > 0"
-      variant="outlined"
-      class="mb-4"
-      elevation="1">
-      <v-toolbar color="transparent" density="compact" flat>
-        <v-toolbar-title class="text-subtitle-1">
-          <v-icon class="mr-2">mdi-cog-outline</v-icon>
-          Table Properties
-        </v-toolbar-title>
-        <v-spacer></v-spacer>
-        <v-chip size="x-small" variant="outlined" class="mr-2">
-          {{ Object.keys(table.metadata.properties).length }}
-        </v-chip>
-      </v-toolbar>
-      <v-divider></v-divider>
-      <v-table density="compact">
-        <tbody>
-          <tr v-for="(value, key) in table.metadata.properties" :key="key">
-            <td class="font-weight-medium" style="width: 300px">{{ key }}</td>
-            <td class="font-mono text-wrap">{{ value }}</td>
-          </tr>
-        </tbody>
-      </v-table>
     </v-card>
 
     <!-- Schema Fields & Evolution -->
