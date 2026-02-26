@@ -375,11 +375,7 @@
               divided
               color="primary"
               class="mr-3">
-              <v-btn
-                v-for="opt in chartWindowOptions"
-                :key="opt"
-                :value="opt"
-                size="x-small">
+              <v-btn v-for="opt in chartWindowOptions" :key="opt" :value="opt" size="x-small">
                 {{ opt }}
               </v-btn>
               <v-btn :value="allChartPoints.length" size="x-small">All</v-btn>
