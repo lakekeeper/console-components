@@ -311,20 +311,6 @@
         <v-chip :color="overallHealthColor" size="small" variant="flat" class="mr-2">
           {{ overallHealthLabel }}
         </v-chip>
-        <v-tooltip location="bottom" text="Snapshot metric trends">
-          <template #activator="{ props: tipProps }">
-            <v-btn
-              v-bind="tipProps"
-              :prepend-icon="showHealthChart ? 'mdi-chart-line' : 'mdi-chart-line-variant'"
-              size="small"
-              :variant="showHealthChart ? 'tonal' : 'outlined'"
-              :color="showHealthChart ? 'primary' : undefined"
-              density="compact"
-              @click="showHealthChart = !showHealthChart">
-              Trends
-            </v-btn>
-          </template>
-        </v-tooltip>
       </v-toolbar>
       <v-divider></v-divider>
       <v-expansion-panels variant="accordion" flat>
@@ -362,28 +348,46 @@
         </v-expansion-panel>
       </v-expansion-panels>
 
-      <!-- Expandable Snapshot Trends Chart -->
-      <v-expand-transition>
-        <div v-if="showHealthChart && healthBranchSnapshots.length > 1">
-          <v-divider></v-divider>
-          <div class="pa-3">
-            <div class="d-flex align-center mb-2">
-              <v-icon size="small" class="mr-2" color="primary">mdi-chart-areaspline</v-icon>
-              <span class="text-subtitle-2 font-weight-medium">Snapshot Trends</span>
-              <v-spacer></v-spacer>
-              <v-select
-                v-model="selectedMetric"
-                :items="availableMetrics"
-                density="compact"
-                variant="outlined"
-                hide-details
-                style="max-width: 220px"
-                class="mr-2"></v-select>
-            </div>
-            <div ref="healthChartRef" class="health-chart-container"></div>
+      <!-- Snapshot Trends Chart -->
+      <div v-if="healthBranchSnapshots.length > 1">
+        <v-divider></v-divider>
+        <div class="pa-3">
+          <div class="d-flex align-center mb-2">
+            <v-icon size="small" class="mr-2" color="primary">mdi-chart-areaspline</v-icon>
+            <span class="text-subtitle-2 font-weight-medium">Snapshot Trends</span>
+            <v-spacer></v-spacer>
+            <v-select
+              v-model="selectedMetric"
+              :items="availableMetrics"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 220px"
+              class="mr-2"></v-select>
+          </div>
+          <div ref="healthChartRef" class="health-chart-container"></div>
+          <div v-if="allChartPoints.length > chartWindowSize" class="mt-2 d-flex align-center">
+            <v-icon size="x-small" class="mr-2 text-medium-emphasis">mdi-arrow-left-right</v-icon>
+            <span class="text-caption text-medium-emphasis mr-3" style="white-space: nowrap">
+              {{ snapshotWindowStart + 1 }}–{{
+                Math.min(snapshotWindowStart + chartWindowSize, allChartPoints.length)
+              }}
+              of {{ allChartPoints.length }}
+            </span>
+            <v-slider
+              v-model="snapshotWindowStart"
+              :min="0"
+              :max="allChartPoints.length - chartWindowSize"
+              :step="1"
+              density="compact"
+              hide-details
+              thumb-size="12"
+              track-size="3"
+              color="primary"
+              class="flex-grow-1"></v-slider>
           </div>
         </div>
-      </v-expand-transition>
+      </div>
     </v-card>
 
     <!-- Properties Section -->
@@ -1124,8 +1128,9 @@ const overallHealthLabel = computed(() => {
 
 // --- Snapshot Trends Chart ---
 
-const showHealthChart = ref(false);
 const healthChartRef = ref<HTMLDivElement | null>(null);
+const chartWindowSize = 10;
+const snapshotWindowStart = ref(0);
 
 interface MetricDef {
   title: string;
@@ -1190,7 +1195,7 @@ const availableMetrics: MetricDef[] = [
   },
 ];
 
-const selectedMetric = ref<string>('added-data-files');
+const selectedMetric = ref<string>('total-files-size');
 
 const currentMetricDef = computed(
   () => availableMetrics.find((m) => m.value === selectedMetric.value) ?? availableMetrics[0],
@@ -1204,7 +1209,8 @@ interface ChartPoint {
   operation: string;
 }
 
-const chartData = computed<ChartPoint[]>(() => {
+// All chart points (chronological)
+const allChartPoints = computed<ChartPoint[]>(() => {
   const metric = currentMetricDef.value;
   // healthBranchSnapshots is tip-first; reverse to chronological order
   const snapshots = [...healthBranchSnapshots.value].reverse();
@@ -1232,6 +1238,20 @@ const chartData = computed<ChartPoint[]>(() => {
     }
   });
   return points;
+});
+
+// Windowed slice of chart points (max chartWindowSize)
+const chartData = computed<ChartPoint[]>(() => {
+  const all = allChartPoints.value;
+  if (all.length <= chartWindowSize) return all;
+  return all.slice(snapshotWindowStart.value, snapshotWindowStart.value + chartWindowSize);
+});
+
+// Reset slider when metric/branch changes
+watch([selectedMetric, healthBranchSnapshots], () => {
+  // default to showing the latest snapshots (end of the range)
+  const total = allChartPoints.value.length;
+  snapshotWindowStart.value = Math.max(0, total - chartWindowSize);
 });
 
 function renderHealthChart() {
@@ -1397,16 +1417,30 @@ function renderHealthChart() {
   g.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
 }
 
-// Watch chart visibility, metric selection, and branch data
+// Watch metric selection, branch data, and slider position
 watch(
-  [showHealthChart, selectedMetric, healthBranchSnapshots],
+  [selectedMetric, healthBranchSnapshots, snapshotWindowStart],
   async () => {
-    if (showHealthChart.value) {
+    if (healthBranchSnapshots.value.length > 1) {
       await nextTick();
       renderHealthChart();
     }
   },
   { immediate: false },
+);
+
+// Initial render once data is available
+watch(
+  healthBranchSnapshots,
+  async (snaps) => {
+    if (snaps.length > 1) {
+      const total = allChartPoints.value.length;
+      snapshotWindowStart.value = Math.max(0, total - chartWindowSize);
+      await nextTick();
+      renderHealthChart();
+    }
+  },
+  { immediate: true },
 );
 
 // Clean up
