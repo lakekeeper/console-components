@@ -1147,7 +1147,7 @@ const overallHealthLabel = computed(() => {
 // --- Snapshot Trends Chart ---
 
 const healthChartRef = ref<HTMLDivElement | null>(null);
-const chartWindowSize = ref(10);
+const chartWindowSize = ref(50);
 const chartWindowOptions = [50, 100, 200, 500, 1000];
 const snapshotWindowStart = ref(0);
 
