@@ -3,7 +3,7 @@
     <v-row>
       <v-col>
         <!-- Table Information — single full-width table -->
-        <v-card variant="outlined" class="mb-4" elevation="1">
+        <v-card variant="outlined" elevation="1">
           <v-toolbar color="transparent" density="compact" flat>
             <v-toolbar-title class="text-subtitle-1">
               <v-icon class="mr-2" color="primary">mdi-information-outline</v-icon>
