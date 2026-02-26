@@ -311,6 +311,12 @@
         <v-chip :color="overallHealthColor" size="small" variant="flat" class="mr-2">
           {{ overallHealthLabel }}
         </v-chip>
+        <v-btn
+          :icon="showHealthChart ? 'mdi-chart-line' : 'mdi-chart-line-variant'"
+          size="x-small"
+          variant="text"
+          :color="showHealthChart ? 'primary' : undefined"
+          @click="showHealthChart = !showHealthChart"></v-btn>
       </v-toolbar>
       <v-divider></v-divider>
       <v-expansion-panels variant="accordion" flat>
@@ -347,6 +353,29 @@
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
+
+      <!-- Expandable Snapshot Trends Chart -->
+      <v-expand-transition>
+        <div v-if="showHealthChart && healthBranchSnapshots.length > 1">
+          <v-divider></v-divider>
+          <div class="pa-3">
+            <div class="d-flex align-center mb-2">
+              <v-icon size="small" class="mr-2" color="primary">mdi-chart-areaspline</v-icon>
+              <span class="text-subtitle-2 font-weight-medium">Snapshot Trends</span>
+              <v-spacer></v-spacer>
+              <v-select
+                v-model="selectedMetric"
+                :items="availableMetrics"
+                density="compact"
+                variant="outlined"
+                hide-details
+                style="max-width: 220px"
+                class="mr-2"></v-select>
+            </div>
+            <div ref="healthChartRef" class="health-chart-container"></div>
+          </div>
+        </div>
+      </v-expand-transition>
     </v-card>
 
     <!-- Properties Section -->
@@ -517,7 +546,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue';
+import * as d3 from 'd3';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import { transformFields } from '../common/schemaUtils';
@@ -1083,6 +1113,300 @@ const overallHealthLabel = computed(() => {
   if (healthChecks.value.some((c) => c.severity === 'Warning')) return 'Minor Issues';
   return 'Healthy';
 });
+
+// --- Snapshot Trends Chart ---
+
+const showHealthChart = ref(false);
+const healthChartRef = ref<HTMLDivElement | null>(null);
+
+interface MetricDef {
+  title: string;
+  value: string;
+  keys: string[];
+  format: (n: number) => string;
+  color: string;
+}
+
+const availableMetrics: MetricDef[] = [
+  {
+    title: 'Added Data Files',
+    value: 'added-data-files',
+    keys: ['added-data-files-count', 'added-data-files'],
+    format: (n: number) => n.toLocaleString(),
+    color: '#1976d2',
+  },
+  {
+    title: 'Added Records',
+    value: 'added-records',
+    keys: ['added-records-count', 'added-records'],
+    format: (n: number) =>
+      n >= 1e6
+        ? `${(n / 1e6).toFixed(1)}M`
+        : n >= 1e3
+          ? `${(n / 1e3).toFixed(1)}K`
+          : n.toLocaleString(),
+    color: '#388e3c',
+  },
+  {
+    title: 'Total Data Files',
+    value: 'total-data-files',
+    keys: ['total-data-files-count', 'total-data-files'],
+    format: (n: number) => n.toLocaleString(),
+    color: '#f57c00',
+  },
+  {
+    title: 'Total Records',
+    value: 'total-records',
+    keys: ['total-records-count', 'total-records'],
+    format: (n: number) =>
+      n >= 1e6
+        ? `${(n / 1e6).toFixed(1)}M`
+        : n >= 1e3
+          ? `${(n / 1e3).toFixed(1)}K`
+          : n.toLocaleString(),
+    color: '#7b1fa2',
+  },
+  {
+    title: 'Added Files Size',
+    value: 'added-files-size',
+    keys: ['added-files-size-in-bytes', 'added-files-size'],
+    format: (n: number) => formatBytes(n),
+    color: '#00796b',
+  },
+  {
+    title: 'Total Files Size',
+    value: 'total-files-size',
+    keys: ['total-files-size-in-bytes', 'total-files-size'],
+    format: (n: number) => formatBytes(n),
+    color: '#c2185b',
+  },
+];
+
+const selectedMetric = ref<string>('added-data-files');
+
+const currentMetricDef = computed(
+  () => availableMetrics.find((m) => m.value === selectedMetric.value) ?? availableMetrics[0],
+);
+
+interface ChartPoint {
+  index: number;
+  seqNum: number;
+  value: number;
+  timestamp: number;
+  operation: string;
+}
+
+const chartData = computed<ChartPoint[]>(() => {
+  const metric = currentMetricDef.value;
+  // healthBranchSnapshots is tip-first; reverse to chronological order
+  const snapshots = [...healthBranchSnapshots.value].reverse();
+  const points: ChartPoint[] = [];
+  snapshots.forEach((snap, idx) => {
+    let val: number | null = null;
+    for (const key of metric.keys) {
+      const raw = snap.summary?.[key];
+      if (raw !== undefined && raw !== null) {
+        const n = Number(raw);
+        if (!isNaN(n)) {
+          val = n;
+          break;
+        }
+      }
+    }
+    if (val !== null) {
+      points.push({
+        index: idx,
+        seqNum: snap['sequence-number'] ?? idx,
+        value: val,
+        timestamp: snap['timestamp-ms'] ?? 0,
+        operation: String(snap.summary?.['operation'] ?? 'unknown'),
+      });
+    }
+  });
+  return points;
+});
+
+function renderHealthChart() {
+  if (!healthChartRef.value || chartData.value.length === 0) return;
+
+  const container = healthChartRef.value;
+  d3.select(container).selectAll('svg').remove();
+
+  const metric = currentMetricDef.value;
+  const data = chartData.value;
+
+  const margin = { top: 16, right: 16, bottom: 32, left: 56 };
+  const width = container.clientWidth || 600;
+  const height = 200;
+
+  const svg = d3
+    .select(container)
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .style('display', 'block');
+
+  const defs = svg.append('defs');
+
+  // Gradient fill
+  const gradientId = `area-grad-${metric.value}`;
+  const gradient = defs
+    .append('linearGradient')
+    .attr('id', gradientId)
+    .attr('x1', '0')
+    .attr('y1', '0')
+    .attr('x2', '0')
+    .attr('y2', '1');
+  gradient
+    .append('stop')
+    .attr('offset', '0%')
+    .attr('stop-color', metric.color)
+    .attr('stop-opacity', 0.35);
+  gradient
+    .append('stop')
+    .attr('offset', '100%')
+    .attr('stop-color', metric.color)
+    .attr('stop-opacity', 0.03);
+
+  const chartW = width - margin.left - margin.right;
+  const chartH = height - margin.top - margin.bottom;
+
+  const xScale = d3
+    .scaleLinear()
+    .domain([0, data.length - 1])
+    .range([0, chartW]);
+
+  const yMax = d3.max(data, (d) => d.value) ?? 1;
+  const yScale = d3
+    .scaleLinear()
+    .domain([0, yMax * 1.1])
+    .nice()
+    .range([chartH, 0]);
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  // Subtle grid lines
+  g.append('g')
+    .attr('class', 'grid')
+    .call(
+      d3
+        .axisLeft(yScale)
+        .ticks(4)
+        .tickSize(-chartW)
+        .tickFormat(() => ''),
+    )
+    .selectAll('line')
+    .attr('stroke', 'rgba(var(--v-theme-on-surface), 0.06)');
+  g.select('.grid .domain').remove();
+
+  // Area
+  const area = d3
+    .area<ChartPoint>()
+    .x((d, i) => xScale(i))
+    .y0(chartH)
+    .y1((d) => yScale(d.value))
+    .curve(d3.curveMonotoneX);
+
+  g.append('path').datum(data).attr('fill', `url(#${gradientId})`).attr('d', area);
+
+  // Line
+  const line = d3
+    .line<ChartPoint>()
+    .x((d, i) => xScale(i))
+    .y((d) => yScale(d.value))
+    .curve(d3.curveMonotoneX);
+
+  g.append('path')
+    .datum(data)
+    .attr('fill', 'none')
+    .attr('stroke', metric.color)
+    .attr('stroke-width', 2)
+    .attr('d', line);
+
+  // Data dots
+  const opColorMap: Record<string, string> = {
+    append: '#4caf50',
+    overwrite: '#ff9800',
+    delete: '#f44336',
+    replace: '#2196f3',
+    merge: '#00bcd4',
+  };
+
+  g.selectAll('circle.data-dot')
+    .data(data)
+    .join('circle')
+    .attr('class', 'data-dot')
+    .attr('cx', (d, i) => xScale(i))
+    .attr('cy', (d) => yScale(d.value))
+    .attr('r', data.length > 30 ? 2.5 : 4)
+    .attr('fill', (d) => opColorMap[d.operation] ?? metric.color)
+    .attr('stroke', 'rgba(var(--v-theme-surface), 1)')
+    .attr('stroke-width', 1.5)
+    .style('cursor', 'pointer');
+
+  // Tooltip
+  g.selectAll('circle.data-dot')
+    .append('title')
+    .text(
+      (d: any) =>
+        `#${d.seqNum} — ${metric.format(d.value)}\n${d.operation}${d.timestamp ? '\n' + new Date(d.timestamp).toLocaleString() : ''}`,
+    );
+
+  // X axis — sequence numbers
+  const tickStep = Math.max(1, Math.floor(data.length / 8));
+  const tickIndices = data
+    .filter((_, i) => i % tickStep === 0 || i === data.length - 1)
+    .map((_, idx, arr) => {
+      // map back to actual indices
+      return arr.indexOf(_);
+    });
+
+  const xAxis = d3
+    .axisBottom(xScale)
+    .tickValues(data.map((_, i) => i).filter((i) => i % tickStep === 0 || i === data.length - 1))
+    .tickFormat((i) => `#${data[i as number]?.seqNum ?? ''}`);
+
+  g.append('g')
+    .attr('transform', `translate(0,${chartH})`)
+    .call(xAxis)
+    .selectAll('text')
+    .attr('font-size', '9px')
+    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
+
+  // Y axis
+  const yAxis = d3
+    .axisLeft(yScale)
+    .ticks(4)
+    .tickFormat((d) => metric.format(d as number));
+
+  g.append('g')
+    .call(yAxis)
+    .selectAll('text')
+    .attr('font-size', '9px')
+    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
+
+  // Remove axis domain lines
+  g.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
+}
+
+// Watch chart visibility, metric selection, and branch data
+watch(
+  [showHealthChart, selectedMetric, healthBranchSnapshots],
+  async () => {
+    if (showHealthChart.value) {
+      await nextTick();
+      renderHealthChart();
+    }
+  },
+  { immediate: false },
+);
+
+// Clean up
+onBeforeUnmount(() => {
+  if (healthChartRef.value) {
+    d3.select(healthChartRef.value).selectAll('svg').remove();
+  }
+});
 </script>
 
 <style scoped>
@@ -1095,5 +1419,13 @@ const overallHealthLabel = computed(() => {
   word-wrap: break-word;
   word-break: break-all;
   white-space: pre-wrap;
+}
+
+.health-chart-container {
+  width: 100%;
+  height: 200px;
+  border-radius: 6px;
+  background: rgba(var(--v-theme-surface), 1);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 </style>
