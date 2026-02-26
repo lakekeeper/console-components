@@ -410,40 +410,6 @@
               class="mr-2"></v-select>
           </div>
           <div ref="healthChartRef" class="health-chart-container"></div>
-          <div v-if="allChartPoints.length > 1" class="mt-2 d-flex align-center">
-            <v-btn-toggle
-              v-model="chartWindowSize"
-              mandatory
-              density="compact"
-              variant="outlined"
-              divided
-              color="primary"
-              class="mr-3">
-              <v-btn v-for="opt in chartWindowOptions" :key="opt" :value="opt" size="x-small">
-                {{ opt }}
-              </v-btn>
-              <v-btn :value="allChartPoints.length" size="x-small">All</v-btn>
-            </v-btn-toggle>
-            <template v-if="allChartPoints.length > effectiveWindowSize">
-              <span class="text-caption text-medium-emphasis mr-3" style="white-space: nowrap">
-                {{ snapshotWindowStart + 1 }}–{{
-                  Math.min(snapshotWindowStart + effectiveWindowSize, allChartPoints.length)
-                }}
-                of {{ allChartPoints.length }}
-              </span>
-              <v-slider
-                v-model="snapshotWindowStart"
-                :min="0"
-                :max="allChartPoints.length - effectiveWindowSize"
-                :step="1"
-                density="compact"
-                hide-details
-                thumb-size="12"
-                track-size="3"
-                color="primary"
-                class="flex-grow-1"></v-slider>
-            </template>
-          </div>
         </div>
       </div>
     </v-card>
