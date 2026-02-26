@@ -1114,12 +1114,15 @@ onBeforeUnmount(() => {
 .branch-layout {
   display: flex;
   flex-direction: column;
+  height: calc(80vh - 60px);
+  overflow: hidden;
 }
 
 .chart-outer {
   position: relative;
   z-index: 0;
   height: 500px;
+  flex-shrink: 0;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-radius: 8px;
   background: rgba(var(--v-theme-surface), 1);
@@ -1133,7 +1136,9 @@ onBeforeUnmount(() => {
 }
 
 .details-scroll-area {
-  flex: 0 0 auto;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Animated flow dashes on links */
@@ -1207,8 +1212,6 @@ onBeforeUnmount(() => {
 
 /* Details panel — below chart, scrollable */
 .details-panel {
-  max-height: 350px;
-  overflow-y: auto;
   border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   border-top: none;
   border-radius: 0 0 8px 8px;
