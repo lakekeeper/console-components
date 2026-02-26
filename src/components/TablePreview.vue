@@ -43,40 +43,68 @@
 
     <!-- Results -->
     <div v-else-if="queryResults">
-      <div class="d-flex justify-space-between align-center mb-4">
-        <div class="text-h6">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
-        <div class="d-flex align-center gap-2">
-          <v-select
-            v-if="branchOptions.length > 1"
-            v-model="selectedBranch"
-            :items="branchOptions"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 180px"
-            label="Branch"
-            prepend-inner-icon="mdi-source-branch"
-            @update:model-value="
-              selectedSnapshot = null;
-              loadPreview();
-            "></v-select>
-          <v-select
-            v-if="timeTravelOptions.length > 1"
-            v-model="selectedSnapshot"
-            :items="timeTravelOptions"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 360px"
-            label="Time Travel"
-            prepend-inner-icon="mdi-clock-outline"
-            clearable
-            @update:model-value="loadPreview"></v-select>
-          <v-chip v-if="queryResults.truncated" color="warning" variant="flat">
+      <div class="text-h6 mb-3">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
+
+      <!-- Branch & Time Travel Toolbar -->
+      <v-card variant="outlined" class="mb-4" density="compact">
+        <div class="d-flex align-center flex-wrap ga-3 pa-3">
+          <!-- Branch selector -->
+          <div v-if="branchOptions.length > 1" class="d-flex align-center">
+            <v-icon size="small" class="mr-2 text-medium-emphasis">mdi-source-branch</v-icon>
+            <v-btn-toggle
+              v-model="selectedBranch"
+              mandatory
+              density="compact"
+              variant="outlined"
+              divided
+              color="primary"
+              @update:model-value="
+                selectedSnapshot = null;
+                selectedTimestamp = '';
+                loadPreview();
+              ">
+              <v-btn
+                v-for="branch in branchOptions"
+                :key="branch.value"
+                :value="branch.value"
+                size="small">
+                {{ branch.title }}
+              </v-btn>
+            </v-btn-toggle>
+          </div>
+
+          <v-divider v-if="branchOptions.length > 1" vertical class="mx-1"></v-divider>
+
+          <!-- Time Travel: datetime picker -->
+          <div class="d-flex align-center">
+            <v-icon size="small" class="mr-2 text-medium-emphasis">mdi-clock-outline</v-icon>
+            <span class="text-caption text-medium-emphasis mr-2">Time Travel</span>
+            <input
+              v-model="selectedTimestamp"
+              type="datetime-local"
+              class="time-travel-input mr-2"
+              :max="maxTimestamp"
+              :min="minTimestamp"
+              @change="onTimestampChange" />
+            <v-btn
+              v-if="selectedSnapshot || selectedTimestamp"
+              icon="mdi-close-circle"
+              size="x-small"
+              variant="text"
+              color="error"
+              @click="clearTimeTravel"></v-btn>
+          </div>
+
+          <v-spacer></v-spacer>
+
+          <!-- Row count & download -->
+          <v-chip v-if="queryResults.truncated" color="warning" variant="flat" size="small">
             {{ queryResults.rowCount.toLocaleString() }} of
-            {{ queryResults.totalRowCount.toLocaleString() }} rows (truncated)
+            {{ queryResults.totalRowCount.toLocaleString() }} rows
           </v-chip>
-          <v-chip v-else color="primary" variant="flat">{{ queryResults.rows.length }} rows</v-chip>
+          <v-chip v-else color="primary" variant="flat" size="small">
+            {{ queryResults.rows.length }} rows
+          </v-chip>
           <v-btn
             size="small"
             variant="outlined"
@@ -87,7 +115,33 @@
             CSV
           </v-btn>
         </div>
-      </div>
+
+        <!-- Snapshot timeline strip -->
+        <div v-if="branchSnapshots.length > 1" class="px-3 pb-3">
+          <div class="snapshot-strip d-flex align-center ga-1 overflow-x-auto">
+            <v-chip
+              v-for="snap in visibleSnapshots"
+              :key="snap.id"
+              :color="snap.id === (selectedSnapshot ?? currentTipId) ? 'primary' : undefined"
+              :variant="snap.id === (selectedSnapshot ?? currentTipId) ? 'flat' : 'outlined'"
+              size="small"
+              label
+              class="snapshot-chip flex-shrink-0"
+              @click="selectSnapshot(snap.id)">
+              <v-icon start size="x-small">{{ operationIcon(snap.operation) }}</v-icon>
+              <span class="font-weight-medium">#{{ snap.seq }}</span>
+              <span class="text-caption ml-1 text-medium-emphasis">{{ snap.shortTime }}</span>
+            </v-chip>
+            <v-chip
+              v-if="branchSnapshots.length > maxVisibleSnapshots"
+              size="small"
+              variant="text"
+              class="flex-shrink-0 text-medium-emphasis">
+              +{{ branchSnapshots.length - maxVisibleSnapshots }} more
+            </v-chip>
+          </div>
+        </div>
+      </v-card>
 
       <!-- Results Table -->
       <v-data-table
@@ -161,6 +215,8 @@ const warehouseName = ref<string | undefined>(undefined);
 const loadedTable = ref<BigIntLoadTableResult | null>(null);
 const selectedSnapshot = ref<string | null>(null);
 const selectedBranch = ref<string>('main');
+const selectedTimestamp = ref<string>('');
+const maxVisibleSnapshots = 15;
 
 // Resolved table metadata (fetched with json-bigint to preserve snapshot IDs)
 const tableMetadata = computed<BigIntLoadTableResult | null>(() => loadedTable.value);
@@ -203,24 +259,104 @@ const branchSnapshots = computed<BigIntSnapshot[]>(() => {
   return chain;
 });
 
-// Time travel dropdown options from branch snapshots
-const timeTravelOptions = computed(() => {
+// Current branch tip snapshot id
+const currentTipId = computed(() => {
   const snaps = branchSnapshots.value;
-  if (snaps.length === 0) return [];
-  return [
-    { title: 'Latest (current)', value: '' },
-    ...snaps.map((s) => {
-      const ts = new Date(s['timestamp-ms']).toISOString().replace('T', ' ').replace('Z', '');
-      const op = s.summary?.operation ?? '';
-      const seq = s['sequence-number'] ?? '';
-      const snapId = String(s['snapshot-id']);
-      return {
-        title: `#${seq} — ${ts} — ${op} (${snapId})`,
-        value: snapId,
-      };
-    }),
-  ];
+  return snaps.length > 0 ? String(snaps[0]['snapshot-id']) : null;
 });
+
+// Visible snapshot chips (most recent first, capped)
+const visibleSnapshots = computed(() => {
+  return branchSnapshots.value.slice(0, maxVisibleSnapshots).map((s) => {
+    const d = new Date(s['timestamp-ms']);
+    const shortTime =
+      d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
+      ' ' +
+      d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return {
+      id: String(s['snapshot-id']),
+      seq: s['sequence-number'] ?? 0,
+      operation: s.summary?.operation ?? 'unknown',
+      shortTime,
+    };
+  });
+});
+
+// Min/max for datetime picker
+const maxTimestamp = computed(() => {
+  const snaps = branchSnapshots.value;
+  if (snaps.length === 0) return '';
+  return toLocalDatetime(snaps[0]['timestamp-ms']);
+});
+
+const minTimestamp = computed(() => {
+  const snaps = branchSnapshots.value;
+  if (snaps.length === 0) return '';
+  return toLocalDatetime(snaps[snaps.length - 1]['timestamp-ms']);
+});
+
+function toLocalDatetime(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function operationIcon(op: string): string {
+  const map: Record<string, string> = {
+    append: 'mdi-plus-circle-outline',
+    overwrite: 'mdi-pencil-outline',
+    delete: 'mdi-delete-outline',
+    replace: 'mdi-swap-horizontal',
+    merge: 'mdi-merge',
+  };
+  return map[op] ?? 'mdi-circle-small';
+}
+
+function selectSnapshot(snapId: string) {
+  if (snapId === currentTipId.value) {
+    // Clicking current tip = go back to latest
+    selectedSnapshot.value = null;
+    selectedTimestamp.value = '';
+  } else {
+    selectedSnapshot.value = snapId;
+    // Sync datetime picker to this snapshot's timestamp
+    const snap = branchSnapshots.value.find((s) => String(s['snapshot-id']) === snapId);
+    if (snap) {
+      selectedTimestamp.value = toLocalDatetime(snap['timestamp-ms']);
+    }
+  }
+  loadPreview();
+}
+
+function onTimestampChange() {
+  if (!selectedTimestamp.value) {
+    clearTimeTravel();
+    return;
+  }
+  // Find the nearest snapshot at or before the selected timestamp
+  const targetMs = new Date(selectedTimestamp.value).getTime();
+  const snaps = branchSnapshots.value;
+  let best: BigIntSnapshot | null = null;
+  for (const s of snaps) {
+    if (s['timestamp-ms'] <= targetMs) {
+      best = s;
+      break; // snaps are tip-first (newest first), so first match <= target is closest
+    }
+  }
+  if (best) {
+    selectedSnapshot.value = String(best['snapshot-id']);
+  } else if (snaps.length > 0) {
+    // All snapshots are after the selected time — use oldest
+    selectedSnapshot.value = String(snaps[snaps.length - 1]['snapshot-id']);
+  }
+  loadPreview();
+}
+
+function clearTimeTravel() {
+  selectedSnapshot.value = null;
+  selectedTimestamp.value = '';
+  loadPreview();
+}
 
 // Compute headers from results
 const tableHeaders = computed(() => {
@@ -344,6 +480,7 @@ onMounted(() => {
 watch([() => props.tableName, () => props.namespaceId, () => props.warehouseId], () => {
   loadedTable.value = null;
   selectedSnapshot.value = null;
+  selectedTimestamp.value = '';
   selectedBranch.value = 'main';
   loadPreview();
 });
@@ -378,5 +515,28 @@ onBeforeUnmount(async () => {
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.time-travel-input {
+  font-size: 0.8125rem;
+  padding: 4px 8px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.25);
+  border-radius: 4px;
+  background: transparent;
+  color: rgb(var(--v-theme-on-surface));
+  outline: none;
+  height: 32px;
+}
+
+.time-travel-input:focus {
+  border-color: rgb(var(--v-theme-primary));
+}
+
+.snapshot-strip {
+  scrollbar-width: thin;
+}
+
+.snapshot-chip {
+  cursor: pointer;
 }
 </style>
