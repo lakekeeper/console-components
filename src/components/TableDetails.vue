@@ -1148,7 +1148,7 @@ const overallHealthLabel = computed(() => {
 
 const healthChartRef = ref<HTMLDivElement | null>(null);
 const chartWindowSize = ref(10);
-const chartWindowOptions = [10, 25, 50, 100, 250];
+const chartWindowOptions = [50, 100, 200, 500, 1000];
 const snapshotWindowStart = ref(0);
 
 interface MetricDef {
