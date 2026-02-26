@@ -75,23 +75,38 @@
 
           <v-divider v-if="branchOptions.length > 1" vertical class="mx-1"></v-divider>
 
-          <!-- Time Travel: datetime picker -->
-          <div class="d-flex align-center">
+          <!-- Time Travel -->
+          <div
+            v-if="branchSnapshots.length > 1"
+            class="d-flex align-center flex-grow-1"
+            style="min-width: 280px">
             <v-icon size="small" class="mr-2 text-medium-emphasis">mdi-clock-outline</v-icon>
-            <span class="text-caption text-medium-emphasis mr-2">Time Travel</span>
             <input
               v-model="selectedTimestamp"
               type="datetime-local"
               class="time-travel-input mr-2"
               :max="maxTimestamp"
               :min="minTimestamp"
-              @change="onTimestampChange" />
+              title="Filter snapshots by date"
+              @input="onTimestampFilter" />
+            <v-select
+              v-model="selectedSnapshot"
+              :items="filteredTimeTravelOptions"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 380px; min-width: 240px"
+              placeholder="Latest (current)"
+              prepend-inner-icon="mdi-camera-burst"
+              clearable
+              @update:model-value="onSnapshotSelect"></v-select>
             <v-btn
               v-if="selectedSnapshot || selectedTimestamp"
               icon="mdi-close-circle"
               size="x-small"
               variant="text"
               color="error"
+              class="ml-1"
               @click="clearTimeTravel"></v-btn>
           </div>
 
@@ -114,32 +129,6 @@
             <v-icon start>mdi-download</v-icon>
             CSV
           </v-btn>
-        </div>
-
-        <!-- Snapshot timeline strip -->
-        <div v-if="branchSnapshots.length > 1" class="px-3 pb-3">
-          <div class="snapshot-strip d-flex align-center ga-1 overflow-x-auto">
-            <v-chip
-              v-for="snap in visibleSnapshots"
-              :key="snap.id"
-              :color="snap.id === (selectedSnapshot ?? currentTipId) ? 'primary' : undefined"
-              :variant="snap.id === (selectedSnapshot ?? currentTipId) ? 'flat' : 'outlined'"
-              size="small"
-              label
-              class="snapshot-chip flex-shrink-0"
-              @click="selectSnapshot(snap.id)">
-              <v-icon start size="x-small">{{ operationIcon(snap.operation) }}</v-icon>
-              <span class="font-weight-medium">#{{ snap.seq }}</span>
-              <span class="text-caption ml-1 text-medium-emphasis">{{ snap.shortTime }}</span>
-            </v-chip>
-            <v-chip
-              v-if="branchSnapshots.length > maxVisibleSnapshots"
-              size="small"
-              variant="text"
-              class="flex-shrink-0 text-medium-emphasis">
-              +{{ branchSnapshots.length - maxVisibleSnapshots }} more
-            </v-chip>
-          </div>
         </div>
       </v-card>
 
@@ -216,7 +205,6 @@ const loadedTable = ref<BigIntLoadTableResult | null>(null);
 const selectedSnapshot = ref<string | null>(null);
 const selectedBranch = ref<string>('main');
 const selectedTimestamp = ref<string>('');
-const maxVisibleSnapshots = 15;
 
 // Resolved table metadata (fetched with json-bigint to preserve snapshot IDs)
 const tableMetadata = computed<BigIntLoadTableResult | null>(() => loadedTable.value);
@@ -265,21 +253,31 @@ const currentTipId = computed(() => {
   return snaps.length > 0 ? String(snaps[0]['snapshot-id']) : null;
 });
 
-// Visible snapshot chips (most recent first, capped)
-const visibleSnapshots = computed(() => {
-  return branchSnapshots.value.slice(0, maxVisibleSnapshots).map((s) => {
+// Full time travel options from branch snapshots
+const allTimeTravelOptions = computed(() => {
+  const snaps = branchSnapshots.value;
+  if (snaps.length === 0) return [];
+  return snaps.map((s) => {
     const d = new Date(s['timestamp-ms']);
-    const shortTime =
-      d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) +
-      ' ' +
-      d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    const ts = d.toISOString().replace('T', ' ').replace('Z', '');
+    const op = s.summary?.operation ?? '';
+    const seq = s['sequence-number'] ?? '';
+    const snapId = String(s['snapshot-id']);
     return {
-      id: String(s['snapshot-id']),
-      seq: s['sequence-number'] ?? 0,
-      operation: s.summary?.operation ?? 'unknown',
-      shortTime,
+      title: `#${seq} — ${ts} — ${op}`,
+      value: snapId,
+      timestampMs: s['timestamp-ms'],
     };
   });
+});
+
+// Filtered options based on datetime input
+const filteredTimeTravelOptions = computed(() => {
+  const all = allTimeTravelOptions.value;
+  if (!selectedTimestamp.value) return all;
+  const targetMs = new Date(selectedTimestamp.value).getTime();
+  // Show snapshots at or before the selected datetime
+  return all.filter((opt) => opt.timestampMs <= targetMs);
 });
 
 // Min/max for datetime picker
@@ -301,53 +299,35 @@ function toLocalDatetime(ms: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function operationIcon(op: string): string {
-  const map: Record<string, string> = {
-    append: 'mdi-plus-circle-outline',
-    overwrite: 'mdi-pencil-outline',
-    delete: 'mdi-delete-outline',
-    replace: 'mdi-swap-horizontal',
-    merge: 'mdi-merge',
-  };
-  return map[op] ?? 'mdi-circle-small';
-}
-
-function selectSnapshot(snapId: string) {
-  if (snapId === currentTipId.value) {
-    // Clicking current tip = go back to latest
-    selectedSnapshot.value = null;
-    selectedTimestamp.value = '';
-  } else {
-    selectedSnapshot.value = snapId;
-    // Sync datetime picker to this snapshot's timestamp
-    const snap = branchSnapshots.value.find((s) => String(s['snapshot-id']) === snapId);
-    if (snap) {
-      selectedTimestamp.value = toLocalDatetime(snap['timestamp-ms']);
-    }
-  }
-  loadPreview();
-}
-
-function onTimestampChange() {
-  if (!selectedTimestamp.value) {
-    clearTimeTravel();
-    return;
-  }
-  // Find the nearest snapshot at or before the selected timestamp
+function onTimestampFilter() {
+  // When the datetime filter changes, auto-select the nearest snapshot at or before that time
+  if (!selectedTimestamp.value) return;
   const targetMs = new Date(selectedTimestamp.value).getTime();
   const snaps = branchSnapshots.value;
   let best: BigIntSnapshot | null = null;
   for (const s of snaps) {
     if (s['timestamp-ms'] <= targetMs) {
       best = s;
-      break; // snaps are tip-first (newest first), so first match <= target is closest
+      break;
     }
   }
   if (best) {
     selectedSnapshot.value = String(best['snapshot-id']);
-  } else if (snaps.length > 0) {
-    // All snapshots are after the selected time — use oldest
-    selectedSnapshot.value = String(snaps[snaps.length - 1]['snapshot-id']);
+    loadPreview();
+  }
+}
+
+function onSnapshotSelect() {
+  // Sync datetime picker when a snapshot is selected from dropdown
+  if (selectedSnapshot.value) {
+    const snap = branchSnapshots.value.find(
+      (s) => String(s['snapshot-id']) === selectedSnapshot.value,
+    );
+    if (snap) {
+      selectedTimestamp.value = toLocalDatetime(snap['timestamp-ms']);
+    }
+  } else {
+    selectedTimestamp.value = '';
   }
   loadPreview();
 }
@@ -526,17 +506,10 @@ onBeforeUnmount(async () => {
   color: rgb(var(--v-theme-on-surface));
   outline: none;
   height: 32px;
+  min-width: 170px;
 }
 
 .time-travel-input:focus {
   border-color: rgb(var(--v-theme-primary));
-}
-
-.snapshot-strip {
-  scrollbar-width: thin;
-}
-
-.snapshot-chip {
-  cursor: pointer;
 }
 </style>
