@@ -366,25 +366,43 @@
               class="mr-2"></v-select>
           </div>
           <div ref="healthChartRef" class="health-chart-container"></div>
-          <div v-if="allChartPoints.length > chartWindowSize" class="mt-2 d-flex align-center">
-            <v-icon size="x-small" class="mr-2 text-medium-emphasis">mdi-arrow-left-right</v-icon>
-            <span class="text-caption text-medium-emphasis mr-3" style="white-space: nowrap">
-              {{ snapshotWindowStart + 1 }}–{{
-                Math.min(snapshotWindowStart + chartWindowSize, allChartPoints.length)
-              }}
-              of {{ allChartPoints.length }}
-            </span>
-            <v-slider
-              v-model="snapshotWindowStart"
-              :min="0"
-              :max="allChartPoints.length - chartWindowSize"
-              :step="1"
+          <div v-if="allChartPoints.length > 10" class="mt-2 d-flex align-center">
+            <v-btn-toggle
+              v-model="chartWindowSize"
+              mandatory
               density="compact"
-              hide-details
-              thumb-size="12"
-              track-size="3"
+              variant="outlined"
+              divided
               color="primary"
-              class="flex-grow-1"></v-slider>
+              class="mr-3">
+              <v-btn
+                v-for="opt in chartWindowOptions.filter((o) => o < allChartPoints.length)"
+                :key="opt"
+                :value="opt"
+                size="x-small">
+                {{ opt }}
+              </v-btn>
+              <v-btn :value="allChartPoints.length" size="x-small">All</v-btn>
+            </v-btn-toggle>
+            <template v-if="allChartPoints.length > effectiveWindowSize">
+              <span class="text-caption text-medium-emphasis mr-3" style="white-space: nowrap">
+                {{ snapshotWindowStart + 1 }}–{{
+                  Math.min(snapshotWindowStart + effectiveWindowSize, allChartPoints.length)
+                }}
+                of {{ allChartPoints.length }}
+              </span>
+              <v-slider
+                v-model="snapshotWindowStart"
+                :min="0"
+                :max="allChartPoints.length - effectiveWindowSize"
+                :step="1"
+                density="compact"
+                hide-details
+                thumb-size="12"
+                track-size="3"
+                color="primary"
+                class="flex-grow-1"></v-slider>
+            </template>
           </div>
         </div>
       </div>
@@ -1129,7 +1147,8 @@ const overallHealthLabel = computed(() => {
 // --- Snapshot Trends Chart ---
 
 const healthChartRef = ref<HTMLDivElement | null>(null);
-const chartWindowSize = 10;
+const chartWindowSize = ref(10);
+const chartWindowOptions = [10, 25, 50, 100, 250];
 const snapshotWindowStart = ref(0);
 
 interface MetricDef {
@@ -1240,18 +1259,24 @@ const allChartPoints = computed<ChartPoint[]>(() => {
   return points;
 });
 
-// Windowed slice of chart points (max chartWindowSize)
+// Effective window size (capped to actual data length)
+const effectiveWindowSize = computed(() =>
+  Math.min(chartWindowSize.value, allChartPoints.value.length),
+);
+
+// Windowed slice of chart points
 const chartData = computed<ChartPoint[]>(() => {
   const all = allChartPoints.value;
-  if (all.length <= chartWindowSize) return all;
-  return all.slice(snapshotWindowStart.value, snapshotWindowStart.value + chartWindowSize);
+  const winSize = effectiveWindowSize.value;
+  if (all.length <= winSize) return all;
+  return all.slice(snapshotWindowStart.value, snapshotWindowStart.value + winSize);
 });
 
-// Reset slider when metric/branch changes
-watch([selectedMetric, healthBranchSnapshots], () => {
-  // default to showing the latest snapshots (end of the range)
+// Reset slider when metric/branch/window-size changes
+watch([selectedMetric, healthBranchSnapshots, chartWindowSize], () => {
   const total = allChartPoints.value.length;
-  snapshotWindowStart.value = Math.max(0, total - chartWindowSize);
+  const winSize = effectiveWindowSize.value;
+  snapshotWindowStart.value = Math.max(0, total - winSize);
 });
 
 function renderHealthChart() {
@@ -1417,9 +1442,9 @@ function renderHealthChart() {
   g.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
 }
 
-// Watch metric selection, branch data, and slider position
+// Watch metric selection, branch data, slider position, and window size
 watch(
-  [selectedMetric, healthBranchSnapshots, snapshotWindowStart],
+  [selectedMetric, healthBranchSnapshots, snapshotWindowStart, chartWindowSize],
   async () => {
     if (healthBranchSnapshots.value.length > 1) {
       await nextTick();
@@ -1435,7 +1460,7 @@ watch(
   async (snaps) => {
     if (snaps.length > 1) {
       const total = allChartPoints.value.length;
-      snapshotWindowStart.value = Math.max(0, total - chartWindowSize);
+      snapshotWindowStart.value = Math.max(0, total - effectiveWindowSize.value);
       await nextTick();
       renderHealthChart();
     }
