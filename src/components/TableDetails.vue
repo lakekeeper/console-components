@@ -311,12 +311,20 @@
         <v-chip :color="overallHealthColor" size="small" variant="flat" class="mr-2">
           {{ overallHealthLabel }}
         </v-chip>
-        <v-btn
-          :icon="showHealthChart ? 'mdi-chart-line' : 'mdi-chart-line-variant'"
-          size="x-small"
-          variant="text"
-          :color="showHealthChart ? 'primary' : undefined"
-          @click="showHealthChart = !showHealthChart"></v-btn>
+        <v-tooltip location="bottom" text="Snapshot metric trends">
+          <template #activator="{ props: tipProps }">
+            <v-btn
+              v-bind="tipProps"
+              :prepend-icon="showHealthChart ? 'mdi-chart-line' : 'mdi-chart-line-variant'"
+              size="small"
+              :variant="showHealthChart ? 'tonal' : 'outlined'"
+              :color="showHealthChart ? 'primary' : undefined"
+              density="compact"
+              @click="showHealthChart = !showHealthChart">
+              Trends
+            </v-btn>
+          </template>
+        </v-tooltip>
       </v-toolbar>
       <v-divider></v-divider>
       <v-expansion-panels variant="accordion" flat>
