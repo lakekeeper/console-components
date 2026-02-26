@@ -40,7 +40,13 @@
               <tr v-if="table.metadata.location">
                 <td class="font-weight-medium">Data Location</td>
                 <td>
-                  <span class="font-mono text-wrap">{{ table.metadata.location }}</span>
+                  <v-tooltip location="bottom" :text="table.metadata.location">
+                    <template #activator="{ props: tipProps }">
+                      <span v-bind="tipProps" class="font-mono text-wrap" style="cursor: help">
+                        {{ truncatePath(table.metadata.location) }}
+                      </span>
+                    </template>
+                  </v-tooltip>
                   <v-btn
                     icon="mdi-content-copy"
                     size="x-small"
@@ -51,7 +57,13 @@
               <tr v-if="table['metadata-location']">
                 <td class="font-weight-medium">Metadata Location</td>
                 <td>
-                  <span class="font-mono text-wrap">{{ table['metadata-location'] }}</span>
+                  <v-tooltip location="bottom" :text="table['metadata-location']">
+                    <template #activator="{ props: tipProps }">
+                      <span v-bind="tipProps" class="font-mono text-wrap" style="cursor: help">
+                        {{ truncatePath(table['metadata-location']) }}
+                      </span>
+                    </template>
+                  </v-tooltip>
                   <v-btn
                     icon="mdi-content-copy"
                     size="x-small"
@@ -598,6 +610,11 @@ const props = defineProps<{
 const functions = useFunctions();
 
 // Methods
+const truncatePath = (path: string, maxLen = 10): string => {
+  if (!path || path.length <= maxLen + 3) return path;
+  return path.slice(0, maxLen) + '…';
+};
+
 const copyToClipboard = (text: string) => {
   functions.copyToClipboard(text);
 };
