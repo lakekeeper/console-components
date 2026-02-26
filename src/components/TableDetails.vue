@@ -410,6 +410,25 @@
               class="mr-2"></v-select>
           </div>
           <div ref="healthChartRef" class="health-chart-container"></div>
+          <div v-if="allChartPoints.length > 1" class="mt-2 d-flex align-center">
+            <v-btn-toggle
+              v-model="chartWindowSize"
+              mandatory
+              density="compact"
+              variant="outlined"
+              divided
+              color="primary">
+              <v-btn v-for="opt in chartWindowOptions" :key="opt" :value="opt" size="x-small">
+                {{ opt }}
+              </v-btn>
+              <v-btn :value="allChartPoints.length" size="x-small">All</v-btn>
+            </v-btn-toggle>
+            <span
+              v-if="allChartPoints.length > effectiveWindowSize"
+              class="text-caption text-medium-emphasis ml-3">
+              showing {{ effectiveWindowSize }} of {{ allChartPoints.length }} snapshots
+            </span>
+          </div>
         </div>
       </div>
     </v-card>
