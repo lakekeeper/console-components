@@ -366,7 +366,7 @@
               class="mr-2"></v-select>
           </div>
           <div ref="healthChartRef" class="health-chart-container"></div>
-          <div v-if="allChartPoints.length > 10" class="mt-2 d-flex align-center">
+          <div v-if="allChartPoints.length > 1" class="mt-2 d-flex align-center">
             <v-btn-toggle
               v-model="chartWindowSize"
               mandatory
@@ -376,7 +376,7 @@
               color="primary"
               class="mr-3">
               <v-btn
-                v-for="opt in chartWindowOptions.filter((o) => o < allChartPoints.length)"
+                v-for="opt in chartWindowOptions"
                 :key="opt"
                 :value="opt"
                 size="x-small">
