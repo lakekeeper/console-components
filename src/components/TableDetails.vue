@@ -20,7 +20,7 @@
             </v-chip>
           </v-toolbar>
           <v-divider></v-divider>
-          <v-table density="compact">
+          <v-table density="compact" fixed-header height="288px">
             <tbody>
               <tr>
                 <td class="font-weight-medium" style="width: 200px">Table UUID</td>
@@ -115,18 +115,16 @@
             </v-chip>
           </v-toolbar>
           <v-divider></v-divider>
-          <div style="max-height: 300px; overflow-y: auto">
-            <v-table density="compact">
-              <span>
-                <tbody>
+          <v-table density="compact" fixed-header height="288px">
+            <span>
+              <tbody>
                   <tr v-for="(value, key) in table.metadata.properties" :key="key">
                     <td class="font-weight-medium" style="width: 300px">{{ key }}</td>
                     <td class="font-mono text-wrap">{{ value }}</td>
                   </tr>
-                </tbody>
-              </span>
-            </v-table>
-          </div>
+              </tbody>
+            </span>
+          </v-table>
         </v-card>
       </v-col>
     </v-row>
