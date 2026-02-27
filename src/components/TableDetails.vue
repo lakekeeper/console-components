@@ -1,7 +1,7 @@
 <template>
   <v-card-text>
     <v-row>
-      <v-col cols="12">
+      <v-col cols>
         <!-- Table Information -->
         <v-card variant="outlined" elevation="1" class="mb-4">
           <v-toolbar color="transparent" density="compact" flat>
@@ -98,7 +98,7 @@
           </v-table>
         </v-card>
       </v-col>
-      <v-col cols="12">
+      <v-col cols>
         <!-- Properties Section -->
         <v-card
           v-if="table.metadata.properties && Object.keys(table.metadata.properties).length > 0"
