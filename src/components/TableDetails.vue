@@ -1,9 +1,9 @@
 <template>
   <v-card-text>
     <v-row>
-      <v-col>
+      <v-col class="d-flex">
         <!-- Table Information — single full-width table -->
-        <v-card variant="outlined" elevation="1">
+        <v-card variant="outlined" elevation="1" class="flex-grow-1">
           <v-toolbar color="transparent" density="compact" flat>
             <v-toolbar-title class="text-subtitle-1">
               <v-icon class="mr-2" color="primary">mdi-information-outline</v-icon>
@@ -98,14 +98,14 @@
           </v-table>
         </v-card>
       </v-col>
-      <v-col>
+      <v-col class="d-flex">
         <!-- Properties Section -->
         <v-card
           v-if="table.metadata.properties && Object.keys(table.metadata.properties).length > 0"
           variant="outlined"
-          class="fill-height"
+          class="flex-grow-1 d-flex flex-column"
           elevation="1">
-          <v-toolbar color="transparent" density="compact" flat>
+          <v-toolbar color="transparent" density="compact" flat class="flex-shrink-0">
             <v-toolbar-title class="text-subtitle-1">
               <v-icon class="mr-2">mdi-cog-outline</v-icon>
               Table Properties
@@ -115,15 +115,19 @@
               {{ Object.keys(table.metadata.properties).length }}
             </v-chip>
           </v-toolbar>
-          <v-divider></v-divider>
-          <v-table density="compact">
-            <tbody>
-              <tr v-for="(value, key) in table.metadata.properties" :key="key">
-                <td class="font-weight-medium" style="width: 300px">{{ key }}</td>
-                <td class="font-mono text-wrap">{{ value }}</td>
-              </tr>
-            </tbody>
-          </v-table>
+          <v-divider class="flex-shrink-0"></v-divider>
+          <div style="overflow-y: auto; flex: 1; min-height: 0">
+            <v-table density="compact">
+              <span>
+                <tbody>
+                  <tr v-for="(value, key) in table.metadata.properties" :key="key">
+                    <td class="font-weight-medium" style="width: 300px">{{ key }}</td>
+                    <td class="font-mono text-wrap">{{ value }}</td>
+                  </tr>
+                </tbody>
+              </span>
+            </v-table>
+          </div>
         </v-card>
       </v-col>
     </v-row>
