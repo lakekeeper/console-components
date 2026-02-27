@@ -115,14 +115,19 @@
             </v-chip>
           </v-toolbar>
           <v-divider></v-divider>
-          <v-table density="compact" fixed-header height="288px">
-            <tbody>
-              <tr v-for="(value, key) in table.metadata.properties" :key="key">
-                <td class="font-weight-medium" style="width: 300px">{{ key }}</td>
-                <td class="font-mono text-wrap">{{ value }}</td>
-              </tr>
-            </tbody>
-          </v-table>
+          <v-data-table-virtual
+            :headers="propertyHeaders"
+            :items="propertyItems"
+            density="compact"
+            fixed-header
+            height="288px"
+            item-value="key"
+            hide-default-footer
+            :items-per-page="-1">
+            <template #item.value="{ item }">
+              <span class="font-mono text-wrap">{{ item.value }}</span>
+            </template>
+          </v-data-table-virtual>
         </v-card>
       </v-col>
     </v-row>
@@ -234,6 +239,137 @@
         </v-card>
       </v-col>
     </v-row>
+    <!-- Schema Fields & Evolution -->
+    <v-expansion-panels class="mb-4">
+      <v-expansion-panel>
+        <v-expansion-panel-title>
+          <div class="d-flex align-center">
+            <v-icon class="mr-2">mdi-file-tree</v-icon>
+            Schema Fields
+            <v-chip size="x-small" variant="outlined" class="ml-2">
+              {{ selectedSchemaInfo?.fields?.length || 0 }} fields
+            </v-chip>
+            <v-chip
+              v-if="
+                selectedSchemaId !== null &&
+                selectedSchemaId !== table.metadata['current-schema-id']
+              "
+              size="x-small"
+              color="warning"
+              variant="flat"
+              class="ml-2">
+              schema {{ selectedSchemaId }}
+            </v-chip>
+          </div>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <v-select
+            v-if="allSchemas.length > 1"
+            v-model="selectedSchemaId"
+            :items="schemaVersionOptions"
+            density="compact"
+            variant="outlined"
+            label="Schema Version"
+            class="mb-3"
+            style="max-width: 400px"
+            hide-details></v-select>
+          <v-treeview :items="schemaFieldsTransformed" open-on-click>
+            <template #prepend="{ item }">
+              <v-icon v-if="item.datatype == 'string'" size="small">mdi-alphabetical</v-icon>
+              <v-icon v-else-if="item.datatype == 'int'" size="small">mdi-numeric</v-icon>
+              <v-icon v-else-if="item.datatype == 'long' || item.datatype == 'double'" size="small">
+                mdi-decimal
+              </v-icon>
+              <v-icon v-else-if="item.datatype == 'array'" size="small">
+                mdi-format-list-group
+              </v-icon>
+              <v-icon v-else size="small">mdi-pound-box-outline</v-icon>
+            </template>
+            <template #append="{ item }">
+              <span>
+                <span v-if="item.required" style="font-size: 0.575rem">required</span>
+                <v-icon v-if="item.required" color="error" size="x-small">mdi-asterisk</v-icon>
+              </span>
+            </template>
+          </v-treeview>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+
+      <!-- Schema Evolution -->
+      <v-expansion-panel v-if="allSchemas.length > 1">
+        <v-expansion-panel-title>
+          <div class="d-flex align-center">
+            <v-icon class="mr-2">mdi-history</v-icon>
+            Schema Evolution
+            <v-chip size="x-small" color="primary" variant="outlined" class="ml-2">
+              {{ allSchemas.length }} versions
+            </v-chip>
+          </div>
+        </v-expansion-panel-title>
+        <v-expansion-panel-text>
+          <v-table density="compact">
+            <thead>
+              <tr>
+                <th style="width: 100px">Schema ID</th>
+                <th style="width: 80px">Fields</th>
+                <th>Changes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="schema in allSchemas"
+                :key="schema['schema-id']"
+                :class="{
+                  'font-weight-medium': schema['schema-id'] === table.metadata['current-schema-id'],
+                }">
+                <td>
+                  {{ schema['schema-id'] }}
+                  <v-chip
+                    v-if="schema['schema-id'] === table.metadata['current-schema-id']"
+                    size="x-small"
+                    color="success"
+                    variant="flat"
+                    class="ml-1">
+                    current
+                  </v-chip>
+                </td>
+                <td>{{ schema.fields?.length || 0 }}</td>
+                <td>
+                  <template v-if="schemaFieldDiffs[schema['schema-id'] ?? 0]">
+                    <v-chip
+                      v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].added"
+                      :key="'add-' + name"
+                      size="x-small"
+                      color="success"
+                      variant="flat"
+                      class="mr-1 mb-1">
+                      + {{ name }}
+                    </v-chip>
+                    <v-chip
+                      v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].removed"
+                      :key="'rm-' + name"
+                      size="x-small"
+                      color="error"
+                      variant="flat"
+                      class="mr-1 mb-1">
+                      - {{ name }}
+                    </v-chip>
+                    <span
+                      v-if="
+                        schemaFieldDiffs[schema['schema-id'] ?? 0].added.length === 0 &&
+                        schemaFieldDiffs[schema['schema-id'] ?? 0].removed.length === 0
+                      "
+                      class="text-grey">
+                      {{ schema['schema-id'] === 0 ? 'Initial schema' : 'No field changes' }}
+                    </span>
+                  </template>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-expansion-panel-text>
+      </v-expansion-panel>
+    </v-expansion-panels>
 
     <!-- Table Health -->
     <v-card v-if="healthChecks.length > 0" variant="outlined" class="mb-4" elevation="1">
@@ -432,138 +568,6 @@
       </div>
     </v-card>
 
-    <!-- Schema Fields & Evolution -->
-    <v-expansion-panels class="mb-4">
-      <v-expansion-panel>
-        <v-expansion-panel-title>
-          <div class="d-flex align-center">
-            <v-icon class="mr-2">mdi-file-tree</v-icon>
-            Schema Fields
-            <v-chip size="x-small" variant="outlined" class="ml-2">
-              {{ selectedSchemaInfo?.fields?.length || 0 }} fields
-            </v-chip>
-            <v-chip
-              v-if="
-                selectedSchemaId !== null &&
-                selectedSchemaId !== table.metadata['current-schema-id']
-              "
-              size="x-small"
-              color="warning"
-              variant="flat"
-              class="ml-2">
-              schema {{ selectedSchemaId }}
-            </v-chip>
-          </div>
-        </v-expansion-panel-title>
-        <v-expansion-panel-text>
-          <v-select
-            v-if="allSchemas.length > 1"
-            v-model="selectedSchemaId"
-            :items="schemaVersionOptions"
-            density="compact"
-            variant="outlined"
-            label="Schema Version"
-            class="mb-3"
-            style="max-width: 400px"
-            hide-details></v-select>
-          <v-treeview :items="schemaFieldsTransformed" open-on-click>
-            <template #prepend="{ item }">
-              <v-icon v-if="item.datatype == 'string'" size="small">mdi-alphabetical</v-icon>
-              <v-icon v-else-if="item.datatype == 'int'" size="small">mdi-numeric</v-icon>
-              <v-icon v-else-if="item.datatype == 'long' || item.datatype == 'double'" size="small">
-                mdi-decimal
-              </v-icon>
-              <v-icon v-else-if="item.datatype == 'array'" size="small">
-                mdi-format-list-group
-              </v-icon>
-              <v-icon v-else size="small">mdi-pound-box-outline</v-icon>
-            </template>
-            <template #append="{ item }">
-              <span>
-                <span v-if="item.required" style="font-size: 0.575rem">required</span>
-                <v-icon v-if="item.required" color="error" size="x-small">mdi-asterisk</v-icon>
-              </span>
-            </template>
-          </v-treeview>
-        </v-expansion-panel-text>
-      </v-expansion-panel>
-
-      <!-- Schema Evolution -->
-      <v-expansion-panel v-if="allSchemas.length > 1">
-        <v-expansion-panel-title>
-          <div class="d-flex align-center">
-            <v-icon class="mr-2">mdi-history</v-icon>
-            Schema Evolution
-            <v-chip size="x-small" color="primary" variant="outlined" class="ml-2">
-              {{ allSchemas.length }} versions
-            </v-chip>
-          </div>
-        </v-expansion-panel-title>
-        <v-expansion-panel-text>
-          <v-table density="compact">
-            <thead>
-              <tr>
-                <th style="width: 100px">Schema ID</th>
-                <th style="width: 80px">Fields</th>
-                <th>Changes</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="schema in allSchemas"
-                :key="schema['schema-id']"
-                :class="{
-                  'font-weight-medium': schema['schema-id'] === table.metadata['current-schema-id'],
-                }">
-                <td>
-                  {{ schema['schema-id'] }}
-                  <v-chip
-                    v-if="schema['schema-id'] === table.metadata['current-schema-id']"
-                    size="x-small"
-                    color="success"
-                    variant="flat"
-                    class="ml-1">
-                    current
-                  </v-chip>
-                </td>
-                <td>{{ schema.fields?.length || 0 }}</td>
-                <td>
-                  <template v-if="schemaFieldDiffs[schema['schema-id'] ?? 0]">
-                    <v-chip
-                      v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].added"
-                      :key="'add-' + name"
-                      size="x-small"
-                      color="success"
-                      variant="flat"
-                      class="mr-1 mb-1">
-                      + {{ name }}
-                    </v-chip>
-                    <v-chip
-                      v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].removed"
-                      :key="'rm-' + name"
-                      size="x-small"
-                      color="error"
-                      variant="flat"
-                      class="mr-1 mb-1">
-                      - {{ name }}
-                    </v-chip>
-                    <span
-                      v-if="
-                        schemaFieldDiffs[schema['schema-id'] ?? 0].added.length === 0 &&
-                        schemaFieldDiffs[schema['schema-id'] ?? 0].removed.length === 0
-                      "
-                      class="text-grey">
-                      {{ schema['schema-id'] === 0 ? 'Initial schema' : 'No field changes' }}
-                    </span>
-                  </template>
-                </td>
-              </tr>
-            </tbody>
-          </v-table>
-        </v-expansion-panel-text>
-      </v-expansion-panel>
-    </v-expansion-panels>
-
     <!-- Current Snapshot Details -->
     <TableSnapshotDetails
       v-if="currentSnapshot"
@@ -602,6 +606,18 @@ const truncatePath = (path: string, maxLen = 10): string => {
 const copyToClipboard = (text: string) => {
   functions.copyToClipboard(text);
 };
+
+// Properties as data-table items
+const propertyHeaders = [
+  { title: 'Property', key: 'key', width: '300px' },
+  { title: 'Value', key: 'value' },
+];
+
+const propertyItems = computed(() => {
+  const props_ = props.table.metadata.properties;
+  if (!props_) return [];
+  return Object.entries(props_).map(([key, value]) => ({ key, value }));
+});
 
 const formatTimestamp = (timestampMs: number): string => {
   if (!timestampMs) return '';

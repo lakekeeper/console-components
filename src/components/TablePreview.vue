@@ -115,10 +115,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, toRef, watch, inject } from 'vue';
+import { ref, computed, onMounted, toRef, watch, inject } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
-import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
+import { useLoQE } from '@/composables/useLoQE';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 
@@ -157,7 +157,7 @@ const props = defineProps<{
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const functions = useFunctions();
 const userStore = useUserStore();
-const icebergDB = useIcebergDuckDB(config.baseUrlPrefix);
+const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const csvDownload = useCsvDownload();
 
 const storageValidation = useStorageValidation(
@@ -310,30 +310,56 @@ async function loadPreview() {
       }
     }
 
-    // Configure Iceberg catalog (this initializes DuckDB if needed)
-    await icebergDB.configureCatalog({
-      catalogName: warehouseName.value,
-      projectId: wh['project-id'],
-      restUri: props.catalogUrl,
-      accessToken: userStore.user.access_token,
-    });
+    // Initialize LoQE and attach the catalog (shared engine with LoQE Explorer)
+    await loqe.initialize();
+
+    // Check if catalog is already attached
+    const attached = loqe.attachedCatalogs.value;
+    const alreadyAttached = attached.some((c) => c.catalogName === warehouseName.value);
+    if (!alreadyAttached) {
+      await loqe.attachCatalog({
+        catalogName: warehouseName.value,
+        restUri: props.catalogUrl,
+        accessToken: userStore.user.access_token,
+        projectId: wh['project-id'],
+      });
+    }
 
     const tablePath = `"${warehouseName.value}"."${props.namespaceId}"."${props.tableName}"`;
 
     // Build query with optional time travel
-    let query: string;
+    let sql: string;
     if (selectedSnapshot.value) {
       // snapshot IDs are BigInt-safe strings from loadTableCustomized (json-bigint)
-      query = `SELECT * FROM ${tablePath} AT (VERSION => ${selectedSnapshot.value}) LIMIT 1000;`;
+      sql = `SELECT * FROM ${tablePath} AT (VERSION => ${selectedSnapshot.value}) LIMIT 1000;`;
     } else {
-      query = `SELECT * FROM ${tablePath} LIMIT 1000;`;
+      sql = `SELECT * FROM ${tablePath} LIMIT 1000;`;
     }
 
-    const results = await icebergDB.executeQuery(query);
+    const results = await loqe.query(sql);
     queryResults.value = results;
   } catch (err: any) {
     console.error('Failed to load table preview:', err);
-    error.value = err.message || 'Unknown error occurred';
+    const errorMsg = err.message || 'Unknown error occurred';
+
+    // Detect CORS errors that manifest as DuckDB read/download errors
+    if (
+      errorMsg.includes('Cannot read') ||
+      errorMsg.includes('memory buffer') ||
+      errorMsg.includes('Invalid Input Error') ||
+      errorMsg.includes('HTTP Error') ||
+      errorMsg.includes('Full download failed') ||
+      errorMsg.includes('CORS error') ||
+      errorMsg.toLowerCase().includes('cors')
+    ) {
+      error.value =
+        `CORS Error: Cannot access object storage from the browser.\n\n` +
+        `DuckDB tried to read Iceberg metadata files from object storage but ` +
+        `the request was blocked by CORS policy.\n\n` +
+        `Please contact your administrator to configure CORS on your storage bucket.`;
+    } else {
+      error.value = errorMsg;
+    }
   } finally {
     isLoading.value = false;
   }
@@ -366,10 +392,6 @@ watch(
     }
   },
 );
-
-onBeforeUnmount(async () => {
-  await icebergDB.cleanup();
-});
 </script>
 
 <style scoped>
