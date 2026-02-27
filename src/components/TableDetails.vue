@@ -116,14 +116,12 @@
           </v-toolbar>
           <v-divider></v-divider>
           <v-table density="compact" fixed-header height="288px">
-            <span>
-              <tbody>
-                  <tr v-for="(value, key) in table.metadata.properties" :key="key">
-                    <td class="font-weight-medium" style="width: 300px">{{ key }}</td>
-                    <td class="font-mono text-wrap">{{ value }}</td>
-                  </tr>
-              </tbody>
-            </span>
+            <tbody>
+              <tr v-for="(value, key) in table.metadata.properties" :key="key">
+                <td class="font-weight-medium" style="width: 300px">{{ key }}</td>
+                <td class="font-mono text-wrap">{{ value }}</td>
+              </tr>
+            </tbody>
           </v-table>
         </v-card>
       </v-col>
