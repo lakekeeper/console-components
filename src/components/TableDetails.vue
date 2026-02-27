@@ -1,9 +1,9 @@
 <template>
   <v-card-text>
     <v-row>
-      <v-col class="d-flex">
-        <!-- Table Information — single full-width table -->
-        <v-card variant="outlined" elevation="1" class="flex-grow-1">
+      <v-col cols="12">
+        <!-- Table Information -->
+        <v-card variant="outlined" elevation="1" class="mb-4">
           <v-toolbar color="transparent" density="compact" flat>
             <v-toolbar-title class="text-subtitle-1">
               <v-icon class="mr-2" color="primary">mdi-information-outline</v-icon>
@@ -98,14 +98,13 @@
           </v-table>
         </v-card>
       </v-col>
-      <v-col class="d-flex">
+      <v-col cols="12">
         <!-- Properties Section -->
         <v-card
           v-if="table.metadata.properties && Object.keys(table.metadata.properties).length > 0"
           variant="outlined"
-          class="flex-grow-1 d-flex flex-column"
           elevation="1">
-          <v-toolbar color="transparent" density="compact" flat class="flex-shrink-0">
+          <v-toolbar color="transparent" density="compact" flat>
             <v-toolbar-title class="text-subtitle-1">
               <v-icon class="mr-2">mdi-cog-outline</v-icon>
               Table Properties
@@ -115,8 +114,8 @@
               {{ Object.keys(table.metadata.properties).length }}
             </v-chip>
           </v-toolbar>
-          <v-divider class="flex-shrink-0"></v-divider>
-          <div style="overflow-y: auto; flex: 1; min-height: 0">
+          <v-divider></v-divider>
+          <div style="max-height: 300px; overflow-y: auto">
             <v-table density="compact">
               <span>
                 <tbody>
