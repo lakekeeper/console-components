@@ -631,15 +631,6 @@
           <v-btn value="records" size="x-small">Records</v-btn>
           <v-btn value="files" size="x-small">Files</v-btn>
         </v-btn-toggle>
-        <v-btn
-          v-if="!partitionData.length && !partitionLoading"
-          size="small"
-          variant="tonal"
-          color="primary"
-          :loading="partitionLoading"
-          @click="loadPartitionData">
-          Load
-        </v-btn>
       </v-toolbar>
       <v-divider></v-divider>
       <div v-if="partitionLoading" class="d-flex justify-center align-center pa-6">
@@ -1869,7 +1860,7 @@ function renderPartitionChart() {
   const container = partitionChartRef.value;
   if (!container || partitionData.value.length === 0) return;
 
-  d3.select(container).selectAll('svg').remove();
+  d3.select(container).selectAll('*').remove();
 
   const metric = partitionMetric.value;
   const data = partitionData.value.map((d) => ({
@@ -1880,24 +1871,35 @@ function renderPartitionChart() {
 
   // Sort by value descending
   data.sort((a, b) => b.value - a.value);
-  const displayData = data.slice(0, 50);
+  const displayData = data;
 
   const margin = { top: 16, right: 16, bottom: 80, left: 60 };
-  const width = container.clientWidth || 600;
+  const visibleWidth = container.clientWidth || 600;
+  const barWidth = 32;
+  const maxVisibleBars = 20;
+  // Chart width = enough for all bars, minimum = container width
+  const neededWidth = margin.left + margin.right + displayData.length * (barWidth + 6);
+  const svgWidth = Math.max(visibleWidth, neededWidth);
   const height = 280;
-  const chartW = width - margin.left - margin.right;
+  const chartW = svgWidth - margin.left - margin.right;
   const chartH = height - margin.top - margin.bottom;
 
   const svg = d3
     .select(container)
     .append('svg')
-    .attr('width', width)
+    .attr('width', svgWidth)
     .attr('height', height)
     .style('font-family', "'Roboto Mono', monospace")
     .style('font-size', '10px');
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
+  // If more bars than visible area, enable horizontal scroll on container
+  if (displayData.length > maxVisibleBars) {
+    container.style.overflowX = 'auto';
+  } else {
+    container.style.overflowX = 'hidden';
+  }
   const maxVal = d3.max(displayData, (d) => d.value) ?? 1;
 
   const xScale = d3
@@ -2020,19 +2022,6 @@ function renderPartitionChart() {
     .attr('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
 
   g.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
-
-  // Truncation note
-  if (data.length > 50) {
-    svg
-      .append('text')
-      .attr('x', width / 2)
-      .attr('y', height - 2)
-      .attr('text-anchor', 'middle')
-      .attr('fill', 'currentColor')
-      .attr('opacity', 0.5)
-      .attr('font-size', '10px')
-      .text(`Showing top 50 of ${data.length} partitions`);
-  }
 }
 
 // Re-render when metric changes
@@ -2087,5 +2076,7 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   background: rgba(var(--v-theme-surface), 1);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 </style>
