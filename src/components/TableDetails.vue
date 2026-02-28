@@ -1840,9 +1840,6 @@ async function loadPartitionData() {
       fileCount: parseBigInt(row[filesColIdx]),
       totalRecords: parseBigInt(row[recsColIdx]),
     }));
-
-    await nextTick();
-    renderPartitionChart();
   } catch (err: any) {
     console.error('Failed to load partition data:', err);
     const msg = err.message || String(err);
@@ -2031,6 +2028,16 @@ watch(partitionMetric, async () => {
     renderPartitionChart();
   }
 });
+
+// Render chart once partition data is loaded and DOM is ready
+watch(partitionData, async (newData) => {
+  if (newData.length > 0) {
+    await nextTick();
+    // Double nextTick ensures Vue has mounted the v-else-if branch
+    await nextTick();
+    renderPartitionChart();
+  }
+}, { flush: 'post' });
 
 // Auto-load partition data when chart becomes available
 watch(partitionChartAvailable, (available) => {
