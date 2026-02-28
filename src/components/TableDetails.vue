@@ -1873,20 +1873,20 @@ function renderPartitionChart() {
 
   const metric = partitionMetric.value;
   const data = partitionData.value.map((d) => ({
-    label: d.partition.length > 30 ? d.partition.slice(0, 27) + '…' : d.partition,
+    label: d.partition.replace(/^[^=]+=/, ''), // strip key= prefix for display
     fullLabel: d.partition,
     value: metric === 'files' ? d.fileCount : d.totalRecords,
   }));
 
-  // Sort by value descending, limit to top 25
+  // Sort by value descending
   data.sort((a, b) => b.value - a.value);
-  const displayData = data.slice(0, 25);
+  const displayData = data.slice(0, 50);
 
-  const margin = { top: 8, right: 80, bottom: 18, left: 160 };
-  const barHeight = 22;
-  const gap = 2;
-  const height = margin.top + margin.bottom + displayData.length * (barHeight + gap);
-  const width = container.clientWidth || 500;
+  const margin = { top: 16, right: 16, bottom: 80, left: 60 };
+  const width = container.clientWidth || 600;
+  const height = 280;
+  const chartW = width - margin.left - margin.right;
+  const chartH = height - margin.top - margin.bottom;
 
   const svg = d3
     .select(container)
@@ -1894,77 +1894,135 @@ function renderPartitionChart() {
     .attr('width', width)
     .attr('height', height)
     .style('font-family', "'Roboto Mono', monospace")
-    .style('font-size', '11px');
+    .style('font-size', '10px');
+
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
   const maxVal = d3.max(displayData, (d) => d.value) ?? 1;
 
   const xScale = d3
-    .scaleLinear()
-    .domain([0, maxVal])
-    .range([margin.left, width - margin.right]);
-
-  const yScale = d3
     .scaleBand()
     .domain(displayData.map((d) => d.label))
-    .range([margin.top, height - margin.bottom])
-    .padding(0.1);
+    .range([0, chartW])
+    .padding(0.15);
 
-  // Compute median for skew coloring
+  const yScale = d3
+    .scaleLinear()
+    .domain([0, maxVal * 1.1])
+    .nice()
+    .range([chartH, 0]);
+
+  // Compute median for skew detection
   const sortedValues = displayData.map((d) => d.value).sort((a, b) => a - b);
   const median = sortedValues[Math.floor(sortedValues.length / 2)] || 1;
 
+  // Subtle grid lines
+  g.append('g')
+    .attr('class', 'grid')
+    .call(
+      d3.axisLeft(yScale).ticks(5).tickSize(-chartW).tickFormat(() => ''),
+    )
+    .selectAll('line')
+    .attr('stroke', 'rgba(var(--v-theme-on-surface), 0.06)');
+  g.select('.grid .domain').remove();
+
+  // Median reference line
+  g.append('line')
+    .attr('x1', 0)
+    .attr('x2', chartW)
+    .attr('y1', yScale(median))
+    .attr('y2', yScale(median))
+    .attr('stroke', '#90A4AE')
+    .attr('stroke-width', 1)
+    .attr('stroke-dasharray', '4,3')
+    .attr('opacity', 0.7);
+
+  g.append('text')
+    .attr('x', chartW - 2)
+    .attr('y', yScale(median) - 4)
+    .attr('text-anchor', 'end')
+    .attr('fill', '#90A4AE')
+    .attr('font-size', '9px')
+    .text(`median: ${median.toLocaleString()}`);
+
   // Bars
-  svg
-    .selectAll('rect.bar')
+  g.selectAll('rect.bar')
     .data(displayData)
     .join('rect')
     .attr('class', 'bar')
-    .attr('x', margin.left)
-    .attr('y', (d) => yScale(d.label)!)
-    .attr('width', (d) => Math.max(1, xScale(d.value) - margin.left))
-    .attr('height', yScale.bandwidth())
+    .attr('x', (d) => xScale(d.label)!)
+    .attr('y', (d) => yScale(d.value))
+    .attr('width', xScale.bandwidth())
+    .attr('height', (d) => Math.max(1, chartH - yScale(d.value)))
     .attr('rx', 2)
     .attr('fill', (d) => {
       const ratio = median > 0 ? d.value / median : 1;
-      if (ratio > 10) return '#E53935';   // red — high skew
-      if (ratio > 3) return '#FB8C00';    // orange — moderate
+      if (ratio > 10) return '#E53935';   // red — extreme skew
+      if (ratio > 3) return '#FB8C00';    // orange — high skew
+      if (ratio > 1.5) return '#FDD835';  // yellow — moderate skew
       if (ratio < 0.3) return '#42A5F5';  // blue — very small
       return '#66BB6A';                    // green — balanced
     })
     .attr('opacity', 0.85);
 
-  // Partition labels on left
-  svg
-    .selectAll('text.label')
-    .data(displayData)
-    .join('text')
-    .attr('class', 'label')
-    .attr('x', margin.left - 6)
-    .attr('y', (d) => yScale(d.label)! + yScale.bandwidth() / 2)
-    .attr('dy', '0.35em')
-    .attr('text-anchor', 'end')
+  // Value labels on top of bars (only if enough space)
+  if (xScale.bandwidth() > 14 || displayData.length <= 15) {
+    g.selectAll('text.value')
+      .data(displayData)
+      .join('text')
+      .attr('class', 'value')
+      .attr('x', (d) => xScale(d.label)! + xScale.bandwidth() / 2)
+      .attr('y', (d) => yScale(d.value) - 4)
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'currentColor')
+      .attr('opacity', 0.6)
+      .attr('font-size', '9px')
+      .text((d) => d.value.toLocaleString());
+  }
+
+  // X axis — partition labels
+  const xAxis = g.append('g')
+    .attr('transform', `translate(0,${chartH})`)
+    .call(d3.axisBottom(xScale));
+
+  xAxis.selectAll('text')
+    .attr('font-size', '9px')
     .attr('fill', 'currentColor')
     .attr('opacity', 0.7)
-    .text((d) => d.label);
-
-  // Value labels on right of bars
-  svg
-    .selectAll('text.value')
-    .data(displayData)
-    .join('text')
-    .attr('class', 'value')
-    .attr('x', (d) => xScale(d.value) + 4)
-    .attr('y', (d) => yScale(d.label)! + yScale.bandwidth() / 2)
-    .attr('dy', '0.35em')
-    .attr('text-anchor', 'start')
-    .attr('fill', 'currentColor')
-    .attr('opacity', 0.6)
-    .text((d) => {
-      return d.value.toLocaleString();
+    .attr('transform', 'rotate(-45)')
+    .attr('text-anchor', 'end')
+    .attr('dx', '-0.5em')
+    .attr('dy', '0.25em')
+    .each(function (this: any) {
+      const text = d3.select(this).text();
+      if (text.length > 16) {
+        d3.select(this).text(text.slice(0, 14) + '…');
+      }
     });
 
-  // Subtitle if truncated
-  if (data.length > 25) {
+  xAxis.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
+
+  // Y axis
+  const yAxis = d3
+    .axisLeft(yScale)
+    .ticks(5)
+    .tickFormat((d) => {
+      const n = d as number;
+      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+      if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
+      return `${n}`;
+    });
+
+  g.append('g')
+    .call(yAxis)
+    .selectAll('text')
+    .attr('font-size', '9px')
+    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
+
+  g.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
+
+  // Truncation note
+  if (data.length > 50) {
     svg
       .append('text')
       .attr('x', width / 2)
@@ -1973,7 +2031,7 @@ function renderPartitionChart() {
       .attr('fill', 'currentColor')
       .attr('opacity', 0.5)
       .attr('font-size', '10px')
-      .text(`Showing top 25 of ${data.length} partitions`);
+      .text(`Showing top 50 of ${data.length} partitions`);
   }
 }
 
@@ -2025,11 +2083,9 @@ onBeforeUnmount(() => {
 
 .partition-chart-container {
   width: 100%;
-  min-height: 60px;
+  height: 280px;
   border-radius: 6px;
   background: rgba(var(--v-theme-surface), 1);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
-  overflow-y: auto;
-  max-height: 500px;
 }
 </style>
