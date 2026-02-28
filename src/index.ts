@@ -44,10 +44,6 @@ import TableBranch from './components/TableBranch.vue';
 import TablePreview from './components/TablePreview.vue';
 import TableCreate from './components/TableCreate.vue';
 import TableRegister from './components/TableRegister.vue';
-/** @deprecated Use LoQEExplorer instead. Will be removed in a future release. */
-import WarehouseSqlQuery from './components/WarehouseSqlQuery.vue';
-/** @deprecated Use LoQENavigationTree instead. Will be removed in a future release. */
-import WarehouseNavigationTree from './components/WarehouseNavigationTree.vue';
 import WarehousesNavigationTree from './components/WarehousesNavigationTree.vue';
 import LoQEExplorer from './components/LoQEExplorer.vue';
 import ViewHeader from './components/ViewHeader.vue';
@@ -271,10 +267,6 @@ const components = {
   TableCreate,
   TableRegister,
   TableBranch,
-  /** @deprecated Use LoQEExplorer instead. */
-  WarehouseSqlQuery,
-  /** @deprecated Use LoQENavigationTree instead. */
-  WarehouseNavigationTree,
   ViewHeader,
   ViewHistoryTab,
   ViewOverview,
@@ -317,10 +309,6 @@ export { default as LoginPage } from './components/LoginPage.vue';
 export { default as LogoutPage } from './components/LogoutPage.vue';
 export { default as CallbackPage } from './components/CallbackPage.vue';
 
-// Export DuckDB composable
-export { useDuckDB, MAX_RESULT_ROWS } from './composables/useDuckDB';
-export type { QueryResult } from './composables/useDuckDB';
-
 // Export  settings store
 export {
   useDuckDBSettingsStore,
@@ -330,10 +318,6 @@ export {
 } from './stores/duckdbSettings';
 export type { DuckDBSettings } from './stores/duckdbSettings';
 export { default as DuckDBSettingsDialog } from './components/DuckDBSettingsDialog.vue';
-
-// Export Iceberg DuckDB integration
-export { useIcebergDuckDB } from './composables/useIcebergDuckDB';
-export type {} from './composables/useIcebergDuckDB';
 
 // Export LoQE — Local Query Engine DuckDB
 export { useLoQE } from './composables/useLoQE';
