@@ -1,5 +1,13 @@
 <template>
-  <v-card v-if="healthChecks.length > 0" variant="outlined" class="mb-4" elevation="1">
+  <!-- Loading state when self-loading table metadata -->
+  <div v-if="tableLoading" class="d-flex justify-center align-center pa-6">
+    <v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
+    <span class="ml-3 text-body-2 text-medium-emphasis">Loading table metadata…</span>
+  </div>
+  <v-alert v-else-if="tableError" type="error" variant="tonal" density="compact" class="mb-4">
+    {{ tableError }}
+  </v-alert>
+  <v-card v-else-if="healthChecks.length > 0" variant="outlined" class="mb-4" elevation="1">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
         <v-icon class="mr-2" :color="overallHealthColor">mdi-heart-pulse</v-icon>
@@ -353,7 +361,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onBeforeUnmount, inject } from 'vue';
+import { computed, ref, watch, nextTick, onBeforeUnmount, onMounted, inject } from 'vue';
 import * as d3 from 'd3';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
@@ -363,7 +371,7 @@ import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
 // Props
 const props = defineProps<{
-  table: LoadTableResult;
+  table?: LoadTableResult;
   warehouseId?: string;
   namespaceId?: string;
   tableName?: string;
@@ -377,6 +385,38 @@ const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
 
+// Self-loading: if no table prop is passed, load it internally
+const loadedTable = ref<LoadTableResult | null>(null);
+const tableLoading = ref(false);
+const tableError = ref<string | null>(null);
+
+const resolvedTable = computed<LoadTableResult | null>(() => {
+  if (props.table?.metadata?.snapshots) return props.table;
+  return loadedTable.value;
+});
+
+async function loadTableData() {
+  if (props.table?.metadata?.snapshots) return; // parent already provides it
+  if (!props.warehouseId || !props.namespaceId || !props.tableName) return;
+  tableLoading.value = true;
+  tableError.value = null;
+  try {
+    loadedTable.value = await functions.loadTableCustomized(
+      props.warehouseId,
+      props.namespaceId,
+      props.tableName,
+    ) as LoadTableResult;
+  } catch (err: any) {
+    console.error('Failed to load table metadata:', err);
+    tableError.value = err.message || String(err);
+  } finally {
+    tableLoading.value = false;
+  }
+}
+
+onMounted(loadTableData);
+watch(() => [props.warehouseId, props.namespaceId, props.tableName], loadTableData);
+
 // --- Health Check Types ---
 interface HealthCheck {
   label: string;
@@ -389,8 +429,8 @@ interface HealthCheck {
 
 // Branch selector for health analysis
 const branchOptions = computed(() => {
-  if (!props.table?.metadata) return [{ title: 'main', value: 'main' }];
-  const refs = props.table.metadata.refs;
+  if (!resolvedTable.value?.metadata) return [{ title: 'main', value: 'main' }];
+  const refs = resolvedTable.value.metadata.refs;
   if (!refs) return [{ title: 'main', value: 'main' }];
   return Object.entries(refs)
     .filter(([, ref]) => ref.type === 'branch')
@@ -400,19 +440,19 @@ const branchOptions = computed(() => {
 const selectedBranch = ref<string>('main');
 
 const currentSnapshot = computed<Snapshot | null>(() => {
-  if (!props.table?.metadata?.snapshots || props.table.metadata.snapshots.length === 0) return null;
-  const currentId = String(props.table.metadata['current-snapshot-id']);
+  if (!resolvedTable.value?.metadata?.snapshots || resolvedTable.value.metadata.snapshots.length === 0) return null;
+  const currentId = String(resolvedTable.value.metadata['current-snapshot-id']);
   return (
-    props.table.metadata.snapshots.find(
+    resolvedTable.value.metadata.snapshots.find(
       (snapshot: Snapshot) => String(snapshot['snapshot-id']) === currentId,
     ) || null
   );
 });
 
 const healthBranchSnapshot = computed<Snapshot | null>(() => {
-  if (!props.table?.metadata) return null;
-  const refs = props.table.metadata.refs;
-  const allSnapshots = props.table.metadata.snapshots;
+  if (!resolvedTable.value?.metadata) return null;
+  const refs = resolvedTable.value.metadata.refs;
+  const allSnapshots = resolvedTable.value.metadata.snapshots;
   if (!refs || !allSnapshots) return currentSnapshot.value;
   const branchRef = refs[selectedBranch.value];
   if (!branchRef) return currentSnapshot.value;
@@ -440,20 +480,20 @@ const formatBytes = (bytes: number): string => {
 
 // Walk the selected branch by following parent-snapshot-id from branch tip
 const healthBranchSnapshots = computed<Snapshot[]>(() => {
-  if (!props.table?.metadata) return [];
-  const allSnapshots = props.table.metadata.snapshots;
+  if (!resolvedTable.value?.metadata) return [];
+  const allSnapshots = resolvedTable.value.metadata.snapshots;
   if (!allSnapshots || allSnapshots.length === 0) return [];
   const snapshotMap = new Map<string, Snapshot>();
   for (const s of allSnapshots) {
     if (s['snapshot-id']) snapshotMap.set(String(s['snapshot-id']), s);
   }
   const chain: Snapshot[] = [];
-  const refs = props.table.metadata.refs;
+  const refs = resolvedTable.value.metadata.refs;
   let startId: string | number | undefined;
   if (refs && refs[selectedBranch.value]) {
     startId = refs[selectedBranch.value]['snapshot-id'];
   } else {
-    startId = props.table.metadata['current-snapshot-id'];
+    startId = resolvedTable.value.metadata['current-snapshot-id'];
   }
   let id: string | number | undefined = startId;
   while (id !== undefined && id !== null) {
@@ -466,7 +506,7 @@ const healthBranchSnapshots = computed<Snapshot[]>(() => {
 });
 
 const healthChecks = computed<HealthCheck[]>(() => {
-  if (!props.table?.metadata || !healthBranchSnapshot.value?.summary) return [];
+  if (!resolvedTable.value?.metadata || !healthBranchSnapshot.value?.summary) return [];
   const checks: HealthCheck[] = [];
 
   const dataFiles = healthSummaryNum('total-data-files-count', 'total-data-files');
@@ -475,7 +515,7 @@ const healthChecks = computed<HealthCheck[]>(() => {
   const posDeletes = healthSummaryNum('total-position-deletes-count', 'total-position-deletes');
   const totalRecords = healthSummaryNum('total-records-count', 'total-records');
   const totalSize = healthSummaryNum('total-files-size-in-bytes', 'total-files-size');
-  const totalSnapshotCount = props.table.metadata.snapshots?.length ?? 0;
+  const totalSnapshotCount = resolvedTable.value!.metadata.snapshots?.length ?? 0;
   const branchSnapshotCount = healthBranchSnapshots.value.length;
 
   // Analyze branch operation history
@@ -759,7 +799,7 @@ const healthChecks = computed<HealthCheck[]>(() => {
   }
 
   // Format version check
-  const formatVersion = props.table.metadata['format-version'];
+  const formatVersion = resolvedTable.value!.metadata['format-version'];
   if (formatVersion !== undefined) {
     if (formatVersion < 2) {
       checks.push({
@@ -790,8 +830,8 @@ const healthChecks = computed<HealthCheck[]>(() => {
   }
 
   // Partition spec check
-  const partitionSpecs = props.table.metadata['partition-specs'];
-  const defaultSpecId = props.table.metadata['default-spec-id'];
+  const partitionSpecs = resolvedTable.value!.metadata['partition-specs'];
+  const defaultSpecId = resolvedTable.value!.metadata['default-spec-id'];
   if (partitionSpecs) {
     const currentSpec =
       partitionSpecs.find((s: any) => s['spec-id'] === defaultSpecId) ??
@@ -855,9 +895,9 @@ const healthChecks = computed<HealthCheck[]>(() => {
   }
 
   // Sort order check
-  const sortOrders = props.table.metadata['sort-orders'];
+  const sortOrders = resolvedTable.value!.metadata['sort-orders'];
   if (sortOrders) {
-    const defaultSortId = props.table.metadata['default-sort-order-id'];
+    const defaultSortId = resolvedTable.value!.metadata['default-sort-order-id'];
     const currentSort =
       sortOrders.find((s: any) => s['order-id'] === defaultSortId) ??
       sortOrders[sortOrders.length - 1];
@@ -901,7 +941,7 @@ const healthChecks = computed<HealthCheck[]>(() => {
   }
 
   // Schema evolution count
-  const schemas = props.table.metadata.schemas;
+  const schemas = resolvedTable.value!.metadata.schemas;
   if (schemas && schemas.length > 1) {
     checks.push({
       label: 'Schema evolution',
@@ -913,7 +953,7 @@ const healthChecks = computed<HealthCheck[]>(() => {
         { label: 'Schema versions', value: `${schemas.length}` },
         {
           label: 'Current schema ID',
-          value: `${props.table.metadata['current-schema-id'] ?? 'N/A'}`,
+          value: `${resolvedTable.value!.metadata['current-schema-id'] ?? 'N/A'}`,
         },
         { label: 'Threshold', value: '> 10 schemas → Info, else Good' },
         {
@@ -1315,9 +1355,9 @@ const partitionChartAvailable = computed(() => {
   // Only show if we have the required props and the table is partitioned
   if (!props.warehouseId || !props.namespaceId || !props.tableName || !props.catalogUrl)
     return false;
-  if (!props.table?.metadata) return false;
-  const specs = props.table.metadata['partition-specs'];
-  const defaultId = props.table.metadata['default-spec-id'];
+  if (!resolvedTable.value?.metadata) return false;
+  const specs = resolvedTable.value.metadata['partition-specs'];
+  const defaultId = resolvedTable.value.metadata['default-spec-id'];
   if (!specs) return false;
   const currentSpec = specs.find((s: any) => s['spec-id'] === defaultId) ?? specs[specs.length - 1];
   return currentSpec?.fields && currentSpec.fields.length > 0;
