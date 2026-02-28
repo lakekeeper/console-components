@@ -155,7 +155,7 @@ export {
 export * from './composables/useAuth';
 
 // Export stores
-export { useVisualStore } from './stores/visual';
+export { useVisualStore, type PolicyBuilderState } from './stores/visual';
 export { usePermissionStore } from './stores/permissions';
 export { useUserStore } from './stores/user';
 export { useNotificationStore } from './stores/notifications';

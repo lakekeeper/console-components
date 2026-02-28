@@ -22,10 +22,18 @@ export interface WarehouseSqlData {
 // Cedar Policy Builder draft state
 export interface PolicyBuilderState {
   effect: 'permit' | 'forbid';
-  principal: string;
-  action: string;
-  resource: string;
-  conditions: string[];
+  principalOp: 'any' | '==' | 'in' | 'is';
+  principalType: string | null;
+  principalId: string | null;
+  actionOp: 'any' | '==' | 'in';
+  actionNames: string[];
+  resourceOp: 'any' | '==' | 'in' | 'is';
+  resourceType: string | null;
+  resourceId: string | null;
+  conditionKind: 'when' | 'unless' | null;
+  conditionBody: string;
+  annotationId: string;
+  annotationMessage: string;
 }
 
 export const useVisualStore = defineStore(
@@ -57,10 +65,18 @@ export const useVisualStore = defineStore(
     // Cedar Policy Builder & Editor state
     const policyBuilderDraft = ref<PolicyBuilderState>({
       effect: 'permit',
-      principal: '',
-      action: '',
-      resource: '',
-      conditions: [],
+      principalOp: 'any',
+      principalType: null,
+      principalId: null,
+      actionOp: 'any',
+      actionNames: [],
+      resourceOp: 'any',
+      resourceType: null,
+      resourceId: null,
+      conditionKind: null,
+      conditionBody: '',
+      annotationId: '',
+      annotationMessage: '',
     });
     const policyEditorText = ref('');
 
@@ -267,10 +283,18 @@ export const useVisualStore = defineStore(
     function resetPolicyBuilderDraft() {
       policyBuilderDraft.value = {
         effect: 'permit',
-        principal: '',
-        action: '',
-        resource: '',
-        conditions: [],
+        principalOp: 'any',
+        principalType: null,
+        principalId: null,
+        actionOp: 'any',
+        actionNames: [],
+        resourceOp: 'any',
+        resourceType: null,
+        resourceId: null,
+        conditionKind: null,
+        conditionBody: '',
+        annotationId: '',
+        annotationMessage: '',
       };
     }
 
