@@ -273,9 +273,7 @@
       <div ref="partitionChartRef" class="partition-chart-container"></div>
       <div v-if="partitionSkewRatio !== null" class="mt-2 d-flex align-center flex-wrap">
         <v-chip
-          :color="
-            partitionSkewRatio > 5 ? 'error' : partitionSkewRatio > 2 ? 'warning' : 'success'
-          "
+          :color="partitionSkewRatio > 5 ? 'error' : partitionSkewRatio > 2 ? 'warning' : 'success'"
           size="x-small"
           variant="flat"
           class="mr-2">
