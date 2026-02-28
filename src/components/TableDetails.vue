@@ -371,15 +371,6 @@
       </v-expansion-panel>
     </v-expansion-panels>
 
-    <!-- Table Health -->
-    <TableHealth
-      :table="table"
-      :warehouse-id="warehouseId"
-      :namespace-id="namespaceId"
-      :table-name="tableName"
-      :catalog-url="catalogUrl"
-      :storage-type="storageType" />
-
     <!-- Current Snapshot Details -->
     <TableSnapshotDetails
       v-if="currentSnapshot"
@@ -391,7 +382,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
-import TableHealth from './TableHealth.vue';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import { transformFields } from '../common/schemaUtils';
 import type {
@@ -404,11 +394,6 @@ import type {
 // Props
 const props = defineProps<{
   table: LoadTableResult;
-  warehouseId?: string;
-  namespaceId?: string;
-  tableName?: string;
-  catalogUrl?: string;
-  storageType?: string;
 }>();
 
 // Composables
