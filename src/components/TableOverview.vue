@@ -14,7 +14,12 @@
         @click.prevent="showConfirmDialog"></v-switch>
     </v-toolbar>
 
-    <TableDetails :table="table" />
+    <TableDetails
+      :table="table"
+      :warehouse-id="warehouseId"
+      :namespace-id="namespaceId"
+      :table-name="tableName"
+      :catalog-url="functions.icebergCatalogUrlSuffixed()" />
 
     <ProtectionConfirmDialog
       v-model="confirmDialog"

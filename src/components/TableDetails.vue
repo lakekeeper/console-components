@@ -417,7 +417,8 @@
               <v-card-text class="text-body-2">
                 <p class="mb-3">
                   Health checks are derived from the current snapshot's summary statistics. No
-                  additional API calls are made.
+                  additional API calls are made. The Partition Distribution chart uses DuckDB's
+                  <code>iceberg_metadata()</code> to query manifest files for per-partition statistics.
                 </p>
 
                 <h4 class="text-subtitle-2 mb-1">
@@ -470,6 +471,44 @@
                   <strong>1,000</strong>
                   data files (even if file sizes are healthy). High file counts increase query
                   planning time. Fix with compaction.
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="info" class="mr-1">mdi-update</v-icon>
+                  Format Version
+                </h4>
+                <p class="mb-3">
+                  Checks the Iceberg format version. v1 tables lack row-level deletes, improved
+                  column statistics, and full schema evolution. Upgrade to <strong>v2</strong> is
+                  recommended.
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="warning" class="mr-1">mdi-table-split-cell</v-icon>
+                  Partitioning
+                </h4>
+                <p class="mb-3">
+                  Detects unpartitioned tables with many files (&gt; 100), which can hurt query
+                  performance. Also tracks partition spec evolution count — many changes add metadata
+                  overhead.
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="info" class="mr-1">mdi-sort-variant</v-icon>
+                  Sort Order
+                </h4>
+                <p class="mb-3">
+                  Flags large tables (&gt; 1 GB) with no sort order defined. Sorting improves data
+                  clustering and enables min/max column pruning during query planning.
+                </p>
+
+                <h4 class="text-subtitle-2 mb-1">
+                  <v-icon size="small" color="info" class="mr-1">mdi-file-tree-outline</v-icon>
+                  Schema Evolution
+                </h4>
+                <p class="mb-3">
+                  Tracks the number of schema versions in metadata. Informational — many schema
+                  changes are normal but worth noting.
                 </p>
 
                 <h4 class="text-subtitle-2 mb-1">
@@ -528,7 +567,7 @@
       </v-expansion-panels>
 
       <!-- Snapshot Trends Chart -->
-      <div v-if="healthBranchSnapshots.length > 1">
+      <div v-if="healthBranchSnapshots.length > 0">
         <v-divider></v-divider>
         <div class="pa-3">
           <div class="d-flex align-center mb-2">
@@ -569,6 +608,68 @@
     </v-card>
 
     <!-- Current Snapshot Details -->
+    <!-- Partition Distribution -->
+    <v-card
+      v-if="partitionChartAvailable"
+      variant="outlined"
+      class="mb-4"
+      elevation="1">
+      <v-toolbar color="transparent" density="compact" flat>
+        <v-toolbar-title class="text-subtitle-1">
+          <v-icon class="mr-2" color="primary">mdi-chart-bar</v-icon>
+          Partition Distribution
+        </v-toolbar-title>
+        <v-spacer></v-spacer>
+        <v-btn-toggle
+          v-model="partitionMetric"
+          mandatory
+          density="compact"
+          variant="outlined"
+          divided
+          color="primary"
+          class="mr-2">
+          <v-btn value="size" size="x-small">Size</v-btn>
+          <v-btn value="files" size="x-small">Files</v-btn>
+          <v-btn value="records" size="x-small">Records</v-btn>
+        </v-btn-toggle>
+        <v-btn
+          v-if="!partitionData.length && !partitionLoading"
+          size="small"
+          variant="tonal"
+          color="primary"
+          :loading="partitionLoading"
+          @click="loadPartitionData">
+          Load
+        </v-btn>
+      </v-toolbar>
+      <v-divider></v-divider>
+      <div v-if="partitionLoading" class="d-flex justify-center align-center pa-6">
+        <v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
+        <span class="ml-3 text-body-2 text-medium-emphasis">Querying partition metadata via DuckDB…</span>
+      </div>
+      <div v-else-if="partitionError" class="pa-4">
+        <v-alert type="warning" variant="tonal" density="compact" class="text-body-2">
+          {{ partitionError }}
+        </v-alert>
+      </div>
+      <div v-else-if="partitionData.length > 0" class="pa-3">
+        <div ref="partitionChartRef" class="partition-chart-container"></div>
+        <div v-if="partitionSkewRatio !== null" class="mt-2 d-flex align-center">
+          <v-chip
+            :color="partitionSkewRatio > 10 ? 'error' : partitionSkewRatio > 3 ? 'warning' : 'success'"
+            size="x-small"
+            variant="flat"
+            class="mr-2">
+            {{ partitionSkewRatio > 10 ? 'High Skew' : partitionSkewRatio > 3 ? 'Moderate Skew' : 'Balanced' }}
+          </v-chip>
+          <span class="text-caption text-medium-emphasis">
+            Largest / median ratio: {{ partitionSkewRatio.toFixed(1) }}x
+            · {{ partitionData.length }} partition{{ partitionData.length !== 1 ? 's' : '' }}
+          </span>
+        </div>
+      </div>
+    </v-card>
+
     <TableSnapshotDetails
       v-if="currentSnapshot"
       :snapshot="currentSnapshot"
@@ -577,9 +678,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue';
+import { computed, ref, watch, nextTick, onBeforeUnmount, inject } from 'vue';
 import * as d3 from 'd3';
 import { useFunctions } from '../plugins/functions';
+import { useLoQE } from '../composables/useLoQE';
+import { useUserStore } from '../stores/user';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import { transformFields } from '../common/schemaUtils';
 import type {
@@ -592,10 +695,17 @@ import type {
 // Props
 const props = defineProps<{
   table: LoadTableResult;
+  warehouseId?: string;
+  namespaceId?: string;
+  tableName?: string;
+  catalogUrl?: string;
 }>();
 
 // Composables
 const functions = useFunctions();
+const config = inject<any>('appConfig', { enabledAuthentication: false });
+const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
+const userStore = useUserStore();
 
 // Methods
 const truncatePath = (path: string, maxLen = 10): string => {
@@ -1126,6 +1236,149 @@ const healthChecks = computed<HealthCheck[]>(() => {
     });
   }
 
+  // Format version check
+  const formatVersion = props.table.metadata['format-version'];
+  if (formatVersion !== undefined) {
+    if (formatVersion < 2) {
+      checks.push({
+        label: 'Legacy format version',
+        detail: `Table uses Iceberg format v${formatVersion}. v2 adds row-level deletes, improved statistics, and schema evolution. Consider upgrading.`,
+        severity: 'Info',
+        color: 'info',
+        icon: 'mdi-update',
+        reasoning: [
+          { label: 'format-version', value: `${formatVersion}` },
+          { label: 'Threshold', value: 'v1 → Info (upgrade recommended), v2+ → Good' },
+          { label: 'Result', value: `v${formatVersion} < v2 → Info` },
+        ],
+      });
+    } else {
+      checks.push({
+        label: 'Format version',
+        detail: `Iceberg format v${formatVersion}.`,
+        severity: 'Good',
+        color: 'success',
+        icon: 'mdi-check-circle-outline',
+        reasoning: [
+          { label: 'format-version', value: `${formatVersion}` },
+          { label: 'Result', value: `v${formatVersion} is current → Good` },
+        ],
+      });
+    }
+  }
+
+  // Partition spec check
+  const partitionSpecs = props.table.metadata['partition-specs'];
+  const defaultSpecId = props.table.metadata['default-spec-id'];
+  if (partitionSpecs) {
+    const currentSpec = partitionSpecs.find((s: any) => s['spec-id'] === defaultSpecId) ?? partitionSpecs[partitionSpecs.length - 1];
+    const isUnpartitioned = !currentSpec?.fields || currentSpec.fields.length === 0;
+    const specEvolutions = partitionSpecs.length;
+
+    if (isUnpartitioned && dataFiles !== null && dataFiles > 100) {
+      checks.push({
+        label: 'Unpartitioned table with many files',
+        detail: `Table has ${dataFiles.toLocaleString()} data files but no partition spec. Partitioning can significantly improve query performance and file organization.`,
+        severity: 'Warning',
+        color: 'warning',
+        icon: 'mdi-table-split-cell',
+        reasoning: [
+          { label: 'Partition fields', value: 'None (unpartitioned)' },
+          { label: 'total-data-files-count', value: `${dataFiles.toLocaleString()}` },
+          { label: 'Threshold', value: 'Unpartitioned with > 100 files → Warning' },
+          { label: 'Result', value: `${dataFiles.toLocaleString()} files, no partition → Warning` },
+        ],
+      });
+    } else if (isUnpartitioned) {
+      checks.push({
+        label: 'Partitioning',
+        detail: 'Table is unpartitioned.' + (dataFiles !== null ? ` ${dataFiles} data file${dataFiles !== 1 ? 's' : ''}.` : ''),
+        severity: 'Good',
+        color: 'success',
+        icon: 'mdi-table-split-cell',
+        reasoning: [
+          { label: 'Partition fields', value: 'None (unpartitioned)' },
+          { label: 'total-data-files-count', value: `${dataFiles ?? 'N/A'}` },
+          { label: 'Result', value: 'Unpartitioned but file count is low → Good' },
+        ],
+      });
+    } else {
+      const fieldNames = currentSpec.fields.map((f: any) => `${f.transform}(${f.name || `col-${f['source-id']}`})`).join(', ');
+      checks.push({
+        label: specEvolutions > 1 ? 'Partition spec evolved' : 'Partitioning',
+        detail: specEvolutions > 1
+          ? `${specEvolutions} partition specs recorded. Current: ${fieldNames}. Partition evolution adds metadata overhead.`
+          : `Partitioned by: ${fieldNames}.`,
+        severity: specEvolutions > 3 ? 'Info' : 'Good',
+        color: specEvolutions > 3 ? 'info' : 'success',
+        icon: 'mdi-table-split-cell',
+        reasoning: [
+          { label: 'Current partition spec', value: fieldNames },
+          { label: 'Partition spec count', value: `${specEvolutions}` },
+          { label: 'Threshold', value: '> 3 spec evolutions → Info, else Good' },
+          { label: 'Result', value: `${specEvolutions} spec${specEvolutions > 1 ? 's' : ''} → ${specEvolutions > 3 ? 'Info' : 'Good'}` },
+        ],
+      });
+    }
+  }
+
+  // Sort order check
+  const sortOrders = props.table.metadata['sort-orders'];
+  if (sortOrders) {
+    const defaultSortId = props.table.metadata['default-sort-order-id'];
+    const currentSort = sortOrders.find((s: any) => s['order-id'] === defaultSortId) ?? sortOrders[sortOrders.length - 1];
+    const isUnsorted = !currentSort?.fields || currentSort.fields.length === 0;
+
+    if (isUnsorted && totalSize !== null && totalSize > 1024 * 1024 * 1024) {
+      checks.push({
+        label: 'No sort order on large table',
+        detail: `Table is ${formatBytes(totalSize)} with no sort order. Sorting can improve query performance through better data clustering and min/max pruning.`,
+        severity: 'Info',
+        color: 'info',
+        icon: 'mdi-sort-variant',
+        reasoning: [
+          { label: 'Sort order', value: 'None (unsorted)' },
+          { label: 'Table size', value: formatBytes(totalSize) },
+          { label: 'Threshold', value: 'Unsorted with > 1 GB → Info' },
+          { label: 'Result', value: `${formatBytes(totalSize)} > 1 GB, unsorted → Info` },
+        ],
+      });
+    } else {
+      const sortDesc = isUnsorted
+        ? 'Unsorted'
+        : currentSort.fields.map((f: any) => `${f.transform || 'identity'}(col-${f['source-id']}) ${f.direction}`).join(', ');
+      checks.push({
+        label: 'Sort order',
+        detail: isUnsorted ? 'No sort order defined.' : `Sorted by: ${sortDesc}.`,
+        severity: 'Good',
+        color: 'success',
+        icon: 'mdi-sort-variant',
+        reasoning: [
+          { label: 'Sort order', value: sortDesc },
+          { label: 'Result', value: isUnsorted ? 'Unsorted, table is small → Good' : 'Sort order defined → Good' },
+        ],
+      });
+    }
+  }
+
+  // Schema evolution count
+  const schemas = props.table.metadata.schemas;
+  if (schemas && schemas.length > 1) {
+    checks.push({
+      label: 'Schema evolution',
+      detail: `${schemas.length} schema versions recorded. Frequent schema changes are tracked in metadata.`,
+      severity: schemas.length > 10 ? 'Info' : 'Good',
+      color: schemas.length > 10 ? 'info' : 'success',
+      icon: 'mdi-file-tree-outline',
+      reasoning: [
+        { label: 'Schema versions', value: `${schemas.length}` },
+        { label: 'Current schema ID', value: `${props.table.metadata['current-schema-id'] ?? 'N/A'}` },
+        { label: 'Threshold', value: '> 10 schemas → Info, else Good' },
+        { label: 'Result', value: `${schemas.length} schemas → ${schemas.length > 10 ? 'Info' : 'Good'}` },
+      ],
+    });
+  }
+
   // Table size summary (informational)
   checks.push({
     label: 'Table size',
@@ -1344,7 +1597,7 @@ function renderHealthChart() {
 
   const xScale = d3
     .scaleLinear()
-    .domain([0, data.length - 1])
+    .domain([0, Math.max(data.length - 1, 1)])
     .range([0, chartW]);
 
   const yMax = d3.max(data, (d) => d.value) ?? 1;
@@ -1370,29 +1623,30 @@ function renderHealthChart() {
     .attr('stroke', 'rgba(var(--v-theme-on-surface), 0.06)');
   g.select('.grid .domain').remove();
 
-  // Area
-  const area = d3
-    .area<ChartPoint>()
-    .x((d, i) => xScale(i))
-    .y0(chartH)
-    .y1((d) => yScale(d.value))
-    .curve(d3.curveMonotoneX);
+  // Area + Line (need 2+ points)
+  if (data.length > 1) {
+    const area = d3
+      .area<ChartPoint>()
+      .x((d, i) => xScale(i))
+      .y0(chartH)
+      .y1((d) => yScale(d.value))
+      .curve(d3.curveMonotoneX);
 
-  g.append('path').datum(data).attr('fill', `url(#${gradientId})`).attr('d', area);
+    g.append('path').datum(data).attr('fill', `url(#${gradientId})`).attr('d', area);
 
-  // Line
-  const line = d3
-    .line<ChartPoint>()
-    .x((d, i) => xScale(i))
-    .y((d) => yScale(d.value))
-    .curve(d3.curveMonotoneX);
+    const line = d3
+      .line<ChartPoint>()
+      .x((d, i) => xScale(i))
+      .y((d) => yScale(d.value))
+      .curve(d3.curveMonotoneX);
 
-  g.append('path')
-    .datum(data)
-    .attr('fill', 'none')
-    .attr('stroke', metric.color)
-    .attr('stroke-width', 2)
-    .attr('d', line);
+    g.append('path')
+      .datum(data)
+      .attr('fill', 'none')
+      .attr('stroke', metric.color)
+      .attr('stroke-width', 2)
+      .attr('d', line);
+  }
 
   // Data dots
   const opColorMap: Record<string, string> = {
@@ -1407,13 +1661,25 @@ function renderHealthChart() {
     .data(data)
     .join('circle')
     .attr('class', 'data-dot')
-    .attr('cx', (d, i) => xScale(i))
+    .attr('cx', (d, i) => data.length === 1 ? chartW / 2 : xScale(i))
     .attr('cy', (d) => yScale(d.value))
-    .attr('r', data.length > 30 ? 2.5 : 4)
+    .attr('r', data.length === 1 ? 6 : data.length > 30 ? 2.5 : 4)
     .attr('fill', (d) => opColorMap[d.operation] ?? metric.color)
     .attr('stroke', 'rgba(var(--v-theme-surface), 1)')
     .attr('stroke-width', 1.5)
     .style('cursor', 'pointer');
+
+  // Value label for single data point
+  if (data.length === 1) {
+    g.append('text')
+      .attr('x', chartW / 2)
+      .attr('y', yScale(data[0].value) - 12)
+      .attr('text-anchor', 'middle')
+      .attr('fill', metric.color)
+      .attr('font-size', '12px')
+      .attr('font-weight', 'bold')
+      .text(metric.format(data[0].value));
+  }
 
   // Tooltip
   g.selectAll('circle.data-dot')
@@ -1458,7 +1724,7 @@ function renderHealthChart() {
 watch(
   [selectedMetric, healthBranchSnapshots, snapshotWindowStart, chartWindowSize],
   async () => {
-    if (healthBranchSnapshots.value.length > 1) {
+    if (healthBranchSnapshots.value.length > 0) {
       await nextTick();
       renderHealthChart();
     }
@@ -1470,7 +1736,7 @@ watch(
 watch(
   healthBranchSnapshots,
   async (snaps) => {
-    if (snaps.length > 1) {
+    if (snaps.length > 0) {
       const total = allChartPoints.value.length;
       snapshotWindowStart.value = Math.max(0, total - effectiveWindowSize.value);
       await nextTick();
@@ -1480,10 +1746,242 @@ watch(
   { immediate: true },
 );
 
+// ── Partition Distribution ────────────────────────────────────────────────────
+
+interface PartitionBucket {
+  partition: string;
+  fileCount: number;
+  totalSize: number;
+  totalRecords: number;
+}
+
+const partitionChartRef = ref<HTMLElement | null>(null);
+const partitionData = ref<PartitionBucket[]>([]);
+const partitionLoading = ref(false);
+const partitionError = ref<string | null>(null);
+const partitionMetric = ref<'size' | 'files' | 'records'>('size');
+
+const partitionChartAvailable = computed(() => {
+  // Only show if we have the required props and the table is partitioned
+  if (!props.warehouseId || !props.namespaceId || !props.tableName || !props.catalogUrl) return false;
+  const specs = props.table.metadata['partition-specs'];
+  const defaultId = props.table.metadata['default-spec-id'];
+  if (!specs) return false;
+  const currentSpec = specs.find((s: any) => s['spec-id'] === defaultId) ?? specs[specs.length - 1];
+  return currentSpec?.fields && currentSpec.fields.length > 0;
+});
+
+const partitionSkewRatio = computed<number | null>(() => {
+  if (partitionData.value.length < 2) return null;
+  const metric = partitionMetric.value;
+  const values = partitionData.value
+    .map((d) => metric === 'size' ? d.totalSize : metric === 'files' ? d.fileCount : d.totalRecords)
+    .sort((a, b) => a - b);
+  const median = values[Math.floor(values.length / 2)];
+  const max = values[values.length - 1];
+  return median > 0 ? max / median : max > 0 ? Infinity : 1;
+});
+
+async function loadPartitionData() {
+  if (!props.warehouseId || !props.catalogUrl) return;
+  partitionLoading.value = true;
+  partitionError.value = null;
+
+  try {
+    await loqe.initialize();
+
+    // Load warehouse for name + project-id
+    const wh = await functions.getWarehouse(props.warehouseId);
+    const warehouseName = wh.name;
+
+    // Attach catalog if needed
+    const attached = loqe.attachedCatalogs.value;
+    if (!attached.some((c) => c.catalogName === warehouseName)) {
+      await loqe.attachCatalog({
+        catalogName: warehouseName,
+        restUri: props.catalogUrl,
+        accessToken: userStore.user.access_token,
+        projectId: wh['project-id'],
+      });
+    }
+
+    const tablePath = `"${warehouseName}"."${props.namespaceId}"."${props.tableName}"`;
+    const sql = `
+      SELECT
+        COALESCE(CAST(partition AS VARCHAR), '__unpartitioned__') AS partition_value,
+        COUNT(*) AS file_count,
+        SUM(file_size_in_bytes) AS total_size,
+        SUM(record_count) AS total_records
+      FROM iceberg_metadata(${tablePath})
+      WHERE content = 'DATA'
+      GROUP BY partition_value
+      ORDER BY total_size DESC
+    `;
+
+    const result = await loqe.query(sql);
+
+    const partColIdx = result.columns.indexOf('partition_value');
+    const filesColIdx = result.columns.indexOf('file_count');
+    const sizeColIdx = result.columns.indexOf('total_size');
+    const recsColIdx = result.columns.indexOf('total_records');
+
+    partitionData.value = result.rows.map((row: any[]) => ({
+      partition: String(row[partColIdx] ?? 'unknown'),
+      fileCount: Number(row[filesColIdx] ?? 0),
+      totalSize: Number(row[sizeColIdx] ?? 0),
+      totalRecords: Number(row[recsColIdx] ?? 0),
+    }));
+
+    await nextTick();
+    renderPartitionChart();
+  } catch (err: any) {
+    console.error('Failed to load partition data:', err);
+    const msg = err.message || String(err);
+    if (msg.includes('CORS') || msg.includes('Failed to fetch')) {
+      partitionError.value = 'Cannot query table metadata — CORS not configured for direct browser access to storage.';
+    } else {
+      partitionError.value = msg;
+    }
+  } finally {
+    partitionLoading.value = false;
+  }
+}
+
+function renderPartitionChart() {
+  const container = partitionChartRef.value;
+  if (!container || partitionData.value.length === 0) return;
+
+  d3.select(container).selectAll('svg').remove();
+
+  const metric = partitionMetric.value;
+  const data = partitionData.value.map((d) => ({
+    label: d.partition.length > 30 ? d.partition.slice(0, 27) + '…' : d.partition,
+    fullLabel: d.partition,
+    value: metric === 'size' ? d.totalSize : metric === 'files' ? d.fileCount : d.totalRecords,
+  }));
+
+  // Sort by value descending, limit to top 25
+  data.sort((a, b) => b.value - a.value);
+  const displayData = data.slice(0, 25);
+
+  const margin = { top: 8, right: 80, bottom: 18, left: 160 };
+  const barHeight = 22;
+  const gap = 2;
+  const height = margin.top + margin.bottom + displayData.length * (barHeight + gap);
+  const width = container.clientWidth || 500;
+
+  const svg = d3
+    .select(container)
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .style('font-family', "'Roboto Mono', monospace")
+    .style('font-size', '11px');
+
+  const maxVal = d3.max(displayData, (d) => d.value) ?? 1;
+
+  const xScale = d3
+    .scaleLinear()
+    .domain([0, maxVal])
+    .range([margin.left, width - margin.right]);
+
+  const yScale = d3
+    .scaleBand()
+    .domain(displayData.map((d) => d.label))
+    .range([margin.top, height - margin.bottom])
+    .padding(0.1);
+
+  // Compute median for skew coloring
+  const sortedValues = displayData.map((d) => d.value).sort((a, b) => a - b);
+  const median = sortedValues[Math.floor(sortedValues.length / 2)] || 1;
+
+  // Bars
+  svg
+    .selectAll('rect.bar')
+    .data(displayData)
+    .join('rect')
+    .attr('class', 'bar')
+    .attr('x', margin.left)
+    .attr('y', (d) => yScale(d.label)!)
+    .attr('width', (d) => Math.max(1, xScale(d.value) - margin.left))
+    .attr('height', yScale.bandwidth())
+    .attr('rx', 2)
+    .attr('fill', (d) => {
+      const ratio = median > 0 ? d.value / median : 1;
+      if (ratio > 10) return '#E53935';   // red — high skew
+      if (ratio > 3) return '#FB8C00';    // orange — moderate
+      if (ratio < 0.3) return '#42A5F5';  // blue — very small
+      return '#66BB6A';                    // green — balanced
+    })
+    .attr('opacity', 0.85);
+
+  // Partition labels on left
+  svg
+    .selectAll('text.label')
+    .data(displayData)
+    .join('text')
+    .attr('class', 'label')
+    .attr('x', margin.left - 6)
+    .attr('y', (d) => yScale(d.label)! + yScale.bandwidth() / 2)
+    .attr('dy', '0.35em')
+    .attr('text-anchor', 'end')
+    .attr('fill', 'currentColor')
+    .attr('opacity', 0.7)
+    .text((d) => d.label);
+
+  // Value labels on right of bars
+  svg
+    .selectAll('text.value')
+    .data(displayData)
+    .join('text')
+    .attr('class', 'value')
+    .attr('x', (d) => xScale(d.value) + 4)
+    .attr('y', (d) => yScale(d.label)! + yScale.bandwidth() / 2)
+    .attr('dy', '0.35em')
+    .attr('text-anchor', 'start')
+    .attr('fill', 'currentColor')
+    .attr('opacity', 0.6)
+    .text((d) => {
+      if (metric === 'size') return formatBytes(d.value);
+      return d.value.toLocaleString();
+    });
+
+  // Subtitle if truncated
+  if (data.length > 25) {
+    svg
+      .append('text')
+      .attr('x', width / 2)
+      .attr('y', height - 2)
+      .attr('text-anchor', 'middle')
+      .attr('fill', 'currentColor')
+      .attr('opacity', 0.5)
+      .attr('font-size', '10px')
+      .text(`Showing top 25 of ${data.length} partitions`);
+  }
+}
+
+// Re-render when metric changes
+watch(partitionMetric, async () => {
+  if (partitionData.value.length > 0) {
+    await nextTick();
+    renderPartitionChart();
+  }
+});
+
+// Auto-load partition data when chart becomes available
+watch(partitionChartAvailable, (available) => {
+  if (available && partitionData.value.length === 0) {
+    loadPartitionData();
+  }
+}, { immediate: true });
+
 // Clean up
 onBeforeUnmount(() => {
   if (healthChartRef.value) {
     d3.select(healthChartRef.value).selectAll('svg').remove();
+  }
+  if (partitionChartRef.value) {
+    d3.select(partitionChartRef.value).selectAll('svg').remove();
   }
 });
 </script>
@@ -1506,5 +2004,15 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   background: rgba(var(--v-theme-surface), 1);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.partition-chart-container {
+  width: 100%;
+  min-height: 60px;
+  border-radius: 6px;
+  background: rgba(var(--v-theme-surface), 1);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  overflow-y: auto;
+  max-height: 500px;
 }
 </style>
