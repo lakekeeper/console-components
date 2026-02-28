@@ -628,9 +628,8 @@
           divided
           color="primary"
           class="mr-2">
-          <v-btn value="size" size="x-small">Size</v-btn>
-          <v-btn value="files" size="x-small">Files</v-btn>
           <v-btn value="records" size="x-small">Records</v-btn>
+          <v-btn value="files" size="x-small">Files</v-btn>
         </v-btn-toggle>
         <v-btn
           v-if="!partitionData.length && !partitionLoading"
@@ -1751,7 +1750,6 @@ watch(
 interface PartitionBucket {
   partition: string;
   fileCount: number;
-  totalSize: number;
   totalRecords: number;
 }
 
@@ -1759,7 +1757,7 @@ const partitionChartRef = ref<HTMLElement | null>(null);
 const partitionData = ref<PartitionBucket[]>([]);
 const partitionLoading = ref(false);
 const partitionError = ref<string | null>(null);
-const partitionMetric = ref<'size' | 'files' | 'records'>('size');
+const partitionMetric = ref<'files' | 'records'>('records');
 
 const partitionChartAvailable = computed(() => {
   // Only show if we have the required props and the table is partitioned
@@ -1775,7 +1773,7 @@ const partitionSkewRatio = computed<number | null>(() => {
   if (partitionData.value.length < 2) return null;
   const metric = partitionMetric.value;
   const values = partitionData.value
-    .map((d) => metric === 'size' ? d.totalSize : metric === 'files' ? d.fileCount : d.totalRecords)
+    .map((d) => metric === 'files' ? d.fileCount : d.totalRecords)
     .sort((a, b) => a - b);
   const median = values[Math.floor(values.length / 2)];
   const max = values[values.length - 1];
@@ -1807,70 +1805,49 @@ async function loadPartitionData() {
 
     const tablePath = `"${warehouseName}"."${props.namespaceId}"."${props.tableName}"`;
 
-    // Discover available columns — iceberg_metadata schema varies across DuckDB versions
-    const discoverSql = `SELECT * FROM iceberg_metadata(${tablePath}) LIMIT 0`;
-    const discoverResult = await loqe.query(discoverSql);
-    const availableCols = discoverResult.columns.map((c: string) => c.toLowerCase());
-
-    // Resolve column name variations
-    const filePathCol = availableCols.find((c: string) => c === 'file_path' || c === 'data_file_path') ?? 'file_path';
-    const fileSizeCol = availableCols.find((c: string) => c === 'file_size_in_bytes') ?? 'file_size_in_bytes';
-    const recordCountCol = availableCols.find((c: string) => c === 'record_count') ?? 'record_count';
-    const contentCol = availableCols.find((c: string) => c === 'manifest_content' || c === 'content') ?? 'manifest_content';
-    const hasPartitionCol = availableCols.includes('partition');
-
-    let sql: string;
-    if (hasPartitionCol) {
-      sql = `
+    // Extract partition path segments from hive-style file paths
+    // e.g. .../data/region=US/date=2024-01-01/00001.parquet → "region=US/date=2024-01-01"
+    // iceberg_metadata columns: file_path, file_format, manifest_sequence_number,
+    //                           manifest_content, record_count
+    const sql = `
+      WITH files AS (
         SELECT
-          COALESCE(CAST(partition AS VARCHAR), '__unpartitioned__') AS partition_value,
-          COUNT(*) AS file_count,
-          SUM(${fileSizeCol}) AS total_size,
-          SUM(${recordCountCol}) AS total_records
+          record_count AS rcount,
+          CASE
+            WHEN file_path LIKE '%/data/%'
+            THEN regexp_extract(file_path, '.*/data/(.*)/[^/]+$', 1)
+            ELSE NULL
+          END AS partition_path
         FROM iceberg_metadata(${tablePath})
-        WHERE ${contentCol} = 'DATA'
-        GROUP BY partition_value
-        ORDER BY total_size DESC
-      `;
-    } else {
-      // Extract partition path segments from hive-style file paths
-      // e.g. .../data/region=US/date=2024-01-01/00001.parquet → "region=US/date=2024-01-01"
-      sql = `
-        WITH files AS (
-          SELECT
-            ${fileSizeCol} AS fsize,
-            ${recordCountCol} AS rcount,
-            CASE
-              WHEN ${filePathCol} LIKE '%/data/%'
-              THEN regexp_extract(${filePathCol}, '.*/data/(.*)/[^/]+$', 1)
-              ELSE NULL
-            END AS partition_path
-          FROM iceberg_metadata(${tablePath})
-          WHERE ${contentCol} = 'DATA'
-        )
-        SELECT
-          COALESCE(NULLIF(partition_path, ''), '__unpartitioned__') AS partition_value,
-          COUNT(*) AS file_count,
-          SUM(fsize) AS total_size,
-          SUM(rcount) AS total_records
-        FROM files
-        GROUP BY partition_value
-        ORDER BY total_size DESC
-      `;
-    }
+        WHERE manifest_content = 'DATA'
+      )
+      SELECT
+        COALESCE(NULLIF(partition_path, ''), '__unpartitioned__') AS partition_value,
+        COUNT(*) AS file_count,
+        SUM(rcount) AS total_records
+      FROM files
+      GROUP BY partition_value
+      ORDER BY total_records DESC
+    `;
 
     const result = await loqe.query(sql);
 
     const partColIdx = result.columns.indexOf('partition_value');
     const filesColIdx = result.columns.indexOf('file_count');
-    const sizeColIdx = result.columns.indexOf('total_size');
     const recsColIdx = result.columns.indexOf('total_records');
+
+    // Parse values — DuckDB BigInt comes back as quoted strings like '"5293"'
+    const parseBigInt = (v: any): number => {
+      if (v === null || v === undefined) return 0;
+      const s = String(v).replace(/"/g, '');
+      const n = Number(s);
+      return isNaN(n) ? 0 : n;
+    };
 
     partitionData.value = result.rows.map((row: any[]) => ({
       partition: String(row[partColIdx] ?? 'unknown'),
-      fileCount: Number(row[filesColIdx] ?? 0),
-      totalSize: Number(row[sizeColIdx] ?? 0),
-      totalRecords: Number(row[recsColIdx] ?? 0),
+      fileCount: parseBigInt(row[filesColIdx]),
+      totalRecords: parseBigInt(row[recsColIdx]),
     }));
 
     await nextTick();
@@ -1898,7 +1875,7 @@ function renderPartitionChart() {
   const data = partitionData.value.map((d) => ({
     label: d.partition.length > 30 ? d.partition.slice(0, 27) + '…' : d.partition,
     fullLabel: d.partition,
-    value: metric === 'size' ? d.totalSize : metric === 'files' ? d.fileCount : d.totalRecords,
+    value: metric === 'files' ? d.fileCount : d.totalRecords,
   }));
 
   // Sort by value descending, limit to top 25
@@ -1983,7 +1960,6 @@ function renderPartitionChart() {
     .attr('fill', 'currentColor')
     .attr('opacity', 0.6)
     .text((d) => {
-      if (metric === 'size') return formatBytes(d.value);
       return d.value.toLocaleString();
     });
 
