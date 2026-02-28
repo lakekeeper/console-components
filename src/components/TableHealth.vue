@@ -389,6 +389,7 @@ interface HealthCheck {
 
 // Branch selector for health analysis
 const branchOptions = computed(() => {
+  if (!props.table?.metadata) return [{ title: 'main', value: 'main' }];
   const refs = props.table.metadata.refs;
   if (!refs) return [{ title: 'main', value: 'main' }];
   return Object.entries(refs)
@@ -399,7 +400,7 @@ const branchOptions = computed(() => {
 const selectedBranch = ref<string>('main');
 
 const currentSnapshot = computed<Snapshot | null>(() => {
-  if (!props.table.metadata.snapshots || props.table.metadata.snapshots.length === 0) return null;
+  if (!props.table?.metadata?.snapshots || props.table.metadata.snapshots.length === 0) return null;
   return (
     props.table.metadata.snapshots.find(
       (snapshot: Snapshot) =>
@@ -409,6 +410,7 @@ const currentSnapshot = computed<Snapshot | null>(() => {
 });
 
 const healthBranchSnapshot = computed<Snapshot | null>(() => {
+  if (!props.table?.metadata) return null;
   const refs = props.table.metadata.refs;
   const allSnapshots = props.table.metadata.snapshots;
   if (!refs || !allSnapshots) return currentSnapshot.value;
@@ -438,6 +440,7 @@ const formatBytes = (bytes: number): string => {
 
 // Walk the selected branch by following parent-snapshot-id from branch tip
 const healthBranchSnapshots = computed<Snapshot[]>(() => {
+  if (!props.table?.metadata) return [];
   const allSnapshots = props.table.metadata.snapshots;
   if (!allSnapshots || allSnapshots.length === 0) return [];
   const snapshotMap = new Map<string, Snapshot>();
@@ -463,7 +466,7 @@ const healthBranchSnapshots = computed<Snapshot[]>(() => {
 });
 
 const healthChecks = computed<HealthCheck[]>(() => {
-  if (!healthBranchSnapshot.value?.summary) return [];
+  if (!props.table?.metadata || !healthBranchSnapshot.value?.summary) return [];
   const checks: HealthCheck[] = [];
 
   const dataFiles = healthSummaryNum('total-data-files-count', 'total-data-files');
@@ -1312,6 +1315,7 @@ const partitionChartAvailable = computed(() => {
   // Only show if we have the required props and the table is partitioned
   if (!props.warehouseId || !props.namespaceId || !props.tableName || !props.catalogUrl)
     return false;
+  if (!props.table?.metadata) return false;
   const specs = props.table.metadata['partition-specs'];
   const defaultId = props.table.metadata['default-spec-id'];
   if (!specs) return false;
