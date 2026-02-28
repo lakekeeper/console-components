@@ -2,9 +2,17 @@
   <v-card variant="outlined" class="mb-4" elevation="1">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
-        <v-icon class="mr-2" :color="recommendedActions.length > 0 ? 'warning' : 'success'">
+        <v-icon
+          class="mr-2"
+          :color="
+            recommendedActions.length > 0 ? 'warning' : partitionLoading ? 'grey' : 'success'
+          ">
           {{
-            recommendedActions.length > 0 ? 'mdi-lightbulb-on-outline' : 'mdi-check-circle-outline'
+            recommendedActions.length > 0
+              ? 'mdi-lightbulb-on-outline'
+              : partitionLoading
+                ? 'mdi-timer-sand'
+                : 'mdi-check-circle-outline'
           }}
         </v-icon>
         Recommended Actions
@@ -148,6 +156,9 @@
         size="small"
         variant="flat">
         {{ recommendedActions.length }} action{{ recommendedActions.length !== 1 ? 's' : '' }}
+      </v-chip>
+      <v-chip v-else-if="partitionLoading" color="grey" size="small" variant="flat">
+        Analyzing…
       </v-chip>
       <v-chip v-else color="success" size="small" variant="flat">No issues</v-chip>
     </v-toolbar>
@@ -296,7 +307,10 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
   const partCount = partitions.length;
   const isPartitioned = props.isPartitioned ?? false;
   const skew = props.skewRatio ?? null;
-  const isBalanced = skew !== null && skew < 2;
+  // A skew < 5x means the distribution is "balanced enough" that compaction across
+  // partition boundaries won't help — the root cause is too many partitions.
+  // This aligns with the dedicated skew action threshold (> 5x).
+  const isBalanced = skew === null || skew < 5;
   const filesPerPartition = partCount > 0 && dataFiles ? dataFiles / partCount : 0;
   const avgRecordsPerPartition = partCount > 0 && totalRecords ? totalRecords / partCount : 0;
 
@@ -320,16 +334,17 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
       : hasDayTransform
         ? 'Consider month() or year() instead of day() to produce fewer, larger partitions.'
         : 'Reduce partition cardinality by using coarser transforms (e.g., month instead of day, bucket instead of identity).';
+    const skewDesc = skew !== null ? `${skew.toFixed(1)}x skew` : 'no extreme skew';
     actions.push({
       title: 'Over-partitioned — repartition with coarser granularity',
-      description: `${partCount} partitions produce only ~${filesPerPartition.toFixed(1)} file${filesPerPartition >= 1.5 ? 's' : ''}/partition (avg ${formatBytes(avgFileSize!)}). Distribution is balanced (${skew!.toFixed(1)}x skew), so compaction cannot merge files across partition boundaries. ${coarserSuggestion}`,
+      description: `${partCount} partitions produce only ~${filesPerPartition.toFixed(1)} file${filesPerPartition >= 1.5 ? 's' : ''}/partition (avg ${formatBytes(avgFileSize!)}). Distribution shows ${skewDesc}, so compaction cannot merge files across partition boundaries. ${coarserSuggestion}`,
       severity: hasVerySmallFiles ? 'critical' : 'warning',
       color: hasVerySmallFiles ? 'error' : 'warning',
       icon: 'mdi-table-split-cell',
       correlations: [
         `${partCount} partitions, ${dataFiles} files → ${filesPerPartition.toFixed(1)} files/partition`,
         `Avg file size: ${formatBytes(avgFileSize!)} (target: 128–512 MB)`,
-        `Skew: ${skew!.toFixed(1)}x (balanced — compaction ineffective)`,
+        skew !== null ? `Skew: ${skew.toFixed(1)}x (compaction ineffective)` : '',
         `Current partition: ${partitionFieldNames}`,
         avgRecordsPerPartition > 0
           ? `Avg records/partition: ${avgRecordsPerPartition.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -338,8 +353,32 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
     });
   }
 
-  // ── 2. Compaction effective: small files + (unpartitioned OR few partitions with many files each)
-  else if (hasSmallFiles && (!isPartitioned || partCount === 0 || filesPerPartition >= 4)) {
+  // ── 1b. Over-partitioning (no DuckDB data): small files + partitioned with identity transform
+  // When partition distribution data is unavailable, we can still flag likely over-partitioning
+  // based on identity transforms which typically produce high-cardinality partitions
+  else if (
+    hasSmallFiles &&
+    isPartitioned &&
+    partCount === 0 &&
+    !props.partitionLoading &&
+    hasIdentityTransform
+  ) {
+    actions.push({
+      title: 'Likely over-partitioned — consider coarser granularity',
+      description: `${dataFiles} small files (avg ${formatBytes(avgFileSize!)}) on a table partitioned by ${partitionFieldNames}. identity() transforms often produce high-cardinality partitions where compaction is ineffective. Consider bucket() or truncate() instead.`,
+      severity: 'warning',
+      color: 'warning',
+      icon: 'mdi-table-split-cell',
+      correlations: [
+        `${dataFiles} data files, avg ${formatBytes(avgFileSize!)}`,
+        `Current partition: ${partitionFieldNames}`,
+        'Partition distribution unavailable — estimate based on partition spec',
+      ],
+    });
+  }
+
+  // ── 2. Compaction effective: small files + (unpartitioned OR enough files per partition to merge)
+  else if (hasSmallFiles && (!isPartitioned || (partCount > 0 && filesPerPartition >= 4))) {
     const skewNote =
       skew !== null && skew > 2
         ? ` Partition skew is ${skew.toFixed(1)}x — focus compaction on the largest partitions first.`
