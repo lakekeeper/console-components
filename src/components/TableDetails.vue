@@ -451,10 +451,10 @@ const getCurrentSchema = () => {
 
 const getCurrentSnapshot = (): Snapshot | null => {
   if (!props.table.metadata.snapshots || props.table.metadata.snapshots.length === 0) return null;
+  const currentId = String(props.table.metadata['current-snapshot-id']);
   return (
     props.table.metadata.snapshots.find(
-      (snapshot: Snapshot) =>
-        snapshot['snapshot-id'] === props.table.metadata['current-snapshot-id'],
+      (snapshot: Snapshot) => String(snapshot['snapshot-id']) === currentId,
     ) || null
   );
 };
