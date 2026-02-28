@@ -667,7 +667,12 @@
               </p>
               <p class="mb-3 font-weight-medium">Add this CORS configuration to your bucket (S3 / GCS / MinIO / R2):</p>
               <div class="position-relative">
-                <pre class="pa-3 rounded" style="background: rgb(var(--v-theme-surface-variant)); overflow-x: auto; font-size: 0.8rem; line-height: 1.4;">{{ corsConfigJson }}</pre>
+                <vue-json-pretty
+                  :data="corsConfigData"
+                  :deep="3"
+                  :theme="corsTheme"
+                  :showLineNumber="false"
+                  :virtual="false" />
                 <v-btn
                   :icon="corsCopied ? 'mdi-check' : 'mdi-content-copy'"
                   :color="corsCopied ? 'success' : 'default'"
@@ -764,9 +769,12 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onBeforeUnmount, inject } from 'vue';
 import * as d3 from 'd3';
+import VueJsonPretty from 'vue-json-pretty';
+import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
+import { useVisualStore } from '../stores/visual';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import { transformFields } from '../common/schemaUtils';
 import type {
@@ -790,6 +798,9 @@ const functions = useFunctions();
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
+const visual = useVisualStore();
+
+const corsTheme = computed(() => (visual.themeLight ? 'light' : 'dark'));
 
 // Methods
 const truncatePath = (path: string, maxLen = 10): string => {
@@ -1847,9 +1858,9 @@ const partitionMetric = ref<'files' | 'records'>('records');
 const showCorsDialog = ref(false);
 const corsCopied = ref(false);
 
-const corsConfigJson = computed(() => {
+const corsConfigData = computed(() => {
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-console.example.com';
-  return JSON.stringify([
+  return [
     {
       AllowedOrigins: [origin],
       AllowedMethods: ['GET', 'HEAD'],
@@ -1857,8 +1868,10 @@ const corsConfigJson = computed(() => {
       ExposeHeaders: ['Content-Length', 'Content-Range', 'ETag', 'x-amz-request-id'],
       MaxAgeSeconds: 3600,
     },
-  ], null, 2);
+  ];
 });
+
+const corsConfigJson = computed(() => JSON.stringify(corsConfigData.value, null, 2));
 
 function copyCorsConfig() {
   navigator.clipboard.writeText(corsConfigJson.value).then(() => {
