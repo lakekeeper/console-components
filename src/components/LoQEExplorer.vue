@@ -446,7 +446,13 @@
                     <pre class="text-caption mt-1" style="white-space: pre-wrap">{{
                       activeError
                     }}</pre>
-                    <template v-if="activeError.includes('CORS') || activeError.includes('Failed to fetch') || activeError.includes('HTTP Error')" #append>
+                    <template
+                      v-if="
+                        activeError.includes('CORS') ||
+                        activeError.includes('Failed to fetch') ||
+                        activeError.includes('HTTP Error')
+                      "
+                      #append>
                       <CorsConfigDialog />
                     </template>
                   </v-alert>

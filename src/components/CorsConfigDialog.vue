@@ -18,9 +18,9 @@
       <v-divider></v-divider>
       <v-card-text class="text-body-2">
         <p class="mb-3">
-          To allow DuckDB in the browser to read Iceberg metadata files directly from
-          object storage, the storage bucket must have a CORS policy that permits
-          requests from your console origin.
+          To allow DuckDB in the browser to read Iceberg metadata files directly from object
+          storage, the storage bucket must have a CORS policy that permits requests from your
+          console origin.
         </p>
         <p class="mb-3 font-weight-medium">
           Add this CORS configuration to your bucket (S3 / GCS / MinIO / R2):
@@ -37,7 +37,7 @@
             :color="copied ? 'success' : 'default'"
             size="x-small"
             variant="text"
-            style="position: absolute; top: 4px; right: 4px;"
+            style="position: absolute; top: 4px; right: 4px"
             @click="copyConfig"></v-btn>
         </div>
         <v-table density="compact" class="mt-3">
@@ -100,9 +100,7 @@ const jsonTheme = computed(() => (visual.themeLight ? 'light' : 'dark'));
 
 const corsConfigData = computed(() => {
   const origin =
-    typeof window !== 'undefined'
-      ? window.location.origin
-      : 'https://your-console.example.com';
+    typeof window !== 'undefined' ? window.location.origin : 'https://your-console.example.com';
   return [
     {
       AllowedOrigins: [origin],
