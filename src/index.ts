@@ -36,6 +36,7 @@ import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
 import TableHeader from './components/TableHeader.vue';
 import TableDetails from './components/TableDetails.vue';
+import TableHealth from './components/TableHealth.vue';
 import TableBranchVisualization from './components/TableBranchVisualization.vue';
 import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
 import TableOverview from './components/TableOverview.vue';
@@ -259,6 +260,7 @@ const components = {
   NamespaceHeader,
   TableHeader,
   TableDetails,
+  TableHealth,
   TableBranchVisualization,
   TableSnapshotDetails,
   TableOverview,
