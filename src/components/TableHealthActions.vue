@@ -1,9 +1,5 @@
 <template>
-  <v-card
-    v-if="recommendedActions.length > 0"
-    variant="outlined"
-    class="mb-4"
-    elevation="1">
+  <v-card v-if="recommendedActions.length > 0" variant="outlined" class="mb-4" elevation="1">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
         <v-icon class="mr-2" color="warning">mdi-lightbulb-on-outline</v-icon>
@@ -69,17 +65,15 @@
               </p>
 
               <h4 class="text-subtitle-2 mb-1">
-                <v-icon size="small" color="warning" class="mr-1"
-                  >mdi-scale-unbalanced</v-icon
-                >
+                <v-icon size="small" color="warning" class="mr-1">mdi-scale-unbalanced</v-icon>
                 Partition Skew
               </h4>
               <p class="mb-3">
                 Flagged when the largest partition is
                 <strong>&gt; 5×</strong>
-                the median by record count. Skewed partitions cause uneven query performance —
-                some queries scan much more data than others. May indicate the partition key has
-                a highly non-uniform distribution.
+                the median by record count. Skewed partitions cause uneven query performance — some
+                queries scan much more data than others. May indicate the partition key has a highly
+                non-uniform distribution.
               </p>
 
               <h4 class="text-subtitle-2 mb-1">
@@ -96,14 +90,14 @@
               </p>
 
               <h4 class="text-subtitle-2 mb-1">
-                <v-icon size="small" color="info" class="mr-1"
-                  >mdi-arrow-up-bold-circle-outline</v-icon
-                >
+                <v-icon size="small" color="info" class="mr-1">
+                  mdi-arrow-up-bold-circle-outline
+                </v-icon>
                 Format Upgrade
               </h4>
               <p class="mb-3">
-                Tables on Iceberg format v1 miss row-level deletes, improved column statistics,
-                and full schema evolution. Upgrading to
+                Tables on Iceberg format v1 miss row-level deletes, improved column statistics, and
+                full schema evolution. Upgrading to
                 <strong>v2</strong>
                 is non-destructive and enables modern features.
               </p>
@@ -115,8 +109,8 @@
               <p class="mb-3">
                 For tables
                 <strong>&gt; 1 GB</strong>
-                without a sort order, sorting on high-selectivity columns enables min/max
-                metadata pruning during query planning and improves data locality.
+                without a sort order, sorting on high-selectivity columns enables min/max metadata
+                pruning during query planning and improves data locality.
               </p>
 
               <h4 class="text-subtitle-2 mb-1">
@@ -124,12 +118,11 @@
                 Write Batch Size
               </h4>
               <p>
-                For unpartitioned tables with very small files (&lt; 1 MB avg), the issue is
-                likely at the
+                For unpartitioned tables with very small files (&lt; 1 MB avg), the issue is likely
+                at the
                 <strong>writer</strong>
-                level — commits happen too frequently with too little data. Buffering more data
-                or using a streaming framework that batches commits resolves this without
-                compaction.
+                level — commits happen too frequently with too little data. Buffering more data or
+                using a streaming framework that batches commits resolves this without compaction.
               </p>
             </v-card-text>
             <v-card-actions>
@@ -154,10 +147,7 @@
     </v-toolbar>
     <v-divider></v-divider>
     <v-list lines="three" density="compact">
-      <v-list-item
-        v-for="(action, idx) in recommendedActions"
-        :key="idx"
-        class="py-2">
+      <v-list-item v-for="(action, idx) in recommendedActions" :key="idx" class="py-2">
         <template #prepend>
           <v-icon :color="action.color" class="mt-1">{{ action.icon }}</v-icon>
         </template>
@@ -254,8 +244,7 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
   const totalRecords = summaryNum('total-records-count', 'total-records');
   const deleteFiles = summaryNum('total-delete-files-count', 'total-delete-files');
   const totalSnapshotCount = props.metadata.snapshots?.length ?? 0;
-  const avgFileSize =
-    dataFiles && totalSize && dataFiles > 0 ? totalSize / dataFiles : null;
+  const avgFileSize = dataFiles && totalSize && dataFiles > 0 ? totalSize / dataFiles : null;
   const hasSmallFiles =
     avgFileSize !== null && avgFileSize < 8 * 1024 * 1024 && (dataFiles ?? 0) > 1;
   const hasVerySmallFiles =
@@ -268,8 +257,7 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
   const skew = props.skewRatio ?? null;
   const isBalanced = skew !== null && skew < 2;
   const filesPerPartition = partCount > 0 && dataFiles ? dataFiles / partCount : 0;
-  const avgRecordsPerPartition =
-    partCount > 0 && totalRecords ? totalRecords / partCount : 0;
+  const avgRecordsPerPartition = partCount > 0 && totalRecords ? totalRecords / partCount : 0;
 
   // Partition spec info
   const specs = props.metadata['partition-specs'];
@@ -281,19 +269,11 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
   const partitionFieldNames = partitionFields
     .map((f: any) => `${f.transform}(${f.name || `col-${f['source-id']}`})`)
     .join(', ');
-  const hasIdentityTransform = partitionFields.some(
-    (f: any) => f.transform === 'identity',
-  );
+  const hasIdentityTransform = partitionFields.some((f: any) => f.transform === 'identity');
   const hasDayTransform = partitionFields.some((f: any) => f.transform === 'day');
 
   // ── 1. Over-partitioning: small files + many partitions + balanced + ~1 file/partition
-  if (
-    hasSmallFiles &&
-    isPartitioned &&
-    partCount > 0 &&
-    isBalanced &&
-    filesPerPartition < 4
-  ) {
+  if (hasSmallFiles && isPartitioned && partCount > 0 && isBalanced && filesPerPartition < 4) {
     const coarserSuggestion = hasIdentityTransform
       ? 'Replace identity() transforms with bucket() or truncate() to reduce cardinality.'
       : hasDayTransform
@@ -318,10 +298,7 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
   }
 
   // ── 2. Compaction effective: small files + (unpartitioned OR few partitions with many files each)
-  else if (
-    hasSmallFiles &&
-    (!isPartitioned || partCount === 0 || filesPerPartition >= 4)
-  ) {
+  else if (hasSmallFiles && (!isPartitioned || partCount === 0 || filesPerPartition >= 4)) {
     const skewNote =
       skew !== null && skew > 2
         ? ` Partition skew is ${skew.toFixed(1)}x — focus compaction on the largest partitions first.`
@@ -348,10 +325,8 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
     actions.push({
       title: 'Compact to merge delete files',
       description: `${deleteFiles} delete file${deleteFiles > 1 ? 's' : ''} cause merge-on-read overhead at query time. Compaction will merge deletes into data files, eliminating the read penalty.`,
-      severity:
-        deleteRatio > 0.5 || deleteFiles > 100 ? 'critical' : 'warning',
-      color:
-        deleteRatio > 0.5 || deleteFiles > 100 ? 'error' : 'warning',
+      severity: deleteRatio > 0.5 || deleteFiles > 100 ? 'critical' : 'warning',
+      color: deleteRatio > 0.5 || deleteFiles > 100 ? 'error' : 'warning',
       icon: 'mdi-delete-sweep-outline',
       correlations: [
         `${deleteFiles} delete files / ${dataFiles ?? '?'} data files (ratio: ${deleteRatio.toFixed(2)})`,
@@ -363,9 +338,7 @@ const recommendedActions = computed<RecommendedAction[]>(() => {
   if (skew !== null && skew > 5 && isPartitioned && !hasSmallFiles) {
     const largest =
       partitions.length > 0
-        ? partitions.reduce((a, b) =>
-            a.totalRecords > b.totalRecords ? a : b,
-          )
+        ? partitions.reduce((a, b) => (a.totalRecords > b.totalRecords ? a : b))
         : null;
     actions.push({
       title: 'Rebalance skewed partitions',
