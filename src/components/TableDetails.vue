@@ -1630,7 +1630,8 @@ function renderHealthChart() {
     .append('svg')
     .attr('width', width)
     .attr('height', height)
-    .style('display', 'block');
+    .style('display', 'block')
+    .style('color', 'inherit');
 
   const defs = svg.append('defs');
 
@@ -1682,7 +1683,7 @@ function renderHealthChart() {
         .tickFormat(() => ''),
     )
     .selectAll('line')
-    .attr('stroke', 'rgba(var(--v-theme-on-surface), 0.06)');
+    .style('stroke', 'rgba(var(--v-theme-on-surface), 0.06)');
   g.select('.grid .domain').remove();
 
   // Area + Line (need 2+ points)
@@ -1727,7 +1728,7 @@ function renderHealthChart() {
     .attr('cy', (d) => yScale(d.value))
     .attr('r', data.length === 1 ? 6 : data.length > 30 ? 2.5 : 4)
     .attr('fill', (d) => opColorMap[d.operation] ?? metric.color)
-    .attr('stroke', 'rgba(var(--v-theme-surface), 1)')
+    .style('stroke', 'rgba(var(--v-theme-surface), 1)')
     .attr('stroke-width', 1.5)
     .style('cursor', 'pointer');
 
@@ -1764,7 +1765,7 @@ function renderHealthChart() {
     .call(xAxis)
     .selectAll('text')
     .attr('font-size', '9px')
-    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
+    .style('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
 
   // Y axis
   const yAxis = d3
@@ -1776,10 +1777,10 @@ function renderHealthChart() {
     .call(yAxis)
     .selectAll('text')
     .attr('font-size', '9px')
-    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
+    .style('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
 
   // Remove axis domain lines
-  g.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
+  g.selectAll('.domain').style('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
 }
 
 // Watch metric selection, branch data, slider position, and window size
@@ -1981,7 +1982,8 @@ function renderPartitionChart() {
     .attr('width', svgWidth)
     .attr('height', height)
     .style('font-family', "'Roboto Mono', monospace")
-    .style('font-size', '10px');
+    .style('font-size', '10px')
+    .style('color', 'inherit');
 
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
 
@@ -2016,7 +2018,7 @@ function renderPartitionChart() {
       d3.axisLeft(yScale).ticks(5).tickSize(-chartW).tickFormat(() => ''),
     )
     .selectAll('line')
-    .attr('stroke', 'rgba(var(--v-theme-on-surface), 0.06)');
+    .style('stroke', 'rgba(var(--v-theme-on-surface), 0.06)');
   g.select('.grid .domain').remove();
 
   // Median reference line
@@ -2093,7 +2095,7 @@ function renderPartitionChart() {
       }
     });
 
-  xAxis.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
+  xAxis.selectAll('.domain').style('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
 
   // Y axis
   const yAxis = d3
@@ -2110,9 +2112,9 @@ function renderPartitionChart() {
     .call(yAxis)
     .selectAll('text')
     .attr('font-size', '9px')
-    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
+    .style('fill', 'rgba(var(--v-theme-on-surface), 0.5)');
 
-  g.selectAll('.domain').attr('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
+  g.selectAll('.domain').style('stroke', 'rgba(var(--v-theme-on-surface), 0.1)');
 }
 
 // Re-render when metric changes
@@ -2169,6 +2171,7 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   background: rgba(var(--v-theme-surface), 1);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), 1);
 }
 
 .partition-chart-container {
@@ -2177,6 +2180,7 @@ onBeforeUnmount(() => {
   border-radius: 6px;
   background: rgba(var(--v-theme-surface), 1);
   border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), 1);
   overflow-x: auto;
   overflow-y: hidden;
 }
