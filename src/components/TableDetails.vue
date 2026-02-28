@@ -641,83 +641,9 @@
         <v-alert type="warning" variant="tonal" density="compact" class="text-body-2">
           {{ partitionError }}
           <template v-if="partitionError.includes('CORS')" #append>
-            <v-btn
-              size="x-small"
-              variant="outlined"
-              color="warning"
-              prepend-icon="mdi-cog-outline"
-              @click="showCorsDialog = true">
-              Configure CORS
-            </v-btn>
+            <CorsConfigDialog />
           </template>
         </v-alert>
-
-        <v-dialog v-model="showCorsDialog" max-width="620">
-          <v-card>
-            <v-card-title class="d-flex align-center">
-              <v-icon class="mr-2" color="warning">mdi-shield-lock-outline</v-icon>
-              CORS Configuration
-            </v-card-title>
-            <v-divider></v-divider>
-            <v-card-text class="text-body-2">
-              <p class="mb-3">
-                To allow DuckDB in the browser to read Iceberg metadata files directly from
-                object storage, the storage bucket must have a CORS policy that permits
-                requests from your console origin.
-              </p>
-              <p class="mb-3 font-weight-medium">Add this CORS configuration to your bucket (S3 / GCS / MinIO / R2):</p>
-              <div class="position-relative">
-                <vue-json-pretty
-                  :data="corsConfigData"
-                  :deep="3"
-                  :theme="corsTheme"
-                  :showLineNumber="false"
-                  :virtual="false" />
-                <v-btn
-                  :icon="corsCopied ? 'mdi-check' : 'mdi-content-copy'"
-                  :color="corsCopied ? 'success' : 'default'"
-                  size="x-small"
-                  variant="text"
-                  style="position: absolute; top: 4px; right: 4px;"
-                  @click="copyCorsConfig"></v-btn>
-              </div>
-              <v-table density="compact" class="mt-3">
-                <thead>
-                  <tr>
-                    <th>Field</th>
-                    <th>Why</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td><code>AllowedOrigins</code></td>
-                    <td>Your console origin — where the browser request comes from</td>
-                  </tr>
-                  <tr>
-                    <td><code>GET, HEAD</code></td>
-                    <td>Read manifest &amp; metadata files (no writes needed)</td>
-                  </tr>
-                  <tr>
-                    <td><code>Range</code></td>
-                    <td>DuckDB uses byte-range requests to read Parquet/Avro chunks</td>
-                  </tr>
-                  <tr>
-                    <td><code>Authorization</code></td>
-                    <td>Pass vended credentials (SigV4 / bearer token)</td>
-                  </tr>
-                  <tr>
-                    <td><code>ExposeHeaders</code></td>
-                    <td>Let the browser read Content-Length, ETag etc. from responses</td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-card-text>
-            <v-card-actions>
-              <v-spacer></v-spacer>
-              <v-btn variant="text" @click="showCorsDialog = false">Close</v-btn>
-            </v-card-actions>
-          </v-card>
-        </v-dialog>
       </div>
       <div v-else-if="partitionData.length > 0" class="pa-3">
         <div ref="partitionChartRef" class="partition-chart-container"></div>
@@ -769,12 +695,10 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onBeforeUnmount, inject } from 'vue';
 import * as d3 from 'd3';
-import VueJsonPretty from 'vue-json-pretty';
-import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
-import { useVisualStore } from '../stores/visual';
+import CorsConfigDialog from './CorsConfigDialog.vue';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import { transformFields } from '../common/schemaUtils';
 import type {
@@ -798,9 +722,6 @@ const functions = useFunctions();
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
-const visual = useVisualStore();
-
-const corsTheme = computed(() => (visual.themeLight ? 'light' : 'dark'));
 
 // Methods
 const truncatePath = (path: string, maxLen = 10): string => {
@@ -1855,30 +1776,6 @@ const partitionData = ref<PartitionBucket[]>([]);
 const partitionLoading = ref(false);
 const partitionError = ref<string | null>(null);
 const partitionMetric = ref<'files' | 'records'>('records');
-const showCorsDialog = ref(false);
-const corsCopied = ref(false);
-
-const corsConfigData = computed(() => {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-console.example.com';
-  return [
-    {
-      AllowedOrigins: [origin],
-      AllowedMethods: ['GET', 'HEAD'],
-      AllowedHeaders: ['Range', 'Authorization', 'Content-Type'],
-      ExposeHeaders: ['Content-Length', 'Content-Range', 'ETag', 'x-amz-request-id'],
-      MaxAgeSeconds: 3600,
-    },
-  ];
-});
-
-const corsConfigJson = computed(() => JSON.stringify(corsConfigData.value, null, 2));
-
-function copyCorsConfig() {
-  navigator.clipboard.writeText(corsConfigJson.value).then(() => {
-    corsCopied.value = true;
-    setTimeout(() => { corsCopied.value = false; }, 2000);
-  });
-}
 
 const partitionChartAvailable = computed(() => {
   // Only show if we have the required props and the table is partitioned

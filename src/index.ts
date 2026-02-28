@@ -318,6 +318,7 @@ export {
 } from './stores/duckdbSettings';
 export type { DuckDBSettings } from './stores/duckdbSettings';
 export { default as DuckDBSettingsDialog } from './components/DuckDBSettingsDialog.vue';
+export { default as CorsConfigDialog } from './components/CorsConfigDialog.vue';
 
 // Export LoQE — Local Query Engine DuckDB
 export { useLoQE } from './composables/useLoQE';

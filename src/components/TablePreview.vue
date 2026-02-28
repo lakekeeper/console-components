@@ -39,6 +39,9 @@
     <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
       <div class="text-body-1 font-weight-bold mb-2">Failed to load preview</div>
       <div class="text-body-2">{{ error }}</div>
+      <template v-if="error.includes('CORS')" #append>
+        <CorsConfigDialog />
+      </template>
     </v-alert>
 
     <!-- Results -->
@@ -121,6 +124,7 @@ import { useUserStore } from '@/stores/user';
 import { useLoQE } from '@/composables/useLoQE';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
+import CorsConfigDialog from './CorsConfigDialog.vue';
 
 // Local types for json-bigint parsed metadata (BigInt IDs stored as strings)
 interface BigIntSnapshot {
