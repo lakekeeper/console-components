@@ -358,6 +358,15 @@
       </div>
     </div>
   </v-card>
+
+  <!-- Recommended Actions -->
+  <TableHealthActions
+    v-if="resolvedTable?.metadata && healthBranchSnapshot?.summary"
+    :metadata="resolvedTable.metadata"
+    :snapshot-summary="healthBranchSnapshot.summary"
+    :partition-data="partitionData"
+    :is-partitioned="partitionChartAvailable"
+    :skew-ratio="partitionSkewRatio" />
 </template>
 
 <script setup lang="ts">
@@ -367,6 +376,7 @@ import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import CorsConfigDialog from './CorsConfigDialog.vue';
+import TableHealthActions from './TableHealthActions.vue';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
 // Props
