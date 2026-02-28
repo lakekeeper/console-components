@@ -7,7 +7,9 @@
   <v-alert v-else-if="tableError" type="error" variant="tonal" density="compact" class="mb-4">
     {{ tableError }}
   </v-alert>
-  <v-card v-else-if="healthChecks.length > 0" variant="outlined" class="mb-4" elevation="1">
+  <v-row v-else-if="healthChecks.length > 0" dense class="mb-4">
+  <v-col cols="12" md="6">
+  <v-card variant="outlined" elevation="1" class="h-100">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
         <v-icon class="mr-2" :color="overallHealthColor">mdi-heart-pulse</v-icon>
@@ -201,43 +203,65 @@
       </v-expansion-panel>
     </v-expansion-panels>
 
-    <!-- Snapshot Trends Chart -->
-    <div v-if="healthBranchSnapshots.length > 0">
-      <v-divider></v-divider>
-      <div class="pa-3">
-        <div class="d-flex align-center mb-2">
-          <v-icon size="small" class="mr-2" color="primary">mdi-chart-areaspline</v-icon>
-          <span class="text-subtitle-2 font-weight-medium">Snapshot Trends</span>
-          <v-spacer></v-spacer>
-          <v-select
-            v-model="selectedMetric"
-            :items="availableMetrics"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"
-            class="mr-2"></v-select>
-        </div>
-        <div ref="healthChartRef" class="health-chart-container"></div>
-        <div v-if="allChartPoints.length > 1" class="mt-2 d-flex align-center">
-          <v-btn-toggle
-            v-model="chartWindowSize"
-            mandatory
-            density="compact"
-            variant="outlined"
-            divided
-            color="primary">
-            <v-btn v-for="opt in chartWindowOptions" :key="opt" :value="opt" size="x-small">
-              {{ opt }}
-            </v-btn>
-            <v-btn :value="allChartPoints.length" size="x-small">All</v-btn>
-          </v-btn-toggle>
-          <span
-            v-if="allChartPoints.length > effectiveWindowSize"
-            class="text-caption text-medium-emphasis ml-3">
-            showing {{ effectiveWindowSize }} of {{ allChartPoints.length }} snapshots
-          </span>
-        </div>
+  </v-card>
+  </v-col>
+
+  <!-- Recommended Actions -->
+  <v-col cols="12" md="6">
+    <TableHealthActions
+      v-if="resolvedTable?.metadata && healthBranchSnapshot?.summary"
+      :metadata="resolvedTable.metadata"
+      :snapshot-summary="healthBranchSnapshot.summary"
+      :partition-data="partitionData"
+      :is-partitioned="isTablePartitioned"
+      :skew-ratio="partitionSkewRatio"
+      :partition-loading="partitionLoading"
+      class="h-100" />
+  </v-col>
+  </v-row>
+
+  <!-- Snapshot Trends Chart -->
+  <v-card
+    v-if="healthChecks.length > 0 && healthBranchSnapshots.length > 0"
+    variant="outlined"
+    class="mb-4"
+    elevation="1">
+    <v-toolbar color="transparent" density="compact" flat>
+      <v-toolbar-title class="text-subtitle-1">
+        <v-icon class="mr-2" color="primary">mdi-chart-areaspline</v-icon>
+        Snapshot Trends
+      </v-toolbar-title>
+      <v-spacer></v-spacer>
+      <v-select
+        v-model="selectedMetric"
+        :items="availableMetrics"
+        density="compact"
+        variant="outlined"
+        hide-details
+        style="max-width: 220px"
+        class="mr-2"></v-select>
+    </v-toolbar>
+    <v-divider></v-divider>
+    <div class="pa-3">
+      <div ref="healthChartRef" class="health-chart-container"></div>
+      <div v-if="allChartPoints.length > 1" class="mt-2 d-flex align-center">
+        <v-btn-toggle
+          v-model="chartWindowSize"
+          mandatory
+          density="compact"
+          variant="outlined"
+          divided
+          color="primary">
+          <v-btn v-for="opt in chartWindowOptions" :key="opt" :value="opt" size="x-small">
+            {{ opt }}
+          </v-btn>
+          <v-btn :value="allChartPoints.length" size="x-small">All</v-btn>
+        </v-btn-toggle>
+        <span
+          v-if="allChartPoints.length > effectiveWindowSize"
+          class="text-caption text-medium-emphasis ml-3">
+          showing {{ effectiveWindowSize }} of {{ allChartPoints.length }} snapshots
+        </span>
       </div>
     </div>
   </v-card>
@@ -359,15 +383,6 @@
     </div>
   </v-card>
 
-  <!-- Recommended Actions -->
-  <TableHealthActions
-    v-if="resolvedTable?.metadata && healthBranchSnapshot?.summary"
-    :metadata="resolvedTable.metadata"
-    :snapshot-summary="healthBranchSnapshot.summary"
-    :partition-data="partitionData"
-    :is-partitioned="isTablePartitioned"
-    :skew-ratio="partitionSkewRatio"
-    :partition-loading="partitionLoading" />
 </template>
 
 <script setup lang="ts">
