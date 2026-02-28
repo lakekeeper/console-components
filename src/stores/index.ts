@@ -10,3 +10,5 @@ export default pinia;
 // Export stores
 export { useNavigationStore } from './navigation';
 export type { NavigationState } from './navigation';
+export { useVisualStore } from './visual';
+export type { PolicyBuilderState } from './visual';

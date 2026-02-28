@@ -19,6 +19,15 @@ export interface WarehouseSqlData {
   tabs: SqlTab[];
 }
 
+// Cedar Policy Builder draft state
+export interface PolicyBuilderState {
+  effect: 'permit' | 'forbid';
+  principal: string;
+  action: string;
+  resource: string;
+  conditions: string[];
+}
+
 export const useVisualStore = defineStore(
   'visual',
   () => {
@@ -44,6 +53,16 @@ export const useVisualStore = defineStore(
 
     // Requested tab for namespace detail page (set by navigation tree context menu)
     const requestedNamespaceTab = ref<string | null>(null);
+
+    // Cedar Policy Builder & Editor state
+    const policyBuilderDraft = ref<PolicyBuilderState>({
+      effect: 'permit',
+      principal: '',
+      action: '',
+      resource: '',
+      conditions: [],
+    });
+    const policyEditorText = ref('');
 
     // Warehouse navigation tree state
     // Key: projectId, Value: { openedItems, treeItems }
@@ -240,6 +259,25 @@ export const useVisualStore = defineStore(
       return warehouseSqlData.value[warehouseId]?.tabs || [];
     }
 
+    // Cedar Policy Builder actions
+    function setPolicyBuilderDraft(draft: PolicyBuilderState) {
+      policyBuilderDraft.value = { ...draft };
+    }
+
+    function resetPolicyBuilderDraft() {
+      policyBuilderDraft.value = {
+        effect: 'permit',
+        principal: '',
+        action: '',
+        resource: '',
+        conditions: [],
+      };
+    }
+
+    function setPolicyEditorText(text: string) {
+      policyEditorText.value = text;
+    }
+
     function initializeSqlTabs(warehouseId: string) {
       // Initialize warehouse data if it doesn't exist
       if (!warehouseSqlData.value[warehouseId]) {
@@ -271,6 +309,8 @@ export const useVisualStore = defineStore(
       dismissSearchOnClick,
       requestedNamespaceTab,
       warehouseTreeState,
+      policyBuilderDraft,
+      policyEditorText,
       projectList,
       projectSelected,
       snackbarMsg,
@@ -285,6 +325,10 @@ export const useVisualStore = defineStore(
       setProjectSelected,
       setSavedSqlQuery,
       getSavedSqlQuery,
+      // Cedar Policy Builder
+      setPolicyBuilderDraft,
+      resetPolicyBuilderDraft,
+      setPolicyEditorText,
       // SQL Tabs
       addSqlTab,
       removeSqlTab,
