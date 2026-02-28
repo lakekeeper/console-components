@@ -1806,17 +1806,58 @@ async function loadPartitionData() {
     }
 
     const tablePath = `"${warehouseName}"."${props.namespaceId}"."${props.tableName}"`;
-    const sql = `
-      SELECT
-        COALESCE(CAST(partition AS VARCHAR), '__unpartitioned__') AS partition_value,
-        COUNT(*) AS file_count,
-        SUM(file_size_in_bytes) AS total_size,
-        SUM(record_count) AS total_records
-      FROM iceberg_metadata(${tablePath})
-      WHERE content = 'DATA'
-      GROUP BY partition_value
-      ORDER BY total_size DESC
-    `;
+
+    // Discover available columns — iceberg_metadata schema varies across DuckDB versions
+    const discoverSql = `SELECT * FROM iceberg_metadata(${tablePath}) LIMIT 0`;
+    const discoverResult = await loqe.query(discoverSql);
+    const availableCols = discoverResult.columns.map((c: string) => c.toLowerCase());
+
+    // Resolve column name variations
+    const filePathCol = availableCols.find((c: string) => c === 'file_path' || c === 'data_file_path') ?? 'file_path';
+    const fileSizeCol = availableCols.find((c: string) => c === 'file_size_in_bytes') ?? 'file_size_in_bytes';
+    const recordCountCol = availableCols.find((c: string) => c === 'record_count') ?? 'record_count';
+    const contentCol = availableCols.find((c: string) => c === 'manifest_content' || c === 'content') ?? 'manifest_content';
+    const hasPartitionCol = availableCols.includes('partition');
+
+    let sql: string;
+    if (hasPartitionCol) {
+      sql = `
+        SELECT
+          COALESCE(CAST(partition AS VARCHAR), '__unpartitioned__') AS partition_value,
+          COUNT(*) AS file_count,
+          SUM(${fileSizeCol}) AS total_size,
+          SUM(${recordCountCol}) AS total_records
+        FROM iceberg_metadata(${tablePath})
+        WHERE ${contentCol} = 'DATA'
+        GROUP BY partition_value
+        ORDER BY total_size DESC
+      `;
+    } else {
+      // Extract partition path segments from hive-style file paths
+      // e.g. .../data/region=US/date=2024-01-01/00001.parquet → "region=US/date=2024-01-01"
+      sql = `
+        WITH files AS (
+          SELECT
+            ${fileSizeCol} AS fsize,
+            ${recordCountCol} AS rcount,
+            CASE
+              WHEN ${filePathCol} LIKE '%/data/%'
+              THEN regexp_extract(${filePathCol}, '.*/data/(.*)/[^/]+$', 1)
+              ELSE NULL
+            END AS partition_path
+          FROM iceberg_metadata(${tablePath})
+          WHERE ${contentCol} = 'DATA'
+        )
+        SELECT
+          COALESCE(NULLIF(partition_path, ''), '__unpartitioned__') AS partition_value,
+          COUNT(*) AS file_count,
+          SUM(fsize) AS total_size,
+          SUM(rcount) AS total_records
+        FROM files
+        GROUP BY partition_value
+        ORDER BY total_size DESC
+      `;
+    }
 
     const result = await loqe.query(sql);
 
