@@ -1425,12 +1425,6 @@ function renderHealthChart() {
 
   // X axis — sequence numbers
   const tickStep = Math.max(1, Math.floor(data.length / 8));
-  const tickIndices = data
-    .filter((_, i) => i % tickStep === 0 || i === data.length - 1)
-    .map((_, idx, arr) => {
-      // map back to actual indices
-      return arr.indexOf(_);
-    });
 
   const xAxis = d3
     .axisBottom(xScale)
