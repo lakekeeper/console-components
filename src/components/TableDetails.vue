@@ -640,17 +640,89 @@
       <div v-else-if="partitionError" class="pa-4">
         <v-alert type="warning" variant="tonal" density="compact" class="text-body-2">
           {{ partitionError }}
+          <template v-if="partitionError.includes('CORS')" #append>
+            <v-btn
+              size="x-small"
+              variant="outlined"
+              color="warning"
+              prepend-icon="mdi-cog-outline"
+              @click="showCorsDialog = true">
+              Configure CORS
+            </v-btn>
+          </template>
         </v-alert>
+
+        <v-dialog v-model="showCorsDialog" max-width="620">
+          <v-card>
+            <v-card-title class="d-flex align-center">
+              <v-icon class="mr-2" color="warning">mdi-shield-lock-outline</v-icon>
+              CORS Configuration
+            </v-card-title>
+            <v-divider></v-divider>
+            <v-card-text class="text-body-2">
+              <p class="mb-3">
+                To allow DuckDB in the browser to read Iceberg metadata files directly from
+                object storage, the storage bucket must have a CORS policy that permits
+                requests from your console origin.
+              </p>
+              <p class="mb-3 font-weight-medium">Add this CORS configuration to your bucket (S3 / GCS / MinIO / R2):</p>
+              <div class="position-relative">
+                <pre class="pa-3 rounded" style="background: rgb(var(--v-theme-surface-variant)); overflow-x: auto; font-size: 0.8rem; line-height: 1.4;">{{ corsConfigJson }}</pre>
+                <v-btn
+                  :icon="corsCopied ? 'mdi-check' : 'mdi-content-copy'"
+                  :color="corsCopied ? 'success' : 'default'"
+                  size="x-small"
+                  variant="text"
+                  style="position: absolute; top: 4px; right: 4px;"
+                  @click="copyCorsConfig"></v-btn>
+              </div>
+              <v-table density="compact" class="mt-3">
+                <thead>
+                  <tr>
+                    <th>Field</th>
+                    <th>Why</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code>AllowedOrigins</code></td>
+                    <td>Your console origin — where the browser request comes from</td>
+                  </tr>
+                  <tr>
+                    <td><code>GET, HEAD</code></td>
+                    <td>Read manifest &amp; metadata files (no writes needed)</td>
+                  </tr>
+                  <tr>
+                    <td><code>Range</code></td>
+                    <td>DuckDB uses byte-range requests to read Parquet/Avro chunks</td>
+                  </tr>
+                  <tr>
+                    <td><code>Authorization</code></td>
+                    <td>Pass vended credentials (SigV4 / bearer token)</td>
+                  </tr>
+                  <tr>
+                    <td><code>ExposeHeaders</code></td>
+                    <td>Let the browser read Content-Length, ETag etc. from responses</td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-card-text>
+            <v-card-actions>
+              <v-spacer></v-spacer>
+              <v-btn variant="text" @click="showCorsDialog = false">Close</v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-dialog>
       </div>
       <div v-else-if="partitionData.length > 0" class="pa-3">
         <div ref="partitionChartRef" class="partition-chart-container"></div>
         <div v-if="partitionSkewRatio !== null" class="mt-2 d-flex align-center">
           <v-chip
-            :color="partitionSkewRatio > 10 ? 'error' : partitionSkewRatio > 3 ? 'warning' : 'success'"
+            :color="partitionSkewRatio > 5 ? 'error' : partitionSkewRatio > 2 ? 'warning' : 'success'"
             size="x-small"
             variant="flat"
             class="mr-2">
-            {{ partitionSkewRatio > 10 ? 'High Skew' : partitionSkewRatio > 3 ? 'Moderate Skew' : 'Balanced' }}
+            {{ partitionSkewRatio > 5 ? 'High Skew' : partitionSkewRatio > 2 ? 'Skewed' : 'Balanced' }}
           </v-chip>
           <span class="text-caption text-medium-emphasis">
             Largest / median ratio: {{ partitionSkewRatio.toFixed(1) }}x
@@ -1749,6 +1821,28 @@ const partitionData = ref<PartitionBucket[]>([]);
 const partitionLoading = ref(false);
 const partitionError = ref<string | null>(null);
 const partitionMetric = ref<'files' | 'records'>('records');
+const showCorsDialog = ref(false);
+const corsCopied = ref(false);
+
+const corsConfigJson = computed(() => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://your-console.example.com';
+  return JSON.stringify([
+    {
+      AllowedOrigins: [origin],
+      AllowedMethods: ['GET', 'HEAD'],
+      AllowedHeaders: ['Range', 'Authorization', 'Content-Type'],
+      ExposeHeaders: ['Content-Length', 'Content-Range', 'ETag', 'x-amz-request-id'],
+      MaxAgeSeconds: 3600,
+    },
+  ], null, 2);
+});
+
+function copyCorsConfig() {
+  navigator.clipboard.writeText(corsConfigJson.value).then(() => {
+    corsCopied.value = true;
+    setTimeout(() => { corsCopied.value = false; }, 2000);
+  });
+}
 
 const partitionChartAvailable = computed(() => {
   // Only show if we have the required props and the table is partitioned
@@ -1956,10 +2050,10 @@ function renderPartitionChart() {
     .attr('rx', 2)
     .attr('fill', (d) => {
       const ratio = median > 0 ? d.value / median : 1;
-      if (ratio > 10) return '#E53935';   // red — extreme skew
-      if (ratio > 3) return '#FB8C00';    // orange — high skew
-      if (ratio > 1.5) return '#FDD835';  // yellow — moderate skew
-      if (ratio < 0.3) return '#42A5F5';  // blue — very small
+      if (ratio > 5) return '#E53935';    // red — extreme skew
+      if (ratio > 2) return '#FB8C00';    // orange — high skew
+      if (ratio > 1.3) return '#FDD835';  // yellow — moderate skew
+      if (ratio < 0.5) return '#42A5F5';  // blue — undersized
       return '#66BB6A';                    // green — balanced
     })
     .attr('opacity', 0.85);
