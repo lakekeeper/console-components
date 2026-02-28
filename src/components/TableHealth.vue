@@ -401,11 +401,11 @@ async function loadTableData() {
   tableLoading.value = true;
   tableError.value = null;
   try {
-    loadedTable.value = await functions.loadTableCustomized(
+    loadedTable.value = (await functions.loadTableCustomized(
       props.warehouseId,
       props.namespaceId,
       props.tableName,
-    ) as LoadTableResult;
+    )) as LoadTableResult;
   } catch (err: any) {
     console.error('Failed to load table metadata:', err);
     tableError.value = err.message || String(err);
@@ -440,7 +440,11 @@ const branchOptions = computed(() => {
 const selectedBranch = ref<string>('main');
 
 const currentSnapshot = computed<Snapshot | null>(() => {
-  if (!resolvedTable.value?.metadata?.snapshots || resolvedTable.value.metadata.snapshots.length === 0) return null;
+  if (
+    !resolvedTable.value?.metadata?.snapshots ||
+    resolvedTable.value.metadata.snapshots.length === 0
+  )
+    return null;
   const currentId = String(resolvedTable.value.metadata['current-snapshot-id']);
   return (
     resolvedTable.value.metadata.snapshots.find(
