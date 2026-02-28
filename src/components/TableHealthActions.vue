@@ -2,9 +2,11 @@
   <v-card variant="outlined" class="mb-4" elevation="1">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
-        <v-icon class="mr-2" :color="recommendedActions.length > 0 ? 'warning' : 'success'"
-          >{{ recommendedActions.length > 0 ? 'mdi-lightbulb-on-outline' : 'mdi-check-circle-outline' }}</v-icon
-        >
+        <v-icon class="mr-2" :color="recommendedActions.length > 0 ? 'warning' : 'success'">
+          {{
+            recommendedActions.length > 0 ? 'mdi-lightbulb-on-outline' : 'mdi-check-circle-outline'
+          }}
+        </v-icon>
         Recommended Actions
       </v-toolbar-title>
       <v-spacer></v-spacer>
@@ -147,7 +149,7 @@
         variant="flat">
         {{ recommendedActions.length }} action{{ recommendedActions.length !== 1 ? 's' : '' }}
       </v-chip>
-      <v-chip v-else color="success" size="small" variant="flat"> No issues </v-chip>
+      <v-chip v-else color="success" size="small" variant="flat">No issues</v-chip>
     </v-toolbar>
     <v-divider></v-divider>
     <v-list v-if="recommendedActions.length > 0" lines="three" density="compact">
@@ -175,9 +177,7 @@
           </v-chip>
         </div>
       </v-list-item>
-      <v-list-item
-        v-if="partitionLoading"
-        class="py-2 text-caption text-medium-emphasis">
+      <v-list-item v-if="partitionLoading" class="py-2 text-caption text-medium-emphasis">
         <template #prepend>
           <v-progress-circular indeterminate size="16" width="2" class="mt-1"></v-progress-circular>
         </template>
