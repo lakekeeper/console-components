@@ -716,7 +716,7 @@
       </div>
       <div v-else-if="partitionData.length > 0" class="pa-3">
         <div ref="partitionChartRef" class="partition-chart-container"></div>
-        <div v-if="partitionSkewRatio !== null" class="mt-2 d-flex align-center">
+        <div v-if="partitionSkewRatio !== null" class="mt-2 d-flex align-center flex-wrap">
           <v-chip
             :color="partitionSkewRatio > 5 ? 'error' : partitionSkewRatio > 2 ? 'warning' : 'success'"
             size="x-small"
@@ -724,9 +724,31 @@
             class="mr-2">
             {{ partitionSkewRatio > 5 ? 'High Skew' : partitionSkewRatio > 2 ? 'Skewed' : 'Balanced' }}
           </v-chip>
-          <span class="text-caption text-medium-emphasis">
+          <span class="text-caption text-medium-emphasis mr-4">
             Largest / median ratio: {{ partitionSkewRatio.toFixed(1) }}x
             · {{ partitionData.length }} partition{{ partitionData.length !== 1 ? 's' : '' }}
+          </span>
+          <span class="d-inline-flex align-center ga-3 text-caption text-medium-emphasis">
+            <span class="d-inline-flex align-center">
+              <span style="width: 10px; height: 10px; border-radius: 2px; background: #66BB6A; display: inline-block;" class="mr-1"></span>
+              Balanced
+            </span>
+            <span class="d-inline-flex align-center">
+              <span style="width: 10px; height: 10px; border-radius: 2px; background: #FDD835; display: inline-block;" class="mr-1"></span>
+              Moderate
+            </span>
+            <span class="d-inline-flex align-center">
+              <span style="width: 10px; height: 10px; border-radius: 2px; background: #FB8C00; display: inline-block;" class="mr-1"></span>
+              High
+            </span>
+            <span class="d-inline-flex align-center">
+              <span style="width: 10px; height: 10px; border-radius: 2px; background: #E53935; display: inline-block;" class="mr-1"></span>
+              Extreme
+            </span>
+            <span class="d-inline-flex align-center">
+              <span style="width: 10px; height: 10px; border-radius: 2px; background: #42A5F5; display: inline-block;" class="mr-1"></span>
+              Undersized
+            </span>
           </span>
         </div>
       </div>
