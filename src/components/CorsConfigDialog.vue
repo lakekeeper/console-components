@@ -77,11 +77,6 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
-
-  <v-snackbar v-model="showSnackbar" :timeout="2000" color="success" location="bottom">
-    <v-icon class="mr-2">mdi-check-circle</v-icon>
-    CORS configuration copied to clipboard
-  </v-snackbar>
 </template>
 
 <script setup lang="ts">
@@ -89,12 +84,12 @@ import { ref, computed } from 'vue';
 import VueJsonPretty from 'vue-json-pretty';
 import 'vue-json-pretty/lib/styles.css';
 import { useVisualStore } from '../stores/visual';
+import { Type } from '../common/enums';
 
 const visual = useVisualStore();
 
 const dialogVisible = ref(false);
 const copied = ref(false);
-const showSnackbar = ref(false);
 
 const jsonTheme = computed(() => (visual.themeLight ? 'light' : 'dark'));
 
@@ -117,7 +112,12 @@ const corsConfigJson = computed(() => JSON.stringify(corsConfigData.value, null,
 function copyConfig() {
   navigator.clipboard.writeText(corsConfigJson.value).then(() => {
     copied.value = true;
-    showSnackbar.value = true;
+    visual.setSnackbarMsg({
+      text: 'CORS configuration copied to clipboard',
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.SUCCESS,
+    });
     setTimeout(() => {
       copied.value = false;
     }, 2000);
