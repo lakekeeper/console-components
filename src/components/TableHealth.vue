@@ -365,8 +365,9 @@
     :metadata="resolvedTable.metadata"
     :snapshot-summary="healthBranchSnapshot.summary"
     :partition-data="partitionData"
-    :is-partitioned="partitionChartAvailable"
-    :skew-ratio="partitionSkewRatio" />
+    :is-partitioned="isTablePartitioned"
+    :skew-ratio="partitionSkewRatio"
+    :partition-loading="partitionLoading" />
 </template>
 
 <script setup lang="ts">
@@ -1365,16 +1366,21 @@ const partitionLoading = ref(false);
 const partitionError = ref<string | null>(null);
 const partitionMetric = ref<'files' | 'records'>('records');
 
-const partitionChartAvailable = computed(() => {
-  // Only show if we have the required props and the table is partitioned
-  if (!props.warehouseId || !props.namespaceId || !props.tableName || !props.catalogUrl)
-    return false;
+// Whether the table itself is partitioned (from metadata — no DuckDB dependency)
+const isTablePartitioned = computed(() => {
   if (!resolvedTable.value?.metadata) return false;
   const specs = resolvedTable.value.metadata['partition-specs'];
   const defaultId = resolvedTable.value.metadata['default-spec-id'];
   if (!specs) return false;
   const currentSpec = specs.find((s: any) => s['spec-id'] === defaultId) ?? specs[specs.length - 1];
   return currentSpec?.fields && currentSpec.fields.length > 0;
+});
+
+// Whether we can show the partition distribution chart (requires DuckDB + props)
+const partitionChartAvailable = computed(() => {
+  if (!props.warehouseId || !props.namespaceId || !props.tableName || !props.catalogUrl)
+    return false;
+  return isTablePartitioned.value;
 });
 
 const partitionSkewRatio = computed<number | null>(() => {

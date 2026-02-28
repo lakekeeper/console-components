@@ -1,8 +1,10 @@
 <template>
-  <v-card v-if="recommendedActions.length > 0" variant="outlined" class="mb-4" elevation="1">
+  <v-card variant="outlined" class="mb-4" elevation="1">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
-        <v-icon class="mr-2" color="warning">mdi-lightbulb-on-outline</v-icon>
+        <v-icon class="mr-2" :color="recommendedActions.length > 0 ? 'warning' : 'success'"
+          >{{ recommendedActions.length > 0 ? 'mdi-lightbulb-on-outline' : 'mdi-check-circle-outline' }}</v-icon
+        >
         Recommended Actions
       </v-toolbar-title>
       <v-spacer></v-spacer>
@@ -133,6 +135,7 @@
         </template>
       </v-dialog>
       <v-chip
+        v-if="recommendedActions.length > 0"
         :color="
           recommendedActions.some((a) => a.severity === 'critical')
             ? 'error'
@@ -144,9 +147,10 @@
         variant="flat">
         {{ recommendedActions.length }} action{{ recommendedActions.length !== 1 ? 's' : '' }}
       </v-chip>
+      <v-chip v-else color="success" size="small" variant="flat"> No issues </v-chip>
     </v-toolbar>
     <v-divider></v-divider>
-    <v-list lines="three" density="compact">
+    <v-list v-if="recommendedActions.length > 0" lines="three" density="compact">
       <v-list-item v-for="(action, idx) in recommendedActions" :key="idx" class="py-2">
         <template #prepend>
           <v-icon :color="action.color" class="mt-1">{{ action.icon }}</v-icon>
@@ -171,7 +175,42 @@
           </v-chip>
         </div>
       </v-list-item>
+      <v-list-item
+        v-if="partitionLoading"
+        class="py-2 text-caption text-medium-emphasis">
+        <template #prepend>
+          <v-progress-circular indeterminate size="16" width="2" class="mt-1"></v-progress-circular>
+        </template>
+        <v-list-item-title class="text-caption text-medium-emphasis">
+          Partition analysis in progress — additional actions may appear…
+        </v-list-item-title>
+      </v-list-item>
+      <v-list-item
+        v-else-if="isPartitioned && (!partitionData || partitionData.length === 0)"
+        class="py-2 text-caption text-medium-emphasis">
+        <template #prepend>
+          <v-icon size="small" color="grey">mdi-information-outline</v-icon>
+        </template>
+        <v-list-item-title class="text-caption text-medium-emphasis">
+          Partition distribution data unavailable — some partition-specific checks were skipped.
+        </v-list-item-title>
+      </v-list-item>
     </v-list>
+    <div v-else class="pa-4 text-center">
+      <v-icon color="success" size="large" class="mb-2">mdi-check-circle-outline</v-icon>
+      <div class="text-body-2 text-medium-emphasis">No issues detected — table looks healthy.</div>
+      <div
+        v-if="partitionLoading"
+        class="text-caption text-medium-emphasis mt-2 d-flex align-center justify-center">
+        <v-progress-circular indeterminate size="12" width="2" class="mr-2"></v-progress-circular>
+        Partition analysis in progress — additional actions may appear.
+      </div>
+      <div
+        v-else-if="isPartitioned && (!partitionData || partitionData.length === 0)"
+        class="text-caption text-medium-emphasis mt-2">
+        Partition distribution data unavailable — some partition-specific checks were skipped.
+      </div>
+    </div>
   </v-card>
 </template>
 
@@ -205,10 +244,12 @@ const props = defineProps<{
   snapshotSummary?: Record<string, string>;
   /** Partition distribution data (from DuckDB iceberg_metadata query) */
   partitionData?: PartitionBucket[];
-  /** Whether partition distribution is available (table is partitioned + has required props) */
+  /** Whether the table is partitioned (from metadata partition spec) */
   isPartitioned?: boolean;
   /** Partition skew ratio (largest/median) */
   skewRatio?: number | null;
+  /** Whether partition data is still loading */
+  partitionLoading?: boolean;
 }>();
 
 // --- Helpers ---
