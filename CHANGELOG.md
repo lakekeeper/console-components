@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.29](https://github.com/lakekeeper/console-components/compare/v0.2.28...v0.2.29) (2026-03-01)
+
+
+### Bug Fixes
+
+* added branch and props ([#81](https://github.com/lakekeeper/console-components/issues/81)) ([9685a87](https://github.com/lakekeeper/console-components/commit/9685a8710fe39709f47da7f25bd015f1233be70b))
+
 ## [0.2.28](https://github.com/lakekeeper/console-components/compare/v0.2.27...v0.2.28) (2026-03-01)
 
 
