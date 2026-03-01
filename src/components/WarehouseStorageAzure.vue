@@ -214,6 +214,139 @@
           placeholder="path/to/warehouse"
           hint="Optional: Subdirectory path within the filesystem for warehouse data"></v-text-field>
 
+        <!-- Advanced Options -->
+        <v-expansion-panels class="mb-4" variant="accordion">
+          <v-expansion-panel elevation="1">
+            <v-expansion-panel-title>
+              <div class="d-flex align-center">
+                <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
+                <div>
+                  <div class="text-subtitle-1 font-weight-medium">Advanced Options</div>
+                  <div class="text-caption text-medium-emphasis">
+                    Optional: Storage layout and other advanced settings
+                  </div>
+                </div>
+              </div>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <h4 class="text-subtitle-2 mb-2 d-flex align-center">
+                Storage Layout
+                <a
+                  href="https://docs.lakekeeper.io/docs/nightly/storage/#storage-layout"
+                  target="_blank"
+                  rel="noopener noreferrer">
+                  <v-icon class="ml-2" size="small" color="info">mdi-information-outline</v-icon>
+                  <v-tooltip activator="parent" location="top">
+                    More docs on Storage Layout
+                  </v-tooltip>
+                </a>
+              </h4>
+              <v-alert
+                v-if="storageLayoutType !== 'default'"
+                type="warning"
+                variant="tonal"
+                density="compact"
+                class="mb-4">
+                <strong>
+                  Always include
+                  <code>{uuid}</code>
+                  in templates.
+                </strong>
+                Storage paths are assigned once at creation time and are never updated when a table
+                or namespace is renamed. If a template relies solely on
+                <code>{name}</code>
+                and an object is later renamed and re-created with the same name, Lakekeeper will
+                reject the creation because the path is already in use. Using
+                <code>{uuid}</code>
+                (alone or combined with
+                <code>{name}</code>
+                ) guarantees each object always has a distinct, collision-free storage path.
+              </v-alert>
+              <v-select
+                v-model="storageLayoutType"
+                :items="storageLayoutOptions"
+                item-title="name"
+                item-value="code"
+                label="Layout Type"
+                :hint="
+                  storageLayoutType !== 'default'
+                    ? 'How directories are organized under the warehouse base location'
+                    : ''
+                "
+                :persistent-hint="storageLayoutType !== 'default'">
+                <template #item="{ props: itemProps, item }">
+                  <v-list-item v-bind="itemProps" :subtitle="item.raw.description"></v-list-item>
+                </template>
+              </v-select>
+
+              <v-text-field
+                v-if="storageLayoutType === 'tabular-only'"
+                v-model="storageLayoutTable"
+                label="Tabular Template"
+                placeholder="tabular-{name}-{uuid}"
+                hint="Template for tabular path segments."
+                persistent-hint
+                class="mt-4"></v-text-field>
+              <v-alert
+                v-if="
+                  storageLayoutType === 'tabular-only' && !storageLayoutTable.includes('{uuid}')
+                "
+                type="warning"
+                variant="tonal"
+                density="compact"
+                class="mt-2">
+                Template does not contain
+                <code>{uuid}</code>
+                . This may cause collisions if tabulars are renamed and re-created.
+              </v-alert>
+              <v-alert
+                v-if="storageLayoutType === 'tabular-only'"
+                type="info"
+                variant="tonal"
+                density="compact"
+                class="mt-3">
+                <strong>Example path</strong>
+                (tabular "customer"):
+                <br />
+                <code class="mt-1 d-block">{{ storageLayoutExample }}</code>
+              </v-alert>
+
+              <template v-if="storageLayoutType === 'full-hierarchy'">
+                <v-text-field
+                  v-model="storageLayoutNamespace"
+                  label="Namespace Template"
+                  placeholder="ns-{name}-{uuid}"
+                  hint="Applied to every namespace level. Path: base/<ns1>/<ns2>/…/<tabular-segment>"
+                  persistent-hint
+                  class="mt-4"></v-text-field>
+                <v-text-field
+                  v-model="storageLayoutTable"
+                  label="Tabular Template"
+                  placeholder="tabular-{name}-{uuid}"
+                  hint="Template for the tabular directory."
+                  persistent-hint
+                  class="mt-2"></v-text-field>
+                <v-alert
+                  v-if="!storageLayoutTable.includes('{uuid}')"
+                  type="warning"
+                  variant="tonal"
+                  density="compact"
+                  class="mt-2">
+                  Tabular template does not contain
+                  <code>{uuid}</code>
+                  . This may cause collisions if tabulars are renamed and re-created.
+                </v-alert>
+                <v-alert type="info" variant="tonal" density="compact" class="mt-3">
+                  <strong>Example path</strong>
+                  (namespace "marketing", tabular "customer"):
+                  <br />
+                  <code class="mt-1 d-block">{{ storageLayoutExample }}</code>
+                </v-alert>
+              </template>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+
         <v-divider class="my-4"></v-divider>
 
         <!-- Credential Vending Options -->
@@ -349,6 +482,7 @@ import {
   AdlsProfile,
   AzCredential,
   StorageCredential,
+  StorageLayout,
   StorageProfile,
 } from '@/gen/management/types.gen';
 import { Intent, ObjectType } from '@/common/enums';
@@ -394,6 +528,85 @@ const warehouseObjectData = reactive<{
 });
 
 const shouldSaveAsJson = ref(false);
+
+// Storage Layout management
+const storageLayoutOptions = [
+  {
+    name: 'Default',
+    code: 'default',
+    description: 'Uses {uuid} segments for namespace and tabular directories',
+  },
+  {
+    name: 'Tabular Only',
+    code: 'tabular-only',
+    description: 'No namespace directories; tabulars directly under base location',
+  },
+  {
+    name: 'Full Hierarchy',
+    code: 'full-hierarchy',
+    description:
+      'base/<ns1-segment>/<ns2-segment>/…/<tabular-segment> — every namespace level becomes a directory',
+  },
+];
+
+const storageLayoutType = ref<'default' | 'tabular-only' | 'full-hierarchy'>('default');
+const storageLayoutTable = ref('tabular-{name}-{uuid}');
+const storageLayoutNamespace = ref('ns-{name}-{uuid}');
+
+const exampleUuid = '00000000-0000-0000-0000-000000000000';
+const renderTemplate = (tpl: string, name: string) =>
+  tpl.replace(/\{name\}/g, name).replace(/\{uuid\}/g, exampleUuid);
+
+const storageLayoutExample = computed(() => {
+  const nsTpl = storageLayoutNamespace.value || 'ns-{name}-{uuid}';
+  const tblTpl = storageLayoutTable.value || 'tabular-{name}-{uuid}';
+  if (storageLayoutType.value === 'tabular-only') {
+    return renderTemplate(tblTpl, 'customer');
+  }
+  if (storageLayoutType.value === 'full-hierarchy') {
+    return renderTemplate(nsTpl, 'marketing') + '/' + renderTemplate(tblTpl, 'customer');
+  }
+  return '';
+});
+
+const buildStorageLayout = (): StorageLayout | null => {
+  if (storageLayoutType.value === 'default') return { type: 'default' };
+  if (storageLayoutType.value === 'tabular-only') {
+    return {
+      type: 'tabular-only',
+      tabular: storageLayoutTable.value || 'tabular-{name}-{uuid}',
+    };
+  }
+  if (storageLayoutType.value === 'full-hierarchy') {
+    return {
+      type: 'full-hierarchy',
+      namespace: storageLayoutNamespace.value || 'ns-{name}-{uuid}',
+      tabular: storageLayoutTable.value || 'tabular-{name}-{uuid}',
+    };
+  }
+  return null;
+};
+
+watch(storageLayoutType, () => {
+  syncStorageLayoutToProfile();
+});
+
+watch(storageLayoutTable, () => {
+  syncStorageLayoutToProfile();
+});
+
+watch(storageLayoutNamespace, () => {
+  syncStorageLayoutToProfile();
+});
+
+const syncStorageLayoutToProfile = () => {
+  const layout = buildStorageLayout();
+  if (layout) {
+    warehouseObjectData['storage-profile']['storage-layout'] = layout;
+  } else {
+    warehouseObjectData['storage-profile']['storage-layout'] = undefined;
+  }
+};
 
 watch(credentialType, (newValue) => {
   warehouseObjectData['storage-credential']['credential-type'] = newValue;
@@ -538,5 +751,19 @@ onMounted(() => {
   if (props.warehouseObject) Object.assign(warehouseObjectData, props.warehouseObject);
   credentialType.value =
     warehouseObjectData['storage-credential']['credential-type'] || 'client-credentials';
+
+  // Initialize storage layout from existing data
+  const existingLayout = warehouseObjectData['storage-profile']['storage-layout'];
+  if (existingLayout) {
+    storageLayoutType.value = existingLayout.type;
+    if (existingLayout.type === 'tabular-only') {
+      storageLayoutTable.value =
+        (existingLayout as any).tabular || (existingLayout as any).table || '{uuid}';
+    } else if (existingLayout.type === 'full-hierarchy') {
+      storageLayoutNamespace.value = (existingLayout as any).namespace || '{uuid}';
+      storageLayoutTable.value =
+        (existingLayout as any).tabular || (existingLayout as any).table || '{uuid}';
+    }
+  }
 });
 </script>

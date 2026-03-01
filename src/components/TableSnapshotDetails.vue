@@ -1,6 +1,6 @@
 <template>
   <v-card variant="outlined">
-    <v-card-title class="d-flex align-center">
+    <v-card-title class="d-flex align-center text-subtitle-1">
       <v-icon class="mr-2">mdi-camera-outline</v-icon>
       {{ title || 'Snapshot Details' }}
     </v-card-title>

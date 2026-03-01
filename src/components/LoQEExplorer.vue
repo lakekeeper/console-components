@@ -6,6 +6,9 @@
         <v-icon class="mr-1" size="small">mdi-database-cog-outline</v-icon>
         LoQE
         <span class="text-caption text-grey ml-1">Local Query Engine</span>
+        <v-chip color="primary" size="x-small" variant="tonal" class="ml-2" label>
+          DuckDB WASM
+        </v-chip>
       </v-toolbar-title>
 
       <v-spacer />
@@ -443,6 +446,15 @@
                     <pre class="text-caption mt-1" style="white-space: pre-wrap">{{
                       activeError
                     }}</pre>
+                    <template
+                      v-if="
+                        activeError.includes('CORS') ||
+                        activeError.includes('Failed to fetch') ||
+                        activeError.includes('HTTP Error')
+                      "
+                      #append>
+                      <CorsConfigDialog />
+                    </template>
                   </v-alert>
 
                   <!-- Result Tabs (only shown when multiple statements) -->
@@ -699,6 +711,7 @@ import type { LoQEQueryResult } from '../composables/loqe/types';
 import SqlEditor from './SqlEditor.vue';
 import LoQENavigationTree from './LoQENavigationTree.vue';
 import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
+import CorsConfigDialog from './CorsConfigDialog.vue';
 import { helix, hourglass } from 'ldrs';
 
 helix.register();

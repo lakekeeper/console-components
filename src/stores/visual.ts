@@ -19,6 +19,23 @@ export interface WarehouseSqlData {
   tabs: SqlTab[];
 }
 
+// Cedar Policy Builder draft state
+export interface PolicyBuilderState {
+  effect: 'permit' | 'forbid';
+  principalOp: 'any' | '==' | 'in' | 'is';
+  principalType: string | null;
+  principalId: string | null;
+  actionOp: 'any' | '==' | 'in';
+  actionNames: string[];
+  resourceOp: 'any' | '==' | 'in' | 'is';
+  resourceType: string | null;
+  resourceId: string | null;
+  conditionKind: 'when' | 'unless' | null;
+  conditionBody: string;
+  annotationId: string;
+  annotationMessage: string;
+}
+
 export const useVisualStore = defineStore(
   'visual',
   () => {
@@ -44,6 +61,24 @@ export const useVisualStore = defineStore(
 
     // Requested tab for namespace detail page (set by navigation tree context menu)
     const requestedNamespaceTab = ref<string | null>(null);
+
+    // Cedar Policy Builder & Editor state
+    const policyBuilderDraft = ref<PolicyBuilderState>({
+      effect: 'permit',
+      principalOp: 'any',
+      principalType: null,
+      principalId: null,
+      actionOp: 'any',
+      actionNames: [],
+      resourceOp: 'any',
+      resourceType: null,
+      resourceId: null,
+      conditionKind: null,
+      conditionBody: '',
+      annotationId: '',
+      annotationMessage: '',
+    });
+    const policyEditorText = ref('');
 
     // Warehouse navigation tree state
     // Key: projectId, Value: { openedItems, treeItems }
@@ -240,6 +275,33 @@ export const useVisualStore = defineStore(
       return warehouseSqlData.value[warehouseId]?.tabs || [];
     }
 
+    // Cedar Policy Builder actions
+    function setPolicyBuilderDraft(draft: PolicyBuilderState) {
+      policyBuilderDraft.value = { ...draft };
+    }
+
+    function resetPolicyBuilderDraft() {
+      policyBuilderDraft.value = {
+        effect: 'permit',
+        principalOp: 'any',
+        principalType: null,
+        principalId: null,
+        actionOp: 'any',
+        actionNames: [],
+        resourceOp: 'any',
+        resourceType: null,
+        resourceId: null,
+        conditionKind: null,
+        conditionBody: '',
+        annotationId: '',
+        annotationMessage: '',
+      };
+    }
+
+    function setPolicyEditorText(text: string) {
+      policyEditorText.value = text;
+    }
+
     function initializeSqlTabs(warehouseId: string) {
       // Initialize warehouse data if it doesn't exist
       if (!warehouseSqlData.value[warehouseId]) {
@@ -271,6 +333,8 @@ export const useVisualStore = defineStore(
       dismissSearchOnClick,
       requestedNamespaceTab,
       warehouseTreeState,
+      policyBuilderDraft,
+      policyEditorText,
       projectList,
       projectSelected,
       snackbarMsg,
@@ -285,6 +349,10 @@ export const useVisualStore = defineStore(
       setProjectSelected,
       setSavedSqlQuery,
       getSavedSqlQuery,
+      // Cedar Policy Builder
+      setPolicyBuilderDraft,
+      resetPolicyBuilderDraft,
+      setPolicyEditorText,
       // SQL Tabs
       addSqlTab,
       removeSqlTab,

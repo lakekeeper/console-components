@@ -3587,6 +3587,11 @@ components:
           format: int64
           description: 'The validity of the sas token in seconds. Default: 3600.'
           minimum: 0
+        storage-layout:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/StorageLayout'
+              description: Storage layout for namespace and tabular paths.
     AzCredential:
       oneOf:
         - type: object
@@ -4333,6 +4338,11 @@ components:
             - string
             - 'null'
           description: Subpath in the bucket to use.
+        storage-layout:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/StorageLayout'
+              description: Storage layout for namespace and tabular paths.
         sts-enabled:
           type: boolean
           description: |-
@@ -6493,6 +6503,11 @@ components:
             Path style:
               - <https://s3.endpoint.com/bucket/bar/a/key>
               - <https://s3.us-east-1.amazonaws.com/bucket/file>
+        storage-layout:
+          oneOf:
+            - type: 'null'
+            - $ref: '#/components/schemas/StorageLayout'
+              description: Storage layout for namespace and tabular paths.
         sts-enabled:
           type: boolean
         sts-role-arn:
@@ -6922,6 +6937,88 @@ components:
             }"#).unwrap();
             ```
       description: Storage secret for a warehouse.
+    StorageLayout:
+      oneOf:
+        - type: object
+          required:
+            - type
+          properties:
+            type:
+              type: string
+              enum:
+                - default
+        - allOf:
+            - $ref: '#/components/schemas/StorageLayoutFlat'
+            - type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - tabular-only
+        - allOf:
+            - $ref: '#/components/schemas/StorageLayoutFullHierarchy'
+            - type: object
+              required:
+                - type
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - full-hierarchy
+      description: |-
+        Controls how namespace and tabular paths are constructed under the warehouse base location.
+
+        - `default` / omitted: one directory per direct-parent namespace, one per tabular, both with `"{uuid}"` segments.
+        - `full-hierarchy`: one directory per namespace level, one per tabular.
+        - `tabular-only`: no namespace directories; all tabulars are placed directly under the base location.
+
+        Segment templates may use `{uuid}` and `{name}` as placeholders.
+      example:
+        type: full-hierarchy
+        namespace: '{name}-{uuid}'
+        tabular: '{name}-{uuid}'
+    StorageLayoutFlat:
+      type: object
+      description: |-
+        No namespace directories; all tabulars are placed directly under the base location.
+
+        For a tabular `my_tabular` (uuid `…002`) the path is: `<base>/<tabular-segment>`.
+        The tabular template must contain `{uuid}` to avoid collisions between tabulars with the same name.
+      required:
+        - tabular
+      properties:
+        tabular:
+          $ref: '#/components/schemas/StorageLayoutTabularTemplate'
+      example:
+        tabular: '{name}-{uuid}'
+    StorageLayoutFullHierarchy:
+      type: object
+      description: |-
+        One directory per namespace level, one per tabular.
+
+        For a tabular `my_tabular` (uuid `…003`) in `grandparent_ns` / `parent_ns` the path is:
+        `<base>/<grandparent-segment>/<parent-segment>/<tabular-segment>`.
+      required:
+        - namespace
+        - tabular
+      properties:
+        namespace:
+          $ref: '#/components/schemas/StorageLayoutNamespaceTemplate'
+        tabular:
+          $ref: '#/components/schemas/StorageLayoutTabularTemplate'
+      example:
+        namespace: '{name}-{uuid}'
+        tabular: '{name}-{uuid}'
+    StorageLayoutNamespaceTemplate:
+      type: string
+      description: 'Template string for namespace path segments. Placeholders {uuid} and {name} (with curly braces) will be replaced with the actual namespace UUID and name respectively. The {name} value is percent-encoded (URL percent-encoding) so spaces and special characters are escaped (e.g. "my name" becomes "my%20name"). The {uuid} value is inserted as-is without encoding. Example: "{name}-{uuid}" for a namespace named "my ns" renders to "my%20ns-550e8400-e29b-41d4-a716-446655440001".'
+      example: '{uuid}'
+    StorageLayoutTabularTemplate:
+      type: string
+      description: 'Template string for tabular names. Placeholders {uuid} and {name} (with curly braces) will be replaced with the actual tabular UUID and name respectively. The {name} value is percent-encoded (URL percent-encoding) so spaces and special characters are escaped (e.g. "my tabular" becomes "my%20tabular"). The {uuid} value is inserted as-is without encoding. Example: "{name}-{uuid}" for a tabular named "my tabular" renders to "my%20tabular-550e8400-e29b-41d4-a716-446655440002".'
+      example: '{uuid}'
     StorageProfile:
       oneOf:
         - allOf:

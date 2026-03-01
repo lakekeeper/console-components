@@ -11,8 +11,8 @@ import { useUserStore } from '../stores/user';
  * watchers for token refresh, and delegates persistence to the
  * `useLoQEStore` Pinia store.
  *
- * The existing `useDuckDB` / `useIcebergDuckDB` composables are left
- * completely untouched — LoQE is an independent, parallel system.
+ * All DuckDB usage is consolidated through LoQE — the old `useDuckDB`
+ * and `useIcebergDuckDB` composables have been removed.
  */
 export function useLoQE(config: LoQEConfig) {
   const engine = LoQEEngine.acquire(config);

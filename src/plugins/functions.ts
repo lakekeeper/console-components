@@ -306,7 +306,7 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
     if (notify) {
       notificationStore.addNotification({
         function: functionCaused,
-        stack: [],
+        stack: error?.error?.stack || [],
         text: message,
         type,
       });
@@ -732,15 +732,14 @@ async function renameWarehouse(whId: string, name: string, notify?: boolean): Pr
 
     const client = mngClient.client;
 
-    await mng.renameWarehouse({
+    const { error: renameError } = await mng.renameWarehouse({
       client,
       body: { 'new-name': name },
       path: {
         warehouse_id: whId,
       },
     });
-
-    // if (data.error) throw new Error(data.error);
+    if (renameError) throw renameError;
 
     if (notify) {
       handleSuccess('renameWarehouse', `Warehouse renamed to '${name}'`, notify);
@@ -824,7 +823,7 @@ async function updateWarehouseDeleteProfile(
 
     const client = mngClient.client;
 
-    await mng.updateWarehouseDeleteProfile({
+    const { error: deleteProfileError } = await mng.updateWarehouseDeleteProfile({
       client,
       body: {
         'delete-profile': deleteProfile,
@@ -833,6 +832,7 @@ async function updateWarehouseDeleteProfile(
         warehouse_id: whId,
       },
     });
+    if (deleteProfileError) throw deleteProfileError;
 
     if (notify) {
       handleSuccess('updateWarehouseDeleteProfile', 'Delete profile updated successfully', notify);
@@ -2614,10 +2614,11 @@ async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
 
     const client = mngClient.client;
 
-    await mng.deleteRole({
+    const { error: deleteRoleError } = await mng.deleteRole({
       client,
       path: { role_id: roleId },
     });
+    if (deleteRoleError) throw deleteRoleError;
 
     if (notify) {
       handleSuccess('deleteRole', `Role '${roleId}' deleted successfully`, notify);

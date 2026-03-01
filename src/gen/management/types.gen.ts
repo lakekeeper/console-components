@@ -41,6 +41,7 @@ export type AdlsProfile = {
      * The validity of the sas token in seconds. Default: 3600.
      */
     'sas-token-validity-seconds'?: number | null;
+    'storage-layout'?: null | StorageLayout;
 };
 
 export type AzCredential = {
@@ -485,6 +486,7 @@ export type GcsProfile = {
      * Subpath in the bucket to use.
      */
     'key-prefix'?: string | null;
+    'storage-layout'?: null | StorageLayout;
     /**
      * Enable STS (Security Token Service) downscoped token generation for GCS.
      * When disabled, clients cannot use vended credentials for this storage profile.
@@ -1473,6 +1475,7 @@ export type S3Profile = {
      * - <https://s3.us-east-1.amazonaws.com/bucket/file>
      */
     'remote-signing-url-style'?: S3UrlStyleDetectionMode;
+    'storage-layout'?: null | StorageLayout;
     'sts-enabled': boolean;
     /**
      * Optional role ARN to assume for sts vended-credentials.
@@ -1679,6 +1682,54 @@ export type StorageCredential = (S3Credential & {
 }) | (GcsCredential & {
     type: 'gcs';
 });
+
+/**
+ * Controls how namespace and tabular paths are constructed under the warehouse base location.
+ *
+ * - `default` / omitted: one directory per direct-parent namespace, one per tabular, both with `"{uuid}"` segments.
+ * - `full-hierarchy`: one directory per namespace level, one per tabular.
+ * - `tabular-only`: no namespace directories; all tabulars are placed directly under the base location.
+ *
+ * Segment templates may use `{uuid}` and `{name}` as placeholders.
+ */
+export type StorageLayout = {
+    type: 'default';
+} | (StorageLayoutFlat & {
+    type: 'tabular-only';
+}) | (StorageLayoutFullHierarchy & {
+    type: 'full-hierarchy';
+});
+
+/**
+ * No namespace directories; all tabulars are placed directly under the base location.
+ *
+ * For a tabular `my_tabular` (uuid `…002`) the path is: `<base>/<tabular-segment>`.
+ * The tabular template must contain `{uuid}` to avoid collisions between tabulars with the same name.
+ */
+export type StorageLayoutFlat = {
+    tabular: StorageLayoutTabularTemplate;
+};
+
+/**
+ * One directory per namespace level, one per tabular.
+ *
+ * For a tabular `my_tabular` (uuid `…003`) in `grandparent_ns` / `parent_ns` the path is:
+ * `<base>/<grandparent-segment>/<parent-segment>/<tabular-segment>`.
+ */
+export type StorageLayoutFullHierarchy = {
+    namespace: StorageLayoutNamespaceTemplate;
+    tabular: StorageLayoutTabularTemplate;
+};
+
+/**
+ * Template string for namespace path segments. Placeholders {uuid} and {name} (with curly braces) will be replaced with the actual namespace UUID and name respectively. The {name} value is percent-encoded (URL percent-encoding) so spaces and special characters are escaped (e.g. "my name" becomes "my%20name"). The {uuid} value is inserted as-is without encoding. Example: "{name}-{uuid}" for a namespace named "my ns" renders to "my%20ns-550e8400-e29b-41d4-a716-446655440001".
+ */
+export type StorageLayoutNamespaceTemplate = string;
+
+/**
+ * Template string for tabular names. Placeholders {uuid} and {name} (with curly braces) will be replaced with the actual tabular UUID and name respectively. The {name} value is percent-encoded (URL percent-encoding) so spaces and special characters are escaped (e.g. "my tabular" becomes "my%20tabular"). The {uuid} value is inserted as-is without encoding. Example: "{name}-{uuid}" for a tabular named "my tabular" renders to "my%20tabular-550e8400-e29b-41d4-a716-446655440002".
+ */
+export type StorageLayoutTabularTemplate = string;
 
 /**
  * Storage profile for a warehouse.

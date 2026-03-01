@@ -36,6 +36,8 @@ import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
 import TableHeader from './components/TableHeader.vue';
 import TableDetails from './components/TableDetails.vue';
+import TableHealth from './components/TableHealth.vue';
+import TableHealthActions from './components/TableHealthActions.vue';
 import TableBranchVisualization from './components/TableBranchVisualization.vue';
 import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
 import TableOverview from './components/TableOverview.vue';
@@ -44,10 +46,6 @@ import TableBranch from './components/TableBranch.vue';
 import TablePreview from './components/TablePreview.vue';
 import TableCreate from './components/TableCreate.vue';
 import TableRegister from './components/TableRegister.vue';
-/** @deprecated Use LoQEExplorer instead. Will be removed in a future release. */
-import WarehouseSqlQuery from './components/WarehouseSqlQuery.vue';
-/** @deprecated Use LoQENavigationTree instead. Will be removed in a future release. */
-import WarehouseNavigationTree from './components/WarehouseNavigationTree.vue';
 import WarehousesNavigationTree from './components/WarehousesNavigationTree.vue';
 import LoQEExplorer from './components/LoQEExplorer.vue';
 import ViewHeader from './components/ViewHeader.vue';
@@ -66,7 +64,6 @@ import SnackbarMessage from './components/SnackbarMessage.vue';
 import BreadcrumbsFromUrl from './components/BreadcrumbsFromUrl.vue';
 import DeleteDialog from './components/DeleteDialog.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
-import ServerInformation from './components/ServerInformation.vue';
 import ServerOverview from './components/ServerOverview.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
@@ -92,7 +89,6 @@ export {
   BreadcrumbsFromUrl,
   DeleteDialog,
   TaskConfigDialog,
-  ServerInformation,
   ServerOverview,
   UserManager,
   ProjectNameAddOrEditDialog,
@@ -159,7 +155,7 @@ export {
 export * from './composables/useAuth';
 
 // Export stores
-export { useVisualStore } from './stores/visual';
+export { useVisualStore, type PolicyBuilderState } from './stores/visual';
 export { usePermissionStore } from './stores/permissions';
 export { useUserStore } from './stores/user';
 export { useNotificationStore } from './stores/notifications';
@@ -234,7 +230,6 @@ const components = {
   BreadcrumbsFromUrl,
   DeleteDialog,
   TaskConfigDialog,
-  ServerInformation,
   ServerOverview,
   UserManager,
   AuthenticationDisabledWarningBanner,
@@ -266,6 +261,8 @@ const components = {
   NamespaceHeader,
   TableHeader,
   TableDetails,
+  TableHealth,
+  TableHealthActions,
   TableBranchVisualization,
   TableSnapshotDetails,
   TableOverview,
@@ -274,10 +271,6 @@ const components = {
   TableCreate,
   TableRegister,
   TableBranch,
-  /** @deprecated Use LoQEExplorer instead. */
-  WarehouseSqlQuery,
-  /** @deprecated Use LoQENavigationTree instead. */
-  WarehouseNavigationTree,
   ViewHeader,
   ViewHistoryTab,
   ViewOverview,
@@ -320,10 +313,6 @@ export { default as LoginPage } from './components/LoginPage.vue';
 export { default as LogoutPage } from './components/LogoutPage.vue';
 export { default as CallbackPage } from './components/CallbackPage.vue';
 
-// Export DuckDB composable
-export { useDuckDB, MAX_RESULT_ROWS } from './composables/useDuckDB';
-export type { QueryResult } from './composables/useDuckDB';
-
 // Export  settings store
 export {
   useDuckDBSettingsStore,
@@ -333,10 +322,7 @@ export {
 } from './stores/duckdbSettings';
 export type { DuckDBSettings } from './stores/duckdbSettings';
 export { default as DuckDBSettingsDialog } from './components/DuckDBSettingsDialog.vue';
-
-// Export Iceberg DuckDB integration
-export { useIcebergDuckDB } from './composables/useIcebergDuckDB';
-export type {} from './composables/useIcebergDuckDB';
+export { default as CorsConfigDialog } from './components/CorsConfigDialog.vue';
 
 // Export LoQE — Local Query Engine DuckDB
 export { useLoQE } from './composables/useLoQE';

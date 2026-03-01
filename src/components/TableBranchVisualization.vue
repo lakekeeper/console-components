@@ -1,1260 +1,1003 @@
 <template>
-  <div class="pa-4">
-    <div class="text-h6 mb-4 d-flex align-center">
-      <v-icon class="mr-2">mdi-source-branch</v-icon>
-      Branch Graph
-    </div>
-
-    <div
+  <v-container fluid class="pa-0">
+    <v-row
       v-if="!table.metadata.refs || Object.keys(table.metadata.refs).length === 0"
-      class="text-center pa-8">
-      <v-icon size="64" color="grey-lighten-1">mdi-source-branch-remove</v-icon>
-      <div class="text-h6 mt-2 text-grey-lighten-1">No branches found</div>
-      <div class="text-body-1 text-grey-lighten-1">This table has no branch references</div>
-    </div>
+      justify="center"
+      class="pa-8">
+      <v-col cols="12" class="text-center">
+        <v-icon size="64" color="grey-lighten-1">mdi-source-branch-remove</v-icon>
+        <div class="text-h6 mt-2 text-grey-lighten-1">No branches found</div>
+        <div class="text-body-1 text-grey-lighten-1">This table has no branch references</div>
+      </v-col>
+    </v-row>
 
-    <div v-else class="graph-container">
-      <v-row>
-        <!-- Graph Column -->
-        <v-col cols="12" lg="8">
-          <v-card variant="outlined" class="pa-4">
-            <!-- Zoom Controls -->
-            <div class="d-flex align-center mb-3">
-              <v-btn-group variant="outlined" size="x-small">
-                <v-btn
-                  :disabled="zoomScale >= maxZoom"
-                  size="small"
-                  @click="zoomIn"
-                  prepend-icon="mdi-magnify-plus"></v-btn>
-                <v-btn @click="resetZoom" prepend-icon="mdi-magnify" size="small">
-                  {{ Math.round(zoomScale * 100) }}%
+    <div v-else class="branch-layout">
+      <!-- Row 1: Fixed D3 chart — never scrolls -->
+      <v-row no-gutters class="flex-grow-0 flex-shrink-0 ml-2 pl-2">
+        <v-col cols="12">
+          <div class="chart-outer">
+            <div ref="chartRef" class="chart-container"></div>
+
+            <!-- Floating zoom controls — top-left -->
+            <div class="zoom-overlay">
+              <v-btn-group variant="flat" density="compact" class="zoom-group">
+                <v-btn size="x-small" icon="mdi-plus" @click="zoomIn"></v-btn>
+                <v-btn size="x-small" class="zoom-label" @click="resetZoom">
+                  {{ Math.round(currentZoom * 100) }}%
                 </v-btn>
-                <v-btn
-                  :disabled="zoomScale <= minZoom"
-                  size="small"
-                  @click="zoomOut"
-                  prepend-icon="mdi-magnify-minus"></v-btn>
+                <v-btn size="x-small" icon="mdi-minus" class="mr-2" @click="zoomOut"></v-btn>
+                <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
               </v-btn-group>
             </div>
 
-            <div
-              class="graph-content"
-              :style="{
-                height: Math.min(graphHeight + 50, 700) + 'px',
-                overflow: 'auto',
-                border: '1px solid rgba(var(--v-border-color), var(--v-border-opacity))',
-                borderRadius: '4px',
-              }">
-              <svg
-                :width="graphWidth * zoomScale"
-                :height="graphHeight * zoomScale"
-                :viewBox="`0 0 ${graphWidth} ${graphHeight}`"
-                class="branch-graph"
-                style="display: block">
-                <g :transform="`scale(${zoomScale})`">
-                  <defs>
-                    <filter id="nodeShadow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-opacity="0.3" />
-                    </filter>
-                  </defs>
-
-                  <!-- Branch lines -->
-                  <g v-for="(path, branchName) in branchPaths" :key="branchName">
-                    <path
-                      :d="path.pathData"
-                      :stroke="path.color"
-                      stroke-width="3"
-                      fill="none"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      opacity="0.8" />
-                  </g>
-
-                  <!-- Snapshot nodes -->
-                  <g v-for="node in graphNodes" :key="node.id">
+            <!-- Legend — bottom-left -->
+            <div class="legend-overlay">
+              <v-chip
+                v-for="entry in legendEntries"
+                :key="entry.name"
+                size="x-small"
+                variant="tonal"
+                class="legend-chip"
+                :style="{ opacity: entry.opacity }">
+                <template #prepend>
+                  <svg width="14" height="14" class="mr-1">
                     <circle
-                      :cx="node.x"
-                      :cy="node.y"
-                      :r="node.radius"
-                      :fill="node.color"
-                      :stroke="node.strokeColor"
-                      :stroke-width="selectedSnapshot?.['snapshot-id'] === node.snapshotId ? 4 : 3"
-                      filter="url(#nodeShadow)"
-                      style="cursor: pointer"
-                      @click="selectSnapshot(node.snapshotId)" />
-
-                    <!-- Sequence number inside the node -->
-                    <text
-                      :x="node.x"
-                      :y="node.y - 2"
-                      font-size="10"
-                      font-weight="bold"
-                      fill="white"
-                      text-anchor="middle"
-                      style="cursor: pointer; pointer-events: none">
-                      {{ node.sequenceNumber }}
-                    </text>
-
-                    <!-- Schema change indicator below sequence number -->
-                    <text
-                      v-if="node.schemaChangeInfo?.hasSchemaChange"
-                      :x="node.x"
-                      :y="node.y + 8"
-                      font-size="8"
-                      font-weight="bold"
-                      fill="white"
-                      text-anchor="middle"
-                      style="pointer-events: none; opacity: 0.9">
-                      {{ `S${node.schemaChangeInfo.fromSchema}→${node.schemaChangeInfo.toSchema}` }}
-                    </text>
-
-                    <!-- Schema change icon indicator -->
-                    <circle
-                      v-if="node.schemaChangeInfo?.hasSchemaChange"
-                      :cx="node.x + node.radius - 2"
-                      :cy="node.y - node.radius + 2"
+                      cx="7"
+                      cy="7"
                       r="6"
-                      fill="#ff5722"
-                      stroke="white"
+                      fill="none"
+                      :stroke="entry.color"
                       stroke-width="1"
-                      style="pointer-events: none"></circle>
-                    <text
-                      v-if="node.schemaChangeInfo?.hasSchemaChange"
-                      :x="node.x + node.radius - 2"
-                      :y="node.y - node.radius + 5"
-                      font-size="8"
-                      font-weight="bold"
-                      fill="white"
-                      text-anchor="middle"
-                      style="pointer-events: none">
-                      S
-                    </text>
-
-                    <!-- Branch labels -->
-                    <text
-                      v-for="branch in node.branches"
-                      :key="branch"
-                      :x="node.x + 20"
-                      :y="node.y + 5"
-                      font-size="12"
-                      font-weight="500"
-                      :fill="getBranchColor(branch)"
-                      style="pointer-events: none">
-                      {{ branch }}
-                    </text>
-
-                    <!-- Snapshot ID tooltip -->
-                    <title>
-                      Sequence: {{ node.sequenceNumber }} | Snapshot: {{ node.snapshotId
-                      }}{{
-                        node.schemaChangeInfo?.hasSchemaChange
-                          ? ` | Schema: ${node.schemaChangeInfo.fromSchema}→${node.schemaChangeInfo.toSchema}`
-                          : ''
-                      }}
-                    </title>
-                  </g>
-                </g>
-              </svg>
+                      opacity="0.5" />
+                    <circle cx="7" cy="7" r="4" :fill="entry.color" />
+                    <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
+                  </svg>
+                </template>
+                {{ entry.name }}
+              </v-chip>
+              <v-chip size="x-small" variant="tonal" class="legend-chip">
+                <template #prepend>
+                  <svg width="14" height="14" class="mr-1">
+                    <circle
+                      cx="7"
+                      cy="7"
+                      r="6"
+                      fill="none"
+                      stroke="#f57c00"
+                      stroke-width="1"
+                      opacity="0.5" />
+                    <circle cx="7" cy="7" r="4" fill="#ff9800" />
+                    <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
+                  </svg>
+                </template>
+                schema change
+              </v-chip>
             </div>
-          </v-card>
 
-          <!-- Legend -->
-          <v-card variant="outlined" class="mt-4 pa-3">
-            <div class="text-subtitle-2 mb-2">Legend</div>
-            <div class="d-flex flex-wrap gap-4 mb-3">
-              <div v-for="entry in legendEntries" :key="entry.name" class="d-flex align-center">
-                <div
-                  class="branch-color-indicator mr-2"
-                  :style="{
-                    backgroundColor: entry.color,
-                    width: '16px',
-                    height: '2px',
-                    borderRadius: '2px',
-                    opacity: entry.opacity,
-                  }"></div>
-                <span
-                  class="text-body-2 mr-2"
-                  :class="{ 'text-grey-darken-1': entry.type === 'dropped-branch' }">
-                  {{ entry.name }}
-                </span>
-              </div>
+            <!-- Click hint -->
+            <div v-if="!selectedSnapshot" class="hint-overlay">
+              <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
+              <span class="text-caption">Click a node for details</span>
             </div>
-            <div class="d-flex flex-wrap gap-4 align-center">
-              <div class="d-flex align-center">
-                <div class="mr-2" style="position: relative">
-                  <div
-                    style="
-                      width: 16px;
-                      height: 16px;
-                      border-radius: 50%;
-                      background-color: #ff9800;
-                      border: 2px solid #f57c00;
-                    "></div>
-                  <div
-                    style="
-                      position: absolute;
-                      top: -2px;
-                      right: -2px;
-                      width: 8px;
-                      height: 8px;
-                      border-radius: 50%;
-                      background-color: #ff5722;
-                      border: 1px solid white;
-                    "></div>
-                </div>
-                <span class="text-body-2">Schema Changed</span>
-              </div>
-            </div>
-          </v-card>
+          </div>
         </v-col>
+      </v-row>
 
-        <!-- Details Column -->
-        <v-col cols="12" lg="4">
-          <v-card variant="outlined" class="pa-4" style="height: 70vh">
-            <div v-if="!selectedSnapshot" class="text-center pa-8">
-              <v-icon size="64" color="grey-lighten-2">mdi-cursor-default-click</v-icon>
-              <div class="text-h6 mt-2 text-grey-lighten-1">Select a Node</div>
-              <div class="text-body-2 text-grey-lighten-1">
-                Click on any node in the graph to view snapshot details
-              </div>
-            </div>
-
-            <div v-else style="height: 100%; overflow-y: auto">
-              <div class="d-flex align-center justify-space-between mb-4">
-                <div class="text-h6 d-flex align-center">
-                  <v-icon class="mr-2">mdi-camera-outline</v-icon>
-                  Snapshot Details
+      <!-- Row 2: Scrollable details (appears on node click) -->
+      <v-row no-gutters class="details-scroll-area">
+        <v-col cols="12">
+          <v-slide-y-transition>
+            <div
+              v-if="selectedSnapshot"
+              class="details-panel"
+              style="max-height: 30vh; overflow-y: auto">
+              <div class="details-panel-inner">
+                <div class="d-flex align-center justify-space-between mb-2">
+                  <span class="text-subtitle-1 font-weight-bold d-flex align-center">
+                    <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
+                    Snapshot #{{ selectedSnapshot['sequence-number'] }}
+                  </span>
+                  <v-btn
+                    icon="mdi-close"
+                    size="x-small"
+                    variant="text"
+                    @click="selectedSnapshot = null"></v-btn>
                 </div>
-                <v-btn
-                  icon="mdi-close"
-                  size="small"
-                  variant="flat"
-                  @click="selectedSnapshot = null"></v-btn>
-              </div>
 
-              <v-card variant="outlined" class="mb-4">
-                <v-card-title class="text-h6">
-                  ID: {{ selectedSnapshot['snapshot-id'] }}
-                </v-card-title>
-                <v-card-text>
-                  <div class="mb-2">
-                    <strong>Sequence:</strong>
-                    {{ selectedSnapshot['sequence-number'] }}
-                  </div>
-                  <div class="mb-2">
-                    <strong>Schema ID:</strong>
+                <!-- Core info -->
+                <div class="detail-row">
+                  <span class="detail-label mr-2">ID</span>
+                  <span class="detail-value text-caption">
+                    {{ selectedSnapshot['snapshot-id'] }}
+                  </span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label mr-2">Schema</span>
+                  <span class="detail-value text-caption">
                     {{ selectedSnapshot['schema-id'] }}
-                  </div>
-                  <div class="mb-2">
-                    <strong>Timestamp:</strong>
+                  </span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label mr-2">Time</span>
+                  <span class="detail-value text-caption">
                     {{
                       selectedSnapshot['timestamp-ms']
                         ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
-                        : 'N/A'
+                        : '—'
                     }}
-                  </div>
-                  <div v-if="selectedSnapshot['parent-snapshot-id']" class="mb-2">
-                    <strong>Parent:</strong>
+                  </span>
+                </div>
+                <div v-if="selectedSnapshot['parent-snapshot-id']" class="detail-row">
+                  <span class="detail-label mr-2">Parent</span>
+                  <span class="detail-value text-caption">
                     {{ selectedSnapshot['parent-snapshot-id'] }}
-                  </div>
-                  <div v-if="selectedSnapshot.summary?.operation" class="mb-2">
-                    <strong>Operation:</strong>
-                    <v-chip
-                      :color="getOperationColor(selectedSnapshot.summary.operation)"
-                      size="small"
-                      variant="flat"
-                      class="ml-1">
-                      {{ selectedSnapshot.summary.operation }}
-                    </v-chip>
-                  </div>
-                  <div v-if="selectedSnapshot['manifest-list']" class="mb-2">
-                    <strong>Manifest List:</strong>
-                    <div class="text-caption text-wrap">
-                      {{ selectedSnapshot['manifest-list'] }}
-                    </div>
-                  </div>
-                </v-card-text>
-              </v-card>
+                  </span>
+                </div>
+                <div v-if="selectedSnapshot.summary?.operation" class="detail-row">
+                  <span class="detail-label mr-2">Op</span>
+                  <v-chip
+                    :color="getOperationColor(selectedSnapshot.summary.operation)"
+                    size="x-small"
+                    variant="flat"
+                    class="ml-1">
+                    {{ selectedSnapshot.summary.operation }}
+                  </v-chip>
+                </div>
+                <div v-if="selectedSnapshot['manifest-list']" class="detail-row">
+                  <span class="detail-label mr-2">Manifest</span>
+                  <span
+                    class="detail-value text-caption text-truncate"
+                    style="max-width: 200px"
+                    :title="selectedSnapshot['manifest-list']">
+                    {{ selectedSnapshot['manifest-list'] }}
+                  </span>
+                </div>
 
-              <!-- Operational Summary -->
-              <v-expansion-panels v-if="selectedSnapshot.summary" class="mb-4">
-                <v-expansion-panel>
-                  <v-expansion-panel-title>Operational Summary</v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <div class="summary-grid">
-                      <div
-                        v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
-                        :key="key"
-                        class="mb-2">
-                        <strong>{{ formatSummaryKey(key) }}:</strong>
-                        <span class="ml-2">{{ formatSummaryValue(value) }}</span>
+                <!-- Collapsible: Operational Summary -->
+                <v-expansion-panels
+                  v-if="selectedSnapshot.summary"
+                  variant="accordion"
+                  class="mt-3 details-panels">
+                  <v-expansion-panel>
+                    <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
+                      Summary
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <div class="summary-grid">
+                        <div
+                          v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
+                          :key="key"
+                          class="summary-row">
+                          <span class="summary-key mr-2">{{ formatSummaryKey(key) }}:</span>
+                          <span class="summary-val">{{ formatSummaryValue(value) }}</span>
+                        </div>
                       </div>
-                    </div>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
 
-              <!-- Schema Information -->
-              <v-expansion-panels v-if="selectedSnapshot">
-                <v-expansion-panel>
-                  <v-expansion-panel-title>
-                    Schema Information
-                    <v-chip
-                      v-if="selectedSnapshot && getSchemaChanges(selectedSnapshot)"
-                      size="x-small"
-                      color="warning"
-                      variant="flat"
-                      class="ml-2">
-                      Changed
-                    </v-chip>
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <div v-if="!getEffectiveSchemaInfo(selectedSnapshot)" class="text-center pa-4">
-                      <v-icon size="48" color="grey-lighten-2">mdi-information-outline</v-icon>
-                      <div class="text-body-1 text-grey-lighten-1 mt-2">
-                        Schema information not available
-                      </div>
-                      <div class="text-caption text-grey-lighten-2">
-                        Snapshot Schema ID: {{ selectedSnapshot['schema-id'] }}
-                      </div>
-                      <div class="text-caption text-grey-lighten-2">
-                        Table Current Schema ID: {{ table.metadata['current-schema-id'] }}
-                      </div>
-                      <div class="text-caption text-grey-lighten-2">
-                        Effective Schema ID: {{ getEffectiveSchemaId(selectedSnapshot) }}
-                      </div>
-                      <div class="text-caption text-grey-lighten-2 mt-1">
-                        Available schemas: {{ table.metadata.schemas?.length || 0 }}
-                      </div>
+                <!-- Collapsible: Schema Information -->
+                <v-expansion-panels variant="accordion" class="mt-2 details-panels">
+                  <v-expansion-panel>
+                    <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
+                      Schema
+                      <v-chip
+                        v-if="getSchemaChanges(selectedSnapshot)"
+                        size="x-small"
+                        color="warning"
+                        variant="flat"
+                        class="ml-2">
+                        Changed
+                      </v-chip>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
                       <div
-                        v-if="table.metadata.schemas && table.metadata.schemas.length > 0"
-                        class="text-caption text-grey-lighten-2 mt-1">
-                        Schema IDs:
-                        {{ table.metadata.schemas.map((s: any) => s['schema-id']).join(', ') }}
+                        v-if="!getEffectiveSchemaInfo(selectedSnapshot)"
+                        class="text-center pa-2">
+                        <div class="text-caption text-grey-lighten-1">
+                          Schema not available (ID:
+                          {{ getEffectiveSchemaId(selectedSnapshot) }})
+                        </div>
                       </div>
-                    </div>
-                    <div
-                      v-else
-                      class="schema-fields-container"
-                      style="max-height: 300px; overflow-y: auto">
-                      <div class="mb-2 text-caption">
-                        Using
-                        {{
-                          getEffectiveSchemaId(selectedSnapshot) === selectedSnapshot['schema-id']
-                            ? 'snapshot'
-                            : 'table current'
-                        }}
-                        schema (ID: {{ getEffectiveSchemaId(selectedSnapshot) }})
+                      <div v-else>
+                        <div class="text-caption mb-1" style="opacity: 0.7">
+                          Schema ID {{ getEffectiveSchemaId(selectedSnapshot) }}
+                        </div>
+                        <v-list density="compact" class="pa-0">
+                          <v-list-item
+                            v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
+                            :key="field.id"
+                            class="pa-0 px-1"
+                            style="min-height: 28px">
+                            <template #prepend>
+                              <v-icon
+                                :color="isFieldNew(field, selectedSnapshot) ? 'success' : undefined"
+                                size="x-small"
+                                class="mr-1">
+                                {{ getFieldIcon(field) }}
+                              </v-icon>
+                            </template>
+                            <v-list-item-title
+                              class="text-caption"
+                              :class="
+                                isFieldNew(field, selectedSnapshot)
+                                  ? 'text-success font-weight-bold'
+                                  : ''
+                              ">
+                              {{ field.name }}
+                              <v-chip
+                                v-if="isFieldNew(field, selectedSnapshot)"
+                                size="x-small"
+                                color="success"
+                                variant="flat"
+                                class="ml-1">
+                                new
+                              </v-chip>
+                            </v-list-item-title>
+                            <v-list-item-subtitle
+                              class="text-caption"
+                              style="font-size: 0.7rem !important">
+                              {{ getFieldTypeString(field.type) }}
+                              <span v-if="field.required" class="text-error">*</span>
+                            </v-list-item-subtitle>
+                          </v-list-item>
+                        </v-list>
                       </div>
-                      <v-list density="compact">
-                        <v-list-item
-                          v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
-                          :key="field.id"
-                          class="pa-1">
-                          <template #prepend>
-                            <v-icon
-                              :color="
-                                selectedSnapshot &&
-                                isFieldNew(
-                                  field,
-                                  selectedSnapshot,
-                                  snapshotHistory.findIndex(
-                                    (s: Snapshot) =>
-                                      s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
-                                  ),
-                                )
-                                  ? 'success'
-                                  : undefined
-                              "
-                              size="small">
-                              {{ getFieldIcon(field) }}
-                            </v-icon>
-                          </template>
-                          <v-list-item-title
-                            :class="
-                              selectedSnapshot &&
-                              isFieldNew(
-                                field,
-                                selectedSnapshot,
-                                snapshotHistory.findIndex(
-                                  (s: Snapshot) =>
-                                    s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
-                                ),
-                              )
-                                ? 'text-success font-weight-bold'
-                                : ''
-                            ">
-                            {{ field.name }}
-                            <v-chip
-                              v-if="
-                                selectedSnapshot &&
-                                isFieldNew(
-                                  field,
-                                  selectedSnapshot,
-                                  snapshotHistory.findIndex(
-                                    (s: Snapshot) =>
-                                      s['snapshot-id'] === selectedSnapshot!['snapshot-id'],
-                                  ),
-                                )
-                              "
-                              size="x-small"
-                              color="success"
-                              variant="flat"
-                              class="ml-2">
-                              New
-                            </v-chip>
-                          </v-list-item-title>
-                          <v-list-item-subtitle>
-                            {{ getFieldTypeString(field.type) }}
-                            <span v-if="field.required" class="text-error ml-1">*</span>
-                          </v-list-item-subtitle>
-                        </v-list-item>
-                      </v-list>
-                    </div>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </div>
             </div>
-          </v-card>
+          </v-slide-y-transition>
         </v-col>
       </v-row>
     </div>
-  </div>
+  </v-container>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onBeforeUnmount } from 'vue';
+import * as d3 from 'd3';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
-// Props
+// ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
   table: LoadTableResult;
   snapshotHistory: Snapshot[];
 }>();
 
-// Reactive data
+// ─── State ───────────────────────────────────────────────────────────────────
+const chartRef = ref<HTMLDivElement | null>(null);
 const selectedSnapshot = ref<Snapshot | null>(null);
+const currentZoom = ref(1);
 
-// Zoom functionality
-const zoomScale = ref(1);
-const minZoom = 0.1;
-const maxZoom = 3;
-const zoomStep = 0.1;
+// D3 selections — kept outside Vue reactivity
+let svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
+let rootG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
+let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 
-// Graph dimensions
-const graphWidth = ref(1000);
-const graphHeight = ref(700);
+// ─── Branch Colors ───────────────────────────────────────────────────────────
+const BRANCH_COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f', '#7b1fa2', '#00796b', '#c2185b'];
+const DROPPED_COLOR = '#9e9e9e';
 
-// Zoom functions
-function zoomIn() {
-  if (zoomScale.value < maxZoom) {
-    zoomScale.value = Math.min(zoomScale.value + zoomStep, maxZoom);
-  }
+// ─── Data Model ──────────────────────────────────────────────────────────────
+
+interface BranchMeta {
+  name: string;
+  type: 'branch' | 'tag' | 'dropped';
+  color: string;
+  tipSnapshotId: number;
+  ancestry: number[];
 }
 
-function zoomOut() {
-  if (zoomScale.value > minZoom) {
-    zoomScale.value = Math.max(zoomScale.value - zoomStep, minZoom);
-  }
+interface GraphNode {
+  id: string;
+  snapshotId: number;
+  x: number;
+  y: number;
+  radius: number;
+  color: string;
+  strokeColor: string;
+  sequenceNumber: number;
+  branchLabels: { name: string; color: string }[];
+  schemaChange?: { from: number; to: number };
 }
 
-function resetZoom() {
-  zoomScale.value = 1;
+interface GraphLink {
+  id: string;
+  path: string;
+  color: string;
+  opacity: number;
 }
 
-// Compute graph dimensions separately to avoid side effects in graphNodes
-const graphDimensions = computed(() => {
-  if (!props.snapshotHistory.length) {
-    return { height: 200, width: 300 };
-  }
+// ─── Ancestry helper ─────────────────────────────────────────────────────────
 
-  const sortedSnapshots = [...props.snapshotHistory].sort((a, b) => {
-    const seqA = a['sequence-number'] || 0;
-    const seqB = b['sequence-number'] || 0;
-    return seqA - seqB;
+function traceAncestry(tipId: number, snapshotMap: Map<number, Snapshot>): number[] {
+  const chain: number[] = [];
+  let id: number | undefined = tipId;
+  const visited = new Set<number>();
+  while (id != null && !visited.has(id)) {
+    visited.add(id);
+    const snap = snapshotMap.get(id);
+    if (!snap) break;
+    chain.push(id);
+    id = snap['parent-snapshot-id'] ?? undefined;
+  }
+  return chain;
+}
+
+// ─── Computed: branches ──────────────────────────────────────────────────────
+
+const branches = computed<BranchMeta[]>(() => {
+  const result: BranchMeta[] = [];
+  const refs = props.table.metadata.refs;
+  if (!refs) return result;
+
+  const sorted = [...props.snapshotHistory].sort(
+    (a, b) => (a['sequence-number'] || 0) - (b['sequence-number'] || 0),
+  );
+  const snapshotMap = new Map<number, Snapshot>();
+  sorted.forEach((s) => snapshotMap.set(s['snapshot-id'], s));
+
+  let colorIdx = 0;
+  Object.entries(refs).forEach(([name, refData]: [string, any]) => {
+    if (refData.type !== 'branch') return;
+    result.push({
+      name,
+      type: 'branch',
+      color: BRANCH_COLORS[colorIdx++ % BRANCH_COLORS.length],
+      tipSnapshotId: refData['snapshot-id'],
+      ancestry: traceAncestry(refData['snapshot-id'], snapshotMap),
+    });
   });
 
-  const nodeSpacingX = 120;
-  const nodeSpacingY = 80;
+  // Dropped branches
+  const reachable = new Set<number>();
+  result.forEach((b) => b.ancestry.forEach((id) => reachable.add(id)));
 
-  // Calculate height
-  const minHeight = 200;
-  const padding = 100;
-  const calculatedHeight = padding + sortedSnapshots.length * nodeSpacingY;
-  const height = Math.max(minHeight, calculatedHeight);
-
-  // Calculate width using simplified branch logic
-  const branchNames = Object.keys(props.table.metadata.refs || {});
-  const estimatedColumns = Math.max(branchNames.length, 3);
-  const leftPadding = 200; // Conservative padding
-  const width = leftPadding + estimatedColumns * nodeSpacingX + 100;
-
-  return { height, width };
-});
-
-// Watch graph dimensions and update reactive values
-watch(
-  graphDimensions,
-  (dimensions) => {
-    graphHeight.value = dimensions.height;
-    graphWidth.value = dimensions.width;
-  },
-  { immediate: true },
-);
-
-// Branch info computed
-const branchInfo = computed(() => {
-  const branches: Record<string, { color: string; type: string; snapshotId: number }> = {};
-  const colors = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f', '#7b1fa2', '#00796b', '#c2185b'];
-  let colorIndex = 0;
-
-  // Add existing branches from refs
-  if (props.table.metadata.refs) {
-    Object.entries(props.table.metadata.refs).forEach(([branchName, refData]: [string, any]) => {
-      branches[branchName] = {
-        color: colors[colorIndex % colors.length],
-        type: refData.type || 'branch',
-        snapshotId: refData['snapshot-id'],
-      };
-      colorIndex++;
-    });
-  }
-
-  // Detect dropped branches - improved logic
-  if (props.snapshotHistory.length > 0) {
-    const sortedSnapshots = [...props.snapshotHistory].sort((a, b) => {
-      const seqA = a['sequence-number'] || 0;
-      const seqB = b['sequence-number'] || 0;
-      return seqA - seqB;
-    });
-
-    // Build a map of parent-child relationships
+  const unreachable = sorted.filter((s) => !reachable.has(s['snapshot-id']));
+  if (unreachable.length > 0) {
     const childrenMap = new Map<number, number[]>();
-    sortedSnapshots.forEach((snapshot) => {
-      const parentId = snapshot['parent-snapshot-id'];
-      if (parentId) {
-        if (!childrenMap.has(parentId)) {
-          childrenMap.set(parentId, []);
-        }
-        childrenMap.get(parentId)!.push(snapshot['snapshot-id']);
+    sorted.forEach((s) => {
+      const pid = s['parent-snapshot-id'];
+      if (pid != null) {
+        if (!childrenMap.has(pid)) childrenMap.set(pid, []);
+        childrenMap.get(pid)!.push(s['snapshot-id']);
       }
     });
-
-    // Build ancestry map only for the current heads of named branches
-    const currentBranchHeads = new Set<number>();
-    Object.values(branches).forEach((branch) => {
-      currentBranchHeads.add(branch.snapshotId);
+    const unreachableIds = new Set(unreachable.map((s) => s['snapshot-id']));
+    const tips = unreachable.filter((s) => {
+      const children = childrenMap.get(s['snapshot-id']) || [];
+      return !children.some((c) => unreachableIds.has(c));
     });
-
-    // Find all snapshots that are reachable from current branch heads
-    const reachableFromBranches = new Set<number>();
-
-    const traceReachable = (snapshotId: number, visited = new Set<number>()) => {
-      if (visited.has(snapshotId) || reachableFromBranches.has(snapshotId)) return;
-      visited.add(snapshotId);
-      reachableFromBranches.add(snapshotId);
-
-      const snapshot = sortedSnapshots.find((s) => s['snapshot-id'] === snapshotId);
-      if (snapshot && snapshot['parent-snapshot-id']) {
-        traceReachable(snapshot['parent-snapshot-id'], visited);
-      }
-    };
-
-    // Trace from each current branch head
-    currentBranchHeads.forEach((headId) => {
-      traceReachable(headId);
-    });
-
-    // Find all snapshots that are not reachable from any current branch head
-    const unreachableSnapshots = sortedSnapshots.filter((snapshot) => {
-      const snapshotId = snapshot['snapshot-id'];
-      const isNamedBranchHead = currentBranchHeads.has(snapshotId);
-      const isReachableFromBranch = reachableFromBranches.has(snapshotId);
-
-      // An unreachable snapshot is one that is not reachable from any current branch head
-      return !isNamedBranchHead && !isReachableFromBranch;
-    });
-
-    // Group unreachable snapshots into dropped branch chains
-    const processedSnapshots = new Set<number>();
-
-    unreachableSnapshots.forEach((snapshot) => {
-      const snapshotId = snapshot['snapshot-id'];
-      if (processedSnapshots.has(snapshotId)) return;
-
-      const currentSeq = snapshot['sequence-number'] || 0;
-      if (currentSeq <= 1) return; // Don't consider the initial snapshot
-
-      // Find the root of this dropped branch chain
-      let headSnapshot = snapshot;
-      let current = snapshot;
-
-      // Trace back to find the head of this dropped branch
-      while (current && current['parent-snapshot-id']) {
-        const parent = sortedSnapshots.find(
-          (s) => s['snapshot-id'] === current['parent-snapshot-id'],
-        );
-        if (!parent) break;
-
-        // If parent is reachable from current branches, we found the divergence point
-        if (reachableFromBranches.has(parent['snapshot-id'])) {
-          break;
-        }
-
-        // If parent is also unreachable, it's part of this dropped branch chain
-        if (unreachableSnapshots.some((s) => s['snapshot-id'] === parent['snapshot-id'])) {
-          headSnapshot = parent;
-          current = parent;
-        } else {
-          break;
-        }
-      }
-
-      // Mark all snapshots in this chain as processed
-      let chainCurrent: Snapshot | null = headSnapshot;
-      while (chainCurrent) {
-        processedSnapshots.add(chainCurrent['snapshot-id']);
-
-        // Find the next snapshot in the chain
-        const children: number[] = childrenMap.get(chainCurrent['snapshot-id']) || [];
-        const nextInChain: number | undefined = children.find(
-          (childId: number) =>
-            unreachableSnapshots.some((s) => s['snapshot-id'] === childId) &&
-            !processedSnapshots.has(childId),
-        );
-
-        if (nextInChain) {
-          chainCurrent = sortedSnapshots.find((s) => s['snapshot-id'] === nextInChain) || null;
-        } else {
-          break;
-        }
-      }
-
-      // Create dropped branch entry
-      const droppedBranchName = `dropped-seq-${headSnapshot['sequence-number']}`;
-      branches[droppedBranchName] = {
-        color: '#9e9e9e',
-        type: 'dropped-branch',
-        snapshotId: headSnapshot['snapshot-id'],
-      };
+    tips.forEach((tip) => {
+      const ancestry = traceAncestry(tip['snapshot-id'], snapshotMap);
+      const droppedAncestry = ancestry.filter((id) => unreachableIds.has(id));
+      if (droppedAncestry.length === 0) return;
+      result.push({
+        name: `dropped-seq-${tip['sequence-number']}`,
+        type: 'dropped',
+        color: DROPPED_COLOR,
+        tipSnapshotId: tip['snapshot-id'],
+        ancestry: droppedAncestry,
+      });
     });
   }
 
-  return branches;
+  return result;
 });
 
-// Group legend entries to avoid duplicate "dropped-branch" entries
-const legendEntries = computed(() => {
-  const entries = [];
-  const droppedBranches = [];
+// ─── Computed: nodes ─────────────────────────────────────────────────────────
 
-  // Separate regular branches from dropped branches
-  Object.entries(branchInfo.value).forEach(([branchName, branch]) => {
-    if (branch.type === 'dropped-branch') {
-      droppedBranches.push({ branchName, branch });
-    } else {
-      entries.push({
-        name: branchName,
-        color: branch.color,
-        type: branch.type,
-        opacity: 1,
+const graphNodes = computed<GraphNode[]>(() => {
+  if (!props.snapshotHistory.length || branches.value.length === 0) return [];
+
+  const sorted = [...props.snapshotHistory].sort(
+    (a, b) => (a['sequence-number'] || 0) - (b['sequence-number'] || 0),
+  );
+
+  const mainBranch = branches.value.find((b) => b.name === 'main' || b.name === 'master');
+  const namedBranches = branches.value.filter((b) => b.type === 'branch' && b !== mainBranch);
+  const droppedBranches = branches.value.filter((b) => b.type === 'dropped');
+
+  const snapshotRow = new Map<number, number>();
+  if (mainBranch) mainBranch.ancestry.forEach((id) => snapshotRow.set(id, 0));
+  namedBranches.forEach((branch, idx) => {
+    branch.ancestry.forEach((id) => {
+      if (!snapshotRow.has(id)) snapshotRow.set(id, -(idx + 1));
+    });
+  });
+  droppedBranches.forEach((branch, idx) => {
+    branch.ancestry.forEach((id) => {
+      if (!snapshotRow.has(id)) snapshotRow.set(id, idx + 1);
+    });
+  });
+
+  // Detect merged branches (same tip as main) and use snapshot-log to
+  // move their exclusive snapshots onto a separate branch row.
+  const snapshotLog = (props.table.metadata as any)['snapshot-log'] as
+    | { 'snapshot-id': number; 'timestamp-ms': number }[]
+    | undefined;
+  const mergedBranchExclusiveIds = new Set<string>();
+  if (mainBranch && snapshotLog && snapshotLog.length > 0) {
+    const logIds = new Set(snapshotLog.map((e) => String(e['snapshot-id'])));
+    namedBranches.forEach((branch, idx) => {
+      if (String(branch.tipSnapshotId) !== String(mainBranch.tipSnapshotId)) return;
+      // Snapshots in shared ancestry that are NOT in the log were committed on this branch
+      branch.ancestry.forEach((id) => {
+        if (String(id) !== String(branch.tipSnapshotId) && !logIds.has(String(id))) {
+          snapshotRow.set(id, -(idx + 1));
+          mergedBranchExclusiveIds.add(String(id));
+        }
       });
+    });
+  }
+
+  // Horizontal layout: x = time (left→right), y = branch row
+  const spacingX = 90;
+  const spacingY = 100;
+  const allRows = Array.from(snapshotRow.values());
+  const minRow = Math.min(...allRows, 0);
+  const originY = Math.abs(minRow) * spacingY + 80;
+
+  const tipMap = new Map<number, BranchMeta[]>();
+  branches.value.forEach((b) => {
+    if (!tipMap.has(b.tipSnapshotId)) tipMap.set(b.tipSnapshotId, []);
+    tipMap.get(b.tipSnapshotId)!.push(b);
+  });
+
+  return sorted.map((snapshot, index) => {
+    const sid = snapshot['snapshot-id'];
+    const row = snapshotRow.get(sid) ?? 0;
+    const x = 60 + index * spacingX;
+    const y = originY + row * spacingY;
+    const sc = getSchemaChangeInfo(snapshot);
+    // Prefer main for shared nodes, else use the branch whose row this snapshot is on
+    const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
+    const ownerBranch =
+      (row === 0 && mainBr?.ancestry.includes(sid) ? mainBr : null) ||
+      branches.value.find((b) => b.ancestry.includes(sid) && snapshotRow.get(sid) !== undefined) ||
+      branches.value.find((b) => b.ancestry.includes(sid));
+    const isDropped = ownerBranch?.type === 'dropped';
+    const branchColor = ownerBranch?.color || '#666';
+    const tipBranches = tipMap.get(sid) || [];
+
+    return {
+      id: `node-${sid}`,
+      snapshotId: sid,
+      x,
+      y,
+      radius: sc ? 14 : 11,
+      color: sc ? '#ff9800' : branchColor,
+      strokeColor: sc ? '#f57c00' : isDropped ? '#757575' : branchColor,
+      sequenceNumber: snapshot['sequence-number'] || 0,
+      branchLabels: tipBranches.map((b) => ({ name: b.name, color: b.color })),
+      schemaChange: sc || undefined,
+    };
+  });
+});
+
+// ─── Computed: links ─────────────────────────────────────────────────────────
+
+const graphLinks = computed<GraphLink[]>(() => {
+  if (graphNodes.value.length === 0) return [];
+
+  const nodeMap = new Map<number, GraphNode>();
+  graphNodes.value.forEach((n) => nodeMap.set(n.snapshotId, n));
+
+  const links: GraphLink[] = [];
+  const seen = new Set<string>();
+
+  // Metro-style path: horizontal → rounded corner → vertical → rounded corner → horizontal
+  function metroPath(x1: number, y1: number, x2: number, y2: number, r = 14): string {
+    const dy = y2 - y1;
+    if (Math.abs(dy) < 5) return `M ${x1} ${y1} L ${x2} ${y2}`;
+    const midX = (x1 + x2) / 2;
+    const signY = dy > 0 ? 1 : -1;
+    const clampR = Math.min(r, Math.abs(dy) / 2, Math.abs(midX - x1));
+    return [
+      `M ${x1} ${y1}`,
+      `L ${midX - clampR} ${y1}`,
+      `Q ${midX} ${y1} ${midX} ${y1 + signY * clampR}`,
+      `L ${midX} ${y2 - signY * clampR}`,
+      `Q ${midX} ${y2} ${midX + clampR} ${y2}`,
+      `L ${x2} ${y2}`,
+    ].join(' ');
+  }
+
+  function addLink(
+    parentNode: GraphNode,
+    childNode: GraphNode,
+    color: string,
+    opacity: number,
+    keyPrefix = '',
+  ) {
+    const key = `${keyPrefix}${parentNode.snapshotId}-${childNode.snapshotId}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+
+    const x1 = parentNode.x + parentNode.radius;
+    const y1 = parentNode.y;
+    const x2 = childNode.x - childNode.radius;
+    const y2 = childNode.y;
+    const path = metroPath(x1, y1, x2, y2);
+    links.push({ id: key, path, color, opacity });
+  }
+
+  // Determine which branches are merged into main (same tip)
+  const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
+  const snapshotLog2 = (props.table.metadata as any)['snapshot-log'] as
+    | { 'snapshot-id': number }[]
+    | undefined;
+  const mergedExclusiveIds = new Set<string>();
+  if (mainBr && snapshotLog2 && snapshotLog2.length > 0) {
+    const logIds2 = new Set(snapshotLog2.map((e) => String(e['snapshot-id'])));
+    branches.value.forEach((branch) => {
+      if (branch === mainBr || branch.type !== 'branch') return;
+      if (String(branch.tipSnapshotId) !== String(mainBr.tipSnapshotId)) return;
+      branch.ancestry.forEach((id) => {
+        if (String(id) !== String(branch.tipSnapshotId) && !logIds2.has(String(id))) {
+          mergedExclusiveIds.add(String(id));
+        }
+      });
+    });
+  }
+
+  // Process merged branches first so their colored links take priority
+  const sortedBranches = [...branches.value].sort((a, b) => {
+    const aM =
+      mainBr &&
+      a !== mainBr &&
+      a.type === 'branch' &&
+      String(a.tipSnapshotId) === String(mainBr.tipSnapshotId);
+    const bM =
+      mainBr &&
+      b !== mainBr &&
+      b.type === 'branch' &&
+      String(b.tipSnapshotId) === String(mainBr.tipSnapshotId);
+    if (aM && !bM) return -1;
+    if (!aM && bM) return 1;
+    return 0;
+  });
+
+  sortedBranches.forEach((branch) => {
+    const isMerged =
+      mainBr &&
+      branch !== mainBr &&
+      branch.type === 'branch' &&
+      mergedExclusiveIds.size > 0 &&
+      String(branch.tipSnapshotId) === String(mainBr.tipSnapshotId);
+    const opacity = branch.type === 'dropped' ? 0.5 : 0.8;
+
+    if (isMerged) {
+      // Only create links where at least one endpoint is branch-exclusive
+      for (let i = 0; i < branch.ancestry.length - 1; i++) {
+        const child = nodeMap.get(branch.ancestry[i]);
+        const parent = nodeMap.get(branch.ancestry[i + 1]);
+        if (child && parent) {
+          const childExcl = mergedExclusiveIds.has(String(branch.ancestry[i]));
+          const parentExcl = mergedExclusiveIds.has(String(branch.ancestry[i + 1]));
+          if (childExcl || parentExcl) {
+            addLink(parent, child, branch.color, 0.8);
+          }
+        }
+      }
+      return;
+    }
+
+    // Chain edges
+    for (let i = 0; i < branch.ancestry.length - 1; i++) {
+      const child = nodeMap.get(branch.ancestry[i]);
+      const parent = nodeMap.get(branch.ancestry[i + 1]);
+      if (child && parent) addLink(parent, child, branch.color, opacity);
+    }
+
+    // Divergence from main
+    if (branch.type === 'branch' && branch.name !== 'main' && branch.name !== 'master') {
+      if (mainBr) {
+        const mainSet = new Set(mainBr.ancestry);
+        for (let i = 0; i < branch.ancestry.length; i++) {
+          if (mainSet.has(branch.ancestry[i]) && i > 0) {
+            const from = nodeMap.get(branch.ancestry[i]);
+            const to = nodeMap.get(branch.ancestry[i - 1]);
+            if (from && to) addLink(from, to, branch.color, 0.8, 'diverge-');
+            break;
+          }
+        }
+      }
+    }
+
+    // Dropped branch divergence
+    if (branch.type === 'dropped' && branch.ancestry.length > 0) {
+      const lastId = branch.ancestry[branch.ancestry.length - 1];
+      const lastSnap = props.snapshotHistory.find((s) => s['snapshot-id'] === lastId);
+      if (lastSnap?.['parent-snapshot-id']) {
+        const from = nodeMap.get(lastSnap['parent-snapshot-id']);
+        const to = nodeMap.get(lastId);
+        if (from && to) addLink(from, to, DROPPED_COLOR, 0.5, 'drop-');
+      }
     }
   });
 
-  // Add a single entry for all dropped branches if any exist
-  if (droppedBranches.length > 0) {
+  return links;
+});
+
+// ─── Legend (Vue-rendered) ───────────────────────────────────────────────────
+
+const legendEntries = computed(() => {
+  const entries: { name: string; color: string; type: string; opacity: number }[] = [];
+  let droppedCount = 0;
+
+  branches.value.forEach((b) => {
+    if (b.type === 'dropped') {
+      droppedCount++;
+    } else {
+      entries.push({ name: b.name, color: b.color, type: b.type, opacity: 1 });
+    }
+  });
+  if (droppedCount > 0) {
     entries.push({
-      name: `dropped branches (${droppedBranches.length})`,
-      color: '#9e9e9e',
-      type: 'dropped-branch',
+      name: `dropped branches (${droppedCount})`,
+      color: DROPPED_COLOR,
+      type: 'dropped',
       opacity: 0.7,
     });
   }
-
   return entries;
 });
 
-// Helper function to detect schema changes
-function getSchemaChangeInfo(snapshot: Snapshot): {
-  hasSchemaChange: boolean;
-  fromSchema?: number;
-  toSchema?: number;
-} {
-  if (!snapshot || !snapshot['parent-snapshot-id']) {
-    return { hasSchemaChange: false };
-  }
+// ─── D3 Rendering ────────────────────────────────────────────────────────────
 
-  const parentSnapshot = props.snapshotHistory.find(
-    (s) => s['snapshot-id'] === snapshot['parent-snapshot-id'],
-  );
+function renderChart() {
+  if (!chartRef.value) return;
 
-  if (!parentSnapshot) {
-    return { hasSchemaChange: false };
-  }
+  const container = chartRef.value;
+  const width = container.clientWidth || 800;
+  const height = container.clientHeight || 500;
 
-  const hasChange = snapshot['schema-id'] !== parentSnapshot['schema-id'];
-  return {
-    hasSchemaChange: hasChange,
-    fromSchema: hasChange ? parentSnapshot['schema-id'] : undefined,
-    toSchema: hasChange ? snapshot['schema-id'] : undefined,
-  };
-}
+  // Tear down previous SVG
+  d3.select(container).selectAll('svg').remove();
 
-// Graph nodes computed
-const graphNodes = computed(() => {
-  if (!props.snapshotHistory.length) return [];
+  // Create fresh SVG
+  svg = d3
+    .select(container)
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .style('display', 'block');
 
-  const nodes: Array<{
-    id: string;
-    snapshotId: number;
-    x: number;
-    y: number;
-    radius: number;
-    color: string;
-    strokeColor: string;
-    branches: string[];
-    parentId?: number;
-    level: number;
-    sequenceNumber: number;
-    schemaChangeInfo?: { hasSchemaChange: boolean; fromSchema?: number; toSchema?: number };
-  }> = [];
+  const defs = svg.append('defs');
 
-  // Sort snapshots by sequence number (1 = first commit at bottom, highest = latest at top)
-  const sortedSnapshots = [...props.snapshotHistory].sort((a, b) => {
-    const seqA = a['sequence-number'] || 0;
-    const seqB = b['sequence-number'] || 0;
-    return seqA - seqB;
-  });
+  // ── Dot-grid pattern ──
+  defs
+    .append('pattern')
+    .attr('id', 'dotGrid')
+    .attr('width', 20)
+    .attr('height', 20)
+    .attr('patternUnits', 'userSpaceOnUse')
+    .append('circle')
+    .attr('cx', 10)
+    .attr('cy', 10)
+    .attr('r', 0.8)
+    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.08)');
 
-  const nodeSpacingX = 120;
-  const nodeSpacingY = 80;
+  // ── Glow filter for links ──
+  const glowFilter = defs
+    .append('filter')
+    .attr('id', 'lineGlow')
+    .attr('x', '-30%')
+    .attr('y', '-30%')
+    .attr('width', '160%')
+    .attr('height', '160%');
+  glowFilter.append('feGaussianBlur').attr('stdDeviation', 3).attr('result', 'blur');
+  const glowMerge = glowFilter.append('feMerge');
+  glowMerge.append('feMergeNode').attr('in', 'blur');
+  glowMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
-  // Get dimensions from our reactive watcher
-  const totalHeight = graphHeight.value;
+  // ── Glow filter for nodes ──
+  const nodeGlow = defs
+    .append('filter')
+    .attr('id', 'nodeGlow')
+    .attr('x', '-50%')
+    .attr('y', '-50%')
+    .attr('width', '200%')
+    .attr('height', '200%');
+  nodeGlow.append('feGaussianBlur').attr('stdDeviation', 4).attr('result', 'blur');
+  const nodeMerge = nodeGlow.append('feMerge');
+  nodeMerge.append('feMergeNode').attr('in', 'blur');
+  nodeMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
-  // Create a map to track which column each branch should use
-  const branchColumns = new Map<string, number>();
-  let nextRightColumn = 1;
-  let nextLeftColumn = -1;
+  // ── Selected-pulse filter ──
+  const pulseFilter = defs
+    .append('filter')
+    .attr('id', 'selectedPulse')
+    .attr('x', '-80%')
+    .attr('y', '-80%')
+    .attr('width', '260%')
+    .attr('height', '260%');
+  pulseFilter.append('feGaussianBlur').attr('stdDeviation', 6).attr('result', 'blur');
+  const pulseMerge = pulseFilter.append('feMerge');
+  pulseMerge.append('feMergeNode').attr('in', 'blur');
+  pulseMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
-  // Function to trace a branch's full history from its head snapshot
-  function getBranchHistory(branchSnapshotId: number): number[] {
-    const history: number[] = [];
-    const visited = new Set<number>();
+  // Background rect with dot grid
+  svg
+    .append('rect')
+    .attr('width', width)
+    .attr('height', height)
+    .attr('fill', 'url(#dotGrid)')
+    .style('pointer-events', 'none');
 
-    function trace(snapshotId: number) {
-      if (visited.has(snapshotId)) return;
-      visited.add(snapshotId);
+  // Root group for zoom/pan
+  rootG = svg.append('g');
 
-      const snapshot = sortedSnapshots.find((s) => s['snapshot-id'] === snapshotId);
-      if (!snapshot) return;
-
-      history.push(snapshotId);
-
-      if (snapshot['parent-snapshot-id']) {
-        trace(snapshot['parent-snapshot-id']);
-      }
-    }
-
-    trace(branchSnapshotId);
-    return history;
-  }
-
-  // Build branch histories
-  const branchHistories = new Map<string, number[]>();
-  const mainHistory: number[] = [];
-
-  // Find main branch (usually the one with most snapshots or "main"/"master")
-  const mainBranchName =
-    Object.keys(branchInfo.value).find((name) => name === 'main' || name === 'master') ||
-    Object.keys(branchInfo.value)[0];
-
-  if (mainBranchName && branchInfo.value[mainBranchName]) {
-    const mainBranchHistory = getBranchHistory(branchInfo.value[mainBranchName].snapshotId);
-    branchHistories.set('main', mainBranchHistory);
-    mainHistory.push(...mainBranchHistory);
-  }
-
-  // Build other branch histories
-  Object.entries(branchInfo.value).forEach(([branchName, branch]) => {
-    if (branchName !== mainBranchName && branch.type !== 'dropped-branch') {
-      const branchHistory = getBranchHistory(branch.snapshotId);
-      branchHistories.set(branchName, branchHistory);
-
-      // Assign columns to branches
-      if (!branchColumns.has(branchName)) {
-        branchColumns.set(branchName, nextRightColumn++);
-      }
-    }
-  });
-
-  // Pre-assign columns for dropped branches to ensure proper width calculation
-  Object.entries(branchInfo.value).forEach(([branchName, branch]) => {
-    if (branch.type === 'dropped-branch' && !branchColumns.has(branchName)) {
-      branchColumns.set(branchName, nextLeftColumn--);
-    }
-  });
-
-  // Calculate all column numbers for positioning
-  const columnNumbers = Array.from(branchColumns.values());
-  const minColumn = Math.min(...columnNumbers, 0);
-
-  // Adjust starting X position to account for left-side branches
-  const leftPadding = Math.abs(minColumn) * nodeSpacingX + 100;
-  const startX = leftPadding;
-
-  // Width is managed by our reactive watcher, just use current startX for positioning
-
-  // Position snapshots from bottom (sequence 1) to top (latest sequence)
-  sortedSnapshots.forEach((snapshot, index) => {
-    const snapshotId = snapshot['snapshot-id'];
-    const sequenceNumber = snapshot['sequence-number'] || 0;
-    const schemaChangeInfo = getSchemaChangeInfo(snapshot);
-
-    // Use index directly: index 0 (sequence 1) at bottom, higher index going up
-    const yPosition = totalHeight - nodeSpacingY - index * nodeSpacingY;
-
-    // Determine which branches this snapshot belongs to
-    const belongsToMain = mainHistory.includes(snapshotId);
-    const otherBranches: string[] = [];
-
-    // Check if this snapshot belongs to any dropped branch (including chain members)
-    let belongsToDroppedBranch = false;
-    let droppedBranchName = '';
-
-    // Check all dropped branches to see if this snapshot belongs to any of them
-    for (const [branchName, branch] of Object.entries(branchInfo.value)) {
-      if (branch.type !== 'dropped-branch') continue;
-
-      // If it's the head of the dropped branch
-      if (branch.snapshotId === snapshotId) {
-        belongsToDroppedBranch = true;
-        droppedBranchName = branchName;
-        break;
-      }
-
-      // Check if it's part of the dropped branch chain by following parent-child relationships
-      // Starting from the head, follow children until we find this snapshot or reach the end
-      let current: Snapshot | undefined = props.snapshotHistory.find(
-        (s) => s['snapshot-id'] === branch.snapshotId,
-      );
-      const visited = new Set<number>();
-
-      while (current && !visited.has(current['snapshot-id'])) {
-        visited.add(current['snapshot-id']);
-
-        if (current['snapshot-id'] === snapshotId) {
-          belongsToDroppedBranch = true;
-          droppedBranchName = branchName;
-          break;
-        }
-
-        // Find children and follow the dropped branch chain
-        const children = props.snapshotHistory.filter(
-          (s) => s['parent-snapshot-id'] === current!['snapshot-id'],
-        );
-        // Find a child that is not part of any named branch (likely continuation of dropped branch)
-        current =
-          children.find((child) => {
-            return !Object.values(branchInfo.value).some(
-              (b) =>
-                b.type !== 'dropped-branch' &&
-                branchHistories.get('main')?.includes(child['snapshot-id']),
-            );
-          }) || undefined;
-      }
-
-      if (belongsToDroppedBranch) break;
-    }
-
-    // Check regular branches (non-dropped)
-    branchHistories.forEach((history, branchName) => {
-      if (branchName !== 'main' && history.includes(snapshotId)) {
-        // Skip if this is a dropped branch - it should be handled separately
-        const branchType = branchInfo.value[branchName]?.type;
-        if (branchType === 'dropped-branch') return;
-
-        otherBranches.push(branchName);
-        if (!branchColumns.has(branchName)) {
-          branchColumns.set(branchName, nextRightColumn++);
-        }
-      }
+  // ── Zoom behavior ──
+  zoomBehavior = d3
+    .zoom<SVGSVGElement, unknown>()
+    .scaleExtent([0.1, 5])
+    .on('zoom', (event) => {
+      rootG!.attr('transform', event.transform.toString());
+      currentZoom.value = event.transform.k;
     });
 
-    // Special handling for dropped branches
-    if (belongsToDroppedBranch) {
-      const columnX = startX + (branchColumns.get(droppedBranchName || '') || -1) * nodeSpacingX;
-      const branchColor = branchInfo.value[droppedBranchName || '']?.color || '#9e9e9e';
+  svg.call(zoomBehavior);
+  svg.on('dblclick.zoom', null);
 
-      nodes.push({
-        id: `node-${snapshotId}-${droppedBranchName}`,
-        snapshotId,
-        x: columnX,
-        y: yPosition,
-        radius: schemaChangeInfo.hasSchemaChange ? 15 : 12,
-        color: schemaChangeInfo.hasSchemaChange ? '#ff9800' : branchColor,
-        strokeColor: schemaChangeInfo.hasSchemaChange ? '#f57c00' : '#757575',
-        branches: [droppedBranchName || 'dropped'],
-        parentId: snapshot['parent-snapshot-id'],
-        level: index,
-        sequenceNumber,
-        schemaChangeInfo,
-      });
-    } else if (belongsToMain && otherBranches.length === 0) {
-      // Only on main branch
-      nodes.push({
-        id: `node-${snapshotId}-main`,
-        snapshotId,
-        x: startX,
-        y: yPosition,
-        radius: schemaChangeInfo.hasSchemaChange ? 15 : 12,
-        color: schemaChangeInfo.hasSchemaChange ? '#ff9800' : '#4caf50',
-        strokeColor: schemaChangeInfo.hasSchemaChange ? '#f57c00' : '#388e3c',
-        branches: ['main'],
-        parentId: snapshot['parent-snapshot-id'],
-        level: index,
-        sequenceNumber,
-        schemaChangeInfo,
-      });
-    } else if (!belongsToMain && otherBranches.length > 0) {
-      // Only on other branch(es)
-      otherBranches.forEach((branchName) => {
-        const columnX = startX + (branchColumns.get(branchName) || 0) * nodeSpacingX;
-        const branchColor = branchInfo.value[branchName]?.color || '#2196f3';
-        nodes.push({
-          id: `node-${snapshotId}-${branchName}`,
-          snapshotId,
-          x: columnX,
-          y: yPosition,
-          radius: schemaChangeInfo.hasSchemaChange ? 15 : 12,
-          color: schemaChangeInfo.hasSchemaChange ? '#ff9800' : branchColor,
-          strokeColor: schemaChangeInfo.hasSchemaChange
-            ? '#f57c00'
-            : branchInfo.value[branchName]?.color || '#1976d2',
-          branches: [branchName],
-          parentId: snapshot['parent-snapshot-id'],
-          level: index,
-          sequenceNumber,
-          schemaChangeInfo,
-        });
-      });
-    } else if (belongsToMain && otherBranches.length > 0) {
-      // Divergence point - create main node only
-      nodes.push({
-        id: `node-${snapshotId}-main`,
-        snapshotId,
-        x: startX,
-        y: yPosition,
-        radius: schemaChangeInfo.hasSchemaChange ? 18 : 15,
-        color: schemaChangeInfo.hasSchemaChange ? '#ff9800' : '#4caf50',
-        strokeColor: schemaChangeInfo.hasSchemaChange ? '#f57c00' : '#388e3c',
-        branches: ['main'],
-        parentId: snapshot['parent-snapshot-id'],
-        level: index,
-        sequenceNumber,
-        schemaChangeInfo,
-      });
-    } else {
-      // Fallback - shouldn't happen but create a generic node
-      nodes.push({
-        id: `node-${snapshotId}`,
-        snapshotId,
-        x: startX,
-        y: yPosition,
-        radius: schemaChangeInfo.hasSchemaChange ? 12 : 10,
-        color: schemaChangeInfo.hasSchemaChange ? '#ff9800' : '#666',
-        strokeColor: schemaChangeInfo.hasSchemaChange ? '#f57c00' : '#444',
-        branches: [],
-        parentId: snapshot['parent-snapshot-id'],
-        level: index,
-        sequenceNumber,
-        schemaChangeInfo,
-      });
-    }
+  // ── Draw link glow layer (behind) ──
+  const glowG = rootG.append('g').attr('class', 'link-glow');
+  glowG
+    .selectAll('path')
+    .data(graphLinks.value)
+    .join('path')
+    .attr('d', (d) => d.path)
+    .attr('stroke', (d) => d.color)
+    .attr('stroke-width', 8)
+    .attr('fill', 'none')
+    .attr('stroke-linecap', 'round')
+    .attr('stroke-linejoin', 'round')
+    .attr('opacity', (d) => d.opacity * 0.25)
+    .attr('filter', 'url(#lineGlow)');
+
+  // ── Draw solid links ──
+  const linksG = rootG.append('g').attr('class', 'links');
+  linksG
+    .selectAll('path')
+    .data(graphLinks.value)
+    .join('path')
+    .attr('d', (d) => d.path)
+    .attr('stroke', (d) => d.color)
+    .attr('stroke-width', 3)
+    .attr('fill', 'none')
+    .attr('stroke-linecap', 'round')
+    .attr('stroke-linejoin', 'round')
+    .attr('opacity', (d) => d.opacity);
+
+  // ── Animated flow dashes (direction indicator) ──
+  const flowG = rootG.append('g').attr('class', 'link-flow');
+  flowG
+    .selectAll('path')
+    .data(graphLinks.value)
+    .join('path')
+    .attr('d', (d) => d.path)
+    .attr('stroke', 'white')
+    .attr('stroke-width', 1.5)
+    .attr('fill', 'none')
+    .attr('stroke-linecap', 'round')
+    .attr('stroke-linejoin', 'round')
+    .attr('stroke-dasharray', '4 12')
+    .attr('opacity', (d) => d.opacity * 0.5)
+    .attr('class', 'flow-dash');
+
+  // ── Draw nodes ──
+  const nodesG = rootG.append('g').attr('class', 'nodes');
+  const nodeGroups = nodesG
+    .selectAll('g')
+    .data(graphNodes.value)
+    .join('g')
+    .style('cursor', 'pointer')
+    .on('click', (_event, d) => {
+      const snap = props.snapshotHistory.find((s) => s['snapshot-id'] === d.snapshotId);
+      if (snap) selectedSnapshot.value = snap;
+    });
+
+  // Outer ring (station ring — always visible)
+  nodeGroups
+    .append('circle')
+    .attr('class', 'node-ring')
+    .attr('cx', (d) => d.x)
+    .attr('cy', (d) => d.y)
+    .attr('r', (d) => d.radius + 4)
+    .attr('fill', 'none')
+    .attr('stroke', (d) => d.color)
+    .attr('stroke-width', 1.5)
+    .attr('opacity', 0.4)
+    .attr('filter', 'url(#nodeGlow)');
+
+  // Main circle (inner solid)
+  nodeGroups
+    .append('circle')
+    .attr('class', 'node-fill')
+    .attr('cx', (d) => d.x)
+    .attr('cy', (d) => d.y)
+    .attr('r', (d) => d.radius)
+    .attr('fill', (d) => d.color)
+    .attr('stroke', (d) => d.strokeColor)
+    .attr('stroke-width', 2);
+
+  // Inner bright dot
+  nodeGroups
+    .append('circle')
+    .attr('cx', (d) => d.x)
+    .attr('cy', (d) => d.y)
+    .attr('r', 3)
+    .attr('fill', 'white')
+    .attr('opacity', 0.7)
+    .style('pointer-events', 'none');
+
+  // Sequence number (below node)
+  nodeGroups
+    .append('text')
+    .attr('x', (d) => d.x)
+    .attr('y', (d) => d.y + d.radius + 14)
+    .attr('font-size', 9)
+    .attr('font-weight', '600')
+    .attr('fill', 'rgba(var(--v-theme-on-surface), 0.6)')
+    .attr('text-anchor', 'middle')
+    .style('pointer-events', 'none')
+    .text((d) => `#${d.sequenceNumber}`);
+
+  // Schema change badge
+  nodeGroups
+    .filter((d) => !!d.schemaChange)
+    .append('circle')
+    .attr('cx', (d) => d.x + d.radius)
+    .attr('cy', (d) => d.y - d.radius)
+    .attr('r', 6)
+    .attr('fill', '#ff5722')
+    .attr('stroke', 'rgba(var(--v-theme-surface), 1)')
+    .attr('stroke-width', 1.5)
+    .style('pointer-events', 'none');
+
+  nodeGroups
+    .filter((d) => !!d.schemaChange)
+    .append('text')
+    .attr('x', (d) => d.x + d.radius)
+    .attr('y', (d) => d.y - d.radius + 3.5)
+    .attr('font-size', 7)
+    .attr('font-weight', 'bold')
+    .attr('fill', 'white')
+    .attr('text-anchor', 'middle')
+    .style('pointer-events', 'none')
+    .text('S');
+
+  // Branch labels (above node — like station name)
+  nodeGroups.each(function (d) {
+    d.branchLabels.forEach((label, idx) => {
+      // Small rounded rect behind the label
+      const textNode = d3
+        .select(this)
+        .append('text')
+        .attr('x', d.x)
+        .attr('y', d.y - d.radius - 10 - idx * 18)
+        .attr('font-size', 10)
+        .attr('font-weight', '700')
+        .attr('fill', label.color)
+        .attr('text-anchor', 'middle')
+        .style('pointer-events', 'none')
+        .style('text-transform', 'uppercase')
+        .style('letter-spacing', '0.05em')
+        .text(label.name);
+
+      // Underline accent
+      const bbox = (textNode.node() as SVGTextElement)?.getBBox();
+      if (bbox) {
+        d3.select(this)
+          .insert('line', 'text')
+          .attr('x1', bbox.x)
+          .attr('y1', bbox.y + bbox.height + 1)
+          .attr('x2', bbox.x + bbox.width)
+          .attr('y2', bbox.y + bbox.height + 1)
+          .attr('stroke', label.color)
+          .attr('stroke-width', 1.5)
+          .attr('opacity', 0.5)
+          .style('pointer-events', 'none');
+      }
+    });
   });
 
-  return nodes;
-});
+  // Tooltip
+  nodeGroups
+    .append('title')
+    .text(
+      (d) =>
+        `Seq ${d.sequenceNumber} | ID ${d.snapshotId}${d.schemaChange ? ` | Schema ${d.schemaChange.from}\u2192${d.schemaChange.to}` : ''}`,
+    );
 
-// Branch paths computed
-const branchPaths = computed(() => {
-  if (!graphNodes.value.length) return {};
-
-  const paths: Record<string, { pathData: string; color: string }> = {};
-
-  // Helper function to create straight or curved path
-  function createPath(startNode: any, endNode: any, isBranchDivergence: boolean = false): string {
-    const dx = endNode.x - startNode.x;
-    const dy = endNode.y - startNode.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-
-    let startX, startY, endX, endY;
-
-    if (isBranchDivergence) {
-      // For branch divergence: start from top of parent node, end at bottom of child node
-      startX = startNode.x;
-      startY = startNode.y - startNode.radius;
-      endX = endNode.x;
-      endY = endNode.y + endNode.radius;
-    } else {
-      // For regular connections: use margins from node centers
-      const margin = 15;
-      startX = startNode.x + (dx / distance) * margin;
-      startY = startNode.y + (dy / distance) * margin;
-      endX = endNode.x - (dx / distance) * margin;
-      endY = endNode.y - (dy / distance) * margin;
-    }
-
-    // For straight vertical lines (same branch), always use straight line
-    if (Math.abs(dx) < 10) {
-      return `M ${startX} ${startY} L ${endX} ${endY}`;
-    }
-
-    // For branch divergences or cross-branch connections, use curves
-    if (isBranchDivergence) {
-      const midY = startY + (endY - startY) * 0.3;
-      const controlX1 = startX;
-      const controlY1 = midY;
-      const controlX2 = endX;
-      const controlY2 = midY;
-      return `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
-    } else {
-      // Regular curved connection
-      const offset = Math.min(Math.abs(dx) * 0.3, 50);
-      const controlX1 = startX + (dx > 0 ? offset : -offset);
-      const controlY1 = startY;
-      const controlX2 = endX - (dx > 0 ? offset : -offset);
-      const controlY2 = endY;
-      return `M ${startX} ${startY} C ${controlX1} ${controlY1}, ${controlX2} ${controlY2}, ${endX} ${endY}`;
-    }
-  }
-
-  // Track connections to avoid duplicates
-  const processedConnections = new Set<string>();
-  const branchDivergenceConnections = new Set<string>();
-
-  // First, identify branch divergence points
-  const mainHistory: number[] = [];
-  const branchHistories = new Map<string, number[]>();
-
-  // Build branch histories (simplified version for path calculation)
-  Object.entries(branchInfo.value).forEach(([branchName, branch]) => {
-    if (branch.type === 'dropped-branch') return;
-
-    const branchHistory: number[] = [];
-    const visited = new Set<number>();
-
-    function traceBranch(snapshotId: number) {
-      if (visited.has(snapshotId)) return;
-      visited.add(snapshotId);
-
-      const snapshot = props.snapshotHistory.find((s) => s['snapshot-id'] === snapshotId);
-      if (!snapshot) return;
-
-      branchHistory.push(snapshotId);
-      if (snapshot['parent-snapshot-id']) {
-        traceBranch(snapshot['parent-snapshot-id']);
-      }
-    }
-
-    traceBranch(branch.snapshotId);
-    branchHistories.set(branchName, branchHistory);
-
-    if (branchName === 'main' || branchName === 'master') {
-      mainHistory.push(...branchHistory);
-    }
-  });
-
-  // Pre-identify branch divergence connections to exclude from parent-child processing
-  Object.entries(branchInfo.value).forEach(([branchName, branch]) => {
-    if (branchName === 'main') return;
-
-    if (branch.type === 'dropped-branch') {
-      const droppedSnapshot = props.snapshotHistory.find(
-        (s) => s['snapshot-id'] === branch.snapshotId,
-      );
-      if (droppedSnapshot && droppedSnapshot['parent-snapshot-id']) {
-        branchDivergenceConnections.add(
-          `${droppedSnapshot['parent-snapshot-id']}-${branch.snapshotId}`,
-        );
-      }
-    } else {
-      const branchHistory = branchHistories.get(branchName) || [];
-      let divergenceSnapshotId: number | null = null;
-      let maxSequence = 0;
-
-      branchHistory.forEach((snapshotId) => {
-        if (mainHistory.includes(snapshotId)) {
-          const snapshot = props.snapshotHistory.find((s) => s['snapshot-id'] === snapshotId);
-          if (snapshot && (snapshot['sequence-number'] || 0) > maxSequence) {
-            maxSequence = snapshot['sequence-number'] || 0;
-            divergenceSnapshotId = snapshotId;
-          }
-        }
-      });
-
-      const branchSpecificSnapshot = props.snapshotHistory.find(
-        (s) =>
-          s['parent-snapshot-id'] === divergenceSnapshotId &&
-          branchHistory.includes(s['snapshot-id']) &&
-          !mainHistory.includes(s['snapshot-id']),
-      );
-
-      if (branchSpecificSnapshot) {
-        branchDivergenceConnections.add(
-          `${divergenceSnapshotId}-${branchSpecificSnapshot['snapshot-id']}`,
-        );
-      }
-    }
-  });
-
-  // Create parent-child connections for each branch (excluding divergence connections)
-  graphNodes.value.forEach((node) => {
-    if (node.parentId) {
-      const connectionId = `${node.parentId}-${node.snapshotId}`;
-
-      // Skip if this is a branch divergence connection - it will be handled separately
-      if (branchDivergenceConnections.has(connectionId)) return;
-
-      if (processedConnections.has(connectionId)) return;
-      processedConnections.add(connectionId);
-
-      const parentNode = graphNodes.value.find((n) => n.snapshotId === node.parentId);
-      if (parentNode) {
-        // Determine the branch color
-        const branchColor = node.branches[0]
-          ? branchInfo.value[node.branches[0]]?.color || '#2196f3'
-          : '#2196f3';
-
-        paths[connectionId] = {
-          pathData: createPath(parentNode, node, false),
-          color: branchColor,
-        };
-      }
-    }
-  });
-
-  // Add branch divergence lines
-  Object.entries(branchInfo.value).forEach(([branchName, branch]) => {
-    if (branchName === 'main') return;
-
-    // Special handling for dropped branches
-    if (branch.type === 'dropped-branch') {
-      const droppedSnapshot = props.snapshotHistory.find(
-        (s) => s['snapshot-id'] === branch.snapshotId,
-      );
-      if (droppedSnapshot && droppedSnapshot['parent-snapshot-id']) {
-        const parentNode = graphNodes.value.find(
-          (n) =>
-            n.snapshotId === droppedSnapshot['parent-snapshot-id'] && n.branches.includes('main'),
-        );
-        const droppedNode = graphNodes.value.find(
-          (n) => n.snapshotId === branch.snapshotId && n.branches.includes(branchName),
-        );
-
-        if (parentNode && droppedNode) {
-          const pathId = `divergence-${branchName}-${droppedSnapshot['parent-snapshot-id']}`;
-          paths[pathId] = {
-            pathData: createPath(parentNode, droppedNode, true),
-            color: branch.color,
-          };
-        }
-      }
-    } else {
-      // Regular branch handling
-      const branchHistory = branchHistories.get(branchName) || [];
-      let divergenceSnapshotId: number | null = null;
-      let maxSequence = 0;
-
-      branchHistory.forEach((snapshotId) => {
-        if (mainHistory.includes(snapshotId)) {
-          const snapshot = props.snapshotHistory.find((s) => s['snapshot-id'] === snapshotId);
-          if (snapshot && (snapshot['sequence-number'] || 0) > maxSequence) {
-            maxSequence = snapshot['sequence-number'] || 0;
-            divergenceSnapshotId = snapshotId;
-          }
-        }
-      });
-
-      // Find the first branch-specific snapshot
-      const branchSpecificSnapshot = props.snapshotHistory.find(
-        (s) =>
-          s['parent-snapshot-id'] === divergenceSnapshotId &&
-          branchHistory.includes(s['snapshot-id']) &&
-          !mainHistory.includes(s['snapshot-id']),
-      );
-
-      if (branchSpecificSnapshot) {
-        const divergenceNode = graphNodes.value.find(
-          (n) => n.snapshotId === divergenceSnapshotId && n.branches.includes('main'),
-        );
-        const branchNode = graphNodes.value.find(
-          (n) =>
-            n.snapshotId === branchSpecificSnapshot['snapshot-id'] &&
-            n.branches.includes(branchName),
-        );
-
-        if (divergenceNode && branchNode) {
-          const pathId = `divergence-${branchName}-${divergenceSnapshotId}`;
-          paths[pathId] = {
-            pathData: createPath(divergenceNode, branchNode, true),
-            color: branchInfo.value[branchName]?.color || '#2196f3',
-          };
-        }
-      }
-    }
-  });
-
-  return paths;
-});
-
-// Helper functions
-function getBranchColor(branchName: string): string {
-  return branchInfo.value[branchName]?.color || '#666';
+  // Auto fit
+  setTimeout(fitToView, 50);
 }
 
-function selectSnapshot(snapshotId: number) {
-  const snapshot = props.snapshotHistory.find((s) => s['snapshot-id'] === snapshotId);
-  if (snapshot) {
-    selectedSnapshot.value = snapshot;
-  }
+// ─── Zoom controls ───────────────────────────────────────────────────────────
+
+function zoomIn() {
+  if (!svg || !zoomBehavior) return;
+  svg.transition().duration(300).call(zoomBehavior.scaleBy, 1.3);
 }
 
-// Schema helper functions
+function zoomOut() {
+  if (!svg || !zoomBehavior) return;
+  svg.transition().duration(300).call(zoomBehavior.scaleBy, 0.7);
+}
+
+function resetZoom() {
+  if (!svg || !zoomBehavior) return;
+  svg.transition().duration(500).call(zoomBehavior.transform, d3.zoomIdentity);
+}
+
+function fitToView() {
+  if (!svg || !zoomBehavior || !chartRef.value || graphNodes.value.length === 0) return;
+
+  const containerW = chartRef.value.clientWidth || 800;
+  const containerH = chartRef.value.clientHeight || 500;
+  const pad = 50;
+
+  const xs = graphNodes.value.map((n) => n.x);
+  const ys = graphNodes.value.map((n) => n.y);
+  const minX = Math.min(...xs) - 30;
+  const maxX = Math.max(...xs) + 30;
+  const minY = Math.min(...ys) - 40;
+  const maxY = Math.max(...ys) + 40;
+
+  const gW = maxX - minX;
+  const gH = maxY - minY;
+  const scale = Math.min((containerW - pad * 2) / gW, (containerH - pad * 2) / gH, 2);
+  const tx = containerW / 2 - ((minX + maxX) / 2) * scale;
+  const ty = containerH / 2 - ((minY + maxY) / 2) * scale;
+
+  svg
+    .transition()
+    .duration(500)
+    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+// ─── Schema helpers ──────────────────────────────────────────────────────────
+
+function getSchemaChangeInfo(snapshot: Snapshot): { from: number; to: number } | null {
+  if (!snapshot['parent-snapshot-id']) return null;
+  const parent = props.snapshotHistory.find(
+    (s) => s['snapshot-id'] === snapshot['parent-snapshot-id'],
+  );
+  if (!parent || snapshot['schema-id'] === parent['schema-id']) return null;
+  return { from: parent['schema-id'] ?? 0, to: snapshot['schema-id'] ?? 0 };
+}
+
 function getSchemaInfo(schemaId: number | undefined) {
-  if (
-    schemaId === undefined ||
-    schemaId === null ||
-    !props.table.metadata.schemas ||
-    props.table.metadata.schemas.length === 0
-  )
-    return null;
-  return props.table.metadata.schemas.find((schema: any) => schema['schema-id'] === schemaId);
+  if (schemaId == null || !props.table.metadata.schemas?.length) return null;
+  return props.table.metadata.schemas.find((s: any) => s['schema-id'] === schemaId);
 }
 
-// Helper functions to get effective schema (fallback to table's current schema if snapshot doesn't have one)
 function getEffectiveSchemaId(snapshot: Snapshot): number | undefined {
-  const snapshotSchemaId = snapshot['schema-id'];
-  return snapshotSchemaId ?? props.table.metadata['current-schema-id'];
+  return snapshot['schema-id'] ?? props.table.metadata['current-schema-id'];
 }
 
 function getEffectiveSchemaInfo(snapshot: Snapshot) {
-  const effectiveSchemaId = getEffectiveSchemaId(snapshot);
-  return getSchemaInfo(effectiveSchemaId);
+  return getSchemaInfo(getEffectiveSchemaId(snapshot));
 }
 
-function getSchemaChanges(version: Snapshot): boolean {
-  return getSchemaChangeInfo(version).hasSchemaChange;
+function getSchemaChanges(snapshot: Snapshot): boolean {
+  return getSchemaChangeInfo(snapshot) !== null;
 }
 
-function isFieldNew(field: any, version: Snapshot, index: number): boolean {
-  if (index === props.snapshotHistory.length - 1) return false;
-  const nextVersion = props.snapshotHistory[index + 1];
+function isFieldNew(field: any, snapshot: Snapshot): boolean {
+  const idx = props.snapshotHistory.findIndex((s) => s['snapshot-id'] === snapshot['snapshot-id']);
+  if (idx === props.snapshotHistory.length - 1) return false;
+  const nextVersion = props.snapshotHistory[idx + 1];
   const nextSchema = getSchemaInfo(nextVersion['schema-id']);
   if (!nextSchema) return true;
   return !nextSchema.fields.some((f: any) => f.id === field.id);
 }
+
+// ─── Formatting helpers ──────────────────────────────────────────────────────
 
 function getFieldIcon(field: any): string {
   const type = field.type;
@@ -1301,48 +1044,26 @@ function getFieldTypeString(type: any): string {
 function formatSummaryKey(key: string): string {
   return key
     .split('-')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
 }
 
 function formatSummaryValue(value: any): string {
-  if (value === null || value === undefined) {
-    return 'N/A';
-  }
-
-  if (typeof value === 'number') {
-    // Format large numbers with commas
-    if (value >= 1000) {
-      return value.toLocaleString();
-    }
-    return value.toString();
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No';
-  }
-
+  if (value == null) return 'N/A';
+  if (typeof value === 'number') return value >= 1000 ? value.toLocaleString() : String(value);
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (typeof value === 'string') {
-    // Check if it's a timestamp
-    if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+    if (value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/))
       return new Date(value).toLocaleString();
-    }
     return value;
   }
-
-  if (Array.isArray(value)) {
-    return `[${value.length} items]`;
-  }
-
-  if (typeof value === 'object') {
-    return JSON.stringify(value, null, 2);
-  }
-
+  if (Array.isArray(value)) return `[${value.length} items]`;
+  if (typeof value === 'object') return JSON.stringify(value, null, 2);
   return String(value);
 }
 
 function getOperationColor(operation: string): string {
-  const operationColors: Record<string, string> = {
+  const map: Record<string, string> = {
     append: 'success',
     overwrite: 'warning',
     delete: 'error',
@@ -1352,40 +1073,225 @@ function getOperationColor(operation: string): string {
     expire: 'orange',
     compact: 'teal',
   };
-
-  return operationColors[operation?.toLowerCase()] || 'default';
+  return map[operation?.toLowerCase()] || 'default';
 }
+
+// ─── Lifecycle: D3 owns the SVG ─────────────────────────────────────────────
+
+// Render when the container div appears and when data changes
+watch(
+  [chartRef, () => props.snapshotHistory.length],
+  () => {
+    if (chartRef.value && props.snapshotHistory.length > 0) {
+      renderChart();
+    }
+  },
+  { immediate: true },
+);
+
+// Update selected node highlight when selection changes
+watch(selectedSnapshot, (snap) => {
+  if (!rootG) return;
+  // Solid circle highlight
+  rootG
+    .selectAll<SVGCircleElement, GraphNode>('.nodes .node-fill')
+    .attr('stroke-width', (d) => (snap && snap['snapshot-id'] === d.snapshotId ? 3.5 : 2));
+  // Outer ring pulse on selected
+  rootG
+    .selectAll<SVGCircleElement, GraphNode>('.nodes .node-ring')
+    .attr('opacity', (d) => (snap && snap['snapshot-id'] === d.snapshotId ? 0.9 : 0.4))
+    .attr('stroke-width', (d) => (snap && snap['snapshot-id'] === d.snapshotId ? 2.5 : 1.5))
+    .attr('filter', (d) =>
+      snap && snap['snapshot-id'] === d.snapshotId ? 'url(#selectedPulse)' : 'url(#nodeGlow)',
+    );
+});
+
+onBeforeUnmount(() => {
+  if (chartRef.value) {
+    d3.select(chartRef.value).selectAll('svg').remove();
+  }
+});
 </script>
 
 <style scoped>
-.graph-container {
-  width: 100%;
+.branch-layout {
+  display: flex;
+  flex-direction: column;
+  height: calc(80vh - 60px);
+  overflow: hidden;
 }
 
-.branch-graph {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-  border-radius: 4px;
-  background: rgba(var(--v-theme-surface));
-}
-
-.branch-color-indicator {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-
-.graph-content {
+.chart-outer {
   position: relative;
+  z-index: 0;
+  height: 500px;
+  flex-shrink: 0;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-radius: 8px;
+  background: rgba(var(--v-theme-surface), 1);
+}
+
+.chart-container {
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+.details-scroll-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Animated flow dashes on links */
+.chart-container :deep(.flow-dash) {
+  animation: dashFlow 1.2s linear infinite;
+}
+
+@keyframes dashFlow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+/* Floating zoom controls */
+.zoom-overlay {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+}
+
+.zoom-group {
+  background: rgba(var(--v-theme-surface), 0.85);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.zoom-label {
+  min-width: 48px !important;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Subtle legend */
+.legend-overlay {
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(var(--v-theme-surface), 0.8);
+  backdrop-filter: blur(4px);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.legend-chip {
+  font-size: 0.7rem !important;
+  pointer-events: none;
+}
+
+/* Hint overlay */
+.hint-overlay {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: rgba(var(--v-theme-surface), 0.7);
+  backdrop-filter: blur(4px);
+  border-radius: 4px;
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Details panel — below chart, scrollable */
+.details-panel {
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: rgba(var(--v-theme-surface), 0.98);
+}
+
+.details-panel-inner {
+  padding: 14px 16px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(var(--v-border-color), 0.06);
+}
+
+.detail-label {
+  flex-shrink: 0;
+  width: 64px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  padding-right: 4px;
+}
+
+.detail-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.75rem;
+  margin-left: 8px;
+}
+
+.details-panels :deep(.v-expansion-panel) {
+  background: transparent !important;
+}
+
+.details-panels :deep(.v-expansion-panel-title) {
+  min-height: 32px !important;
+  padding: 4px 8px !important;
+  font-size: 0.75rem !important;
+}
+
+.details-panels :deep(.v-expansion-panel-text__wrapper) {
+  padding: 4px 8px 8px !important;
 }
 
 .summary-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.summary-grid > div {
-  padding: 4px 8px;
-  background: rgba(var(--v-theme-surface-variant), 0.3);
-  border-radius: 4px;
-  border-left: 3px solid rgba(var(--v-theme-primary), 0.5);
+.summary-row {
+  display: flex;
+  gap: 14px;
+  padding: 4px 0;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.summary-key {
+  flex-shrink: 0;
+  min-width: 110px;
+  font-weight: 600;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  padding-right: 4px;
+}
+
+.summary-val {
+  flex: 1;
+  min-width: 0;
+  margin-left: 8px;
+  color: rgba(var(--v-theme-on-surface), 0.85);
+  word-break: break-word;
 }
 </style>

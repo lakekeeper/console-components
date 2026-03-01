@@ -181,7 +181,7 @@
 import { ref, computed, watch, toRef, inject } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
-import { useIcebergDuckDB } from '@/composables/useIcebergDuckDB';
+import { useLoQE } from '@/composables/useLoQE';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 
 const props = defineProps<{
@@ -203,7 +203,7 @@ const emit = defineEmits<{
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const functions = useFunctions();
 const userStore = useUserStore();
-const icebergDB = useIcebergDuckDB(config.baseUrlPrefix);
+const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl),
@@ -318,29 +318,16 @@ async function createTable() {
     const wh = await functions.getWarehouse(props.warehouseId);
     warehouseName.value = wh.name;
 
-    // Configure Iceberg catalog
-    await icebergDB.configureCatalog({
+    // Attach Iceberg catalog via LoQE (handles secret + ATTACH)
+    await loqe.attachCatalog({
       catalogName: warehouseName.value,
       projectId: wh['project-id'],
       restUri: props.catalogUrl,
       accessToken: userStore.user.access_token,
     });
 
-    // Build CREATE TABLE SQL with ATTACH
-    const createTableSQL = sqlPreview.value;
-    const query = `
-      -- Attach catalog on this connection
-      ATTACH IF NOT EXISTS '${wh['project-id']}/${warehouseName.value}' AS "${warehouseName.value}" (
-        TYPE iceberg,
-        SECRET iceberg_secret,
-        ENDPOINT '${props.catalogUrl}'
-      );
-
-      -- Create the table
-      ${createTableSQL}
-    `;
-
-    await icebergDB.executeQuery(query);
+    // Create the table
+    await loqe.query(sqlPreview.value);
 
     success.value = true;
     emit('created', tableName.value);
