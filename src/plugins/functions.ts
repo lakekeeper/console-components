@@ -1207,37 +1207,56 @@ async function rollbackBranch(
   notify?: boolean,
 ) {
   try {
-    const client = iceClient.client;
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
 
     const requirements: any[] = [];
     if (currentSnapshotId !== undefined) {
       requirements.push({
         type: 'assert-ref-snapshot-id',
         ref: branchName,
-        'snapshot-id': Number(currentSnapshotId),
+        'snapshot-id': BigInt(currentSnapshotId),
       });
     }
 
-    const { data, error } = await ice.updateTable({
-      client,
-      path: {
-        prefix: warehouseId,
-        namespace: namespacePath,
-        table: tableName,
+    const body = {
+      requirements,
+      updates: [
+        {
+          action: 'set-snapshot-ref',
+          'ref-name': branchName,
+          type: 'branch',
+          'snapshot-id': BigInt(targetSnapshotId),
+        },
+      ],
+    };
+
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSONBigString.stringify(body),
       },
-      body: {
-        requirements,
-        updates: [
-          {
-            action: 'set-snapshot-ref',
-            'ref-name': branchName,
-            type: 'branch',
-            'snapshot-id': Number(targetSnapshotId),
-          },
-        ],
-      },
-    });
-    if (error) throw error;
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const data = await response.json();
 
     if (notify) {
       handleSuccess('rollbackBranch', `Branch '${branchName}' rolled back successfully`, notify);

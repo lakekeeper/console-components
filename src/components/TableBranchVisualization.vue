@@ -83,16 +83,14 @@
         </v-col>
       </v-row>
 
-      <!-- Row 2: Scrollable details (appears on node click) -->
+      <!-- Row 2: Snapshot details (appears on node click) -->
       <v-row no-gutters class="details-scroll-area">
         <v-col cols="12">
           <v-slide-y-transition>
-            <div
-              v-if="selectedSnapshot"
-              class="details-panel"
-              style="max-height: 30vh; overflow-y: auto">
-              <div class="details-panel-inner">
-                <div class="d-flex align-center justify-space-between mb-2">
+            <div v-if="selectedSnapshot" class="details-panel" style="max-height: 45vh; overflow-y: auto">
+              <div class="pa-3">
+                <!-- Header with close button -->
+                <div class="d-flex align-center justify-space-between mb-3">
                   <span class="text-subtitle-1 font-weight-bold d-flex align-center">
                     <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
                     Snapshot #{{ selectedSnapshot['sequence-number'] }}
@@ -104,181 +102,221 @@
                     @click="selectedSnapshot = null"></v-btn>
                 </div>
 
-                <!-- Core info -->
-                <div class="detail-row">
-                  <span class="detail-label mr-2">ID</span>
-                  <span class="detail-value text-caption">
-                    {{ selectedSnapshot['snapshot-id'] }}
-                  </span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label mr-2">Schema</span>
-                  <span class="detail-value text-caption">
-                    {{ selectedSnapshot['schema-id'] }}
-                  </span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label mr-2">Time</span>
-                  <span class="detail-value text-caption">
-                    {{
-                      selectedSnapshot['timestamp-ms']
-                        ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
-                        : '—'
-                    }}
-                  </span>
-                </div>
-                <div v-if="selectedSnapshot['parent-snapshot-id']" class="detail-row">
-                  <span class="detail-label mr-2">Parent</span>
-                  <span class="detail-value text-caption">
-                    {{ selectedSnapshot['parent-snapshot-id'] }}
-                  </span>
-                </div>
-                <div v-if="selectedSnapshot.summary?.operation" class="detail-row">
-                  <span class="detail-label mr-2">Op</span>
-                  <v-chip
-                    :color="getOperationColor(selectedSnapshot.summary.operation)"
-                    size="x-small"
-                    variant="flat"
-                    class="ml-1">
-                    {{ selectedSnapshot.summary.operation }}
-                  </v-chip>
-                </div>
-                <div v-if="selectedSnapshot['manifest-list']" class="detail-row">
-                  <span class="detail-label mr-2">Manifest</span>
-                  <span
-                    class="detail-value text-caption text-truncate"
-                    style="max-width: 200px"
-                    :title="selectedSnapshot['manifest-list']">
-                    {{ selectedSnapshot['manifest-list'] }}
-                  </span>
-                </div>
-
-                <!-- Collapsible: Operational Summary -->
-                <v-expansion-panels
-                  v-if="selectedSnapshot.summary"
-                  variant="accordion"
-                  class="mt-3 details-panels">
-                  <v-expansion-panel>
-                    <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
-                      Summary
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      <div class="summary-grid">
-                        <div
-                          v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
-                          :key="key"
-                          class="summary-row">
-                          <span class="summary-key mr-2">{{ formatSummaryKey(key) }}:</span>
-                          <span class="summary-val">{{ formatSummaryValue(value) }}</span>
-                        </div>
-                      </div>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
-
-                <!-- Collapsible: Schema Information -->
-                <v-expansion-panels variant="accordion" class="mt-2 details-panels">
-                  <v-expansion-panel>
-                    <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
-                      Schema
-                      <v-chip
-                        v-if="getSchemaChanges(selectedSnapshot)"
-                        size="x-small"
-                        color="warning"
-                        variant="flat"
-                        class="ml-2">
-                        Changed
-                      </v-chip>
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      <div
-                        v-if="!getEffectiveSchemaInfo(selectedSnapshot)"
-                        class="text-center pa-2">
-                        <div class="text-caption text-grey-lighten-1">
-                          Schema not available (ID:
-                          {{ getEffectiveSchemaId(selectedSnapshot) }})
-                        </div>
-                      </div>
-                      <div v-else>
-                        <div class="text-caption mb-1" style="opacity: 0.7">
-                          Schema ID {{ getEffectiveSchemaId(selectedSnapshot) }}
-                        </div>
-                        <v-list density="compact" class="pa-0">
-                          <v-list-item
-                            v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
-                            :key="field.id"
-                            class="pa-0 px-1"
-                            style="min-height: 28px">
-                            <template #prepend>
-                              <v-icon
-                                :color="isFieldNew(field, selectedSnapshot) ? 'success' : undefined"
+                <!-- Row 1: Snapshot Info + Summary -->
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-card variant="outlined" elevation="1" class="mb-3">
+                      <v-toolbar color="transparent" density="compact" flat>
+                        <v-toolbar-title class="text-subtitle-2">
+                          <v-icon class="mr-1" color="primary" size="small">mdi-information-outline</v-icon>
+                          Snapshot Information
+                        </v-toolbar-title>
+                        <v-spacer></v-spacer>
+                        <v-chip
+                          v-if="selectedSnapshot.summary?.operation"
+                          :color="getOperationColor(selectedSnapshot.summary.operation)"
+                          size="x-small"
+                          variant="flat"
+                          class="mr-2">
+                          {{ selectedSnapshot.summary.operation }}
+                        </v-chip>
+                      </v-toolbar>
+                      <v-divider></v-divider>
+                      <v-table density="compact" class="snapshot-table">
+                        <tbody>
+                          <tr>
+                            <td class="font-weight-medium" style="width: 140px">Snapshot ID</td>
+                            <td>
+                              <span class="font-mono">{{ selectedSnapshot['snapshot-id'] }}</span>
+                              <v-btn
+                                icon="mdi-content-copy"
                                 size="x-small"
-                                class="mr-1">
-                                {{ getFieldIcon(field) }}
-                              </v-icon>
-                            </template>
-                            <v-list-item-title
-                              class="text-caption"
-                              :class="
-                                isFieldNew(field, selectedSnapshot)
-                                  ? 'text-success font-weight-bold'
-                                  : ''
-                              ">
-                              {{ field.name }}
-                              <v-chip
-                                v-if="isFieldNew(field, selectedSnapshot)"
-                                size="x-small"
-                                color="success"
-                                variant="flat"
-                                class="ml-1">
-                                new
-                              </v-chip>
-                            </v-list-item-title>
-                            <v-list-item-subtitle
-                              class="text-caption"
-                              style="font-size: 0.7rem !important">
-                              {{ getFieldTypeString(field.type) }}
-                              <span v-if="field.required" class="text-error">*</span>
-                            </v-list-item-subtitle>
-                          </v-list-item>
-                        </v-list>
-                      </div>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
+                                variant="text"
+                                @click="copyToClipboard(String(selectedSnapshot['snapshot-id']))"></v-btn>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td class="font-weight-medium">Sequence</td>
+                            <td>{{ selectedSnapshot['sequence-number'] }}</td>
+                          </tr>
+                          <tr>
+                            <td class="font-weight-medium">Schema ID</td>
+                            <td>{{ getEffectiveSchemaId(selectedSnapshot) }}</td>
+                          </tr>
+                          <tr>
+                            <td class="font-weight-medium">Timestamp</td>
+                            <td>
+                              {{
+                                selectedSnapshot['timestamp-ms']
+                                  ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
+                                  : '—'
+                              }}
+                            </td>
+                          </tr>
+                          <tr v-if="selectedSnapshot['parent-snapshot-id']">
+                            <td class="font-weight-medium">Parent ID</td>
+                            <td class="font-mono">{{ selectedSnapshot['parent-snapshot-id'] }}</td>
+                          </tr>
+                          <tr v-if="selectedSnapshot['manifest-list']">
+                            <td class="font-weight-medium">Manifest</td>
+                            <td>
+                              <v-tooltip location="bottom" :text="selectedSnapshot['manifest-list']">
+                                <template #activator="{ props: tipProps }">
+                                  <span v-bind="tipProps" class="font-mono text-wrap" style="cursor: help; font-size: 0.8rem">
+                                    {{ truncateManifest(selectedSnapshot['manifest-list']) }}
+                                  </span>
+                                </template>
+                              </v-tooltip>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </v-table>
+                    </v-card>
+                  </v-col>
 
-                <!-- Rollback action -->
-                <div v-if="canRollback && rollbackableBranches.length > 0" class="mt-3">
-                  <v-divider class="mb-3"></v-divider>
-                  <div v-if="rollbackableBranches.length === 1">
-                    <v-btn
-                      color="warning"
-                      size="small"
-                      variant="tonal"
-                      block
-                      prepend-icon="mdi-undo-variant"
-                      @click="openRollbackDialog(rollbackableBranches[0])">
-                      Rollback '{{ rollbackableBranches[0].name }}' to this snapshot
-                    </v-btn>
-                  </div>
-                  <div v-else>
-                    <div class="text-caption font-weight-bold mb-1">
-                      Rollback a branch to this snapshot:
-                    </div>
-                    <v-btn
-                      v-for="branch in rollbackableBranches"
-                      :key="branch.name"
-                      color="warning"
-                      size="small"
-                      variant="tonal"
-                      block
-                      class="mb-1"
-                      prepend-icon="mdi-undo-variant"
-                      @click="openRollbackDialog(branch)">
-                      {{ branch.name }}
-                    </v-btn>
-                  </div>
-                </div>
+                  <v-col cols="12" md="6">
+                    <v-card variant="outlined" elevation="1" class="mb-3">
+                      <v-toolbar color="transparent" density="compact" flat>
+                        <v-toolbar-title class="text-subtitle-2">
+                          <v-icon class="mr-1" size="small">mdi-chart-box-outline</v-icon>
+                          Summary
+                        </v-toolbar-title>
+                        <v-spacer></v-spacer>
+                        <v-chip
+                          v-if="selectedSnapshot.summary"
+                          size="x-small"
+                          variant="outlined"
+                          class="mr-2">
+                          {{ Object.keys(selectedSnapshot.summary).length }}
+                        </v-chip>
+                        <!-- Rollback button in toolbar -->
+                        <v-btn
+                          v-if="canRollback && rollbackableBranches.length === 1"
+                          color="warning"
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-undo-variant"
+                          class="mr-1"
+                          @click="openRollbackDialog(rollbackableBranches[0])">
+                          Rollback
+                        </v-btn>
+                        <v-menu v-if="canRollback && rollbackableBranches.length > 1">
+                          <template #activator="{ props: menuProps }">
+                            <v-btn
+                              v-bind="menuProps"
+                              color="warning"
+                              size="small"
+                              variant="tonal"
+                              prepend-icon="mdi-undo-variant"
+                              class="mr-1">
+                              Rollback
+                              <v-icon end>mdi-chevron-down</v-icon>
+                            </v-btn>
+                          </template>
+                          <v-list density="compact">
+                            <v-list-item
+                              v-for="branch in rollbackableBranches"
+                              :key="branch.name"
+                              :title="branch.name"
+                              prepend-icon="mdi-source-branch"
+                              @click="openRollbackDialog(branch)">
+                            </v-list-item>
+                          </v-list>
+                        </v-menu>
+                      </v-toolbar>
+                      <v-divider></v-divider>
+                      <v-table v-if="selectedSnapshot.summary" density="compact" class="snapshot-table">
+                        <tbody>
+                          <tr
+                            v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
+                            :key="key">
+                            <td class="font-weight-medium" style="width: 180px">{{ formatSummaryKey(key) }}</td>
+                            <td class="font-mono">{{ formatSummaryValue(value) }}</td>
+                          </tr>
+                        </tbody>
+                      </v-table>
+                      <div v-else class="text-center text-medium-emphasis py-4">
+                        No summary data available
+                      </div>
+                    </v-card>
+                  </v-col>
+                </v-row>
+
+                <!-- Row 2: Schema -->
+                <v-row>
+                  <v-col cols="12">
+                    <v-expansion-panels variant="accordion">
+                      <v-expansion-panel>
+                        <v-expansion-panel-title>
+                          <v-icon class="mr-2" size="small">mdi-file-tree</v-icon>
+                          Schema Fields
+                          <v-chip
+                            size="x-small"
+                            variant="outlined"
+                            class="ml-2">
+                            {{ getEffectiveSchemaInfo(selectedSnapshot)?.fields?.length || 0 }}
+                          </v-chip>
+                          <v-chip
+                            v-if="getSchemaChanges(selectedSnapshot)"
+                            size="x-small"
+                            color="warning"
+                            variant="flat"
+                            class="ml-2">
+                            Changed
+                          </v-chip>
+                        </v-expansion-panel-title>
+                        <v-expansion-panel-text>
+                          <div v-if="!getEffectiveSchemaInfo(selectedSnapshot)" class="text-center pa-2">
+                            <div class="text-caption text-medium-emphasis">
+                              Schema not available (ID: {{ getEffectiveSchemaId(selectedSnapshot) }})
+                            </div>
+                          </div>
+                          <v-table v-else density="compact">
+                            <thead>
+                              <tr>
+                                <th style="width: 30px"></th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th style="width: 60px">Required</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr
+                                v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
+                                :key="field.id"
+                                :class="isFieldNew(field, selectedSnapshot) ? 'text-success' : ''">
+                                <td>
+                                  <v-icon
+                                    :color="isFieldNew(field, selectedSnapshot) ? 'success' : undefined"
+                                    size="x-small">
+                                    {{ getFieldIcon(field) }}
+                                  </v-icon>
+                                </td>
+                                <td>
+                                  {{ field.name }}
+                                  <v-chip
+                                    v-if="isFieldNew(field, selectedSnapshot)"
+                                    size="x-small"
+                                    color="success"
+                                    variant="flat"
+                                    class="ml-1">
+                                    new
+                                  </v-chip>
+                                </td>
+                                <td class="font-mono" style="font-size: 0.8rem">
+                                  {{ getFieldTypeString(field.type) }}
+                                </td>
+                                <td>
+                                  <v-icon v-if="field.required" color="error" size="x-small">mdi-asterisk</v-icon>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </v-table>
+                        </v-expansion-panel-text>
+                      </v-expansion-panel>
+                    </v-expansion-panels>
+                  </v-col>
+                </v-row>
               </div>
             </div>
           </v-slide-y-transition>
@@ -303,25 +341,25 @@
             become unreachable from this branch.
           </v-alert>
           <div class="text-body-2 mb-2">
-            Type
-            <strong>"{{ rollbackTargetBranch?.name }}"</strong>
+            Type the snapshot ID
+            <strong>"{{ String(selectedSnapshot?.['snapshot-id']) }}"</strong>
             to confirm:
           </div>
           <v-text-field
             v-model="rollbackConfirmText"
             density="compact"
             hide-details
-            :placeholder="rollbackTargetBranch?.name"
+            :placeholder="String(selectedSnapshot?.['snapshot-id'])"
             variant="outlined"
             :color="
-              rollbackConfirmText === rollbackTargetBranch?.name ? 'success' : undefined
+              rollbackConfirmText === String(selectedSnapshot?.['snapshot-id']) ? 'success' : undefined
             "></v-text-field>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn
             color="warning"
-            :disabled="rollbackConfirmText !== rollbackTargetBranch?.name || rollbackLoading"
+            :disabled="rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) || rollbackLoading"
             :loading="rollbackLoading"
             @click="executeRollback">
             Rollback
@@ -1143,6 +1181,15 @@ function formatSummaryKey(key: string): string {
     .join(' ');
 }
 
+function truncateManifest(path: string, maxLen = 60): string {
+  if (!path || path.length <= maxLen + 3) return path;
+  return path.slice(0, maxLen) + '…';
+}
+
+function copyToClipboard(text: string) {
+  functions.copyToClipboard(text);
+}
+
 function formatSummaryValue(value: any): string {
   if (value == null) return 'N/A';
   if (typeof value === 'number') return value >= 1000 ? value.toLocaleString() : String(value);
@@ -1205,19 +1252,44 @@ watch(selectedSnapshot, (snap) => {
 
 /**
  * Branches that the selected snapshot belongs to, where it is NOT the current tip.
- * Only these can be "rolled back to" — rolling back to the tip is a no-op.
+ * Only shows the branch that "owns" this snapshot — i.e., whose exclusive ancestry
+ * includes it, avoiding showing rollback for shared ancestor snapshots on other branches.
  */
 const rollbackableBranches = computed<BranchMeta[]>(() => {
   if (!selectedSnapshot.value || !props.canRollback) return [];
   const sid = selectedSnapshot.value['snapshot-id'];
-  return branches.value.filter((b) => {
+  const sidStr = String(sid);
+
+  // Find all non-dropped branches that contain this snapshot in their ancestry
+  const candidateBranches = branches.value.filter((b) => {
     if (b.type !== 'branch') return false;
-    // Must be in this branch's ancestry
-    if (!b.ancestry.some((id) => String(id) === String(sid))) return false;
-    // Must NOT be the current tip (rollback to current tip is meaningless)
-    if (String(b.tipSnapshotId) === String(sid)) return false;
+    if (!b.ancestry.some((id) => String(id) === sidStr)) return false;
+    if (String(b.tipSnapshotId) === sidStr) return false;
     return true;
   });
+
+  if (candidateBranches.length <= 1) return candidateBranches;
+
+  // If multiple branches share this snapshot, only offer rollback on branches
+  // where this snapshot is "exclusive" — not shared with a longer/main branch.
+  // A snapshot is exclusive to a branch if no other candidate branch also contains it
+  // with a longer ancestry chain (i.e., the snapshot is in the shared trunk).
+  const exclusive = candidateBranches.filter((branch) => {
+    const otherBranches = candidateBranches.filter((b) => b.name !== branch.name);
+    // If every other branch also has this snapshot, it's shared — but keep it
+    // for the branch with the shortest ancestry (the one that was forked later,
+    // meaning this snapshot is closer to its tip). If this branch has the longest
+    // ancestry containing this snapshot, it's the "trunk" owner.
+    const branchAncestryIdx = branch.ancestry.findIndex((id) => String(id) === sidStr);
+    // Check if any other branch has a shorter path to this snapshot (owns it more)
+    const anyOtherOwnsMore = otherBranches.some((other) => {
+      const otherIdx = other.ancestry.findIndex((id) => String(id) === sidStr);
+      return otherIdx >= 0 && otherIdx < branchAncestryIdx;
+    });
+    return !anyOtherOwnsMore;
+  });
+
+  return exclusive.length > 0 ? exclusive : candidateBranches;
 });
 
 function openRollbackDialog(branch: BranchMeta) {
@@ -1378,77 +1450,18 @@ onBeforeUnmount(() => {
   background: rgba(var(--v-theme-surface), 0.98);
 }
 
-.details-panel-inner {
-  padding: 14px 16px;
+.snapshot-table {
+  font-size: 0.875rem;
 }
 
-.detail-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 5px 0;
-  border-bottom: 1px solid rgba(var(--v-border-color), 0.06);
+.font-mono {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.875rem;
 }
 
-.detail-label {
-  flex-shrink: 0;
-  width: 64px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgba(var(--v-theme-on-surface), 0.5);
-  padding-right: 4px;
-}
-
-.detail-value {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.75rem;
-  margin-left: 8px;
-}
-
-.details-panels :deep(.v-expansion-panel) {
-  background: transparent !important;
-}
-
-.details-panels :deep(.v-expansion-panel-title) {
-  min-height: 32px !important;
-  padding: 4px 8px !important;
-  font-size: 0.75rem !important;
-}
-
-.details-panels :deep(.v-expansion-panel-text__wrapper) {
-  padding: 4px 8px 8px !important;
-}
-
-.summary-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.summary-row {
-  display: flex;
-  gap: 14px;
-  padding: 4px 0;
-  font-size: 0.75rem;
-  line-height: 1.4;
-}
-
-.summary-key {
-  flex-shrink: 0;
-  min-width: 110px;
-  font-weight: 600;
-  color: rgba(var(--v-theme-on-surface), 0.6);
-  padding-right: 4px;
-}
-
-.summary-val {
-  flex: 1;
-  min-width: 0;
-  margin-left: 8px;
-  color: rgba(var(--v-theme-on-surface), 0.85);
-  word-break: break-word;
+.text-wrap {
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: pre-wrap;
 }
 </style>
