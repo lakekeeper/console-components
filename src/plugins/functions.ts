@@ -1228,7 +1228,7 @@ async function createBranch(
     const bodyJson = JSONBigNative.stringify(body);
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'POST',
         headers: {
