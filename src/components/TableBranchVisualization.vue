@@ -305,6 +305,39 @@
                               @click="openRollbackDialog(branch)"></v-list-item>
                           </v-list>
                         </v-menu>
+                        <!-- Delete branch button in toolbar -->
+                        <v-btn
+                          v-if="canRollback && deletableBranches.length === 1"
+                          color="error"
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-source-branch-remove"
+                          class="mr-1"
+                          @click="openDeleteBranchDialog(deletableBranches[0].name)">
+                          Delete
+                        </v-btn>
+                        <v-menu v-if="canRollback && deletableBranches.length > 1">
+                          <template #activator="{ props: menuProps }">
+                            <v-btn
+                              v-bind="menuProps"
+                              color="error"
+                              size="small"
+                              variant="tonal"
+                              prepend-icon="mdi-source-branch-remove"
+                              class="mr-1">
+                              Delete
+                              <v-icon end>mdi-chevron-down</v-icon>
+                            </v-btn>
+                          </template>
+                          <v-list density="compact">
+                            <v-list-item
+                              v-for="branch in deletableBranches"
+                              :key="branch.name"
+                              :title="branch.name"
+                              prepend-icon="mdi-source-branch"
+                              @click="openDeleteBranchDialog(branch.name)"></v-list-item>
+                          </v-list>
+                        </v-menu>
                       </v-toolbar>
                       <v-divider></v-divider>
                       <v-table
@@ -1630,6 +1663,19 @@ const fastForwardableBranches = computed<BranchMeta[]>(() => {
 const existingBranchNames = computed(() =>
   branches.value.filter((b) => b.type === 'branch').map((b) => b.name),
 );
+
+// ─── Computed: deletable branches ────────────────────────────────────────────
+// Branches whose tip IS the selected snapshot (excluding main/master)
+const deletableBranches = computed<BranchMeta[]>(() => {
+  if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sidStr = String(selectedSnapshot.value['snapshot-id']);
+
+  return branches.value.filter((b) => {
+    if (b.type !== 'branch') return false;
+    if (b.name === 'main' || b.name === 'master') return false;
+    return String(b.tipSnapshotId) === sidStr;
+  });
+});
 
 // ─── Create Branch ───────────────────────────────────────────────────────────
 function openCreateBranchDialog() {
