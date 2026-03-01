@@ -190,6 +190,28 @@
                     @click="copyToClipboard(currentViewVersion.representations[0].sql)"></v-btn>
                 </td>
               </tr>
+              <tr
+                v-if="
+                  currentViewVersion.representations &&
+                  currentViewVersion.representations[0]?.dialect
+                ">
+                <td class="font-weight-medium">SQL Dialect</td>
+                <td>{{ currentViewVersion.representations[0].dialect }}</td>
+              </tr>
+              <tr v-if="currentViewVersion['default-catalog']">
+                <td class="font-weight-medium">Default Catalog</td>
+                <td class="font-mono">{{ currentViewVersion['default-catalog'] }}</td>
+              </tr>
+              <tr
+                v-if="
+                  currentViewVersion['default-namespace'] &&
+                  currentViewVersion['default-namespace'].length > 0
+                ">
+                <td class="font-weight-medium">Default Namespace</td>
+                <td class="font-mono">
+                  {{ currentViewVersion['default-namespace'].join('.') }}
+                </td>
+              </tr>
             </tbody>
           </v-table>
 
