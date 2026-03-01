@@ -78,7 +78,8 @@ watch(() => props.namespacePath, loadNamespaceMetadata);
 async function loadNamespaceMetadata() {
   try {
     namespace.value = await functions.loadNamespaceMetadata(props.warehouseId, props.namespacePath);
-    namespaceId.value = namespace.value.properties?.namespace_id || namespace.value['namespace-uuid'] || '';
+    namespaceId.value =
+      namespace.value.properties?.namespace_id || namespace.value['namespace-uuid'] || '';
   } catch (error) {
     console.error('Failed to load namespace metadata:', error);
   }

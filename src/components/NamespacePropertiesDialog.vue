@@ -28,7 +28,9 @@
         <template v-else>
           <div class="d-flex align-center mb-3">
             <span class="text-subtitle-2">
-              {{ editableProperties.length }} propert{{ editableProperties.length === 1 ? 'y' : 'ies' }}
+              {{ editableProperties.length }} propert{{
+                editableProperties.length === 1 ? 'y' : 'ies'
+              }}
             </span>
             <v-spacer></v-spacer>
             <v-btn
@@ -57,9 +59,7 @@
                 <td class="text-body-2">{{ prop.value }}</td>
               </tr>
               <tr v-if="editableProperties.length === 0">
-                <td colspan="2" class="text-center text-medium-emphasis py-4">
-                  No properties set
-                </td>
+                <td colspan="2" class="text-center text-medium-emphasis py-4">No properties set</td>
               </tr>
             </tbody>
           </v-table>
@@ -198,10 +198,7 @@ async function loadProperties() {
   loadError.value = '';
 
   try {
-    const metadata = await functions.loadNamespaceMetadata(
-      props.warehouseId,
-      props.namespacePath,
-    );
+    const metadata = await functions.loadNamespaceMetadata(props.warehouseId, props.namespacePath);
 
     const serverProps = metadata.properties || {};
     originalProperties.value = { ...serverProps };
