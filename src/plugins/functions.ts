@@ -1197,6 +1197,58 @@ async function updateViewProperties(
   }
 }
 
+async function rollbackBranch(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  branchName: string,
+  targetSnapshotId: number | string,
+  currentSnapshotId?: number | string,
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+
+    const requirements: any[] = [];
+    if (currentSnapshotId !== undefined) {
+      requirements.push({
+        type: 'assert-ref-snapshot-id',
+        ref: branchName,
+        'snapshot-id': Number(currentSnapshotId),
+      });
+    }
+
+    const { data, error } = await ice.updateTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+        table: tableName,
+      },
+      body: {
+        requirements,
+        updates: [
+          {
+            action: 'set-snapshot-ref',
+            'ref-name': branchName,
+            type: 'branch',
+            'snapshot-id': Number(targetSnapshotId),
+          },
+        ],
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('rollbackBranch', `Branch '${branchName}' rolled back successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'rollbackBranch', notify);
+    throw error;
+  }
+}
+
 async function dropNamespace(id: string, ns: string, options?: NamespaceAction, notify?: boolean) {
   try {
     const client = iceClient.client;
@@ -3982,6 +4034,7 @@ export function useFunctions(config?: any) {
     updateNamespaceProperties,
     updateTableProperties,
     updateViewProperties,
+    rollbackBranch,
     listViews,
     listDeletedTabulars,
     loadTable,

@@ -1,10 +1,18 @@
 <template>
-  <TableBranchVisualization :table="table" :snapshot-history="snapshotHistory" />
+  <TableBranchVisualization
+    :table="table"
+    :snapshot-history="snapshotHistory"
+    :can-rollback="canCommit"
+    :warehouse-id="props.warehouseId"
+    :namespace-path="props.namespaceId"
+    :table-name="props.tableName"
+    @rollback="loadTableData" />
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, watch } from 'vue';
+import { reactive, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import TableBranchVisualization from './TableBranchVisualization.vue';
 import type { LoadTableResult, Snapshot } from '@/gen/iceberg/types.gen';
 
@@ -15,6 +23,12 @@ const props = defineProps<{
 }>();
 
 const functions = useFunctions();
+
+const tableId = computed(() => table.metadata['table-uuid'] || '');
+const { canCommit } = useTablePermissions(
+  tableId,
+  computed(() => props.warehouseId),
+);
 
 const table = reactive<LoadTableResult>({
   metadata: {

@@ -246,12 +246,90 @@
                     </v-expansion-panel-text>
                   </v-expansion-panel>
                 </v-expansion-panels>
+
+                <!-- Rollback action -->
+                <div v-if="canRollback && rollbackableBranches.length > 0" class="mt-3">
+                  <v-divider class="mb-3"></v-divider>
+                  <div v-if="rollbackableBranches.length === 1">
+                    <v-btn
+                      color="warning"
+                      size="small"
+                      variant="tonal"
+                      block
+                      prepend-icon="mdi-undo-variant"
+                      @click="openRollbackDialog(rollbackableBranches[0])">
+                      Rollback '{{ rollbackableBranches[0].name }}' to this snapshot
+                    </v-btn>
+                  </div>
+                  <div v-else>
+                    <div class="text-caption font-weight-bold mb-1">
+                      Rollback a branch to this snapshot:
+                    </div>
+                    <v-btn
+                      v-for="branch in rollbackableBranches"
+                      :key="branch.name"
+                      color="warning"
+                      size="small"
+                      variant="tonal"
+                      block
+                      class="mb-1"
+                      prepend-icon="mdi-undo-variant"
+                      @click="openRollbackDialog(branch)">
+                      {{ branch.name }}
+                    </v-btn>
+                  </div>
+                </div>
               </div>
             </div>
           </v-slide-y-transition>
         </v-col>
       </v-row>
     </div>
+
+    <!-- Rollback confirmation dialog -->
+    <v-dialog v-model="rollbackDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="warning" class="mr-2">mdi-undo-variant</v-icon>
+          Rollback Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="warning" variant="tonal" density="compact" class="mb-4">
+            This will re-point branch
+            <strong>"{{ rollbackTargetBranch?.name }}"</strong>
+            to snapshot
+            <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
+            (ID: {{ selectedSnapshot?.['snapshot-id'] }}). Any snapshots after this point will
+            become unreachable from this branch.
+          </v-alert>
+          <div class="text-body-2 mb-2">
+            Type
+            <strong>"{{ rollbackTargetBranch?.name }}"</strong>
+            to confirm:
+          </div>
+          <v-text-field
+            v-model="rollbackConfirmText"
+            density="compact"
+            hide-details
+            :placeholder="rollbackTargetBranch?.name"
+            variant="outlined"
+            :color="
+              rollbackConfirmText === rollbackTargetBranch?.name ? 'success' : undefined
+            "></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="warning"
+            :disabled="rollbackConfirmText !== rollbackTargetBranch?.name || rollbackLoading"
+            :loading="rollbackLoading"
+            @click="executeRollback">
+            Rollback
+          </v-btn>
+          <v-btn color="error" @click="closeRollbackDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -259,17 +337,34 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import * as d3 from 'd3';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
+import { useFunctions } from '../plugins/functions';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
   table: LoadTableResult;
   snapshotHistory: Snapshot[];
+  canRollback?: boolean;
+  warehouseId?: string;
+  namespacePath?: string;
+  tableName?: string;
 }>();
+
+const emit = defineEmits<{
+  rollback: [];
+}>();
+
+const functions = useFunctions();
 
 // ─── State ───────────────────────────────────────────────────────────────────
 const chartRef = ref<HTMLDivElement | null>(null);
 const selectedSnapshot = ref<Snapshot | null>(null);
 const currentZoom = ref(1);
+
+// ─── Rollback State ──────────────────────────────────────────────────────────
+const rollbackDialog = ref(false);
+const rollbackTargetBranch = ref<BranchMeta | null>(null);
+const rollbackConfirmText = ref('');
+const rollbackLoading = ref(false);
 
 // D3 selections — kept outside Vue reactivity
 let svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
@@ -1105,6 +1200,68 @@ watch(selectedSnapshot, (snap) => {
       snap && snap['snapshot-id'] === d.snapshotId ? 'url(#selectedPulse)' : 'url(#nodeGlow)',
     );
 });
+
+// ─── Rollback Logic ──────────────────────────────────────────────────────────
+
+/**
+ * Branches that the selected snapshot belongs to, where it is NOT the current tip.
+ * Only these can be "rolled back to" — rolling back to the tip is a no-op.
+ */
+const rollbackableBranches = computed<BranchMeta[]>(() => {
+  if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sid = selectedSnapshot.value['snapshot-id'];
+  return branches.value.filter((b) => {
+    if (b.type !== 'branch') return false;
+    // Must be in this branch's ancestry
+    if (!b.ancestry.some((id) => String(id) === String(sid))) return false;
+    // Must NOT be the current tip (rollback to current tip is meaningless)
+    if (String(b.tipSnapshotId) === String(sid)) return false;
+    return true;
+  });
+});
+
+function openRollbackDialog(branch: BranchMeta) {
+  rollbackTargetBranch.value = branch;
+  rollbackConfirmText.value = '';
+  rollbackDialog.value = true;
+}
+
+function closeRollbackDialog() {
+  rollbackDialog.value = false;
+  rollbackTargetBranch.value = null;
+  rollbackConfirmText.value = '';
+}
+
+async function executeRollback() {
+  if (
+    !rollbackTargetBranch.value ||
+    !selectedSnapshot.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  rollbackLoading.value = true;
+  try {
+    await functions.rollbackBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      rollbackTargetBranch.value.name,
+      selectedSnapshot.value['snapshot-id'],
+      rollbackTargetBranch.value.tipSnapshotId,
+      true,
+    );
+    closeRollbackDialog();
+    selectedSnapshot.value = null;
+    emit('rollback');
+  } catch (error: any) {
+    console.error('Failed to rollback branch:', error);
+  } finally {
+    rollbackLoading.value = false;
+  }
+}
 
 onBeforeUnmount(() => {
   if (chartRef.value) {
