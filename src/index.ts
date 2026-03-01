@@ -34,6 +34,7 @@ import NamespaceTables from './components/NamespaceTables.vue';
 import NamespaceDeleted from './components/NamespaceDeleted.vue';
 import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
+import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import TableHeader from './components/TableHeader.vue';
 import TableDetails from './components/TableDetails.vue';
 import TableHealth from './components/TableHealth.vue';
@@ -115,6 +116,7 @@ export {
   NamespaceNamespaces,
   NamespaceTables,
   NamespaceHeader,
+  NamespacePropertiesDialog,
   TableHeader,
   ViewHeader,
   ViewHistoryTab,
@@ -259,6 +261,7 @@ const components = {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespacePropertiesDialog,
   TableHeader,
   TableDetails,
   TableHealth,

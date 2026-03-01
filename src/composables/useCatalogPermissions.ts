@@ -499,6 +499,7 @@ export function useNamespacePermissions(
     canCreateNamespace,
     canCreateView,
     canGetMetadata,
+    canUpdateProperties,
     canSetProtection,
     refresh: loadPermissions,
   };

@@ -1046,7 +1046,12 @@ async function loadNamespaceMetadata(
   }
 }
 
-async function createNamespace(id: string, namespace: Namespace, notify?: boolean) {
+async function createNamespace(
+  id: string,
+  namespace: Namespace,
+  notify?: boolean,
+  properties?: Record<string, string>,
+) {
   try {
     const client = iceClient.client;
     const { data, error } = await ice.createNamespace({
@@ -1054,7 +1059,10 @@ async function createNamespace(id: string, namespace: Namespace, notify?: boolea
       path: {
         prefix: id,
       },
-      body: { namespace },
+      body: {
+        namespace,
+        ...(properties && Object.keys(properties).length > 0 ? { properties } : {}),
+      },
     });
     if (error) throw error;
 
@@ -1064,6 +1072,42 @@ async function createNamespace(id: string, namespace: Namespace, notify?: boolea
     return data;
   } catch (error: any) {
     handleError(error, 'createNamespace', notify);
+    throw error;
+  }
+}
+
+async function updateNamespaceProperties(
+  id: string,
+  namespace: string,
+  updates?: Record<string, string>,
+  removals?: string[],
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.updateProperties({
+      client,
+      path: {
+        prefix: id,
+        namespace,
+      },
+      body: {
+        ...(updates && Object.keys(updates).length > 0 ? { updates } : {}),
+        ...(removals && removals.length > 0 ? { removals } : {}),
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'updateNamespaceProperties',
+        `Namespace properties updated successfully`,
+        notify,
+      );
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'updateNamespaceProperties', notify);
     throw error;
   }
 }
@@ -3850,6 +3894,7 @@ export function useFunctions(config?: any) {
     getNamespaceAssignmentsById,
     updateNamespaceAssignmentsById,
     loadNamespaceMetadata,
+    updateNamespaceProperties,
     listViews,
     listDeletedTabulars,
     loadTable,

@@ -26,6 +26,10 @@
       <v-icon>mdi-folder-open</v-icon>
     </template>
     <v-spacer></v-spacer>
+    <NamespacePropertiesDialog
+      :warehouse-id="warehouseId"
+      :namespace-path="namespacePath"
+      :can-edit="canUpdateProperties" />
   </v-toolbar>
 </template>
 
@@ -33,7 +37,9 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
+import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
+import NamespacePropertiesDialog from './NamespacePropertiesDialog.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -43,6 +49,12 @@ const props = defineProps<{
 const functions = useFunctions();
 const visual = useVisualStore();
 const namespace = ref<GetNamespaceResponse>({ namespace: [] });
+const namespaceId = ref('');
+
+const { canUpdateProperties } = useNamespacePermissions(
+  computed(() => namespaceId.value),
+  computed(() => props.warehouseId),
+);
 
 const isNavigationCollapsed = computed({
   get: () => visual.isNavigationCollapsed,
@@ -66,6 +78,7 @@ watch(() => props.namespacePath, loadNamespaceMetadata);
 async function loadNamespaceMetadata() {
   try {
     namespace.value = await functions.loadNamespaceMetadata(props.warehouseId, props.namespacePath);
+    namespaceId.value = namespace.value.properties?.namespace_id || namespace.value['namespace-uuid'] || '';
   } catch (error) {
     console.error('Failed to load namespace metadata:', error);
   }
