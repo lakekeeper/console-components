@@ -464,6 +464,12 @@ export function useNamespacePermissions(
   const canCreateNamespace = computed(() => hasPermission('create_namespace'));
   const canCreateView = computed(() => hasPermission('create_view'));
   const canGetMetadata = computed(() => hasPermission('get_metadata'));
+  const canUpdateProperties = computed(
+    () =>
+      hasPermission('update_properties') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
   const canSetProtection = computed(
     () =>
       hasPermission('set_protection') ||
