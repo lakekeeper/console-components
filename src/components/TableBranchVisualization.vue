@@ -87,7 +87,10 @@
       <v-row no-gutters class="details-scroll-area">
         <v-col cols="12">
           <v-slide-y-transition>
-            <div v-if="selectedSnapshot" class="details-panel" style="max-height: 45vh; overflow-y: auto">
+            <div
+              v-if="selectedSnapshot"
+              class="details-panel"
+              style="max-height: 45vh; overflow-y: auto">
               <div class="pa-3">
                 <!-- Header with close button -->
                 <div class="d-flex align-center justify-space-between mb-3">
@@ -108,7 +111,9 @@
                     <v-card variant="outlined" elevation="1" class="mb-3">
                       <v-toolbar color="transparent" density="compact" flat>
                         <v-toolbar-title class="text-subtitle-2">
-                          <v-icon class="mr-1" color="primary" size="small">mdi-information-outline</v-icon>
+                          <v-icon class="mr-1" color="primary" size="small">
+                            mdi-information-outline
+                          </v-icon>
                           Snapshot Information
                         </v-toolbar-title>
                         <v-spacer></v-spacer>
@@ -132,7 +137,9 @@
                                 icon="mdi-content-copy"
                                 size="x-small"
                                 variant="text"
-                                @click="copyToClipboard(String(selectedSnapshot['snapshot-id']))"></v-btn>
+                                @click="
+                                  copyToClipboard(String(selectedSnapshot['snapshot-id']))
+                                "></v-btn>
                             </td>
                           </tr>
                           <tr>
@@ -160,9 +167,14 @@
                           <tr v-if="selectedSnapshot['manifest-list']">
                             <td class="font-weight-medium">Manifest</td>
                             <td>
-                              <v-tooltip location="bottom" :text="selectedSnapshot['manifest-list']">
+                              <v-tooltip
+                                location="bottom"
+                                :text="selectedSnapshot['manifest-list']">
                                 <template #activator="{ props: tipProps }">
-                                  <span v-bind="tipProps" class="font-mono text-wrap" style="cursor: help; font-size: 0.8rem">
+                                  <span
+                                    v-bind="tipProps"
+                                    class="font-mono text-wrap"
+                                    style="cursor: help; font-size: 0.8rem">
                                     {{ truncateManifest(selectedSnapshot['manifest-list']) }}
                                   </span>
                                 </template>
@@ -219,18 +231,22 @@
                               :key="branch.name"
                               :title="branch.name"
                               prepend-icon="mdi-source-branch"
-                              @click="openRollbackDialog(branch)">
-                            </v-list-item>
+                              @click="openRollbackDialog(branch)"></v-list-item>
                           </v-list>
                         </v-menu>
                       </v-toolbar>
                       <v-divider></v-divider>
-                      <v-table v-if="selectedSnapshot.summary" density="compact" class="snapshot-table">
+                      <v-table
+                        v-if="selectedSnapshot.summary"
+                        density="compact"
+                        class="snapshot-table">
                         <tbody>
                           <tr
                             v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
                             :key="key">
-                            <td class="font-weight-medium" style="width: 180px">{{ formatSummaryKey(key) }}</td>
+                            <td class="font-weight-medium" style="width: 180px">
+                              {{ formatSummaryKey(key) }}
+                            </td>
                             <td class="font-mono">{{ formatSummaryValue(value) }}</td>
                           </tr>
                         </tbody>
@@ -250,10 +266,7 @@
                         <v-expansion-panel-title>
                           <v-icon class="mr-2" size="small">mdi-file-tree</v-icon>
                           Schema Fields
-                          <v-chip
-                            size="x-small"
-                            variant="outlined"
-                            class="ml-2">
+                          <v-chip size="x-small" variant="outlined" class="ml-2">
                             {{ getEffectiveSchemaInfo(selectedSnapshot)?.fields?.length || 0 }}
                           </v-chip>
                           <v-chip
@@ -266,9 +279,12 @@
                           </v-chip>
                         </v-expansion-panel-title>
                         <v-expansion-panel-text>
-                          <div v-if="!getEffectiveSchemaInfo(selectedSnapshot)" class="text-center pa-2">
+                          <div
+                            v-if="!getEffectiveSchemaInfo(selectedSnapshot)"
+                            class="text-center pa-2">
                             <div class="text-caption text-medium-emphasis">
-                              Schema not available (ID: {{ getEffectiveSchemaId(selectedSnapshot) }})
+                              Schema not available (ID:
+                              {{ getEffectiveSchemaId(selectedSnapshot) }})
                             </div>
                           </div>
                           <v-table v-else density="compact">
@@ -282,12 +298,15 @@
                             </thead>
                             <tbody>
                               <tr
-                                v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
+                                v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields ||
+                                []"
                                 :key="field.id"
                                 :class="isFieldNew(field, selectedSnapshot) ? 'text-success' : ''">
                                 <td>
                                   <v-icon
-                                    :color="isFieldNew(field, selectedSnapshot) ? 'success' : undefined"
+                                    :color="
+                                      isFieldNew(field, selectedSnapshot) ? 'success' : undefined
+                                    "
                                     size="x-small">
                                     {{ getFieldIcon(field) }}
                                   </v-icon>
@@ -307,7 +326,9 @@
                                   {{ getFieldTypeString(field.type) }}
                                 </td>
                                 <td>
-                                  <v-icon v-if="field.required" color="error" size="x-small">mdi-asterisk</v-icon>
+                                  <v-icon v-if="field.required" color="error" size="x-small">
+                                    mdi-asterisk
+                                  </v-icon>
                                 </td>
                               </tr>
                             </tbody>
@@ -352,14 +373,18 @@
             :placeholder="String(selectedSnapshot?.['snapshot-id'])"
             variant="outlined"
             :color="
-              rollbackConfirmText === String(selectedSnapshot?.['snapshot-id']) ? 'success' : undefined
+              rollbackConfirmText === String(selectedSnapshot?.['snapshot-id'])
+                ? 'success'
+                : undefined
             "></v-text-field>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn
             color="warning"
-            :disabled="rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) || rollbackLoading"
+            :disabled="
+              rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) || rollbackLoading
+            "
             :loading="rollbackLoading"
             @click="executeRollback">
             Rollback
