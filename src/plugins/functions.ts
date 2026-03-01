@@ -1210,12 +1210,19 @@ async function rollbackBranch(
     const userStore = useUserStore();
     const accessToken = userStore.user.access_token;
 
+    // Snapshot IDs are int64 values that exceed Number.MAX_SAFE_INTEGER.
+    // They arrive as strings from json-bigint (storeAsString: true).
+    // Use JSONBig to serialize them back as raw JSON numbers (unquoted).
+    const JSONBigNative = JSONBig();
+    const targetIdBig = JSONBigNative.parse(String(targetSnapshotId));
+
     const requirements: any[] = [];
     if (currentSnapshotId !== undefined) {
+      const currentIdBig = JSONBigNative.parse(String(currentSnapshotId));
       requirements.push({
         type: 'assert-ref-snapshot-id',
         ref: branchName,
-        'snapshot-id': BigInt(currentSnapshotId),
+        'snapshot-id': currentIdBig,
       });
     }
 
@@ -1226,12 +1233,13 @@ async function rollbackBranch(
           action: 'set-snapshot-ref',
           'ref-name': branchName,
           type: 'branch',
-          'snapshot-id': BigInt(targetSnapshotId),
+          'snapshot-id': targetIdBig,
         },
       ],
     };
 
-    const JSONBigString = JSONBig({ storeAsString: true });
+    const bodyJson = JSONBigNative.stringify(body);
+
     const response = await fetch(
       `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
       {
@@ -1240,7 +1248,7 @@ async function rollbackBranch(
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
         },
-        body: JSONBigString.stringify(body),
+        body: bodyJson,
       },
     );
 

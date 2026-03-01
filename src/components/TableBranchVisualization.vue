@@ -127,7 +127,7 @@
                         </v-chip>
                       </v-toolbar>
                       <v-divider></v-divider>
-                      <v-table density="compact" class="snapshot-table">
+                      <v-table density="compact" class="snapshot-table" fixed-header height="250px">
                         <tbody>
                           <tr>
                             <td class="font-weight-medium" style="width: 140px">Snapshot ID</td>
@@ -239,7 +239,9 @@
                       <v-table
                         v-if="selectedSnapshot.summary"
                         density="compact"
-                        class="snapshot-table">
+                        class="snapshot-table"
+                        fixed-header
+                        height="250px">
                         <tbody>
                           <tr
                             v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
