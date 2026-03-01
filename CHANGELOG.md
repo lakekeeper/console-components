@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.28](https://github.com/lakekeeper/console-components/compare/v0.2.27...v0.2.28) (2026-03-01)
+
+
+### Bug Fixes
+
+* added storage location option ([#79](https://github.com/lakekeeper/console-components/issues/79)) ([ef1932b](https://github.com/lakekeeper/console-components/commit/ef1932b97a5e985bc1b38977a1ebd9d3915de753))
+
 ## [0.2.27](https://github.com/lakekeeper/console-components/compare/v0.2.26...v0.2.27) (2026-02-20)
 
 
