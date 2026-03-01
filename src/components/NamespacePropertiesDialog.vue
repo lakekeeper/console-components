@@ -5,8 +5,8 @@
         v-bind="activatorProps"
         color="info"
         size="small"
-        variant="flat"
-        prepend-icon="mdi-text-box-multiple-outline">
+        variant="text"
+        prepend-icon="mdi-cog">
         Properties
       </v-btn>
     </template>
