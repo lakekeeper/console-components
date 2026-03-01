@@ -24,18 +24,18 @@ const props = defineProps<{
 
 const functions = useFunctions();
 
-const tableId = computed(() => table.metadata['table-uuid'] || '');
-const { canCommit } = useTablePermissions(
-  tableId,
-  computed(() => props.warehouseId),
-);
-
 const table = reactive<LoadTableResult>({
   metadata: {
     'format-version': 0,
     'table-uuid': '',
   },
 });
+
+const tableId = computed(() => table.metadata['table-uuid'] || '');
+const { canCommit } = useTablePermissions(
+  tableId,
+  computed(() => props.warehouseId),
+);
 
 const snapshotHistory = reactive<Snapshot[]>([]);
 
