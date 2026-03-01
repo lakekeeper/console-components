@@ -64,6 +64,7 @@ import WarningBanner from './components/WarningBanner.vue';
 import SnackbarMessage from './components/SnackbarMessage.vue';
 import BreadcrumbsFromUrl from './components/BreadcrumbsFromUrl.vue';
 import DeleteDialog from './components/DeleteDialog.vue';
+import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
 import ServerOverview from './components/ServerOverview.vue';
 import UserManager from './components/UserManager.vue';
@@ -89,6 +90,7 @@ export {
   SnackbarMessage,
   BreadcrumbsFromUrl,
   DeleteDialog,
+  EntityPropertiesDialog,
   TaskConfigDialog,
   ServerOverview,
   UserManager,
@@ -231,6 +233,7 @@ const components = {
   SnackbarMessage,
   BreadcrumbsFromUrl,
   DeleteDialog,
+  EntityPropertiesDialog,
   TaskConfigDialog,
   ServerOverview,
   UserManager,

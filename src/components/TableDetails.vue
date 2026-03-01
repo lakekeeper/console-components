@@ -113,6 +113,15 @@
             <v-chip size="x-small" variant="outlined" class="mr-2">
               {{ Object.keys(table.metadata.properties).length }}
             </v-chip>
+            <EntityPropertiesDialog
+              v-if="canEdit"
+              entity-type="table"
+              :warehouse-id="warehouseId!"
+              :namespace-path="namespacePath!"
+              :entity-name="tableName"
+              :properties="table.metadata.properties"
+              :can-edit="canEdit"
+              @updated="$emit('updated')" />
           </v-toolbar>
           <v-divider></v-divider>
           <v-data-table-virtual
@@ -383,6 +392,7 @@
 import { computed, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
+import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
 import { transformFields } from '../common/schemaUtils';
 import type {
   LoadTableResult,
@@ -394,6 +404,15 @@ import type {
 // Props
 const props = defineProps<{
   table: LoadTableResult;
+  warehouseId?: string;
+  namespacePath?: string;
+  tableName?: string;
+  canEdit?: boolean;
+}>();
+
+// Emits
+defineEmits<{
+  updated: [];
 }>();
 
 // Composables

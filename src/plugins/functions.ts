@@ -1112,6 +1112,91 @@ async function updateNamespaceProperties(
   }
 }
 
+async function updateTableProperties(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  updates?: Record<string, string>,
+  removals?: string[],
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+    const tableUpdates: any[] = [];
+
+    if (updates && Object.keys(updates).length > 0) {
+      tableUpdates.push({ action: 'set-properties', updates });
+    }
+    if (removals && removals.length > 0) {
+      tableUpdates.push({ action: 'remove-properties', removals });
+    }
+
+    const { data, error } = await ice.updateTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+        table: tableName,
+      },
+      body: {
+        requirements: [],
+        updates: tableUpdates,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateTableProperties', `Table properties updated successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'updateTableProperties', notify);
+    throw error;
+  }
+}
+
+async function updateViewProperties(
+  warehouseId: string,
+  namespacePath: string,
+  viewName: string,
+  updates?: Record<string, string>,
+  removals?: string[],
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+    const viewUpdates: any[] = [];
+
+    if (updates && Object.keys(updates).length > 0) {
+      viewUpdates.push({ action: 'set-properties', updates });
+    }
+    if (removals && removals.length > 0) {
+      viewUpdates.push({ action: 'remove-properties', removals });
+    }
+
+    const { data, error } = await ice.replaceView({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+        view: viewName,
+      },
+      body: {
+        updates: viewUpdates,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateViewProperties', `View properties updated successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'updateViewProperties', notify);
+    throw error;
+  }
+}
+
 async function dropNamespace(id: string, ns: string, options?: NamespaceAction, notify?: boolean) {
   try {
     const client = iceClient.client;
@@ -3895,6 +3980,8 @@ export function useFunctions(config?: any) {
     updateNamespaceAssignmentsById,
     loadNamespaceMetadata,
     updateNamespaceProperties,
+    updateTableProperties,
+    updateViewProperties,
     listViews,
     listDeletedTabulars,
     loadTable,

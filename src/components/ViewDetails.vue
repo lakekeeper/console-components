@@ -93,6 +93,15 @@
             <v-chip size="x-small" variant="outlined" class="mr-2">
               {{ Object.keys(view.metadata.properties).length }}
             </v-chip>
+            <EntityPropertiesDialog
+              v-if="canEdit"
+              entity-type="view"
+              :warehouse-id="warehouseId"
+              :namespace-path="namespacePath"
+              :entity-name="viewName"
+              :properties="view.metadata.properties"
+              :can-edit="canEdit"
+              @updated="$emit('updated')" />
           </v-toolbar>
           <v-divider></v-divider>
           <v-data-table-virtual
@@ -274,12 +283,22 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useFunctions } from '../plugins/functions';
+import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
 import { transformFields } from '../common/schemaUtils';
 import type { LoadViewResult } from '../gen/iceberg/types.gen';
 
 // Props
 const props = defineProps<{
   view: LoadViewResult;
+  warehouseId?: string;
+  namespacePath?: string;
+  viewName?: string;
+  canEdit?: boolean;
+}>();
+
+// Emits
+defineEmits<{
+  updated: [];
 }>();
 
 // Composables
