@@ -1282,7 +1282,13 @@ async function renameBranch(
 
     // Atomic: create new ref + remove old ref in one updateTable call
     const body = {
-      requirements: [],
+      requirements: [
+        {
+          type: 'assert-ref-snapshot-id',
+          ref: oldBranchName,
+          'snapshot-id': snapshotIdBig,
+        },
+      ],
       updates: [
         {
           action: 'set-snapshot-ref',
