@@ -27,14 +27,16 @@
         <!-- Confirm removal step -->
         <template v-else-if="confirmingRemovals">
           <v-alert type="warning" variant="tonal" density="compact" class="mb-4">
-            You are about to remove {{ pendingRemovals.length }}
-            propert{{ pendingRemovals.length === 1 ? 'y' : 'ies' }}. Type each key name to
-            confirm.
+            You are about to remove {{ pendingRemovals.length }} propert{{
+              pendingRemovals.length === 1 ? 'y' : 'ies'
+            }}. Type each key name to confirm.
           </v-alert>
 
           <div v-for="key in pendingRemovals" :key="key" class="mb-3">
             <div class="text-body-2 mb-1">
-              Type <strong>"{{ key }}"</strong> to confirm removal:
+              Type
+              <strong>"{{ key }}"</strong>
+              to confirm removal:
             </div>
             <v-text-field
               v-model="removalConfirmations[key]"
@@ -49,9 +51,7 @@
         <template v-else>
           <div class="d-flex align-center mb-3">
             <span class="text-subtitle-2">
-              {{ activeProperties.length }} propert{{
-                activeProperties.length === 1 ? 'y' : 'ies'
-              }}
+              {{ activeProperties.length }} propert{{ activeProperties.length === 1 ? 'y' : 'ies' }}
             </span>
             <v-spacer></v-spacer>
             <v-btn
@@ -147,8 +147,8 @@
               variant="tonal"
               density="compact"
               class="mt-3">
-              {{ markedCount }} propert{{ markedCount === 1 ? 'y' : 'ies' }} marked for removal.
-              You will need to confirm before saving.
+              {{ markedCount }} propert{{ markedCount === 1 ? 'y' : 'ies' }} marked for removal. You
+              will need to confirm before saving.
             </v-alert>
           </template>
         </template>
