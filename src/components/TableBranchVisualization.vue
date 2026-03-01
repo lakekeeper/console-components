@@ -162,7 +162,7 @@
                           prepend-icon="mdi-source-branch-plus"
                           class="mr-1"
                           @click="openCreateBranchDialog">
-                          Branch
+                          Create Branch
                         </v-btn>
                       </v-toolbar>
                       <v-divider></v-divider>
@@ -264,7 +264,9 @@
                                 @click="openFastForwardDialog(branch)"></v-list-item>
                             </template>
                             <template v-if="rollbackableBranches.length > 0">
-                              <v-list-subheader>Rollback</v-list-subheader>
+                              <v-list-subheader>
+                                Rollback to #{{ selectedSnapshot?.['sequence-number'] }}
+                              </v-list-subheader>
                               <v-list-item
                                 v-for="branch in rollbackableBranches"
                                 :key="'rb-' + branch.name"
