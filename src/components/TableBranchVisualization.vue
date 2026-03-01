@@ -240,102 +240,48 @@
                           class="mr-2">
                           {{ Object.keys(selectedSnapshot.summary).length }}
                         </v-chip>
-                        <!-- Rollback button in toolbar -->
-                        <v-btn
-                          v-if="canRollback && fastForwardableBranches.length === 1"
-                          color="success"
-                          size="small"
-                          variant="tonal"
-                          prepend-icon="mdi-fast-forward"
-                          class="mr-1"
-                          @click="openFastForwardDialog(fastForwardableBranches[0])">
-                          Fast Forward
-                        </v-btn>
-                        <v-menu v-if="canRollback && fastForwardableBranches.length > 1">
+                        <!-- Branch actions menu -->
+                        <v-menu v-if="canRollback">
                           <template #activator="{ props: menuProps }">
                             <v-btn
                               v-bind="menuProps"
-                              color="success"
                               size="small"
                               variant="tonal"
-                              prepend-icon="mdi-fast-forward"
+                              prepend-icon="mdi-source-branch"
                               class="mr-1">
-                              Fast Forward
+                              Actions
                               <v-icon end>mdi-chevron-down</v-icon>
                             </v-btn>
                           </template>
                           <v-list density="compact">
-                            <v-list-item
-                              v-for="branch in fastForwardableBranches"
-                              :key="branch.name"
-                              :title="branch.name"
-                              prepend-icon="mdi-source-branch"
-                              @click="openFastForwardDialog(branch)"></v-list-item>
-                          </v-list>
-                        </v-menu>
-                        <v-btn
-                          v-if="canRollback && rollbackableBranches.length === 1"
-                          color="warning"
-                          size="small"
-                          variant="tonal"
-                          prepend-icon="mdi-undo-variant"
-                          class="mr-1"
-                          @click="openRollbackDialog(rollbackableBranches[0])">
-                          Rollback
-                        </v-btn>
-                        <v-menu v-if="canRollback && rollbackableBranches.length > 1">
-                          <template #activator="{ props: menuProps }">
-                            <v-btn
-                              v-bind="menuProps"
-                              color="warning"
-                              size="small"
-                              variant="tonal"
-                              prepend-icon="mdi-undo-variant"
-                              class="mr-1">
-                              Rollback
-                              <v-icon end>mdi-chevron-down</v-icon>
-                            </v-btn>
-                          </template>
-                          <v-list density="compact">
-                            <v-list-item
-                              v-for="branch in rollbackableBranches"
-                              :key="branch.name"
-                              :title="branch.name"
-                              prepend-icon="mdi-source-branch"
-                              @click="openRollbackDialog(branch)"></v-list-item>
-                          </v-list>
-                        </v-menu>
-                        <!-- Delete branch button in toolbar -->
-                        <v-btn
-                          v-if="canRollback && deletableBranches.length === 1"
-                          color="error"
-                          size="small"
-                          variant="tonal"
-                          prepend-icon="mdi-source-branch-remove"
-                          class="mr-1"
-                          @click="openDeleteBranchDialog(deletableBranches[0].name)">
-                          Delete
-                        </v-btn>
-                        <v-menu v-if="canRollback && deletableBranches.length > 1">
-                          <template #activator="{ props: menuProps }">
-                            <v-btn
-                              v-bind="menuProps"
-                              color="error"
-                              size="small"
-                              variant="tonal"
-                              prepend-icon="mdi-source-branch-remove"
-                              class="mr-1">
-                              Delete
-                              <v-icon end>mdi-chevron-down</v-icon>
-                            </v-btn>
-                          </template>
-                          <v-list density="compact">
-                            <v-list-item
-                              v-for="branch in deletableBranches"
-                              :key="branch.name"
-                              :title="branch.name"
-                              prepend-icon="mdi-source-branch"
-                              @click="openDeleteBranchDialog(branch.name)"></v-list-item>
+                            <template v-if="fastForwardableBranches.length > 0">
+                              <v-list-subheader>Fast Forward</v-list-subheader>
+                              <v-list-item
+                                v-for="branch in fastForwardableBranches"
+                                :key="'ff-' + branch.name"
+                                :title="branch.name"
+                                prepend-icon="mdi-fast-forward"
+                                @click="openFastForwardDialog(branch)"></v-list-item>
+                            </template>
+                            <template v-if="rollbackableBranches.length > 0">
+                              <v-list-subheader>Rollback</v-list-subheader>
+                              <v-list-item
+                                v-for="branch in rollbackableBranches"
+                                :key="'rb-' + branch.name"
+                                :title="branch.name"
+                                prepend-icon="mdi-undo-variant"
+                                @click="openRollbackDialog(branch)"></v-list-item>
+                            </template>
+                            <template v-if="deletableBranches.length > 0">
+                              <v-list-subheader>Delete</v-list-subheader>
+                              <v-list-item
+                                v-for="branch in deletableBranches"
+                                :key="'del-' + branch.name"
+                                :title="branch.name"
+                                prepend-icon="mdi-source-branch-remove"
+                                base-color="error"
+                                @click="openDeleteBranchDialog(branch.name)"></v-list-item>
+                            </template>
                           </v-list>
                         </v-menu>
                       </v-toolbar>
@@ -1665,15 +1611,14 @@ const existingBranchNames = computed(() =>
 );
 
 // ─── Computed: deletable branches ────────────────────────────────────────────
-// Branches whose tip IS the selected snapshot (excluding main/master)
+// All non-main/master branches (available whenever a snapshot is selected)
 const deletableBranches = computed<BranchMeta[]>(() => {
   if (!selectedSnapshot.value || !props.canRollback) return [];
-  const sidStr = String(selectedSnapshot.value['snapshot-id']);
 
   return branches.value.filter((b) => {
     if (b.type !== 'branch') return false;
     if (b.name === 'main' || b.name === 'master') return false;
-    return String(b.tipSnapshotId) === sidStr;
+    return true;
   });
 });
 
