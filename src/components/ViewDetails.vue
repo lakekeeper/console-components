@@ -94,7 +94,7 @@
               {{ Object.keys(view.metadata.properties || {}).length }}
             </v-chip>
             <EntityPropertiesDialog
-              v-if="canEdit && warehouseId && namespacePath"
+              v-if="canEdit && warehouseId && namespacePath && viewName"
               entity-type="view"
               :warehouse-id="warehouseId"
               :namespace-path="namespacePath"
