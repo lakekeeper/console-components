@@ -1508,13 +1508,13 @@ function getOperationColor(operation: string): string {
 
 // Render when the container div appears and when data changes
 watch(
-  [chartRef, () => props.snapshotHistory.length],
+  [chartRef, () => props.snapshotHistory, () => props.table.metadata.refs],
   () => {
     if (chartRef.value && props.snapshotHistory.length > 0) {
       renderChart();
     }
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 );
 
 // Update selected node highlight when selection changes
