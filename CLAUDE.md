@@ -79,15 +79,15 @@ openapi/
 
 ## Stores (Pinia, persisted via pinia-plugin-persistedstate-2)
 
-| Store | Key state / methods |
-| --- | --- |
-| `useVisualStore()` | `themeLight` (auto-detects system pref), `navBarShow`, `showAppOrNavBar`, `projectSelected` (`project-id`, `project-name`), `projectList`, `snackbarMsg`, `serverInfo` (version, bootstrapped, server-id, default-project-id, authz-backend, license-status, queues), `isNavigationCollapsed`, `warehouseTreeState`, `warehouseSqlData` (multi-tab SQL editor), `policyBuilderDraft`. Methods: `toggleThemeLight()`, `setServerInfo()`, `getServerInfo()`, `setProjectSelected()`, `setProjectList()`, `setSnackbarMsg()`, `getSnackbarMsg()`, `setPolicyBuilderDraft()`, `resetPolicyBuilderDraft()`, SQL tab CRUD (`addSqlTab`, `removeSqlTab`, `updateSqlTabContent`, `setActiveSqlTab`, `getActiveSqlTab`, `getSqlTabs`) |
-| `useUserStore()` | `user` (reactive: `access_token`, `id_token`, `refresh_token`, `token_expires_at`, `email`, `preferred_username`, `family_name`, `given_name`), `isAuthenticated`, `setUser()`, `getUser()`, `unsetUser()`, `renewAT()` |
-| `usePermissionStore()` | Permission cache with getters for every entity type: `getServerPermissions()`, `getProjectPermissions()`, `getWarehousePermissions()`, `getRolePermissions()`, `getNamespacePermissions()`, `getTablePermissions()`, `getViewPermissions()` |
-| `useNotificationStore()` | Notification management for the app |
-| `useNavigationStore()` | `updateCurrentLocation()` — tracks current route for restoration after re-authentication |
-| `useDuckDBSettingsStore()` | DuckDB WASM settings — `DUCKDB_DEFAULTS`, `ROW_LIMIT_OPTIONS` exported |
-| `useLoQEStore()` | Local Query Engine persisted state (extensions, catalogs, query history) |
+| Store                      | Key state / methods                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `useVisualStore()`         | `themeLight` (auto-detects system pref), `navBarShow`, `showAppOrNavBar`, `projectSelected` (`project-id`, `project-name`), `projectList`, `snackbarMsg`, `serverInfo` (version, bootstrapped, server-id, default-project-id, authz-backend, license-status, queues), `isNavigationCollapsed`, `warehouseTreeState`, `warehouseSqlData` (multi-tab SQL editor), `policyBuilderDraft`. Methods: `toggleThemeLight()`, `setServerInfo()`, `getServerInfo()`, `setProjectSelected()`, `setProjectList()`, `setSnackbarMsg()`, `getSnackbarMsg()`, `setPolicyBuilderDraft()`, `resetPolicyBuilderDraft()`, SQL tab CRUD (`addSqlTab`, `removeSqlTab`, `updateSqlTabContent`, `setActiveSqlTab`, `getActiveSqlTab`, `getSqlTabs`) |
+| `useUserStore()`           | `user` (reactive: `access_token`, `id_token`, `refresh_token`, `token_expires_at`, `email`, `preferred_username`, `family_name`, `given_name`), `isAuthenticated`, `setUser()`, `getUser()`, `unsetUser()`, `renewAT()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `usePermissionStore()`     | Permission cache with getters for every entity type: `getServerPermissions()`, `getProjectPermissions()`, `getWarehousePermissions()`, `getRolePermissions()`, `getNamespacePermissions()`, `getTablePermissions()`, `getViewPermissions()`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `useNotificationStore()`   | Notification management for the app                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `useNavigationStore()`     | `updateCurrentLocation()` — tracks current route for restoration after re-authentication                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `useDuckDBSettingsStore()` | DuckDB WASM settings — `DUCKDB_DEFAULTS`, `ROW_LIMIT_OPTIONS` exported                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `useLoQEStore()`           | Local Query Engine persisted state (extensions, catalogs, query history)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ### PolicyBuilderState (in visual store)
 
@@ -128,6 +128,7 @@ app.provide('functions', useFunctions(appConfig));
 ```
 
 Internally, `init()` configures both SDK clients with:
+
 - `baseUrl` from `icebergCatalogUrl` (via `appConfig`)
 - `x-project-id` header from `useVisualStore().projectSelected['project-id']` or fallback to `serverInfo['default-project-id']`
 - Request interceptor: attaches `Authorization: Bearer <token>` from `useUserStore().user.access_token`
@@ -161,6 +162,7 @@ app.config.globalProperties.$functions = functions;
 **Roles**: `listRoles()`, `getRole(roleId)`, `createRole(body)`, `updateRole(roleId, body)`, `deleteRole(roleId)`, `searchRole(query)`, `getRoleMetadata(roleId)`, `updateRoleSourceSystem(roleId, sourceId)`
 
 **Permissions (Catalog)**: For each entity (server, project, warehouse, namespace, table, view, role):
+
 - `get*CatalogActions(id?)` — get allowed actions
 - `get*AssignmentsById(id)` — get permission assignments
 - `update*AssignmentsById(id, body)` — update assignments
@@ -183,15 +185,15 @@ app.config.globalProperties.$functions = functions;
 
 Each returns a `PermissionComposable` with `loading`, `permissions`, `hasPermission()`, and role-specific booleans:
 
-| Composable | Params | Extra booleans |
-| --- | --- | --- |
-| `useServerPermissions(serverId)` | serverId (optional) | `canManageGrants`, `canDelete`, `canUpdate`, `showPermissionsTab`, `showUsersTab`, `showTasksTab` |
-| `useProjectPermissions(projectId)` | projectId | `canListWarehouses`, `canCreateRole`, `canGetEndpointStatistics`, `showStatisticsTab` |
-| `useWarehousePermissions(warehouseId)` | warehouseId | `canCreateNamespace`, `canControlAllTasks` |
-| `useNamespacePermissions(nsId, whId)` | nsId, warehouseId | Standard set |
-| `useTablePermissions(tableId, whId)` | tableId, warehouseId | Standard set |
-| `useViewPermissions(viewId, whId)` | viewId, warehouseId | Standard set |
-| `useRolePermissions(roleId)` | roleId | Standard set |
+| Composable                             | Params               | Extra booleans                                                                                    |
+| -------------------------------------- | -------------------- | ------------------------------------------------------------------------------------------------- |
+| `useServerPermissions(serverId)`       | serverId (optional)  | `canManageGrants`, `canDelete`, `canUpdate`, `showPermissionsTab`, `showUsersTab`, `showTasksTab` |
+| `useProjectPermissions(projectId)`     | projectId            | `canListWarehouses`, `canCreateRole`, `canGetEndpointStatistics`, `showStatisticsTab`             |
+| `useWarehousePermissions(warehouseId)` | warehouseId          | `canCreateNamespace`, `canControlAllTasks`                                                        |
+| `useNamespacePermissions(nsId, whId)`  | nsId, warehouseId    | Standard set                                                                                      |
+| `useTablePermissions(tableId, whId)`   | tableId, warehouseId | Standard set                                                                                      |
+| `useViewPermissions(viewId, whId)`     | viewId, warehouseId  | Standard set                                                                                      |
+| `useRolePermissions(roleId)`           | roleId               | Standard set                                                                                      |
 
 Helper composables: `useConfig()` (returns injected `appConfig`), `hasAction(action, permissions)` (checks if action is in permission set).
 
@@ -233,42 +235,55 @@ app.use(auth);
 ## Components (60+)
 
 ### Layout & Chrome
+
 `AppBar` (top navigation bar with project selector, theme toggle, user menu), `AppFooter` (copyright bar with logo), `WarningBanner`, `AuthenticationDisabledWarningBanner`, `SnackbarMessage`, `BreadcrumbsFromUrl`, `NotificationButton`, `NotificationPanel`
 
 ### Auth Pages
+
 `LoginPage`, `LogoutPage`, `CallbackPage` (OIDC flow pages)
 
 ### Server
+
 `ServerOverview` (server info, bootstrap status, license, UI configuration, CORS), `UserManager` (user list, search, create, delete)
 
 ### Project
+
 `ProjectManager` (project list with CRUD), `ProjectDialog` (create/edit project), `ProjectNameAddOrEditDialog`, `ProjectStatistics` (endpoint stats with charts), `ProjectTaskManager` (project-level task management)
 
 ### Warehouse
+
 `WarehouseManager` (warehouse list), `WarehouseHeader` (warehouse detail header), `WarehouseDetails` (warehouse settings), `WarehouseAddDialog` (multi-step create), `WarehouseRenameDialog`, `WarehouseActionsMenu` (context menu), `WarehouseNamespaces` (namespace tree), `WarehousesNavigationTree` (sidebar nav tree), `WarehouseStorageS3`, `WarehouseStorageAzure`, `WarehouseStorageGCS`, `WarehouseStorageJSON` (storage config forms), `WarehouseStatisticsDialog` (usage charts)
 
 ### Namespace
+
 `NamespaceAddDialog`, `NamespaceNamespaces` (nested namespaces), `NamespaceTables`, `NamespaceDeleted` (soft-deleted tabulars), `NamespaceViews`, `NamespaceHeader`
 
 ### Table
+
 `TableCreate`, `TableRegister` (register external table), `TableHeader`, `TableDetails`, `TableOverview`, `TableRaw` (raw JSON metadata), `TablePreview` (data preview via DuckDB), `TableBranch`, `TableBranchVisualization` (branch/ref graph), `TableSnapshotDetails`, `TableHealth` (health assessment), `TableHealthActions` (recommended actions: compaction, partition optimization, etc.)
 
 ### View
+
 `ViewHeader`, `ViewDetails`, `ViewOverview`, `ViewRaw`, `ViewHistory`, `ViewHistoryTab`
 
 ### Permissions
+
 `PermissionManager` (entity-level permission UI), `PermissionAssignDialog` (role/user assignment dialog), `UserRenameDialog`
 
 ### Roles
+
 `RoleManager`, `RoleDialog` (create/edit), `RoleOverviewEdit`
 
 ### Tasks
+
 `TaskManager` (warehouse task list), `TaskDetails`, `TaskConfigDialog` (queue config)
 
 ### SQL / LoQE
+
 `SqlEditor` (multi-tab SQL editor for DuckDB queries), `LoQEExplorer` (local query engine explorer), `LoQENavigationTree` (catalog/schema/table tree for SQL), `DuckDBSettingsDialog` (row limits, extensions)
 
 ### Misc
+
 `DeleteDialog`, `DeleteConfirmDialog`, `StatisticsDialog`, `StatisticsProject`, `ComputeConnectDialog` (Spark/Trino/DuckDB/Starrocks connection strings), `CorsConfigDialog`
 
 ---
@@ -290,10 +305,10 @@ LoQE (Local Query Engine) provides in-browser SQL queries via DuckDB WASM:
 
 Two auto-generated API clients under `src/gen/`:
 
-| Directory | API | Source spec |
-| --- | --- | --- |
-| `gen/iceberg/` | Apache Iceberg REST Catalog API | `openapi/rest-catalog-open-api.yaml` |
-| `gen/management/` | Lakekeeper Management API | `openapi/management-open-api.yaml` |
+| Directory         | API                             | Source spec                          |
+| ----------------- | ------------------------------- | ------------------------------------ |
+| `gen/iceberg/`    | Apache Iceberg REST Catalog API | `openapi/rest-catalog-open-api.yaml` |
+| `gen/management/` | Lakekeeper Management API       | `openapi/management-open-api.yaml`   |
 
 Generated with `@hey-api/openapi-ts` + `@hey-api/client-fetch`.
 
@@ -313,6 +328,7 @@ npx @hey-api/openapi-ts -i ./openapi/rest-catalog-open-api.yaml -o ./src/gen/ice
 ```
 
 To update OpenAPI specs from upstream:
+
 ```sh
 just update-openapi-management   # Fetches from lakekeeper/lakekeeper main branch
 just update-openapi-catalog      # Fetches from lakekeeper/lakekeeper main branch
@@ -385,8 +401,8 @@ import '@lakekeeper/console-components/style.css';
 const app = createApp(App);
 const pinia = createPinia();
 
-app.use(pinia);                                     // Pinia first (stores depend on it)
-app.use(ConsoleComponentsPlugin);                   // Registers all components globally
+app.use(pinia); // Pinia first (stores depend on it)
+app.use(ConsoleComponentsPlugin); // Registers all components globally
 
 const appConfig = {
   icebergCatalogUrl: import.meta.env.VITE_BACKEND_URL,
@@ -395,7 +411,7 @@ const appConfig = {
 };
 
 app.provide('appConfig', appConfig);
-app.provide('functions', useFunctions(appConfig));  // DI for API functions
+app.provide('functions', useFunctions(appConfig)); // DI for API functions
 
 const auth = createAuth({
   idpAuthority: import.meta.env.VITE_IDP_AUTHORITY,
@@ -448,8 +464,8 @@ import { useFunctions } from '@/plugins/functions';
 
 const visual = useVisualStore();
 const user = useUserStore();
-const config = useConfig();           // returns injected appConfig
-const functions = useFunctions();     // returns API methods
+const config = useConfig(); // returns injected appConfig
+const functions = useFunctions(); // returns API methods
 </script>
 ```
 
@@ -478,23 +494,23 @@ Some API responses contain i64 values exceeding `Number.MAX_SAFE_INTEGER` (e.g.,
 
 ## Build & Dev Commands
 
-| Command | Purpose |
-| --- | --- |
-| `just reviewable` | install + fix-all + build (run before committing) |
-| `just build` | `npm run build` via Vite (outputs to `dist/`) |
-| `just install` | `npm install` |
-| `just dev` | `npm run dev` — Vite dev server |
-| `just fix-lint` | `npm run lint` |
-| `just check-lint` | `npm run lint:check` |
-| `just format` | `npm run format` |
-| `just check-format` | `npm run format:check` |
-| `just fix-all` | format + fix-lint |
-| `just check-all` | check-format + fix-lint |
-| `just generate-clients` | Regenerate both SDK clients from OpenAPI specs |
-| `just generate-management-client` | Management API SDK only |
-| `just generate-iceberg-client` | Iceberg API SDK only |
-| `just update-openapi-management` | Fetch latest management OpenAPI spec |
-| `just update-openapi-catalog` | Fetch latest catalog OpenAPI spec |
+| Command                           | Purpose                                           |
+| --------------------------------- | ------------------------------------------------- |
+| `just reviewable`                 | install + fix-all + build (run before committing) |
+| `just build`                      | `npm run build` via Vite (outputs to `dist/`)     |
+| `just install`                    | `npm install`                                     |
+| `just dev`                        | `npm run dev` — Vite dev server                   |
+| `just fix-lint`                   | `npm run lint`                                    |
+| `just check-lint`                 | `npm run lint:check`                              |
+| `just format`                     | `npm run format`                                  |
+| `just check-format`               | `npm run format:check`                            |
+| `just fix-all`                    | format + fix-lint                                 |
+| `just check-all`                  | check-format + fix-lint                           |
+| `just generate-clients`           | Regenerate both SDK clients from OpenAPI specs    |
+| `just generate-management-client` | Management API SDK only                           |
+| `just generate-iceberg-client`    | Iceberg API SDK only                              |
+| `just update-openapi-management`  | Fetch latest management OpenAPI spec              |
+| `just update-openapi-catalog`     | Fetch latest catalog OpenAPI spec                 |
 
 ---
 
