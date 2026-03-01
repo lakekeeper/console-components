@@ -54,6 +54,34 @@
                   </svg>
                 </template>
                 {{ entry.name }}
+                <template #append>
+                  <v-btn
+                    v-if="
+                      canRollback &&
+                      entry.type === 'branch' &&
+                      entry.name !== 'main' &&
+                      entry.name !== 'master'
+                    "
+                    icon="mdi-pencil-outline"
+                    size="x-small"
+                    variant="text"
+                    density="compact"
+                    class="ml-1"
+                    @click.stop="openRenameBranchDialog(entry.name)"></v-btn>
+                  <v-btn
+                    v-if="
+                      canRollback &&
+                      entry.type === 'branch' &&
+                      entry.name !== 'main' &&
+                      entry.name !== 'master'
+                    "
+                    icon="mdi-close-circle"
+                    size="x-small"
+                    variant="text"
+                    density="compact"
+                    style="margin-right: -6px"
+                    @click.stop="openDeleteBranchDialog(entry.name)"></v-btn>
+                </template>
               </v-chip>
               <v-chip size="x-small" variant="tonal" class="legend-chip">
                 <template #prepend>
@@ -83,16 +111,17 @@
         </v-col>
       </v-row>
 
-      <!-- Row 2: Scrollable details (appears on node click) -->
+      <!-- Row 2: Snapshot details (appears on node click) -->
       <v-row no-gutters class="details-scroll-area">
         <v-col cols="12">
           <v-slide-y-transition>
             <div
               v-if="selectedSnapshot"
               class="details-panel"
-              style="max-height: 30vh; overflow-y: auto">
-              <div class="details-panel-inner">
-                <div class="d-flex align-center justify-space-between mb-2">
+              style="max-height: 45vh; overflow-y: auto">
+              <div class="pa-3">
+                <!-- Header with close button -->
+                <div class="d-flex align-center justify-space-between mb-3">
                   <span class="text-subtitle-1 font-weight-bold d-flex align-center">
                     <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
                     Snapshot #{{ selectedSnapshot['sequence-number'] }}
@@ -104,154 +133,500 @@
                     @click="selectedSnapshot = null"></v-btn>
                 </div>
 
-                <!-- Core info -->
-                <div class="detail-row">
-                  <span class="detail-label mr-2">ID</span>
-                  <span class="detail-value text-caption">
-                    {{ selectedSnapshot['snapshot-id'] }}
-                  </span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label mr-2">Schema</span>
-                  <span class="detail-value text-caption">
-                    {{ selectedSnapshot['schema-id'] }}
-                  </span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label mr-2">Time</span>
-                  <span class="detail-value text-caption">
-                    {{
-                      selectedSnapshot['timestamp-ms']
-                        ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
-                        : '—'
-                    }}
-                  </span>
-                </div>
-                <div v-if="selectedSnapshot['parent-snapshot-id']" class="detail-row">
-                  <span class="detail-label mr-2">Parent</span>
-                  <span class="detail-value text-caption">
-                    {{ selectedSnapshot['parent-snapshot-id'] }}
-                  </span>
-                </div>
-                <div v-if="selectedSnapshot.summary?.operation" class="detail-row">
-                  <span class="detail-label mr-2">Op</span>
-                  <v-chip
-                    :color="getOperationColor(selectedSnapshot.summary.operation)"
-                    size="x-small"
-                    variant="flat"
-                    class="ml-1">
-                    {{ selectedSnapshot.summary.operation }}
-                  </v-chip>
-                </div>
-                <div v-if="selectedSnapshot['manifest-list']" class="detail-row">
-                  <span class="detail-label mr-2">Manifest</span>
-                  <span
-                    class="detail-value text-caption text-truncate"
-                    style="max-width: 200px"
-                    :title="selectedSnapshot['manifest-list']">
-                    {{ selectedSnapshot['manifest-list'] }}
-                  </span>
-                </div>
-
-                <!-- Collapsible: Operational Summary -->
-                <v-expansion-panels
-                  v-if="selectedSnapshot.summary"
-                  variant="accordion"
-                  class="mt-3 details-panels">
-                  <v-expansion-panel>
-                    <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
-                      Summary
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      <div class="summary-grid">
-                        <div
-                          v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
-                          :key="key"
-                          class="summary-row">
-                          <span class="summary-key mr-2">{{ formatSummaryKey(key) }}:</span>
-                          <span class="summary-val">{{ formatSummaryValue(value) }}</span>
-                        </div>
-                      </div>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
-
-                <!-- Collapsible: Schema Information -->
-                <v-expansion-panels variant="accordion" class="mt-2 details-panels">
-                  <v-expansion-panel>
-                    <v-expansion-panel-title class="text-caption font-weight-bold pa-2">
-                      Schema
-                      <v-chip
-                        v-if="getSchemaChanges(selectedSnapshot)"
-                        size="x-small"
-                        color="warning"
-                        variant="flat"
-                        class="ml-2">
-                        Changed
-                      </v-chip>
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      <div
-                        v-if="!getEffectiveSchemaInfo(selectedSnapshot)"
-                        class="text-center pa-2">
-                        <div class="text-caption text-grey-lighten-1">
-                          Schema not available (ID:
-                          {{ getEffectiveSchemaId(selectedSnapshot) }})
-                        </div>
-                      </div>
-                      <div v-else>
-                        <div class="text-caption mb-1" style="opacity: 0.7">
-                          Schema ID {{ getEffectiveSchemaId(selectedSnapshot) }}
-                        </div>
-                        <v-list density="compact" class="pa-0">
-                          <v-list-item
-                            v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields || []"
-                            :key="field.id"
-                            class="pa-0 px-1"
-                            style="min-height: 28px">
-                            <template #prepend>
-                              <v-icon
-                                :color="isFieldNew(field, selectedSnapshot) ? 'success' : undefined"
+                <!-- Row 1: Snapshot Info + Summary -->
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-card variant="outlined" elevation="1" class="mb-3">
+                      <v-toolbar color="transparent" density="compact" flat>
+                        <v-toolbar-title class="text-subtitle-2">
+                          <v-icon class="mr-1" color="primary" size="small">
+                            mdi-information-outline
+                          </v-icon>
+                          Snapshot Information
+                        </v-toolbar-title>
+                        <v-spacer></v-spacer>
+                        <v-chip
+                          v-if="selectedSnapshot.summary?.operation"
+                          :color="getOperationColor(selectedSnapshot.summary.operation)"
+                          size="x-small"
+                          variant="flat"
+                          class="mr-2">
+                          {{ selectedSnapshot.summary.operation }}
+                        </v-chip>
+                        <!-- Create branch from snapshot -->
+                        <v-btn
+                          v-if="canRollback"
+                          color="primary"
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-source-branch-plus"
+                          class="mr-1"
+                          @click="openCreateBranchDialog">
+                          Create Branch
+                        </v-btn>
+                      </v-toolbar>
+                      <v-divider></v-divider>
+                      <v-table density="compact" class="snapshot-table" fixed-header height="250px">
+                        <tbody>
+                          <tr>
+                            <td class="font-weight-medium" style="width: 140px">Snapshot ID</td>
+                            <td>
+                              <span class="font-mono">{{ selectedSnapshot['snapshot-id'] }}</span>
+                              <v-btn
+                                icon="mdi-content-copy"
                                 size="x-small"
-                                class="mr-1">
-                                {{ getFieldIcon(field) }}
-                              </v-icon>
+                                variant="text"
+                                @click="
+                                  copyToClipboard(String(selectedSnapshot['snapshot-id']))
+                                "></v-btn>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td class="font-weight-medium">Sequence</td>
+                            <td>{{ selectedSnapshot['sequence-number'] }}</td>
+                          </tr>
+                          <tr>
+                            <td class="font-weight-medium">Schema ID</td>
+                            <td>{{ getEffectiveSchemaId(selectedSnapshot) }}</td>
+                          </tr>
+                          <tr>
+                            <td class="font-weight-medium">Timestamp</td>
+                            <td>
+                              {{
+                                selectedSnapshot['timestamp-ms']
+                                  ? new Date(selectedSnapshot['timestamp-ms']).toLocaleString()
+                                  : '—'
+                              }}
+                            </td>
+                          </tr>
+                          <tr v-if="selectedSnapshot['parent-snapshot-id']">
+                            <td class="font-weight-medium">Parent ID</td>
+                            <td class="font-mono">{{ selectedSnapshot['parent-snapshot-id'] }}</td>
+                          </tr>
+                          <tr v-if="selectedSnapshot['manifest-list']">
+                            <td class="font-weight-medium">Manifest</td>
+                            <td>
+                              <v-tooltip
+                                location="bottom"
+                                :text="selectedSnapshot['manifest-list']">
+                                <template #activator="{ props: tipProps }">
+                                  <span
+                                    v-bind="tipProps"
+                                    class="font-mono text-wrap"
+                                    style="cursor: help; font-size: 0.8rem">
+                                    {{ truncateManifest(selectedSnapshot['manifest-list']) }}
+                                  </span>
+                                </template>
+                              </v-tooltip>
+                            </td>
+                          </tr>
+                        </tbody>
+                      </v-table>
+                    </v-card>
+                  </v-col>
+
+                  <v-col cols="12" md="6">
+                    <v-card variant="outlined" elevation="1" class="mb-3">
+                      <v-toolbar color="transparent" density="compact" flat>
+                        <v-toolbar-title class="text-subtitle-2">
+                          <v-icon class="mr-1" size="small">mdi-chart-box-outline</v-icon>
+                          Summary
+                        </v-toolbar-title>
+                        <v-spacer></v-spacer>
+                        <v-chip
+                          v-if="selectedSnapshot.summary"
+                          size="x-small"
+                          variant="outlined"
+                          class="mr-2">
+                          {{ Object.keys(selectedSnapshot.summary).length }}
+                        </v-chip>
+                        <!-- Branch actions menu -->
+                        <v-menu v-if="canRollback">
+                          <template #activator="{ props: menuProps }">
+                            <v-btn
+                              v-bind="menuProps"
+                              size="small"
+                              variant="tonal"
+                              prepend-icon="mdi-source-branch"
+                              class="mr-1">
+                              Actions
+                              <v-icon end>mdi-chevron-down</v-icon>
+                            </v-btn>
+                          </template>
+                          <v-list density="compact">
+                            <template v-if="fastForwardableBranches.length > 0">
+                              <v-list-subheader>Fast Forward</v-list-subheader>
+                              <v-list-item
+                                v-for="branch in fastForwardableBranches"
+                                :key="'ff-' + branch.name"
+                                :title="branch.name"
+                                prepend-icon="mdi-fast-forward"
+                                @click="openFastForwardDialog(branch)"></v-list-item>
                             </template>
-                            <v-list-item-title
-                              class="text-caption"
-                              :class="
-                                isFieldNew(field, selectedSnapshot)
-                                  ? 'text-success font-weight-bold'
-                                  : ''
-                              ">
-                              {{ field.name }}
-                              <v-chip
-                                v-if="isFieldNew(field, selectedSnapshot)"
-                                size="x-small"
-                                color="success"
-                                variant="flat"
-                                class="ml-1">
-                                new
-                              </v-chip>
-                            </v-list-item-title>
-                            <v-list-item-subtitle
-                              class="text-caption"
-                              style="font-size: 0.7rem !important">
-                              {{ getFieldTypeString(field.type) }}
-                              <span v-if="field.required" class="text-error">*</span>
-                            </v-list-item-subtitle>
-                          </v-list-item>
-                        </v-list>
+                            <template v-if="rollbackableBranches.length > 0">
+                              <v-list-subheader>
+                                Rollback to #{{ selectedSnapshot?.['sequence-number'] }}
+                              </v-list-subheader>
+                              <v-list-item
+                                v-for="branch in rollbackableBranches"
+                                :key="'rb-' + branch.name"
+                                :title="branch.name"
+                                prepend-icon="mdi-undo-variant"
+                                @click="openRollbackDialog(branch)"></v-list-item>
+                            </template>
+                            <template v-if="deletableBranches.length > 0">
+                              <v-list-subheader>Delete</v-list-subheader>
+                              <v-list-item
+                                v-for="branch in deletableBranches"
+                                :key="'del-' + branch.name"
+                                :title="branch.name"
+                                prepend-icon="mdi-source-branch-remove"
+                                base-color="error"
+                                @click="openDeleteBranchDialog(branch.name)"></v-list-item>
+                            </template>
+                          </v-list>
+                        </v-menu>
+                      </v-toolbar>
+                      <v-divider></v-divider>
+                      <v-table
+                        v-if="selectedSnapshot.summary"
+                        density="compact"
+                        class="snapshot-table"
+                        fixed-header
+                        height="250px">
+                        <tbody>
+                          <tr
+                            v-for="[key, value] in Object.entries(selectedSnapshot.summary)"
+                            :key="key">
+                            <td class="font-weight-medium" style="width: 180px">
+                              {{ formatSummaryKey(key) }}
+                            </td>
+                            <td class="font-mono">{{ formatSummaryValue(value) }}</td>
+                          </tr>
+                        </tbody>
+                      </v-table>
+                      <div v-else class="text-center text-medium-emphasis py-4">
+                        No summary data available
                       </div>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
+                    </v-card>
+                  </v-col>
+                </v-row>
+
+                <!-- Row 2: Schema -->
+                <v-row>
+                  <v-col cols="12">
+                    <v-expansion-panels variant="accordion">
+                      <v-expansion-panel>
+                        <v-expansion-panel-title>
+                          <v-icon class="mr-2" size="small">mdi-file-tree</v-icon>
+                          Schema Fields
+                          <v-chip size="x-small" variant="outlined" class="ml-2">
+                            {{ getEffectiveSchemaInfo(selectedSnapshot)?.fields?.length || 0 }}
+                          </v-chip>
+                          <v-chip
+                            v-if="getSchemaChanges(selectedSnapshot)"
+                            size="x-small"
+                            color="warning"
+                            variant="flat"
+                            class="ml-2">
+                            Changed
+                          </v-chip>
+                        </v-expansion-panel-title>
+                        <v-expansion-panel-text>
+                          <div
+                            v-if="!getEffectiveSchemaInfo(selectedSnapshot)"
+                            class="text-center pa-2">
+                            <div class="text-caption text-medium-emphasis">
+                              Schema not available (ID:
+                              {{ getEffectiveSchemaId(selectedSnapshot) }})
+                            </div>
+                          </div>
+                          <v-table v-else density="compact">
+                            <thead>
+                              <tr>
+                                <th style="width: 30px"></th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th style="width: 60px">Required</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr
+                                v-for="field in getEffectiveSchemaInfo(selectedSnapshot)?.fields ||
+                                []"
+                                :key="field.id"
+                                :class="isFieldNew(field, selectedSnapshot) ? 'text-success' : ''">
+                                <td>
+                                  <v-icon
+                                    :color="
+                                      isFieldNew(field, selectedSnapshot) ? 'success' : undefined
+                                    "
+                                    size="x-small">
+                                    {{ getFieldIcon(field) }}
+                                  </v-icon>
+                                </td>
+                                <td>
+                                  {{ field.name }}
+                                  <v-chip
+                                    v-if="isFieldNew(field, selectedSnapshot)"
+                                    size="x-small"
+                                    color="success"
+                                    variant="flat"
+                                    class="ml-1">
+                                    new
+                                  </v-chip>
+                                </td>
+                                <td class="font-mono" style="font-size: 0.8rem">
+                                  {{ getFieldTypeString(field.type) }}
+                                </td>
+                                <td>
+                                  <v-icon v-if="field.required" color="error" size="x-small">
+                                    mdi-asterisk
+                                  </v-icon>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </v-table>
+                        </v-expansion-panel-text>
+                      </v-expansion-panel>
+                    </v-expansion-panels>
+                  </v-col>
+                </v-row>
               </div>
             </div>
           </v-slide-y-transition>
         </v-col>
       </v-row>
     </div>
+
+    <!-- Create branch dialog -->
+    <v-dialog v-model="createBranchDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="primary" class="mr-2">mdi-source-branch-plus</v-icon>
+          Create Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Create a new branch from snapshot
+            <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
+            (ID: {{ selectedSnapshot?.['snapshot-id'] }}).
+          </v-alert>
+          <v-text-field
+            v-model="createBranchName"
+            label="Branch name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v) => !!v || 'Required',
+              (v) => !/\s/.test(v) || 'No spaces allowed',
+              (v) => !existingBranchNames.includes(v) || 'Branch already exists',
+            ]"
+            placeholder="my-branch"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            :disabled="
+              !createBranchName ||
+              /\s/.test(createBranchName) ||
+              existingBranchNames.includes(createBranchName) ||
+              createBranchLoading
+            "
+            :loading="createBranchLoading"
+            @click="executeCreateBranch">
+            Create
+          </v-btn>
+          <v-btn @click="closeCreateBranchDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Rename branch dialog -->
+    <v-dialog v-model="renameBranchDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
+          Rename Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Rename branch
+            <strong>"{{ renameBranchOldName }}"</strong>
+            . This will atomically create a new reference and remove the old one.
+          </v-alert>
+          <v-text-field
+            v-model="renameBranchNewName"
+            label="New branch name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v) => !!v || 'Required',
+              (v) => !/\s/.test(v) || 'No spaces allowed',
+              (v) => v !== renameBranchOldName || 'Must be different',
+              (v) => !existingBranchNames.includes(v) || 'Branch already exists',
+            ]"
+            :placeholder="renameBranchOldName"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            :disabled="
+              !renameBranchNewName ||
+              /\s/.test(renameBranchNewName) ||
+              renameBranchNewName === renameBranchOldName ||
+              existingBranchNames.includes(renameBranchNewName) ||
+              renameBranchLoading
+            "
+            :loading="renameBranchLoading"
+            @click="executeRenameBranch">
+            Rename
+          </v-btn>
+          <v-btn @click="closeRenameBranchDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete branch confirmation dialog -->
+    <v-dialog v-model="deleteBranchDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="error" class="mr-2">mdi-source-branch-remove</v-icon>
+          Delete Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="error" variant="tonal" density="compact" class="mb-4">
+            This will remove the branch reference
+            <strong>"{{ deleteBranchName }}"</strong>
+            . Snapshots exclusive to this branch may become unreachable.
+          </v-alert>
+          <div class="text-body-2 mb-2">
+            Type the branch name
+            <strong>"{{ deleteBranchName }}"</strong>
+            to confirm:
+          </div>
+          <v-text-field
+            v-model="deleteBranchConfirmText"
+            density="compact"
+            hide-details
+            :placeholder="deleteBranchName"
+            variant="outlined"
+            :color="
+              deleteBranchConfirmText === deleteBranchName ? 'success' : undefined
+            "></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="error"
+            :disabled="deleteBranchConfirmText !== deleteBranchName || deleteBranchLoading"
+            :loading="deleteBranchLoading"
+            @click="executeDeleteBranch">
+            Delete
+          </v-btn>
+          <v-btn @click="closeDeleteBranchDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Fast forward confirmation dialog -->
+    <v-dialog v-model="fastForwardDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="success" class="mr-2">mdi-fast-forward</v-icon>
+          Fast Forward Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="success" variant="tonal" density="compact" class="mb-4">
+            This will fast-forward branch
+            <strong>"{{ fastForwardTargetBranch?.name }}"</strong>
+            to snapshot
+            <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
+            (ID: {{ selectedSnapshot?.['snapshot-id'] }}).
+          </v-alert>
+          <div class="text-body-2 mb-2">
+            Type the branch name
+            <strong>"{{ fastForwardTargetBranch?.name }}"</strong>
+            to confirm:
+          </div>
+          <v-text-field
+            v-model="fastForwardConfirmText"
+            density="compact"
+            hide-details
+            :placeholder="fastForwardTargetBranch?.name"
+            variant="outlined"
+            :color="
+              fastForwardConfirmText === fastForwardTargetBranch?.name ? 'success' : undefined
+            "></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="success"
+            :disabled="
+              fastForwardConfirmText !== fastForwardTargetBranch?.name || fastForwardLoading
+            "
+            :loading="fastForwardLoading"
+            @click="executeFastForward">
+            Fast Forward
+          </v-btn>
+          <v-btn @click="closeFastForwardDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Rollback confirmation dialog -->
+    <v-dialog v-model="rollbackDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="warning" class="mr-2">mdi-undo-variant</v-icon>
+          Rollback Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="warning" variant="tonal" density="compact" class="mb-4">
+            This will re-point branch
+            <strong>"{{ rollbackTargetBranch?.name }}"</strong>
+            to snapshot
+            <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
+            (ID: {{ selectedSnapshot?.['snapshot-id'] }}). Any snapshots after this point will
+            become unreachable from this branch.
+          </v-alert>
+          <div class="text-body-2 mb-2">
+            Type the snapshot ID
+            <strong>"{{ String(selectedSnapshot?.['snapshot-id']) }}"</strong>
+            to confirm:
+          </div>
+          <v-text-field
+            v-model="rollbackConfirmText"
+            density="compact"
+            hide-details
+            :placeholder="String(selectedSnapshot?.['snapshot-id'])"
+            variant="outlined"
+            :color="
+              rollbackConfirmText === String(selectedSnapshot?.['snapshot-id'])
+                ? 'success'
+                : undefined
+            "></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="warning"
+            :disabled="
+              rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) || rollbackLoading
+            "
+            :loading="rollbackLoading"
+            @click="executeRollback">
+            Rollback
+          </v-btn>
+          <v-btn color="error" @click="closeRollbackDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -259,17 +634,61 @@
 import { computed, ref, watch, onBeforeUnmount } from 'vue';
 import * as d3 from 'd3';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
+import { useFunctions } from '../plugins/functions';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
   table: LoadTableResult;
   snapshotHistory: Snapshot[];
+  canRollback?: boolean;
+  warehouseId?: string;
+  namespacePath?: string;
+  tableName?: string;
 }>();
+
+const emit = defineEmits<{
+  rollback: [];
+  fastForward: [];
+  createBranch: [];
+  renameBranch: [];
+  deleteBranch: [];
+}>();
+
+const functions = useFunctions();
 
 // ─── State ───────────────────────────────────────────────────────────────────
 const chartRef = ref<HTMLDivElement | null>(null);
 const selectedSnapshot = ref<Snapshot | null>(null);
 const currentZoom = ref(1);
+
+// ─── Create Branch State ─────────────────────────────────────────────────────
+const createBranchDialog = ref(false);
+const createBranchName = ref('');
+const createBranchLoading = ref(false);
+
+// ─── Rename Branch State ─────────────────────────────────────────────────────
+const renameBranchDialog = ref(false);
+const renameBranchOldName = ref('');
+const renameBranchNewName = ref('');
+const renameBranchLoading = ref(false);
+
+// ─── Delete Branch State ─────────────────────────────────────────────────────
+const deleteBranchDialog = ref(false);
+const deleteBranchName = ref('');
+const deleteBranchConfirmText = ref('');
+const deleteBranchLoading = ref(false);
+
+// ─── Rollback State ──────────────────────────────────────────────────────────
+const rollbackDialog = ref(false);
+const rollbackTargetBranch = ref<BranchMeta | null>(null);
+const rollbackConfirmText = ref('');
+const rollbackLoading = ref(false);
+
+// ─── Fast Forward State ──────────────────────────────────────────────────────
+const fastForwardDialog = ref(false);
+const fastForwardTargetBranch = ref<BranchMeta | null>(null);
+const fastForwardConfirmText = ref('');
+const fastForwardLoading = ref(false);
 
 // D3 selections — kept outside Vue reactivity
 let svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
@@ -1048,6 +1467,15 @@ function formatSummaryKey(key: string): string {
     .join(' ');
 }
 
+function truncateManifest(path: string, maxLen = 60): string {
+  if (!path || path.length <= maxLen + 3) return path;
+  return path.slice(0, maxLen) + '…';
+}
+
+function copyToClipboard(text: string) {
+  functions.copyToClipboard(text);
+}
+
 function formatSummaryValue(value: any): string {
   if (value == null) return 'N/A';
   if (typeof value === 'number') return value >= 1000 ? value.toLocaleString() : String(value);
@@ -1080,13 +1508,13 @@ function getOperationColor(operation: string): string {
 
 // Render when the container div appears and when data changes
 watch(
-  [chartRef, () => props.snapshotHistory.length],
+  [chartRef, () => props.snapshotHistory, () => props.table.metadata.refs],
   () => {
     if (chartRef.value && props.snapshotHistory.length > 0) {
       renderChart();
     }
   },
-  { immediate: true },
+  { immediate: true, deep: true },
 );
 
 // Update selected node highlight when selection changes
@@ -1105,6 +1533,307 @@ watch(selectedSnapshot, (snap) => {
       snap && snap['snapshot-id'] === d.snapshotId ? 'url(#selectedPulse)' : 'url(#nodeGlow)',
     );
 });
+
+// ─── Rollback Logic ──────────────────────────────────────────────────────────
+
+/**
+ * Branches that the selected snapshot belongs to, where it is NOT the current tip.
+ * Only shows the branch that "owns" this snapshot — i.e., whose exclusive ancestry
+ * includes it, avoiding showing rollback for shared ancestor snapshots on other branches.
+ */
+const rollbackableBranches = computed<BranchMeta[]>(() => {
+  if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sid = selectedSnapshot.value['snapshot-id'];
+  const sidStr = String(sid);
+
+  // Find all non-dropped branches that contain this snapshot in their ancestry
+  const candidateBranches = branches.value.filter((b) => {
+    if (b.type !== 'branch') return false;
+    if (!b.ancestry.some((id) => String(id) === sidStr)) return false;
+    if (String(b.tipSnapshotId) === sidStr) return false;
+    return true;
+  });
+
+  if (candidateBranches.length <= 1) return candidateBranches;
+
+  // If multiple branches share this snapshot, only offer rollback on branches
+  // where this snapshot is "exclusive" — not shared with a longer/main branch.
+  // A snapshot is exclusive to a branch if no other candidate branch also contains it
+  // with a longer ancestry chain (i.e., the snapshot is in the shared trunk).
+  const exclusive = candidateBranches.filter((branch) => {
+    const otherBranches = candidateBranches.filter((b) => b.name !== branch.name);
+    // If every other branch also has this snapshot, it's shared — but keep it
+    // for the branch with the shortest ancestry (the one that was forked later,
+    // meaning this snapshot is closer to its tip). If this branch has the longest
+    // ancestry containing this snapshot, it's the "trunk" owner.
+    const branchAncestryIdx = branch.ancestry.findIndex((id) => String(id) === sidStr);
+    // Check if any other branch has a shorter path to this snapshot (owns it more)
+    const anyOtherOwnsMore = otherBranches.some((other) => {
+      const otherIdx = other.ancestry.findIndex((id) => String(id) === sidStr);
+      return otherIdx >= 0 && otherIdx < branchAncestryIdx;
+    });
+    return !anyOtherOwnsMore;
+  });
+
+  return exclusive.length > 0 ? exclusive : candidateBranches;
+});
+
+// ─── Computed: fast-forwardable branches ─────────────────────────────────────
+// A branch can be fast-forwarded to the selected snapshot if:
+//   1. It's an active branch (not dropped/tag)
+//   2. Its tip is an ANCESTOR of the selected snapshot (the selected snapshot is ahead)
+//   3. Its tip is not already the selected snapshot
+const fastForwardableBranches = computed<BranchMeta[]>(() => {
+  if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sid = selectedSnapshot.value['snapshot-id'];
+  const sidStr = String(sid);
+
+  // Build ancestor chain from selected snapshot back to root
+  const ancestorIds = new Set<string>();
+  let current: Snapshot | undefined = selectedSnapshot.value;
+  while (current) {
+    const parentId: number | undefined = current['parent-snapshot-id'];
+    if (parentId == null) break;
+    ancestorIds.add(String(parentId));
+    current = props.snapshotHistory.find((s) => String(s['snapshot-id']) === String(parentId));
+  }
+
+  return branches.value.filter((b) => {
+    if (b.type !== 'branch') return false;
+    // The branch tip must not already be this snapshot
+    if (String(b.tipSnapshotId) === sidStr) return false;
+    // The branch tip must be an ancestor of the selected snapshot
+    return ancestorIds.has(String(b.tipSnapshotId));
+  });
+});
+
+// ─── Computed: existing branch names ─────────────────────────────────────────
+const existingBranchNames = computed(() =>
+  branches.value.filter((b) => b.type === 'branch').map((b) => b.name),
+);
+
+// ─── Computed: deletable branches ────────────────────────────────────────────
+// Non-main/master branches whose ancestry includes the selected snapshot
+const deletableBranches = computed<BranchMeta[]>(() => {
+  if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sidStr = String(selectedSnapshot.value['snapshot-id']);
+
+  return branches.value.filter((b) => {
+    if (b.type !== 'branch') return false;
+    if (b.name === 'main' || b.name === 'master') return false;
+    return b.ancestry.some((id) => String(id) === sidStr);
+  });
+});
+
+// ─── Create Branch ───────────────────────────────────────────────────────────
+function openCreateBranchDialog() {
+  createBranchName.value = '';
+  createBranchDialog.value = true;
+}
+
+function closeCreateBranchDialog() {
+  createBranchDialog.value = false;
+  createBranchName.value = '';
+}
+
+async function executeCreateBranch() {
+  if (
+    !createBranchName.value ||
+    !selectedSnapshot.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  createBranchLoading.value = true;
+  try {
+    await functions.createBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      createBranchName.value,
+      selectedSnapshot.value['snapshot-id'],
+      true,
+    );
+    closeCreateBranchDialog();
+    emit('createBranch');
+  } catch (error: any) {
+    console.error('Failed to create branch:', error);
+  } finally {
+    createBranchLoading.value = false;
+  }
+}
+
+// ─── Rename Branch ───────────────────────────────────────────────────────────
+function openRenameBranchDialog(branchName: string) {
+  renameBranchOldName.value = branchName;
+  renameBranchNewName.value = '';
+  renameBranchDialog.value = true;
+}
+
+function closeRenameBranchDialog() {
+  renameBranchDialog.value = false;
+  renameBranchOldName.value = '';
+  renameBranchNewName.value = '';
+}
+
+async function executeRenameBranch() {
+  if (
+    !renameBranchOldName.value ||
+    !renameBranchNewName.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  const branch = branches.value.find((b) => b.name === renameBranchOldName.value);
+  if (!branch) return;
+
+  renameBranchLoading.value = true;
+  try {
+    await functions.renameBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      renameBranchOldName.value,
+      renameBranchNewName.value,
+      branch.tipSnapshotId,
+      true,
+    );
+    closeRenameBranchDialog();
+    emit('renameBranch');
+  } catch (error: any) {
+    console.error('Failed to rename branch:', error);
+  } finally {
+    renameBranchLoading.value = false;
+  }
+}
+
+// ─── Delete Branch ───────────────────────────────────────────────────────────
+function openDeleteBranchDialog(branchName: string) {
+  deleteBranchName.value = branchName;
+  deleteBranchConfirmText.value = '';
+  deleteBranchDialog.value = true;
+}
+
+function closeDeleteBranchDialog() {
+  deleteBranchDialog.value = false;
+  deleteBranchName.value = '';
+  deleteBranchConfirmText.value = '';
+}
+
+async function executeDeleteBranch() {
+  if (!deleteBranchName.value || !props.warehouseId || !props.namespacePath || !props.tableName)
+    return;
+
+  deleteBranchLoading.value = true;
+  try {
+    await functions.deleteBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      deleteBranchName.value,
+      true,
+    );
+    closeDeleteBranchDialog();
+    selectedSnapshot.value = null;
+    emit('deleteBranch');
+  } catch (error: any) {
+    console.error('Failed to delete branch:', error);
+  } finally {
+    deleteBranchLoading.value = false;
+  }
+}
+
+function openRollbackDialog(branch: BranchMeta) {
+  rollbackTargetBranch.value = branch;
+  rollbackConfirmText.value = '';
+  rollbackDialog.value = true;
+}
+
+function closeRollbackDialog() {
+  rollbackDialog.value = false;
+  rollbackTargetBranch.value = null;
+  rollbackConfirmText.value = '';
+}
+
+async function executeRollback() {
+  if (
+    !rollbackTargetBranch.value ||
+    !selectedSnapshot.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  rollbackLoading.value = true;
+  try {
+    await functions.rollbackBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      rollbackTargetBranch.value.name,
+      selectedSnapshot.value['snapshot-id'],
+      rollbackTargetBranch.value.tipSnapshotId,
+      true,
+    );
+    closeRollbackDialog();
+    selectedSnapshot.value = null;
+    emit('rollback');
+  } catch (error: any) {
+    console.error('Failed to rollback branch:', error);
+  } finally {
+    rollbackLoading.value = false;
+  }
+}
+
+// ─── Fast Forward ────────────────────────────────────────────────────────────
+function openFastForwardDialog(branch: BranchMeta) {
+  fastForwardTargetBranch.value = branch;
+  fastForwardConfirmText.value = '';
+  fastForwardDialog.value = true;
+}
+
+function closeFastForwardDialog() {
+  fastForwardDialog.value = false;
+  fastForwardTargetBranch.value = null;
+  fastForwardConfirmText.value = '';
+}
+
+async function executeFastForward() {
+  if (
+    !fastForwardTargetBranch.value ||
+    !selectedSnapshot.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  fastForwardLoading.value = true;
+  try {
+    // Fast forward uses the same API as rollback — set-snapshot-ref
+    await functions.rollbackBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      fastForwardTargetBranch.value.name,
+      selectedSnapshot.value['snapshot-id'],
+      fastForwardTargetBranch.value.tipSnapshotId,
+      true,
+    );
+    closeFastForwardDialog();
+    selectedSnapshot.value = null;
+    emit('fastForward');
+  } catch (error: any) {
+    console.error('Failed to fast-forward branch:', error);
+  } finally {
+    fastForwardLoading.value = false;
+  }
+}
 
 onBeforeUnmount(() => {
   if (chartRef.value) {
@@ -1197,6 +1926,14 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+.legend-chip .v-btn {
+  pointer-events: auto;
+}
+
+.legend-chip:has(.v-btn) {
+  pointer-events: auto;
+}
+
 /* Hint overlay */
 .hint-overlay {
   position: absolute;
@@ -1221,77 +1958,18 @@ onBeforeUnmount(() => {
   background: rgba(var(--v-theme-surface), 0.98);
 }
 
-.details-panel-inner {
-  padding: 14px 16px;
+.snapshot-table {
+  font-size: 0.875rem;
 }
 
-.detail-row {
-  display: flex;
-  align-items: baseline;
-  gap: 12px;
-  padding: 5px 0;
-  border-bottom: 1px solid rgba(var(--v-border-color), 0.06);
+.font-mono {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.875rem;
 }
 
-.detail-label {
-  flex-shrink: 0;
-  width: 64px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgba(var(--v-theme-on-surface), 0.5);
-  padding-right: 4px;
-}
-
-.detail-value {
-  flex: 1;
-  min-width: 0;
-  font-size: 0.75rem;
-  margin-left: 8px;
-}
-
-.details-panels :deep(.v-expansion-panel) {
-  background: transparent !important;
-}
-
-.details-panels :deep(.v-expansion-panel-title) {
-  min-height: 32px !important;
-  padding: 4px 8px !important;
-  font-size: 0.75rem !important;
-}
-
-.details-panels :deep(.v-expansion-panel-text__wrapper) {
-  padding: 4px 8px 8px !important;
-}
-
-.summary-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.summary-row {
-  display: flex;
-  gap: 14px;
-  padding: 4px 0;
-  font-size: 0.75rem;
-  line-height: 1.4;
-}
-
-.summary-key {
-  flex-shrink: 0;
-  min-width: 110px;
-  font-weight: 600;
-  color: rgba(var(--v-theme-on-surface), 0.6);
-  padding-right: 4px;
-}
-
-.summary-val {
-  flex: 1;
-  min-width: 0;
-  margin-left: 8px;
-  color: rgba(var(--v-theme-on-surface), 0.85);
-  word-break: break-word;
+.text-wrap {
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: pre-wrap;
 }
 </style>

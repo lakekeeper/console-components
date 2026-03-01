@@ -181,10 +181,10 @@ async function paginationCheck(option: Options) {
   }
 }
 
-async function addNamespace(namespaceIdent: string[]) {
+async function addNamespace(namespaceIdent: string[], properties: Record<string, string>) {
   addNamespaceStatus.value = StatusIntent.STARTING;
   try {
-    await functions.createNamespace(props.warehouseId, namespaceIdent, notify);
+    await functions.createNamespace(props.warehouseId, namespaceIdent, notify, properties);
 
     addNamespaceStatus.value = StatusIntent.SUCCESS;
     await loadNamespaces();

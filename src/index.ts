@@ -34,6 +34,7 @@ import NamespaceTables from './components/NamespaceTables.vue';
 import NamespaceDeleted from './components/NamespaceDeleted.vue';
 import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
+import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import TableHeader from './components/TableHeader.vue';
 import TableDetails from './components/TableDetails.vue';
 import TableHealth from './components/TableHealth.vue';
@@ -63,6 +64,7 @@ import WarningBanner from './components/WarningBanner.vue';
 import SnackbarMessage from './components/SnackbarMessage.vue';
 import BreadcrumbsFromUrl from './components/BreadcrumbsFromUrl.vue';
 import DeleteDialog from './components/DeleteDialog.vue';
+import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
 import ServerOverview from './components/ServerOverview.vue';
 import UserManager from './components/UserManager.vue';
@@ -88,6 +90,7 @@ export {
   SnackbarMessage,
   BreadcrumbsFromUrl,
   DeleteDialog,
+  EntityPropertiesDialog,
   TaskConfigDialog,
   ServerOverview,
   UserManager,
@@ -115,6 +118,7 @@ export {
   NamespaceNamespaces,
   NamespaceTables,
   NamespaceHeader,
+  NamespacePropertiesDialog,
   TableHeader,
   ViewHeader,
   ViewHistoryTab,
@@ -229,6 +233,7 @@ const components = {
   SnackbarMessage,
   BreadcrumbsFromUrl,
   DeleteDialog,
+  EntityPropertiesDialog,
   TaskConfigDialog,
   ServerOverview,
   UserManager,
@@ -259,6 +264,7 @@ const components = {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespacePropertiesDialog,
   TableHeader,
   TableDetails,
   TableHealth,

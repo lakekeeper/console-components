@@ -14,7 +14,14 @@
         @click.prevent="showConfirmDialog"></v-switch>
     </v-toolbar>
     <v-card-text>
-      <ViewDetails v-if="loaded" :view="view" />
+      <ViewDetails
+        v-if="loaded"
+        :view="view"
+        :warehouse-id="props.warehouseId"
+        :namespace-path="props.namespaceId"
+        :view-name="props.viewName"
+        :can-edit="canCommit"
+        @updated="loadViewData" />
     </v-card-text>
 
     <ProtectionConfirmDialog
@@ -55,7 +62,7 @@ const confirmDialog = ref(false);
 const pendingProtectionValue = ref(false);
 
 // Use view permissions composable
-const { canSetProtection } = useViewPermissions(
+const { canSetProtection, canCommit } = useViewPermissions(
   computed(() => viewId.value),
   computed(() => props.warehouseId),
 );

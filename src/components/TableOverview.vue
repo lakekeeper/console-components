@@ -14,7 +14,13 @@
         @click.prevent="showConfirmDialog"></v-switch>
     </v-toolbar>
 
-    <TableDetails :table="table" />
+    <TableDetails
+      :table="table"
+      :warehouse-id="props.warehouseId"
+      :namespace-path="props.namespaceId"
+      :table-name="props.tableName"
+      :can-edit="canCommit"
+      @updated="loadTableData" />
 
     <ProtectionConfirmDialog
       v-model="confirmDialog"
@@ -53,7 +59,7 @@ const confirmDialog = ref(false);
 const pendingProtectionValue = ref(false);
 
 // Use table permissions composable
-const { canSetProtection } = useTablePermissions(
+const { canSetProtection, canCommit } = useTablePermissions(
   computed(() => tableId.value),
   computed(() => props.warehouseId),
 );

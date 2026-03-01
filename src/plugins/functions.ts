@@ -1046,7 +1046,12 @@ async function loadNamespaceMetadata(
   }
 }
 
-async function createNamespace(id: string, namespace: Namespace, notify?: boolean) {
+async function createNamespace(
+  id: string,
+  namespace: Namespace,
+  notify?: boolean,
+  properties?: Record<string, string>,
+) {
   try {
     const client = iceClient.client;
     const { data, error } = await ice.createNamespace({
@@ -1054,7 +1059,10 @@ async function createNamespace(id: string, namespace: Namespace, notify?: boolea
       path: {
         prefix: id,
       },
-      body: { namespace },
+      body: {
+        namespace,
+        ...(properties && Object.keys(properties).length > 0 ? { properties } : {}),
+      },
     });
     if (error) throw error;
 
@@ -1064,6 +1072,387 @@ async function createNamespace(id: string, namespace: Namespace, notify?: boolea
     return data;
   } catch (error: any) {
     handleError(error, 'createNamespace', notify);
+    throw error;
+  }
+}
+
+async function updateNamespaceProperties(
+  id: string,
+  namespace: string,
+  updates?: Record<string, string>,
+  removals?: string[],
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.updateProperties({
+      client,
+      path: {
+        prefix: id,
+        namespace,
+      },
+      body: {
+        ...(updates && Object.keys(updates).length > 0 ? { updates } : {}),
+        ...(removals && removals.length > 0 ? { removals } : {}),
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'updateNamespaceProperties',
+        `Namespace properties updated successfully`,
+        notify,
+      );
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'updateNamespaceProperties', notify);
+    throw error;
+  }
+}
+
+async function updateTableProperties(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  updates?: Record<string, string>,
+  removals?: string[],
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+    const tableUpdates: any[] = [];
+
+    if (updates && Object.keys(updates).length > 0) {
+      tableUpdates.push({ action: 'set-properties', updates });
+    }
+    if (removals && removals.length > 0) {
+      tableUpdates.push({ action: 'remove-properties', removals });
+    }
+
+    const { data, error } = await ice.updateTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+        table: tableName,
+      },
+      body: {
+        requirements: [],
+        updates: tableUpdates,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateTableProperties', `Table properties updated successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'updateTableProperties', notify);
+    throw error;
+  }
+}
+
+async function updateViewProperties(
+  warehouseId: string,
+  namespacePath: string,
+  viewName: string,
+  updates?: Record<string, string>,
+  removals?: string[],
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+    const viewUpdates: any[] = [];
+
+    if (updates && Object.keys(updates).length > 0) {
+      viewUpdates.push({ action: 'set-properties', updates });
+    }
+    if (removals && removals.length > 0) {
+      viewUpdates.push({ action: 'remove-properties', removals });
+    }
+
+    const { data, error } = await ice.replaceView({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+        view: viewName,
+      },
+      body: {
+        updates: viewUpdates,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('updateViewProperties', `View properties updated successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'updateViewProperties', notify);
+    throw error;
+  }
+}
+
+async function createBranch(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  branchName: string,
+  snapshotId: number | string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    // Snapshot IDs are int64 — use JSONBig to serialize as raw numbers.
+    const JSONBigNative = JSONBig();
+    const snapshotIdBig = JSONBigNative.parse(String(snapshotId));
+
+    const body = {
+      requirements: [],
+      updates: [
+        {
+          action: 'set-snapshot-ref',
+          'ref-name': branchName,
+          type: 'branch',
+          'snapshot-id': snapshotIdBig,
+        },
+      ],
+    };
+
+    const bodyJson = JSONBigNative.stringify(body);
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: bodyJson,
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const data = await response.json();
+
+    if (notify) {
+      handleSuccess('createBranch', `Branch '${branchName}' created successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'createBranch', notify);
+    throw error;
+  }
+}
+
+async function renameBranch(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  oldBranchName: string,
+  newBranchName: string,
+  snapshotId: number | string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    // Snapshot IDs are int64 — use JSONBig to serialize as raw numbers.
+    const JSONBigNative = JSONBig();
+    const snapshotIdBig = JSONBigNative.parse(String(snapshotId));
+
+    // Atomic: create new ref + remove old ref in one updateTable call
+    const body = {
+      requirements: [
+        {
+          type: 'assert-ref-snapshot-id',
+          ref: oldBranchName,
+          'snapshot-id': snapshotIdBig,
+        },
+      ],
+      updates: [
+        {
+          action: 'set-snapshot-ref',
+          'ref-name': newBranchName,
+          type: 'branch',
+          'snapshot-id': snapshotIdBig,
+        },
+        {
+          action: 'remove-snapshot-ref',
+          'ref-name': oldBranchName,
+        },
+      ],
+    };
+
+    const bodyJson = JSONBigNative.stringify(body);
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: bodyJson,
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const data = await response.json();
+
+    if (notify) {
+      handleSuccess(
+        'renameBranch',
+        `Branch '${oldBranchName}' renamed to '${newBranchName}'`,
+        notify,
+      );
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'renameBranch', notify);
+    throw error;
+  }
+}
+
+async function deleteBranch(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  branchName: string,
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.updateTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: namespacePath,
+        table: tableName,
+      },
+      body: {
+        requirements: [],
+        updates: [{ action: 'remove-snapshot-ref', 'ref-name': branchName } as any],
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('deleteBranch', `Branch '${branchName}' deleted successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'deleteBranch', notify);
+    throw error;
+  }
+}
+
+async function rollbackBranch(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  branchName: string,
+  targetSnapshotId: number | string,
+  currentSnapshotId?: number | string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    // Snapshot IDs are int64 values that exceed Number.MAX_SAFE_INTEGER.
+    // They arrive as strings from json-bigint (storeAsString: true).
+    // Use JSONBig to serialize them back as raw JSON numbers (unquoted).
+    const JSONBigNative = JSONBig();
+    const targetIdBig = JSONBigNative.parse(String(targetSnapshotId));
+
+    const requirements: any[] = [];
+    if (currentSnapshotId !== undefined) {
+      const currentIdBig = JSONBigNative.parse(String(currentSnapshotId));
+      requirements.push({
+        type: 'assert-ref-snapshot-id',
+        ref: branchName,
+        'snapshot-id': currentIdBig,
+      });
+    }
+
+    const body = {
+      requirements,
+      updates: [
+        {
+          action: 'set-snapshot-ref',
+          'ref-name': branchName,
+          type: 'branch',
+          'snapshot-id': targetIdBig,
+        },
+      ],
+    };
+
+    const bodyJson = JSONBigNative.stringify(body);
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: bodyJson,
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const data = await response.json();
+
+    if (notify) {
+      handleSuccess('rollbackBranch', `Branch '${branchName}' rolled back successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'rollbackBranch', notify);
     throw error;
   }
 }
@@ -1269,7 +1658,7 @@ async function loadTableCustomized(
     const accessToken = userStore.user.access_token;
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'GET',
         headers: {
@@ -3850,6 +4239,13 @@ export function useFunctions(config?: any) {
     getNamespaceAssignmentsById,
     updateNamespaceAssignmentsById,
     loadNamespaceMetadata,
+    updateNamespaceProperties,
+    updateTableProperties,
+    updateViewProperties,
+    rollbackBranch,
+    createBranch,
+    renameBranch,
+    deleteBranch,
     listViews,
     listDeletedTabulars,
     loadTable,

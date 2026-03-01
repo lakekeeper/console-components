@@ -464,6 +464,12 @@ export function useNamespacePermissions(
   const canCreateNamespace = computed(() => hasPermission('create_namespace'));
   const canCreateView = computed(() => hasPermission('create_view'));
   const canGetMetadata = computed(() => hasPermission('get_metadata'));
+  const canUpdateProperties = computed(
+    () =>
+      hasPermission('update_properties') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
   const canSetProtection = computed(
     () =>
       hasPermission('set_protection') ||
@@ -499,6 +505,7 @@ export function useNamespacePermissions(
     canCreateNamespace,
     canCreateView,
     canGetMetadata,
+    canUpdateProperties,
     canSetProtection,
     refresh: loadPermissions,
   };
@@ -560,6 +567,12 @@ export function useTablePermissions(
       !config.enabledPermissions.value,
   );
   const canDrop = computed(() => hasPermission('drop'));
+  const canCommit = computed(
+    () =>
+      hasPermission('commit') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
   const canWriteData = computed(() => hasPermission('write_data'));
   const canReadData = computed(() => hasPermission('read_data'));
 
@@ -593,6 +606,7 @@ export function useTablePermissions(
     canControlTasks,
     canSetProtection,
     canDrop,
+    canCommit,
     canWriteData,
     canReadData,
     showTasksTab,
@@ -656,6 +670,12 @@ export function useViewPermissions(
       !config.enabledPermissions.value,
   );
   const canDrop = computed(() => hasPermission('drop'));
+  const canCommit = computed(
+    () =>
+      hasPermission('commit') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
 
   // UI helpers
   const showTasksTab = computed(
@@ -687,6 +707,7 @@ export function useViewPermissions(
     canControlTasks,
     canSetProtection,
     canDrop,
+    canCommit,
     showTasksTab,
     refresh: loadPermissions,
   };

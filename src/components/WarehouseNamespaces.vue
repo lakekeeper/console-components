@@ -128,10 +128,10 @@ const headers: readonly Header[] = Object.freeze([
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
 
-async function addNamespace(namespace: string[]) {
+async function addNamespace(namespace: string[], properties: Record<string, string>) {
   createNamespaceStatus.value = StatusIntent.STARTING;
   try {
-    await functions.createNamespace(props.warehouseId, namespace, notify);
+    await functions.createNamespace(props.warehouseId, namespace, notify, properties);
 
     createNamespaceStatus.value = StatusIntent.SUCCESS;
     await loadNamespaces();

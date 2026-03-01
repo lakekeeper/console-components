@@ -101,7 +101,7 @@
       <v-col cols>
         <!-- Properties Section -->
         <v-card
-          v-if="table.metadata.properties && Object.keys(table.metadata.properties).length > 0"
+          v-if="Object.keys(table.metadata.properties || {}).length > 0 || canEdit"
           variant="outlined"
           elevation="1">
           <v-toolbar color="transparent" density="compact" flat>
@@ -111,8 +111,17 @@
             </v-toolbar-title>
             <v-spacer></v-spacer>
             <v-chip size="x-small" variant="outlined" class="mr-2">
-              {{ Object.keys(table.metadata.properties).length }}
+              {{ Object.keys(table.metadata.properties || {}).length }}
             </v-chip>
+            <EntityPropertiesDialog
+              v-if="canEdit && warehouseId && namespacePath"
+              entity-type="table"
+              :warehouse-id="warehouseId"
+              :namespace-path="namespacePath"
+              :entity-name="tableName"
+              :properties="table.metadata.properties"
+              :can-edit="canEdit"
+              @updated="$emit('updated')" />
           </v-toolbar>
           <v-divider></v-divider>
           <v-data-table-virtual
@@ -383,6 +392,7 @@
 import { computed, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
+import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
 import { transformFields } from '../common/schemaUtils';
 import type {
   LoadTableResult,
@@ -394,6 +404,15 @@ import type {
 // Props
 const props = defineProps<{
   table: LoadTableResult;
+  warehouseId?: string;
+  namespacePath?: string;
+  tableName?: string;
+  canEdit?: boolean;
+}>();
+
+// Emits
+defineEmits<{
+  updated: [];
 }>();
 
 // Composables
