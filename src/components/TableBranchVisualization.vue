@@ -1611,14 +1611,15 @@ const existingBranchNames = computed(() =>
 );
 
 // ─── Computed: deletable branches ────────────────────────────────────────────
-// All non-main/master branches (available whenever a snapshot is selected)
+// Non-main/master branches whose ancestry includes the selected snapshot
 const deletableBranches = computed<BranchMeta[]>(() => {
   if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sidStr = String(selectedSnapshot.value['snapshot-id']);
 
   return branches.value.filter((b) => {
     if (b.type !== 'branch') return false;
     if (b.name === 'main' || b.name === 'master') return false;
-    return true;
+    return b.ancestry.some((id) => String(id) === sidStr);
   });
 });
 
