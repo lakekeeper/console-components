@@ -1926,6 +1926,14 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
+.legend-chip .v-btn {
+  pointer-events: auto;
+}
+
+.legend-chip:has(.v-btn) {
+  pointer-events: auto;
+}
+
 /* Hint overlay */
 .hint-overlay {
   position: absolute;

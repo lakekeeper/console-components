@@ -81,7 +81,7 @@
       </v-col>
       <v-col cols>
         <v-card
-          v-if="view.metadata.properties && Object.keys(view.metadata.properties).length > 0"
+          v-if="Object.keys(view.metadata.properties || {}).length > 0 || canEdit"
           variant="outlined"
           elevation="1">
           <v-toolbar color="transparent" density="compact" flat>
@@ -91,10 +91,10 @@
             </v-toolbar-title>
             <v-spacer></v-spacer>
             <v-chip size="x-small" variant="outlined" class="mr-2">
-              {{ Object.keys(view.metadata.properties).length }}
+              {{ Object.keys(view.metadata.properties || {}).length }}
             </v-chip>
             <EntityPropertiesDialog
-              v-if="canEdit"
+              v-if="canEdit && warehouseId && namespacePath"
               entity-type="view"
               :warehouse-id="warehouseId"
               :namespace-path="namespacePath"

@@ -1300,7 +1300,7 @@ async function renameBranch(
     const bodyJson = JSONBigNative.stringify(body);
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'POST',
         headers: {
@@ -1416,7 +1416,7 @@ async function rollbackBranch(
     const bodyJson = JSONBigNative.stringify(body);
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'POST',
         headers: {
@@ -1652,7 +1652,7 @@ async function loadTableCustomized(
     const accessToken = userStore.user.access_token;
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${warehouseId}/namespaces/${namespacePath}/tables/${tableName}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'GET',
         headers: {

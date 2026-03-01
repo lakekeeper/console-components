@@ -96,12 +96,17 @@
               <v-text-field
                 v-model="prop.key"
                 density="compact"
-                hide-details
+                hide-details="auto"
                 label="Key"
                 placeholder="key"
                 variant="outlined"
                 :readonly="prop.isExisting"
-                :disabled="prop.markedForRemoval"></v-text-field>
+                :disabled="prop.markedForRemoval"
+                :error-messages="
+                  !prop.markedForRemoval && duplicateKeys.has(prop.key.trim())
+                    ? 'Duplicate key'
+                    : undefined
+                "></v-text-field>
               <v-text-field
                 v-model="prop.value"
                 density="compact"
@@ -140,6 +145,17 @@
               No properties set. Click "Add Property" to create one.
             </div>
 
+            <!-- Duplicate key warning -->
+            <v-alert
+              v-if="duplicateKeys.size > 0"
+              type="error"
+              variant="tonal"
+              density="compact"
+              class="mt-3">
+              Duplicate keys detected: {{ Array.from(duplicateKeys).join(', ') }}. Each key must be
+              unique.
+            </v-alert>
+
             <!-- Removal summary -->
             <v-alert
               v-if="markedCount > 0"
@@ -170,7 +186,7 @@
           <v-btn
             v-if="canEdit"
             color="success"
-            :disabled="!hasChanges || saving"
+            :disabled="!hasChanges || saving || duplicateKeys.size > 0"
             :loading="saving"
             @click="saveChanges">
             Save
@@ -234,6 +250,22 @@ const pendingRemovals = computed(() =>
 const allRemovalsConfirmed = computed(() =>
   pendingRemovals.value.every((key) => removalConfirmations[key] === key),
 );
+
+const duplicateKeys = computed(() => {
+  const seen = new Set<string>();
+  const dupes = new Set<string>();
+  for (const prop of editableProperties.value) {
+    if (prop.markedForRemoval) continue;
+    const key = prop.key.trim();
+    if (!key) continue;
+    if (seen.has(key)) {
+      dupes.add(key);
+    } else {
+      seen.add(key);
+    }
+  }
+  return dupes;
+});
 
 const hasChanges = computed(() => {
   const current: Record<string, string> = {};
@@ -324,6 +356,10 @@ function saveChanges() {
 }
 
 async function executeSave() {
+  if (duplicateKeys.value.size > 0) {
+    return;
+  }
+
   saving.value = true;
 
   try {

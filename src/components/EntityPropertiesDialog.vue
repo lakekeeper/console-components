@@ -187,7 +187,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue';
-import { useFunctions } from '@/plugins/functions';
+import { useFunctions, handleError } from '@/plugins/functions';
 
 interface EditableProperty {
   key: string;
@@ -387,19 +387,25 @@ async function executeSave() {
     }
 
     if (props.entityType === 'table') {
+      if (!props.entityName) {
+        throw new Error('entityName is required for table properties');
+      }
       await functions.updateTableProperties(
         props.warehouseId,
         props.namespacePath,
-        props.entityName!,
+        props.entityName,
         filteredUpdates,
         removals,
         true,
       );
     } else if (props.entityType === 'view') {
+      if (!props.entityName) {
+        throw new Error('entityName is required for view properties');
+      }
       await functions.updateViewProperties(
         props.warehouseId,
         props.namespacePath,
-        props.entityName!,
+        props.entityName,
         filteredUpdates,
         removals,
         true,
@@ -417,7 +423,7 @@ async function executeSave() {
     emit('updated');
     close();
   } catch (error: any) {
-    console.error(`Failed to update ${props.entityType} properties:`, error);
+    handleError(error, 'executeSave');
   } finally {
     saving.value = false;
   }
