@@ -177,9 +177,7 @@
                 <td>{{ formatTimestamp(currentViewVersion['timestamp-ms']) }}</td>
               </tr>
               <tr
-                v-if="
-                  currentViewVersion.representations && currentViewVersion.representations[0]
-                ">
+                v-if="currentViewVersion.representations && currentViewVersion.representations[0]">
                 <td class="font-weight-medium">SQL Query</td>
                 <td>
                   <span class="font-mono text-wrap">
@@ -189,9 +187,7 @@
                     icon="mdi-content-copy"
                     size="x-small"
                     variant="text"
-                    @click="
-                      copyToClipboard(currentViewVersion.representations[0].sql)
-                    "></v-btn>
+                    @click="copyToClipboard(currentViewVersion.representations[0].sql)"></v-btn>
                 </td>
               </tr>
             </tbody>
@@ -232,9 +228,7 @@
             <template #prepend="{ item }">
               <v-icon v-if="item.datatype == 'string'" size="small">mdi-alphabetical</v-icon>
               <v-icon v-else-if="item.datatype == 'int'" size="small">mdi-numeric</v-icon>
-              <v-icon
-                v-else-if="item.datatype == 'long' || item.datatype == 'double'"
-                size="small">
+              <v-icon v-else-if="item.datatype == 'long' || item.datatype == 'double'" size="small">
                 mdi-decimal
               </v-icon>
               <v-icon v-else-if="item.datatype == 'array'" size="small">
