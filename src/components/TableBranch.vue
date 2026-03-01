@@ -6,7 +6,11 @@
     :warehouse-id="props.warehouseId"
     :namespace-path="props.namespaceId"
     :table-name="props.tableName"
-    @rollback="loadTableData" />
+    @rollback="loadTableData"
+    @fast-forward="loadTableData"
+    @create-branch="loadTableData"
+    @rename-branch="loadTableData"
+    @delete-branch="loadTableData" />
 </template>
 
 <script setup lang="ts">

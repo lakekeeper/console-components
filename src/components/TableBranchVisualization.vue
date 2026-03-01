@@ -54,6 +54,34 @@
                   </svg>
                 </template>
                 {{ entry.name }}
+                <template #append>
+                  <v-btn
+                    v-if="
+                      canRollback &&
+                      entry.type === 'branch' &&
+                      entry.name !== 'main' &&
+                      entry.name !== 'master'
+                    "
+                    icon="mdi-pencil-outline"
+                    size="x-small"
+                    variant="text"
+                    density="compact"
+                    class="ml-1"
+                    @click.stop="openRenameBranchDialog(entry.name)"></v-btn>
+                  <v-btn
+                    v-if="
+                      canRollback &&
+                      entry.type === 'branch' &&
+                      entry.name !== 'main' &&
+                      entry.name !== 'master'
+                    "
+                    icon="mdi-close-circle"
+                    size="x-small"
+                    variant="text"
+                    density="compact"
+                    style="margin-right: -6px"
+                    @click.stop="openDeleteBranchDialog(entry.name)"></v-btn>
+                </template>
               </v-chip>
               <v-chip size="x-small" variant="tonal" class="legend-chip">
                 <template #prepend>
@@ -125,6 +153,17 @@
                           class="mr-2">
                           {{ selectedSnapshot.summary.operation }}
                         </v-chip>
+                        <!-- Create branch from snapshot -->
+                        <v-btn
+                          v-if="canRollback"
+                          color="primary"
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-source-branch-plus"
+                          class="mr-1"
+                          @click="openCreateBranchDialog">
+                          Branch
+                        </v-btn>
                       </v-toolbar>
                       <v-divider></v-divider>
                       <v-table density="compact" class="snapshot-table" fixed-header height="250px">
@@ -202,6 +241,38 @@
                           {{ Object.keys(selectedSnapshot.summary).length }}
                         </v-chip>
                         <!-- Rollback button in toolbar -->
+                        <v-btn
+                          v-if="canRollback && fastForwardableBranches.length === 1"
+                          color="success"
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-fast-forward"
+                          class="mr-1"
+                          @click="openFastForwardDialog(fastForwardableBranches[0])">
+                          Fast Forward
+                        </v-btn>
+                        <v-menu v-if="canRollback && fastForwardableBranches.length > 1">
+                          <template #activator="{ props: menuProps }">
+                            <v-btn
+                              v-bind="menuProps"
+                              color="success"
+                              size="small"
+                              variant="tonal"
+                              prepend-icon="mdi-fast-forward"
+                              class="mr-1">
+                              Fast Forward
+                              <v-icon end>mdi-chevron-down</v-icon>
+                            </v-btn>
+                          </template>
+                          <v-list density="compact">
+                            <v-list-item
+                              v-for="branch in fastForwardableBranches"
+                              :key="branch.name"
+                              :title="branch.name"
+                              prepend-icon="mdi-source-branch"
+                              @click="openFastForwardDialog(branch)"></v-list-item>
+                          </v-list>
+                        </v-menu>
                         <v-btn
                           v-if="canRollback && rollbackableBranches.length === 1"
                           color="warning"
@@ -347,6 +418,186 @@
       </v-row>
     </div>
 
+    <!-- Create branch dialog -->
+    <v-dialog v-model="createBranchDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="primary" class="mr-2">mdi-source-branch-plus</v-icon>
+          Create Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Create a new branch from snapshot
+            <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
+            (ID: {{ selectedSnapshot?.['snapshot-id'] }}).
+          </v-alert>
+          <v-text-field
+            v-model="createBranchName"
+            label="Branch name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v) => !!v || 'Required',
+              (v) => !/\s/.test(v) || 'No spaces allowed',
+              (v) => !existingBranchNames.includes(v) || 'Branch already exists',
+            ]"
+            placeholder="my-branch"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            :disabled="
+              !createBranchName ||
+              /\s/.test(createBranchName) ||
+              existingBranchNames.includes(createBranchName) ||
+              createBranchLoading
+            "
+            :loading="createBranchLoading"
+            @click="executeCreateBranch">
+            Create
+          </v-btn>
+          <v-btn @click="closeCreateBranchDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Rename branch dialog -->
+    <v-dialog v-model="renameBranchDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
+          Rename Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Rename branch
+            <strong>"{{ renameBranchOldName }}"</strong>
+            . This will atomically create a new reference and remove the old one.
+          </v-alert>
+          <v-text-field
+            v-model="renameBranchNewName"
+            label="New branch name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v) => !!v || 'Required',
+              (v) => !/\s/.test(v) || 'No spaces allowed',
+              (v) => v !== renameBranchOldName || 'Must be different',
+              (v) => !existingBranchNames.includes(v) || 'Branch already exists',
+            ]"
+            :placeholder="renameBranchOldName"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="primary"
+            :disabled="
+              !renameBranchNewName ||
+              /\s/.test(renameBranchNewName) ||
+              renameBranchNewName === renameBranchOldName ||
+              existingBranchNames.includes(renameBranchNewName) ||
+              renameBranchLoading
+            "
+            :loading="renameBranchLoading"
+            @click="executeRenameBranch">
+            Rename
+          </v-btn>
+          <v-btn @click="closeRenameBranchDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete branch confirmation dialog -->
+    <v-dialog v-model="deleteBranchDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="error" class="mr-2">mdi-source-branch-remove</v-icon>
+          Delete Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="error" variant="tonal" density="compact" class="mb-4">
+            This will remove the branch reference
+            <strong>"{{ deleteBranchName }}"</strong>
+            . Snapshots exclusive to this branch may become unreachable.
+          </v-alert>
+          <div class="text-body-2 mb-2">
+            Type the branch name
+            <strong>"{{ deleteBranchName }}"</strong>
+            to confirm:
+          </div>
+          <v-text-field
+            v-model="deleteBranchConfirmText"
+            density="compact"
+            hide-details
+            :placeholder="deleteBranchName"
+            variant="outlined"
+            :color="
+              deleteBranchConfirmText === deleteBranchName ? 'success' : undefined
+            "></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="error"
+            :disabled="deleteBranchConfirmText !== deleteBranchName || deleteBranchLoading"
+            :loading="deleteBranchLoading"
+            @click="executeDeleteBranch">
+            Delete
+          </v-btn>
+          <v-btn @click="closeDeleteBranchDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Fast forward confirmation dialog -->
+    <v-dialog v-model="fastForwardDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="success" class="mr-2">mdi-fast-forward</v-icon>
+          Fast Forward Branch
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="success" variant="tonal" density="compact" class="mb-4">
+            This will fast-forward branch
+            <strong>"{{ fastForwardTargetBranch?.name }}"</strong>
+            to snapshot
+            <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
+            (ID: {{ selectedSnapshot?.['snapshot-id'] }}).
+          </v-alert>
+          <div class="text-body-2 mb-2">
+            Type the branch name
+            <strong>"{{ fastForwardTargetBranch?.name }}"</strong>
+            to confirm:
+          </div>
+          <v-text-field
+            v-model="fastForwardConfirmText"
+            density="compact"
+            hide-details
+            :placeholder="fastForwardTargetBranch?.name"
+            variant="outlined"
+            :color="
+              fastForwardConfirmText === fastForwardTargetBranch?.name ? 'success' : undefined
+            "></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="success"
+            :disabled="
+              fastForwardConfirmText !== fastForwardTargetBranch?.name || fastForwardLoading
+            "
+            :loading="fastForwardLoading"
+            @click="executeFastForward">
+            Fast Forward
+          </v-btn>
+          <v-btn @click="closeFastForwardDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Rollback confirmation dialog -->
     <v-dialog v-model="rollbackDialog" max-width="500" persistent>
       <v-card>
@@ -416,6 +667,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   rollback: [];
+  fastForward: [];
+  createBranch: [];
+  renameBranch: [];
+  deleteBranch: [];
 }>();
 
 const functions = useFunctions();
@@ -425,11 +680,34 @@ const chartRef = ref<HTMLDivElement | null>(null);
 const selectedSnapshot = ref<Snapshot | null>(null);
 const currentZoom = ref(1);
 
+// ─── Create Branch State ─────────────────────────────────────────────────────
+const createBranchDialog = ref(false);
+const createBranchName = ref('');
+const createBranchLoading = ref(false);
+
+// ─── Rename Branch State ─────────────────────────────────────────────────────
+const renameBranchDialog = ref(false);
+const renameBranchOldName = ref('');
+const renameBranchNewName = ref('');
+const renameBranchLoading = ref(false);
+
+// ─── Delete Branch State ─────────────────────────────────────────────────────
+const deleteBranchDialog = ref(false);
+const deleteBranchName = ref('');
+const deleteBranchConfirmText = ref('');
+const deleteBranchLoading = ref(false);
+
 // ─── Rollback State ──────────────────────────────────────────────────────────
 const rollbackDialog = ref(false);
 const rollbackTargetBranch = ref<BranchMeta | null>(null);
 const rollbackConfirmText = ref('');
 const rollbackLoading = ref(false);
+
+// ─── Fast Forward State ──────────────────────────────────────────────────────
+const fastForwardDialog = ref(false);
+const fastForwardTargetBranch = ref<BranchMeta | null>(null);
+const fastForwardConfirmText = ref('');
+const fastForwardLoading = ref(false);
 
 // D3 selections — kept outside Vue reactivity
 let svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
@@ -1319,6 +1597,162 @@ const rollbackableBranches = computed<BranchMeta[]>(() => {
   return exclusive.length > 0 ? exclusive : candidateBranches;
 });
 
+// ─── Computed: fast-forwardable branches ─────────────────────────────────────
+// A branch can be fast-forwarded to the selected snapshot if:
+//   1. It's an active branch (not dropped/tag)
+//   2. Its tip is an ANCESTOR of the selected snapshot (the selected snapshot is ahead)
+//   3. Its tip is not already the selected snapshot
+const fastForwardableBranches = computed<BranchMeta[]>(() => {
+  if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sid = selectedSnapshot.value['snapshot-id'];
+  const sidStr = String(sid);
+
+  // Build ancestor chain from selected snapshot back to root
+  const ancestorIds = new Set<string>();
+  let current: Snapshot | undefined = selectedSnapshot.value;
+  while (current) {
+    const parentId: number | undefined = current['parent-snapshot-id'];
+    if (parentId == null) break;
+    ancestorIds.add(String(parentId));
+    current = props.snapshotHistory.find((s) => String(s['snapshot-id']) === String(parentId));
+  }
+
+  return branches.value.filter((b) => {
+    if (b.type !== 'branch') return false;
+    // The branch tip must not already be this snapshot
+    if (String(b.tipSnapshotId) === sidStr) return false;
+    // The branch tip must be an ancestor of the selected snapshot
+    return ancestorIds.has(String(b.tipSnapshotId));
+  });
+});
+
+// ─── Computed: existing branch names ─────────────────────────────────────────
+const existingBranchNames = computed(() =>
+  branches.value.filter((b) => b.type === 'branch').map((b) => b.name),
+);
+
+// ─── Create Branch ───────────────────────────────────────────────────────────
+function openCreateBranchDialog() {
+  createBranchName.value = '';
+  createBranchDialog.value = true;
+}
+
+function closeCreateBranchDialog() {
+  createBranchDialog.value = false;
+  createBranchName.value = '';
+}
+
+async function executeCreateBranch() {
+  if (
+    !createBranchName.value ||
+    !selectedSnapshot.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  createBranchLoading.value = true;
+  try {
+    await functions.createBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      createBranchName.value,
+      selectedSnapshot.value['snapshot-id'],
+      true,
+    );
+    closeCreateBranchDialog();
+    emit('createBranch');
+  } catch (error: any) {
+    console.error('Failed to create branch:', error);
+  } finally {
+    createBranchLoading.value = false;
+  }
+}
+
+// ─── Rename Branch ───────────────────────────────────────────────────────────
+function openRenameBranchDialog(branchName: string) {
+  renameBranchOldName.value = branchName;
+  renameBranchNewName.value = '';
+  renameBranchDialog.value = true;
+}
+
+function closeRenameBranchDialog() {
+  renameBranchDialog.value = false;
+  renameBranchOldName.value = '';
+  renameBranchNewName.value = '';
+}
+
+async function executeRenameBranch() {
+  if (
+    !renameBranchOldName.value ||
+    !renameBranchNewName.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  const branch = branches.value.find((b) => b.name === renameBranchOldName.value);
+  if (!branch) return;
+
+  renameBranchLoading.value = true;
+  try {
+    await functions.renameBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      renameBranchOldName.value,
+      renameBranchNewName.value,
+      branch.tipSnapshotId,
+      true,
+    );
+    closeRenameBranchDialog();
+    emit('renameBranch');
+  } catch (error: any) {
+    console.error('Failed to rename branch:', error);
+  } finally {
+    renameBranchLoading.value = false;
+  }
+}
+
+// ─── Delete Branch ───────────────────────────────────────────────────────────
+function openDeleteBranchDialog(branchName: string) {
+  deleteBranchName.value = branchName;
+  deleteBranchConfirmText.value = '';
+  deleteBranchDialog.value = true;
+}
+
+function closeDeleteBranchDialog() {
+  deleteBranchDialog.value = false;
+  deleteBranchName.value = '';
+  deleteBranchConfirmText.value = '';
+}
+
+async function executeDeleteBranch() {
+  if (!deleteBranchName.value || !props.warehouseId || !props.namespacePath || !props.tableName)
+    return;
+
+  deleteBranchLoading.value = true;
+  try {
+    await functions.deleteBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      deleteBranchName.value,
+      true,
+    );
+    closeDeleteBranchDialog();
+    selectedSnapshot.value = null;
+    emit('deleteBranch');
+  } catch (error: any) {
+    console.error('Failed to delete branch:', error);
+  } finally {
+    deleteBranchLoading.value = false;
+  }
+}
+
 function openRollbackDialog(branch: BranchMeta) {
   rollbackTargetBranch.value = branch;
   rollbackConfirmText.value = '';
@@ -1359,6 +1793,51 @@ async function executeRollback() {
     console.error('Failed to rollback branch:', error);
   } finally {
     rollbackLoading.value = false;
+  }
+}
+
+// ─── Fast Forward ────────────────────────────────────────────────────────────
+function openFastForwardDialog(branch: BranchMeta) {
+  fastForwardTargetBranch.value = branch;
+  fastForwardConfirmText.value = '';
+  fastForwardDialog.value = true;
+}
+
+function closeFastForwardDialog() {
+  fastForwardDialog.value = false;
+  fastForwardTargetBranch.value = null;
+  fastForwardConfirmText.value = '';
+}
+
+async function executeFastForward() {
+  if (
+    !fastForwardTargetBranch.value ||
+    !selectedSnapshot.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  fastForwardLoading.value = true;
+  try {
+    // Fast forward uses the same API as rollback — set-snapshot-ref
+    await functions.rollbackBranch(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      fastForwardTargetBranch.value.name,
+      selectedSnapshot.value['snapshot-id'],
+      fastForwardTargetBranch.value.tipSnapshotId,
+      true,
+    );
+    closeFastForwardDialog();
+    selectedSnapshot.value = null;
+    emit('fastForward');
+  } catch (error: any) {
+    console.error('Failed to fast-forward branch:', error);
+  } finally {
+    fastForwardLoading.value = false;
   }
 }
 
