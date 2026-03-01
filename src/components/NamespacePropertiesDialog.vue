@@ -3,12 +3,11 @@
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
-        icon
+        color="info"
         size="small"
-        variant="text"
-        :title="'Namespace Properties'">
-        <v-icon size="small">mdi-cog</v-icon>
-        <v-tooltip activator="parent" location="bottom">Properties</v-tooltip>
+        variant="flat"
+        prepend-icon="mdi-text-box-multiple-outline">
+        Properties
       </v-btn>
     </template>
 
@@ -25,11 +24,33 @@
 
         <v-skeleton-loader v-if="loading" type="table-row@3"></v-skeleton-loader>
 
+        <!-- Confirm removal step -->
+        <template v-else-if="confirmingRemovals">
+          <v-alert type="warning" variant="tonal" density="compact" class="mb-4">
+            You are about to remove {{ pendingRemovals.length }}
+            propert{{ pendingRemovals.length === 1 ? 'y' : 'ies' }}. Type each key name to
+            confirm.
+          </v-alert>
+
+          <div v-for="key in pendingRemovals" :key="key" class="mb-3">
+            <div class="text-body-2 mb-1">
+              Type <strong>"{{ key }}"</strong> to confirm removal:
+            </div>
+            <v-text-field
+              v-model="removalConfirmations[key]"
+              density="compact"
+              hide-details
+              :placeholder="key"
+              variant="outlined"
+              :color="removalConfirmations[key] === key ? 'success' : undefined"></v-text-field>
+          </div>
+        </template>
+
         <template v-else>
           <div class="d-flex align-center mb-3">
             <span class="text-subtitle-2">
-              {{ editableProperties.length }} propert{{
-                editableProperties.length === 1 ? 'y' : 'ies'
+              {{ activeProperties.length }} propert{{
+                activeProperties.length === 1 ? 'y' : 'ies'
               }}
             </span>
             <v-spacer></v-spacer>
@@ -66,10 +87,12 @@
 
           <!-- Editable view -->
           <template v-else>
+            <!-- Active properties -->
             <div
               v-for="(prop, index) in editableProperties"
               :key="index"
-              class="d-flex align-center ga-2 mb-2">
+              class="d-flex align-center ga-2 mb-2"
+              :class="{ 'opacity-50': prop.markedForRemoval }">
               <v-text-field
                 v-model="prop.key"
                 density="compact"
@@ -77,23 +100,37 @@
                 label="Key"
                 placeholder="key"
                 variant="outlined"
-                :readonly="prop.isExisting"></v-text-field>
+                :readonly="prop.isExisting"
+                :disabled="prop.markedForRemoval"></v-text-field>
               <v-text-field
                 v-model="prop.value"
                 density="compact"
                 hide-details
                 label="Value"
                 placeholder="value"
-                variant="outlined"></v-text-field>
+                variant="outlined"
+                :disabled="prop.markedForRemoval"></v-text-field>
               <v-btn
+                v-if="!prop.markedForRemoval"
                 color="error"
                 density="compact"
                 icon="mdi-close"
                 size="small"
                 variant="text"
-                @click="removeProperty(index)">
+                @click="markForRemoval(index)">
                 <v-icon>mdi-close</v-icon>
                 <v-tooltip activator="parent" location="bottom">Remove</v-tooltip>
+              </v-btn>
+              <v-btn
+                v-else
+                color="info"
+                density="compact"
+                icon="mdi-undo"
+                size="small"
+                variant="text"
+                @click="unmarkRemoval(index)">
+                <v-icon>mdi-undo</v-icon>
+                <v-tooltip activator="parent" location="bottom">Undo removal</v-tooltip>
               </v-btn>
             </div>
 
@@ -102,30 +139,53 @@
               class="text-center text-medium-emphasis py-4">
               No properties set. Click "Add Property" to create one.
             </div>
+
+            <!-- Removal summary -->
+            <v-alert
+              v-if="markedCount > 0"
+              type="warning"
+              variant="tonal"
+              density="compact"
+              class="mt-3">
+              {{ markedCount }} propert{{ markedCount === 1 ? 'y' : 'ies' }} marked for removal.
+              You will need to confirm before saving.
+            </v-alert>
           </template>
         </template>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn
-          v-if="canEdit"
-          color="success"
-          :disabled="!hasChanges || saving"
-          :loading="saving"
-          @click="saveChanges">
-          Save
-        </v-btn>
-        <v-btn color="error" @click="close">
-          {{ canEdit ? 'Cancel' : 'Close' }}
-        </v-btn>
+        <template v-if="confirmingRemovals">
+          <v-btn
+            color="success"
+            :disabled="!allRemovalsConfirmed || saving"
+            :loading="saving"
+            @click="executeSave">
+            Confirm &amp; Save
+          </v-btn>
+          <v-btn color="error" @click="confirmingRemovals = false">Back</v-btn>
+        </template>
+        <template v-else>
+          <v-btn
+            v-if="canEdit"
+            color="success"
+            :disabled="!hasChanges || saving"
+            :loading="saving"
+            @click="saveChanges">
+            Save
+          </v-btn>
+          <v-btn color="error" @click="close">
+            {{ canEdit ? 'Cancel' : 'Close' }}
+          </v-btn>
+        </template>
       </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, computed, reactive, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 
 interface EditableProperty {
@@ -133,6 +193,7 @@ interface EditableProperty {
   value: string;
   originalKey: string;
   isExisting: boolean;
+  markedForRemoval: boolean;
 }
 
 const props = defineProps<{
@@ -151,20 +212,39 @@ const isDialogActive = ref(false);
 const loading = ref(false);
 const saving = ref(false);
 const loadError = ref('');
+const confirmingRemovals = ref(false);
 const originalProperties = ref<Record<string, string>>({});
 const editableProperties = ref<EditableProperty[]>([]);
+const removalConfirmations = reactive<Record<string, string>>({});
+
+const activeProperties = computed(() =>
+  editableProperties.value.filter((p) => !p.markedForRemoval),
+);
+
+const markedCount = computed(
+  () => editableProperties.value.filter((p) => p.markedForRemoval && p.isExisting).length,
+);
+
+const pendingRemovals = computed(() =>
+  editableProperties.value
+    .filter((p) => p.markedForRemoval && p.isExisting)
+    .map((p) => p.originalKey),
+);
+
+const allRemovalsConfirmed = computed(() =>
+  pendingRemovals.value.every((key) => removalConfirmations[key] === key),
+);
 
 const hasChanges = computed(() => {
-  // Build current state
   const current: Record<string, string> = {};
   for (const prop of editableProperties.value) {
+    if (prop.markedForRemoval) continue;
     const key = prop.key.trim();
     if (key) {
       current[key] = prop.value;
     }
   }
 
-  // Compare with original
   const origKeys = Object.keys(originalProperties.value);
   const currKeys = Object.keys(current);
 
@@ -186,16 +266,28 @@ function addProperty() {
     value: '',
     originalKey: '',
     isExisting: false,
+    markedForRemoval: false,
   });
 }
 
-function removeProperty(index: number) {
-  editableProperties.value.splice(index, 1);
+function markForRemoval(index: number) {
+  const prop = editableProperties.value[index];
+  if (prop.isExisting) {
+    prop.markedForRemoval = true;
+  } else {
+    // New (unsaved) properties can be removed immediately
+    editableProperties.value.splice(index, 1);
+  }
+}
+
+function unmarkRemoval(index: number) {
+  editableProperties.value[index].markedForRemoval = false;
 }
 
 async function loadProperties() {
   loading.value = true;
   loadError.value = '';
+  confirmingRemovals.value = false;
 
   try {
     const metadata = await functions.loadNamespaceMetadata(props.warehouseId, props.namespacePath);
@@ -207,6 +299,7 @@ async function loadProperties() {
       value,
       originalKey: key,
       isExisting: true,
+      markedForRemoval: false,
     }));
   } catch (error: any) {
     loadError.value = error?.message || 'Failed to load namespace properties';
@@ -216,17 +309,30 @@ async function loadProperties() {
   }
 }
 
-async function saveChanges() {
+function saveChanges() {
+  // If there are existing properties marked for removal, require confirmation
+  if (markedCount.value > 0) {
+    // Reset confirmations
+    for (const key in removalConfirmations) {
+      delete removalConfirmations[key];
+    }
+    confirmingRemovals.value = true;
+    return;
+  }
+
+  executeSave();
+}
+
+async function executeSave() {
   saving.value = true;
 
   try {
-    // Build updates and removals
     const updates: Record<string, string> = {};
     const removals: string[] = [];
 
-    // Current keys
     const currentKeys = new Set<string>();
     for (const prop of editableProperties.value) {
+      if (prop.markedForRemoval) continue;
       const key = prop.key.trim();
       if (key) {
         currentKeys.add(key);
@@ -234,14 +340,12 @@ async function saveChanges() {
       }
     }
 
-    // Find removed keys
     for (const origKey of Object.keys(originalProperties.value)) {
       if (!currentKeys.has(origKey)) {
         removals.push(origKey);
       }
     }
 
-    // Only include updates that actually changed or are new
     const filteredUpdates: Record<string, string> = {};
     for (const [key, value] of Object.entries(updates)) {
       if (originalProperties.value[key] !== value || !(key in originalProperties.value)) {
@@ -273,9 +377,9 @@ async function saveChanges() {
 
 function close() {
   isDialogActive.value = false;
+  confirmingRemovals.value = false;
 }
 
-// Load properties when dialog opens
 watch(isDialogActive, (isOpen) => {
   if (isOpen) {
     loadProperties();
