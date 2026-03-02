@@ -547,7 +547,10 @@ The consuming app must provide: `vue ^3.5`, `vuetify ^3.8`, `pinia ^2.3`, `vue-r
 
 ## Conventions
 
-- **Conventional commits** required (feat:, fix:, chore:, etc.) — release-please manages versioning
+- **Conventional commits** required — release-please manages versioning
+  - `feat(ui): …` for new features or UI enhancements
+  - `fix(ui): …` for bug fixes
+  - `chore:` / `ci:` / `docs:` for non-user-facing changes
 - **`just reviewable`** before every commit (install + format + lint + build)
 - **Never edit `src/gen/`** — always regenerate from OpenAPI specs
 - **Error handling**: use `handleError(error, context, notify?)` → snackbar notification
