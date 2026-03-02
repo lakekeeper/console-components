@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.30](https://github.com/lakekeeper/console-components/compare/v0.2.29...v0.2.30) (2026-03-02)
+
+
+### Bug Fixes
+
+* **ui:** handle sub-namespaces with dots in API calls, DuckDB SQL, and SQL autocomplete ([373676b](https://github.com/lakekeeper/console-components/commit/373676b03f3648b398d3ae0262776d6e36ad27b7))
+
 ## [0.2.29](https://github.com/lakekeeper/console-components/compare/v0.2.28...v0.2.29) (2026-03-01)
 
 
