@@ -46,7 +46,9 @@
 
     <!-- Results -->
     <div v-else-if="queryResults">
-      <div class="text-h6 mb-3">Preview: {{ warehouseName }}.{{ namespaceDisplay }}.{{ tableName }}</div>
+      <div class="text-h6 mb-3">
+        Preview: {{ warehouseName }}.{{ namespaceDisplay }}.{{ tableName }}
+      </div>
 
       <!-- Branch & Time Travel Toolbar -->
       <v-card variant="outlined" class="mb-4" density="compact">
