@@ -419,6 +419,14 @@ const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
 
+// Namespace parts: split on \x1F (API format) or dot (display format)
+const namespaceParts = computed(() => {
+  const ns = props.namespaceId;
+  if (!ns) return [];
+  if (ns.includes('\x1F')) return ns.split('\x1F');
+  return ns.split('.');
+});
+
 // Self-loading: if no table prop is passed, load it internally
 const loadedTable = ref<LoadTableResult | null>(null);
 const tableLoading = ref(false);
@@ -1440,7 +1448,8 @@ async function loadPartitionData() {
       });
     }
 
-    const tablePath = `"${warehouseName}"."${props.namespaceId}"."${props.tableName}"`;
+    const nsQuoted = namespaceParts.value.map((p) => `"${p}"`).join('.');
+    const tablePath = `"${warehouseName}".${nsQuoted}."${props.tableName}"`;
 
     const sql = `
       WITH files AS (

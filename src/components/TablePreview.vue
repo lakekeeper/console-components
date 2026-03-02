@@ -46,7 +46,7 @@
 
     <!-- Results -->
     <div v-else-if="queryResults">
-      <div class="text-h6 mb-3">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
+      <div class="text-h6 mb-3">Preview: {{ warehouseName }}.{{ namespaceDisplay }}.{{ tableName }}</div>
 
       <!-- Branch & Time Travel Toolbar -->
       <v-card variant="outlined" class="mb-4" density="compact">
@@ -163,6 +163,15 @@ const functions = useFunctions();
 const userStore = useUserStore();
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const csvDownload = useCsvDownload();
+
+// Namespace parts: split on \x1F (API format) or dot (display format)
+const namespaceParts = computed(() => {
+  const ns = props.namespaceId;
+  if (ns.includes('\x1F')) return ns.split('\x1F');
+  return ns.split('.');
+});
+
+const namespaceDisplay = computed(() => namespaceParts.value.join('.'));
 
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
@@ -329,7 +338,8 @@ async function loadPreview() {
       });
     }
 
-    const tablePath = `"${warehouseName.value}"."${props.namespaceId}"."${props.tableName}"`;
+    const nsQuoted = namespaceParts.value.map((p) => `"${p}"`).join('.');
+    const tablePath = `"${warehouseName.value}".${nsQuoted}."${props.tableName}"`;
 
     // Build query with optional time travel
     let sql: string;
