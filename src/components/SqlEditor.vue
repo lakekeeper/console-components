@@ -134,10 +134,11 @@ function buildCompletionSource(fetchFn: ((qualifier: string) => Promise<string[]
       // Parse into identifier parts, stripping quotes but preserving part boundaries.
       // Use \x1F as internal separator so dots inside quoted identifiers are preserved.
       // Example: demo."f-inance.sss" → demo\x1Ff-inance.sss
+      const PLACEHOLDER = '\uFFFF';
       let qualifier = rawQualifier
-        .replace(/"([^"]*)"/g, (_, inner) => inner.replace(/\./g, '\x00'))
+        .replace(/"([^"]*)"/g, (_, inner: string) => inner.replaceAll('.', PLACEHOLDER))
         .split('.')
-        .map((p) => p.replace(/\x00/g, '.'))
+        .map((p) => p.replaceAll(PLACEHOLDER, '.'))
         .join('\x1F');
 
       // Resolve alias if it's a single-part qualifier
