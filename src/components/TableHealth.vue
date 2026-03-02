@@ -419,6 +419,14 @@ const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
 
+// Namespace display: convert \x1F separators to dots for DuckDB SQL
+const namespaceDisplay = computed(() => {
+  const ns = props.namespaceId;
+  if (!ns) return '';
+  if (ns.includes('\x1F')) return ns.split('\x1F').join('.');
+  return ns;
+});
+
 // Self-loading: if no table prop is passed, load it internally
 const loadedTable = ref<LoadTableResult | null>(null);
 const tableLoading = ref(false);
@@ -1440,7 +1448,7 @@ async function loadPartitionData() {
       });
     }
 
-    const tablePath = `"${warehouseName}"."${props.namespaceId}"."${props.tableName}"`;
+    const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
 
     const sql = `
       WITH files AS (

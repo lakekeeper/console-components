@@ -125,18 +125,24 @@ function buildCompletionSource(fetchFn: ((qualifier: string) => Promise<string[]
 
   async function completer(ctx: CompletionContext) {
     // 1. Dot-qualifier completions (catalog.schema.table. etc.)
-    // Regex also matches quoted identifiers like demo."f-inance".table.
-    const dotMatch = ctx.matchBefore(/((?:\w+|"[^"]*")(?:\.(?:\w+|"[^"]*"))*)\.\w*/);
+    // Regex also matches quoted identifiers like demo."f-inance.sss".table.
+    const dotMatch = ctx.matchBefore(/((\w+|"[^"]*")(\.(\w+|"[^"]*"))*)\.(\w*|"[^"]*")/);
     if (dotMatch) {
       const lastDotIdx = dotMatch.text.lastIndexOf('.');
-      let qualifier = dotMatch.text.slice(0, lastDotIdx);
+      const rawQualifier = dotMatch.text.slice(0, lastDotIdx);
 
-      // Strip SQL double-quotes from identifier parts so fetchCompletions
-      // receives plain names (e.g. demo."f-inance" -> demo.f-inance)
-      qualifier = qualifier.replace(/"([^"]*)"/g, '$1');
+      // Parse into identifier parts, stripping quotes but preserving part boundaries.
+      // Use \x1F as internal separator so dots inside quoted identifiers are preserved.
+      // Example: demo."f-inance.sss" → demo\x1Ff-inance.sss
+      const PLACEHOLDER = '\uFFFF';
+      let qualifier = rawQualifier
+        .replace(/"([^"]*)"/g, (_, inner: string) => inner.replaceAll('.', PLACEHOLDER))
+        .split('.')
+        .map((p) => p.replaceAll(PLACEHOLDER, '.'))
+        .join('\x1F');
 
-      // Resolve alias if it's a single-word qualifier
-      if (!qualifier.includes('.')) {
+      // Resolve alias if it's a single-part qualifier
+      if (!qualifier.includes('\x1F')) {
         const aliases = parseAliases(ctx.state.doc.toString());
         const resolved = aliases.get(qualifier.toLowerCase());
         if (resolved) qualifier = resolved;

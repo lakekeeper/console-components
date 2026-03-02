@@ -46,7 +46,9 @@
 
     <!-- Results -->
     <div v-else-if="queryResults">
-      <div class="text-h6 mb-3">Preview: {{ warehouseName }}.{{ namespaceId }}.{{ tableName }}</div>
+      <div class="text-h6 mb-3">
+        Preview: {{ warehouseName }}.{{ namespaceDisplay }}.{{ tableName }}
+      </div>
 
       <!-- Branch & Time Travel Toolbar -->
       <v-card variant="outlined" class="mb-4" density="compact">
@@ -163,6 +165,13 @@ const functions = useFunctions();
 const userStore = useUserStore();
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const csvDownload = useCsvDownload();
+
+// Namespace display: convert \x1F separators to dots for display and DuckDB SQL
+const namespaceDisplay = computed(() => {
+  const ns = props.namespaceId;
+  if (ns.includes('\x1F')) return ns.split('\x1F').join('.');
+  return ns;
+});
 
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
@@ -329,7 +338,7 @@ async function loadPreview() {
       });
     }
 
-    const tablePath = `"${warehouseName.value}"."${props.namespaceId}"."${props.tableName}"`;
+    const tablePath = `"${warehouseName.value}"."${namespaceDisplay.value}"."${props.tableName}"`;
 
     // Build query with optional time travel
     let sql: string;

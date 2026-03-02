@@ -1098,7 +1098,10 @@ function handleTreeItemSelected(item: {
     item.warehouseName &&
     item.namespaceId
   ) {
-    textToInsert = `"${item.warehouseName}"."${item.namespaceId}"."${item.name}"`;
+    const nsDisplay = item.namespaceId.includes('\x1F')
+      ? item.namespaceId.split('\x1F').join('.')
+      : item.namespaceId;
+    textToInsert = `"${item.warehouseName}"."${nsDisplay}"."${item.name}"`;
   }
 
   if (textToInsert) {
