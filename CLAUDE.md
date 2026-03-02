@@ -552,7 +552,7 @@ The consuming app must provide: `vue ^3.5`, `vuetify ^3.8`, `pinia ^2.3`, `vue-r
   - `fix(ui): …` for bug fixes
   - `chore:` / `ci:` / `docs:` for non-user-facing changes
   - For multi-line commit messages, wrap in `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE`:
-    ```
+    ```text
     BEGIN_COMMIT_OVERRIDE
     feat(ui): first change summary
     feat(ui): second change summary
