@@ -290,7 +290,7 @@ export function useLoQE(config: LoQEConfig) {
       }
     }
 
-    const parts = qualifier.split('.');
+    const parts = qualifier.split('\x1F');
     const pooled = await engine.pool.acquire();
     try {
       let names: string[] = [];
