@@ -166,14 +166,12 @@ const userStore = useUserStore();
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const csvDownload = useCsvDownload();
 
-// Namespace parts: split on \x1F (API format) or dot (display format)
-const namespaceParts = computed(() => {
+// Namespace display: convert \x1F separators to dots for display and DuckDB SQL
+const namespaceDisplay = computed(() => {
   const ns = props.namespaceId;
-  if (ns.includes('\x1F')) return ns.split('\x1F');
-  return ns.split('.');
+  if (ns.includes('\x1F')) return ns.split('\x1F').join('.');
+  return ns;
 });
-
-const namespaceDisplay = computed(() => namespaceParts.value.join('.'));
 
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
@@ -340,8 +338,7 @@ async function loadPreview() {
       });
     }
 
-    const nsQuoted = namespaceParts.value.map((p) => `"${p}"`).join('.');
-    const tablePath = `"${warehouseName.value}".${nsQuoted}."${props.tableName}"`;
+    const tablePath = `"${warehouseName.value}"."${namespaceDisplay.value}"."${props.tableName}"`;
 
     // Build query with optional time travel
     let sql: string;

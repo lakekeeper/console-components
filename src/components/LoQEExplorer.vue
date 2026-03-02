@@ -1098,11 +1098,10 @@ function handleTreeItemSelected(item: {
     item.warehouseName &&
     item.namespaceId
   ) {
-    const nsParts = item.namespaceId.includes('\x1F')
-      ? item.namespaceId.split('\x1F')
-      : item.namespaceId.split('.');
-    const nsQuoted = nsParts.map((p: string) => `"${p}"`).join('.');
-    textToInsert = `"${item.warehouseName}".${nsQuoted}."${item.name}"`;
+    const nsDisplay = item.namespaceId.includes('\x1F')
+      ? item.namespaceId.split('\x1F').join('.')
+      : item.namespaceId;
+    textToInsert = `"${item.warehouseName}"."${nsDisplay}"."${item.name}"`;
   }
 
   if (textToInsert) {

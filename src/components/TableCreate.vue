@@ -209,11 +209,11 @@ const storageValidation = useStorageValidation(
   toRef(() => props.catalogUrl),
 );
 
-// Namespace parts: split on \x1F (API format) or dot (display format)
-const namespaceParts = computed(() => {
+// Namespace display: convert \x1F separators to dots for DuckDB SQL
+const namespaceDisplay = computed(() => {
   const ns = props.namespaceId;
-  if (ns.includes('\x1F')) return ns.split('\x1F');
-  return ns.split('.');
+  if (ns.includes('\x1F')) return ns.split('\x1F').join('.');
+  return ns;
 });
 
 // Iceberg primitive types
@@ -278,10 +278,9 @@ const sqlPreview = computed(() => {
     })
     .join(',\n');
 
-  // For Iceberg, use dot-separated quoted identifiers
-  // DuckDB Iceberg expects: "catalog"."ns_part1"."ns_part2"."table"
-  const nsQuoted = namespaceParts.value.map((p) => `"${p}"`).join('.');
-  const fullTablePath = `"${warehouseName.value}".${nsQuoted}."${tableName.value}"`;
+  // For Iceberg, DuckDB expects the full namespace as a single quoted identifier
+  // DuckDB Iceberg expects: "catalog"."namespace.with.dots"."table"
+  const fullTablePath = `"${warehouseName.value}"."${namespaceDisplay.value}"."${tableName.value}"`;
 
   return `CREATE TABLE ${fullTablePath} (
 ${fieldDefinitions}

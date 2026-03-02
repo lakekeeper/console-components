@@ -170,6 +170,16 @@ function parseErrorText(errorText: string): { message: string; code: number } {
   return { message, code };
 }
 
+/**
+ * Normalize a namespace path to use the \x1F unit separator expected by the Iceberg REST API.
+ * Consumers may pass dot-separated (display format) or \x1F-separated (API format).
+ * If no \x1F is present, dots are treated as part separators and converted.
+ */
+function normalizeNamespacePath(ns: string): string {
+  if (ns.includes('\x1F')) return ns;
+  return ns.split('.').join('\x1F');
+}
+
 export function handleError(error: any, functionError: Error | string, notify?: boolean) {
   try {
     console.error('Handling error:', error);
@@ -1135,7 +1145,7 @@ async function updateTableProperties(
       client,
       path: {
         prefix: warehouseId,
-        namespace: namespacePath,
+        namespace: normalizeNamespacePath(namespacePath),
         table: tableName,
       },
       body: {
@@ -1178,7 +1188,7 @@ async function updateViewProperties(
       client,
       path: {
         prefix: warehouseId,
-        namespace: namespacePath,
+        namespace: normalizeNamespacePath(namespacePath),
         view: viewName,
       },
       body: {
@@ -1228,7 +1238,7 @@ async function createBranch(
     const bodyJson = JSONBigNative.stringify(body);
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'POST',
         headers: {
@@ -1306,7 +1316,7 @@ async function renameBranch(
     const bodyJson = JSONBigNative.stringify(body);
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'POST',
         headers: {
@@ -1358,7 +1368,7 @@ async function deleteBranch(
       client,
       path: {
         prefix: warehouseId,
-        namespace: namespacePath,
+        namespace: normalizeNamespacePath(namespacePath),
         table: tableName,
       },
       body: {
@@ -1422,7 +1432,7 @@ async function rollbackBranch(
     const bodyJson = JSONBigNative.stringify(body);
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'POST',
         headers: {
@@ -1630,7 +1640,7 @@ async function loadTable(
       client,
       path: {
         prefix: warehouseId,
-        namespace: namespacePath,
+        namespace: normalizeNamespacePath(namespacePath),
         table: tableName,
       },
     });
@@ -1658,7 +1668,7 @@ async function loadTableCustomized(
     const accessToken = userStore.user.access_token;
 
     const response = await fetch(
-      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(namespacePath)}/tables/${encodeURIComponent(tableName)}`,
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
       {
         method: 'GET',
         headers: {
@@ -1728,7 +1738,7 @@ async function dropTable(
       client,
       path: {
         prefix: warehouseId,
-        namespace: namespacePath,
+        namespace: normalizeNamespacePath(namespacePath),
         table: tableName,
       },
       query: options,
@@ -1760,7 +1770,7 @@ async function registerTable(
       client,
       path: {
         prefix: warehouseId,
-        namespace: namespacePath,
+        namespace: normalizeNamespacePath(namespacePath),
       },
       body: {
         name: tableName,
@@ -1896,7 +1906,7 @@ async function loadView(
       client,
       path: {
         prefix: warehouseId,
-        namespace: namespacePath,
+        namespace: normalizeNamespacePath(namespacePath),
         view: viewName,
       },
     });
@@ -1926,7 +1936,7 @@ async function dropView(
       client,
       path: {
         prefix: warehouseId,
-        namespace: namespacePath,
+        namespace: normalizeNamespacePath(namespacePath),
         view: viewName,
       },
       query: options,
