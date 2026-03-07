@@ -50,7 +50,7 @@
       <!-- D3 chart -->
       <v-row no-gutters class="ml-2 pl-2">
         <v-col cols="12">
-          <div class="chart-outer" :style="{ height: chartHeight + 'px' }">
+          <div class="chart-wrapper" :style="{ height: chartHeight + 'px' }">
             <div ref="chartRef" class="chart-container"></div>
           </div>
         </v-col>
@@ -839,8 +839,9 @@ import { useFunctions } from '../plugins/functions';
 // ─── Reactive chart height from viewport ─────────────────────────────────────
 const { height: viewportHeight } = useDisplay();
 const chartHeight = computed(() => {
-  // 40% of viewport, clamped between 250px and 500px
-  return Math.max(250, Math.min(500, Math.round(viewportHeight.value * 0.4)));
+  // Max 30vh, minus 5% breathing room
+  const maxH = viewportHeight.value * 0.3;
+  return Math.max(150, Math.round(maxH * 0.95));
 });
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -1335,7 +1336,7 @@ function renderChart() {
 
   const container = chartRef.value;
   const width = container.clientWidth || 800;
-  const height = container.clientHeight || 500;
+  const height = chartHeight.value;
 
   // Tear down previous SVG
   d3.select(container).selectAll('svg').remove();
@@ -1584,13 +1585,9 @@ function renderChart() {
     ];
     if (!allLabels.length) return;
 
-    const busy = nodeBusy.get(d.snapshotId) || new Set<string>();
-    const curvesGoDown = busy.has('down');
-    const curvesGoUp = busy.has('up');
-
-    // Choose initial label direction: prefer above if curves go down, below if curves go up
-    // If both are busy or neither, default to below
-    const preferAbove = curvesGoDown && !curvesGoUp;
+    // Tags always above, branches always below
+    const tagLabels = allLabels.filter((l) => l.kind === 'tag');
+    const branchLabels = allLabels.filter((l) => l.kind === 'branch');
 
     // Slot templates (dy is signed: negative = above, positive = below)
     const aboveSlots = [
@@ -1609,25 +1606,26 @@ function renderChart() {
       { dx: 80, dy: 55, anchor: 'start' },
       { dx: 0, dy: 65, anchor: 'middle' },
     ];
-    const slotsPool = preferAbove ? aboveSlots : belowSlots;
 
-    // Pick slots based on count to spread nicely
-    let slots: typeof slotsPool;
-    if (allLabels.length === 1) {
-      slots = [slotsPool[0]];
-    } else if (allLabels.length === 2) {
-      slots = [slotsPool[1], slotsPool[2]];
-    } else if (allLabels.length === 3) {
-      slots = [slotsPool[1], slotsPool[0], slotsPool[2]];
-    } else {
-      slots = allLabels.map((_, i) => slotsPool[i % slotsPool.length]);
+    // Helper to pick slots based on label count
+    function pickSlots(pool: typeof aboveSlots, count: number) {
+      if (count === 1) return [pool[0]];
+      if (count === 2) return [pool[1], pool[2]];
+      if (count === 3) return [pool[1], pool[0], pool[2]];
+      return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
     }
 
-    allLabels.forEach((label, idx) => {
-      const slot = slots[idx];
+    // Build ordered list: tags (above slots) then branches (below slots)
+    const orderedLabels: { label: typeof allLabels[0]; slot: typeof aboveSlots[0]; above: boolean }[] = [];
+    const tagSlots = pickSlots(aboveSlots, tagLabels.length);
+    tagLabels.forEach((label, i) => orderedLabels.push({ label, slot: tagSlots[i], above: true }));
+    const branchSlotsPicked = pickSlots(belowSlots, branchLabels.length);
+    branchLabels.forEach((label, i) => orderedLabels.push({ label, slot: branchSlotsPicked[i], above: false }));
+
+    orderedLabels.forEach(({ label, slot, above }) => {
       const isBranch = label.kind === 'branch';
       const startX = d.x;
-      const startY = preferAbove ? d.y - d.radius - 4 : d.y + d.radius + 4;
+      const startY = above ? d.y - d.radius - 4 : d.y + d.radius + 4;
       let labelX = d.x + slot.dx;
       let labelY = d.y + slot.dy;
 
@@ -1640,7 +1638,7 @@ function renderChart() {
         .attr('x1', startX)
         .attr('y1', startY)
         .attr('x2', labelX)
-        .attr('y2', labelY - (preferAbove ? -8 : 8))
+        .attr('y2', labelY - (above ? -8 : 8))
         .attr('stroke', label.color)
         .attr('stroke-width', 1)
         .attr('stroke-dasharray', '3,3')
@@ -1704,7 +1702,7 @@ function renderChart() {
         textNode.attr('x', labelX).attr('y', labelY);
         leaderLine
           .attr('x2', labelX)
-          .attr('y2', labelY - (preferAbove ? -8 : 8));
+          .attr('y2', labelY - (above ? -8 : 8));
 
         const newBbox = (textNode.node() as SVGTextElement)?.getBBox();
         if (newBbox && bgRect) {
@@ -1738,8 +1736,8 @@ function renderChart() {
         `Seq ${d.sequenceNumber} | ID ${d.snapshotId}${d.schemaChange ? ` | Schema ${d.schemaChange.from}\u2192${d.schemaChange.to}` : ''}`,
     );
 
-  // Auto fit
-  setTimeout(fitToView, 50);
+  // Auto fit — delay to ensure labels/text are fully rendered for accurate getBBox
+  setTimeout(fitToView, 150);
 }
 
 // ─── Zoom controls ───────────────────────────────────────────────────────────
@@ -1760,26 +1758,28 @@ function resetZoom() {
 }
 
 function fitToView() {
-  if (!svg || !zoomBehavior || !chartRef.value || graphNodes.value.length === 0) return;
+  if (!svg || !zoomBehavior || !rootG || !chartRef.value || graphNodes.value.length === 0) return;
 
   const containerW = chartRef.value.clientWidth || 800;
-  const containerH = chartRef.value.clientHeight || 500;
+  const containerH = chartHeight.value;
   const pad = 50;
 
-  const xs = graphNodes.value.map((n) => n.x);
-  const ys = graphNodes.value.map((n) => n.y);
-  // Account for labels fanning out from nodes
-  const labelCount = graphNodes.value.map((n) => n.branchLabels.length + n.tagLabels.length);
-  const minX = Math.min(...xs.map((x, i) => x - (labelCount[i] > 1 ? 120 : 30)));
-  const maxX = Math.max(...xs.map((x, i) => x + (labelCount[i] > 1 ? 120 : 30)));
-  const minY = Math.min(...ys) - 40;
-  const maxY = Math.max(...ys.map((y, i) => y + (labelCount[i] > 0 ? 80 : 30)));
+  // Use actual rendered bounding box for scale (ensures everything fits)
+  const bbox = rootG.node()?.getBBox();
+  if (!bbox || bbox.width === 0 || bbox.height === 0) return;
 
-  const gW = maxX - minX;
-  const gH = maxY - minY;
-  const scale = Math.min((containerW - pad * 2) / gW, (containerH - pad * 2) / gH, 2);
-  const tx = containerW / 2 - ((minX + maxX) / 2) * scale;
-  const ty = containerH / 2 - ((minY + maxY) / 2) * scale;
+  const gW = bbox.width + pad * 2;
+  const gH = bbox.height + pad * 2;
+  // Bbox center in rootG coordinates
+  const cx = bbox.x + bbox.width / 2;
+  const cy = bbox.y + bbox.height / 2;
+
+  // Responsive max scale: small screens (≤900px tall) cap at 1x, large screens up to 1.8x
+  const vh = viewportHeight.value;
+  const maxScale = vh <= 900 ? 1 : Math.min(1 + (vh - 900) / 500, 1.8);
+  const scale = Math.min(containerW / gW, containerH / gH, maxScale);
+  const tx = containerW / 2 - cx * scale;
+  const ty = containerH / 2 - cy * scale;
 
   svg
     .transition()
@@ -2405,14 +2405,6 @@ onBeforeUnmount(() => {
 }
 
 
-
-.chart-container {
-  height: 100%;
-  overflow: hidden;
-  touch-action: none;
-  user-select: none;
-}
-
 /* .details-scroll-area {
   flex: 1;
   min-height: 0;
@@ -2430,11 +2422,17 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Chart outer */
-.chart-outer {
-  position: relative;
-  min-height: 200px;
+/* Chart wrapper — height set by inline style from chartHeight */
+.chart-wrapper {
   overflow: hidden;
+}
+
+.chart-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
 }
 
 /* Zoom bar — sits above chart */
