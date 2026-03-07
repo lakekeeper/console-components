@@ -158,8 +158,8 @@
       </v-row>
 
       <!-- Snapshot details (appears on node click) -->
-      <v-row no-gutters>
-        <v-col cols="12">
+      <v-row no-gutters class="details-row">
+        <v-col cols="12" style="min-height: 0; overflow-y: auto">
           <v-slide-y-transition>
             <div
               v-if="selectedSnapshot"
@@ -2400,8 +2400,8 @@ onBeforeUnmount(() => {
 .branch-layout {
   display: flex;
   flex-direction: column;
-  max-height: calc(80vh - 60px);
-  overflow-y: auto;
+  height: 100%;
+  overflow: hidden;
 }
 
 
@@ -2474,6 +2474,13 @@ onBeforeUnmount(() => {
 }
 
 
+
+/* Details row — takes remaining space, scrolls internally */
+.details-row {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
 
 /* Details panel — below chart, scrollable */
 .details-panel {
