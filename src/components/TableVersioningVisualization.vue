@@ -201,7 +201,7 @@
                         </v-chip>
                         <!-- Create branch from snapshot -->
                         <v-btn
-                          v-if="canRollback"
+                          v-if="canRollback && !isSelectedSnapshotDropped"
                           color="primary"
                           size="small"
                           variant="tonal"
@@ -211,7 +211,7 @@
                           Create Branch
                         </v-btn>
                         <v-btn
-                          v-if="canRollback"
+                          v-if="canRollback && !isSelectedSnapshotDropped"
                           color="teal"
                           size="small"
                           variant="tonal"
@@ -296,7 +296,7 @@
                           {{ Object.keys(selectedSnapshot.summary).length }}
                         </v-chip>
                         <!-- Branch actions menu -->
-                        <v-menu v-if="canRollback">
+                        <v-menu v-if="canRollback && !isSelectedSnapshotDropped">
                           <template #activator="{ props: menuProps }">
                             <v-btn
                               v-bind="menuProps"
@@ -318,17 +318,11 @@
                                 prepend-icon="mdi-fast-forward"
                                 @click="openFastForwardDialog(branch)"></v-list-item>
                             </template>
-                            <template v-if="rollbackableBranches.length > 0">
-                              <v-list-subheader>
-                                Rollback to #{{ selectedSnapshot?.['sequence-number'] }}
-                              </v-list-subheader>
-                              <v-list-item
-                                v-for="branch in rollbackableBranches"
-                                :key="'rb-' + branch.name"
-                                :title="branch.name"
-                                prepend-icon="mdi-undo-variant"
-                                @click="openRollbackDialog(branch)"></v-list-item>
-                            </template>
+                            <v-list-item
+                              v-if="rollbackableBranches.length > 0"
+                              :title="'Rollback to ' + selectedSnapshot?.['snapshot-id']"
+                              prepend-icon="mdi-undo-variant"
+                              @click="openRollbackDialog()"></v-list-item>
                             <template v-if="deletableBranches.length > 0">
                               <v-list-subheader>Delete</v-list-subheader>
                               <v-list-item
@@ -649,17 +643,26 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon color="warning" class="mr-2">mdi-undo-variant</v-icon>
-          Rollback Branch
+          Rollback to Snapshot
         </v-card-title>
         <v-card-text>
           <v-alert type="warning" variant="tonal" density="compact" class="mb-4">
-            This will re-point branch
-            <strong>"{{ rollbackTargetBranch?.name }}"</strong>
-            to snapshot
+            This will roll back to snapshot
             <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
             (ID: {{ selectedSnapshot?.['snapshot-id'] }}). Any snapshots after this point will
-            become unreachable from this branch.
+            become unreachable.
           </v-alert>
+          <v-select
+            v-if="rollbackableBranches.length > 1"
+            v-model="rollbackTargetBranch"
+            :items="rollbackableBranches"
+            item-title="name"
+            return-object
+            label="Branch to rollback"
+            density="compact"
+            variant="outlined"
+            class="mb-4"
+            hide-details></v-select>
           <div class="text-body-2 mb-2">
             Type the snapshot ID
             <strong>"{{ String(selectedSnapshot?.['snapshot-id']) }}"</strong>
@@ -682,7 +685,7 @@
           <v-btn
             color="warning"
             :disabled="
-              rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) || rollbackLoading
+              rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) || rollbackLoading || !rollbackTargetBranch
             "
             :loading="rollbackLoading"
             @click="executeRollback">
@@ -1966,6 +1969,25 @@ watch(selectedSnapshot, (snap) => {
     );
 });
 
+// ─── Dropped Snapshot Guard ──────────────────────────────────────────────────
+/**
+ * True when the selected snapshot belongs exclusively to dropped branches,
+ * meaning it is not reachable from any active branch or tag.
+ */
+const isSelectedSnapshotDropped = computed(() => {
+  if (!selectedSnapshot.value) return false;
+  const sidStr = String(selectedSnapshot.value['snapshot-id']);
+  // Check if any active (non-dropped) branch has this snapshot in its ancestry
+  const reachableFromActive = branches.value.some(
+    (b) => b.type !== 'dropped' && b.ancestry.some((id) => String(id) === sidStr),
+  );
+  if (reachableFromActive) return false;
+  // Check if any tag points to this snapshot
+  const taggedSnapshot = tags.value.some((t) => String(t.snapshotId) === sidStr);
+  if (taggedSnapshot) return false;
+  return true;
+});
+
 // ─── Rollback Logic ──────────────────────────────────────────────────────────
 
 /**
@@ -2060,7 +2082,8 @@ const deletableBranches = computed<BranchMeta[]>(() => {
   return branches.value.filter((b) => {
     if (b.type !== 'branch') return false;
     if (b.name === 'main' || b.name === 'master') return false;
-    return b.ancestry.some((id) => String(id) === sidStr);
+    // Only offer delete when the selected snapshot is this branch's tip
+    return String(b.tipSnapshotId) === sidStr;
   });
 });
 
@@ -2315,8 +2338,9 @@ async function executeDeleteTag() {
   }
 }
 
-function openRollbackDialog(branch: BranchMeta) {
-  rollbackTargetBranch.value = branch;
+function openRollbackDialog() {
+  rollbackTargetBranch.value =
+    rollbackableBranches.value.length === 1 ? rollbackableBranches.value[0] : null;
   rollbackConfirmText.value = '';
   rollbackDialog.value = true;
 }
