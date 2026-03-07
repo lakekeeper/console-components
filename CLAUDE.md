@@ -582,7 +582,11 @@ The consuming app must provide: `vue ^3.5`, `vuetify ^3.8`, `pinia ^2.3`, `vue-r
 
 1. Implement the function in `src/plugins/functions.ts`
 2. Add it to the `useFunctions()` return object
-3. If it involves i64 values, use raw fetch + json-bigint
+3. If it involves i64 values (e.g. snapshot-id), use raw `fetch` + `json-bigint`:
+   - Serialize request body with `JSONBig().stringify(body)` to emit unquoted i64 numbers
+   - Parse response with `JSONBig({ storeAsString: true }).parse(await response.text())` to preserve precision
+   - **Never** use `response.json()` — it silently corrupts values > `Number.MAX_SAFE_INTEGER`
+   - **Never** use `ice.updateTable()` or other generated SDK calls for i64-carrying endpoints — use raw fetch instead
 
 ### Adding a new store
 
