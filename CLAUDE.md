@@ -260,7 +260,7 @@ app.use(auth);
 
 ### Table
 
-`TableCreate`, `TableRegister` (register external table), `TableHeader`, `TableDetails`, `TableOverview`, `TableRaw` (raw JSON metadata), `TablePreview` (data preview via DuckDB), `TableBranch`, `TableBranchVisualization` (branch/ref graph), `TableSnapshotDetails`, `TableHealth` (health assessment), `TableHealthActions` (recommended actions: compaction, partition optimization, etc.)
+`TableCreate`, `TableRegister` (register external table), `TableHeader`, `TableDetails`, `TableOverview`, `TableRaw` (raw JSON metadata), `TablePreview` (data preview via DuckDB), `TableVersioning`, `TableVersioningVisualization` (branch/ref graph), `TableSnapshotDetails`, `TableHealth` (health assessment), `TableHealthActions` (recommended actions: compaction, partition optimization, etc.)
 
 ### View
 

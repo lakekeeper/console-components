@@ -1,5 +1,5 @@
 <template>
-  <TableBranchVisualization
+  <TableVersioningVisualization
     :table="table"
     :snapshot-history="snapshotHistory"
     :can-rollback="canCommit"
@@ -20,7 +20,7 @@
 import { reactive, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
-import TableBranchVisualization from './TableBranchVisualization.vue';
+import TableVersioningVisualization from './TableVersioningVisualization.vue';
 import type { LoadTableResult, Snapshot } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
