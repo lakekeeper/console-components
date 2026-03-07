@@ -1261,7 +1261,8 @@ async function createBranch(
       throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
     }
 
-    const data = await response.json();
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(await response.text());
 
     if (notify) {
       handleSuccess('createBranch', `Branch '${branchName}' created successfully`, notify);
@@ -1339,7 +1340,8 @@ async function renameBranch(
       throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
     }
 
-    const data = await response.json();
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(await response.text());
 
     if (notify) {
       handleSuccess(
@@ -1363,20 +1365,40 @@ async function deleteBranch(
   notify?: boolean,
 ) {
   try {
-    const client = iceClient.client;
-    const { data, error } = await ice.updateTable({
-      client,
-      path: {
-        prefix: warehouseId,
-        namespace: normalizeNamespacePath(namespacePath),
-        table: tableName,
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    const body = {
+      requirements: [],
+      updates: [{ action: 'remove-snapshot-ref', 'ref-name': branchName }],
+    };
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
       },
-      body: {
-        requirements: [],
-        updates: [{ action: 'remove-snapshot-ref', 'ref-name': branchName } as any],
-      },
-    });
-    if (error) throw error;
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(await response.text());
 
     if (notify) {
       handleSuccess('deleteBranch', `Branch '${branchName}' deleted successfully`, notify);
@@ -1441,7 +1463,8 @@ async function createTag(
       throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
     }
 
-    const data = await response.json();
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(await response.text());
 
     if (notify) {
       handleSuccess('createTag', `Tag '${tagName}' created successfully`, notify);
@@ -1517,7 +1540,8 @@ async function renameTag(
       throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
     }
 
-    const data = await response.json();
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(await response.text());
 
     if (notify) {
       handleSuccess('renameTag', `Tag '${oldTagName}' renamed to '${newTagName}'`, notify);
@@ -1537,20 +1561,40 @@ async function deleteTag(
   notify?: boolean,
 ) {
   try {
-    const client = iceClient.client;
-    const { data, error } = await ice.updateTable({
-      client,
-      path: {
-        prefix: warehouseId,
-        namespace: normalizeNamespacePath(namespacePath),
-        table: tableName,
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    const body = {
+      requirements: [],
+      updates: [{ action: 'remove-snapshot-ref', 'ref-name': tagName }],
+    };
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(body),
       },
-      body: {
-        requirements: [],
-        updates: [{ action: 'remove-snapshot-ref', 'ref-name': tagName } as any],
-      },
-    });
-    if (error) throw error;
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(await response.text());
 
     if (notify) {
       handleSuccess('deleteTag', `Tag '${tagName}' deleted successfully`, notify);
@@ -1629,7 +1673,8 @@ async function rollbackBranch(
       throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
     }
 
-    const data = await response.json();
+    const JSONBigString = JSONBig({ storeAsString: true });
+    const data = JSONBigString.parse(await response.text());
 
     if (notify) {
       handleSuccess('rollbackBranch', `Branch '${branchName}' rolled back successfully`, notify);
