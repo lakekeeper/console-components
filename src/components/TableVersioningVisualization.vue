@@ -12,113 +12,153 @@
     </v-row>
 
     <div v-else class="branch-layout">
-      <!-- Row 1: Fixed D3 chart — never scrolls -->
-      <v-row no-gutters class="flex-grow-0 flex-shrink-0 ml-2 pl-2">
+      <!-- Zoom controls — own row above chart -->
+      <v-row no-gutters class="ml-2 pl-2">
         <v-col cols="12">
-          <div class="chart-outer">
-            <div ref="chartRef" class="chart-container"></div>
-
-            <!-- Floating zoom controls — top-left -->
-            <div class="zoom-overlay">
-              <v-btn-group variant="flat" density="compact" class="zoom-group">
-                <v-btn size="x-small" icon="mdi-plus" @click="zoomIn"></v-btn>
-                <v-btn size="x-small" class="zoom-label" @click="resetZoom">
-                  {{ Math.round(currentZoom * 100) }}%
-                </v-btn>
-                <v-btn size="x-small" icon="mdi-minus" class="mr-2" @click="zoomOut"></v-btn>
-                <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
-              </v-btn-group>
-            </div>
-
-            <!-- Legend — bottom-left -->
-            <div class="legend-overlay">
-              <v-chip
-                v-for="entry in legendEntries"
-                :key="entry.name"
-                size="x-small"
-                variant="tonal"
-                class="legend-chip"
-                :style="{ opacity: entry.opacity }">
-                <template #prepend>
-                  <svg width="14" height="14" class="mr-1">
-                    <circle
-                      cx="7"
-                      cy="7"
-                      r="6"
-                      fill="none"
-                      :stroke="entry.color"
-                      stroke-width="1"
-                      opacity="0.5" />
-                    <circle cx="7" cy="7" r="4" :fill="entry.color" />
-                    <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
-                  </svg>
-                </template>
-                {{ entry.name }}
-                <template #append>
-                  <v-btn
-                    v-if="
-                      canRollback &&
-                      entry.type === 'branch' &&
-                      entry.name !== 'main' &&
-                      entry.name !== 'master'
-                    "
-                    icon="mdi-pencil-outline"
-                    size="x-small"
-                    variant="text"
-                    density="compact"
-                    class="ml-1"
-                    @click.stop="openRenameBranchDialog(entry.name)"></v-btn>
-                  <v-btn
-                    v-if="
-                      canRollback &&
-                      entry.type === 'branch' &&
-                      entry.name !== 'main' &&
-                      entry.name !== 'master'
-                    "
-                    icon="mdi-close-circle"
-                    size="x-small"
-                    variant="text"
-                    density="compact"
-                    style="margin-right: -6px"
-                    @click.stop="openDeleteBranchDialog(entry.name)"></v-btn>
-                </template>
-              </v-chip>
-              <v-chip size="x-small" variant="tonal" class="legend-chip">
-                <template #prepend>
-                  <svg width="14" height="14" class="mr-1">
-                    <circle
-                      cx="7"
-                      cy="7"
-                      r="6"
-                      fill="none"
-                      stroke="#f57c00"
-                      stroke-width="1"
-                      opacity="0.5" />
-                    <circle cx="7" cy="7" r="4" fill="#ff9800" />
-                    <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
-                  </svg>
-                </template>
-                schema change
-              </v-chip>
-            </div>
-
-            <!-- Click hint -->
-            <div v-if="!selectedSnapshot" class="hint-overlay">
+          <div class="zoom-bar">
+            <v-btn-group variant="flat" density="comfortable" class="zoom-group" rounded="lg">
+              <v-btn size="small" icon="mdi-plus" @click="zoomIn">
+                <v-icon size="18">mdi-plus</v-icon>
+                <v-tooltip activator="parent" location="bottom">Zoom in</v-tooltip>
+              </v-btn>
+              <v-btn size="small" class="zoom-label" @click="resetZoom">
+                {{ Math.round(currentZoom * 100) }}%
+                <v-tooltip activator="parent" location="bottom">Reset zoom</v-tooltip>
+              </v-btn>
+              <v-btn size="small" icon="mdi-minus" @click="zoomOut">
+                <v-icon size="18">mdi-minus</v-icon>
+                <v-tooltip activator="parent" location="bottom">Zoom out</v-tooltip>
+              </v-btn>
+              <v-btn size="small" icon="mdi-fit-to-screen" @click="fitToView">
+                <v-icon size="18">mdi-fit-to-screen</v-icon>
+                <v-tooltip activator="parent" location="bottom">Fit to view</v-tooltip>
+              </v-btn>
+            </v-btn-group>
+            <v-divider vertical class="mx-3 my-1"></v-divider>
+            <span v-if="!selectedSnapshot" class="text-body-2 text-medium-emphasis">
               <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
-              <span class="text-caption">Click a node for details</span>
-            </div>
+              Click a node for details
+            </span>
+            <span v-else class="text-body-2 font-weight-medium">
+              <v-icon size="16" class="mr-1" color="primary">mdi-camera-outline</v-icon>
+              Snapshot #{{ selectedSnapshot['sequence-number'] }} selected
+            </span>
           </div>
         </v-col>
       </v-row>
 
-      <!-- Row 2: Snapshot details (appears on node click) -->
-      <v-row no-gutters class="details-scroll-area">
+      <!-- D3 chart -->
+      <v-row no-gutters class="ml-2 pl-2">
         <v-col cols="12">
+          <div class="chart-wrapper" :style="{ height: chartHeight + 'px' }">
+            <div ref="chartRef" class="chart-container"></div>
+          </div>
+        </v-col>
+      </v-row>
+
+      <!-- Legend — own row, always visible -->
+      <v-row no-gutters class="ml-2 pl-2">
+        <v-col cols="12">
+          <div class="legend-bar">
+            <v-chip
+              v-for="entry in legendEntries"
+              :key="entry.name"
+              size="x-small"
+              variant="tonal"
+              class="legend-chip"
+              :style="{ opacity: entry.opacity }">
+              <template #prepend>
+                <!-- Tag icon -->
+                <svg v-if="entry.type === 'tag'" width="14" height="14" class="mr-1">
+                  <path d="M 2 3 L 9 3 L 12 7 L 9 11 L 2 11 Z" :fill="entry.color" opacity="0.8" />
+                  <circle cx="4.5" cy="7" r="1.2" fill="white" opacity="0.7" />
+                </svg>
+                <!-- Branch / dropped icon -->
+                <svg v-else width="14" height="14" class="mr-1">
+                  <circle
+                    cx="7"
+                    cy="7"
+                    r="6"
+                    fill="none"
+                    :stroke="entry.color"
+                    stroke-width="1"
+                    opacity="0.5" />
+                  <circle cx="7" cy="7" r="4" :fill="entry.color" />
+                  <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
+                </svg>
+              </template>
+              {{ entry.name }}
+              <template #append>
+                <v-btn
+                  v-if="
+                    canRollback &&
+                    entry.type === 'branch' &&
+                    entry.name !== 'main' &&
+                    entry.name !== 'master'
+                  "
+                  icon="mdi-pencil-outline"
+                  size="x-small"
+                  variant="text"
+                  density="compact"
+                  class="ml-1"
+                  @click.stop="openRenameBranchDialog(entry.name)"></v-btn>
+                <v-btn
+                  v-if="
+                    canRollback &&
+                    entry.type === 'branch' &&
+                    entry.name !== 'main' &&
+                    entry.name !== 'master'
+                  "
+                  icon="mdi-close-circle"
+                  size="x-small"
+                  variant="text"
+                  density="compact"
+                  style="margin-right: -6px"
+                  @click.stop="openDeleteBranchDialog(entry.name)"></v-btn>
+                <v-btn
+                  v-if="canRollback && entry.type === 'tag'"
+                  icon="mdi-pencil-outline"
+                  size="x-small"
+                  variant="text"
+                  density="compact"
+                  class="ml-1"
+                  @click.stop="openRenameTagDialog(entry.name)"></v-btn>
+                <v-btn
+                  v-if="canRollback && entry.type === 'tag'"
+                  icon="mdi-close-circle"
+                  size="x-small"
+                  variant="text"
+                  density="compact"
+                  style="margin-right: -6px"
+                  @click.stop="openDeleteTagDialog(entry.name)"></v-btn>
+              </template>
+            </v-chip>
+            <v-chip size="x-small" variant="tonal" class="legend-chip">
+              <template #prepend>
+                <svg width="14" height="14" class="mr-1">
+                  <circle
+                    cx="7"
+                    cy="7"
+                    r="6"
+                    fill="none"
+                    stroke="#f57c00"
+                    stroke-width="1"
+                    opacity="0.5" />
+                  <circle cx="7" cy="7" r="4" fill="#ff9800" />
+                  <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
+                </svg>
+              </template>
+              schema change
+            </v-chip>
+          </div>
+        </v-col>
+      </v-row>
+
+      <!-- Snapshot details (appears on node click) -->
+      <v-row no-gutters class="details-row">
+        <v-col cols="12" style="min-height: 0; overflow-y: auto">
           <v-slide-y-transition>
-            <div
-              v-if="selectedSnapshot"
-              class="details-panel"
-              style="max-height: 45vh; overflow-y: auto">
+            <div v-if="selectedSnapshot" class="details-panel">
               <div class="pa-3">
                 <!-- Header with close button -->
                 <div class="d-flex align-center justify-space-between mb-3">
@@ -155,7 +195,7 @@
                         </v-chip>
                         <!-- Create branch from snapshot -->
                         <v-btn
-                          v-if="canRollback"
+                          v-if="canRollback && !isSelectedSnapshotDropped"
                           color="primary"
                           size="small"
                           variant="tonal"
@@ -163,6 +203,15 @@
                           class="mr-1"
                           @click="openCreateBranchDialog">
                           Create Branch
+                        </v-btn>
+                        <v-btn
+                          v-if="canRollback && !isSelectedSnapshotDropped"
+                          color="teal"
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-tag-plus-outline"
+                          @click="openCreateTagDialog">
+                          Create Tag
                         </v-btn>
                       </v-toolbar>
                       <v-divider></v-divider>
@@ -241,7 +290,7 @@
                           {{ Object.keys(selectedSnapshot.summary).length }}
                         </v-chip>
                         <!-- Branch actions menu -->
-                        <v-menu v-if="canRollback">
+                        <v-menu v-if="canRollback && !isSelectedSnapshotDropped">
                           <template #activator="{ props: menuProps }">
                             <v-btn
                               v-bind="menuProps"
@@ -263,17 +312,11 @@
                                 prepend-icon="mdi-fast-forward"
                                 @click="openFastForwardDialog(branch)"></v-list-item>
                             </template>
-                            <template v-if="rollbackableBranches.length > 0">
-                              <v-list-subheader>
-                                Rollback to #{{ selectedSnapshot?.['sequence-number'] }}
-                              </v-list-subheader>
-                              <v-list-item
-                                v-for="branch in rollbackableBranches"
-                                :key="'rb-' + branch.name"
-                                :title="branch.name"
-                                prepend-icon="mdi-undo-variant"
-                                @click="openRollbackDialog(branch)"></v-list-item>
-                            </template>
+                            <v-list-item
+                              v-if="rollbackableBranches.length > 0"
+                              :title="'Rollback to ' + selectedSnapshot?.['snapshot-id']"
+                              prepend-icon="mdi-undo-variant"
+                              @click="openRollbackDialog()"></v-list-item>
                             <template v-if="deletableBranches.length > 0">
                               <v-list-subheader>Delete</v-list-subheader>
                               <v-list-item
@@ -283,6 +326,16 @@
                                 prepend-icon="mdi-source-branch-remove"
                                 base-color="error"
                                 @click="openDeleteBranchDialog(branch.name)"></v-list-item>
+                            </template>
+                            <template v-if="deletableTags.length > 0">
+                              <v-list-subheader>Delete Tag</v-list-subheader>
+                              <v-list-item
+                                v-for="tag in deletableTags"
+                                :key="'del-tag-' + tag.name"
+                                :title="tag.name"
+                                prepend-icon="mdi-tag-off-outline"
+                                base-color="error"
+                                @click="openDeleteTagDialog(tag.name)"></v-list-item>
                             </template>
                           </v-list>
                         </v-menu>
@@ -421,7 +474,7 @@
             :rules="[
               (v) => !!v || 'Required',
               (v) => !/\s/.test(v) || 'No spaces allowed',
-              (v) => !existingBranchNames.includes(v) || 'Branch already exists',
+              (v) => !existingRefNames.includes(v) || 'Name already exists',
             ]"
             placeholder="my-branch"></v-text-field>
         </v-card-text>
@@ -432,7 +485,7 @@
             :disabled="
               !createBranchName ||
               /\s/.test(createBranchName) ||
-              existingBranchNames.includes(createBranchName) ||
+              existingRefNames.includes(createBranchName) ||
               createBranchLoading
             "
             :loading="createBranchLoading"
@@ -467,7 +520,7 @@
               (v) => !!v || 'Required',
               (v) => !/\s/.test(v) || 'No spaces allowed',
               (v) => v !== renameBranchOldName || 'Must be different',
-              (v) => !existingBranchNames.includes(v) || 'Branch already exists',
+              (v) => !existingRefNames.includes(v) || 'Name already exists',
             ]"
             :placeholder="renameBranchOldName"></v-text-field>
         </v-card-text>
@@ -479,7 +532,7 @@
               !renameBranchNewName ||
               /\s/.test(renameBranchNewName) ||
               renameBranchNewName === renameBranchOldName ||
-              existingBranchNames.includes(renameBranchNewName) ||
+              existingRefNames.includes(renameBranchNewName) ||
               renameBranchLoading
             "
             :loading="renameBranchLoading"
@@ -584,17 +637,26 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon color="warning" class="mr-2">mdi-undo-variant</v-icon>
-          Rollback Branch
+          Rollback to Snapshot
         </v-card-title>
         <v-card-text>
           <v-alert type="warning" variant="tonal" density="compact" class="mb-4">
-            This will re-point branch
-            <strong>"{{ rollbackTargetBranch?.name }}"</strong>
-            to snapshot
+            This will roll back to snapshot
             <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
             (ID: {{ selectedSnapshot?.['snapshot-id'] }}). Any snapshots after this point will
-            become unreachable from this branch.
+            become unreachable.
           </v-alert>
+          <v-select
+            v-if="rollbackableBranches.length > 1"
+            v-model="rollbackTargetBranch"
+            :items="rollbackableBranches"
+            item-title="name"
+            return-object
+            label="Branch to rollback"
+            density="compact"
+            variant="outlined"
+            class="mb-4"
+            hide-details></v-select>
           <div class="text-body-2 mb-2">
             Type the snapshot ID
             <strong>"{{ String(selectedSnapshot?.['snapshot-id']) }}"</strong>
@@ -617,7 +679,9 @@
           <v-btn
             color="warning"
             :disabled="
-              rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) || rollbackLoading
+              rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) ||
+              rollbackLoading ||
+              !rollbackTargetBranch
             "
             :loading="rollbackLoading"
             @click="executeRollback">
@@ -627,14 +691,155 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Create tag dialog -->
+    <v-dialog v-model="createTagDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="teal" class="mr-2">mdi-tag-plus-outline</v-icon>
+          Create Tag
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Create a new tag pointing to snapshot
+            <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
+            (ID: {{ selectedSnapshot?.['snapshot-id'] }}).
+          </v-alert>
+          <v-text-field
+            v-model="createTagName"
+            label="Tag name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v) => !!v || 'Required',
+              (v) => !/\s/.test(v) || 'No spaces allowed',
+              (v) => !existingRefNames.includes(v) || 'Name already exists',
+            ]"
+            placeholder="my-tag"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="teal"
+            :disabled="
+              !createTagName ||
+              /\s/.test(createTagName) ||
+              existingRefNames.includes(createTagName) ||
+              createTagLoading
+            "
+            :loading="createTagLoading"
+            @click="executeCreateTag">
+            Create
+          </v-btn>
+          <v-btn @click="closeCreateTagDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Rename tag dialog -->
+    <v-dialog v-model="renameTagDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="teal" class="mr-2">mdi-tag-edit-outline</v-icon>
+          Rename Tag
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Rename tag
+            <strong>"{{ renameTagOldName }}"</strong>
+            . This will atomically create a new reference and remove the old one.
+          </v-alert>
+          <v-text-field
+            v-model="renameTagNewName"
+            label="New tag name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v) => !!v || 'Required',
+              (v) => !/\s/.test(v) || 'No spaces allowed',
+              (v) => v !== renameTagOldName || 'Must be different',
+              (v) => !existingRefNames.includes(v) || 'Name already exists',
+            ]"
+            :placeholder="renameTagOldName"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="teal"
+            :disabled="
+              !renameTagNewName ||
+              /\s/.test(renameTagNewName) ||
+              renameTagNewName === renameTagOldName ||
+              existingRefNames.includes(renameTagNewName) ||
+              renameTagLoading
+            "
+            :loading="renameTagLoading"
+            @click="executeRenameTag">
+            Rename
+          </v-btn>
+          <v-btn @click="closeRenameTagDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete tag confirmation dialog -->
+    <v-dialog v-model="deleteTagDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="error" class="mr-2">mdi-tag-off-outline</v-icon>
+          Delete Tag
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="error" variant="tonal" density="compact" class="mb-4">
+            This will remove the tag reference
+            <strong>"{{ deleteTagName }}"</strong>
+            .
+          </v-alert>
+          <div class="text-body-2 mb-2">
+            Type the tag name
+            <strong>"{{ deleteTagName }}"</strong>
+            to confirm:
+          </div>
+          <v-text-field
+            v-model="deleteTagConfirmText"
+            density="compact"
+            hide-details
+            :placeholder="deleteTagName"
+            variant="outlined"
+            :color="deleteTagConfirmText === deleteTagName ? 'success' : undefined"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="error"
+            :disabled="deleteTagConfirmText !== deleteTagName || deleteTagLoading"
+            :loading="deleteTagLoading"
+            @click="executeDeleteTag">
+            Delete
+          </v-btn>
+          <v-btn @click="closeDeleteTagDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue';
+import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue';
 import * as d3 from 'd3';
+import { useDisplay } from 'vuetify';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 import { useFunctions } from '../plugins/functions';
+
+// ─── Reactive chart height from viewport ─────────────────────────────────────
+const { height: viewportHeight } = useDisplay();
+const chartHeight = computed(() => {
+  // Max 30vh, minus 5% breathing room
+  const maxH = viewportHeight.value * 0.3;
+  return Math.max(150, Math.round(maxH * 0.95));
+});
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
@@ -652,6 +857,9 @@ const emit = defineEmits<{
   createBranch: [];
   renameBranch: [];
   deleteBranch: [];
+  createTag: [];
+  renameTag: [];
+  deleteTag: [];
 }>();
 
 const functions = useFunctions();
@@ -690,6 +898,23 @@ const fastForwardTargetBranch = ref<BranchMeta | null>(null);
 const fastForwardConfirmText = ref('');
 const fastForwardLoading = ref(false);
 
+// ─── Create Tag State ────────────────────────────────────────────────────────
+const createTagDialog = ref(false);
+const createTagName = ref('');
+const createTagLoading = ref(false);
+
+// ─── Rename Tag State ────────────────────────────────────────────────────────
+const renameTagDialog = ref(false);
+const renameTagOldName = ref('');
+const renameTagNewName = ref('');
+const renameTagLoading = ref(false);
+
+// ─── Delete Tag State ────────────────────────────────────────────────────────
+const deleteTagDialog = ref(false);
+const deleteTagName = ref('');
+const deleteTagConfirmText = ref('');
+const deleteTagLoading = ref(false);
+
 // D3 selections — kept outside Vue reactivity
 let svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
 let rootG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
@@ -698,6 +923,7 @@ let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 // ─── Branch Colors ───────────────────────────────────────────────────────────
 const BRANCH_COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f', '#7b1fa2', '#00796b', '#c2185b'];
 const DROPPED_COLOR = '#9e9e9e';
+const TAG_COLOR = '#26a69a';
 
 // ─── Data Model ──────────────────────────────────────────────────────────────
 
@@ -707,6 +933,12 @@ interface BranchMeta {
   color: string;
   tipSnapshotId: number;
   ancestry: number[];
+}
+
+interface TagMeta {
+  name: string;
+  snapshotId: number;
+  maxRefAgeMs?: number;
 }
 
 interface GraphNode {
@@ -719,6 +951,7 @@ interface GraphNode {
   strokeColor: string;
   sequenceNumber: number;
   branchLabels: { name: string; color: string }[];
+  tagLabels: { name: string; color: string }[];
   schemaChange?: { from: number; to: number };
 }
 
@@ -806,6 +1039,24 @@ const branches = computed<BranchMeta[]>(() => {
   return result;
 });
 
+// ─── Computed: tags ──────────────────────────────────────────────────────────
+
+const tags = computed<TagMeta[]>(() => {
+  const result: TagMeta[] = [];
+  const refs = props.table.metadata.refs;
+  if (!refs) return result;
+
+  Object.entries(refs).forEach(([name, refData]: [string, any]) => {
+    if (refData.type !== 'tag') return;
+    result.push({
+      name,
+      snapshotId: refData['snapshot-id'],
+      maxRefAgeMs: refData['max-ref-age-ms'],
+    });
+  });
+  return result;
+});
+
 // ─── Computed: nodes ─────────────────────────────────────────────────────────
 
 const graphNodes = computed<GraphNode[]>(() => {
@@ -865,6 +1116,12 @@ const graphNodes = computed<GraphNode[]>(() => {
     tipMap.get(b.tipSnapshotId)!.push(b);
   });
 
+  const tagMap = new Map<number, TagMeta[]>();
+  tags.value.forEach((t) => {
+    if (!tagMap.has(t.snapshotId)) tagMap.set(t.snapshotId, []);
+    tagMap.get(t.snapshotId)!.push(t);
+  });
+
   return sorted.map((snapshot, index) => {
     const sid = snapshot['snapshot-id'];
     const row = snapshotRow.get(sid) ?? 0;
@@ -878,8 +1135,18 @@ const graphNodes = computed<GraphNode[]>(() => {
       branches.value.find((b) => b.ancestry.includes(sid) && snapshotRow.get(sid) !== undefined) ||
       branches.value.find((b) => b.ancestry.includes(sid));
     const isDropped = ownerBranch?.type === 'dropped';
+    const hasTag = (tagMap.get(sid) || []).length > 0;
     const branchColor = ownerBranch?.color || '#666';
     const tipBranches = tipMap.get(sid) || [];
+    // Tagged-but-dropped snapshots get teal color to show they're anchored
+    const nodeColor = sc ? '#ff9800' : isDropped && hasTag ? TAG_COLOR : branchColor;
+    const nodeStroke = sc
+      ? '#f57c00'
+      : isDropped && hasTag
+        ? '#00796b'
+        : isDropped
+          ? '#757575'
+          : branchColor;
 
     return {
       id: `node-${sid}`,
@@ -887,10 +1154,11 @@ const graphNodes = computed<GraphNode[]>(() => {
       x,
       y,
       radius: sc ? 14 : 11,
-      color: sc ? '#ff9800' : branchColor,
-      strokeColor: sc ? '#f57c00' : isDropped ? '#757575' : branchColor,
+      color: nodeColor,
+      strokeColor: nodeStroke,
       sequenceNumber: snapshot['sequence-number'] || 0,
       branchLabels: tipBranches.map((b) => ({ name: b.name, color: b.color })),
+      tagLabels: (tagMap.get(sid) || []).map((t) => ({ name: t.name, color: TAG_COLOR })),
       schemaChange: sc || undefined,
     };
   });
@@ -986,7 +1254,11 @@ const graphLinks = computed<GraphLink[]>(() => {
       branch.type === 'branch' &&
       mergedExclusiveIds.size > 0 &&
       String(branch.tipSnapshotId) === String(mainBr.tipSnapshotId);
-    const opacity = branch.type === 'dropped' ? 0.5 : 0.8;
+    // Tagged-dropped branches get higher opacity (teal links)
+    const hasTagOnDropped =
+      branch.type === 'dropped' &&
+      branch.ancestry.some((id) => tags.value.some((t) => t.snapshotId === id));
+    const opacity = branch.type === 'dropped' ? (hasTagOnDropped ? 0.7 : 0.5) : 0.8;
 
     if (isMerged) {
       // Only create links where at least one endpoint is branch-exclusive
@@ -1004,11 +1276,25 @@ const graphLinks = computed<GraphLink[]>(() => {
       return;
     }
 
-    // Chain edges
+    // Chain edges — only for snapshots exclusive to this branch
+    // (stop once we hit a snapshot owned by main, to avoid coloring main's links)
+    const mainAncestrySet = mainBr ? new Set(mainBr.ancestry) : new Set<number>();
     for (let i = 0; i < branch.ancestry.length - 1; i++) {
-      const child = nodeMap.get(branch.ancestry[i]);
-      const parent = nodeMap.get(branch.ancestry[i + 1]);
-      if (child && parent) addLink(parent, child, branch.color, opacity);
+      const childId = branch.ancestry[i];
+      const parentId = branch.ancestry[i + 1];
+      const child = nodeMap.get(childId);
+      const parent = nodeMap.get(parentId);
+      if (!child || !parent) continue;
+      // If both child and parent are on main, skip — main will draw its own links
+      if (
+        branch !== mainBr &&
+        branch.type === 'branch' &&
+        mainAncestrySet.has(childId) &&
+        mainAncestrySet.has(parentId)
+      ) {
+        continue;
+      }
+      addLink(parent, child, hasTagOnDropped ? TAG_COLOR : branch.color, opacity);
     }
 
     // Divergence from main
@@ -1028,12 +1314,18 @@ const graphLinks = computed<GraphLink[]>(() => {
 
     // Dropped branch divergence
     if (branch.type === 'dropped' && branch.ancestry.length > 0) {
+      // Check if any snapshot on this dropped branch has a tag
+      const hasTaggedSnapshot = branch.ancestry.some((id) =>
+        tags.value.some((t) => t.snapshotId === id),
+      );
+      const dropColor = hasTaggedSnapshot ? TAG_COLOR : DROPPED_COLOR;
+      const dropOpacity = hasTaggedSnapshot ? 0.7 : 0.5;
       const lastId = branch.ancestry[branch.ancestry.length - 1];
       const lastSnap = props.snapshotHistory.find((s) => s['snapshot-id'] === lastId);
       if (lastSnap?.['parent-snapshot-id']) {
         const from = nodeMap.get(lastSnap['parent-snapshot-id']);
         const to = nodeMap.get(lastId);
-        if (from && to) addLink(from, to, DROPPED_COLOR, 0.5, 'drop-');
+        if (from && to) addLink(from, to, dropColor, dropOpacity, 'drop-');
       }
     }
   });
@@ -1062,6 +1354,9 @@ const legendEntries = computed(() => {
       opacity: 0.7,
     });
   }
+  tags.value.forEach((t) => {
+    entries.push({ name: t.name, color: TAG_COLOR, type: 'tag', opacity: 1 });
+  });
   return entries;
 });
 
@@ -1072,7 +1367,7 @@ function renderChart() {
 
   const container = chartRef.value;
   const width = container.clientWidth || 800;
-  const height = container.clientHeight || 500;
+  const height = chartHeight.value;
 
   // Tear down previous SVG
   d3.select(container).selectAll('svg').remove();
@@ -1289,38 +1584,186 @@ function renderChart() {
     .style('pointer-events', 'none')
     .text('S');
 
-  // Branch labels (above node — like station name)
-  nodeGroups.each(function (d) {
-    d.branchLabels.forEach((label, idx) => {
-      // Small rounded rect behind the label
-      const textNode = d3
-        .select(this)
-        .append('text')
-        .attr('x', d.x)
-        .attr('y', d.y - d.radius - 10 - idx * 18)
-        .attr('font-size', 10)
-        .attr('font-weight', '700')
-        .attr('fill', label.color)
-        .attr('text-anchor', 'middle')
-        .style('pointer-events', 'none')
-        .style('text-transform', 'uppercase')
-        .style('letter-spacing', '0.05em')
-        .text(label.name);
+  // ── Ref labels (branches + tags) — draggable, placed to avoid curves ──
+  const labelsG = rootG.append('g').attr('class', 'ref-labels');
 
-      // Underline accent
+  // Build a set of directions that are "busy" for each node (links going up/down)
+  const nodeBusy = new Map<number, Set<string>>();
+  const nodeMap2 = new Map<number, GraphNode>();
+  graphNodes.value.forEach((n) => nodeMap2.set(n.snapshotId, n));
+
+  graphLinks.value.forEach((link) => {
+    // Parse source/target from link path to detect vertical direction
+    const m = link.path.match(/^M\s+([\d.]+)\s+([\d.]+).*?([\d.]+)\s+([\d.]+)$/);
+    if (!m) return;
+    const y1 = parseFloat(m[2]);
+    const y2 = parseFloat(m[4]);
+    // Find which nodes are at these positions
+    graphNodes.value.forEach((n) => {
+      if (!nodeBusy.has(n.snapshotId)) nodeBusy.set(n.snapshotId, new Set());
+      const busy = nodeBusy.get(n.snapshotId)!;
+      if (Math.abs(n.y - y1) < 5 || Math.abs(n.y - y2) < 5) {
+        if (y2 < y1 - 5) busy.add('up');
+        if (y2 > y1 + 5) busy.add('down');
+      }
+    });
+  });
+
+  graphNodes.value.forEach((d) => {
+    const allLabels: { name: string; color: string; kind: 'branch' | 'tag' }[] = [
+      ...d.branchLabels.map((l) => ({ ...l, kind: 'branch' as const })),
+      ...d.tagLabels.map((l) => ({ ...l, kind: 'tag' as const })),
+    ];
+    if (!allLabels.length) return;
+
+    // Tags always above, branches always below
+    const tagLabels = allLabels.filter((l) => l.kind === 'tag');
+    const branchLabels = allLabels.filter((l) => l.kind === 'branch');
+
+    // Slot templates (dy is signed: negative = above, positive = below)
+    const aboveSlots = [
+      { dx: 0, dy: -45, anchor: 'middle' },
+      { dx: -70, dy: -35, anchor: 'end' },
+      { dx: 70, dy: -35, anchor: 'start' },
+      { dx: -80, dy: -55, anchor: 'end' },
+      { dx: 80, dy: -55, anchor: 'start' },
+      { dx: 0, dy: -65, anchor: 'middle' },
+    ];
+    const belowSlots = [
+      { dx: 0, dy: 45, anchor: 'middle' },
+      { dx: -70, dy: 35, anchor: 'end' },
+      { dx: 70, dy: 35, anchor: 'start' },
+      { dx: -80, dy: 55, anchor: 'end' },
+      { dx: 80, dy: 55, anchor: 'start' },
+      { dx: 0, dy: 65, anchor: 'middle' },
+    ];
+
+    // Helper to pick slots based on label count
+    function pickSlots(pool: typeof aboveSlots, count: number) {
+      if (count === 1) return [pool[0]];
+      if (count === 2) return [pool[1], pool[2]];
+      if (count === 3) return [pool[1], pool[0], pool[2]];
+      return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
+    }
+
+    // Build ordered list: tags (above slots) then branches (below slots)
+    const orderedLabels: {
+      label: (typeof allLabels)[0];
+      slot: (typeof aboveSlots)[0];
+      above: boolean;
+    }[] = [];
+    const tagSlots = pickSlots(aboveSlots, tagLabels.length);
+    tagLabels.forEach((label, i) => orderedLabels.push({ label, slot: tagSlots[i], above: true }));
+    const branchSlotsPicked = pickSlots(belowSlots, branchLabels.length);
+    branchLabels.forEach((label, i) =>
+      orderedLabels.push({ label, slot: branchSlotsPicked[i], above: false }),
+    );
+
+    orderedLabels.forEach(({ label, slot, above }) => {
+      const isBranch = label.kind === 'branch';
+      const startX = d.x;
+      const startY = above ? d.y - d.radius - 4 : d.y + d.radius + 4;
+      let labelX = d.x + slot.dx;
+      let labelY = d.y + slot.dy;
+
+      // Wrapper group for this single label (draggable)
+      const singleLabelG = labelsG.append('g').attr('class', 'draggable-label');
+
+      // Leader line
+      const leaderLine = singleLabelG
+        .append('line')
+        .attr('x1', startX)
+        .attr('y1', startY)
+        .attr('x2', labelX)
+        .attr('y2', labelY - (above ? -8 : 8))
+        .attr('stroke', label.color)
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3,3')
+        .attr('opacity', 0.4)
+        .style('pointer-events', 'none');
+
+      const textNode = singleLabelG
+        .append('text')
+        .attr('x', labelX)
+        .attr('y', labelY)
+        .attr('font-size', isBranch ? 10 : 9)
+        .attr('font-weight', isBranch ? '700' : '500')
+        .attr('fill', label.color)
+        .attr('text-anchor', slot.anchor)
+        .style('letter-spacing', isBranch ? '0.05em' : '0.03em')
+        .style('cursor', 'pointer');
+
+      if (isBranch) {
+        textNode.style('text-transform', 'uppercase').text(label.name);
+      } else {
+        textNode.style('font-style', 'italic').text(`\u25C6 ${label.name}`);
+      }
+
       const bbox = (textNode.node() as SVGTextElement)?.getBBox();
+      let bgRect: d3.Selection<SVGRectElement, unknown, null, undefined> | null = null;
+      let underline: d3.Selection<SVGLineElement, unknown, null, undefined> | null = null;
+
       if (bbox) {
-        d3.select(this)
-          .insert('line', 'text')
+        bgRect = singleLabelG
+          .insert('rect', 'text')
+          .attr('x', bbox.x - 4)
+          .attr('y', bbox.y - 2)
+          .attr('width', bbox.width + 8)
+          .attr('height', bbox.height + 4)
+          .attr('rx', 3)
+          .attr('fill', 'rgba(var(--v-theme-surface), 1)')
+          .style('cursor', 'pointer');
+
+        underline = singleLabelG
+          .append('line')
           .attr('x1', bbox.x)
           .attr('y1', bbox.y + bbox.height + 1)
           .attr('x2', bbox.x + bbox.width)
           .attr('y2', bbox.y + bbox.height + 1)
           .attr('stroke', label.color)
-          .attr('stroke-width', 1.5)
+          .attr('stroke-width', isBranch ? 1.5 : 1)
+          .attr('stroke-dasharray', isBranch ? 'none' : '3,2')
           .attr('opacity', 0.5)
           .style('pointer-events', 'none');
       }
+
+      // Make the label draggable
+      const drag = d3
+        .drag<SVGGElement, unknown>()
+        .on('start', function () {
+          d3.select(this).raise();
+          if (bgRect) bgRect.style('cursor', 'grabbing');
+          d3.select(this).style('cursor', 'grabbing');
+        })
+        .on('drag', function (event: d3.D3DragEvent<SVGGElement, unknown, unknown>) {
+          labelX += event.dx;
+          labelY += event.dy;
+
+          textNode.attr('x', labelX).attr('y', labelY);
+          leaderLine.attr('x2', labelX).attr('y2', labelY - (above ? -8 : 8));
+
+          const newBbox = (textNode.node() as SVGTextElement)?.getBBox();
+          if (newBbox && bgRect) {
+            bgRect
+              .attr('x', newBbox.x - 4)
+              .attr('y', newBbox.y - 2)
+              .attr('width', newBbox.width + 8)
+              .attr('height', newBbox.height + 4);
+          }
+          if (newBbox && underline) {
+            underline
+              .attr('x1', newBbox.x)
+              .attr('y1', newBbox.y + newBbox.height + 1)
+              .attr('x2', newBbox.x + newBbox.width)
+              .attr('y2', newBbox.y + newBbox.height + 1);
+          }
+        })
+        .on('end', function () {
+          if (bgRect) bgRect.style('cursor', 'pointer');
+          d3.select(this).style('cursor', 'pointer');
+        });
+
+      singleLabelG.call(drag as any);
     });
   });
 
@@ -1332,8 +1775,8 @@ function renderChart() {
         `Seq ${d.sequenceNumber} | ID ${d.snapshotId}${d.schemaChange ? ` | Schema ${d.schemaChange.from}\u2192${d.schemaChange.to}` : ''}`,
     );
 
-  // Auto fit
-  setTimeout(fitToView, 50);
+  // Auto fit — delay to ensure labels/text are fully rendered for accurate getBBox
+  setTimeout(fitToView, 150);
 }
 
 // ─── Zoom controls ───────────────────────────────────────────────────────────
@@ -1354,24 +1797,28 @@ function resetZoom() {
 }
 
 function fitToView() {
-  if (!svg || !zoomBehavior || !chartRef.value || graphNodes.value.length === 0) return;
+  if (!svg || !zoomBehavior || !rootG || !chartRef.value || graphNodes.value.length === 0) return;
 
   const containerW = chartRef.value.clientWidth || 800;
-  const containerH = chartRef.value.clientHeight || 500;
+  const containerH = chartHeight.value;
   const pad = 50;
 
-  const xs = graphNodes.value.map((n) => n.x);
-  const ys = graphNodes.value.map((n) => n.y);
-  const minX = Math.min(...xs) - 30;
-  const maxX = Math.max(...xs) + 30;
-  const minY = Math.min(...ys) - 40;
-  const maxY = Math.max(...ys) + 40;
+  // Use actual rendered bounding box for scale (ensures everything fits)
+  const bbox = rootG.node()?.getBBox();
+  if (!bbox || bbox.width === 0 || bbox.height === 0) return;
 
-  const gW = maxX - minX;
-  const gH = maxY - minY;
-  const scale = Math.min((containerW - pad * 2) / gW, (containerH - pad * 2) / gH, 2);
-  const tx = containerW / 2 - ((minX + maxX) / 2) * scale;
-  const ty = containerH / 2 - ((minY + maxY) / 2) * scale;
+  const gW = bbox.width + pad * 2;
+  const gH = bbox.height + pad * 2;
+  // Bbox center in rootG coordinates
+  const cx = bbox.x + bbox.width / 2;
+  const cy = bbox.y + bbox.height / 2;
+
+  // Responsive max scale: small screens (≤900px tall) cap at 1x, large screens up to 1.8x
+  const vh = viewportHeight.value;
+  const maxScale = vh <= 900 ? 1 : Math.min(1 + (vh - 900) / 500, 1.8);
+  const scale = Math.min(containerW / gW, containerH / gH, maxScale);
+  const tx = containerW / 2 - cx * scale;
+  const ty = containerH / 2 - cy * scale;
 
   svg
     .transition()
@@ -1517,6 +1964,16 @@ watch(
   { immediate: true, deep: true },
 );
 
+// Re-render when chart height changes due to viewport resize
+watch(chartHeight, () => {
+  if (chartRef.value && props.snapshotHistory.length > 0) {
+    nextTick(() => {
+      renderChart();
+      requestAnimationFrame(() => fitToView());
+    });
+  }
+});
+
 // Update selected node highlight when selection changes
 watch(selectedSnapshot, (snap) => {
   if (!rootG) return;
@@ -1532,6 +1989,25 @@ watch(selectedSnapshot, (snap) => {
     .attr('filter', (d) =>
       snap && snap['snapshot-id'] === d.snapshotId ? 'url(#selectedPulse)' : 'url(#nodeGlow)',
     );
+});
+
+// ─── Dropped Snapshot Guard ──────────────────────────────────────────────────
+/**
+ * True when the selected snapshot belongs exclusively to dropped branches,
+ * meaning it is not reachable from any active branch or tag.
+ */
+const isSelectedSnapshotDropped = computed(() => {
+  if (!selectedSnapshot.value) return false;
+  const sidStr = String(selectedSnapshot.value['snapshot-id']);
+  // Check if any active (non-dropped) branch has this snapshot in its ancestry
+  const reachableFromActive = branches.value.some(
+    (b) => b.type !== 'dropped' && b.ancestry.some((id) => String(id) === sidStr),
+  );
+  if (reachableFromActive) return false;
+  // Check if any tag points to this snapshot
+  const taggedSnapshot = tags.value.some((t) => String(t.snapshotId) === sidStr);
+  if (taggedSnapshot) return false;
+  return true;
 });
 
 // ─── Rollback Logic ──────────────────────────────────────────────────────────
@@ -1553,6 +2029,21 @@ const rollbackableBranches = computed<BranchMeta[]>(() => {
     if (String(b.tipSnapshotId) === sidStr) return false;
     return true;
   });
+
+  // Special case: if snapshot is tagged but not reachable from any active branch,
+  // offer rollback to main (tags anchor snapshots as valid restore points)
+  if (candidateBranches.length === 0) {
+    const isTagged = tags.value.some((t) => String(t.snapshotId) === sidStr);
+    if (isTagged) {
+      const mainBranch = branches.value.find(
+        (b) => b.type === 'branch' && (b.name === 'main' || b.name === 'master'),
+      );
+      if (mainBranch && String(mainBranch.tipSnapshotId) !== sidStr) {
+        return [mainBranch];
+      }
+    }
+    return [];
+  }
 
   if (candidateBranches.length <= 1) return candidateBranches;
 
@@ -1612,6 +2103,10 @@ const existingBranchNames = computed(() =>
   branches.value.filter((b) => b.type === 'branch').map((b) => b.name),
 );
 
+const existingTagNames = computed(() => tags.value.map((t) => t.name));
+
+const existingRefNames = computed(() => [...existingBranchNames.value, ...existingTagNames.value]);
+
 // ─── Computed: deletable branches ────────────────────────────────────────────
 // Non-main/master branches whose ancestry includes the selected snapshot
 const deletableBranches = computed<BranchMeta[]>(() => {
@@ -1621,8 +2116,17 @@ const deletableBranches = computed<BranchMeta[]>(() => {
   return branches.value.filter((b) => {
     if (b.type !== 'branch') return false;
     if (b.name === 'main' || b.name === 'master') return false;
-    return b.ancestry.some((id) => String(id) === sidStr);
+    // Only offer delete when the selected snapshot is this branch's tip
+    return String(b.tipSnapshotId) === sidStr;
   });
+});
+
+// ─── Computed: deletable tags ────────────────────────────────────────────────
+// Tags pointing to the selected snapshot
+const deletableTags = computed<TagMeta[]>(() => {
+  if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sid = selectedSnapshot.value['snapshot-id'];
+  return tags.value.filter((t) => t.snapshotId === sid);
 });
 
 // ─── Create Branch ───────────────────────────────────────────────────────────
@@ -1747,8 +2251,130 @@ async function executeDeleteBranch() {
   }
 }
 
-function openRollbackDialog(branch: BranchMeta) {
-  rollbackTargetBranch.value = branch;
+// ─── Create Tag ──────────────────────────────────────────────────────────────
+function openCreateTagDialog() {
+  createTagName.value = '';
+  createTagDialog.value = true;
+}
+
+function closeCreateTagDialog() {
+  createTagDialog.value = false;
+  createTagName.value = '';
+}
+
+async function executeCreateTag() {
+  if (
+    !createTagName.value ||
+    !selectedSnapshot.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  createTagLoading.value = true;
+  try {
+    await functions.createTag(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      createTagName.value,
+      selectedSnapshot.value['snapshot-id'],
+      true,
+    );
+    closeCreateTagDialog();
+    emit('createTag');
+  } catch (error: any) {
+    console.error('Failed to create tag:', error);
+  } finally {
+    createTagLoading.value = false;
+  }
+}
+
+// ─── Rename Tag ──────────────────────────────────────────────────────────────
+function openRenameTagDialog(tagName: string) {
+  renameTagOldName.value = tagName;
+  renameTagNewName.value = '';
+  renameTagDialog.value = true;
+}
+
+function closeRenameTagDialog() {
+  renameTagDialog.value = false;
+  renameTagOldName.value = '';
+  renameTagNewName.value = '';
+}
+
+async function executeRenameTag() {
+  if (
+    !renameTagOldName.value ||
+    !renameTagNewName.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  const tag = tags.value.find((t) => t.name === renameTagOldName.value);
+  if (!tag) return;
+
+  renameTagLoading.value = true;
+  try {
+    await functions.renameTag(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      renameTagOldName.value,
+      renameTagNewName.value,
+      tag.snapshotId,
+      true,
+    );
+    closeRenameTagDialog();
+    emit('renameTag');
+  } catch (error: any) {
+    console.error('Failed to rename tag:', error);
+  } finally {
+    renameTagLoading.value = false;
+  }
+}
+
+// ─── Delete Tag ──────────────────────────────────────────────────────────────
+function openDeleteTagDialog(tagName: string) {
+  deleteTagName.value = tagName;
+  deleteTagConfirmText.value = '';
+  deleteTagDialog.value = true;
+}
+
+function closeDeleteTagDialog() {
+  deleteTagDialog.value = false;
+  deleteTagName.value = '';
+  deleteTagConfirmText.value = '';
+}
+
+async function executeDeleteTag() {
+  if (!deleteTagName.value || !props.warehouseId || !props.namespacePath || !props.tableName)
+    return;
+
+  deleteTagLoading.value = true;
+  try {
+    await functions.deleteTag(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      deleteTagName.value,
+      true,
+    );
+    closeDeleteTagDialog();
+    emit('deleteTag');
+  } catch (error: any) {
+    console.error('Failed to delete tag:', error);
+  } finally {
+    deleteTagLoading.value = false;
+  }
+}
+
+function openRollbackDialog() {
+  rollbackTargetBranch.value =
+    rollbackableBranches.value.length === 1 ? rollbackableBranches.value[0] : null;
   rollbackConfirmText.value = '';
   rollbackDialog.value = true;
 }
@@ -1846,32 +2472,15 @@ onBeforeUnmount(() => {
 .branch-layout {
   display: flex;
   flex-direction: column;
-  height: calc(80vh - 60px);
-  overflow: hidden;
-}
-
-.chart-outer {
-  position: relative;
-  z-index: 0;
-  height: 500px;
-  flex-shrink: 0;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-surface), 1);
-}
-
-.chart-container {
   height: 100%;
   overflow: hidden;
-  touch-action: none;
-  user-select: none;
 }
 
-.details-scroll-area {
+/* .details-scroll-area {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
+} */
 
 /* Animated flow dashes on links */
 .chart-container :deep(.flow-dash) {
@@ -1884,70 +2493,62 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Floating zoom controls */
-.zoom-overlay {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
+/* Chart wrapper — height set by inline style from chartHeight */
+.chart-wrapper {
+  overflow: hidden;
+}
+
+.chart-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+
+/* Zoom bar — sits above chart */
+.zoom-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(var(--v-theme-surface), 0.6);
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .zoom-group {
-  background: rgba(var(--v-theme-surface), 0.85);
+  background: rgba(var(--v-theme-surface), 0.95);
   backdrop-filter: blur(4px);
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
 }
 
 .zoom-label {
-  min-width: 48px !important;
-  font-size: 0.7rem;
+  min-width: 56px !important;
+  font-size: 0.8rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
-/* Subtle legend */
-.legend-overlay {
-  position: absolute;
-  bottom: 8px;
-  left: 10px;
-  z-index: 2;
+/* Legend bar — sits between chart and details, always visible */
+.legend-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  background: rgba(var(--v-theme-surface), 0.8);
-  backdrop-filter: blur(4px);
-  border-radius: 6px;
-  pointer-events: none;
+  padding: 6px 8px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 
 .legend-chip {
   font-size: 0.7rem !important;
-  pointer-events: none;
 }
 
-.legend-chip .v-btn {
-  pointer-events: auto;
-}
-
-.legend-chip:has(.v-btn) {
-  pointer-events: auto;
-}
-
-/* Hint overlay */
-.hint-overlay {
-  position: absolute;
-  bottom: 8px;
-  right: 10px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  padding: 4px 10px;
-  background: rgba(var(--v-theme-surface), 0.7);
-  backdrop-filter: blur(4px);
-  border-radius: 4px;
-  opacity: 0.6;
-  pointer-events: none;
+/* Details row — takes remaining space, scrolls internally */
+.details-row {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Details panel — below chart, scrollable */

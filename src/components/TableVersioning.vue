@@ -1,5 +1,5 @@
 <template>
-  <TableBranchVisualization
+  <TableVersioningVisualization
     :table="table"
     :snapshot-history="snapshotHistory"
     :can-rollback="canCommit"
@@ -10,14 +10,17 @@
     @fast-forward="loadTableData"
     @create-branch="loadTableData"
     @rename-branch="loadTableData"
-    @delete-branch="loadTableData" />
+    @delete-branch="loadTableData"
+    @create-tag="loadTableData"
+    @rename-tag="loadTableData"
+    @delete-tag="loadTableData" />
 </template>
 
 <script setup lang="ts">
 import { reactive, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
-import TableBranchVisualization from './TableBranchVisualization.vue';
+import TableVersioningVisualization from './TableVersioningVisualization.vue';
 import type { LoadTableResult, Snapshot } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{

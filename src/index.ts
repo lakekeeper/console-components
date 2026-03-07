@@ -39,11 +39,11 @@ import TableHeader from './components/TableHeader.vue';
 import TableDetails from './components/TableDetails.vue';
 import TableHealth from './components/TableHealth.vue';
 import TableHealthActions from './components/TableHealthActions.vue';
-import TableBranchVisualization from './components/TableBranchVisualization.vue';
+import TableVersioningVisualization from './components/TableVersioningVisualization.vue';
 import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
 import TableOverview from './components/TableOverview.vue';
 import TableRaw from './components/TableRaw.vue';
-import TableBranch from './components/TableBranch.vue';
+import TableVersioning from './components/TableVersioning.vue';
 import TablePreview from './components/TablePreview.vue';
 import TableCreate from './components/TableCreate.vue';
 import TableRegister from './components/TableRegister.vue';
@@ -108,6 +108,7 @@ export {
   StatisticsProject,
   ComputeConnectDialog,
   ProjectManager,
+  ProjectStatistics,
   WarehouseDetails,
   TaskManager,
   TaskDetails,
@@ -117,9 +118,22 @@ export {
   WarehouseNamespaces,
   NamespaceNamespaces,
   NamespaceTables,
+  NamespaceDeleted,
+  NamespaceViews,
   NamespaceHeader,
   NamespacePropertiesDialog,
   TableHeader,
+  TableDetails,
+  TableHealth,
+  TableHealthActions,
+  TableVersioningVisualization,
+  TableSnapshotDetails,
+  TableOverview,
+  TableRaw,
+  TableVersioning,
+  TablePreview,
+  TableCreate,
+  TableRegister,
   ViewHeader,
   ViewHistoryTab,
   ViewOverview,
@@ -269,14 +283,14 @@ const components = {
   TableDetails,
   TableHealth,
   TableHealthActions,
-  TableBranchVisualization,
+  TableVersioningVisualization,
   TableSnapshotDetails,
   TableOverview,
   TableRaw,
   TablePreview,
   TableCreate,
   TableRegister,
-  TableBranch,
+  TableVersioning,
   ViewHeader,
   ViewHistoryTab,
   ViewOverview,
