@@ -14,7 +14,7 @@
     <div v-else class="branch-layout">
       <!-- Zoom controls — own row above chart -->
       <v-row no-gutters class="ml-2 pl-2">
-        <v-col cols="12">
+        <v-col cols="6">
           <div class="zoom-bar">
             <v-btn-group variant="flat" density="comfortable" class="zoom-group" rounded="lg">
               <v-btn size="small" icon="mdi-plus" @click="zoomIn">
@@ -34,22 +34,25 @@
                 <v-tooltip activator="parent" location="bottom">Fit to view</v-tooltip>
               </v-btn>
             </v-btn-group>
-            <v-divider vertical class="mx-3 my-1"></v-divider>
-            <span v-if="!selectedSnapshot" class="text-body-2 text-medium-emphasis">
-              <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
-              Click a node for details
-            </span>
-            <span v-else class="text-body-2 font-weight-medium">
-              <v-icon size="16" class="mr-1" color="primary">mdi-camera-outline</v-icon>
-              Snapshot #{{ selectedSnapshot['sequence-number'] }} selected
-            </span>
           </div>
+        </v-col>
+        <v-col cols="6" class="d-flex justify-end align-center">
+          <SnapshotCompare :snapshots="snapshotHistory" :schemas="table.metadata.schemas" />
+          <v-btn
+            size="small"
+            variant="tonal"
+            class="ml-2"
+            prepend-icon="mdi-refresh"
+            @click="emit('refresh')">
+            Refresh
+          </v-btn>
         </v-col>
       </v-row>
 
       <!-- D3 chart -->
       <v-row no-gutters class="ml-2 pl-2">
         <v-col cols="12">
+          <v-spacer></v-spacer>
           <div class="chart-wrapper" :style="{ height: chartHeight + 'px' }">
             <div ref="chartRef" class="chart-container"></div>
           </div>
@@ -832,6 +835,7 @@ import * as d3 from 'd3';
 import { useDisplay } from 'vuetify';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 import { useFunctions } from '../plugins/functions';
+import SnapshotCompare from './SnapshotCompare.vue';
 
 // ─── Reactive chart height from viewport ─────────────────────────────────────
 const { height: viewportHeight } = useDisplay();
@@ -860,6 +864,7 @@ const emit = defineEmits<{
   createTag: [];
   renameTag: [];
   deleteTag: [];
+  refresh: [];
 }>();
 
 const functions = useFunctions();
