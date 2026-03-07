@@ -1975,6 +1975,66 @@ async function dropTable(
   }
 }
 
+async function renameTable(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  newName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    const client = iceClient.client;
+    const ns = normalizeNamespacePath(namespacePath).split('\x1F');
+    const { error } = await ice.renameTable({
+      client,
+      path: { prefix: warehouseId },
+      body: {
+        source: { namespace: ns, name: tableName },
+        destination: { namespace: ns, name: newName },
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('renameTable', `Table renamed to '${newName}'`, notify);
+    }
+    return true;
+  } catch (error: any) {
+    handleError(error, 'renameTable', notify);
+    throw error;
+  }
+}
+
+async function renameView(
+  warehouseId: string,
+  namespacePath: string,
+  viewName: string,
+  newName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    const client = iceClient.client;
+    const ns = normalizeNamespacePath(namespacePath).split('\x1F');
+    const { error } = await ice.renameView({
+      client,
+      path: { prefix: warehouseId },
+      body: {
+        source: { namespace: ns, name: viewName },
+        destination: { namespace: ns, name: newName },
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('renameView', `View renamed to '${newName}'`, notify);
+    }
+    return true;
+  } catch (error: any) {
+    handleError(error, 'renameView', notify);
+    throw error;
+  }
+}
+
 async function registerTable(
   warehouseId: string,
   namespacePath: string,
@@ -4495,6 +4555,8 @@ export function useFunctions(config?: any) {
     updateWarehouseDeleteProfile,
     dropView,
     dropTable,
+    renameTable,
+    renameView,
     registerTable,
     listUser,
     deleteUser,

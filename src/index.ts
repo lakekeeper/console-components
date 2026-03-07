@@ -41,6 +41,7 @@ import TableHealth from './components/TableHealth.vue';
 import TableHealthActions from './components/TableHealthActions.vue';
 import TableVersioningVisualization from './components/TableVersioningVisualization.vue';
 import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
+import SnapshotCompare from './components/SnapshotCompare.vue';
 import TableOverview from './components/TableOverview.vue';
 import TableRaw from './components/TableRaw.vue';
 import TableVersioning from './components/TableVersioning.vue';
@@ -128,6 +129,7 @@ export {
   TableHealthActions,
   TableVersioningVisualization,
   TableSnapshotDetails,
+  SnapshotCompare,
   TableOverview,
   TableRaw,
   TableVersioning,
@@ -285,6 +287,7 @@ const components = {
   TableHealthActions,
   TableVersioningVisualization,
   TableSnapshotDetails,
+  SnapshotCompare,
   TableOverview,
   TableRaw,
   TablePreview,

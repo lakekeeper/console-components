@@ -34,20 +34,81 @@
       </v-toolbar>
     </template>
     <template #item.actions="{ item }">
-      <DeleteDialog
-        v-if="item.type === 'view'"
-        :type="item.type"
-        :name="item.name"
-        @delete-view-with-options="deleteViewWithOptions($event, item)"></DeleteDialog>
+      <div class="d-flex justify-end align-center">
+        <v-btn
+          v-if="item.type === 'view'"
+          rounded="pill"
+          variant="flat"
+          @click="openRenameDialog(item)">
+          <v-icon color="primary">mdi-pencil-outline</v-icon>
+        </v-btn>
+        <DeleteDialog
+          v-if="item.type === 'view'"
+          :type="item.type"
+          :name="item.name"
+          @delete-view-with-options="deleteViewWithOptions($event, item)"></DeleteDialog>
+      </div>
     </template>
     <template #no-data>
       <div>No views in this namespace</div>
     </template>
   </v-data-table>
+
+  <!-- Rename dialog -->
+  <v-dialog v-model="renameDialog" max-width="500" persistent>
+    <v-card>
+      <v-card-title class="d-flex align-center">
+        <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
+        Rename View
+      </v-card-title>
+      <v-card-text>
+        <template v-if="isDefaultLayout">
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Rename view
+            <strong>"{{ renameOldName }}"</strong>
+            within the same namespace.
+          </v-alert>
+          <v-text-field
+            v-model="renameNewName"
+            label="New view name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v: string) => !!v || 'Required',
+              (v: string) => !/\s/.test(v) || 'No spaces allowed',
+              (v: string) => v !== renameOldName || 'Must be different from current name',
+            ]"
+            :placeholder="renameOldName"></v-text-field>
+        </template>
+        <v-alert v-else type="warning" variant="tonal" density="compact">
+          Renaming is not available because the warehouse uses a non-default storage layout. View
+          locations are derived from the view name, so renaming would break the storage path.
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn
+          v-if="isDefaultLayout"
+          color="primary"
+          :disabled="
+            !renameNewName ||
+            /\s/.test(renameNewName) ||
+            renameNewName === renameOldName ||
+            renameLoading
+          "
+          :loading="renameLoading"
+          @click="executeRename">
+          Rename
+        </v-btn>
+        <v-btn @click="closeRenameDialog">{{ isDefaultLayout ? 'Cancel' : 'Close' }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch, onMounted } from 'vue';
+import { computed, reactive, ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
@@ -64,6 +125,7 @@ export type ViewIdentifierExtended = TableIdentifier & {
 const props = defineProps<{
   warehouseId: string;
   namespacePath: string;
+  storageLayout?: string;
 }>();
 
 const router = useRouter();
@@ -71,9 +133,19 @@ const functions = useFunctions();
 const visual = useVisualStore();
 const notify = true;
 
+const isDefaultLayout = computed(
+  () => !props.storageLayout || props.storageLayout === 'default',
+);
+
 const searchView = ref('');
 const loadedViews: ViewIdentifierExtended[] = reactive([]);
 const paginationToken = ref('');
+
+// Rename state
+const renameDialog = ref(false);
+const renameOldName = ref('');
+const renameNewName = ref('');
+const renameLoading = ref(false);
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
@@ -160,6 +232,39 @@ async function routeToView(item: ViewIdentifierExtended) {
   router.push(
     `/warehouse/${props.warehouseId}/namespace/${props.namespacePath}/view/${encodeURIComponent(item.name)}`,
   );
+}
+
+function openRenameDialog(item: ViewIdentifierExtended) {
+  renameOldName.value = item.name;
+  renameNewName.value = '';
+  renameDialog.value = true;
+}
+
+function closeRenameDialog() {
+  renameDialog.value = false;
+  renameOldName.value = '';
+  renameNewName.value = '';
+}
+
+async function executeRename() {
+  if (!renameNewName.value) return;
+
+  renameLoading.value = true;
+  try {
+    await functions.renameView(
+      props.warehouseId,
+      props.namespacePath,
+      renameOldName.value,
+      renameNewName.value,
+      notify,
+    );
+    closeRenameDialog();
+    await loadViews();
+  } catch {
+    // error handled by functions plugin
+  } finally {
+    renameLoading.value = false;
+  }
 }
 
 defineExpose({
