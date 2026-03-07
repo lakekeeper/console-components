@@ -474,7 +474,7 @@
             :rules="[
               (v) => !!v || 'Required',
               (v) => !/\s/.test(v) || 'No spaces allowed',
-              (v) => !existingBranchNames.includes(v) || 'Branch already exists',
+              (v) => !existingRefNames.includes(v) || 'Name already exists',
             ]"
             placeholder="my-branch"></v-text-field>
         </v-card-text>
@@ -485,7 +485,7 @@
             :disabled="
               !createBranchName ||
               /\s/.test(createBranchName) ||
-              existingBranchNames.includes(createBranchName) ||
+              existingRefNames.includes(createBranchName) ||
               createBranchLoading
             "
             :loading="createBranchLoading"
@@ -520,7 +520,7 @@
               (v) => !!v || 'Required',
               (v) => !/\s/.test(v) || 'No spaces allowed',
               (v) => v !== renameBranchOldName || 'Must be different',
-              (v) => !existingBranchNames.includes(v) || 'Branch already exists',
+              (v) => !existingRefNames.includes(v) || 'Name already exists',
             ]"
             :placeholder="renameBranchOldName"></v-text-field>
         </v-card-text>
@@ -532,7 +532,7 @@
               !renameBranchNewName ||
               /\s/.test(renameBranchNewName) ||
               renameBranchNewName === renameBranchOldName ||
-              existingBranchNames.includes(renameBranchNewName) ||
+              existingRefNames.includes(renameBranchNewName) ||
               renameBranchLoading
             "
             :loading="renameBranchLoading"
