@@ -10,7 +10,10 @@
     @fast-forward="loadTableData"
     @create-branch="loadTableData"
     @rename-branch="loadTableData"
-    @delete-branch="loadTableData" />
+    @delete-branch="loadTableData"
+    @create-tag="loadTableData"
+    @rename-tag="loadTableData"
+    @delete-tag="loadTableData" />
 </template>
 
 <script setup lang="ts">

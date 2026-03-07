@@ -1388,6 +1388,180 @@ async function deleteBranch(
   }
 }
 
+async function createTag(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  tagName: string,
+  snapshotId: number | string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    const JSONBigNative = JSONBig();
+    const snapshotIdBig = JSONBigNative.parse(String(snapshotId));
+
+    const body = {
+      requirements: [],
+      updates: [
+        {
+          action: 'set-snapshot-ref',
+          'ref-name': tagName,
+          type: 'tag',
+          'snapshot-id': snapshotIdBig,
+        },
+      ],
+    };
+
+    const bodyJson = JSONBigNative.stringify(body);
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: bodyJson,
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const data = await response.json();
+
+    if (notify) {
+      handleSuccess('createTag', `Tag '${tagName}' created successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'createTag', notify);
+    throw error;
+  }
+}
+
+async function renameTag(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  oldTagName: string,
+  newTagName: string,
+  snapshotId: number | string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    const JSONBigNative = JSONBig();
+    const snapshotIdBig = JSONBigNative.parse(String(snapshotId));
+
+    const body = {
+      requirements: [
+        {
+          type: 'assert-ref-snapshot-id',
+          ref: oldTagName,
+          'snapshot-id': snapshotIdBig,
+        },
+      ],
+      updates: [
+        {
+          action: 'set-snapshot-ref',
+          'ref-name': newTagName,
+          type: 'tag',
+          'snapshot-id': snapshotIdBig,
+        },
+        {
+          action: 'remove-snapshot-ref',
+          'ref-name': oldTagName,
+        },
+      ],
+    };
+
+    const bodyJson = JSONBigNative.stringify(body);
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: bodyJson,
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const data = await response.json();
+
+    if (notify) {
+      handleSuccess('renameTag', `Tag '${oldTagName}' renamed to '${newTagName}'`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'renameTag', notify);
+    throw error;
+  }
+}
+
+async function deleteTag(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  tagName: string,
+  notify?: boolean,
+) {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.updateTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: normalizeNamespacePath(namespacePath),
+        table: tableName,
+      },
+      body: {
+        requirements: [],
+        updates: [{ action: 'remove-snapshot-ref', 'ref-name': tagName } as any],
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('deleteTag', `Tag '${tagName}' deleted successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'deleteTag', notify);
+    throw error;
+  }
+}
+
 async function rollbackBranch(
   warehouseId: string,
   namespacePath: string,
@@ -4256,6 +4430,9 @@ export function useFunctions(config?: any) {
     createBranch,
     renameBranch,
     deleteBranch,
+    createTag,
+    renameTag,
+    deleteTag,
     listViews,
     listDeletedTabulars,
     loadTable,

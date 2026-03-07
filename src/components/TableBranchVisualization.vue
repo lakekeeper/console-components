@@ -40,7 +40,16 @@
                 class="legend-chip"
                 :style="{ opacity: entry.opacity }">
                 <template #prepend>
-                  <svg width="14" height="14" class="mr-1">
+                  <!-- Tag icon -->
+                  <svg v-if="entry.type === 'tag'" width="14" height="14" class="mr-1">
+                    <path
+                      d="M 2 3 L 9 3 L 12 7 L 9 11 L 2 11 Z"
+                      :fill="entry.color"
+                      opacity="0.8" />
+                    <circle cx="4.5" cy="7" r="1.2" fill="white" opacity="0.7" />
+                  </svg>
+                  <!-- Branch / dropped icon -->
+                  <svg v-else width="14" height="14" class="mr-1">
                     <circle
                       cx="7"
                       cy="7"
@@ -81,6 +90,22 @@
                     density="compact"
                     style="margin-right: -6px"
                     @click.stop="openDeleteBranchDialog(entry.name)"></v-btn>
+                  <v-btn
+                    v-if="canRollback && entry.type === 'tag'"
+                    icon="mdi-pencil-outline"
+                    size="x-small"
+                    variant="text"
+                    density="compact"
+                    class="ml-1"
+                    @click.stop="openRenameTagDialog(entry.name)"></v-btn>
+                  <v-btn
+                    v-if="canRollback && entry.type === 'tag'"
+                    icon="mdi-close-circle"
+                    size="x-small"
+                    variant="text"
+                    density="compact"
+                    style="margin-right: -6px"
+                    @click.stop="openDeleteTagDialog(entry.name)"></v-btn>
                 </template>
               </v-chip>
               <v-chip size="x-small" variant="tonal" class="legend-chip">
@@ -163,6 +188,15 @@
                           class="mr-1"
                           @click="openCreateBranchDialog">
                           Create Branch
+                        </v-btn>
+                        <v-btn
+                          v-if="canRollback"
+                          color="teal"
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-tag-plus-outline"
+                          @click="openCreateTagDialog">
+                          Create Tag
                         </v-btn>
                       </v-toolbar>
                       <v-divider></v-divider>
@@ -283,6 +317,16 @@
                                 prepend-icon="mdi-source-branch-remove"
                                 base-color="error"
                                 @click="openDeleteBranchDialog(branch.name)"></v-list-item>
+                            </template>
+                            <template v-if="deletableTags.length > 0">
+                              <v-list-subheader>Delete Tag</v-list-subheader>
+                              <v-list-item
+                                v-for="tag in deletableTags"
+                                :key="'del-tag-' + tag.name"
+                                :title="tag.name"
+                                prepend-icon="mdi-tag-off-outline"
+                                base-color="error"
+                                @click="openDeleteTagDialog(tag.name)"></v-list-item>
                             </template>
                           </v-list>
                         </v-menu>
@@ -627,6 +671,140 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Create tag dialog -->
+    <v-dialog v-model="createTagDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="teal" class="mr-2">mdi-tag-plus-outline</v-icon>
+          Create Tag
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Create a new tag pointing to snapshot
+            <strong>#{{ selectedSnapshot?.['sequence-number'] }}</strong>
+            (ID: {{ selectedSnapshot?.['snapshot-id'] }}).
+          </v-alert>
+          <v-text-field
+            v-model="createTagName"
+            label="Tag name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v) => !!v || 'Required',
+              (v) => !/\s/.test(v) || 'No spaces allowed',
+              (v) => !existingRefNames.includes(v) || 'Name already exists',
+            ]"
+            placeholder="my-tag"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="teal"
+            :disabled="
+              !createTagName ||
+              /\s/.test(createTagName) ||
+              existingRefNames.includes(createTagName) ||
+              createTagLoading
+            "
+            :loading="createTagLoading"
+            @click="executeCreateTag">
+            Create
+          </v-btn>
+          <v-btn @click="closeCreateTagDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Rename tag dialog -->
+    <v-dialog v-model="renameTagDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="teal" class="mr-2">mdi-tag-edit-outline</v-icon>
+          Rename Tag
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Rename tag
+            <strong>"{{ renameTagOldName }}"</strong>
+            . This will atomically create a new reference and remove the old one.
+          </v-alert>
+          <v-text-field
+            v-model="renameTagNewName"
+            label="New tag name"
+            density="compact"
+            hide-details="auto"
+            variant="outlined"
+            :rules="[
+              (v) => !!v || 'Required',
+              (v) => !/\s/.test(v) || 'No spaces allowed',
+              (v) => v !== renameTagOldName || 'Must be different',
+              (v) => !existingRefNames.includes(v) || 'Name already exists',
+            ]"
+            :placeholder="renameTagOldName"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="teal"
+            :disabled="
+              !renameTagNewName ||
+              /\s/.test(renameTagNewName) ||
+              renameTagNewName === renameTagOldName ||
+              existingRefNames.includes(renameTagNewName) ||
+              renameTagLoading
+            "
+            :loading="renameTagLoading"
+            @click="executeRenameTag">
+            Rename
+          </v-btn>
+          <v-btn @click="closeRenameTagDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete tag confirmation dialog -->
+    <v-dialog v-model="deleteTagDialog" max-width="500" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon color="error" class="mr-2">mdi-tag-off-outline</v-icon>
+          Delete Tag
+        </v-card-title>
+        <v-card-text>
+          <v-alert type="error" variant="tonal" density="compact" class="mb-4">
+            This will remove the tag reference
+            <strong>"{{ deleteTagName }}"</strong>
+            .
+          </v-alert>
+          <div class="text-body-2 mb-2">
+            Type the tag name
+            <strong>"{{ deleteTagName }}"</strong>
+            to confirm:
+          </div>
+          <v-text-field
+            v-model="deleteTagConfirmText"
+            density="compact"
+            hide-details
+            :placeholder="deleteTagName"
+            variant="outlined"
+            :color="
+              deleteTagConfirmText === deleteTagName ? 'success' : undefined
+            "></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn
+            color="error"
+            :disabled="deleteTagConfirmText !== deleteTagName || deleteTagLoading"
+            :loading="deleteTagLoading"
+            @click="executeDeleteTag">
+            Delete
+          </v-btn>
+          <v-btn @click="closeDeleteTagDialog">Cancel</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -652,6 +830,9 @@ const emit = defineEmits<{
   createBranch: [];
   renameBranch: [];
   deleteBranch: [];
+  createTag: [];
+  renameTag: [];
+  deleteTag: [];
 }>();
 
 const functions = useFunctions();
@@ -690,6 +871,23 @@ const fastForwardTargetBranch = ref<BranchMeta | null>(null);
 const fastForwardConfirmText = ref('');
 const fastForwardLoading = ref(false);
 
+// ─── Create Tag State ────────────────────────────────────────────────────────
+const createTagDialog = ref(false);
+const createTagName = ref('');
+const createTagLoading = ref(false);
+
+// ─── Rename Tag State ────────────────────────────────────────────────────────
+const renameTagDialog = ref(false);
+const renameTagOldName = ref('');
+const renameTagNewName = ref('');
+const renameTagLoading = ref(false);
+
+// ─── Delete Tag State ────────────────────────────────────────────────────────
+const deleteTagDialog = ref(false);
+const deleteTagName = ref('');
+const deleteTagConfirmText = ref('');
+const deleteTagLoading = ref(false);
+
 // D3 selections — kept outside Vue reactivity
 let svg: d3.Selection<SVGSVGElement, unknown, null, undefined> | null = null;
 let rootG: d3.Selection<SVGGElement, unknown, null, undefined> | null = null;
@@ -698,6 +896,7 @@ let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null;
 // ─── Branch Colors ───────────────────────────────────────────────────────────
 const BRANCH_COLORS = ['#1976d2', '#388e3c', '#f57c00', '#d32f2f', '#7b1fa2', '#00796b', '#c2185b'];
 const DROPPED_COLOR = '#9e9e9e';
+const TAG_COLOR = '#26a69a';
 
 // ─── Data Model ──────────────────────────────────────────────────────────────
 
@@ -707,6 +906,12 @@ interface BranchMeta {
   color: string;
   tipSnapshotId: number;
   ancestry: number[];
+}
+
+interface TagMeta {
+  name: string;
+  snapshotId: number;
+  maxRefAgeMs?: number;
 }
 
 interface GraphNode {
@@ -719,6 +924,7 @@ interface GraphNode {
   strokeColor: string;
   sequenceNumber: number;
   branchLabels: { name: string; color: string }[];
+  tagLabels: { name: string; color: string }[];
   schemaChange?: { from: number; to: number };
 }
 
@@ -806,6 +1012,24 @@ const branches = computed<BranchMeta[]>(() => {
   return result;
 });
 
+// ─── Computed: tags ──────────────────────────────────────────────────────────
+
+const tags = computed<TagMeta[]>(() => {
+  const result: TagMeta[] = [];
+  const refs = props.table.metadata.refs;
+  if (!refs) return result;
+
+  Object.entries(refs).forEach(([name, refData]: [string, any]) => {
+    if (refData.type !== 'tag') return;
+    result.push({
+      name,
+      snapshotId: refData['snapshot-id'],
+      maxRefAgeMs: refData['max-ref-age-ms'],
+    });
+  });
+  return result;
+});
+
 // ─── Computed: nodes ─────────────────────────────────────────────────────────
 
 const graphNodes = computed<GraphNode[]>(() => {
@@ -865,6 +1089,12 @@ const graphNodes = computed<GraphNode[]>(() => {
     tipMap.get(b.tipSnapshotId)!.push(b);
   });
 
+  const tagMap = new Map<number, TagMeta[]>();
+  tags.value.forEach((t) => {
+    if (!tagMap.has(t.snapshotId)) tagMap.set(t.snapshotId, []);
+    tagMap.get(t.snapshotId)!.push(t);
+  });
+
   return sorted.map((snapshot, index) => {
     const sid = snapshot['snapshot-id'];
     const row = snapshotRow.get(sid) ?? 0;
@@ -891,6 +1121,7 @@ const graphNodes = computed<GraphNode[]>(() => {
       strokeColor: sc ? '#f57c00' : isDropped ? '#757575' : branchColor,
       sequenceNumber: snapshot['sequence-number'] || 0,
       branchLabels: tipBranches.map((b) => ({ name: b.name, color: b.color })),
+      tagLabels: (tagMap.get(sid) || []).map((t) => ({ name: t.name, color: TAG_COLOR })),
       schemaChange: sc || undefined,
     };
   });
@@ -1062,6 +1293,9 @@ const legendEntries = computed(() => {
       opacity: 0.7,
     });
   }
+  tags.value.forEach((t) => {
+    entries.push({ name: t.name, color: TAG_COLOR, type: 'tag', opacity: 1 });
+  });
   return entries;
 });
 
@@ -1289,38 +1523,181 @@ function renderChart() {
     .style('pointer-events', 'none')
     .text('S');
 
-  // Branch labels (above node — like station name)
-  nodeGroups.each(function (d) {
-    d.branchLabels.forEach((label, idx) => {
-      // Small rounded rect behind the label
-      const textNode = d3
-        .select(this)
-        .append('text')
-        .attr('x', d.x)
-        .attr('y', d.y - d.radius - 10 - idx * 18)
-        .attr('font-size', 10)
-        .attr('font-weight', '700')
-        .attr('fill', label.color)
-        .attr('text-anchor', 'middle')
-        .style('pointer-events', 'none')
-        .style('text-transform', 'uppercase')
-        .style('letter-spacing', '0.05em')
-        .text(label.name);
+  // ── Ref labels (branches + tags) — draggable, placed to avoid curves ──
+  const labelsG = rootG.append('g').attr('class', 'ref-labels');
 
-      // Underline accent
+  // Build a set of directions that are "busy" for each node (links going up/down)
+  const nodeBusy = new Map<number, Set<string>>();
+  const nodeMap2 = new Map<number, GraphNode>();
+  graphNodes.value.forEach((n) => nodeMap2.set(n.snapshotId, n));
+
+  graphLinks.value.forEach((link) => {
+    // Parse source/target from link path to detect vertical direction
+    const m = link.path.match(/^M\s+([\d.]+)\s+([\d.]+).*?([\d.]+)\s+([\d.]+)$/);
+    if (!m) return;
+    const y1 = parseFloat(m[2]);
+    const y2 = parseFloat(m[4]);
+    // Find which nodes are at these positions
+    graphNodes.value.forEach((n) => {
+      if (!nodeBusy.has(n.snapshotId)) nodeBusy.set(n.snapshotId, new Set());
+      const busy = nodeBusy.get(n.snapshotId)!;
+      if (Math.abs(n.y - y1) < 5 || Math.abs(n.y - y2) < 5) {
+        if (y2 < y1 - 5) busy.add('up');
+        if (y2 > y1 + 5) busy.add('down');
+      }
+    });
+  });
+
+  graphNodes.value.forEach((d) => {
+    const allLabels: { name: string; color: string; kind: 'branch' | 'tag' }[] = [
+      ...d.branchLabels.map((l) => ({ ...l, kind: 'branch' as const })),
+      ...d.tagLabels.map((l) => ({ ...l, kind: 'tag' as const })),
+    ];
+    if (!allLabels.length) return;
+
+    const busy = nodeBusy.get(d.snapshotId) || new Set<string>();
+    const curvesGoDown = busy.has('down');
+    const curvesGoUp = busy.has('up');
+
+    // Choose initial label direction: prefer above if curves go down, below if curves go up
+    // If both are busy or neither, default to below
+    const preferAbove = curvesGoDown && !curvesGoUp;
+
+    // Slot templates (dy is signed: negative = above, positive = below)
+    const aboveSlots = [
+      { dx: 0, dy: -45, anchor: 'middle' },
+      { dx: -70, dy: -35, anchor: 'end' },
+      { dx: 70, dy: -35, anchor: 'start' },
+      { dx: -80, dy: -55, anchor: 'end' },
+      { dx: 80, dy: -55, anchor: 'start' },
+      { dx: 0, dy: -65, anchor: 'middle' },
+    ];
+    const belowSlots = [
+      { dx: 0, dy: 45, anchor: 'middle' },
+      { dx: -70, dy: 35, anchor: 'end' },
+      { dx: 70, dy: 35, anchor: 'start' },
+      { dx: -80, dy: 55, anchor: 'end' },
+      { dx: 80, dy: 55, anchor: 'start' },
+      { dx: 0, dy: 65, anchor: 'middle' },
+    ];
+    const slotsPool = preferAbove ? aboveSlots : belowSlots;
+
+    // Pick slots based on count to spread nicely
+    let slots: typeof slotsPool;
+    if (allLabels.length === 1) {
+      slots = [slotsPool[0]];
+    } else if (allLabels.length === 2) {
+      slots = [slotsPool[1], slotsPool[2]];
+    } else if (allLabels.length === 3) {
+      slots = [slotsPool[1], slotsPool[0], slotsPool[2]];
+    } else {
+      slots = allLabels.map((_, i) => slotsPool[i % slotsPool.length]);
+    }
+
+    allLabels.forEach((label, idx) => {
+      const slot = slots[idx];
+      const isBranch = label.kind === 'branch';
+      const startX = d.x;
+      const startY = preferAbove ? d.y - d.radius - 4 : d.y + d.radius + 4;
+      let labelX = d.x + slot.dx;
+      let labelY = d.y + slot.dy;
+
+      // Wrapper group for this single label (draggable)
+      const singleLabelG = labelsG.append('g').attr('class', 'draggable-label');
+
+      // Leader line
+      const leaderLine = singleLabelG
+        .append('line')
+        .attr('x1', startX)
+        .attr('y1', startY)
+        .attr('x2', labelX)
+        .attr('y2', labelY - (preferAbove ? -8 : 8))
+        .attr('stroke', label.color)
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '3,3')
+        .attr('opacity', 0.4)
+        .style('pointer-events', 'none');
+
+      const textNode = singleLabelG
+        .append('text')
+        .attr('x', labelX)
+        .attr('y', labelY)
+        .attr('font-size', isBranch ? 10 : 9)
+        .attr('font-weight', isBranch ? '700' : '500')
+        .attr('fill', label.color)
+        .attr('text-anchor', slot.anchor)
+        .style('letter-spacing', isBranch ? '0.05em' : '0.03em')
+        .style('cursor', 'pointer');
+
+      if (isBranch) {
+        textNode.style('text-transform', 'uppercase').text(label.name);
+      } else {
+        textNode.style('font-style', 'italic').text(`\u25C6 ${label.name}`);
+      }
+
       const bbox = (textNode.node() as SVGTextElement)?.getBBox();
+      let bgRect: d3.Selection<SVGRectElement, unknown, null, undefined> | null = null;
+      let underline: d3.Selection<SVGLineElement, unknown, null, undefined> | null = null;
+
       if (bbox) {
-        d3.select(this)
-          .insert('line', 'text')
+        bgRect = singleLabelG
+          .insert('rect', 'text')
+          .attr('x', bbox.x - 4)
+          .attr('y', bbox.y - 2)
+          .attr('width', bbox.width + 8)
+          .attr('height', bbox.height + 4)
+          .attr('rx', 3)
+          .attr('fill', 'rgba(var(--v-theme-surface), 1)')
+          .style('cursor', 'pointer');
+
+        underline = singleLabelG
+          .append('line')
           .attr('x1', bbox.x)
           .attr('y1', bbox.y + bbox.height + 1)
           .attr('x2', bbox.x + bbox.width)
           .attr('y2', bbox.y + bbox.height + 1)
           .attr('stroke', label.color)
-          .attr('stroke-width', 1.5)
+          .attr('stroke-width', isBranch ? 1.5 : 1)
+          .attr('stroke-dasharray', isBranch ? 'none' : '3,2')
           .attr('opacity', 0.5)
           .style('pointer-events', 'none');
       }
+
+      // Make the label draggable
+      const drag = d3.drag<SVGGElement, unknown>().on('start', function () {
+        d3.select(this).raise();
+        if (bgRect) bgRect.style('cursor', 'grabbing');
+        d3.select(this).style('cursor', 'grabbing');
+      }).on('drag', function (event: d3.D3DragEvent<SVGGElement, unknown, unknown>) {
+        labelX += event.dx;
+        labelY += event.dy;
+
+        textNode.attr('x', labelX).attr('y', labelY);
+        leaderLine
+          .attr('x2', labelX)
+          .attr('y2', labelY - (preferAbove ? -8 : 8));
+
+        const newBbox = (textNode.node() as SVGTextElement)?.getBBox();
+        if (newBbox && bgRect) {
+          bgRect
+            .attr('x', newBbox.x - 4)
+            .attr('y', newBbox.y - 2)
+            .attr('width', newBbox.width + 8)
+            .attr('height', newBbox.height + 4);
+        }
+        if (newBbox && underline) {
+          underline
+            .attr('x1', newBbox.x)
+            .attr('y1', newBbox.y + newBbox.height + 1)
+            .attr('x2', newBbox.x + newBbox.width)
+            .attr('y2', newBbox.y + newBbox.height + 1);
+        }
+      }).on('end', function () {
+        if (bgRect) bgRect.style('cursor', 'pointer');
+        d3.select(this).style('cursor', 'pointer');
+      });
+
+      singleLabelG.call(drag as any);
     });
   });
 
@@ -1362,10 +1739,12 @@ function fitToView() {
 
   const xs = graphNodes.value.map((n) => n.x);
   const ys = graphNodes.value.map((n) => n.y);
-  const minX = Math.min(...xs) - 30;
-  const maxX = Math.max(...xs) + 30;
+  // Account for labels fanning out from nodes
+  const labelCount = graphNodes.value.map((n) => n.branchLabels.length + n.tagLabels.length);
+  const minX = Math.min(...xs.map((x, i) => x - (labelCount[i] > 1 ? 120 : 30)));
+  const maxX = Math.max(...xs.map((x, i) => x + (labelCount[i] > 1 ? 120 : 30)));
   const minY = Math.min(...ys) - 40;
-  const maxY = Math.max(...ys) + 40;
+  const maxY = Math.max(...ys.map((y, i) => y + (labelCount[i] > 0 ? 80 : 30)));
 
   const gW = maxX - minX;
   const gH = maxY - minY;
@@ -1612,6 +1991,13 @@ const existingBranchNames = computed(() =>
   branches.value.filter((b) => b.type === 'branch').map((b) => b.name),
 );
 
+const existingTagNames = computed(() => tags.value.map((t) => t.name));
+
+const existingRefNames = computed(() => [
+  ...existingBranchNames.value,
+  ...existingTagNames.value,
+]);
+
 // ─── Computed: deletable branches ────────────────────────────────────────────
 // Non-main/master branches whose ancestry includes the selected snapshot
 const deletableBranches = computed<BranchMeta[]>(() => {
@@ -1623,6 +2009,14 @@ const deletableBranches = computed<BranchMeta[]>(() => {
     if (b.name === 'main' || b.name === 'master') return false;
     return b.ancestry.some((id) => String(id) === sidStr);
   });
+});
+
+// ─── Computed: deletable tags ────────────────────────────────────────────────
+// Tags pointing to the selected snapshot
+const deletableTags = computed<TagMeta[]>(() => {
+  if (!selectedSnapshot.value || !props.canRollback) return [];
+  const sid = selectedSnapshot.value['snapshot-id'];
+  return tags.value.filter((t) => t.snapshotId === sid);
 });
 
 // ─── Create Branch ───────────────────────────────────────────────────────────
@@ -1744,6 +2138,127 @@ async function executeDeleteBranch() {
     console.error('Failed to delete branch:', error);
   } finally {
     deleteBranchLoading.value = false;
+  }
+}
+
+// ─── Create Tag ──────────────────────────────────────────────────────────────
+function openCreateTagDialog() {
+  createTagName.value = '';
+  createTagDialog.value = true;
+}
+
+function closeCreateTagDialog() {
+  createTagDialog.value = false;
+  createTagName.value = '';
+}
+
+async function executeCreateTag() {
+  if (
+    !createTagName.value ||
+    !selectedSnapshot.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  createTagLoading.value = true;
+  try {
+    await functions.createTag(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      createTagName.value,
+      selectedSnapshot.value['snapshot-id'],
+      true,
+    );
+    closeCreateTagDialog();
+    emit('createTag');
+  } catch (error: any) {
+    console.error('Failed to create tag:', error);
+  } finally {
+    createTagLoading.value = false;
+  }
+}
+
+// ─── Rename Tag ──────────────────────────────────────────────────────────────
+function openRenameTagDialog(tagName: string) {
+  renameTagOldName.value = tagName;
+  renameTagNewName.value = '';
+  renameTagDialog.value = true;
+}
+
+function closeRenameTagDialog() {
+  renameTagDialog.value = false;
+  renameTagOldName.value = '';
+  renameTagNewName.value = '';
+}
+
+async function executeRenameTag() {
+  if (
+    !renameTagOldName.value ||
+    !renameTagNewName.value ||
+    !props.warehouseId ||
+    !props.namespacePath ||
+    !props.tableName
+  )
+    return;
+
+  const tag = tags.value.find((t) => t.name === renameTagOldName.value);
+  if (!tag) return;
+
+  renameTagLoading.value = true;
+  try {
+    await functions.renameTag(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      renameTagOldName.value,
+      renameTagNewName.value,
+      tag.snapshotId,
+      true,
+    );
+    closeRenameTagDialog();
+    emit('renameTag');
+  } catch (error: any) {
+    console.error('Failed to rename tag:', error);
+  } finally {
+    renameTagLoading.value = false;
+  }
+}
+
+// ─── Delete Tag ──────────────────────────────────────────────────────────────
+function openDeleteTagDialog(tagName: string) {
+  deleteTagName.value = tagName;
+  deleteTagConfirmText.value = '';
+  deleteTagDialog.value = true;
+}
+
+function closeDeleteTagDialog() {
+  deleteTagDialog.value = false;
+  deleteTagName.value = '';
+  deleteTagConfirmText.value = '';
+}
+
+async function executeDeleteTag() {
+  if (!deleteTagName.value || !props.warehouseId || !props.namespacePath || !props.tableName)
+    return;
+
+  deleteTagLoading.value = true;
+  try {
+    await functions.deleteTag(
+      props.warehouseId,
+      props.namespacePath,
+      props.tableName,
+      deleteTagName.value,
+      true,
+    );
+    closeDeleteTagDialog();
+    emit('deleteTag');
+  } catch (error: any) {
+    console.error('Failed to delete tag:', error);
+  } finally {
+    deleteTagLoading.value = false;
   }
 }
 
