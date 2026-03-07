@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.31](https://github.com/lakekeeper/console-components/compare/v0.2.30...v0.2.31) (2026-03-07)
+
+
+### Bug Fixes
+
+* **ui:** correct versioning tab action menu behavior ([#85](https://github.com/lakekeeper/console-components/issues/85)) ([afeeb43](https://github.com/lakekeeper/console-components/commit/afeeb43f475c0a12074d912704a69a9359861796))
+
 ## [0.2.30](https://github.com/lakekeeper/console-components/compare/v0.2.29...v0.2.30) (2026-03-02)
 
 
