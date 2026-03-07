@@ -399,8 +399,8 @@ async function loadStatistics() {
       Object.assign(latestStats, stat.stats[0]);
       statsLoaded.value = true;
     }
-  } catch (error) {
-    console.error('Failed to load warehouse statistics:', error);
+  } catch {
+    // Error already handled by functions.getWarehouseStatistics
   } finally {
     statsLoading.value = false;
   }

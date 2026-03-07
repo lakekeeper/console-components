@@ -52,7 +52,6 @@
       <!-- D3 chart -->
       <v-row no-gutters class="ml-2 pl-2">
         <v-col cols="12">
-          <v-spacer></v-spacer>
           <div class="chart-wrapper" :style="{ height: chartHeight + 'px' }">
             <div ref="chartRef" class="chart-container"></div>
           </div>
@@ -163,18 +162,82 @@
           <v-slide-y-transition>
             <div v-if="selectedSnapshot" class="details-panel">
               <div class="pa-3">
-                <!-- Header with close button -->
-                <div class="d-flex align-center justify-space-between mb-3">
-                  <span class="text-subtitle-1 font-weight-bold d-flex align-center">
-                    <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
-                    Snapshot #{{ selectedSnapshot['sequence-number'] }}
-                  </span>
-                  <v-btn
-                    icon="mdi-close"
-                    size="x-small"
-                    variant="text"
-                    @click="selectedSnapshot = null"></v-btn>
-                </div>
+                <!-- Header row -->
+                <v-row no-gutters class="mb-3" align="center">
+                  <v-col>
+                    <span class="text-subtitle-1 font-weight-bold d-flex align-center">
+                      <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
+                      Snapshot #{{ selectedSnapshot['sequence-number'] }}
+                    </span>
+                  </v-col>
+                  <v-col class="d-flex justify-end align-center">
+                    <v-menu v-if="canRollback && !isSelectedSnapshotDropped">
+                      <template #activator="{ props: menuProps }">
+                        <v-btn
+                          v-bind="menuProps"
+                          size="small"
+                          variant="tonal"
+                          prepend-icon="mdi-dots-horizontal"
+                          class="mr-1">
+                          Actions
+                          <v-icon end>mdi-chevron-down</v-icon>
+                        </v-btn>
+                      </template>
+                      <v-list density="compact">
+                        <v-list-item
+                          title="Create Branch"
+                          prepend-icon="mdi-source-branch-plus"
+                          @click="openCreateBranchDialog"></v-list-item>
+                        <v-list-item
+                          title="Create Tag"
+                          prepend-icon="mdi-tag-plus-outline"
+                          @click="openCreateTagDialog"></v-list-item>
+                        <v-list-item
+                          v-if="rollbackableBranches.length > 0"
+                          :title="'Rollback to #' + selectedSnapshot?.['sequence-number']"
+                          prepend-icon="mdi-undo-variant"
+                          @click="openRollbackDialog()"></v-list-item>
+                        <template v-if="fastForwardableBranches.length > 0">
+                          <v-divider class="my-1"></v-divider>
+                          <v-list-subheader>Fast Forward</v-list-subheader>
+                          <v-list-item
+                            v-for="branch in fastForwardableBranches"
+                            :key="'ff-' + branch.name"
+                            :title="branch.name"
+                            prepend-icon="mdi-fast-forward"
+                            @click="openFastForwardDialog(branch)"></v-list-item>
+                        </template>
+                        <template v-if="deletableBranches.length > 0">
+                          <v-divider class="my-1"></v-divider>
+                          <v-list-subheader>Delete Branch</v-list-subheader>
+                          <v-list-item
+                            v-for="branch in deletableBranches"
+                            :key="'del-' + branch.name"
+                            :title="branch.name"
+                            prepend-icon="mdi-source-branch-remove"
+                            base-color="error"
+                            @click="openDeleteBranchDialog(branch.name)"></v-list-item>
+                        </template>
+                        <template v-if="deletableTags.length > 0">
+                          <v-divider class="my-1"></v-divider>
+                          <v-list-subheader>Delete Tag</v-list-subheader>
+                          <v-list-item
+                            v-for="tag in deletableTags"
+                            :key="'del-tag-' + tag.name"
+                            :title="tag.name"
+                            prepend-icon="mdi-tag-off-outline"
+                            base-color="error"
+                            @click="openDeleteTagDialog(tag.name)"></v-list-item>
+                        </template>
+                      </v-list>
+                    </v-menu>
+                    <v-btn
+                      icon="mdi-close"
+                      size="x-small"
+                      variant="text"
+                      @click="selectedSnapshot = null"></v-btn>
+                  </v-col>
+                </v-row>
 
                 <!-- Row 1: Snapshot Info + Summary -->
                 <v-row>
@@ -187,35 +250,6 @@
                           </v-icon>
                           Snapshot Information
                         </v-toolbar-title>
-                        <v-spacer></v-spacer>
-                        <v-chip
-                          v-if="selectedSnapshot.summary?.operation"
-                          :color="getOperationColor(selectedSnapshot.summary.operation)"
-                          size="x-small"
-                          variant="flat"
-                          class="mr-2">
-                          {{ selectedSnapshot.summary.operation }}
-                        </v-chip>
-                        <!-- Create branch from snapshot -->
-                        <v-btn
-                          v-if="canRollback && !isSelectedSnapshotDropped"
-                          color="primary"
-                          size="small"
-                          variant="tonal"
-                          prepend-icon="mdi-source-branch-plus"
-                          class="mr-1"
-                          @click="openCreateBranchDialog">
-                          Create Branch
-                        </v-btn>
-                        <v-btn
-                          v-if="canRollback && !isSelectedSnapshotDropped"
-                          color="teal"
-                          size="small"
-                          variant="tonal"
-                          prepend-icon="mdi-tag-plus-outline"
-                          @click="openCreateTagDialog">
-                          Create Tag
-                        </v-btn>
                       </v-toolbar>
                       <v-divider></v-divider>
                       <v-table density="compact" class="snapshot-table" fixed-header height="250px">
@@ -292,56 +326,6 @@
                           class="mr-2">
                           {{ Object.keys(selectedSnapshot.summary).length }}
                         </v-chip>
-                        <!-- Branch actions menu -->
-                        <v-menu v-if="canRollback && !isSelectedSnapshotDropped">
-                          <template #activator="{ props: menuProps }">
-                            <v-btn
-                              v-bind="menuProps"
-                              size="small"
-                              variant="tonal"
-                              prepend-icon="mdi-source-branch"
-                              class="mr-1">
-                              Actions
-                              <v-icon end>mdi-chevron-down</v-icon>
-                            </v-btn>
-                          </template>
-                          <v-list density="compact">
-                            <template v-if="fastForwardableBranches.length > 0">
-                              <v-list-subheader>Fast Forward</v-list-subheader>
-                              <v-list-item
-                                v-for="branch in fastForwardableBranches"
-                                :key="'ff-' + branch.name"
-                                :title="branch.name"
-                                prepend-icon="mdi-fast-forward"
-                                @click="openFastForwardDialog(branch)"></v-list-item>
-                            </template>
-                            <v-list-item
-                              v-if="rollbackableBranches.length > 0"
-                              :title="'Rollback to ' + selectedSnapshot?.['snapshot-id']"
-                              prepend-icon="mdi-undo-variant"
-                              @click="openRollbackDialog()"></v-list-item>
-                            <template v-if="deletableBranches.length > 0">
-                              <v-list-subheader>Delete</v-list-subheader>
-                              <v-list-item
-                                v-for="branch in deletableBranches"
-                                :key="'del-' + branch.name"
-                                :title="branch.name"
-                                prepend-icon="mdi-source-branch-remove"
-                                base-color="error"
-                                @click="openDeleteBranchDialog(branch.name)"></v-list-item>
-                            </template>
-                            <template v-if="deletableTags.length > 0">
-                              <v-list-subheader>Delete Tag</v-list-subheader>
-                              <v-list-item
-                                v-for="tag in deletableTags"
-                                :key="'del-tag-' + tag.name"
-                                :title="tag.name"
-                                prepend-icon="mdi-tag-off-outline"
-                                base-color="error"
-                                @click="openDeleteTagDialog(tag.name)"></v-list-item>
-                            </template>
-                          </v-list>
-                        </v-menu>
                       </v-toolbar>
                       <v-divider></v-divider>
                       <v-table
@@ -1088,26 +1072,6 @@ const graphNodes = computed<GraphNode[]>(() => {
     });
   });
 
-  // Detect merged branches (same tip as main) and use snapshot-log to
-  // move their exclusive snapshots onto a separate branch row.
-  const snapshotLog = (props.table.metadata as any)['snapshot-log'] as
-    | { 'snapshot-id': number; 'timestamp-ms': number }[]
-    | undefined;
-  const mergedBranchExclusiveIds = new Set<string>();
-  if (mainBranch && snapshotLog && snapshotLog.length > 0) {
-    const logIds = new Set(snapshotLog.map((e) => String(e['snapshot-id'])));
-    namedBranches.forEach((branch, idx) => {
-      if (String(branch.tipSnapshotId) !== String(mainBranch.tipSnapshotId)) return;
-      // Snapshots in shared ancestry that are NOT in the log were committed on this branch
-      branch.ancestry.forEach((id) => {
-        if (String(id) !== String(branch.tipSnapshotId) && !logIds.has(String(id))) {
-          snapshotRow.set(id, -(idx + 1));
-          mergedBranchExclusiveIds.add(String(id));
-        }
-      });
-    });
-  }
-
   // Horizontal layout: x = time (left→right), y = branch row
   const spacingX = 90;
   const spacingY = 100;
@@ -1216,72 +1180,16 @@ const graphLinks = computed<GraphLink[]>(() => {
     links.push({ id: key, path, color, opacity });
   }
 
-  // Determine which branches are merged into main (same tip)
+  // Build links for each branch
   const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
-  const snapshotLog2 = (props.table.metadata as any)['snapshot-log'] as
-    | { 'snapshot-id': number }[]
-    | undefined;
-  const mergedExclusiveIds = new Set<string>();
-  if (mainBr && snapshotLog2 && snapshotLog2.length > 0) {
-    const logIds2 = new Set(snapshotLog2.map((e) => String(e['snapshot-id'])));
-    branches.value.forEach((branch) => {
-      if (branch === mainBr || branch.type !== 'branch') return;
-      if (String(branch.tipSnapshotId) !== String(mainBr.tipSnapshotId)) return;
-      branch.ancestry.forEach((id) => {
-        if (String(id) !== String(branch.tipSnapshotId) && !logIds2.has(String(id))) {
-          mergedExclusiveIds.add(String(id));
-        }
-      });
-    });
-  }
 
-  // Process merged branches first so their colored links take priority
-  const sortedBranches = [...branches.value].sort((a, b) => {
-    const aM =
-      mainBr &&
-      a !== mainBr &&
-      a.type === 'branch' &&
-      String(a.tipSnapshotId) === String(mainBr.tipSnapshotId);
-    const bM =
-      mainBr &&
-      b !== mainBr &&
-      b.type === 'branch' &&
-      String(b.tipSnapshotId) === String(mainBr.tipSnapshotId);
-    if (aM && !bM) return -1;
-    if (!aM && bM) return 1;
-    return 0;
-  });
-
-  sortedBranches.forEach((branch) => {
-    const isMerged =
-      mainBr &&
-      branch !== mainBr &&
-      branch.type === 'branch' &&
-      mergedExclusiveIds.size > 0 &&
-      String(branch.tipSnapshotId) === String(mainBr.tipSnapshotId);
+  branches.value.forEach((branch) => {
     // Tagged-dropped branches get higher opacity (teal links)
     const hasTagOnDropped =
       branch.type === 'dropped' &&
       branch.ancestry.some((id) => tags.value.some((t) => t.snapshotId === id));
     const opacity = branch.type === 'dropped' ? (hasTagOnDropped ? 0.7 : 0.5) : 0.8;
 
-    if (isMerged) {
-      // Only create links where at least one endpoint is branch-exclusive
-      for (let i = 0; i < branch.ancestry.length - 1; i++) {
-        const child = nodeMap.get(branch.ancestry[i]);
-        const parent = nodeMap.get(branch.ancestry[i + 1]);
-        if (child && parent) {
-          const childExcl = mergedExclusiveIds.has(String(branch.ancestry[i]));
-          const parentExcl = mergedExclusiveIds.has(String(branch.ancestry[i + 1]));
-          if (childExcl || parentExcl) {
-            addLink(parent, child, branch.color, 0.8);
-          }
-        }
-      }
-      return;
-    }
-
-    // Chain edges — only for snapshots exclusive to this branch
     // (stop once we hit a snapshot owned by main, to avoid coloring main's links)
     const mainAncestrySet = mainBr ? new Set(mainBr.ancestry) : new Set<number>();
     for (let i = 0; i < branch.ancestry.length - 1; i++) {
@@ -1942,19 +1850,19 @@ function formatSummaryValue(value: any): string {
   return String(value);
 }
 
-function getOperationColor(operation: string): string {
-  const map: Record<string, string> = {
-    append: 'success',
-    overwrite: 'warning',
-    delete: 'error',
-    replace: 'primary',
-    merge: 'info',
-    optimize: 'secondary',
-    expire: 'orange',
-    compact: 'teal',
-  };
-  return map[operation?.toLowerCase()] || 'default';
-}
+// function getOperationColor(operation: string): string {
+//   const map: Record<string, string> = {
+//     append: 'success',
+//     overwrite: 'warning',
+//     delete: 'error',
+//     replace: 'primary',
+//     merge: 'info',
+//     optimize: 'secondary',
+//     expire: 'orange',
+//     compact: 'teal',
+//   };
+//   return map[operation?.toLowerCase()] || 'default';
+// }
 
 // ─── Lifecycle: D3 owns the SVG ─────────────────────────────────────────────
 
