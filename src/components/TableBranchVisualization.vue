@@ -70,10 +70,7 @@
               <template #prepend>
                 <!-- Tag icon -->
                 <svg v-if="entry.type === 'tag'" width="14" height="14" class="mr-1">
-                  <path
-                    d="M 2 3 L 9 3 L 12 7 L 9 11 L 2 11 Z"
-                    :fill="entry.color"
-                    opacity="0.8" />
+                  <path d="M 2 3 L 9 3 L 12 7 L 9 11 L 2 11 Z" :fill="entry.color" opacity="0.8" />
                   <circle cx="4.5" cy="7" r="1.2" fill="white" opacity="0.7" />
                 </svg>
                 <!-- Branch / dropped icon -->
@@ -161,10 +158,7 @@
       <v-row no-gutters class="details-row">
         <v-col cols="12" style="min-height: 0; overflow-y: auto">
           <v-slide-y-transition>
-            <div
-              v-if="selectedSnapshot"
-              class="details-panel"
-              >
+            <div v-if="selectedSnapshot" class="details-panel">
               <div class="pa-3">
                 <!-- Header with close button -->
                 <div class="d-flex align-center justify-space-between mb-3">
@@ -809,9 +803,7 @@
             hide-details
             :placeholder="deleteTagName"
             variant="outlined"
-            :color="
-              deleteTagConfirmText === deleteTagName ? 'success' : undefined
-            "></v-text-field>
+            :color="deleteTagConfirmText === deleteTagName ? 'success' : undefined"></v-text-field>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -1630,11 +1622,17 @@ function renderChart() {
     }
 
     // Build ordered list: tags (above slots) then branches (below slots)
-    const orderedLabels: { label: typeof allLabels[0]; slot: typeof aboveSlots[0]; above: boolean }[] = [];
+    const orderedLabels: {
+      label: (typeof allLabels)[0];
+      slot: (typeof aboveSlots)[0];
+      above: boolean;
+    }[] = [];
     const tagSlots = pickSlots(aboveSlots, tagLabels.length);
     tagLabels.forEach((label, i) => orderedLabels.push({ label, slot: tagSlots[i], above: true }));
     const branchSlotsPicked = pickSlots(belowSlots, branchLabels.length);
-    branchLabels.forEach((label, i) => orderedLabels.push({ label, slot: branchSlotsPicked[i], above: false }));
+    branchLabels.forEach((label, i) =>
+      orderedLabels.push({ label, slot: branchSlotsPicked[i], above: false }),
+    );
 
     orderedLabels.forEach(({ label, slot, above }) => {
       const isBranch = label.kind === 'branch';
@@ -1705,38 +1703,40 @@ function renderChart() {
       }
 
       // Make the label draggable
-      const drag = d3.drag<SVGGElement, unknown>().on('start', function () {
-        d3.select(this).raise();
-        if (bgRect) bgRect.style('cursor', 'grabbing');
-        d3.select(this).style('cursor', 'grabbing');
-      }).on('drag', function (event: d3.D3DragEvent<SVGGElement, unknown, unknown>) {
-        labelX += event.dx;
-        labelY += event.dy;
+      const drag = d3
+        .drag<SVGGElement, unknown>()
+        .on('start', function () {
+          d3.select(this).raise();
+          if (bgRect) bgRect.style('cursor', 'grabbing');
+          d3.select(this).style('cursor', 'grabbing');
+        })
+        .on('drag', function (event: d3.D3DragEvent<SVGGElement, unknown, unknown>) {
+          labelX += event.dx;
+          labelY += event.dy;
 
-        textNode.attr('x', labelX).attr('y', labelY);
-        leaderLine
-          .attr('x2', labelX)
-          .attr('y2', labelY - (above ? -8 : 8));
+          textNode.attr('x', labelX).attr('y', labelY);
+          leaderLine.attr('x2', labelX).attr('y2', labelY - (above ? -8 : 8));
 
-        const newBbox = (textNode.node() as SVGTextElement)?.getBBox();
-        if (newBbox && bgRect) {
-          bgRect
-            .attr('x', newBbox.x - 4)
-            .attr('y', newBbox.y - 2)
-            .attr('width', newBbox.width + 8)
-            .attr('height', newBbox.height + 4);
-        }
-        if (newBbox && underline) {
-          underline
-            .attr('x1', newBbox.x)
-            .attr('y1', newBbox.y + newBbox.height + 1)
-            .attr('x2', newBbox.x + newBbox.width)
-            .attr('y2', newBbox.y + newBbox.height + 1);
-        }
-      }).on('end', function () {
-        if (bgRect) bgRect.style('cursor', 'pointer');
-        d3.select(this).style('cursor', 'pointer');
-      });
+          const newBbox = (textNode.node() as SVGTextElement)?.getBBox();
+          if (newBbox && bgRect) {
+            bgRect
+              .attr('x', newBbox.x - 4)
+              .attr('y', newBbox.y - 2)
+              .attr('width', newBbox.width + 8)
+              .attr('height', newBbox.height + 4);
+          }
+          if (newBbox && underline) {
+            underline
+              .attr('x1', newBbox.x)
+              .attr('y1', newBbox.y + newBbox.height + 1)
+              .attr('x2', newBbox.x + newBbox.width)
+              .attr('y2', newBbox.y + newBbox.height + 1);
+          }
+        })
+        .on('end', function () {
+          if (bgRect) bgRect.style('cursor', 'pointer');
+          d3.select(this).style('cursor', 'pointer');
+        });
 
       singleLabelG.call(drag as any);
     });
@@ -2046,10 +2046,7 @@ const existingBranchNames = computed(() =>
 
 const existingTagNames = computed(() => tags.value.map((t) => t.name));
 
-const existingRefNames = computed(() => [
-  ...existingBranchNames.value,
-  ...existingTagNames.value,
-]);
+const existingRefNames = computed(() => [...existingBranchNames.value, ...existingTagNames.value]);
 
 // ─── Computed: deletable branches ────────────────────────────────────────────
 // Non-main/master branches whose ancestry includes the selected snapshot
@@ -2418,7 +2415,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-
 /* .details-scroll-area {
   flex: 1;
   min-height: 0;
@@ -2486,8 +2482,6 @@ onBeforeUnmount(() => {
 .legend-chip {
   font-size: 0.7rem !important;
 }
-
-
 
 /* Details row — takes remaining space, scrolls internally */
 .details-row {

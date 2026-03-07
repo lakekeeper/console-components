@@ -70,10 +70,7 @@
               <template #prepend>
                 <!-- Tag icon -->
                 <svg v-if="entry.type === 'tag'" width="14" height="14" class="mr-1">
-                  <path
-                    d="M 2 3 L 9 3 L 12 7 L 9 11 L 2 11 Z"
-                    :fill="entry.color"
-                    opacity="0.8" />
+                  <path d="M 2 3 L 9 3 L 12 7 L 9 11 L 2 11 Z" :fill="entry.color" opacity="0.8" />
                   <circle cx="4.5" cy="7" r="1.2" fill="white" opacity="0.7" />
                 </svg>
                 <!-- Branch / dropped icon -->
@@ -161,10 +158,7 @@
       <v-row no-gutters class="details-row">
         <v-col cols="12" style="min-height: 0; overflow-y: auto">
           <v-slide-y-transition>
-            <div
-              v-if="selectedSnapshot"
-              class="details-panel"
-              >
+            <div v-if="selectedSnapshot" class="details-panel">
               <div class="pa-3">
                 <!-- Header with close button -->
                 <div class="d-flex align-center justify-space-between mb-3">
@@ -685,7 +679,9 @@
           <v-btn
             color="warning"
             :disabled="
-              rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) || rollbackLoading || !rollbackTargetBranch
+              rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) ||
+              rollbackLoading ||
+              !rollbackTargetBranch
             "
             :loading="rollbackLoading"
             @click="executeRollback">
@@ -812,9 +808,7 @@
             hide-details
             :placeholder="deleteTagName"
             variant="outlined"
-            :color="
-              deleteTagConfirmText === deleteTagName ? 'success' : undefined
-            "></v-text-field>
+            :color="deleteTagConfirmText === deleteTagName ? 'success' : undefined"></v-text-field>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -1141,8 +1135,18 @@ const graphNodes = computed<GraphNode[]>(() => {
       branches.value.find((b) => b.ancestry.includes(sid) && snapshotRow.get(sid) !== undefined) ||
       branches.value.find((b) => b.ancestry.includes(sid));
     const isDropped = ownerBranch?.type === 'dropped';
+    const hasTag = (tagMap.get(sid) || []).length > 0;
     const branchColor = ownerBranch?.color || '#666';
     const tipBranches = tipMap.get(sid) || [];
+    // Tagged-but-dropped snapshots get teal color to show they're anchored
+    const nodeColor = sc ? '#ff9800' : isDropped && hasTag ? TAG_COLOR : branchColor;
+    const nodeStroke = sc
+      ? '#f57c00'
+      : isDropped && hasTag
+        ? '#00796b'
+        : isDropped
+          ? '#757575'
+          : branchColor;
 
     return {
       id: `node-${sid}`,
@@ -1150,8 +1154,8 @@ const graphNodes = computed<GraphNode[]>(() => {
       x,
       y,
       radius: sc ? 14 : 11,
-      color: sc ? '#ff9800' : branchColor,
-      strokeColor: sc ? '#f57c00' : isDropped ? '#757575' : branchColor,
+      color: nodeColor,
+      strokeColor: nodeStroke,
       sequenceNumber: snapshot['sequence-number'] || 0,
       branchLabels: tipBranches.map((b) => ({ name: b.name, color: b.color })),
       tagLabels: (tagMap.get(sid) || []).map((t) => ({ name: t.name, color: TAG_COLOR })),
@@ -1250,7 +1254,11 @@ const graphLinks = computed<GraphLink[]>(() => {
       branch.type === 'branch' &&
       mergedExclusiveIds.size > 0 &&
       String(branch.tipSnapshotId) === String(mainBr.tipSnapshotId);
-    const opacity = branch.type === 'dropped' ? 0.5 : 0.8;
+    // Tagged-dropped branches get higher opacity (teal links)
+    const hasTagOnDropped =
+      branch.type === 'dropped' &&
+      branch.ancestry.some((id) => tags.value.some((t) => t.snapshotId === id));
+    const opacity = branch.type === 'dropped' ? (hasTagOnDropped ? 0.7 : 0.5) : 0.8;
 
     if (isMerged) {
       // Only create links where at least one endpoint is branch-exclusive
@@ -1286,7 +1294,7 @@ const graphLinks = computed<GraphLink[]>(() => {
       ) {
         continue;
       }
-      addLink(parent, child, branch.color, opacity);
+      addLink(parent, child, hasTagOnDropped ? TAG_COLOR : branch.color, opacity);
     }
 
     // Divergence from main
@@ -1306,12 +1314,18 @@ const graphLinks = computed<GraphLink[]>(() => {
 
     // Dropped branch divergence
     if (branch.type === 'dropped' && branch.ancestry.length > 0) {
+      // Check if any snapshot on this dropped branch has a tag
+      const hasTaggedSnapshot = branch.ancestry.some((id) =>
+        tags.value.some((t) => t.snapshotId === id),
+      );
+      const dropColor = hasTaggedSnapshot ? TAG_COLOR : DROPPED_COLOR;
+      const dropOpacity = hasTaggedSnapshot ? 0.7 : 0.5;
       const lastId = branch.ancestry[branch.ancestry.length - 1];
       const lastSnap = props.snapshotHistory.find((s) => s['snapshot-id'] === lastId);
       if (lastSnap?.['parent-snapshot-id']) {
         const from = nodeMap.get(lastSnap['parent-snapshot-id']);
         const to = nodeMap.get(lastId);
-        if (from && to) addLink(from, to, DROPPED_COLOR, 0.5, 'drop-');
+        if (from && to) addLink(from, to, dropColor, dropOpacity, 'drop-');
       }
     }
   });
@@ -1633,11 +1647,17 @@ function renderChart() {
     }
 
     // Build ordered list: tags (above slots) then branches (below slots)
-    const orderedLabels: { label: typeof allLabels[0]; slot: typeof aboveSlots[0]; above: boolean }[] = [];
+    const orderedLabels: {
+      label: (typeof allLabels)[0];
+      slot: (typeof aboveSlots)[0];
+      above: boolean;
+    }[] = [];
     const tagSlots = pickSlots(aboveSlots, tagLabels.length);
     tagLabels.forEach((label, i) => orderedLabels.push({ label, slot: tagSlots[i], above: true }));
     const branchSlotsPicked = pickSlots(belowSlots, branchLabels.length);
-    branchLabels.forEach((label, i) => orderedLabels.push({ label, slot: branchSlotsPicked[i], above: false }));
+    branchLabels.forEach((label, i) =>
+      orderedLabels.push({ label, slot: branchSlotsPicked[i], above: false }),
+    );
 
     orderedLabels.forEach(({ label, slot, above }) => {
       const isBranch = label.kind === 'branch';
@@ -1708,38 +1728,40 @@ function renderChart() {
       }
 
       // Make the label draggable
-      const drag = d3.drag<SVGGElement, unknown>().on('start', function () {
-        d3.select(this).raise();
-        if (bgRect) bgRect.style('cursor', 'grabbing');
-        d3.select(this).style('cursor', 'grabbing');
-      }).on('drag', function (event: d3.D3DragEvent<SVGGElement, unknown, unknown>) {
-        labelX += event.dx;
-        labelY += event.dy;
+      const drag = d3
+        .drag<SVGGElement, unknown>()
+        .on('start', function () {
+          d3.select(this).raise();
+          if (bgRect) bgRect.style('cursor', 'grabbing');
+          d3.select(this).style('cursor', 'grabbing');
+        })
+        .on('drag', function (event: d3.D3DragEvent<SVGGElement, unknown, unknown>) {
+          labelX += event.dx;
+          labelY += event.dy;
 
-        textNode.attr('x', labelX).attr('y', labelY);
-        leaderLine
-          .attr('x2', labelX)
-          .attr('y2', labelY - (above ? -8 : 8));
+          textNode.attr('x', labelX).attr('y', labelY);
+          leaderLine.attr('x2', labelX).attr('y2', labelY - (above ? -8 : 8));
 
-        const newBbox = (textNode.node() as SVGTextElement)?.getBBox();
-        if (newBbox && bgRect) {
-          bgRect
-            .attr('x', newBbox.x - 4)
-            .attr('y', newBbox.y - 2)
-            .attr('width', newBbox.width + 8)
-            .attr('height', newBbox.height + 4);
-        }
-        if (newBbox && underline) {
-          underline
-            .attr('x1', newBbox.x)
-            .attr('y1', newBbox.y + newBbox.height + 1)
-            .attr('x2', newBbox.x + newBbox.width)
-            .attr('y2', newBbox.y + newBbox.height + 1);
-        }
-      }).on('end', function () {
-        if (bgRect) bgRect.style('cursor', 'pointer');
-        d3.select(this).style('cursor', 'pointer');
-      });
+          const newBbox = (textNode.node() as SVGTextElement)?.getBBox();
+          if (newBbox && bgRect) {
+            bgRect
+              .attr('x', newBbox.x - 4)
+              .attr('y', newBbox.y - 2)
+              .attr('width', newBbox.width + 8)
+              .attr('height', newBbox.height + 4);
+          }
+          if (newBbox && underline) {
+            underline
+              .attr('x1', newBbox.x)
+              .attr('y1', newBbox.y + newBbox.height + 1)
+              .attr('x2', newBbox.x + newBbox.width)
+              .attr('y2', newBbox.y + newBbox.height + 1);
+          }
+        })
+        .on('end', function () {
+          if (bgRect) bgRect.style('cursor', 'pointer');
+          d3.select(this).style('cursor', 'pointer');
+        });
 
       singleLabelG.call(drag as any);
     });
@@ -2008,6 +2030,21 @@ const rollbackableBranches = computed<BranchMeta[]>(() => {
     return true;
   });
 
+  // Special case: if snapshot is tagged but not reachable from any active branch,
+  // offer rollback to main (tags anchor snapshots as valid restore points)
+  if (candidateBranches.length === 0) {
+    const isTagged = tags.value.some((t) => String(t.snapshotId) === sidStr);
+    if (isTagged) {
+      const mainBranch = branches.value.find(
+        (b) => b.type === 'branch' && (b.name === 'main' || b.name === 'master'),
+      );
+      if (mainBranch && String(mainBranch.tipSnapshotId) !== sidStr) {
+        return [mainBranch];
+      }
+    }
+    return [];
+  }
+
   if (candidateBranches.length <= 1) return candidateBranches;
 
   // If multiple branches share this snapshot, only offer rollback on branches
@@ -2068,10 +2105,7 @@ const existingBranchNames = computed(() =>
 
 const existingTagNames = computed(() => tags.value.map((t) => t.name));
 
-const existingRefNames = computed(() => [
-  ...existingBranchNames.value,
-  ...existingTagNames.value,
-]);
+const existingRefNames = computed(() => [...existingBranchNames.value, ...existingTagNames.value]);
 
 // ─── Computed: deletable branches ────────────────────────────────────────────
 // Non-main/master branches whose ancestry includes the selected snapshot
@@ -2442,7 +2476,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 
-
 /* .details-scroll-area {
   flex: 1;
   min-height: 0;
@@ -2510,8 +2543,6 @@ onBeforeUnmount(() => {
 .legend-chip {
   font-size: 0.7rem !important;
 }
-
-
 
 /* Details row — takes remaining space, scrolls internally */
 .details-row {
