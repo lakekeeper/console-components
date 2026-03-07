@@ -12,138 +12,159 @@
     </v-row>
 
     <div v-else class="branch-layout">
-      <!-- Row 1: Fixed D3 chart — never scrolls -->
-      <v-row no-gutters class="flex-grow-0 flex-shrink-0 ml-2 pl-2">
+      <!-- Zoom controls — own row above chart -->
+      <v-row no-gutters class="ml-2 pl-2">
         <v-col cols="12">
-          <div class="chart-outer">
-            <div ref="chartRef" class="chart-container"></div>
-
-            <!-- Floating zoom controls — top-left -->
-            <div class="zoom-overlay">
-              <v-btn-group variant="flat" density="compact" class="zoom-group">
-                <v-btn size="x-small" icon="mdi-plus" @click="zoomIn"></v-btn>
-                <v-btn size="x-small" class="zoom-label" @click="resetZoom">
-                  {{ Math.round(currentZoom * 100) }}%
-                </v-btn>
-                <v-btn size="x-small" icon="mdi-minus" class="mr-2" @click="zoomOut"></v-btn>
-                <v-btn size="x-small" icon="mdi-fit-to-screen" @click="fitToView"></v-btn>
-              </v-btn-group>
-            </div>
-
-            <!-- Legend — bottom-left -->
-            <div class="legend-overlay">
-              <v-chip
-                v-for="entry in legendEntries"
-                :key="entry.name"
-                size="x-small"
-                variant="tonal"
-                class="legend-chip"
-                :style="{ opacity: entry.opacity }">
-                <template #prepend>
-                  <!-- Tag icon -->
-                  <svg v-if="entry.type === 'tag'" width="14" height="14" class="mr-1">
-                    <path
-                      d="M 2 3 L 9 3 L 12 7 L 9 11 L 2 11 Z"
-                      :fill="entry.color"
-                      opacity="0.8" />
-                    <circle cx="4.5" cy="7" r="1.2" fill="white" opacity="0.7" />
-                  </svg>
-                  <!-- Branch / dropped icon -->
-                  <svg v-else width="14" height="14" class="mr-1">
-                    <circle
-                      cx="7"
-                      cy="7"
-                      r="6"
-                      fill="none"
-                      :stroke="entry.color"
-                      stroke-width="1"
-                      opacity="0.5" />
-                    <circle cx="7" cy="7" r="4" :fill="entry.color" />
-                    <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
-                  </svg>
-                </template>
-                {{ entry.name }}
-                <template #append>
-                  <v-btn
-                    v-if="
-                      canRollback &&
-                      entry.type === 'branch' &&
-                      entry.name !== 'main' &&
-                      entry.name !== 'master'
-                    "
-                    icon="mdi-pencil-outline"
-                    size="x-small"
-                    variant="text"
-                    density="compact"
-                    class="ml-1"
-                    @click.stop="openRenameBranchDialog(entry.name)"></v-btn>
-                  <v-btn
-                    v-if="
-                      canRollback &&
-                      entry.type === 'branch' &&
-                      entry.name !== 'main' &&
-                      entry.name !== 'master'
-                    "
-                    icon="mdi-close-circle"
-                    size="x-small"
-                    variant="text"
-                    density="compact"
-                    style="margin-right: -6px"
-                    @click.stop="openDeleteBranchDialog(entry.name)"></v-btn>
-                  <v-btn
-                    v-if="canRollback && entry.type === 'tag'"
-                    icon="mdi-pencil-outline"
-                    size="x-small"
-                    variant="text"
-                    density="compact"
-                    class="ml-1"
-                    @click.stop="openRenameTagDialog(entry.name)"></v-btn>
-                  <v-btn
-                    v-if="canRollback && entry.type === 'tag'"
-                    icon="mdi-close-circle"
-                    size="x-small"
-                    variant="text"
-                    density="compact"
-                    style="margin-right: -6px"
-                    @click.stop="openDeleteTagDialog(entry.name)"></v-btn>
-                </template>
-              </v-chip>
-              <v-chip size="x-small" variant="tonal" class="legend-chip">
-                <template #prepend>
-                  <svg width="14" height="14" class="mr-1">
-                    <circle
-                      cx="7"
-                      cy="7"
-                      r="6"
-                      fill="none"
-                      stroke="#f57c00"
-                      stroke-width="1"
-                      opacity="0.5" />
-                    <circle cx="7" cy="7" r="4" fill="#ff9800" />
-                    <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
-                  </svg>
-                </template>
-                schema change
-              </v-chip>
-            </div>
-
-            <!-- Click hint -->
-            <div v-if="!selectedSnapshot" class="hint-overlay">
+          <div class="zoom-bar">
+            <v-btn-group variant="flat" density="comfortable" class="zoom-group" rounded="lg">
+              <v-btn size="small" icon="mdi-plus" @click="zoomIn">
+                <v-icon size="18">mdi-plus</v-icon>
+                <v-tooltip activator="parent" location="bottom">Zoom in</v-tooltip>
+              </v-btn>
+              <v-btn size="small" class="zoom-label" @click="resetZoom">
+                {{ Math.round(currentZoom * 100) }}%
+                <v-tooltip activator="parent" location="bottom">Reset zoom</v-tooltip>
+              </v-btn>
+              <v-btn size="small" icon="mdi-minus" @click="zoomOut">
+                <v-icon size="18">mdi-minus</v-icon>
+                <v-tooltip activator="parent" location="bottom">Zoom out</v-tooltip>
+              </v-btn>
+              <v-btn size="small" icon="mdi-fit-to-screen" @click="fitToView">
+                <v-icon size="18">mdi-fit-to-screen</v-icon>
+                <v-tooltip activator="parent" location="bottom">Fit to view</v-tooltip>
+              </v-btn>
+            </v-btn-group>
+            <v-divider vertical class="mx-3 my-1"></v-divider>
+            <span v-if="!selectedSnapshot" class="text-body-2 text-medium-emphasis">
               <v-icon size="16" class="mr-1">mdi-cursor-default-click</v-icon>
-              <span class="text-caption">Click a node for details</span>
-            </div>
+              Click a node for details
+            </span>
+            <span v-else class="text-body-2 font-weight-medium">
+              <v-icon size="16" class="mr-1" color="primary">mdi-camera-outline</v-icon>
+              Snapshot #{{ selectedSnapshot['sequence-number'] }} selected
+            </span>
           </div>
         </v-col>
       </v-row>
 
-      <!-- Row 2: Snapshot details (appears on node click) -->
-      <v-row no-gutters class="details-scroll-area">
+      <!-- D3 chart -->
+      <v-row no-gutters class="ml-2 pl-2">
+        <v-col cols="12">
+          <div class="chart-outer" :style="{ height: chartHeight + 'px' }">
+            <div ref="chartRef" class="chart-container"></div>
+          </div>
+        </v-col>
+      </v-row>
+
+      <!-- Legend — own row, always visible -->
+      <v-row no-gutters class="ml-2 pl-2">
+        <v-col cols="12">
+          <div class="legend-bar">
+            <v-chip
+              v-for="entry in legendEntries"
+              :key="entry.name"
+              size="x-small"
+              variant="tonal"
+              class="legend-chip"
+              :style="{ opacity: entry.opacity }">
+              <template #prepend>
+                <!-- Tag icon -->
+                <svg v-if="entry.type === 'tag'" width="14" height="14" class="mr-1">
+                  <path
+                    d="M 2 3 L 9 3 L 12 7 L 9 11 L 2 11 Z"
+                    :fill="entry.color"
+                    opacity="0.8" />
+                  <circle cx="4.5" cy="7" r="1.2" fill="white" opacity="0.7" />
+                </svg>
+                <!-- Branch / dropped icon -->
+                <svg v-else width="14" height="14" class="mr-1">
+                  <circle
+                    cx="7"
+                    cy="7"
+                    r="6"
+                    fill="none"
+                    :stroke="entry.color"
+                    stroke-width="1"
+                    opacity="0.5" />
+                  <circle cx="7" cy="7" r="4" :fill="entry.color" />
+                  <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
+                </svg>
+              </template>
+              {{ entry.name }}
+              <template #append>
+                <v-btn
+                  v-if="
+                    canRollback &&
+                    entry.type === 'branch' &&
+                    entry.name !== 'main' &&
+                    entry.name !== 'master'
+                  "
+                  icon="mdi-pencil-outline"
+                  size="x-small"
+                  variant="text"
+                  density="compact"
+                  class="ml-1"
+                  @click.stop="openRenameBranchDialog(entry.name)"></v-btn>
+                <v-btn
+                  v-if="
+                    canRollback &&
+                    entry.type === 'branch' &&
+                    entry.name !== 'main' &&
+                    entry.name !== 'master'
+                  "
+                  icon="mdi-close-circle"
+                  size="x-small"
+                  variant="text"
+                  density="compact"
+                  style="margin-right: -6px"
+                  @click.stop="openDeleteBranchDialog(entry.name)"></v-btn>
+                <v-btn
+                  v-if="canRollback && entry.type === 'tag'"
+                  icon="mdi-pencil-outline"
+                  size="x-small"
+                  variant="text"
+                  density="compact"
+                  class="ml-1"
+                  @click.stop="openRenameTagDialog(entry.name)"></v-btn>
+                <v-btn
+                  v-if="canRollback && entry.type === 'tag'"
+                  icon="mdi-close-circle"
+                  size="x-small"
+                  variant="text"
+                  density="compact"
+                  style="margin-right: -6px"
+                  @click.stop="openDeleteTagDialog(entry.name)"></v-btn>
+              </template>
+            </v-chip>
+            <v-chip size="x-small" variant="tonal" class="legend-chip">
+              <template #prepend>
+                <svg width="14" height="14" class="mr-1">
+                  <circle
+                    cx="7"
+                    cy="7"
+                    r="6"
+                    fill="none"
+                    stroke="#f57c00"
+                    stroke-width="1"
+                    opacity="0.5" />
+                  <circle cx="7" cy="7" r="4" fill="#ff9800" />
+                  <circle cx="7" cy="7" r="1.5" fill="white" opacity="0.7" />
+                </svg>
+              </template>
+              schema change
+            </v-chip>
+          </div>
+        </v-col>
+      </v-row>
+
+      <!-- Snapshot details (appears on node click) -->
+      <v-row no-gutters>
         <v-col cols="12">
           <v-slide-y-transition>
             <div
               v-if="selectedSnapshot"
               class="details-panel"
-              style="max-height: 45vh; overflow-y: auto">
+              >
               <div class="pa-3">
                 <!-- Header with close button -->
                 <div class="d-flex align-center justify-space-between mb-3">
@@ -809,10 +830,18 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch, onBeforeUnmount } from 'vue';
+import { computed, ref, watch, onBeforeUnmount, nextTick } from 'vue';
 import * as d3 from 'd3';
+import { useDisplay } from 'vuetify';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 import { useFunctions } from '../plugins/functions';
+
+// ─── Reactive chart height from viewport ─────────────────────────────────────
+const { height: viewportHeight } = useDisplay();
+const chartHeight = computed(() => {
+  // 40% of viewport, clamped between 250px and 500px
+  return Math.max(250, Math.min(500, Math.round(viewportHeight.value * 0.4)));
+});
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
@@ -1896,6 +1925,16 @@ watch(
   { immediate: true, deep: true },
 );
 
+// Re-render when chart height changes due to viewport resize
+watch(chartHeight, () => {
+  if (chartRef.value && props.snapshotHistory.length > 0) {
+    nextTick(() => {
+      renderChart();
+      requestAnimationFrame(() => fitToView());
+    });
+  }
+});
+
 // Update selected node highlight when selection changes
 watch(selectedSnapshot, (snap) => {
   if (!rootG) return;
@@ -2361,19 +2400,11 @@ onBeforeUnmount(() => {
 .branch-layout {
   display: flex;
   flex-direction: column;
-  height: calc(80vh - 60px);
-  overflow: hidden;
+  max-height: calc(80vh - 60px);
+  overflow-y: auto;
 }
 
-.chart-outer {
-  position: relative;
-  z-index: 0;
-  height: 500px;
-  flex-shrink: 0;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
-  border-radius: 8px;
-  background: rgba(var(--v-theme-surface), 1);
-}
+
 
 .chart-container {
   height: 100%;
@@ -2382,11 +2413,11 @@ onBeforeUnmount(() => {
   user-select: none;
 }
 
-.details-scroll-area {
+/* .details-scroll-area {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-}
+} */
 
 /* Animated flow dashes on links */
 .chart-container :deep(.flow-dash) {
@@ -2399,71 +2430,52 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Floating zoom controls */
-.zoom-overlay {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  z-index: 2;
+/* Chart outer */
+.chart-outer {
+  position: relative;
+  min-height: 200px;
+  overflow: hidden;
+}
+
+/* Zoom bar — sits above chart */
+.zoom-bar {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(var(--v-theme-surface), 0.6);
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
 
 .zoom-group {
-  background: rgba(var(--v-theme-surface), 0.85);
+  background: rgba(var(--v-theme-surface), 0.95);
   backdrop-filter: blur(4px);
-  border-radius: 6px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
 }
 
 .zoom-label {
-  min-width: 48px !important;
-  font-size: 0.7rem;
+  min-width: 56px !important;
+  font-size: 0.8rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
-/* Subtle legend */
-.legend-overlay {
-  position: absolute;
-  bottom: 8px;
-  left: 10px;
-  z-index: 2;
+/* Legend bar — sits between chart and details, always visible */
+.legend-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  padding: 4px 8px;
-  background: rgba(var(--v-theme-surface), 0.8);
-  backdrop-filter: blur(4px);
-  border-radius: 6px;
-  pointer-events: none;
+  padding: 6px 8px;
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 
 .legend-chip {
   font-size: 0.7rem !important;
-  pointer-events: none;
 }
 
-.legend-chip .v-btn {
-  pointer-events: auto;
-}
 
-.legend-chip:has(.v-btn) {
-  pointer-events: auto;
-}
-
-/* Hint overlay */
-.hint-overlay {
-  position: absolute;
-  bottom: 8px;
-  right: 10px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  padding: 4px 10px;
-  background: rgba(var(--v-theme-surface), 0.7);
-  backdrop-filter: blur(4px);
-  border-radius: 4px;
-  opacity: 0.6;
-  pointer-events: none;
-}
 
 /* Details panel — below chart, scrollable */
 .details-panel {
