@@ -40,7 +40,9 @@ jobs:
   # Build and publish only when a release is created
   build:
     name: Build and Publish
-    runs-on: ${{ vars.RUNS_ON__AMD_S || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNS_ON__AMD_S || 'ubuntu-24.04' }}
+    container:
+      image: quay.io/vakamo/build-base:ubuntu-24-04
     needs: release_please
     if: ${{ needs.release_please.outputs.releases_created == 'true' }}
 
@@ -56,8 +58,7 @@ jobs:
 
       - name: Install Packages and Build Library
         run: |
-          rm -rf node_modules package-lock.json
-          npm install --force
+          npm ci
           npm run build
 
       - name: Upload dist to Release
