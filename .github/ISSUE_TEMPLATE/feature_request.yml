@@ -1,0 +1,78 @@
+name: Feature Request
+description: Propose a new feature for the Lakekeeper console
+title: "[Feature]: "
+labels: ["feature-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to propose a feature! Please fill out the sections below.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem does this solve? Who is affected?
+      placeholder: "When I try to ..., I can't ..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature. Include mockups or diagrams if helpful.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Which package(s) does this affect?
+      multiple: true
+      options:
+        - console-components (shared library)
+        - console (OSS app)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend Requirements
+      description: Does this need backend changes?
+      options:
+        - No backend changes needed
+        - Needs new API endpoint(s)
+        - Needs backend config change
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Suggested Priority
+      options:
+        - High — core workflow improvement
+        - Medium — nice to have
+        - Low — edge case or cosmetic
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Implementation Notes
+      description: Any technical details, constraints, or data sources to be aware of.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Did you consider other approaches?
+    validations:
+      required: false
