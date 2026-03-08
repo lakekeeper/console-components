@@ -367,9 +367,7 @@ function buildStatusCodesFilter(): number[] | null {
     return null;
   }
 
-  const categorizedSet = new Set(
-    Object.values(CATEGORY_CODES).flat(),
-  );
+  const categorizedSet = new Set(Object.values(CATEGORY_CODES).flat());
   const codes: number[] = [];
 
   selectedStatusCodes.value.forEach((cat) => {
