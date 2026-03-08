@@ -35,7 +35,7 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please/release-please-config.json
           manifest-file: release-please/.release-please-manifest.json
-          target-branch: main
+          target-branch: ${{ vars.RELEASE_PLEASE_TARGET_BRANCH || 'main' }}
 
   # Build and publish only when a release is created
   build:
@@ -51,7 +51,7 @@ jobs:
       - name: Create Node Environment
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'npm'
 
       - name: Install Packages and Build Library
