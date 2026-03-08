@@ -331,20 +331,18 @@ async function fetchStatistics() {
     const rangeSpec = buildRangeSpecifier();
     const statusCodes = buildStatusCodesFilter();
 
-    let result: EndpointStatisticsResponse;
-
-    if (visual.getServerInfo()['authz-backend'] === 'allow-all') {
-      result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
-    } else if (userStorage.getUser().access_token !== '') {
-      result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
-    } else {
+    if (
+      visual.getServerInfo()['authz-backend'] !== 'allow-all' &&
+      userStorage.getUser().access_token === ''
+    ) {
       return;
     }
 
+    const result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
     tableRows.value = flatten(result);
     aggregateRows();
   } catch (error) {
-    console.error('Failed to load statistics:', error);
+    functions.handleError(error, 'loadStatistics');
   } finally {
     loading.value = false;
     await nextTick();
@@ -886,6 +884,11 @@ function drawAllCharts() {
 }
 
 // ─── CSV Download ────────────────────────────────────────────────────────────
+function escapeCsv(value: string | null | undefined): string {
+  const str = value ?? '';
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 function downloadStatsAsCSV() {
   if (aggregatedRows.value.length === 0) return;
 
@@ -899,12 +902,12 @@ function downloadStatsAsCSV() {
   ];
   const csvRows = aggregatedRows.value.map((r) =>
     [
-      fmtDate(r.timestamp),
+      escapeCsv(fmtDate(r.timestamp)),
       r.count,
-      `"${r.httpRoute}"`,
+      escapeCsv(r.httpRoute),
       r.statusCode,
-      r.warehouseId ?? '',
-      r.warehouseName ?? '',
+      escapeCsv(r.warehouseId),
+      escapeCsv(r.warehouseName),
     ].join(','),
   );
 

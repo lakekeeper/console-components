@@ -140,7 +140,7 @@ async function loadCounts() {
     tables.value = totalTables;
     views.value = totalViews;
   } catch (error) {
-    console.error('Failed to load counts:', error);
+    functions.handleError(error, 'HomeStatistics:loadCounts');
   } finally {
     loading.value = false;
   }
@@ -223,7 +223,7 @@ async function loadChart() {
     await nextTick();
     drawChart();
   } catch (error) {
-    console.error('Failed to load chart data:', error);
+    functions.handleError(error, 'HomeStatistics:loadChart');
     noChartData.value = true;
   } finally {
     chartLoading.value = false;
@@ -407,6 +407,7 @@ function drawChart() {
 let resizeObserver: ResizeObserver | null = null;
 
 function setupResizeObserver() {
+  resizeObserver?.disconnect();
   resizeObserver = new ResizeObserver(() => {
     if (chartData.value.length > 0) {
       drawChart();

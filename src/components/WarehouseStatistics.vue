@@ -366,15 +366,22 @@ function buildStatusCodesFilter(): number[] | null {
   if (selectedStatusCodes.value.length === STATUS_CATEGORIES.length) {
     return null;
   }
-  if (selectedStatusCodes.value.includes('Other') && selectedStatusCodes.value.length === 1) {
-    return null;
-  }
+
+  const categorizedSet = new Set(
+    Object.values(CATEGORY_CODES).flat(),
+  );
   const codes: number[] = [];
+
   selectedStatusCodes.value.forEach((cat) => {
     if (CATEGORY_CODES[cat]) {
       codes.push(...CATEGORY_CODES[cat]);
+    } else if (cat === 'Other') {
+      for (let c = 100; c <= 599; c++) {
+        if (!categorizedSet.has(c)) codes.push(c);
+      }
     }
   });
+
   return codes.length > 0 ? codes : null;
 }
 
@@ -402,20 +409,18 @@ async function fetchEndpointStatistics() {
     const rangeSpec = buildRangeSpecifier();
     const statusCodes = buildStatusCodesFilter();
 
-    let result: EndpointStatisticsResponse;
-
-    if (visual.getServerInfo()['authz-backend'] === 'allow-all') {
-      result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
-    } else if (userStorage.getUser().access_token !== '') {
-      result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
-    } else {
+    if (
+      visual.getServerInfo()['authz-backend'] !== 'allow-all' &&
+      userStorage.getUser().access_token === ''
+    ) {
       return;
     }
 
+    const result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
     tableRows.value = flatten(result);
     aggregateRows();
   } catch (error) {
-    console.error('Failed to load endpoint statistics:', error);
+    functions.handleError(error, 'loadEndpointStatistics');
   } finally {
     loading.value = false;
     await nextTick();
@@ -443,7 +448,7 @@ async function fetchObjectStatistics() {
     );
     aggregateObjectsData();
   } catch (error) {
-    console.error('Failed to load warehouse object statistics:', error);
+    functions.handleError(error, 'fetchObjectStatistics');
   } finally {
     objectsLoading.value = false;
     await nextTick();
@@ -999,7 +1004,7 @@ function drawObjectsChart() {
   if (!el || aggregatedObjectsData.value.length === 0) return;
   d3.select(el).selectAll('*').remove();
 
-  const margin = { top: 16, right: 24, bottom: 70, left: 50 };
+  const margin = { top: 16, right: 24, bottom: 85, left: 50 };
   const width = el.clientWidth - margin.left - margin.right;
   const height = 300 - margin.top - margin.bottom;
 
@@ -1123,14 +1128,15 @@ function drawObjectsChart() {
     .selectAll('text')
     .style('font-size', '10px');
 
-  // Legend
+  // Legend (below x-axis)
   const legendData = [
     { label: 'Tables', color: TABLES_COLOR },
     { label: 'Views', color: VIEWS_COLOR },
   ];
+  const legendWidth = legendData.length * 65;
   const legend = svg
     .append('g')
-    .attr('transform', `translate(${width - 120}, -8)`)
+    .attr('transform', `translate(${(width - legendWidth) / 2}, ${height + 55})`)
     .selectAll('.leg')
     .data(legendData)
     .join('g')
@@ -1154,12 +1160,17 @@ function drawObjectsChart() {
 }
 
 // ─── CSV Downloads ───────────────────────────────────────────────────────────
+function escapeCsv(value: string | number | null | undefined): string {
+  const str = String(value ?? '');
+  return `"${str.replace(/"/g, '""')}"`;
+}
+
 function downloadEndpointCSV() {
   if (aggregatedRows.value.length === 0) return;
 
   const csvHeaders = ['Timestamp', 'Count', 'HTTP Route', 'Status Code'];
   const csvRows = aggregatedRows.value.map((r) =>
-    [fmtDate(r.timestamp), r.count, `"${r.httpRoute}"`, r.statusCode].join(','),
+    [escapeCsv(fmtDate(r.timestamp)), r.count, escapeCsv(r.httpRoute), r.statusCode].join(','),
   );
 
   const blob = new Blob([[csvHeaders.join(','), ...csvRows].join('\n')], {
@@ -1167,10 +1178,12 @@ function downloadEndpointCSV() {
   });
   const ts = new Date().toISOString().replace(/[:.-]/g, '_');
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  a.href = url;
   a.download = `warehouse-endpoint-statistics_${ts}.csv`;
   document.body.appendChild(a);
   a.click();
+  URL.revokeObjectURL(url);
   document.body.removeChild(a);
 }
 
@@ -1182,8 +1195,8 @@ function downloadObjectsCSV() {
     [
       s['number-of-tables'],
       s['number-of-views'],
-      fmtDate(s.timestamp),
-      fmtDate(s['updated-at']),
+      escapeCsv(fmtDate(s.timestamp)),
+      escapeCsv(fmtDate(s['updated-at'])),
     ].join(','),
   );
 
@@ -1192,10 +1205,12 @@ function downloadObjectsCSV() {
   });
   const ts = new Date().toISOString().replace(/[:.-]/g, '_');
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(blob);
+  a.href = url;
   a.download = `warehouse-object-statistics_${ts}.csv`;
   document.body.appendChild(a);
   a.click();
+  URL.revokeObjectURL(url);
   document.body.removeChild(a);
 }
 
