@@ -3,16 +3,6 @@
     <v-toolbar-title>
       <span class="text-subtitle-1">
         {{ warehouse.name }}
-
-        <v-chip size="small" color="secondary" label class="ma-2">
-          <v-icon icon="mdi-table" start></v-icon>
-          number of tables: {{ stats['number-of-tables'] }}
-        </v-chip>
-        <v-chip size="small" color="primary" label class="ma-2">
-          <v-icon icon="mdi-view-grid-outline" start></v-icon>
-          number of views: {{ stats['number-of-views'] }}
-        </v-chip>
-        <WarehouseStatisticsDialog :stats="[stats]"></WarehouseStatisticsDialog>
       </span>
     </v-toolbar-title>
     <template #prepend>
@@ -50,7 +40,6 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import type {
   GetWarehouseResponse,
-  GetWarehouseStatisticsResponse,
   StorageCredential,
   StorageProfile,
   TabularDeleteProfile,
@@ -88,13 +77,6 @@ const warehouse = reactive<GetWarehouseResponse>({
   protected: false,
 });
 
-const stats = reactive({
-  'number-of-tables': 0,
-  'number-of-views': 0,
-  timestamp: '1900-01-01T00:00:00Z',
-  'updated-at': '1900-01-01T00:00:00.000000Z',
-});
-
 const isNavigationCollapsed = computed({
   get: () => visual.isNavigationCollapsed,
   set: (value: boolean) => {
@@ -115,17 +97,6 @@ async function loadWarehouse() {
     }
   } catch (error) {
     console.error('Failed to load warehouse:', error);
-  }
-}
-
-async function loadStatistics() {
-  try {
-    const stat: GetWarehouseStatisticsResponse = await functions.getWarehouseStatistics(
-      props.warehouseId,
-    );
-    Object.assign(stats, stat.stats[0]);
-  } catch (error) {
-    console.error('Failed to load warehouse statistics:', error);
   }
 }
 
@@ -189,13 +160,11 @@ async function updateDelProfile(profile: TabularDeleteProfile) {
 // Load warehouse and statistics on mount and when warehouse ID changes
 onMounted(() => {
   loadWarehouse();
-  loadStatistics();
 });
 watch(
   () => props.warehouseId,
   () => {
     loadWarehouse();
-    loadStatistics();
   },
 );
 </script>

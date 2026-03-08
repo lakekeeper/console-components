@@ -363,6 +363,12 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const showStatisticsTab = computed(
+    () =>
+      canGetEndpointStatistics.value ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
   const canControlTasks = computed(
     () =>
       canControlAllTasks.value ||
@@ -406,6 +412,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canSetProtection,
     canGetEndpointStatistics,
     showTasksTab,
+    showStatisticsTab,
     canControlTasks,
     refresh: loadPermissions,
   };

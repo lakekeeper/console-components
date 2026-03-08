@@ -443,6 +443,18 @@ function statusColor(code: number): string {
   return STATUS_COLORS[statusCategory(code)] ?? '#607d8b';
 }
 
+function aggTimeInterval(agg: string, dataLen: number): d3.TimeInterval | number {
+  const maxTicks = Math.min(dataLen, 10);
+  switch (agg) {
+    case 'hour': return d3.timeHour.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    case 'day': return d3.timeDay.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    case 'week': return d3.timeWeek.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    case 'month': return d3.timeMonth.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    case 'year': return d3.timeYear.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    default: return maxTicks;
+  }
+}
+
 function fmtDate(d: string | Date) {
   const dt = typeof d === 'string' ? new Date(d) : d;
   return dt.toLocaleDateString('en-GB', {
@@ -578,7 +590,7 @@ function drawAreaChart() {
       .call(
         d3
           .axisBottom(x)
-          .ticks(Math.min(data.length, 8))
+          .ticks(aggTimeInterval(aggregation.value, data.length))
           .tickFormat((d) => {
             const dt = d as Date;
             return d3.timeFormat(tickFmt[aggregation.value] ?? '%d %b %H:%M')(dt);

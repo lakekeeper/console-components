@@ -116,53 +116,6 @@
                 </v-card-text>
               </v-card>
 
-              <!-- Warehouse Statistics Section -->
-              <v-card variant="outlined" class="mb-4">
-                <v-card-title class="bg-surface-light d-flex align-center">
-                  <v-icon icon="mdi-chart-bar" class="mr-2" color="info"></v-icon>
-                  Statistics
-                  <v-spacer></v-spacer>
-                  <v-btn
-                    v-if="statsLoaded"
-                    icon="mdi-refresh"
-                    size="x-small"
-                    variant="text"
-                    @click="loadStatistics"></v-btn>
-                </v-card-title>
-                <v-card-text>
-                  <div v-if="statsLoading" class="text-center pa-4">
-                    <v-progress-circular indeterminate size="24" color="info"></v-progress-circular>
-                  </div>
-                  <v-row v-else-if="statsLoaded" dense>
-                    <v-col cols="6">
-                      <v-card variant="tonal" color="secondary" class="text-center pa-3">
-                        <div class="text-overline text-medium-emphasis">Tables</div>
-                        <div class="text-h5 font-weight-bold">
-                          {{ latestStats['number-of-tables'] }}
-                        </div>
-                      </v-card>
-                    </v-col>
-                    <v-col cols="6">
-                      <v-card variant="tonal" color="primary" class="text-center pa-3">
-                        <div class="text-overline text-medium-emphasis">Views</div>
-                        <div class="text-h5 font-weight-bold">
-                          {{ latestStats['number-of-views'] }}
-                        </div>
-                      </v-card>
-                    </v-col>
-                    <v-col cols="12" class="mt-2">
-                      <div class="text-overline text-medium-emphasis">Last Updated</div>
-                      <div class="text-body-2 mt-1">
-                        {{ formatStatsDate(latestStats['updated-at']) }}
-                      </div>
-                    </v-col>
-                  </v-row>
-                  <div v-else class="text-center pa-4 text-medium-emphasis">
-                    <v-icon size="32" color="grey-lighten-1">mdi-chart-bar</v-icon>
-                    <div class="text-caption mt-1">No statistics available</div>
-                  </div>
-                </v-card-text>
-              </v-card>
             </v-col>
 
             <!-- Storage Profile Section -->
@@ -335,7 +288,6 @@
 
 <script setup lang="ts">
 import { reactive, ref, onMounted, inject } from 'vue';
-import type { GetWarehouseStatisticsResponse } from '../gen/management/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -366,15 +318,7 @@ const warehouse = reactive<any>({
   protected: false,
 });
 
-// Statistics state
-const statsLoading = ref(false);
-const statsLoaded = ref(false);
-const latestStats = reactive({
-  'number-of-tables': 0,
-  'number-of-views': 0,
-  timestamp: '',
-  'updated-at': '',
-});
+
 
 async function loadWarehouse() {
   try {
@@ -389,26 +333,10 @@ async function loadWarehouse() {
   }
 }
 
-async function loadStatistics() {
-  statsLoading.value = true;
-  try {
-    const stat: GetWarehouseStatisticsResponse = await functions.getWarehouseStatistics(
-      props.warehouseId,
-    );
-    if (stat.stats && stat.stats.length > 0) {
-      Object.assign(latestStats, stat.stats[0]);
-      statsLoaded.value = true;
-    }
-  } catch {
-    // Error already handled by functions.getWarehouseStatistics
-  } finally {
-    statsLoading.value = false;
-  }
-}
+
 
 onMounted(() => {
   loadWarehouse();
-  loadStatistics();
 });
 
 function copyToClipboard(text: string) {
@@ -429,15 +357,4 @@ function formatSeconds(seconds?: number): string {
   return parts.length > 0 ? parts.join(' ') : `${seconds}s`;
 }
 
-function formatStatsDate(dateString: string): string {
-  if (!dateString) return '—';
-  const options = {
-    year: 'numeric' as const,
-    month: 'short' as const,
-    day: 'numeric' as const,
-    hour: '2-digit' as const,
-    minute: '2-digit' as const,
-  };
-  return new Date(dateString).toLocaleDateString('en-US', options);
-}
 </script>
