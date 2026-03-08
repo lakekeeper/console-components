@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.3.0](https://github.com/lakekeeper/console-components/compare/v0.2.31...v0.3.0) (2026-03-08)
+
+
+### Features
+
+* **ui:** add community action cards to Home page ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** add CONTRIBUTING.md, ROADMAP.md, feature request template, and proposal workflow ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** add GitHub stars button to AppBar linked to repository ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** add HomeStatistics dashboard with project/warehouse/table/view counts and API calls area chart ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** add ProjectStatistics with D3 interactive charts replacing Chart.js ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** add server-side filtering and rename support to NamespaceTables and NamespaceViews ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** add snapshot comparison dialog and warehouse statistics ([#87](https://github.com/lakekeeper/console-components/issues/87)) ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** add SnapshotCompare component for side-by-side snapshot diff with delta metrics, summary changes table, and schema diff ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** add WarehouseStatistics component with D3 stacked area charts, server-side filtering, time aggregation, and vertical tab layout ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** refactor TableVersioningVisualization with refresh button and comparison panel ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** remove deprecated WarehouseStatisticsDialog and clean up dead code ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+
+
+### Bug Fixes
+
+* **ui:** collapse redundant getEndpointStatistics branches ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** compute uncategorized status codes for Other filter in WarehouseStatistics ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** disconnect previous ResizeObserver before creating new one in HomeStatistics ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** escape CSV fields and revoke object URLs in statistics downloads ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+* **ui:** use handleError instead of console.error for statistics error handling ([a2adeb2](https://github.com/lakekeeper/console-components/commit/a2adeb2ea2f5ac94bfcd69a123c4c20f0f00f990))
+
 ## [0.2.31](https://github.com/lakekeeper/console-components/compare/v0.2.30...v0.2.31) (2026-03-07)
 
 
