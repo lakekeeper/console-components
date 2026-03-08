@@ -28,6 +28,7 @@ import TaskDetails from './components/TaskDetails.vue';
 import WarehouseManager from './components/WarehouseManager.vue';
 import WarehouseHeader from './components/WarehouseHeader.vue';
 import WarehouseStatistics from './components/WarehouseStatistics.vue';
+import HomeStatistics from './components/HomeStatistics.vue';
 import WarehouseNamespaces from './components/WarehouseNamespaces.vue';
 import NamespaceNamespaces from './components/NamespaceNamespaces.vue';
 import NamespaceTables from './components/NamespaceTables.vue';
@@ -116,6 +117,7 @@ export {
   WarehouseManager,
   WarehouseHeader,
   WarehouseStatistics,
+  HomeStatistics,
   WarehouseNamespaces,
   NamespaceNamespaces,
   NamespaceTables,
@@ -273,6 +275,7 @@ const components = {
   WarehouseManager,
   WarehouseHeader,
   WarehouseStatistics,
+  HomeStatistics,
   WarehouseNamespaces,
   WarehousesNavigationTree,
   NamespaceNamespaces,
