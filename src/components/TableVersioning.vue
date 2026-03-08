@@ -13,7 +13,8 @@
     @delete-branch="loadTableData"
     @create-tag="loadTableData"
     @rename-tag="loadTableData"
-    @delete-tag="loadTableData" />
+    @delete-tag="loadTableData"
+    @refresh="loadTableData" />
 </template>
 
 <script setup lang="ts">

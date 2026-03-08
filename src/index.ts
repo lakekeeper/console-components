@@ -27,7 +27,8 @@ import TaskManager from './components/TaskManager.vue';
 import TaskDetails from './components/TaskDetails.vue';
 import WarehouseManager from './components/WarehouseManager.vue';
 import WarehouseHeader from './components/WarehouseHeader.vue';
-import WarehouseStatisticsDialog from './components/WarehouseStatisticsDialog.vue';
+import WarehouseStatistics from './components/WarehouseStatistics.vue';
+import HomeStatistics from './components/HomeStatistics.vue';
 import WarehouseNamespaces from './components/WarehouseNamespaces.vue';
 import NamespaceNamespaces from './components/NamespaceNamespaces.vue';
 import NamespaceTables from './components/NamespaceTables.vue';
@@ -41,6 +42,7 @@ import TableHealth from './components/TableHealth.vue';
 import TableHealthActions from './components/TableHealthActions.vue';
 import TableVersioningVisualization from './components/TableVersioningVisualization.vue';
 import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
+import SnapshotCompare from './components/SnapshotCompare.vue';
 import TableOverview from './components/TableOverview.vue';
 import TableRaw from './components/TableRaw.vue';
 import TableVersioning from './components/TableVersioning.vue';
@@ -114,7 +116,8 @@ export {
   TaskDetails,
   WarehouseManager,
   WarehouseHeader,
-  WarehouseStatisticsDialog,
+  WarehouseStatistics,
+  HomeStatistics,
   WarehouseNamespaces,
   NamespaceNamespaces,
   NamespaceTables,
@@ -128,6 +131,7 @@ export {
   TableHealthActions,
   TableVersioningVisualization,
   TableSnapshotDetails,
+  SnapshotCompare,
   TableOverview,
   TableRaw,
   TableVersioning,
@@ -270,7 +274,8 @@ const components = {
   TaskDetails,
   WarehouseManager,
   WarehouseHeader,
-  WarehouseStatisticsDialog,
+  WarehouseStatistics,
+  HomeStatistics,
   WarehouseNamespaces,
   WarehousesNavigationTree,
   NamespaceNamespaces,
@@ -285,6 +290,7 @@ const components = {
   TableHealthActions,
   TableVersioningVisualization,
   TableSnapshotDetails,
+  SnapshotCompare,
   TableOverview,
   TableRaw,
   TablePreview,

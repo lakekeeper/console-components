@@ -31,7 +31,7 @@
           @click="loadProjectTasks">
           Tasks
         </v-tab>
-        <v-tab v-if="showStatisticsTab" value="statistics" @click="getEndpointStatistcs">
+        <v-tab v-if="showStatisticsTab" value="statistics" @click="loadStatistics">
           Statistics
         </v-tab>
       </v-tabs>
@@ -134,7 +134,7 @@
         </v-tabs-window-item>
 
         <v-tabs-window-item v-if="showStatisticsTab" value="statistics">
-          <ProjectStatistics v-if="loadedStatistics" :stats="statistics" />
+          <ProjectStatistics ref="projectStatisticsRef" />
         </v-tabs-window-item>
       </v-tabs-window>
     </v-card>
@@ -151,18 +151,19 @@ import { useProjectAuthorizerPermissions } from '../composables/useAuthorizerPer
 import { usePermissionStore } from '../stores/permissions';
 import {
   CreateProjectRequest,
-  GetEndpointStatisticsResponse,
   GetProjectResponse,
   RenameProjectRequest,
 } from '../gen/management/types.gen';
 import { Header, RelationType } from '../common/interfaces';
 import { useRouter } from 'vue-router';
 import ProjectTaskManager from './ProjectTaskManager.vue';
+import ProjectStatistics from './ProjectStatistics.vue';
 
 const dialog = ref(false);
 const tab = ref('overview');
 const userStorage = useUserStore();
 const projectTaskManagerRef = ref<InstanceType<typeof ProjectTaskManager> | null>(null);
+const projectStatisticsRef = ref<InstanceType<typeof ProjectStatistics> | null>(null);
 
 const visual = useVisualStore();
 const functions = useFunctions();
@@ -181,14 +182,12 @@ const { showStatisticsTab, showTasksTab } = useProjectPermissions(projectId);
 const { showPermissionsTab } = useProjectAuthorizerPermissions(projectId);
 const { canCreateProject } = useServerPermissions(serverId);
 const loaded = ref(true);
-const loadedStatistics = ref(true);
 
-const statistics = reactive<GetEndpointStatisticsResponse>({
-  'called-endpoints': [],
-  'next-page-token': '',
-  'previous-page-token': '',
-  timestamps: [],
-});
+async function loadStatistics() {
+  if (projectStatisticsRef.value) {
+    await projectStatisticsRef.value.loadStatistics();
+  }
+}
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Info', key: 'info', align: 'start' },
@@ -231,32 +230,6 @@ async function loadProjectTasks() {
   // Refresh tasks when tab is clicked
   if (projectTaskManagerRef.value) {
     await projectTaskManagerRef.value.refreshTasks();
-  }
-}
-
-async function getEndpointStatistcs() {
-  // Only load if not already loaded
-  if (loadedStatistics.value && statistics['called-endpoints'].length > 0) {
-    return;
-  }
-
-  try {
-    // Fetch statistics from the backend
-    loadedStatistics.value = false;
-
-    if (visual.getServerInfo()['authz-backend'] === 'allow-all') {
-      Object.assign(statistics, await functions.getEndpointStatistics({ type: 'all' }));
-    } else {
-      if (userStorage.getUser().access_token != '') {
-        Object.assign(statistics, await functions.getEndpointStatistics({ type: 'all' }));
-      }
-    }
-
-    loadedStatistics.value = true;
-  } catch (error) {
-    console.error(error);
-  } finally {
-    loadedStatistics.value = true;
   }
 }
 

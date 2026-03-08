@@ -330,7 +330,9 @@ async function loadWarehouse() {
   }
 }
 
-onMounted(loadWarehouse);
+onMounted(() => {
+  loadWarehouse();
+});
 
 function copyToClipboard(text: string) {
   functions.copyToClipboard(text);
