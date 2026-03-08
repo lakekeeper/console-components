@@ -16,6 +16,21 @@
     </v-list-item>
     <v-spacer></v-spacer>
 
+    <!-- GitHub Stars -->
+    <v-btn
+      v-if="starCount > 0"
+      href="https://github.com/lakekeeper/lakekeeper"
+      target="_blank"
+      rel="noopener noreferrer"
+      variant="text"
+      size="small"
+      class="text-none mr-1"
+      rounded="lg">
+      <v-icon start size="18">mdi-github</v-icon>
+      <v-icon size="14" class="mr-1" color="amber">mdi-star</v-icon>
+      {{ formatStarCount(starCount) }}
+    </v-btn>
+
     <slot name="support-menu">
       <!-- Default OSS support menu (fallback if slot not provided) -->
       <v-menu v-if="showUserMenu" open-on-hover>
@@ -126,6 +141,7 @@ const auth = inject<any>('auth', null);
 const tokenDialog = ref<InstanceType<typeof TokenDialog> | null>(null);
 
 const userStorage = useUserStore();
+const starCount = ref(0);
 
 const theme = useTheme();
 
@@ -157,7 +173,27 @@ const showUserMenu = computed(() => {
 
 onMounted(async () => {
   theme.global.name.value = themeText.value;
+  fetchGitHubStars();
 });
+
+function formatStarCount(count: number): string {
+  if (count >= 1000) {
+    return (count / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  }
+  return String(count);
+}
+
+async function fetchGitHubStars() {
+  try {
+    const res = await fetch('https://api.github.com/repos/lakekeeper/lakekeeper');
+    if (res.ok) {
+      const data = await res.json();
+      starCount.value = data.stargazers_count ?? 0;
+    }
+  } catch {
+    // silently ignore
+  }
+}
 
 function toggleTheme() {
   visual.toggleThemeLight();
