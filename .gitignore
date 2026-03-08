@@ -65,3 +65,10 @@ rust-project.json
 .env.azure
 .env.development
 **/.vscode/*
+
+# DuckDB WASM files (copied from @duckdb/duckdb-wasm at build time)
+public/duckdb/
+
+# Vite timestamp cache
+vite.config.ts.timestamp-*
+vite.config.mts.timestamp-*

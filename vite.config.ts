@@ -2,6 +2,43 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
+import { existsSync, mkdirSync, copyFileSync } from 'fs';
+
+const duckdbFiles = [
+  'duckdb-browser-coi.pthread.worker.js',
+  'duckdb-browser-coi.worker.js',
+  'duckdb-browser-eh.worker.js',
+  'duckdb-browser-mvp.worker.js',
+  'duckdb-coi.wasm',
+  'duckdb-eh.wasm',
+  'duckdb-mvp.wasm',
+];
+
+// Copy DuckDB WASM files from @duckdb/duckdb-wasm npm package into public/duckdb/
+// so Vite includes them in dist/ output. This avoids committing ~100MB of binaries to git.
+function copyDuckDBFiles() {
+  return {
+    name: 'copy-duckdb-files',
+    buildStart() {
+      const srcDir = resolve(__dirname, 'node_modules/@duckdb/duckdb-wasm/dist');
+      const destDir = resolve(__dirname, 'public/duckdb');
+
+      if (!existsSync(srcDir)) {
+        console.warn('DuckDB WASM package not found, skipping copy');
+        return;
+      }
+
+      mkdirSync(destDir, { recursive: true });
+      duckdbFiles.forEach((file) => {
+        const src = resolve(srcDir, file);
+        if (existsSync(src)) {
+          copyFileSync(src, resolve(destDir, file));
+        }
+      });
+      console.log('Copied DuckDB WASM files from @duckdb/duckdb-wasm');
+    },
+  };
+}
 
 export default defineConfig({
   resolve: {
@@ -10,6 +47,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    copyDuckDBFiles(),
     vue({
       template: {
         compilerOptions: {
