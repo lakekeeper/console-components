@@ -185,6 +185,7 @@ This removes the link and does a clean `npm install`.
 ### Making Changes
 
 1. Create a branch from `main`:
+
    ```bash
    git checkout -b feat/my-feature
    ```
@@ -192,31 +193,34 @@ This removes the link and does a clean `npm install`.
 2. Make your changes in `src/`
 
 3. Rebuild and verify in the console app:
+
    ```bash
    npm run build
    # Switch to console app and check in browser
    ```
 
 4. Ensure everything passes:
+
    ```bash
    just reviewable
    ```
+
    This runs `npm install`, formatting, linting, and a full build.
 
 5. Commit and push your branch, then open a PR.
 
 ### Key Commands
 
-| Command | What it does |
-|---------|-------------|
-| `npm install` | Install dependencies |
-| `npm run build` | Build the library |
-| `npm run dev` | Start dev server |
-| `npm run lint` | Lint and auto-fix |
-| `npm run lint:check` | Lint without fixing |
-| `npm run format` | Format with Prettier |
-| `npm run format:check` | Check formatting |
-| `just reviewable` | Full pre-PR check (install + format + lint + build) |
+| Command                | What it does                                        |
+| ---------------------- | --------------------------------------------------- |
+| `npm install`          | Install dependencies                                |
+| `npm run build`        | Build the library                                   |
+| `npm run dev`          | Start dev server                                    |
+| `npm run lint`         | Lint and auto-fix                                   |
+| `npm run lint:check`   | Lint without fixing                                 |
+| `npm run format`       | Format with Prettier                                |
+| `npm run format:check` | Check formatting                                    |
+| `just reviewable`      | Full pre-PR check (install + format + lint + build) |
 
 ### Regenerating API Clients
 

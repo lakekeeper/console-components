@@ -115,7 +115,6 @@
                   </v-row>
                 </v-card-text>
               </v-card>
-
             </v-col>
 
             <!-- Storage Profile Section -->
@@ -287,7 +286,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, onMounted, inject } from 'vue';
+import { reactive, onMounted, inject } from 'vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -318,8 +317,6 @@ const warehouse = reactive<any>({
   protected: false,
 });
 
-
-
 async function loadWarehouse() {
   try {
     const whResponse = await functions.getWarehouse(props.warehouseId);
@@ -332,8 +329,6 @@ async function loadWarehouse() {
     console.error('Failed to load warehouse:', error);
   }
 }
-
-
 
 onMounted(() => {
   loadWarehouse();
@@ -356,5 +351,4 @@ function formatSeconds(seconds?: number): string {
 
   return parts.length > 0 ? parts.join(' ') : `${seconds}s`;
 }
-
 </script>

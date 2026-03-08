@@ -133,9 +133,7 @@ const functions = useFunctions();
 const visual = useVisualStore();
 const notify = true;
 
-const isDefaultLayout = computed(
-  () => !props.storageLayout || props.storageLayout === 'default',
-);
+const isDefaultLayout = computed(() => !props.storageLayout || props.storageLayout === 'default');
 
 const searchTbl = ref('');
 const loadedTables: TableIdentifierExtended[] = reactive([]);

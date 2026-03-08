@@ -114,12 +114,7 @@
                     @click="applyFilters">
                     Apply
                   </v-btn>
-                  <v-btn
-                    size="small"
-                    variant="text"
-                    @click="resetFilters">
-                    Reset
-                  </v-btn>
+                  <v-btn size="small" variant="text" @click="resetFilters">Reset</v-btn>
                 </v-col>
               </v-row>
 
@@ -196,7 +191,11 @@
 
                 <v-divider vertical class="mx-1" />
 
-                <v-btn-toggle v-model="objectsAggregation" mandatory density="compact" variant="outlined">
+                <v-btn-toggle
+                  v-model="objectsAggregation"
+                  mandatory
+                  density="compact"
+                  variant="outlined">
                   <v-btn value="hour" size="small">Hour</v-btn>
                   <v-btn value="day" size="small">Day</v-btn>
                   <v-btn value="week" size="small">Week</v-btn>
@@ -218,7 +217,9 @@
 
               <!-- Loading -->
               <div v-if="objectsLoading" class="pa-4">
-                <div class="text-body-2 text-medium-emphasis mb-2">Loading warehouse statistics…</div>
+                <div class="text-body-2 text-medium-emphasis mb-2">
+                  Loading warehouse statistics…
+                </div>
                 <v-progress-linear indeterminate color="primary" rounded />
               </div>
 
@@ -338,7 +339,10 @@ const STATUS_COLORS: Record<string, string> = {
 const CATEGORY_CODES: Record<string, number[]> = {
   '2xx': [200, 201, 202, 203, 204, 205, 206, 207, 208, 226],
   '3xx': [300, 301, 302, 303, 304, 305, 307, 308],
-  '4xx': [400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418, 421, 422, 423, 424, 425, 426, 428, 429, 431, 451],
+  '4xx': [
+    400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418,
+    421, 422, 423, 424, 425, 426, 428, 429, 431, 451,
+  ],
   '5xx': [500, 501, 502, 503, 504, 505, 506, 507, 508, 510, 511],
 };
 
@@ -378,7 +382,9 @@ function buildRangeSpecifier(): TimeWindowSelector | null {
   if (!dateTo.value && !dateFrom.value) return null;
 
   const end = dateTo.value ? new Date(dateTo.value).toISOString() : new Date().toISOString();
-  const start = dateFrom.value ? new Date(dateFrom.value) : new Date(Date.now() - 24 * 60 * 60 * 1000);
+  const start = dateFrom.value
+    ? new Date(dateFrom.value)
+    : new Date(Date.now() - 24 * 60 * 60 * 1000);
   const endDate = new Date(end);
   const diffMs = endDate.getTime() - start.getTime();
 
@@ -564,12 +570,18 @@ function statusColor(code: number): string {
 function aggTimeInterval(agg: string, dataLen: number): d3.TimeInterval | number {
   const maxTicks = Math.min(dataLen, 10);
   switch (agg) {
-    case 'hour': return d3.timeHour.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'day': return d3.timeDay.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'week': return d3.timeWeek.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'month': return d3.timeMonth.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'year': return d3.timeYear.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    default: return maxTicks;
+    case 'hour':
+      return d3.timeHour.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    case 'day':
+      return d3.timeDay.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    case 'week':
+      return d3.timeWeek.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    case 'month':
+      return d3.timeMonth.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    case 'year':
+      return d3.timeYear.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
+    default:
+      return maxTicks;
   }
 }
 
@@ -877,7 +889,11 @@ function drawBarChart() {
 
   if (data.length === 0) return;
 
-  const tempSvg = d3.select(el).append('svg').style('position', 'absolute').style('visibility', 'hidden');
+  const tempSvg = d3
+    .select(el)
+    .append('svg')
+    .style('position', 'absolute')
+    .style('visibility', 'hidden');
   const longestLabel = data.reduce((a, b) => (a.route.length > b.route.length ? a : b)).route;
   const tempText = tempSvg.append('text').style('font-size', '11px').text(longestLabel);
   const measuredWidth = (tempText.node() as SVGTextElement)?.getBBox().width ?? 200;
@@ -960,9 +976,21 @@ function drawBarChart() {
 }
 
 function drawAllEndpointCharts() {
-  try { drawAreaChart(); } catch (e) { console.warn('Area chart error:', e); }
-  try { drawDonutChart(); } catch (e) { console.warn('Donut chart error:', e); }
-  try { drawBarChart(); } catch (e) { console.warn('Bar chart error:', e); }
+  try {
+    drawAreaChart();
+  } catch (e) {
+    console.warn('Area chart error:', e);
+  }
+  try {
+    drawDonutChart();
+  } catch (e) {
+    console.warn('Donut chart error:', e);
+  }
+  try {
+    drawBarChart();
+  } catch (e) {
+    console.warn('Bar chart error:', e);
+  }
 }
 
 // ─── D3: Objects Line Chart (Tables & Views Over Time) ───────────────────────
@@ -1005,11 +1033,7 @@ function drawObjectsChart() {
     .range([0, width]);
 
   const yMax = d3.max(data, (d) => Math.max(d.tables, d.views)) ?? 0;
-  const y = d3
-    .scaleLinear()
-    .domain([0, yMax])
-    .nice()
-    .range([height, 0]);
+  const y = d3.scaleLinear().domain([0, yMax]).nice().range([height, 0]);
 
   // Lines
   const lineTable = d3
@@ -1055,7 +1079,9 @@ function drawObjectsChart() {
     .attr('r', data.length <= 30 ? 3 : 1.5)
     .attr('fill', TABLES_COLOR)
     .each(function (d) {
-      d3.select(this).append('title').text(`Tables: ${d.tables}\n${fmtDate(d.date)}`);
+      d3.select(this)
+        .append('title')
+        .text(`Tables: ${d.tables}\n${fmtDate(d.date)}`);
     });
 
   svg
@@ -1068,7 +1094,9 @@ function drawObjectsChart() {
     .attr('r', data.length <= 30 ? 3 : 1.5)
     .attr('fill', VIEWS_COLOR)
     .each(function (d) {
-      d3.select(this).append('title').text(`Views: ${d.views}\n${fmtDate(d.date)}`);
+      d3.select(this)
+        .append('title')
+        .text(`Views: ${d.views}\n${fmtDate(d.date)}`);
     });
 
   // x-axis
@@ -1079,7 +1107,9 @@ function drawObjectsChart() {
       d3
         .axisBottom(x)
         .ticks(aggTimeInterval(objectsAggregation.value, data.length))
-        .tickFormat((d) => d3.timeFormat(tickFmt[objectsAggregation.value] ?? '%d %b %Y')(d as Date)),
+        .tickFormat((d) =>
+          d3.timeFormat(tickFmt[objectsAggregation.value] ?? '%d %b %Y')(d as Date),
+        ),
     )
     .selectAll('text')
     .attr('transform', 'rotate(-30)')
@@ -1149,7 +1179,12 @@ function downloadObjectsCSV() {
 
   const csvHeaders = ['Number of Tables', 'Number of Views', 'Timestamp', 'Updated'];
   const csvRows = aggregatedObjectsData.value.map((s) =>
-    [s['number-of-tables'], s['number-of-views'], fmtDate(s.timestamp), fmtDate(s['updated-at'])].join(','),
+    [
+      s['number-of-tables'],
+      s['number-of-views'],
+      fmtDate(s.timestamp),
+      fmtDate(s['updated-at']),
+    ].join(','),
   );
 
   const blob = new Blob([[csvHeaders.join(','), ...csvRows].join('\n')], {
@@ -1180,16 +1215,13 @@ watch(
   },
 );
 
-watch(
-  aggregation,
-  async () => {
-    aggregateRows();
-    await nextTick();
-    if (activeView.value === 'charts') {
-      drawAllEndpointCharts();
-    }
-  },
-);
+watch(aggregation, async () => {
+  aggregateRows();
+  await nextTick();
+  if (activeView.value === 'charts') {
+    drawAllEndpointCharts();
+  }
+});
 
 watch(section, async (s) => {
   await nextTick();
@@ -1207,16 +1239,13 @@ watch(objectsView, async (v) => {
   }
 });
 
-watch(
-  objectsAggregation,
-  async () => {
-    aggregateObjectsData();
-    await nextTick();
-    if (objectsView.value === 'chart') {
-      drawObjectsChart();
-    }
-  },
-);
+watch(objectsAggregation, async () => {
+  aggregateObjectsData();
+  await nextTick();
+  if (objectsView.value === 'chart') {
+    drawObjectsChart();
+  }
+});
 
 async function loadStatistics() {
   await fetchEndpointStatistics();

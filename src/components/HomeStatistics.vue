@@ -56,7 +56,9 @@
           <v-icon size="18" class="mr-2" color="primary">mdi-chart-line</v-icon>
           <span class="text-body-2 font-weight-bold">API Calls (Last 7 Days)</span>
         </div>
-        <div v-if="noChartData && !chartLoading" class="text-center pa-4 text-caption text-medium-emphasis">
+        <div
+          v-if="noChartData && !chartLoading"
+          class="text-center pa-4 text-caption text-medium-emphasis">
           No API activity in the last 7 days
         </div>
         <div ref="chartRef" v-show="!noChartData && !chartLoading" class="chart-container"></div>
@@ -68,10 +70,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import * as d3 from 'd3';
-import type {
-  EndpointStatisticsResponse,
-  WarehouseStatistics,
-} from '../gen/management/types.gen';
+import type { EndpointStatisticsResponse, WarehouseStatistics } from '../gen/management/types.gen';
 import { useFunctions } from '../plugins/functions';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';

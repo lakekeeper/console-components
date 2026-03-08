@@ -8,10 +8,10 @@ Track planned, in-progress, and completed features for the Lakekeeper console UI
 
 ## Planned
 
-| # | Feature | Priority | Scope | Backend needed | Description |
-|---|---------|----------|-------|---------------|-------------|
-| 1 | [Project Dashboard](#1-project-dashboard-with-cross-warehouse-statistics) | High | `console-components` | No | Aggregate stats across all warehouses |
-| 2 | [Storage Usage Visualization](#2-storage-usage-visualization-per-table) | High | `console-components` | No | Chart storage growth per table from snapshot metadata |
+| #   | Feature                                                                   | Priority | Scope                | Backend needed | Description                                           |
+| --- | ------------------------------------------------------------------------- | -------- | -------------------- | -------------- | ----------------------------------------------------- |
+| 1   | [Project Dashboard](#1-project-dashboard-with-cross-warehouse-statistics) | High     | `console-components` | No             | Aggregate stats across all warehouses                 |
+| 2   | [Storage Usage Visualization](#2-storage-usage-visualization-per-table)   | High     | `console-components` | No             | Chart storage growth per table from snapshot metadata |
 
 ### 1. Project Dashboard with Cross-Warehouse Statistics
 
@@ -35,17 +35,17 @@ Visualize storage usage over time for individual tables using snapshot metadata 
 
 ## In Progress
 
-| # | Feature | PR | Owner | Description |
-|---|---------|-----|-------|-------------|
-| — | — | — | — | Nothing in progress right now |
+| #   | Feature | PR  | Owner | Description                   |
+| --- | ------- | --- | ----- | ----------------------------- |
+| —   | —       | —   | —     | Nothing in progress right now |
 
 ---
 
 ## Done
 
-| # | Feature | PR | Description |
-|---|---------|-----|-------------|
-| 1 | Snapshot Compare Dialog | [#87](https://github.com/lakekeeper/console-components/pull/87) | Side-by-side snapshot comparison with delta metrics, summary diff, schema diff |
-| 2 | Warehouse Statistics | [#87](https://github.com/lakekeeper/console-components/pull/87) | Statistics section on warehouse details (table/view counts, storage info) |
-| 3 | Versioning Viz Improvements | [#87](https://github.com/lakekeeper/console-components/pull/87) | D3 bug fix, consolidated Actions menu, refresh button |
-| 4 | Rename Table / View | [#87](https://github.com/lakekeeper/console-components/pull/87) | Rename from namespace listing with storage layout check |
+| #   | Feature                     | PR                                                              | Description                                                                    |
+| --- | --------------------------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 1   | Snapshot Compare Dialog     | [#87](https://github.com/lakekeeper/console-components/pull/87) | Side-by-side snapshot comparison with delta metrics, summary diff, schema diff |
+| 2   | Warehouse Statistics        | [#87](https://github.com/lakekeeper/console-components/pull/87) | Statistics section on warehouse details (table/view counts, storage info)      |
+| 3   | Versioning Viz Improvements | [#87](https://github.com/lakekeeper/console-components/pull/87) | D3 bug fix, consolidated Actions menu, refresh button                          |
+| 4   | Rename Table / View         | [#87](https://github.com/lakekeeper/console-components/pull/87) | Rename from namespace listing with storage layout check                        |
