@@ -599,3 +599,19 @@ The consuming app must provide: `vue ^3.5`, `vuetify ^3.8`, `pinia ^2.3`, `vue-r
 1. Fetch latest specs: `just update-openapi-management` / `just update-openapi-catalog`
 2. Regenerate clients: `just generate-clients`
 3. Update any wrapper functions in `functions.ts` if types changed
+
+### Pre-PR workflow for consumer repos (console / console-plus)
+
+During development, `npm link ../console-components` is used so consumers resolve the local working copy. **Before pushing and creating a PR**, you must unlink so that `npm install` generates a clean `package-lock.json` pointing at the GitHub dependency:
+
+```bash
+# In the consumer repo (console or console-plus):
+npm run unlink
+# This runs: npm unlink --no-save @lakekeeper/console-components && rm -rf node_modules package-lock.json && npm install
+```
+
+Why this matters:
+- `npm link` creates a symlink — no `package-lock.json` entry is generated for the linked package
+- CI runs `npm ci` which requires a valid `package-lock.json` — without it, the build fails with missing exports
+- Running `npm run unlink` does a fresh install from the GitHub ref in `package.json` (e.g. `github:lakekeeper/console-components#v0.3.0`), producing the correct lockfile
+- Always verify `vue-tsc --noEmit` passes locally after unlinking before pushing
