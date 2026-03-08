@@ -72,8 +72,14 @@ function parseAliases(doc: string): Map<string, string> {
   const re = /(?:FROM|JOIN)\s+((?:\w+|"[^"]*")(?:\.(?:\w+|"[^"]*"))*)\s+(?:AS\s+)?(\w+)/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(doc)) !== null) {
-    // Strip any SQL double-quotes from the captured table name
-    const table = m[1].replace(/"([^"]*)"/g, '$1');
+    // Parse the table reference into \x1F-separated parts, preserving dots inside quotes.
+    // Example: demo."f-inance".products6 → demo\x1Ff-inance\x1Fproducts6
+    const PLACEHOLDER = '\uFFFF';
+    const table = m[1]
+      .replace(/"([^"]*)"/g, (_, inner: string) => inner.replaceAll('.', PLACEHOLDER))
+      .split('.')
+      .map((p) => p.replaceAll(PLACEHOLDER, '.'))
+      .join('\x1F');
     const alias = m[2].toLowerCase();
     const kw = new Set([
       'where',

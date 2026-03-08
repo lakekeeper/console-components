@@ -20,7 +20,9 @@ jobs:
   # Update release PR
   release_please:
     name: Release Please
-    runs-on: ${{ vars.RUNS_ON__AMD_XS || 'ubuntu-latest' }}
+    runs-on: ${{ vars.RUNS_ON__AMD_XS || 'ubuntu-24.04' }}
+    container:
+      image: quay.io/vakamo/build-base:ubuntu-24-04
     if: ${{ vars.RELEASE_PLEASE_ACTIVATED != '' }}
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
@@ -37,14 +39,11 @@ jobs:
           manifest-file: release-please/.release-please-manifest.json
           target-branch: ${{ vars.RELEASE_PLEASE_TARGET_BRANCH || 'main' }}
 
-  # Build and publish only when a release is created
   build:
-    name: Build and Publish
+    name: Build
     runs-on: ${{ vars.RUNS_ON__AMD_S || 'ubuntu-24.04' }}
     container:
       image: quay.io/vakamo/build-base:ubuntu-24-04
-    needs: release_please
-    if: ${{ needs.release_please.outputs.releases_created == 'true' }}
 
     steps:
       - name: Checkout Repo
@@ -61,11 +60,32 @@ jobs:
           npm ci
           npm run build
 
-      - name: Upload dist to Release
+      - name: Upload dist folder
+        uses: actions/upload-artifact@v4
+        with:
+          path: dist
+          if-no-files-found: error
+
+  publish-build:
+    name: Publish Build
+    runs-on: ${{ vars.RUNS_ON__AMD_XS || 'ubuntu-24.04' }}
+    container:
+      image: quay.io/vakamo/build-base:ubuntu-24-04
+    needs:
+      - build
+      - release_please
+    if: ${{ needs.release_please.outputs.releases_created == 'true' }}
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Publish Release
+        run: gh release edit ${{ needs.release_please.outputs.tag_name }} --draft=false --repo=${{ github.repository }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add Artifacts to Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            dist/console-components.es.js
-            dist/console-components.umd.js
-            dist/style.css
+          files: artifact/dist/**/*
           tag_name: ${{ needs.release_please.outputs.tag_name }}
