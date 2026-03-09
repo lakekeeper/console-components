@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/lakekeeper/console-components/compare/v0.3.1...v0.3.2) (2026-03-09)
+
+
+### Bug Fixes
+
+* correct style.css exports path to match actual build output ([#91](https://github.com/lakekeeper/console-components/issues/91)) ([5ab0f33](https://github.com/lakekeeper/console-components/commit/5ab0f3358c6ba506f41880fc006fffacfb11c95d))
+
 ## [0.3.1](https://github.com/lakekeeper/console-components/compare/v0.3.0...v0.3.1) (2026-03-09)
 
 
