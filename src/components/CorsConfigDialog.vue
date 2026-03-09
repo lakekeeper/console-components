@@ -18,7 +18,7 @@
       <v-divider></v-divider>
       <v-card-text class="text-body-2">
         <p class="mb-3">
-          To allow DuckDB in the browser to read Iceberg metadata files directly from object
+          To allow the console to read and write Iceberg data directly from object
           storage, the storage bucket must have a CORS policy that permits requests from your
           console origin.
         </p>
@@ -53,20 +53,16 @@
               <td>Your console origin — where the browser request comes from</td>
             </tr>
             <tr>
-              <td><code>GET, HEAD</code></td>
-              <td>Read manifest &amp; metadata files (no writes needed)</td>
+              <td><code>AllowedMethods</code></td>
+              <td>Read (GET, HEAD) and write (POST, PUT, DELETE) operations</td>
             </tr>
             <tr>
-              <td><code>Range</code></td>
-              <td>DuckDB uses byte-range requests to read Parquet/Avro chunks</td>
-            </tr>
-            <tr>
-              <td><code>Authorization</code></td>
-              <td>Pass vended credentials (SigV4 / bearer token)</td>
+              <td><code>AllowedHeaders: *</code></td>
+              <td>Allow all request headers (Range, Authorization, Content-Type, etc.)</td>
             </tr>
             <tr>
               <td><code>ExposeHeaders</code></td>
-              <td>Let the browser read Content-Length, ETag etc. from responses</td>
+              <td>Let the browser read ETag &amp; version info from responses</td>
             </tr>
           </tbody>
         </v-table>
@@ -99,10 +95,10 @@ const corsConfigData = computed(() => {
   return [
     {
       AllowedOrigins: [origin],
-      AllowedMethods: ['GET', 'HEAD'],
-      AllowedHeaders: ['Range', 'Authorization', 'Content-Type'],
-      ExposeHeaders: ['Content-Length', 'Content-Range', 'ETag', 'x-amz-request-id'],
-      MaxAgeSeconds: 3600,
+      AllowedMethods: ['GET', 'HEAD', 'POST', 'PUT', 'DELETE'],
+      AllowedHeaders: ['*'],
+      ExposeHeaders: ['ETag', 'x-amz-version-id'],
+      MaxAgeSeconds: 3000,
     },
   ];
 });
