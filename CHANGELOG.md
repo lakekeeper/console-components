@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/lakekeeper/console-components/compare/v0.3.0...v0.3.1) (2026-03-09)
+
+
+### Bug Fixes
+
+* maintenance ([#89](https://github.com/lakekeeper/console-components/issues/89)) ([6b9ce9a](https://github.com/lakekeeper/console-components/commit/6b9ce9ae26267b7f0b195ea3582543e87d608189))
+
 ## [0.3.0](https://github.com/lakekeeper/console-components/compare/v0.2.31...v0.3.0) (2026-03-08)
 
 
