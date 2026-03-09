@@ -12,7 +12,7 @@
       "import": "./dist/console-components.es.js",
       "require": "./dist/console-components.umd.js"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/console-components.css"
   },
   "files": [
     "dist"
