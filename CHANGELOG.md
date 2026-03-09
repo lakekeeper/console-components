@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/lakekeeper/console-components/compare/v0.3.2...v0.3.3) (2026-03-09)
+
+
+### Bug Fixes
+
+* update CORS config to include write methods and wildcard headers ([#93](https://github.com/lakekeeper/console-components/issues/93)) ([d32b559](https://github.com/lakekeeper/console-components/commit/d32b55989645d5326a59523d7693b897ec51f2a0))
+
 ## [0.3.2](https://github.com/lakekeeper/console-components/compare/v0.3.1...v0.3.2) (2026-03-09)
 
 
