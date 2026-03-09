@@ -24,16 +24,23 @@ function copyDuckDBFiles() {
       const destDir = resolve(__dirname, 'public/duckdb');
 
       if (!existsSync(srcDir)) {
-        console.warn('DuckDB WASM package not found, skipping copy');
-        return;
+        throw new Error(
+          `DuckDB WASM package not found at ${srcDir}. Run "npm install" first.`,
+        );
+      }
+
+      const missing = duckdbFiles.filter(
+        (file) => !existsSync(resolve(srcDir, file)),
+      );
+      if (missing.length > 0) {
+        throw new Error(
+          `Missing DuckDB WASM files in ${srcDir}:\n  - ${missing.join('\n  - ')}`,
+        );
       }
 
       mkdirSync(destDir, { recursive: true });
       duckdbFiles.forEach((file) => {
-        const src = resolve(srcDir, file);
-        if (existsSync(src)) {
-          copyFileSync(src, resolve(destDir, file));
-        }
+        copyFileSync(resolve(srcDir, file), resolve(destDir, file));
       });
       console.log('Copied DuckDB WASM files from @duckdb/duckdb-wasm');
     },
@@ -110,7 +117,7 @@ export default defineConfig({
           'json-bigint': 'JSONBig',
           'date-fns': 'dateFns',
           'vue-json-pretty': 'VueJsonPretty',
-          'chart.js': 'ChartJS',
+          'chart.js': 'Chart',
           'vue-chartjs': 'VueChartjs',
           '@wdns/vue-code-block': 'VueCodeBlock',
           '@duckdb/duckdb-wasm': 'DuckDB',
