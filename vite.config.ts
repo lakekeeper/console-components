@@ -24,18 +24,12 @@ function copyDuckDBFiles() {
       const destDir = resolve(__dirname, 'public/duckdb');
 
       if (!existsSync(srcDir)) {
-        throw new Error(
-          `DuckDB WASM package not found at ${srcDir}. Run "npm install" first.`,
-        );
+        throw new Error(`DuckDB WASM package not found at ${srcDir}. Run "npm install" first.`);
       }
 
-      const missing = duckdbFiles.filter(
-        (file) => !existsSync(resolve(srcDir, file)),
-      );
+      const missing = duckdbFiles.filter((file) => !existsSync(resolve(srcDir, file)));
       if (missing.length > 0) {
-        throw new Error(
-          `Missing DuckDB WASM files in ${srcDir}:\n  - ${missing.join('\n  - ')}`,
-        );
+        throw new Error(`Missing DuckDB WASM files in ${srcDir}:\n  - ${missing.join('\n  - ')}`);
       }
 
       mkdirSync(destDir, { recursive: true });
