@@ -172,7 +172,7 @@ const showUserMenu = computed(() => {
 });
 
 onMounted(async () => {
-  theme.global.name.value = themeText.value;
+  theme.change(themeText.value);
   fetchGitHubStars();
 });
 
@@ -197,7 +197,7 @@ async function fetchGitHubStars() {
 
 function toggleTheme() {
   visual.toggleThemeLight();
-  theme.global.name.value = themeText.value;
+  theme.change(themeText.value);
 }
 
 function navBar() {

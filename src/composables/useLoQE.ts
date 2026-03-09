@@ -341,10 +341,8 @@ export function useLoQE(config: LoQEConfig) {
         // Try DESCRIBE first — it works reliably for Iceberg / REST-catalog tables
         // even when duckdb_columns() has stale or incomplete metadata.
         try {
-          names = await queryColumn(
-            pooled.connection,
-            `SELECT column_name FROM (DESCRIBE "${parts[0]}"."${parts[1]}"."${parts[2]}")`,
-          );
+          const sql = `SELECT column_name FROM (DESCRIBE "${parts[0]}"."${parts[1]}"."${parts[2]}")`;
+          names = await queryColumn(pooled.connection, sql);
         } catch {
           // DESCRIBE may fail if table doesn't exist — fall through
         }
