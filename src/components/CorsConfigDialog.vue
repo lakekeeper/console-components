@@ -18,9 +18,8 @@
       <v-divider></v-divider>
       <v-card-text class="text-body-2">
         <p class="mb-3">
-          To allow the console to read and write Iceberg data directly from object
-          storage, the storage bucket must have a CORS policy that permits requests from your
-          console origin.
+          To allow the console to read and write Iceberg data directly from object storage, the
+          storage bucket must have a CORS policy that permits requests from your console origin.
         </p>
         <p class="mb-3 font-weight-medium">
           Add this CORS configuration to your bucket (S3 / GCS / MinIO / R2):
