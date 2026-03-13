@@ -1046,6 +1046,26 @@ const tags = computed<TagMeta[]>(() => {
   return result;
 });
 
+// ─── Computed: snapshot-log IDs (snapshots natively committed on main) ────────
+// The snapshot-log tracks the history of current-snapshot-id (always the main
+// branch). Snapshots in main's ancestry but NOT in the snapshot-log were
+// committed on other branches and later merged/fast-forwarded into main.
+const mainSnapshotLogIds = computed<Set<number>>(() => {
+  const snapshotLog = (props.table.metadata as any)?.['snapshot-log'] as
+    | Array<{ 'snapshot-id': number }>
+    | undefined;
+  if (!snapshotLog || snapshotLog.length === 0) return new Set();
+  const mainBranch = branches.value.find((b) => b.name === 'main' || b.name === 'master');
+  if (!mainBranch) return new Set();
+  const ancestrySet = new Set(mainBranch.ancestry);
+  const result = new Set<number>();
+  snapshotLog.forEach((entry) => {
+    const sid = entry['snapshot-id'];
+    if (ancestrySet.has(sid)) result.add(sid);
+  });
+  return result;
+});
+
 // ─── Computed: nodes ─────────────────────────────────────────────────────────
 
 const graphNodes = computed<GraphNode[]>(() => {
@@ -1060,7 +1080,16 @@ const graphNodes = computed<GraphNode[]>(() => {
   const droppedBranches = branches.value.filter((b) => b.type === 'dropped');
 
   const snapshotRow = new Map<number, number>();
-  if (mainBranch) mainBranch.ancestry.forEach((id) => snapshotRow.set(id, 0));
+  const logIds = mainSnapshotLogIds.value;
+  if (mainBranch) {
+    mainBranch.ancestry.forEach((id) => {
+      // If snapshot-log is available, only assign to main row if the snapshot
+      // was natively committed on main (appears in snapshot-log).
+      if (logIds.size === 0 || logIds.has(id)) {
+        snapshotRow.set(id, 0);
+      }
+    });
+  }
   namedBranches.forEach((branch, idx) => {
     branch.ancestry.forEach((id) => {
       if (!snapshotRow.has(id)) snapshotRow.set(id, -(idx + 1));
@@ -1183,6 +1212,30 @@ const graphLinks = computed<GraphLink[]>(() => {
   // Build links for each branch
   const mainBr = branches.value.find((b) => b.name === 'main' || b.name === 'master');
 
+  // Determine which snapshot IDs are "on main" for link-ownership purposes.
+  // If snapshot-log is available, use it; otherwise fall back to full ancestry.
+  const logIds = mainSnapshotLogIds.value;
+  const mainOwnedIds: Set<number> =
+    logIds.size > 0 && mainBr ? logIds : mainBr ? new Set(mainBr.ancestry) : new Set<number>();
+
+  // For main branch: draw links between consecutive snapshot-log entries
+  // (skips snapshots that were merged in from other branches).
+  if (mainBr && logIds.size > 0) {
+    const snapshotLog = (props.table.metadata as any)?.['snapshot-log'] as
+      | Array<{ 'snapshot-id': number }>
+      | undefined;
+    if (snapshotLog) {
+      const mainLogOrdered = snapshotLog
+        .map((entry) => entry['snapshot-id'])
+        .filter((id) => mainBr.ancestry.includes(id));
+      for (let i = 0; i < mainLogOrdered.length - 1; i++) {
+        const parentNode = nodeMap.get(mainLogOrdered[i]);
+        const childNode = nodeMap.get(mainLogOrdered[i + 1]);
+        if (parentNode && childNode) addLink(parentNode, childNode, mainBr.color, 0.8);
+      }
+    }
+  }
+
   branches.value.forEach((branch) => {
     // Tagged-dropped branches get higher opacity (teal links)
     const hasTagOnDropped =
@@ -1190,32 +1243,40 @@ const graphLinks = computed<GraphLink[]>(() => {
       branch.ancestry.some((id) => tags.value.some((t) => t.snapshotId === id));
     const opacity = branch.type === 'dropped' ? (hasTagOnDropped ? 0.7 : 0.5) : 0.8;
 
-    // (stop once we hit a snapshot owned by main, to avoid coloring main's links)
-    const mainAncestrySet = mainBr ? new Set(mainBr.ancestry) : new Set<number>();
-    for (let i = 0; i < branch.ancestry.length - 1; i++) {
-      const childId = branch.ancestry[i];
-      const parentId = branch.ancestry[i + 1];
-      const child = nodeMap.get(childId);
-      const parent = nodeMap.get(parentId);
-      if (!child || !parent) continue;
-      // If both child and parent are on main, skip — main will draw its own links
-      if (
-        branch !== mainBr &&
-        branch.type === 'branch' &&
-        mainAncestrySet.has(childId) &&
-        mainAncestrySet.has(parentId)
-      ) {
-        continue;
+    // For main when snapshot-log links were already drawn above, skip ancestry walk
+    if (branch === mainBr && logIds.size > 0) {
+      // Main's links already drawn from snapshot-log; skip to divergence/dropped
+    } else {
+      // Walk ancestry and draw links (skip pairs where both are on main)
+      for (let i = 0; i < branch.ancestry.length - 1; i++) {
+        const childId = branch.ancestry[i];
+        const parentId = branch.ancestry[i + 1];
+        const child = nodeMap.get(childId);
+        const parent = nodeMap.get(parentId);
+        if (!child || !parent) continue;
+        // If both child and parent are owned by main, skip — main draws its own links
+        if (
+          branch !== mainBr &&
+          branch.type === 'branch' &&
+          mainOwnedIds.has(childId) &&
+          mainOwnedIds.has(parentId)
+        ) {
+          continue;
+        }
+        addLink(parent, child, hasTagOnDropped ? TAG_COLOR : branch.color, opacity);
       }
-      addLink(parent, child, hasTagOnDropped ? TAG_COLOR : branch.color, opacity);
     }
 
-    // Divergence from main
+    // Divergence from main: draw a colored link where the branch leaves main's owned set.
+    // Only draw if the child snapshot is NOT owned by main (i.e. an actual fork exists).
     if (branch.type === 'branch' && branch.name !== 'main' && branch.name !== 'master') {
       if (mainBr) {
-        const mainSet = new Set(mainBr.ancestry);
         for (let i = 0; i < branch.ancestry.length; i++) {
-          if (mainSet.has(branch.ancestry[i]) && i > 0) {
+          if (
+            mainOwnedIds.has(branch.ancestry[i]) &&
+            i > 0 &&
+            !mainOwnedIds.has(branch.ancestry[i - 1])
+          ) {
             const from = nodeMap.get(branch.ancestry[i]);
             const to = nodeMap.get(branch.ancestry[i - 1]);
             if (from && to) addLink(from, to, branch.color, 0.8, 'diverge-');
@@ -1551,10 +1612,12 @@ function renderChart() {
       { dx: 0, dy: 65, anchor: 'middle' },
     ];
 
-    // Helper to pick slots based on label count
+    // Helper to pick slots based on label count.
+    // For 2 labels, stack vertically (centered) to avoid horizontal offset
+    // that visually overlaps with adjacent nodes (spacingX=90, old dx=±70).
     function pickSlots(pool: typeof aboveSlots, count: number) {
       if (count === 1) return [pool[0]];
-      if (count === 2) return [pool[1], pool[2]];
+      if (count === 2) return [pool[0], { dx: 0, dy: pool[0].dy + 20, anchor: 'middle' }];
       if (count === 3) return [pool[1], pool[0], pool[2]];
       return Array.from({ length: count }, (_, i) => pool[i % pool.length]);
     }
