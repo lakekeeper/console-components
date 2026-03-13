@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/lakekeeper/console-components/compare/v0.3.3...v0.3.4) (2026-03-13)
+
+
+### Bug Fixes
+
+* use snapshot-log for branch visualization row assignment ([#95](https://github.com/lakekeeper/console-components/issues/95)) ([3ffb227](https://github.com/lakekeeper/console-components/commit/3ffb2276f826e4d697b315898fb663c5ad519142))
+
 ## [0.3.3](https://github.com/lakekeeper/console-components/compare/v0.3.2...v0.3.3) (2026-03-09)
 
 
