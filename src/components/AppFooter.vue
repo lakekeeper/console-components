@@ -1,5 +1,5 @@
 <template>
-  <v-footer app height="40">
+  <v-footer app height="32">
     <slot name="app-links"></slot>
     <div class="text-caption text-disabled" style="position: absolute; right: 16px">
       &copy; {{ new Date().getFullYear() }}

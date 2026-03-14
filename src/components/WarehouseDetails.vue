@@ -1,6 +1,6 @@
 <template>
   <v-container fluid class="pa-0">
-    <div style="display: flex; height: calc(100vh - 200px); position: relative">
+    <div style="display: flex; height: calc(100vh - 160px); position: relative">
       <!-- Right: Warehouse Details Content -->
       <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
         <v-container fluid class="pa-6">

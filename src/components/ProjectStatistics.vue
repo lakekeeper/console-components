@@ -1,6 +1,6 @@
 <template>
-  <v-card flat>
-    <v-card-text>
+  <v-card flat style="height: 100%; display: flex; flex-direction: column">
+    <v-card-text style="flex: 1; min-height: 0; overflow-y: auto">
       <!-- Controls row -->
       <div class="d-flex align-center ga-2 mb-2">
         <v-btn-toggle v-model="activeView" mandatory density="compact" variant="outlined">
@@ -143,7 +143,7 @@
       <div v-else-if="activeView === 'table'">
         <v-data-table-virtual
           fixed-header
-          height="60vh"
+          height="calc(100vh - 340px)"
           :headers="headersStatistics"
           hover
           :items="aggregatedRows"

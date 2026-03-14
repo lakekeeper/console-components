@@ -13,16 +13,14 @@
         "
         @click.prevent="showConfirmDialog"></v-switch>
     </v-toolbar>
-    <v-card-text>
-      <ViewDetails
-        v-if="loaded"
-        :view="view"
-        :warehouse-id="props.warehouseId"
-        :namespace-path="props.namespaceId"
-        :view-name="props.viewName"
-        :can-edit="canCommit"
-        @updated="loadViewData" />
-    </v-card-text>
+    <ViewDetails
+      v-if="loaded"
+      :view="view"
+      :warehouse-id="props.warehouseId"
+      :namespace-path="props.namespaceId"
+      :view-name="props.viewName"
+      :can-edit="canCommit"
+      @updated="loadViewData" />
 
     <ProtectionConfirmDialog
       v-model="confirmDialog"

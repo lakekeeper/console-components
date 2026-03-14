@@ -1221,18 +1221,12 @@ const graphLinks = computed<GraphLink[]>(() => {
   // For main branch: draw links between consecutive snapshot-log entries
   // (skips snapshots that were merged in from other branches).
   if (mainBr && logIds.size > 0) {
-    const snapshotLog = (props.table.metadata as any)?.['snapshot-log'] as
-      | Array<{ 'snapshot-id': number }>
-      | undefined;
-    if (snapshotLog) {
-      const mainLogOrdered = snapshotLog
-        .map((entry) => entry['snapshot-id'])
-        .filter((id) => mainBr.ancestry.includes(id));
-      for (let i = 0; i < mainLogOrdered.length - 1; i++) {
-        const parentNode = nodeMap.get(mainLogOrdered[i]);
-        const childNode = nodeMap.get(mainLogOrdered[i + 1]);
-        if (parentNode && childNode) addLink(parentNode, childNode, mainBr.color, 0.8);
-      }
+    // Derive ordered list from ancestry (topological order) filtered to snapshot-log IDs
+    const mainLogOrdered = mainBr.ancestry.filter((id) => logIds.has(id));
+    for (let i = 0; i < mainLogOrdered.length - 1; i++) {
+      const parentNode = nodeMap.get(mainLogOrdered[i]);
+      const childNode = nodeMap.get(mainLogOrdered[i + 1]);
+      if (parentNode && childNode) addLink(parentNode, childNode, mainBr.color, 0.8);
     }
   }
 
@@ -1268,22 +1262,13 @@ const graphLinks = computed<GraphLink[]>(() => {
     }
 
     // Divergence from main: draw a colored link where the branch leaves main's owned set.
-    // Only draw if the child snapshot is NOT owned by main (i.e. an actual fork exists).
+    // Only draw if the fork edge wasn't already drawn in the ancestry loop above.
+    // The ancestry loop skips pairs where BOTH are mainOwned, but draws the fork edge
+    // (mainOwned parent -> non-mainOwned child), so we only need to draw here if the
+    // ancestry loop was skipped (i.e. branch === mainBr with snapshot-log).
     if (branch.type === 'branch' && branch.name !== 'main' && branch.name !== 'master') {
-      if (mainBr) {
-        for (let i = 0; i < branch.ancestry.length; i++) {
-          if (
-            mainOwnedIds.has(branch.ancestry[i]) &&
-            i > 0 &&
-            !mainOwnedIds.has(branch.ancestry[i - 1])
-          ) {
-            const from = nodeMap.get(branch.ancestry[i]);
-            const to = nodeMap.get(branch.ancestry[i - 1]);
-            if (from && to) addLink(from, to, branch.color, 0.8, 'diverge-');
-            break;
-          }
-        }
-      }
+      // Fork edge is already drawn by the ancestry loop (it only skips when BOTH are mainOwned).
+      // No additional diverge link needed.
     }
 
     // Dropped branch divergence

@@ -29,7 +29,7 @@
         <v-col>
           <v-data-table-virtual
             fixed-header
-            height="60vh"
+            height="calc(100vh - 340px)"
             :headers="headersStatistics"
             hover
             :items="tableStatisticsFormatted">

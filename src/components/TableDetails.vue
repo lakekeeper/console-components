@@ -20,7 +20,7 @@
             </v-chip>
           </v-toolbar>
           <v-divider></v-divider>
-          <v-table density="compact" fixed-header height="288px">
+          <v-table density="compact" fixed-header height="200px">
             <tbody>
               <tr>
                 <td class="font-weight-medium" style="width: 200px">Table UUID</td>
@@ -129,7 +129,7 @@
             :items="propertyItems"
             density="compact"
             fixed-header
-            height="288px"
+            height="200px"
             item-value="key"
             hide-default-footer
             :items-per-page="-1">

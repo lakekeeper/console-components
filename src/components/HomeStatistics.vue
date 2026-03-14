@@ -242,7 +242,7 @@ function drawChart() {
 
   const margin = { top: 12, right: 16, bottom: 36, left: 44 };
   const width = el.clientWidth - margin.left - margin.right;
-  const height = 180 - margin.top - margin.bottom;
+  const height = 140 - margin.top - margin.bottom;
 
   const data = chartData.value;
 
@@ -456,6 +456,6 @@ onMounted(() => {
 .chart-container {
   position: relative;
   width: 100%;
-  min-height: 180px;
+  min-height: 140px;
 }
 </style>
