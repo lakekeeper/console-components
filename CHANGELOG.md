@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5](https://github.com/lakekeeper/console-components/compare/v0.3.4...v0.3.5) (2026-03-14)
+
+
+### Bug Fixes
+
+* **ui:** adapt component heights for 14-inch MacBook screens ([#97](https://github.com/lakekeeper/console-components/issues/97)) ([7cee696](https://github.com/lakekeeper/console-components/commit/7cee696e30960253d8b2030a19e0d163f7a91a8e))
+
 ## [0.3.4](https://github.com/lakekeeper/console-components/compare/v0.3.3...v0.3.4) (2026-03-13)
 
 
