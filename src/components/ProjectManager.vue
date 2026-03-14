@@ -126,7 +126,10 @@
             :relation-type="permissionType" />
         </v-tabs-window-item>
 
-        <v-tabs-window-item v-if="showTasksTab && userStorage.isAuthenticated" value="tasks">
+        <v-tabs-window-item
+          v-if="showTasksTab && userStorage.isAuthenticated"
+          value="tasks"
+          style="height: 100%">
           <ProjectTaskManager
             v-if="project['project-id']"
             ref="projectTaskManagerRef"

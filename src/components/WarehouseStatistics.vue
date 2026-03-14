@@ -15,7 +15,9 @@
         </v-tabs>
 
         <!-- Tab content -->
-        <div class="flex-grow-1 pa-4" style="min-width: 0; min-height: 0; height: 100%; overflow-y: auto">
+        <div
+          class="flex-grow-1 pa-4"
+          style="min-width: 0; min-height: 0; height: 100%; overflow-y: auto">
           <v-tabs-window v-model="section">
             <!-- ════════════════════════════════════════════════════════════════
                  TAB 1 — Endpoint Statistics

@@ -1,302 +1,296 @@
 <template>
-  <v-card-text>
-    <v-row>
-      <v-col>
-        <v-toolbar color="transparent" density="compact" flat>
-          <v-toolbar-title>Task Management</v-toolbar-title>
-          <v-spacer></v-spacer>
-          <v-btn
-            color="secondary"
-            density="compact"
-            variant="outlined"
-            @click="showFilters = !showFilters"
-            class="mr-2">
-            <v-icon start>mdi-filter-variant</v-icon>
-            Filters
-          </v-btn>
-          <v-btn color="primary" density="compact" variant="outlined" @click="refreshTasks">
-            <v-icon start>mdi-refresh</v-icon>
-            Refresh
-          </v-btn>
-        </v-toolbar>
+  <v-container fluid class="pa-0">
+    <v-toolbar color="transparent" density="compact" flat>
+      <v-toolbar-title>Task Management</v-toolbar-title>
+      <v-spacer></v-spacer>
+      <v-btn
+        color="secondary"
+        density="compact"
+        variant="outlined"
+        @click="showFilters = !showFilters"
+        class="mr-2">
+        <v-icon start>mdi-filter-variant</v-icon>
+        Filters
+      </v-btn>
+      <v-btn color="primary" density="compact" variant="outlined" @click="refreshTasks">
+        <v-icon start>mdi-refresh</v-icon>
+        Refresh
+      </v-btn>
+    </v-toolbar>
 
-        <!-- Filter Panel -->
-        <v-expand-transition>
-          <v-card v-show="showFilters" variant="outlined" class="mb-4">
-            <v-card-text>
-              <!-- Filter Groups -->
-              <v-row>
-                <v-col cols="12">
-                  <v-card variant="outlined" class="pa-3">
-                    <v-card-title class="text-subtitle-2 pb-2">General Filters</v-card-title>
-                    <v-row dense>
-                      <v-col cols="12" sm="4">
-                        <v-select
-                          v-model="filters.status"
-                          :items="statusOptions"
-                          label="Status"
-                          multiple
-                          chips
-                          clearable
-                          density="compact"
-                          hide-details>
-                          <template #chip="{ props, item }">
-                            <v-chip v-bind="props" :color="getStatusColor(item.value)" size="small">
-                              {{ item.title }}
-                            </v-chip>
-                          </template>
-                        </v-select>
-                      </v-col>
-                      <v-col cols="12" sm="4">
-                        <v-combobox
-                          v-model="filters.queueNames"
-                          :items="queueNameOptions"
-                          item-title="title"
-                          item-value="value"
-                          label="Task Types"
-                          multiple
-                          chips
-                          clearable
-                          density="compact"
-                          hide-details
-                          hint="Select from common queues or enter custom names"></v-combobox>
-                      </v-col>
-                      <v-col cols="12" sm="4">
-                        <v-text-field
-                          v-model="filters.taskId"
-                          placeholder="01997633-d918-70f3-aec1-1889ae4bb232"
-                          label="Task ID"
-                          clearable
-                          density="compact"
-                          hide-details
-                          hint="Filter by specific task ID"></v-text-field>
-                      </v-col>
-                    </v-row>
-                  </v-card>
-                </v-col>
-              </v-row>
+    <!-- Filter Panel -->
+    <v-expand-transition>
+      <v-card v-show="showFilters" variant="outlined" class="mb-4">
+        <v-card-text>
+          <!-- Filter Groups -->
+          <v-row>
+            <v-col cols="12">
+              <v-card variant="outlined" class="pa-3">
+                <v-card-title class="text-subtitle-2 pb-2">General Filters</v-card-title>
+                <v-row dense>
+                  <v-col cols="12" sm="4">
+                    <v-select
+                      v-model="filters.status"
+                      :items="statusOptions"
+                      label="Status"
+                      multiple
+                      chips
+                      clearable
+                      density="compact"
+                      hide-details>
+                      <template #chip="{ props, item }">
+                        <v-chip v-bind="props" :color="getStatusColor(item.value)" size="small">
+                          {{ item.title }}
+                        </v-chip>
+                      </template>
+                    </v-select>
+                  </v-col>
+                  <v-col cols="12" sm="4">
+                    <v-combobox
+                      v-model="filters.queueNames"
+                      :items="queueNameOptions"
+                      item-title="title"
+                      item-value="value"
+                      label="Task Types"
+                      multiple
+                      chips
+                      clearable
+                      density="compact"
+                      hide-details
+                      hint="Select from common queues or enter custom names"></v-combobox>
+                  </v-col>
+                  <v-col cols="12" sm="4">
+                    <v-text-field
+                      v-model="filters.taskId"
+                      placeholder="01997633-d918-70f3-aec1-1889ae4bb232"
+                      label="Task ID"
+                      clearable
+                      density="compact"
+                      hide-details
+                      hint="Filter by specific task ID"></v-text-field>
+                  </v-col>
+                </v-row>
+              </v-card>
+            </v-col>
+          </v-row>
 
-              <!-- Date Range Filters -->
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-card variant="outlined" class="pa-3">
-                    <v-card-title class="text-subtitle-2 pb-2">Created Date Range</v-card-title>
-                    <v-row dense>
-                      <v-col cols="12" sm="6">
-                        <v-text-field
-                          v-model="filters.createdAfter"
-                          label="After"
-                          type="datetime-local"
-                          clearable
-                          density="compact"
-                          hide-details
-                          hint="Tasks created after this date"></v-text-field>
-                      </v-col>
-                      <v-col cols="12" sm="6">
-                        <v-text-field
-                          v-model="filters.createdBefore"
-                          label="Before"
-                          type="datetime-local"
-                          clearable
-                          density="compact"
-                          hide-details
-                          hint="Tasks created before this date"></v-text-field>
-                      </v-col>
-                    </v-row>
-                  </v-card>
-                </v-col>
+          <!-- Date Range Filters -->
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-card variant="outlined" class="pa-3">
+                <v-card-title class="text-subtitle-2 pb-2">Created Date Range</v-card-title>
+                <v-row dense>
+                  <v-col cols="12" sm="6">
+                    <v-text-field
+                      v-model="filters.createdAfter"
+                      label="After"
+                      type="datetime-local"
+                      clearable
+                      density="compact"
+                      hide-details
+                      hint="Tasks created after this date"></v-text-field>
+                  </v-col>
+                  <v-col cols="12" sm="6">
+                    <v-text-field
+                      v-model="filters.createdBefore"
+                      label="Before"
+                      type="datetime-local"
+                      clearable
+                      density="compact"
+                      hide-details
+                      hint="Tasks created before this date"></v-text-field>
+                  </v-col>
+                </v-row>
+              </v-card>
+            </v-col>
 
-                <v-col cols="12" md="6">
-                  <v-card variant="outlined" class="pa-3">
-                    <v-card-title class="text-subtitle-2 pb-2">Scheduled Date Range</v-card-title>
-                    <v-row dense>
-                      <v-col cols="12" sm="6">
-                        <v-text-field
-                          v-model="filters.scheduledAfter"
-                          label="After"
-                          type="datetime-local"
-                          clearable
-                          density="compact"
-                          hide-details
-                          hint="Tasks scheduled after this date"></v-text-field>
-                      </v-col>
-                      <v-col cols="12" sm="6">
-                        <v-text-field
-                          v-model="filters.scheduledBefore"
-                          label="Before"
-                          type="datetime-local"
-                          clearable
-                          density="compact"
-                          hide-details
-                          hint="Tasks scheduled before this date"></v-text-field>
-                      </v-col>
-                    </v-row>
-                  </v-card>
-                </v-col>
-              </v-row>
+            <v-col cols="12" md="6">
+              <v-card variant="outlined" class="pa-3">
+                <v-card-title class="text-subtitle-2 pb-2">Scheduled Date Range</v-card-title>
+                <v-row dense>
+                  <v-col cols="12" sm="6">
+                    <v-text-field
+                      v-model="filters.scheduledAfter"
+                      label="After"
+                      type="datetime-local"
+                      clearable
+                      density="compact"
+                      hide-details
+                      hint="Tasks scheduled after this date"></v-text-field>
+                  </v-col>
+                  <v-col cols="12" sm="6">
+                    <v-text-field
+                      v-model="filters.scheduledBefore"
+                      label="Before"
+                      type="datetime-local"
+                      clearable
+                      density="compact"
+                      hide-details
+                      hint="Tasks scheduled before this date"></v-text-field>
+                  </v-col>
+                </v-row>
+              </v-card>
+            </v-col>
+          </v-row>
 
-              <v-row>
-                <v-col cols="12" class="d-flex align-center">
-                  <v-btn
-                    color="primary"
-                    density="compact"
-                    @click="applyFilters"
-                    :loading="tasksLoading">
-                    Apply Filters
-                  </v-btn>
-                  <v-btn
-                    color="secondary"
-                    density="compact"
-                    variant="outlined"
-                    class="ml-2"
-                    @click="clearFilters">
-                    Clear All
-                  </v-btn>
-                  <v-spacer></v-spacer>
-                  <v-chip v-if="hasActiveFilters" color="info" size="small">
-                    {{ activeFilterCount }} filter(s) active
-                  </v-chip>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
-        </v-expand-transition>
-
-        <v-data-table
-          v-if="!hasError"
-          :loading="tasksLoading"
-          :headers="taskHeaders"
-          :items="tasks"
-          :items-per-page="currentPaginationOptions.itemsPerPage"
-          :items-per-page-options="[
-            { title: '25 items', value: 25 },
-            { title: '50 items', value: 50 },
-            { title: '100 items', value: 100 },
-          ]"
-          hover
-          density="compact"
-          fixed-header
-          :height="showFilters ? '40vh' : '60vh'"
-          @update:options="handlePaginationUpdate">
-          <template #item.entity-name="{ item }">
-            <span
-              class="text-wrap"
-              style="
-                word-break: break-all;
-                white-space: normal;
-                line-height: 1.2;
-                max-width: 120px;
-                display: inline-block;
-                overflow-wrap: anywhere;
-              ">
-              {{
-                Array.isArray(item['entity-name'])
-                  ? item['entity-name'].join('.')
-                  : item['entity-name']
-              }}
-            </span>
-          </template>
-          <template #item.status="{ item }">
-            <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
-              {{ item.status }}
-            </v-chip>
-          </template>
-
-          <template #item.task-id="{ item }">
-            <span style="display: flex; align-items: center">
+          <v-row>
+            <v-col cols="12" class="d-flex align-center">
               <v-btn
-                icon="mdi-content-copy"
-                size="small"
-                variant="flat"
-                @click="functions.copyToClipboard(item['task-id'])"></v-btn>
-              {{ item['task-id'] }}
-            </span>
-          </template>
-
-          <template #item.queue-name="{ item }">
-            {{ formatQueueName(item['queue-name']) }}
-          </template>
-
-          <template #item.progress="{ item }">
-            <v-progress-linear
-              :model-value="item.progress * 100"
-              :color="getStatusColor(item.status)"
-              height="6"
-              rounded></v-progress-linear>
-            <span class="text-caption">{{ Math.round(item.progress * 100) }}%</span>
-          </template>
-
-          <template #item.created-at="{ item }">
-            {{ formatDateTime(item['created-at']) }}
-          </template>
-
-          <template #item.scheduled-for="{ item }">
-            {{ formatDateTime(item['scheduled-for']) }}
-          </template>
-
-          <template #item.actions="{ item }">
-            <v-btn
-              icon="mdi-information"
-              size="small"
-              variant="text"
-              @click="viewTaskDetails(item)"></v-btn>
-            <v-btn
-              v-if="item.status === 'RUNNING' && canControlTasks"
-              icon="mdi-stop"
-              size="small"
-              variant="text"
-              color="warning"
-              @click="stopTask(item)"></v-btn>
-            <v-btn
-              v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
-              icon="mdi-cancel"
-              size="small"
-              variant="text"
-              color="error"
-              @click="cancelTask(item)"></v-btn>
-            <v-btn
-              v-if="item.status === 'SCHEDULED' && canControlTasks"
-              icon="mdi-play"
-              size="small"
-              variant="text"
-              color="success"
-              @click="runTaskNow(item)"></v-btn>
-          </template>
-
-          <template #no-data>
-            <div class="text-center pa-4" v-if="hasError">
-              <v-icon size="64" color="warning">mdi-alert-circle-outline</v-icon>
-              <div class="text-h6 mt-2">Unable to load tasks</div>
-              <div class="text-subtitle-1 text-grey">
-                {{ errorMessage }}
-              </div>
-              <v-btn class="mt-3" color="primary" variant="outlined" @click="refreshTasks">
-                Try Again
+                color="primary"
+                density="compact"
+                @click="applyFilters"
+                :loading="tasksLoading">
+                Apply Filters
               </v-btn>
-            </div>
-            <div class="text-center pa-4" v-else>
-              <v-icon size="64" color="grey-lighten-1">mdi-clipboard-list-outline</v-icon>
-              <div class="text-h6 mt-2">No tasks found</div>
-              <div class="text-subtitle-1 text-grey">
-                No tasks have been created for this {{ props.entityType || 'warehouse' }} yet.
-              </div>
-            </div>
-          </template>
-        </v-data-table>
+              <v-btn
+                color="secondary"
+                density="compact"
+                variant="outlined"
+                class="ml-2"
+                @click="clearFilters">
+                Clear All
+              </v-btn>
+              <v-spacer></v-spacer>
+              <v-chip v-if="hasActiveFilters" color="info" size="small">
+                {{ activeFilterCount }} filter(s) active
+              </v-chip>
+            </v-col>
+          </v-row>
+        </v-card-text>
+      </v-card>
+    </v-expand-transition>
 
-        <!-- Error state display when data table is hidden -->
-        <div v-if="hasError" class="text-center pa-8">
+    <v-data-table
+      v-if="!hasError"
+      :loading="tasksLoading"
+      :headers="taskHeaders"
+      :items="tasks"
+      :items-per-page="currentPaginationOptions.itemsPerPage"
+      :items-per-page-options="[
+        { title: '25 items', value: 25 },
+        { title: '50 items', value: 50 },
+        { title: '100 items', value: 100 },
+      ]"
+      hover
+      density="compact"
+      fixed-header
+      :height="showFilters ? 'calc(100vh - 610px)' : 'calc(100vh - 380px)'"
+      @update:options="handlePaginationUpdate">
+      <template #item.entity-name="{ item }">
+        <span
+          class="text-wrap"
+          style="
+            word-break: break-all;
+            white-space: normal;
+            line-height: 1.2;
+            max-width: 120px;
+            display: inline-block;
+            overflow-wrap: anywhere;
+          ">
+          {{
+            Array.isArray(item['entity-name']) ? item['entity-name'].join('.') : item['entity-name']
+          }}
+        </span>
+      </template>
+      <template #item.status="{ item }">
+        <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
+          {{ item.status }}
+        </v-chip>
+      </template>
+
+      <template #item.task-id="{ item }">
+        <span style="display: flex; align-items: center">
+          <v-btn
+            icon="mdi-content-copy"
+            size="small"
+            variant="flat"
+            @click="functions.copyToClipboard(item['task-id'])"></v-btn>
+          {{ item['task-id'] }}
+        </span>
+      </template>
+
+      <template #item.queue-name="{ item }">
+        {{ formatQueueName(item['queue-name']) }}
+      </template>
+
+      <template #item.progress="{ item }">
+        <v-progress-linear
+          :model-value="item.progress * 100"
+          :color="getStatusColor(item.status)"
+          height="6"
+          rounded></v-progress-linear>
+        <span class="text-caption">{{ Math.round(item.progress * 100) }}%</span>
+      </template>
+
+      <template #item.created-at="{ item }">
+        {{ formatDateTime(item['created-at']) }}
+      </template>
+
+      <template #item.scheduled-for="{ item }">
+        {{ formatDateTime(item['scheduled-for']) }}
+      </template>
+
+      <template #item.actions="{ item }">
+        <v-btn
+          icon="mdi-information"
+          size="small"
+          variant="text"
+          @click="viewTaskDetails(item)"></v-btn>
+        <v-btn
+          v-if="item.status === 'RUNNING' && canControlTasks"
+          icon="mdi-stop"
+          size="small"
+          variant="text"
+          color="warning"
+          @click="stopTask(item)"></v-btn>
+        <v-btn
+          v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
+          icon="mdi-cancel"
+          size="small"
+          variant="text"
+          color="error"
+          @click="cancelTask(item)"></v-btn>
+        <v-btn
+          v-if="item.status === 'SCHEDULED' && canControlTasks"
+          icon="mdi-play"
+          size="small"
+          variant="text"
+          color="success"
+          @click="runTaskNow(item)"></v-btn>
+      </template>
+
+      <template #no-data>
+        <div class="text-center pa-4" v-if="hasError">
           <v-icon size="64" color="warning">mdi-alert-circle-outline</v-icon>
           <div class="text-h6 mt-2">Unable to load tasks</div>
-          <div class="text-subtitle-1 text-grey mb-4">
+          <div class="text-subtitle-1 text-grey">
             {{ errorMessage }}
           </div>
-          <v-btn color="primary" variant="outlined" @click="refreshTasks" :loading="tasksLoading">
+          <v-btn class="mt-3" color="primary" variant="outlined" @click="refreshTasks">
             Try Again
           </v-btn>
         </div>
-      </v-col>
-    </v-row>
+        <div class="text-center pa-4" v-else>
+          <v-icon size="64" color="grey-lighten-1">mdi-clipboard-list-outline</v-icon>
+          <div class="text-h6 mt-2">No tasks found</div>
+          <div class="text-subtitle-1 text-grey">
+            No tasks have been created for this {{ props.entityType || 'warehouse' }} yet.
+          </div>
+        </div>
+      </template>
+    </v-data-table>
+
+    <!-- Error state display when data table is hidden -->
+    <div v-if="hasError" class="text-center pa-8">
+      <v-icon size="64" color="warning">mdi-alert-circle-outline</v-icon>
+      <div class="text-h6 mt-2">Unable to load tasks</div>
+      <div class="text-subtitle-1 text-grey mb-4">
+        {{ errorMessage }}
+      </div>
+      <v-btn color="primary" variant="outlined" @click="refreshTasks" :loading="tasksLoading">
+        Try Again
+      </v-btn>
+    </div>
 
     <!-- Task Details Modal -->
     <v-dialog v-model="showTaskDetailsDialog" max-width="900px" scrollable>
@@ -430,7 +424,7 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
-  </v-card-text>
+  </v-container>
 </template>
 
 <script setup lang="ts">
