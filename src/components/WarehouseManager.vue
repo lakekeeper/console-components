@@ -40,7 +40,7 @@
 
     <v-data-table
       v-if="canListWarehouses"
-      height="60vh"
+      height="calc(100vh - 340px)"
       fixed-header
       :headers="headers"
       hover

@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="pa-0">
+  <v-container fluid class="pa-0" style="height: 100%; overflow: hidden">
     <!-- ── Top Status Bar ────────────────────────────────────────── -->
     <v-toolbar density="compact" flat color="transparent" class="border-b">
       <v-toolbar-title class="text-subtitle-1 font-weight-bold">
@@ -81,7 +81,7 @@
     </v-toolbar>
 
     <!-- ── Main Layout ───────────────────────────────────────────── -->
-    <div style="display: flex; height: calc(100vh - 250px)">
+    <div style="display: flex; height: calc(100% - 48px)">
       <!-- Left Sidebar -->
       <v-expand-x-transition>
         <div

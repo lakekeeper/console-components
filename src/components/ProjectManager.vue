@@ -35,7 +35,7 @@
           Statistics
         </v-tab>
       </v-tabs>
-      <v-tabs-window v-model="tab">
+      <v-tabs-window v-model="tab" style="max-height: calc(100vh - 140px); overflow-y: auto">
         <v-tabs-window-item value="overview" v-if="userStorage.isAuthenticated">
           <v-list lines="two" subheader>
             <v-list-subheader>Selected Project</v-list-subheader>
@@ -133,7 +133,7 @@
             :project-id="project['project-id']" />
         </v-tabs-window-item>
 
-        <v-tabs-window-item v-if="showStatisticsTab" value="statistics">
+        <v-tabs-window-item v-if="showStatisticsTab" value="statistics" style="height: 100%">
           <ProjectStatistics ref="projectStatisticsRef" />
         </v-tabs-window-item>
       </v-tabs-window>

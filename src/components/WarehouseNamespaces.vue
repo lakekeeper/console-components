@@ -1,6 +1,6 @@
 <template>
   <v-data-table
-    height="60vh"
+    height="calc(100vh - 340px)"
     :search="searchNamespace"
     fixed-header
     :headers="headers"

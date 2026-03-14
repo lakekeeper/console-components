@@ -1,7 +1,7 @@
 <template>
-  <v-card flat>
-    <v-card-text class="pa-0">
-      <div class="d-flex" style="min-height: 500px">
+  <v-card flat style="height: 100%">
+    <v-card-text class="pa-0" style="height: 100%">
+      <div class="d-flex" style="height: 100%; overflow: hidden">
         <!-- Vertical Tabs -->
         <v-tabs
           v-model="section"
@@ -15,7 +15,7 @@
         </v-tabs>
 
         <!-- Tab content -->
-        <div class="flex-grow-1 pa-4" style="min-width: 0; overflow: auto">
+        <div class="flex-grow-1 pa-4" style="min-width: 0; min-height: 0; height: 100%; overflow-y: auto">
           <v-tabs-window v-model="section">
             <!-- ════════════════════════════════════════════════════════════════
                  TAB 1 — Endpoint Statistics
@@ -148,7 +148,7 @@
               <div v-else-if="activeView === 'table'">
                 <v-data-table-virtual
                   fixed-header
-                  height="60vh"
+                  height="calc(100vh - 340px)"
                   :headers="endpointHeaders"
                   hover
                   :items="aggregatedRows"
@@ -233,7 +233,7 @@
               <div v-else-if="objectsView === 'table'">
                 <v-data-table-virtual
                   fixed-header
-                  height="60vh"
+                  height="calc(100vh - 340px)"
                   :headers="objectsHeaders"
                   hover
                   :items="aggregatedObjectsData"

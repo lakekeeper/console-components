@@ -1,5 +1,5 @@
 <template>
-  <v-container fluid class="pa-4">
+  <v-container fluid class="pa-4" style="max-height: calc(100vh - 200px); overflow-y: auto">
     <!-- Server Information -->
     <v-card class="mb-4" elevation="1">
       <v-toolbar color="transparent" density="compact" flat>

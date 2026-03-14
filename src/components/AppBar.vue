@@ -1,5 +1,5 @@
 <template>
-  <v-app-bar :elevation="2">
+  <v-app-bar :elevation="2" density="compact">
     <template #prepend>
       <v-app-bar-nav-icon :icon="navIcon" @click="navBar"></v-app-bar-nav-icon>
     </template>

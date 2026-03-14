@@ -1,6 +1,6 @@
 <template>
   <v-data-table
-    height="75vh"
+    height="calc(100vh - 340px)"
     items-per-page="50"
     fixed-header
     :headers="headers"
