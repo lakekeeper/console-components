@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.6](https://github.com/lakekeeper/console-components/compare/v0.3.5...v0.3.6) (2026-03-15)
+
+
+### Bug Fixes
+
+* add sts endpoint ([#99](https://github.com/lakekeeper/console-components/issues/99)) ([4a14bbf](https://github.com/lakekeeper/console-components/commit/4a14bbf51284d9e27e083426a6e31ecb42e46017))
+
 ## [0.3.5](https://github.com/lakekeeper/console-components/compare/v0.3.4...v0.3.5) (2026-03-14)
 
 
