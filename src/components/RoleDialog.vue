@@ -67,10 +67,10 @@ const emit = defineEmits<{
 const props = defineProps<{
   actionType: 'add' | 'edit';
   role?: {
-    name: { type: string; default: '' };
-    description: { type: string; default: '' };
-    providerId?: { type: string; default: '' };
-    sourceId?: { type: string; default: '' };
+    name?: string;
+    description?: string;
+    // providerId?: string;
+    // sourceId?: string;
   };
 }>();
 

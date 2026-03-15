@@ -5172,7 +5172,7 @@ components:
     LakekeeperServerAction:
       oneOf:
         - type: object
-          description: Can create items inside the server (can create Warehouses).
+          description: Can create projects on the server.
           required:
             - action
           properties:

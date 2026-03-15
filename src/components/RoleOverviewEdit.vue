@@ -28,7 +28,7 @@
       <RoleDialog
         v-if="role.name && canUpdate"
         :action-type="'edit'"
-        :role="role as any"
+        :role="role"
         @role-input="editRole" />
       <v-spacer></v-spacer>
       <v-menu location="start">
