@@ -598,6 +598,18 @@
           </v-col>
         </v-row>
 
+        <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
+          <v-col>
+            <v-text-field
+              v-model="warehouseObjectData['storage-profile']['sts-endpoint']"
+              label="STS Endpoint (Optional)"
+              placeholder="https://sts.amazonaws.com"
+              hint="Custom STS endpoint. If not set, the S3 endpoint is used for STS requests."
+              persistent-hint
+              clearable></v-text-field>
+          </v-col>
+        </v-row>
+
         <!-- STS Session Tags -->
         <div v-if="warehouseObjectData['storage-profile']['sts-enabled']">
           <v-row>

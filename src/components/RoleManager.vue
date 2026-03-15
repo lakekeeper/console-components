@@ -94,6 +94,9 @@ const role = reactive({
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Description', key: 'description', align: 'start' },
+  // Provider and Source columns disabled until role provider feature is stable
+  // { title: 'Provider', key: 'provider-id', align: 'start' },
+  // { title: 'Source', key: 'source-id', align: 'start' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
 
@@ -214,9 +217,9 @@ async function paginationCheck(option: any) {
   }
 }
 
-async function createRole() {
+async function createRoleWithProvider(providerId?: string, sourceId?: string) {
   try {
-    await functions.createRole(role.name, role.description, notify);
+    await functions.createRole(role.name, role.description, notify, providerId, sourceId);
     await loadRoles();
     searchResults.splice(0, searchResults.length);
     searchResults.push(...loadedRoles);
@@ -240,9 +243,14 @@ async function deleteRole(roleId: string) {
   }
 }
 
-function roleInput(roleIn: { name: string; description: string }) {
+function roleInput(roleIn: {
+  name: string;
+  description: string;
+  providerId?: string;
+  sourceId?: string;
+}) {
   role.name = roleIn.name;
   role.description = roleIn.description;
-  createRole();
+  createRoleWithProvider(roleIn.providerId, roleIn.sourceId);
 }
 </script>

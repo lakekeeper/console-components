@@ -3166,6 +3166,8 @@ async function listRoles(
   pageSize?: number,
   pageToken?: string,
   notify?: boolean,
+  providerIds?: string[],
+  sourceIds?: string[],
 ): Promise<ListRolesResponse> {
   try {
     init();
@@ -3177,6 +3179,8 @@ async function listRoles(
       query: {
         pageSize,
         pageToken,
+        ...(providerIds?.length ? { providerIds } : {}),
+        ...(sourceIds?.length ? { sourceIds } : {}),
       },
     });
 
@@ -3221,7 +3225,13 @@ async function getRole(roleId: string, notify?: boolean): Promise<Role> {
   }
 }
 
-async function createRole(name: string, description?: string, notify?: boolean): Promise<Role> {
+async function createRole(
+  name: string,
+  description?: string,
+  notify?: boolean,
+  providerId?: string | null,
+  sourceId?: string | null,
+): Promise<Role> {
   try {
     init();
 
@@ -3232,6 +3242,8 @@ async function createRole(name: string, description?: string, notify?: boolean):
       name,
       description: description || '',
       'project-id': visual.projectSelected['project-id'],
+      ...(providerId ? { 'provider-id': providerId } : {}),
+      ...(sourceId ? { 'source-id': sourceId } : {}),
     };
 
     const { data, error } = await mng.createRole({
@@ -3337,6 +3349,7 @@ async function getRoleMetadata(roleId: string, notify?: boolean): Promise<RoleMe
 
 async function updateRoleSourceSystem(
   roleId: string,
+  providerId: string,
   sourceId: string,
   notify?: boolean,
 ): Promise<boolean> {
@@ -3348,7 +3361,7 @@ async function updateRoleSourceSystem(
     const { error } = await mng.updateRoleSourceSystem({
       client,
       path: { role_id: roleId },
-      body: { 'source-id': sourceId },
+      body: { 'provider-id': providerId, 'source-id': sourceId },
     });
 
     if (error) throw error;

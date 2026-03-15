@@ -165,6 +165,12 @@
                         {{ warehouse['storage-profile']['sts-role-arn'] || '-' }}
                       </div>
                     </v-col>
+                    <v-col cols="12" v-if="warehouse['storage-profile']['sts-enabled']">
+                      <div class="text-overline text-medium-emphasis">STS Endpoint</div>
+                      <div class="text-body-2 text-mono mt-2">
+                        {{ warehouse['storage-profile']['sts-endpoint'] || 'Same as S3 endpoint' }}
+                      </div>
+                    </v-col>
                     <v-col cols="12">
                       <div class="text-overline text-medium-emphasis">Path Style Access</div>
                       <div class="mt-2">

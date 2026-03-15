@@ -69,6 +69,15 @@
       </td>
     </template>
 
+    <template #item.last-updated-with="{ item }">
+      <v-chip
+        size="small"
+        :color="updatedByLabels[item['last-updated-with']]?.color ?? 'grey'"
+        variant="tonal">
+        {{ updatedByLabels[item['last-updated-with']]?.text ?? item['last-updated-with'] }}
+      </v-chip>
+    </template>
+
     <template #no-data>
       <div>No users found</div>
     </template>
@@ -93,9 +102,17 @@ const { canDeleteUsers, canListUsers } = useServerPermissions(serverId);
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Email', key: 'email', align: 'start' },
+  { title: 'Updated By', key: 'last-updated-with', align: 'start' },
   { title: 'Id', key: 'id', align: 'start' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
+
+const updatedByLabels: Record<string, { text: string; color: string }> = {
+  'create-endpoint': { text: 'Created', color: 'info' },
+  'config-call-creation': { text: 'Config', color: 'warning' },
+  'update-endpoint': { text: 'Updated', color: 'success' },
+  'role-provider': { text: 'Role Provider', color: 'purple' },
+};
 
 const emit = defineEmits<{
   (e: 'deletedUser', user: User): void;
