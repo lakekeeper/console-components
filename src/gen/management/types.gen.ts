@@ -257,8 +257,14 @@ export type CreateRoleRequest = {
      */
     'project-id'?: string | null;
     /**
-     * Identifier of the role in an external system (source of truth).
-     * `source-id` must be unique within a project.
+     * Provider that owns this role (e.g. `"lakekeeper"`, `"oidc"`).
+     * Must be provided together with `source-id`. Omit both to let the server
+     * assign `provider-id = "lakekeeper"` and a fresh UUIDv7 `source-id`.
+     */
+    'provider-id'?: string | null;
+    /**
+     * Identifier of the role in the provider.
+     * Must be provided together with `provider-id`.
      */
     'source-id'?: string | null;
 };
@@ -1282,9 +1288,14 @@ export type Role = {
      */
     description?: string | null;
     /**
-     * Globally unique id of this role
+     * Globally unique UUID identifier
      */
     id: string;
+    /**
+     * Composite project-scoped identifier (`provider~source_id`).
+     * Unique within a project.
+     */
+    ident: string;
     /**
      * Name of the role
      */
@@ -1294,10 +1305,13 @@ export type Role = {
      */
     'project-id': string;
     /**
-     * Identifier of the role in an external system (source of truth).
-     * `source-id` is guaranteed to be unique within a project.
+     * Provider that owns this role (e.g. `"lakekeeper"`, `"oidc"`).
      */
-    'source-id'?: string | null;
+    'provider-id': string;
+    /**
+     * Identifier of the role in the provider.
+     */
+    'source-id': string;
     /**
      * Timestamp when the role was last updated
      */
@@ -1318,9 +1332,13 @@ export type RoleAssignment = (UserOrRole & {
  */
 export type RoleMetadata = {
     /**
-     * Globally unique id of this role
+     * Globally unique UUID identifier
      */
     id: string;
+    /**
+     * Composite project-scoped identifier (`provider~source_id`).
+     */
+    ident: string;
     /**
      * Name of the role
      */
@@ -1329,6 +1347,14 @@ export type RoleMetadata = {
      * Project ID in which the role is created.
      */
     'project-id': string;
+    /**
+     * Provider that owns this role (e.g. `"lakekeeper"`, `"oidc"`).
+     */
+    'provider-id': string;
+    /**
+     * Identifier of the role in the provider.
+     */
+    'source-id': string;
 };
 
 export type RoleRelation = 'assignee' | 'ownership';
@@ -1477,6 +1503,13 @@ export type S3Profile = {
     'remote-signing-url-style'?: S3UrlStyleDetectionMode;
     'storage-layout'?: null | StorageLayout;
     'sts-enabled': boolean;
+    /**
+     * Optional endpoint to use for STS requests.
+     * Use this when the STS endpoint differs from the S3 endpoint,
+     * which is common with S3-compatible storage systems.
+     * If not provided, the S3 `endpoint` is used for STS requests as well.
+     */
+    'sts-endpoint'?: string | null;
     /**
      * Optional role ARN to assume for sts vended-credentials.
      * If not provided, `assume_role_arn` is used.
@@ -1916,6 +1949,10 @@ export type UpdateRoleRequest = {
 
 export type UpdateRoleSourceSystemRequest = {
     /**
+     * New Provider ID of the role.
+     */
+    'provider-id': string;
+    /**
      * New Source ID / External ID of the role.
      */
     'source-id': string;
@@ -2003,7 +2040,7 @@ export type User = {
 /**
  * How the user was last updated
  */
-export type UserLastUpdatedWith = 'create-endpoint' | 'config-call-creation' | 'update-endpoint';
+export type UserLastUpdatedWith = 'create-endpoint' | 'config-call-creation' | 'update-endpoint' | 'role-provider';
 
 /**
  * Identifies a user or a role
@@ -3577,6 +3614,10 @@ export type ListRolesData = {
          * Filter by source IDs
          */
         sourceIds?: Array<string> | null;
+        /**
+         * Filter by provider IDs
+         */
+        providerIds?: Array<string> | null;
     };
     url: '/management/v1/role';
 };

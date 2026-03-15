@@ -59,10 +59,27 @@
           </v-col>
 
           <v-col cols="12">
-            <div class="text-overline text-medium-emphasis">Source System ID</div>
+            <div class="text-overline text-medium-emphasis">Provider ID</div>
+            <div v-if="!editingSource" class="d-flex align-center mt-2">
+              <v-chip size="small" variant="tonal" color="purple" class="mr-2">
+                {{ providerId || 'Not set' }}
+              </v-chip>
+            </div>
+            <div v-else class="mt-2">
+              <v-text-field
+                v-model="providerIdEdit"
+                density="compact"
+                variant="outlined"
+                placeholder="Enter provider ID"
+                hide-details></v-text-field>
+            </div>
+          </v-col>
+
+          <v-col cols="12">
+            <div class="text-overline text-medium-emphasis">Source ID</div>
             <div v-if="!editingSource" class="d-flex align-center mt-2">
               <v-chip size="small" variant="tonal" class="mr-2">
-                {{ sourceSystemId || 'Not set' }}
+                {{ sourceId || 'Not set' }}
               </v-chip>
               <v-btn
                 v-if="canUpdateSourceSystem"
@@ -73,10 +90,10 @@
             </div>
             <div v-else class="mt-2">
               <v-text-field
-                v-model="sourceSystemIdEdit"
+                v-model="sourceIdEdit"
                 density="compact"
                 variant="outlined"
-                placeholder="Enter source system ID"
+                placeholder="Enter source ID"
                 hide-details>
                 <template #append>
                   <v-btn
@@ -123,9 +140,11 @@ const functions = useFunctions();
 const dialog = ref(false);
 const loading = ref(false);
 const metadata = ref<RoleMetadata | null>(null);
-const sourceSystemId = ref<string>('');
+const providerId = ref<string>('');
+const sourceId = ref<string>('');
 const editingSource = ref(false);
-const sourceSystemIdEdit = ref('');
+const providerIdEdit = ref('');
+const sourceIdEdit = ref('');
 
 watch(dialog, async (newVal) => {
   if (newVal) {
@@ -137,9 +156,8 @@ async function loadMetadata() {
   loading.value = true;
   try {
     metadata.value = await functions.getRoleMetadata(props.roleId);
-    // Source system ID would need to be added to the RoleMetadata type or fetched separately
-    // For now, we'll leave it empty
-    sourceSystemId.value = '';
+    providerId.value = metadata.value?.['provider-id'] ?? '';
+    sourceId.value = metadata.value?.['source-id'] ?? '';
   } catch (error) {
     console.error('Failed to load role metadata:', error);
     metadata.value = null;
@@ -149,19 +167,22 @@ async function loadMetadata() {
 }
 
 function startEditingSource() {
-  sourceSystemIdEdit.value = sourceSystemId.value;
+  providerIdEdit.value = providerId.value;
+  sourceIdEdit.value = sourceId.value;
   editingSource.value = true;
 }
 
 function cancelEditingSource() {
   editingSource.value = false;
-  sourceSystemIdEdit.value = '';
+  providerIdEdit.value = '';
+  sourceIdEdit.value = '';
 }
 
 async function saveSourceSystem() {
   try {
-    await functions.updateRoleSourceSystem(props.roleId, sourceSystemIdEdit.value, true);
-    sourceSystemId.value = sourceSystemIdEdit.value;
+    await functions.updateRoleSourceSystem(props.roleId, providerIdEdit.value, sourceIdEdit.value, true);
+    providerId.value = providerIdEdit.value;
+    sourceId.value = sourceIdEdit.value;
     editingSource.value = false;
   } catch (error) {
     console.error('Failed to update source system:', error);
