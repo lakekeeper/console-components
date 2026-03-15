@@ -22,7 +22,7 @@
           label="Role description"
           maxlength="500"
           :rules="[roleRule]"></v-textarea>
-        <v-text-field
+        <!--v-text-field
           v-model="roleData.providerId"
           label="Provider ID (optional)"
           placeholder="lakekeeper"
@@ -35,7 +35,7 @@
           placeholder=""
           hint="Identifier of the role in the provider. Must be provided together with Provider ID."
           persistent-hint
-          clearable></v-text-field>
+          clearable></v-text-field-->
       </v-card-text>
 
       <v-card-actions>
