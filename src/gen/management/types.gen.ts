@@ -772,16 +772,32 @@ export type IcebergErrorResponse = {
 
 export type LakekeeperNamespaceAction = {
     action: 'create_table';
+    /**
+     * Name of the table to create.
+     */
+    name?: string | null;
     properties?: {
         [key: string]: string;
     };
+    /**
+     * Table ID, if externally provided (e.g. via register).
+     */
+    table_id?: string | null;
 } | {
     action: 'create_view';
+    /**
+     * Name of the view to create.
+     */
+    name?: string | null;
     properties?: {
         [key: string]: string;
     };
 } | {
     action: 'create_namespace';
+    /**
+     * Name of the namespace to create.
+     */
+    name?: string | null;
     properties?: {
         [key: string]: string;
     };
@@ -811,6 +827,10 @@ export type LakekeeperNamespaceAction = {
 
 export type LakekeeperProjectAction = {
     action: 'create_warehouse';
+    /**
+     * Name of the warehouse to create.
+     */
+    name?: string | null;
 } | {
     action: 'delete';
 } | {
@@ -823,6 +843,10 @@ export type LakekeeperProjectAction = {
     action: 'include_in_list';
 } | {
     action: 'create_role';
+    /**
+     * Name of the role to create.
+     */
+    name?: string | null;
 } | {
     action: 'list_roles';
 } | {
@@ -851,6 +875,14 @@ export type LakekeeperRoleAction = {
 
 export type LakekeeperServerAction = {
     action: 'create_project';
+    /**
+     * Name of the project to create.
+     */
+    name?: string | null;
+    /**
+     * Project ID, if externally provided.
+     */
+    project_id?: string | null;
 } | {
     action: 'update_users';
 } | {
@@ -923,6 +955,10 @@ export type LakekeeperViewAction = {
 
 export type LakekeeperWarehouseAction = {
     action: 'create_namespace';
+    /**
+     * Name of the namespace to create.
+     */
+    name?: string | null;
     properties?: {
         [key: string]: string;
     };

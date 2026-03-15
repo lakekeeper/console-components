@@ -94,8 +94,8 @@ const role = reactive({
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Description', key: 'description', align: 'start' },
-  { title: 'Provider', key: 'provider-id', align: 'start' },
-  { title: 'Source', key: 'source-id', align: 'start' },
+  // { title: 'Provider', key: 'provider-id', align: 'start' },
+  // { title: 'Source', key: 'source-id', align: 'start' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
 
