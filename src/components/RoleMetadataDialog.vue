@@ -180,7 +180,12 @@ function cancelEditingSource() {
 
 async function saveSourceSystem() {
   try {
-    await functions.updateRoleSourceSystem(props.roleId, providerIdEdit.value, sourceIdEdit.value, true);
+    await functions.updateRoleSourceSystem(
+      props.roleId,
+      providerIdEdit.value,
+      sourceIdEdit.value,
+      true,
+    );
     providerId.value = providerIdEdit.value;
     sourceId.value = sourceIdEdit.value;
     editingSource.value = false;
