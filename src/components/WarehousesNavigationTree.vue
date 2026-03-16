@@ -586,13 +586,29 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
     const response = await functions.listNamespaces(item.warehouseId, undefined, undefined, false);
 
     if (response && response.namespaces) {
+      // Build a map of existing children to preserve their loaded state
+      const existingChildrenById = new Map<string, TreeItem>();
+      if (item.children) {
+        for (const child of item.children) {
+          existingChildrenById.set(child.id, child);
+        }
+      }
+
       const namespaceItems: TreeItem[] = response.namespaces.map((ns: string[]) => {
         // ns is already an array like ["f-inance"] or ["finance", "sub"]
         const namespacePath = ns.join('.');
         const displayName = ns[ns.length - 1]; // Display only the last segment
+        const childId = `namespace-${item.warehouseId}-${namespacePath}`;
+
+        // Reuse existing node to preserve its loaded children
+        const existing = existingChildrenById.get(childId);
+        if (existing) {
+          existing.name = displayName;
+          return existing;
+        }
 
         return {
-          id: `namespace-${item.warehouseId}-${namespacePath}`,
+          id: childId,
           name: displayName,
           type: 'namespace' as const,
           warehouseId: item.warehouseId,
@@ -640,6 +656,15 @@ async function loadChildrenForNamespace(item: TreeItem) {
   try {
     const apiNamespace = namespacePathToApiFormat(item.namespaceId);
 
+    // Build a map of existing children so we can preserve their loaded state (e.g. expanded
+    // sub-namespaces that already have their tables/views loaded).
+    const existingChildrenById = new Map<string, TreeItem>();
+    if (item.children) {
+      for (const child of item.children) {
+        existingChildrenById.set(child.id, child);
+      }
+    }
+
     // Load sub-namespaces, tables and views in parallel
     const [namespacesResponse, tablesResponse, viewsResponse] = await Promise.all([
       functions.listNamespaces(item.warehouseId, apiNamespace, undefined, false),
@@ -655,16 +680,24 @@ async function loadChildrenForNamespace(item: TreeItem) {
         // API returns full namespace path, not relative
         const subNamespacePath = ns.join('.');
         const displayName = ns[ns.length - 1];
+        const childId = `namespace-${item.warehouseId}-${subNamespacePath}`;
 
-        children.push({
-          id: `namespace-${item.warehouseId}-${subNamespacePath}`,
-          name: displayName,
-          type: 'namespace',
-          warehouseId: item.warehouseId,
-          namespaceId: subNamespacePath,
-          children: [],
-          loaded: false,
-        });
+        // Reuse existing node to preserve its loaded children (tables/views)
+        const existing = existingChildrenById.get(childId);
+        if (existing) {
+          existing.name = displayName;
+          children.push(existing);
+        } else {
+          children.push({
+            id: childId,
+            name: displayName,
+            type: 'namespace',
+            warehouseId: item.warehouseId,
+            namespaceId: subNamespacePath,
+            children: [],
+            loaded: false,
+          });
+        }
       });
     }
 
