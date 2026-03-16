@@ -557,10 +557,21 @@ async function refreshWarehouses() {
   // Reload warehouse list from server
   await loadWarehouses();
 
-  // Sort opened nodes by depth (parents first) so children are reachable after parent loads
-  const sorted = previouslyOpened.sort(
-    (a, b) => (a.match(/::/g) || []).length - (b.match(/::/g) || []).length,
-  );
+  // Sort opened nodes by depth (parents first) so children are reachable after parent loads.
+  // IDs are like "warehouse-<uuid>" or "namespace-<uuid>-ns.sub.child".
+  // Depth: warehouses = 0, namespaces = 1 + number of dots in the namespace portion.
+  function nodeDepth(id: string): number {
+    if (id.startsWith('warehouse-')) return 0;
+    if (id.startsWith('namespace-')) {
+      // Extract namespace path after "namespace-<uuid>-"
+      const parts = id.split('-');
+      // parts: ["namespace", ...uuid parts (5), namespacePath...]
+      const nsPart = parts.slice(6).join('-');
+      return 1 + (nsPart.match(/\./g) || []).length;
+    }
+    return 999; // tables/views shouldn't be in opened list
+  }
+  const sorted = previouslyOpened.sort((a, b) => nodeDepth(a) - nodeDepth(b));
 
   // Re-expand previously opened nodes by reloading their children
   for (const nodeId of sorted) {
