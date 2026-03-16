@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.7](https://github.com/lakekeeper/console-components/compare/v0.3.6...v0.3.7) (2026-03-16)
+
+
+### Bug Fixes
+
+* **ui:** hide only chart card on statistics 403 instead of showing error snackbar ([4e53dc8](https://github.com/lakekeeper/console-components/commit/4e53dc821c0bfd2b99c68ae27bee1b91a7dbdd0b))
+* **ui:** namespace permissions GRANT button missing due to missing warehouseId prop ([4e53dc8](https://github.com/lakekeeper/console-components/commit/4e53dc821c0bfd2b99c68ae27bee1b91a7dbdd0b))
+* **ui:** navigation tree auto-expands to reflect current route ([4e53dc8](https://github.com/lakekeeper/console-components/commit/4e53dc821c0bfd2b99c68ae27bee1b91a7dbdd0b))
+* **ui:** navigation tree auto-updates on namespace/table/view create and delete ([4e53dc8](https://github.com/lakekeeper/console-components/commit/4e53dc821c0bfd2b99c68ae27bee1b91a7dbdd0b))
+* **ui:** refresh button preserves expanded tree state ([4e53dc8](https://github.com/lakekeeper/console-components/commit/4e53dc821c0bfd2b99c68ae27bee1b91a7dbdd0b))
+
 ## [0.3.6](https://github.com/lakekeeper/console-components/compare/v0.3.5...v0.3.6) (2026-03-15)
 
 
