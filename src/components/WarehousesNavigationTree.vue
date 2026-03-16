@@ -550,15 +550,32 @@ async function loadWarehouses() {
   }
 }
 
-// Refresh warehouses and reset tree state
+// Refresh warehouses while preserving expanded state
 async function refreshWarehouses() {
-  openedItems.value = [];
+  const previouslyOpened = [...openedItems.value];
+
+  // Reload warehouse list from server
   await loadWarehouses();
 
-  // Clear saved state on refresh
-  if (storageKey.value) {
-    delete visualStore.warehouseTreeState[storageKey.value];
+  // Sort opened nodes by depth (parents first) so children are reachable after parent loads
+  const sorted = previouslyOpened.sort(
+    (a, b) => (a.match(/::/g) || []).length - (b.match(/::/g) || []).length,
+  );
+
+  // Re-expand previously opened nodes by reloading their children
+  for (const nodeId of sorted) {
+    const item = findItemById(treeItems.value, nodeId);
+    if (item) {
+      if (item.type === 'warehouse') {
+        await loadNamespacesForWarehouse(item);
+      } else if (item.type === 'namespace') {
+        await loadChildrenForNamespace(item);
+      }
+    }
   }
+
+  // Restore opened state, filtering out any nodes that no longer exist
+  openedItems.value = previouslyOpened.filter((id) => findItemById(treeItems.value, id));
 }
 
 // Load namespaces for a warehouse
