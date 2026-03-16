@@ -50,7 +50,7 @@
     </v-row>
 
     <!-- API Calls Chart -->
-    <v-card variant="outlined" class="chart-card">
+    <v-card v-if="!chartForbidden" variant="outlined" class="chart-card">
       <v-card-text class="pa-3">
         <div class="d-flex align-center mb-2">
           <v-icon size="18" class="mr-2" color="primary">mdi-chart-line</v-icon>
@@ -83,6 +83,7 @@ const visual = useVisualStore();
 const loading = ref(true);
 const chartLoading = ref(true);
 const noChartData = ref(false);
+const chartForbidden = ref(false);
 const projects = ref(0);
 const warehouses = ref(0);
 const tables = ref(0);
@@ -139,8 +140,8 @@ async function loadCounts() {
 
     tables.value = totalTables;
     views.value = totalViews;
-  } catch (error) {
-    functions.handleError(error, 'HomeStatistics:loadCounts');
+  } catch {
+    // Silently ignore – counts are best-effort
   } finally {
     loading.value = false;
   }
@@ -222,8 +223,13 @@ async function loadChart() {
 
     await nextTick();
     drawChart();
-  } catch (error) {
-    functions.handleError(error, 'HomeStatistics:loadChart');
+  } catch (error: any) {
+    const status = error?.error?.code || error?.status || error?.response?.status || 0;
+    if (status === 403) {
+      chartForbidden.value = true;
+    } else {
+      functions.handleError(error, 'HomeStatistics:loadChart');
+    }
     noChartData.value = true;
   } finally {
     chartLoading.value = false;
