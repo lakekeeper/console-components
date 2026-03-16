@@ -136,6 +136,7 @@ async function addNamespace(namespace: string[], properties: Record<string, stri
     createNamespaceStatus.value = StatusIntent.SUCCESS;
     await loadNamespaces();
     emit('namespace-updated');
+    visual.refreshNavTree(props.warehouseId);
   } catch (error) {
     createNamespaceStatus.value = StatusIntent.FAILURE;
     console.error('Failed to create namespace:', error);
@@ -246,6 +247,7 @@ async function deleteNamespaceWithOptions(e: any, item: Item) {
 
     await loadNamespaces();
     emit('namespace-updated');
+    visual.refreshNavTree(props.warehouseId);
   } catch (error: any) {
     console.error(`Failed to drop namespace-${item.name}  - `, error);
   }

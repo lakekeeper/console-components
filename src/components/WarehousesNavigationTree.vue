@@ -249,6 +249,7 @@ import cfIcon from '@/assets/cf.svg';
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
   warehouseName?: string; // Optional: warehouse name for header
+  activeNamespacePath?: string; // Dot-separated namespace path to auto-expand to
 }>();
 
 const functions = useFunctions();
@@ -868,6 +869,10 @@ onMounted(async () => {
           openedItems.value = (savedState.openedItems || []).filter((id: string) =>
             validTreeItems.some((wh: TreeItem) => id === wh.id || id.includes(wh.warehouseId)),
           );
+          // Expand to active namespace path if provided
+          if (props.warehouseId && props.activeNamespacePath) {
+            await expandTreeToPath(props.warehouseId, props.activeNamespacePath);
+          }
           return;
         }
       }
@@ -878,6 +883,11 @@ onMounted(async () => {
 
   // No valid cache — load fresh
   await loadWarehouses();
+
+  // Expand to active namespace path if provided
+  if (props.warehouseId && props.activeNamespacePath) {
+    await expandTreeToPath(props.warehouseId, props.activeNamespacePath);
+  }
 });
 
 // Save tree state when it changes
@@ -911,6 +921,52 @@ watch(
     // Always reload fresh data when warehouse filter changes
     loadWarehouses();
   },
+);
+
+// Watch for activeNamespacePath changes and auto-expand tree to match current route
+watch(
+  () => props.activeNamespacePath,
+  async (newPath) => {
+    if (newPath && props.warehouseId) {
+      await expandTreeToPath(props.warehouseId, newPath);
+    }
+  },
+);
+
+// Watch for navTreeRefreshSignal to reload specific nodes when objects are created/deleted
+watch(
+  () => visualStore.navTreeRefreshSignal,
+  async (signal) => {
+    if (!signal.warehouseId) return;
+    // Only react if this tree instance shows the affected warehouse
+    if (props.warehouseId && props.warehouseId !== signal.warehouseId) return;
+
+    if (signal.namespaceId) {
+      // A namespace's children changed (table/view/sub-namespace created or deleted)
+      const nodeId = `namespace-${signal.warehouseId}-${signal.namespaceId}`;
+      const node = findItemById(treeItems.value, nodeId);
+      if (node) {
+        node.loaded = false;
+        await loadChildrenForNamespace(node);
+        // Ensure the node is expanded so the new child is visible
+        if (!openedItems.value.includes(nodeId)) {
+          openedItems.value = [...openedItems.value, nodeId];
+        }
+      }
+    } else {
+      // Warehouse-level change (namespace created/deleted at root)
+      const nodeId = `warehouse-${signal.warehouseId}`;
+      const node = findItemById(treeItems.value, nodeId);
+      if (node) {
+        node.loaded = false;
+        await loadNamespacesForWarehouse(node);
+        if (!openedItems.value.includes(nodeId)) {
+          openedItems.value = [...openedItems.value, nodeId];
+        }
+      }
+    }
+  },
+  { deep: true },
 );
 
 // Clean up on unmount

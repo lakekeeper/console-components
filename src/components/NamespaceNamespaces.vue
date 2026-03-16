@@ -188,6 +188,9 @@ async function addNamespace(namespaceIdent: string[], properties: Record<string,
 
     addNamespaceStatus.value = StatusIntent.SUCCESS;
     await loadNamespaces();
+    // Signal nav tree to refresh this namespace's children
+    const parentNs = props.namespacePath.replace(/\x1F/g, '.');
+    visual.refreshNavTree(props.warehouseId, parentNs);
   } catch (error) {
     addNamespaceStatus.value = StatusIntent.FAILURE;
     console.error('Failed to create namespace:', error);
@@ -204,6 +207,9 @@ async function deleteNamespaceWithOptions(e: any, item: Item) {
     );
 
     await loadNamespaces();
+    // Signal nav tree to refresh this namespace's children
+    const parentNs = props.namespacePath.replace(/\x1F/g, '.');
+    visual.refreshNavTree(props.warehouseId, parentNs);
   } catch (error) {
     console.error(`Failed to drop namespace-${item.name}`, error);
   }

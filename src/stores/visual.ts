@@ -84,6 +84,22 @@ export const useVisualStore = defineStore(
     // Key: projectId, Value: { openedItems, treeItems }
     const warehouseTreeState = ref<Record<string, { openedItems: string[]; treeItems: any[] }>>({});
 
+    // Signal to tell WarehousesNavigationTree to reload a specific node
+    // Incremented counter + context so watchers fire on every signal
+    const navTreeRefreshSignal = ref<{
+      counter: number;
+      warehouseId: string;
+      namespaceId?: string; // dot-separated path of the parent namespace whose children changed
+    }>({ counter: 0, warehouseId: '' });
+
+    function refreshNavTree(warehouseId: string, namespaceId?: string) {
+      navTreeRefreshSignal.value = {
+        counter: navTreeRefreshSignal.value.counter + 1,
+        warehouseId,
+        namespaceId,
+      };
+    }
+
     // Multi-tab SQL editor state - warehouse-specific
     // Key: warehouseId, Value: { activeTabId, tabs[] }
     const warehouseSqlData = ref<Record<string, WarehouseSqlData>>({});
@@ -333,6 +349,8 @@ export const useVisualStore = defineStore(
       dismissSearchOnClick,
       requestedNamespaceTab,
       warehouseTreeState,
+      navTreeRefreshSignal,
+      refreshNavTree,
       policyBuilderDraft,
       policyEditorText,
       projectList,
