@@ -249,6 +249,7 @@ import cfIcon from '@/assets/cf.svg';
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
   warehouseName?: string; // Optional: warehouse name for header
+  activeNamespacePath?: string; // Dot-separated namespace path to auto-expand to
 }>();
 
 const functions = useFunctions();
@@ -549,15 +550,43 @@ async function loadWarehouses() {
   }
 }
 
-// Refresh warehouses and reset tree state
+// Refresh warehouses while preserving expanded state
 async function refreshWarehouses() {
-  openedItems.value = [];
+  const previouslyOpened = [...openedItems.value];
+
+  // Reload warehouse list from server
   await loadWarehouses();
 
-  // Clear saved state on refresh
-  if (storageKey.value) {
-    delete visualStore.warehouseTreeState[storageKey.value];
+  // Sort opened nodes by depth (parents first) so children are reachable after parent loads.
+  // IDs are like "warehouse-<uuid>" or "namespace-<uuid>-ns.sub.child".
+  // Depth: warehouses = 0, namespaces = 1 + number of dots in the namespace portion.
+  function nodeDepth(id: string): number {
+    if (id.startsWith('warehouse-')) return 0;
+    if (id.startsWith('namespace-')) {
+      // Extract namespace path after "namespace-<uuid>-"
+      const parts = id.split('-');
+      // parts: ["namespace", ...uuid parts (5), namespacePath...]
+      const nsPart = parts.slice(6).join('-');
+      return 1 + (nsPart.match(/\./g) || []).length;
+    }
+    return 999; // tables/views shouldn't be in opened list
   }
+  const sorted = previouslyOpened.sort((a, b) => nodeDepth(a) - nodeDepth(b));
+
+  // Re-expand previously opened nodes by reloading their children
+  for (const nodeId of sorted) {
+    const item = findItemById(treeItems.value, nodeId);
+    if (item) {
+      if (item.type === 'warehouse') {
+        await loadNamespacesForWarehouse(item);
+      } else if (item.type === 'namespace') {
+        await loadChildrenForNamespace(item);
+      }
+    }
+  }
+
+  // Restore opened state, filtering out any nodes that no longer exist
+  openedItems.value = previouslyOpened.filter((id) => findItemById(treeItems.value, id));
 }
 
 // Load namespaces for a warehouse
@@ -568,13 +597,29 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
     const response = await functions.listNamespaces(item.warehouseId, undefined, undefined, false);
 
     if (response && response.namespaces) {
+      // Build a map of existing children to preserve their loaded state
+      const existingChildrenById = new Map<string, TreeItem>();
+      if (item.children) {
+        for (const child of item.children) {
+          existingChildrenById.set(child.id, child);
+        }
+      }
+
       const namespaceItems: TreeItem[] = response.namespaces.map((ns: string[]) => {
         // ns is already an array like ["f-inance"] or ["finance", "sub"]
         const namespacePath = ns.join('.');
         const displayName = ns[ns.length - 1]; // Display only the last segment
+        const childId = `namespace-${item.warehouseId}-${namespacePath}`;
+
+        // Reuse existing node to preserve its loaded children
+        const existing = existingChildrenById.get(childId);
+        if (existing) {
+          existing.name = displayName;
+          return existing;
+        }
 
         return {
-          id: `namespace-${item.warehouseId}-${namespacePath}`,
+          id: childId,
           name: displayName,
           type: 'namespace' as const,
           warehouseId: item.warehouseId,
@@ -622,6 +667,15 @@ async function loadChildrenForNamespace(item: TreeItem) {
   try {
     const apiNamespace = namespacePathToApiFormat(item.namespaceId);
 
+    // Build a map of existing children so we can preserve their loaded state (e.g. expanded
+    // sub-namespaces that already have their tables/views loaded).
+    const existingChildrenById = new Map<string, TreeItem>();
+    if (item.children) {
+      for (const child of item.children) {
+        existingChildrenById.set(child.id, child);
+      }
+    }
+
     // Load sub-namespaces, tables and views in parallel
     const [namespacesResponse, tablesResponse, viewsResponse] = await Promise.all([
       functions.listNamespaces(item.warehouseId, apiNamespace, undefined, false),
@@ -637,16 +691,24 @@ async function loadChildrenForNamespace(item: TreeItem) {
         // API returns full namespace path, not relative
         const subNamespacePath = ns.join('.');
         const displayName = ns[ns.length - 1];
+        const childId = `namespace-${item.warehouseId}-${subNamespacePath}`;
 
-        children.push({
-          id: `namespace-${item.warehouseId}-${subNamespacePath}`,
-          name: displayName,
-          type: 'namespace',
-          warehouseId: item.warehouseId,
-          namespaceId: subNamespacePath,
-          children: [],
-          loaded: false,
-        });
+        // Reuse existing node to preserve its loaded children (tables/views)
+        const existing = existingChildrenById.get(childId);
+        if (existing) {
+          existing.name = displayName;
+          children.push(existing);
+        } else {
+          children.push({
+            id: childId,
+            name: displayName,
+            type: 'namespace',
+            warehouseId: item.warehouseId,
+            namespaceId: subNamespacePath,
+            children: [],
+            loaded: false,
+          });
+        }
       });
     }
 
@@ -868,6 +930,10 @@ onMounted(async () => {
           openedItems.value = (savedState.openedItems || []).filter((id: string) =>
             validTreeItems.some((wh: TreeItem) => id === wh.id || id.includes(wh.warehouseId)),
           );
+          // Expand to active namespace path if provided
+          if (props.warehouseId && props.activeNamespacePath) {
+            await expandTreeToPath(props.warehouseId, props.activeNamespacePath);
+          }
           return;
         }
       }
@@ -878,6 +944,11 @@ onMounted(async () => {
 
   // No valid cache — load fresh
   await loadWarehouses();
+
+  // Expand to active namespace path if provided
+  if (props.warehouseId && props.activeNamespacePath) {
+    await expandTreeToPath(props.warehouseId, props.activeNamespacePath);
+  }
 });
 
 // Save tree state when it changes
@@ -911,6 +982,52 @@ watch(
     // Always reload fresh data when warehouse filter changes
     loadWarehouses();
   },
+);
+
+// Watch for activeNamespacePath changes and auto-expand tree to match current route
+watch(
+  () => props.activeNamespacePath,
+  async (newPath) => {
+    if (newPath && props.warehouseId) {
+      await expandTreeToPath(props.warehouseId, newPath);
+    }
+  },
+);
+
+// Watch for navTreeRefreshSignal to reload specific nodes when objects are created/deleted
+watch(
+  () => visualStore.navTreeRefreshSignal,
+  async (signal) => {
+    if (!signal.warehouseId) return;
+    // Only react if this tree instance shows the affected warehouse
+    if (props.warehouseId && props.warehouseId !== signal.warehouseId) return;
+
+    if (signal.namespaceId) {
+      // A namespace's children changed (table/view/sub-namespace created or deleted)
+      const nodeId = `namespace-${signal.warehouseId}-${signal.namespaceId}`;
+      const node = findItemById(treeItems.value, nodeId);
+      if (node) {
+        node.loaded = false;
+        await loadChildrenForNamespace(node);
+        // Ensure the node is expanded so the new child is visible
+        if (!openedItems.value.includes(nodeId)) {
+          openedItems.value = [...openedItems.value, nodeId];
+        }
+      }
+    } else {
+      // Warehouse-level change (namespace created/deleted at root)
+      const nodeId = `warehouse-${signal.warehouseId}`;
+      const node = findItemById(treeItems.value, nodeId);
+      if (node) {
+        node.loaded = false;
+        await loadNamespacesForWarehouse(node);
+        if (!openedItems.value.includes(nodeId)) {
+          openedItems.value = [...openedItems.value, nodeId];
+        }
+      }
+    }
+  },
+  { deep: true },
 );
 
 // Clean up on unmount
