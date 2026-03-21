@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.8](https://github.com/lakekeeper/console-components/compare/v0.3.7...v0.3.8) (2026-03-21)
+
+
+### Bug Fixes
+
+* trigger release 0.3.8 ([c3af6e1](https://github.com/lakekeeper/console-components/commit/c3af6e187d072646dc4d5edda2d284a772915fa8))
+* **ui:** improve error handling for auth, navigation, and 403/404 responses ([d8c1b52](https://github.com/lakekeeper/console-components/commit/d8c1b523fcfe614d382a6ce0abb4aaf16ee03aeb))
+
 ## [0.3.7](https://github.com/lakekeeper/console-components/compare/v0.3.6...v0.3.7) (2026-03-21)
 
 
