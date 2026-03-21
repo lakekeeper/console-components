@@ -8,6 +8,7 @@ import type {
 } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from './visual';
+import { logError } from '@/common/errorUtils';
 
 export const usePermissionStore = defineStore('permissions', () => {
   const functions = useFunctions();
@@ -18,7 +19,7 @@ export const usePermissionStore = defineStore('permissions', () => {
       const permissions = await functions.getServerCatalogActions();
       return permissions;
     } catch (error) {
-      console.error('Failed to load server permissions:', error);
+      logError('getServerPermissions', error);
       return [];
     }
   }
@@ -32,7 +33,7 @@ export const usePermissionStore = defineStore('permissions', () => {
       const permissions = await functions.getRoleCatalogActions(roleId, projectId);
       return permissions;
     } catch (error) {
-      console.error(`Failed to load role permissions for ${roleId}:`, error);
+      logError(`getRolePermissions(${roleId})`, error);
       return [];
     }
   }
@@ -43,7 +44,7 @@ export const usePermissionStore = defineStore('permissions', () => {
       const permissions = await functions.getProjectCatalogActions();
       return permissions;
     } catch (error) {
-      console.error('Failed to load project permissions:', error);
+      logError('getProjectPermissions', error);
       return [];
     }
   }
@@ -56,7 +57,7 @@ export const usePermissionStore = defineStore('permissions', () => {
       const permissions = await functions.getWarehouseCatalogActions(warehouseId);
       return permissions;
     } catch (error) {
-      console.error(`Failed to load warehouse permissions for ${warehouseId}:`, error);
+      logError(`getWarehousePermissions(${warehouseId})`, error);
       return [];
     }
   }
@@ -79,7 +80,7 @@ export const usePermissionStore = defineStore('permissions', () => {
       const permissions = await functions.getNamespaceCatalogActions(whId, namespaceId);
       return permissions;
     } catch (error) {
-      console.error(`Failed to load namespace permissions for ${namespaceId}:`, error);
+      logError(`getNamespacePermissions(${namespaceId})`, error);
       return [];
     }
   }

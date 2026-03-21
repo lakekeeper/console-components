@@ -1,5 +1,9 @@
 <template>
+  <v-alert v-if="forbidden" type="warning" variant="tonal" class="ma-4">
+    You do not have permission to list child namespaces here.
+  </v-alert>
   <v-data-table
+    v-else
     height="65vh"
     items-per-page="50"
     :search="searchNamespace"
@@ -85,7 +89,8 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
 import type { Header, Item, Options } from '@/common/interfaces';
-import { StatusIntent, Type } from '@/common/enums';
+import { StatusIntent } from '@/common/enums';
+import { isForbiddenError } from '@/common/errorUtils';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 
 const props = defineProps<{
@@ -99,6 +104,7 @@ const visual = useVisualStore();
 const notify = true;
 
 const namespaceId = ref('');
+const forbidden = ref(false);
 const confirmDialog = ref(false);
 const pendingProtectionValue = ref(false);
 
@@ -106,12 +112,20 @@ onMounted(loadNamespaceAndData);
 watch(() => props.namespacePath, loadNamespaceAndData);
 
 async function loadNamespaceAndData() {
+  forbidden.value = false;
   try {
-    const namespace = await functions.loadNamespaceMetadata(props.warehouseId, props.namespacePath);
+    const namespace = await functions.loadNamespaceMetadata(
+      props.warehouseId,
+      props.namespacePath,
+      false,
+    );
     namespaceId.value = namespace.properties?.namespace_id || '';
     await Promise.all([loadNamespaces(), getProtection()]);
   } catch (error) {
-    console.error('Failed to load namespace:', error);
+    if (isForbiddenError(error)) {
+      forbidden.value = true;
+      return;
+    }
   }
 }
 
@@ -137,6 +151,8 @@ async function loadNamespaces(parent?: string) {
     const { namespaces, ['next-page-token']: nextPageToken } = await functions.listNamespaces(
       props.warehouseId,
       parent || props.namespacePath,
+      undefined,
+      false,
     );
 
     paginationToken.value = nextPageToken || '';
@@ -153,7 +169,10 @@ async function loadNamespaces(parent?: string) {
       Object.assign(loadedNamespaces, mappedItems);
     }
   } catch (error) {
-    console.error(error);
+    if (isForbiddenError(error)) {
+      forbidden.value = true;
+      return;
+    }
   }
 }
 
@@ -215,36 +234,12 @@ async function deleteNamespaceWithOptions(e: any, item: Item) {
   }
 }
 
-async function routeToNamespace(item: Item) {
+function routeToNamespace(item: Item) {
   if (item.type !== 'namespace') return;
 
   const namespacePath =
     item.parentPath.length > 0 ? `${item.parentPath.join(String.fromCharCode(0x1f))}` : item.name;
 
-  try {
-    await functions.loadNamespaceMetadata(props.warehouseId, namespacePath, false);
-  } catch (error: any) {
-    const code = error?.error?.code || error?.status || error?.response?.status || 0;
-    const message = error?.error?.message || error?.message || 'An unknown error occurred';
-    if (code === 403 || code === 404) {
-      visual.setSnackbarMsg({
-        function: 'routeToNamespace',
-        text: `Access denied: ${item.type} "${item.name}"`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    } else {
-      visual.setSnackbarMsg({
-        function: 'routeToNamespace',
-        text: message,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    }
-    return;
-  }
   router.push(`/warehouse/${props.warehouseId}/namespace/${namespacePath}`);
 }
 

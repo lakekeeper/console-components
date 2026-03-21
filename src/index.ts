@@ -187,6 +187,7 @@ export type { NavigationState } from './stores/navigation';
 // Export common types and enums
 export * from './common/interfaces';
 export * from './common/enums';
+export * from './common/errorUtils';
 
 // Export generated OpenAPI types for permissions
 export type {

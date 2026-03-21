@@ -45,6 +45,7 @@ import type {
   TabularDeleteProfile,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
+import { logError } from '@/common/errorUtils';
 
 const props = defineProps<{
   warehouseId: string;
@@ -96,7 +97,7 @@ async function loadWarehouse() {
       visual.whId = whResponse.id;
     }
   } catch (error) {
-    console.error('Failed to load warehouse:', error);
+    logError('WarehouseHeader.loadWarehouse', error);
   }
 }
 

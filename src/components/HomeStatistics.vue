@@ -249,6 +249,7 @@ function drawChart() {
   const margin = { top: 12, right: 16, bottom: 36, left: 44 };
   const width = el.clientWidth - margin.left - margin.right;
   const height = 140 - margin.top - margin.bottom;
+  if (width <= 0 || height <= 0) return;
 
   const data = chartData.value;
 

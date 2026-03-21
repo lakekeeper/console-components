@@ -551,14 +551,20 @@ The consuming app must provide: `vue ^3.5`, `vuetify ^3.8`, `pinia ^2.3`, `vue-r
   - `feat(ui): …` for new features or UI enhancements
   - `fix(ui): …` for bug fixes
   - `chore:` / `ci:` / `docs:` for non-user-facing changes
-  - For multi-line commit messages, wrap in `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE`:
-    ```text
-    BEGIN_COMMIT_OVERRIDE
-    feat(ui): first change summary
-    feat(ui): second change summary
-    fix(ui): bug fix summary
-    END_COMMIT_OVERRIDE
-    ```
+- **PR title**: `fix: <description>` or `feat: <description>` (no scope in the title)
+- **PR body**: add the `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` block so release-please picks up the scoped commit messages on squash-merge:
+  ```text
+  BEGIN_COMMIT_OVERRIDE
+  fix(ui): short description of what was fixed
+  END_COMMIT_OVERRIDE
+  ```
+  For multiple changes, list each on its own line:
+  ```text
+  BEGIN_COMMIT_OVERRIDE
+  feat(ui): first change summary
+  fix(ui): second change summary
+  END_COMMIT_OVERRIDE
+  ```
 - **`just reviewable`** before every commit (install + format + lint + build)
 - **Never edit `src/gen/`** — always regenerate from OpenAPI specs
 - **Error handling**: use `handleError(error, context, notify?)` → snackbar notification

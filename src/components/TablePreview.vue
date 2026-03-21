@@ -353,14 +353,15 @@ async function loadPreview() {
     queryResults.value = results;
   } catch (err: any) {
     console.error('Failed to load table preview:', err);
-    const errorMsg = err.message || 'Unknown error occurred';
+    // loqe.error.value already contains the humanized error message
+    // from useLoQE, so prefer it over the raw DuckDB error
+    const errorMsg = loqe.error.value || err.message || 'Unknown error occurred';
 
     // Detect CORS errors that manifest as DuckDB read/download errors
     if (
       errorMsg.includes('Cannot read') ||
       errorMsg.includes('memory buffer') ||
       errorMsg.includes('Invalid Input Error') ||
-      errorMsg.includes('HTTP Error') ||
       errorMsg.includes('Full download failed') ||
       errorMsg.includes('CORS error') ||
       errorMsg.toLowerCase().includes('cors')

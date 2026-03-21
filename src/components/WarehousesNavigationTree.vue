@@ -242,6 +242,7 @@ import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
+import { logError } from '@/common/errorUtils';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
@@ -360,7 +361,7 @@ async function performSearch() {
       namespaceId: result['namespace-name'].join('.'),
     }));
   } catch (error: any) {
-    console.error('Search failed:', error);
+    logError('Search failed', error);
     searchResults.value = [];
     visualStore.setSnackbarMsg({
       function: 'searchTabular',
@@ -544,7 +545,7 @@ async function loadWarehouses() {
       }
     }
   } catch (error) {
-    console.error('Error loading warehouses:', error);
+    logError('loadWarehouses', error);
   } finally {
     isLoading.value = false;
   }
@@ -664,28 +665,61 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
 async function loadChildrenForNamespace(item: TreeItem) {
   if (item.loaded || !item.namespaceId) return;
 
-  try {
-    const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+  const apiNamespace = namespacePathToApiFormat(item.namespaceId);
 
-    // Build a map of existing children so we can preserve their loaded state (e.g. expanded
-    // sub-namespaces that already have their tables/views loaded).
-    const existingChildrenById = new Map<string, TreeItem>();
-    if (item.children) {
-      for (const child of item.children) {
-        existingChildrenById.set(child.id, child);
-      }
+  // Build a map of existing children so we can preserve their loaded state (e.g. expanded
+  // sub-namespaces that already have their tables/views loaded).
+  const existingChildrenById = new Map<string, TreeItem>();
+  if (item.children) {
+    for (const child of item.children) {
+      existingChildrenById.set(child.id, child);
     }
+  }
 
-    // Load sub-namespaces, tables and views in parallel
-    const [namespacesResponse, tablesResponse, viewsResponse] = await Promise.all([
-      functions.listNamespaces(item.warehouseId, apiNamespace, undefined, false),
-      functions.listTables(item.warehouseId, apiNamespace, undefined, false),
-      functions.listViews(item.warehouseId, apiNamespace, undefined, false),
-    ]);
+  // Load sub-namespaces, tables and views in parallel.
+  // Use Promise.allSettled so a 403 on one resource type doesn't block the others.
+  const [namespacesResult, tablesResult, viewsResult] = await Promise.allSettled([
+    functions.listNamespaces(item.warehouseId, apiNamespace, undefined, false),
+    functions.listTables(item.warehouseId, apiNamespace, undefined, false),
+    functions.listViews(item.warehouseId, apiNamespace, undefined, false),
+  ]);
 
-    const children: TreeItem[] = [];
+  // If ALL three failed, collapse the node and show an error
+  if (
+    namespacesResult.status === 'rejected' &&
+    tablesResult.status === 'rejected' &&
+    viewsResult.status === 'rejected'
+  ) {
+    const error: any = namespacesResult.reason;
+    const code = error?.error?.code || error?.status || error?.response?.status || 0;
+    const message = error?.error?.message || error?.message || 'An unknown error occurred';
+    if (code === 403 || code === 404) {
+      visualStore.setSnackbarMsg({
+        function: 'loadChildrenForNamespace',
+        text: `Access denied: namespace "${item.name}"`,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    } else {
+      visualStore.setSnackbarMsg({
+        function: 'loadChildrenForNamespace',
+        text: message,
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+    }
+    // Collapse the node back when everything failed
+    openedItems.value = openedItems.value.filter((id) => id !== item.id);
+    return;
+  }
 
-    // Add sub-namespaces
+  const children: TreeItem[] = [];
+
+  // Add sub-namespaces (if that call succeeded)
+  if (namespacesResult.status === 'fulfilled') {
+    const namespacesResponse = namespacesResult.value;
     if (namespacesResponse && namespacesResponse.namespaces) {
       namespacesResponse.namespaces.forEach((ns: string[]) => {
         // API returns full namespace path, not relative
@@ -711,8 +745,11 @@ async function loadChildrenForNamespace(item: TreeItem) {
         }
       });
     }
+  }
 
-    // Add tables
+  // Add tables (if that call succeeded)
+  if (tablesResult.status === 'fulfilled') {
+    const tablesResponse = tablesResult.value;
     if (tablesResponse && tablesResponse.identifiers) {
       tablesResponse.identifiers.forEach((table: any) => {
         children.push({
@@ -725,8 +762,11 @@ async function loadChildrenForNamespace(item: TreeItem) {
         });
       });
     }
+  }
 
-    // Add views
+  // Add views (if that call succeeded)
+  if (viewsResult.status === 'fulfilled') {
+    const viewsResponse = viewsResult.value;
     if (viewsResponse && viewsResponse.identifiers) {
       viewsResponse.identifiers.forEach((view: any) => {
         children.push({
@@ -739,35 +779,13 @@ async function loadChildrenForNamespace(item: TreeItem) {
         });
       });
     }
-
-    item.children = children;
-    item.loaded = true;
-
-    // Force reactivity by creating a new array reference
-    treeItems.value = [...treeItems.value];
-  } catch (error: any) {
-    const code = error?.error?.code || error?.status || error?.response?.status || 0;
-    const message = error?.error?.message || error?.message || 'An unknown error occurred';
-    if (code === 403 || code === 404) {
-      visualStore.setSnackbarMsg({
-        function: 'loadChildrenForNamespace',
-        text: `Access denied: namespace "${item.name}"`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    } else {
-      visualStore.setSnackbarMsg({
-        function: 'loadChildrenForNamespace',
-        text: message,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    }
-    // Collapse the node back on error
-    openedItems.value = openedItems.value.filter((id) => id !== item.id);
   }
+
+  item.children = children;
+  item.loaded = true;
+
+  // Force reactivity by creating a new array reference
+  treeItems.value = [...treeItems.value];
 }
 
 // Watch for opened items changes and load children
@@ -824,12 +842,22 @@ async function handleNavigate(item: TreeItem) {
     return;
   }
 
-  // Permission pre-check with notify=false (completely silent)
+  // For namespaces, navigate directly — individual tabs handle 403
+  if (item.type === 'namespace') {
+    saveWarehouseSubtreeState(item.warehouseId);
+    emit('navigate', {
+      type: item.type,
+      warehouseId: item.warehouseId,
+      namespaceId: item.namespaceId,
+      name: item.name,
+      id: item.id,
+    });
+    return;
+  }
+
+  // Permission pre-check for tables and views (notify=false — completely silent)
   try {
-    if (item.type === 'namespace' && item.namespaceId) {
-      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-      await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
-    } else if (item.type === 'table' && item.namespaceId) {
+    if (item.type === 'table' && item.namespaceId) {
       const apiNamespace = namespacePathToApiFormat(item.namespaceId);
       await functions.loadTable(item.warehouseId, apiNamespace, item.name, false);
     } else if (item.type === 'view' && item.namespaceId) {
@@ -871,25 +899,8 @@ async function handleNavigate(item: TreeItem) {
   });
 }
 
-async function navigateToTab(item: TreeItem, tab: string) {
+function navigateToTab(item: TreeItem, tab: string) {
   if (item.type !== 'namespace' || !item.namespaceId) return;
-
-  // Permission pre-check — identical to handleNavigate for namespaces
-  try {
-    const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-    await functions.loadNamespaceMetadata(item.warehouseId, apiNamespace, false);
-  } catch (error: any) {
-    const code = error?.error?.code || error?.status || error?.response?.status || 0;
-    const message = error?.error?.message || error?.message || 'An unknown error occurred';
-    visualStore.setSnackbarMsg({
-      function: 'navigateToTab',
-      text: code === 403 || code === 404 ? `Access denied: ${item.type} "${item.name}"` : message,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
-    return;
-  }
 
   saveWarehouseSubtreeState(item.warehouseId);
 

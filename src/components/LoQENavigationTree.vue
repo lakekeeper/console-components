@@ -279,6 +279,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 // import { useUserStore } from '@/stores/user';
 import { Type } from '@/common/enums';
+import { logError } from '@/common/errorUtils';
 import type { AttachedCatalog } from '../composables/loqe/types';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import s3Icon from '@/assets/s3.svg';
@@ -414,7 +415,7 @@ async function performSearch() {
       namespaceId: result['namespace-name'].join('.'),
     }));
   } catch (error: any) {
-    console.error('[LoQE Tree] Search failed:', error);
+    logError('[LoQE Tree] Search failed', error);
     searchResults.value = [];
     visualStore.setSnackbarMsg({
       function: 'searchTabular',
@@ -550,7 +551,7 @@ async function loadWarehouses() {
       }
     }
   } catch (e) {
-    console.error('[LoQE Tree] Failed to load warehouses:', e);
+    logError('[LoQE Tree] loadWarehouses', e);
   } finally {
     isLoading.value = false;
   }
@@ -597,7 +598,7 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
       });
     }
   } catch (error: any) {
-    console.error('[LoQE Tree] Failed to load namespaces:', error);
+    logError('[LoQE Tree] loadNamespaces', error);
     // Collapse back on error
     openedItems.value = openedItems.value.filter((id) => id !== item.id);
   }
@@ -672,7 +673,7 @@ async function loadChildrenForNamespace(item: TreeItem) {
     item.loaded = true;
     treeItems.value = [...treeItems.value];
   } catch (error: any) {
-    console.error('[LoQE Tree] Failed to load namespace children:', error);
+    logError('[LoQE Tree] loadNamespaceChildren', error);
     openedItems.value = openedItems.value.filter((id) => id !== item.id);
   }
 }
@@ -722,7 +723,7 @@ async function loadFieldsForTableOrView(item: TreeItem) {
     item.loaded = true;
     treeItems.value = [...treeItems.value];
   } catch (error: any) {
-    console.error(`[LoQE Tree] Failed to load fields for ${item.type}:`, error);
+    logError(`[LoQE Tree] loadFields(${item.type})`, error);
   }
 }
 

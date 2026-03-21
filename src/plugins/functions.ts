@@ -1,5 +1,6 @@
 import { inject } from 'vue';
 import { permissionActions } from '@/common/permissionActions';
+import { logError, isClientError, isForbiddenError, isNotFoundError } from '@/common/errorUtils';
 import {
   NamespaceResponse,
   SearchTabularRequest,
@@ -182,32 +183,44 @@ function normalizeNamespacePath(ns: string): string {
 
 export function handleError(error: any, functionError: Error | string, notify?: boolean) {
   try {
-    console.error('Handling error:', error);
-    console.error('Function causing error:', functionError);
+    // For 4xx client errors (403 forbidden, 404 not found, etc.), don't log at all.
+    // These are expected errors handled by the UI (router.back(), error alerts, etc.).
+    // Only log 5xx server errors and unknown errors.
+    if (!isClientError(error)) {
+      logError('handleError', error);
+    }
 
-    // Check if this is an authorization error due to missing/invalid token
-    if (error === 'invalid HTTP header (authorization)') {
-      const userStore = useUserStore();
-      const hasToken = userStore.user.access_token && userStore.user.access_token.trim() !== '';
+    // 403/404 are handled inline by the UI (v-alert, router.replace to parent, etc.).
+    // Don't show snackbar unless the caller explicitly requested notification (notify=true).
+    if ((isForbiddenError(error) || isNotFoundError(error)) && notify !== true) {
+      return;
+    }
 
-      if (!hasToken) {
-        // Prevent redirect loop: don't redirect if already on login/logout/callback pages
-        const currentPath = window.location.pathname;
-        if (
-          currentPath.includes('/login') ||
-          currentPath.includes('/logout') ||
-          currentPath.includes('/callback')
-        ) {
-          console.warn('Already on auth page, skipping redirect to prevent loop');
-          return;
-        }
-
-        // User is not authenticated, redirect to logout/login
-        console.warn('No access token found, redirecting to logout...');
-        userStore.unsetUser();
-        const baseUrl = appConfig?.baseUrlPrefix || '';
-        window.location.href = `${baseUrl}/ui/logout`;
+    // Check if this is an authorization error due to missing/invalid token.
+    // The server may return 400 (not 401) with "invalid HTTP header (authorization)"
+    // when the token is expired or malformed. Treat this the same as a 401.
+    const errorMsg =
+      typeof error === 'string' ? error : error?.error?.message || error?.message || '';
+    if (
+      error === 'invalid HTTP header (authorization)' ||
+      errorMsg.includes('invalid HTTP header (authorization)')
+    ) {
+      // Prevent redirect loop: don't redirect if already on login/logout/callback pages
+      const currentPath = window.location.pathname;
+      if (
+        currentPath.includes('/login') ||
+        currentPath.includes('/logout') ||
+        currentPath.includes('/callback')
+      ) {
+        console.warn('Already on auth page, skipping redirect to prevent loop');
+        return;
       }
+
+      console.warn('Invalid authorization header (400), redirecting to login...');
+      const userStore = useUserStore();
+      userStore.unsetUser();
+      const baseUrl = appConfig?.baseUrlPrefix || '';
+      window.location.href = `${baseUrl}/ui/login`;
       return;
     }
 
@@ -252,8 +265,6 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
   const visual = useVisualStore();
   const notificationStore = useNotificationStore();
   try {
-    console.error('Setting error:', error);
-    console.error('Error structure:', JSON.stringify(error, null, 2));
     let message = '';
     let code = 0;
 
@@ -263,19 +274,22 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       code = data.code;
       // Check if the string message indicates authentication failure
       if (
+        code === 401 ||
         message.toLowerCase().includes('failed to authenticate') ||
-        message.toLowerCase().includes('unauthorized')
+        message.toLowerCase().includes('invalid http header (authorization)')
       ) {
         code = 401;
       }
     } else {
       const api_error_type = error?.error?.type || '';
       const msg = error?.error?.message || error?.message || 'An unknown error occurred';
+      const statusCode = error?.error?.code || error?.status || error?.response?.status || 0;
 
       // Check if message indicates authentication failure
       if (
+        statusCode === 401 ||
         msg.toLowerCase().includes('failed to authenticate') ||
-        msg.toLowerCase().includes('unauthorized')
+        msg.toLowerCase().includes('invalid http header (authorization)')
       ) {
         code = 401;
       }
@@ -287,11 +301,20 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       }
 
       // Check multiple possible locations for the status code
-      code = code || error?.error?.code || error?.status || error?.response?.status || 0;
+      code = code || statusCode;
     }
 
     if (code === 401) {
       console.warn('Authentication failed (401), redirecting to login...');
+      const currentPath = window.location.pathname;
+      if (
+        currentPath.includes('/login') ||
+        currentPath.includes('/logout') ||
+        currentPath.includes('/callback')
+      ) {
+        console.warn('Already on auth page, skipping redirect to prevent loop');
+        return;
+      }
       // Clear user session
       const userStore = useUserStore();
       userStore.unsetUser();

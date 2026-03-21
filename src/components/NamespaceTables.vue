@@ -1,5 +1,9 @@
 <template>
+  <v-alert v-if="forbidden" type="warning" variant="tonal" class="ma-4">
+    You do not have permission to list tables in this namespace.
+  </v-alert>
   <v-data-table
+    v-else
     height="65vh"
     items-per-page="50"
     :search="searchTbl"
@@ -115,6 +119,7 @@ import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
 import type { Header, Options } from '@/common/interfaces';
 import type { TableIdentifier } from '@/gen/iceberg/types.gen';
+import { isForbiddenError } from '@/common/errorUtils';
 
 export type TableIdentifierExtended = TableIdentifier & {
   actions: string[];
@@ -136,6 +141,7 @@ const notify = true;
 const isDefaultLayout = computed(() => !props.storageLayout || props.storageLayout === 'default');
 
 const searchTbl = ref('');
+const forbidden = ref(false);
 const loadedTables: TableIdentifierExtended[] = reactive([]);
 const paginationToken = ref('');
 
@@ -154,9 +160,15 @@ onMounted(loadTables);
 watch(() => props.namespacePath, loadTables);
 
 async function loadTables() {
+  forbidden.value = false;
   try {
     const loadedTablesTmp: TableIdentifierExtended[] = [];
-    const data = await functions.listTables(props.warehouseId, props.namespacePath);
+    const data = await functions.listTables(
+      props.warehouseId,
+      props.namespacePath,
+      undefined,
+      false,
+    );
     Object.assign(loadedTablesTmp, data.identifiers);
     paginationToken.value = data['next-page-token'] || '';
 
@@ -168,7 +180,11 @@ async function loadTables() {
     loadedTables.splice(0, loadedTables.length);
     Object.assign(loadedTables, loadedTablesTmp);
   } catch (error) {
-    console.error(error);
+    if (isForbiddenError(error)) {
+      forbidden.value = true;
+      return;
+    }
+    functions.handleError(error, 'listTables');
   }
 }
 
@@ -176,20 +192,28 @@ async function paginationCheck(option: Options) {
   if (loadedTables.length >= 10000) return;
 
   if (option.page * option.itemsPerPage == loadedTables.length && paginationToken.value != '') {
-    const loadedTablesTmp: TableIdentifierExtended[] = [];
-    const data = await functions.listTables(
-      props.warehouseId,
-      props.namespacePath,
-      paginationToken.value,
-    );
-    Object.assign(loadedTablesTmp, data.identifiers);
-    paginationToken.value = data['next-page-token'] || '';
-    loadedTablesTmp.forEach((table) => {
-      table.actions = ['delete'];
-      table.type = 'table';
-    });
+    try {
+      const loadedTablesTmp: TableIdentifierExtended[] = [];
+      const data = await functions.listTables(
+        props.warehouseId,
+        props.namespacePath,
+        paginationToken.value,
+      );
+      Object.assign(loadedTablesTmp, data.identifiers);
+      paginationToken.value = data['next-page-token'] || '';
+      loadedTablesTmp.forEach((table) => {
+        table.actions = ['delete'];
+        table.type = 'table';
+      });
 
-    loadedTables.push(...loadedTablesTmp.flat());
+      loadedTables.push(...loadedTablesTmp.flat());
+    } catch (error) {
+      if (isForbiddenError(error)) {
+        forbidden.value = true;
+        return;
+      }
+      functions.handleError(error, 'listTables');
+    }
   }
 }
 
