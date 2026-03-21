@@ -306,6 +306,15 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
 
     if (code === 401) {
       console.warn('Authentication failed (401), redirecting to login...');
+      const currentPath = window.location.pathname;
+      if (
+        currentPath.includes('/login') ||
+        currentPath.includes('/logout') ||
+        currentPath.includes('/callback')
+      ) {
+        console.warn('Already on auth page, skipping redirect to prevent loop');
+        return;
+      }
       // Clear user session
       const userStore = useUserStore();
       userStore.unsetUser();

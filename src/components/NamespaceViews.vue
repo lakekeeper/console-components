@@ -184,6 +184,7 @@ async function loadViews() {
       forbidden.value = true;
       return;
     }
+    functions.handleError(error, 'listViews');
   }
 }
 
@@ -191,20 +192,28 @@ async function paginationCheck(option: Options) {
   if (loadedViews.length >= 10000) return;
 
   if (option.page * option.itemsPerPage == loadedViews.length && paginationToken.value != '') {
-    const loadedViewsTmp: ViewIdentifierExtended[] = [];
-    const data = await functions.listViews(
-      props.warehouseId,
-      props.namespacePath,
-      paginationToken.value,
-    );
-    Object.assign(loadedViewsTmp, data.identifiers);
-    paginationToken.value = data['next-page-token'] || '';
-    loadedViewsTmp.forEach((view) => {
-      view.actions = ['delete'];
-      view.type = 'view';
-    });
+    try {
+      const loadedViewsTmp: ViewIdentifierExtended[] = [];
+      const data = await functions.listViews(
+        props.warehouseId,
+        props.namespacePath,
+        paginationToken.value,
+      );
+      Object.assign(loadedViewsTmp, data.identifiers);
+      paginationToken.value = data['next-page-token'] || '';
+      loadedViewsTmp.forEach((view) => {
+        view.actions = ['delete'];
+        view.type = 'view';
+      });
 
-    loadedViews.push(...loadedViewsTmp.flat());
+      loadedViews.push(...loadedViewsTmp.flat());
+    } catch (error) {
+      if (isForbiddenError(error)) {
+        forbidden.value = true;
+        return;
+      }
+      functions.handleError(error, 'listViews');
+    }
   }
 }
 

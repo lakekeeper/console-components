@@ -184,6 +184,7 @@ async function loadTables() {
       forbidden.value = true;
       return;
     }
+    functions.handleError(error, 'listTables');
   }
 }
 
@@ -191,20 +192,28 @@ async function paginationCheck(option: Options) {
   if (loadedTables.length >= 10000) return;
 
   if (option.page * option.itemsPerPage == loadedTables.length && paginationToken.value != '') {
-    const loadedTablesTmp: TableIdentifierExtended[] = [];
-    const data = await functions.listTables(
-      props.warehouseId,
-      props.namespacePath,
-      paginationToken.value,
-    );
-    Object.assign(loadedTablesTmp, data.identifiers);
-    paginationToken.value = data['next-page-token'] || '';
-    loadedTablesTmp.forEach((table) => {
-      table.actions = ['delete'];
-      table.type = 'table';
-    });
+    try {
+      const loadedTablesTmp: TableIdentifierExtended[] = [];
+      const data = await functions.listTables(
+        props.warehouseId,
+        props.namespacePath,
+        paginationToken.value,
+      );
+      Object.assign(loadedTablesTmp, data.identifiers);
+      paginationToken.value = data['next-page-token'] || '';
+      loadedTablesTmp.forEach((table) => {
+        table.actions = ['delete'];
+        table.type = 'table';
+      });
 
-    loadedTables.push(...loadedTablesTmp.flat());
+      loadedTables.push(...loadedTablesTmp.flat());
+    } catch (error) {
+      if (isForbiddenError(error)) {
+        forbidden.value = true;
+        return;
+      }
+      functions.handleError(error, 'listTables');
+    }
   }
 }
 
