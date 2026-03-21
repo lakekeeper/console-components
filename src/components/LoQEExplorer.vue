@@ -447,11 +447,7 @@
                       activeError
                     }}</pre>
                     <template
-                      v-if="
-                        activeError.includes('CORS') ||
-                        activeError.includes('Failed to fetch') ||
-                        activeError.includes('HTTP Error')
-                      "
+                      v-if="activeError.includes('CORS') || activeError.includes('Failed to fetch')"
                       #append>
                       <CorsConfigDialog />
                     </template>

@@ -37,6 +37,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
+import { logError } from '@/common/errorUtils';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 import NamespacePropertiesDialog from './NamespacePropertiesDialog.vue';
@@ -77,11 +78,15 @@ watch(() => props.namespacePath, loadNamespaceMetadata);
 
 async function loadNamespaceMetadata() {
   try {
-    namespace.value = await functions.loadNamespaceMetadata(props.warehouseId, props.namespacePath);
+    namespace.value = await functions.loadNamespaceMetadata(
+      props.warehouseId,
+      props.namespacePath,
+      false,
+    );
     namespaceId.value =
       namespace.value.properties?.namespace_id || namespace.value['namespace-uuid'] || '';
   } catch (error) {
-    console.error('Failed to load namespace metadata:', error);
+    logError('NamespaceHeader.loadNamespaceMetadata', error);
   }
 }
 </script>

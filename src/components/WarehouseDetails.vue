@@ -293,6 +293,7 @@
 
 <script setup lang="ts">
 import { reactive, onMounted, inject } from 'vue';
+import { logError } from '@/common/errorUtils';
 
 const props = defineProps<{
   warehouseId: string;
@@ -332,7 +333,7 @@ async function loadWarehouse() {
       visual.whId = whResponse.id;
     }
   } catch (error) {
-    console.error('Failed to load warehouse:', error);
+    logError('WarehouseDetails.loadWarehouse', error);
   }
 }
 

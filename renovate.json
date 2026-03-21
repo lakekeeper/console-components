@@ -5,19 +5,19 @@
   "packageRules": [
     {
       "groupName": "eslint",
-      "matchPackageNames": ["/eslint/", "/typescript-eslint/", "/vue-eslint-parser/", "/globals/"]
+      "matchPackagePatterns": ["eslint", "typescript-eslint", "vue-eslint-parser", "globals"]
     },
     {
       "groupName": "vue ecosystem",
-      "matchPackageNames": ["/vue/", "/vuetify/", "/pinia/", "/vue-router/", "/vue-tsc/"]
+      "matchPackagePatterns": ["vue", "vuetify", "pinia", "vue-router", "vue-tsc"]
     },
     {
       "groupName": "vite",
-      "matchPackageNames": ["/vite/", "/@vitejs/"]
+      "matchPackagePatterns": ["vite", "@vitejs"]
     },
     {
       "groupName": "codemirror",
-      "matchPackageNames": ["/@codemirror/", "/@lezer/", "/codemirror/"]
+      "matchPackagePatterns": ["@codemirror", "@lezer", "codemirror"]
     },
     {
       "matchUpdateTypes": ["patch"],

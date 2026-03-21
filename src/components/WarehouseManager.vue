@@ -108,6 +108,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { usePermissionStore } from '@/stores/permissions';
 import { useProjectPermissions, hasAction } from '@/composables/useCatalogPermissions';
+import { logError } from '@/common/errorUtils';
 import { Header } from '@/common/interfaces';
 import { VIcon, VImg } from 'vuetify/components';
 import WarehouseAddDialog from './WarehouseAddDialog.vue';
@@ -249,7 +250,7 @@ async function listWarehouse() {
       }),
     );
   } catch (error) {
-    console.error('Error loading warehouses:', error);
+    logError('listWarehouse', error);
   }
 }
 
@@ -264,7 +265,7 @@ async function deleteWarehouse(id: string) {
     await functions.deleteWarehouse(id, notify);
     await listWarehouse();
   } catch (error) {
-    console.error('Error deleting warehouse:', error);
+    logError('deleteWarehouse', error);
   }
 }
 

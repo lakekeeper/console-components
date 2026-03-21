@@ -1,5 +1,9 @@
 <template>
+  <v-alert v-if="forbidden" type="warning" variant="tonal" class="ma-4">
+    You do not have permission to list namespaces in this warehouse.
+  </v-alert>
   <v-data-table
+    v-else
     height="calc(100vh - 340px)"
     :search="searchNamespace"
     fixed-header
@@ -79,7 +83,8 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { useWarehousePermissions } from '../composables/useCatalogPermissions';
 import type { Header, Item, Options } from '@/common/interfaces';
-import { StatusIntent, Type } from '@/common/enums';
+import { StatusIntent } from '@/common/enums';
+import { isForbiddenError, logError } from '@/common/errorUtils';
 import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 
 const props = defineProps<{
@@ -101,6 +106,7 @@ const { canDelete, canCreateNamespace, canSetProtection } = useWarehousePermissi
 );
 
 const searchNamespace = ref('');
+const forbidden = ref(false);
 const recursiveDeleteProtection = ref(false);
 const createNamespaceStatus = ref<StatusIntent>(StatusIntent.INACTIVE);
 const loadedWarehouseItems: Item[] = reactive([]);
@@ -150,7 +156,7 @@ async function loadWarehouse() {
       recursiveDeleteProtection.value = whResponse.protected;
     }
   } catch (error) {
-    console.error('Failed to load warehouse:', error);
+    logError('WarehouseNamespaces.loadWarehouse', error);
   }
 }
 
@@ -159,6 +165,8 @@ async function loadNamespaces(parent?: string) {
     const { namespaces, ['next-page-token']: nextPageToken } = await functions.listNamespaces(
       props.warehouseId,
       parent,
+      undefined,
+      false,
     );
 
     paginationTokenNamespace.value = nextPageToken || '';
@@ -175,7 +183,11 @@ async function loadNamespaces(parent?: string) {
       Object.assign(loadedWarehouseItems, mappedItems);
     }
   } catch (error) {
-    console.error(error);
+    if (isForbiddenError(error)) {
+      forbidden.value = true;
+      return;
+    }
+    logError('WarehouseNamespaces.loadNamespaces', error);
   }
 }
 
@@ -253,33 +265,9 @@ async function deleteNamespaceWithOptions(e: any, item: Item) {
   }
 }
 
-async function routeToNamespace(item: Item) {
+function routeToNamespace(item: Item) {
   const namespacePath = item.parentPath.join(String.fromCharCode(0x1f));
 
-  try {
-    await functions.loadNamespaceMetadata(props.warehouseId, namespacePath, false);
-  } catch (error: any) {
-    const code = error?.error?.code || error?.status || error?.response?.status || 0;
-    const message = error?.error?.message || error?.message || 'An unknown error occurred';
-    if (code === 403 || code === 404) {
-      visual.setSnackbarMsg({
-        function: 'routeToNamespace',
-        text: `Access denied: ${item.type} "${item.name}"`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    } else {
-      visual.setSnackbarMsg({
-        function: 'routeToNamespace',
-        text: message,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    }
-    return;
-  }
   router.push(`/warehouse/${props.warehouseId}/namespace/${namespacePath}`);
 }
 

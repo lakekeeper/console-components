@@ -1,5 +1,9 @@
 <template>
+  <v-alert v-if="forbidden" type="warning" variant="tonal" class="ma-4">
+    You do not have permission to list views in this namespace.
+  </v-alert>
   <v-data-table
+    v-else
     items-per-page="50"
     height="65vh"
     :search="searchView"
@@ -115,6 +119,7 @@ import { useVisualStore } from '../stores/visual';
 import { Type } from '../common/enums';
 import type { Header, Options } from '../common/interfaces';
 import type { TableIdentifier } from '../gen/iceberg/types.gen';
+import { isForbiddenError } from '../common/errorUtils';
 
 export type ViewIdentifierExtended = TableIdentifier & {
   actions: string[];
@@ -136,6 +141,7 @@ const notify = true;
 const isDefaultLayout = computed(() => !props.storageLayout || props.storageLayout === 'default');
 
 const searchView = ref('');
+const forbidden = ref(false);
 const loadedViews: ViewIdentifierExtended[] = reactive([]);
 const paginationToken = ref('');
 
@@ -156,7 +162,12 @@ watch(() => props.namespacePath, loadViews);
 async function loadViews() {
   try {
     const loadedViewsTmp: ViewIdentifierExtended[] = [];
-    const data = await functions.listViews(props.warehouseId, props.namespacePath);
+    const data = await functions.listViews(
+      props.warehouseId,
+      props.namespacePath,
+      undefined,
+      false,
+    );
     Object.assign(loadedViewsTmp, data.identifiers);
     paginationToken.value = data['next-page-token'] || '';
 
@@ -168,7 +179,10 @@ async function loadViews() {
     loadedViews.splice(0, loadedViews.length);
     Object.assign(loadedViews, loadedViewsTmp);
   } catch (error) {
-    console.error(error);
+    if (isForbiddenError(error)) {
+      forbidden.value = true;
+      return;
+    }
   }
 }
 

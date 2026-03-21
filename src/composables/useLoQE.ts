@@ -4,6 +4,72 @@ import type { LoQEConfig, LoQEQueryResult, LoQECatalogConfig } from './loqe/type
 import { useLoQEStore } from '../stores/loqe';
 import { useUserStore } from '../stores/user';
 
+// ── DuckDB error rewriting ────────────────────────────────────────────
+
+const HTTP_ERROR_RE =
+  /HTTP Error:\s*\w+ request to endpoint '([^']+)' returned an error response \(HTTP (\d{3})\)/i;
+
+// Patterns to identify which catalog resource the failed URL targeted
+const URL_TABLE_RE = /\/namespaces\/([^/]+)\/tables\/([^/?]+)/;
+const URL_VIEW_RE = /\/namespaces\/([^/]+)\/views\/([^/?]+)/;
+// Only match direct namespace URLs, NOT ?parent= probes (those are
+// internal DuckDB namespace-resolution calls with meaningless names)
+const URL_NS_RE = /\/namespaces\/([^/?]+)(?:$|[?/])/;
+
+/** Extract a human-readable resource description from the failed URL. */
+function describeResource(url: string): string | null {
+  let m = URL_TABLE_RE.exec(url);
+  if (m) return `table "${m[1]}.${m[2]}"`;
+
+  m = URL_VIEW_RE.exec(url);
+  if (m) return `view "${m[1]}.${m[2]}"`;
+
+  m = URL_NS_RE.exec(url);
+  if (m) return `namespace "${m[1]}"`;
+
+  return null;
+}
+
+/**
+ * Rewrite raw DuckDB WASM error messages into human-friendly text.
+ *
+ * DuckDB's REST-catalog HTTP errors look like:
+ *   "HTTP Error: GET request to endpoint '…' returned an error response
+ *    (HTTP 404). Reason: Please consult the browser console …"
+ * which is confusing for end-users. We extract the status code and the
+ * URL to produce a precise, actionable message.
+ */
+function humanizeDuckDBError(raw: string): string {
+  const m = HTTP_ERROR_RE.exec(raw);
+  if (!m) return raw;
+
+  const url = m[1];
+  const status = Number(m[2]);
+  const resource = describeResource(url);
+
+  if (status === 401) {
+    return 'Authentication required — your session may have expired. Please log in again.';
+  }
+  if (status === 403) {
+    return resource
+      ? `Access denied — you do not have permission to access ${resource}.`
+      : 'Access denied — you do not have permission to access one or more of the referenced tables or namespaces.';
+  }
+  if (status === 404) {
+    return resource
+      ? `Not found — ${resource} does not exist or you do not have permission to see it.`
+      : 'Not found — the referenced warehouse, namespace, or table does not exist (or you lack permission to see it).';
+  }
+  if (status === 419) {
+    return 'Session expired — please log in again.';
+  }
+  if (status >= 500) {
+    return `Server error (HTTP ${status}) — the catalog server encountered an internal error. Please try again later.`;
+  }
+  // For other 4xx codes, still rewrite to remove the misleading CORS hint
+  return `HTTP ${status} error from the catalog server.`;
+}
+
 /**
  * `useLoQE` — the primary Vue composable for the LoQE local query engine.
  *
@@ -186,7 +252,7 @@ export function useLoQE(config: LoQEConfig) {
 
       return result;
     } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
+      const msg = humanizeDuckDBError(e instanceof Error ? e.message : String(e));
       error.value = msg;
 
       store.addHistoryEntry({

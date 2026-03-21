@@ -501,6 +501,7 @@ function drawAreaChart() {
   const margin = { top: 16, right: 24, bottom: 70, left: 50 };
   const width = el.clientWidth - margin.left - margin.right;
   const height = 280 - margin.top - margin.bottom;
+  if (width <= 0 || height <= 0) return;
 
   // Aggregate by timestamp + status category
   const byTime = new Map<number, Record<string, number | Date>>();
@@ -793,6 +794,7 @@ function drawBarChart() {
   const gap = 4;
   const height = data.length * (barHeight + gap);
   const width = fullWidth - margin.left - margin.right;
+  if (width <= 0 || height <= 0) return;
 
   const svg = d3
     .select(el)
