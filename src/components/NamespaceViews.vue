@@ -160,6 +160,7 @@ onMounted(loadViews);
 watch(() => props.namespacePath, loadViews);
 
 async function loadViews() {
+  forbidden.value = false;
   try {
     const loadedViewsTmp: ViewIdentifierExtended[] = [];
     const data = await functions.listViews(

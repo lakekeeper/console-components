@@ -274,8 +274,8 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       code = data.code;
       // Check if the string message indicates authentication failure
       if (
+        code === 401 ||
         message.toLowerCase().includes('failed to authenticate') ||
-        message.toLowerCase().includes('unauthorized') ||
         message.toLowerCase().includes('invalid http header (authorization)')
       ) {
         code = 401;
@@ -283,11 +283,12 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
     } else {
       const api_error_type = error?.error?.type || '';
       const msg = error?.error?.message || error?.message || 'An unknown error occurred';
+      const statusCode = error?.error?.code || error?.status || error?.response?.status || 0;
 
       // Check if message indicates authentication failure
       if (
+        statusCode === 401 ||
         msg.toLowerCase().includes('failed to authenticate') ||
-        msg.toLowerCase().includes('unauthorized') ||
         msg.toLowerCase().includes('invalid http header (authorization)')
       ) {
         code = 401;
@@ -300,7 +301,7 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       }
 
       // Check multiple possible locations for the status code
-      code = code || error?.error?.code || error?.status || error?.response?.status || 0;
+      code = code || statusCode;
     }
 
     if (code === 401) {

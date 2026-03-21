@@ -160,6 +160,7 @@ onMounted(loadTables);
 watch(() => props.namespacePath, loadTables);
 
 async function loadTables() {
+  forbidden.value = false;
   try {
     const loadedTablesTmp: TableIdentifierExtended[] = [];
     const data = await functions.listTables(
