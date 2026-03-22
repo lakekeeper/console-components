@@ -139,6 +139,39 @@
                 title="Insert into SQL editor">
                 <v-icon size="small">mdi-plus-circle-outline</v-icon>
               </v-btn>
+              <v-menu location="bottom end">
+                <template #activator="{ props: menuProps }">
+                  <v-btn
+                    v-bind="menuProps"
+                    icon
+                    size="x-small"
+                    variant="text"
+                    @click.stop
+                    title="More actions">
+                    <v-icon size="small">mdi-dots-vertical</v-icon>
+                  </v-btn>
+                </template>
+                <v-list density="compact" class="pa-1" min-width="160">
+                  <v-list-item
+                    density="compact"
+                    @click="handlePreviewSearchResult(result)"
+                    prepend-icon="mdi-eye-outline">
+                    <v-list-item-title class="text-caption">Preview data</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item
+                    density="compact"
+                    @click="handleShowDDLSearchResult(result)"
+                    prepend-icon="mdi-code-tags">
+                    <v-list-item-title class="text-caption">Show DDL</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item
+                    density="compact"
+                    @click="handleCopyPathSearchResult(result)"
+                    prepend-icon="mdi-content-copy">
+                    <v-list-item-title class="text-caption">Copy path</v-list-item-title>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
             </template>
           </v-list-item>
         </v-list>
@@ -264,6 +297,43 @@
               <v-icon size="small">mdi-plus-circle-outline</v-icon>
             </v-btn>
 
+            <!-- Kebab menu for tables/views -->
+            <v-menu v-if="item.type === 'table' || item.type === 'view'" location="bottom end">
+              <template #activator="{ props: menuProps }">
+                <v-btn
+                  v-bind="menuProps"
+                  icon
+                  size="x-small"
+                  variant="text"
+                  class="tree-item-insert-btn"
+                  :style="{ opacity: hoveredItem === item.id ? 1 : 0 }"
+                  @click.stop
+                  title="More actions">
+                  <v-icon size="small">mdi-dots-vertical</v-icon>
+                </v-btn>
+              </template>
+              <v-list density="compact" class="pa-1" min-width="160">
+                <v-list-item
+                  density="compact"
+                  @click="handlePreview(item)"
+                  prepend-icon="mdi-eye-outline">
+                  <v-list-item-title class="text-caption">Preview data</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  density="compact"
+                  @click="handleShowDDL(item)"
+                  prepend-icon="mdi-code-tags">
+                  <v-list-item-title class="text-caption">Show DDL</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  density="compact"
+                  @click="handleCopyPath(item)"
+                  prepend-icon="mdi-content-copy">
+                  <v-list-item-title class="text-caption">Copy path</v-list-item-title>
+                </v-list-item>
+              </v-list>
+            </v-menu>
+
             <!-- Insert button for fields -->
             <v-btn
               v-if="item.type === 'field'"
@@ -318,6 +388,39 @@ const emit = defineEmits<{
   (
     e: 'attach-warehouse',
     warehouse: { warehouseId: string; warehouseName: string; catalogUrl: string },
+  ): void;
+  /** User clicked the eye icon to preview table/view data */
+  (
+    e: 'preview-table',
+    item: {
+      type: string;
+      warehouseId: string;
+      warehouseName: string;
+      namespaceId: string;
+      name: string;
+    },
+  ): void;
+  /** User clicked Show DDL */
+  (
+    e: 'show-ddl',
+    item: {
+      type: string;
+      warehouseId: string;
+      warehouseName: string;
+      namespaceId: string;
+      name: string;
+    },
+  ): void;
+  /** User clicked Copy path */
+  (
+    e: 'copy-path',
+    item: {
+      type: string;
+      warehouseId: string;
+      warehouseName: string;
+      namespaceId: string;
+      name: string;
+    },
   ): void;
 }>();
 
@@ -525,6 +628,36 @@ async function handleSearchResultClick(result: (typeof searchResults.value)[0]) 
 
 function insertSearchResult(result: (typeof searchResults.value)[0]) {
   emit('item-selected', {
+    type: result.type,
+    warehouseId: result.warehouseId,
+    warehouseName: result.warehouseName,
+    namespaceId: result.namespaceId,
+    name: result.name,
+  });
+}
+
+function handlePreviewSearchResult(result: (typeof searchResults.value)[0]) {
+  emit('preview-table', {
+    type: result.type,
+    warehouseId: result.warehouseId,
+    warehouseName: result.warehouseName,
+    namespaceId: result.namespaceId,
+    name: result.name,
+  });
+}
+
+function handleShowDDLSearchResult(result: (typeof searchResults.value)[0]) {
+  emit('show-ddl', {
+    type: result.type,
+    warehouseId: result.warehouseId,
+    warehouseName: result.warehouseName,
+    namespaceId: result.namespaceId,
+    name: result.name,
+  });
+}
+
+function handleCopyPathSearchResult(result: (typeof searchResults.value)[0]) {
+  emit('copy-path', {
     type: result.type,
     warehouseId: result.warehouseId,
     warehouseName: result.warehouseName,
@@ -1091,6 +1224,39 @@ function handleInsertPath(item: TreeItem) {
 function handleInsertField(item: TreeItem) {
   emit('item-selected', {
     type: 'field',
+    warehouseId: item.warehouseId,
+    warehouseName: item.warehouseName || '',
+    namespaceId: item.namespaceId,
+    name: item.name,
+  });
+}
+
+function handlePreview(item: TreeItem) {
+  if (!item.namespaceId) return;
+  emit('preview-table', {
+    type: item.type,
+    warehouseId: item.warehouseId,
+    warehouseName: item.warehouseName || '',
+    namespaceId: item.namespaceId,
+    name: item.name,
+  });
+}
+
+function handleShowDDL(item: TreeItem) {
+  if (!item.namespaceId) return;
+  emit('show-ddl', {
+    type: item.type,
+    warehouseId: item.warehouseId,
+    warehouseName: item.warehouseName || '',
+    namespaceId: item.namespaceId,
+    name: item.name,
+  });
+}
+
+function handleCopyPath(item: TreeItem) {
+  if (!item.namespaceId) return;
+  emit('copy-path', {
+    type: item.type,
     warehouseId: item.warehouseId,
     warehouseName: item.warehouseName || '',
     namespaceId: item.namespaceId,
