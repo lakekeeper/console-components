@@ -807,6 +807,19 @@ import { useLoQEStore } from '../stores/loqe';
 import { useFunctions } from '../plugins/functions';
 import { Type } from '../common/enums';
 import type { LoQEQueryResult } from '../composables/loqe/types';
+import type {
+  TableMetadataWritable,
+  ViewMetadataWritable,
+  StructField,
+  Type as IcebergType,
+  StructType,
+  ListType,
+  MapType,
+  PartitionField,
+  SortField,
+  ViewVersion,
+  SqlViewRepresentation,
+} from '../gen/iceberg/types.gen';
 import SqlEditor from './SqlEditor.vue';
 import LoQENavigationTree from './LoQENavigationTree.vue';
 import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
@@ -910,6 +923,10 @@ const isDDLLoading = ref(false);
 const ddlContent = ref('');
 const ddlError = ref<string | null>(null);
 const ddlTitle = ref('');
+
+// Race-condition guards: monotonically increasing request tokens
+let previewRequestToken = 0;
+let ddlRequestToken = 0;
 
 // Multi-result state (one entry per statement when running multiple queries)
 interface ResultEntry {
@@ -1278,6 +1295,7 @@ async function handlePreviewTable(item: {
   name: string;
 }) {
   const tablePath = buildTablePath(item);
+  const token = ++previewRequestToken;
   previewTablePath.value = tablePath;
   previewTitle.value = `${item.name} (${item.type})`;
   previewResult.value = null;
@@ -1287,11 +1305,15 @@ async function handlePreviewTable(item: {
 
   try {
     const result = await loqe.query(`SELECT * FROM ${tablePath} LIMIT 50`);
+    if (token !== previewRequestToken) return; // stale response
     previewResult.value = result;
   } catch (err: any) {
+    if (token !== previewRequestToken) return;
     previewError.value = err?.message || 'Failed to load preview';
   } finally {
-    isPreviewLoading.value = false;
+    if (token === previewRequestToken) {
+      isPreviewLoading.value = false;
+    }
   }
 }
 
@@ -1309,46 +1331,77 @@ function insertPreviewQuery() {
   showPreviewDialog.value = false;
 }
 
-function copyPreviewPath() {
+async function copyPreviewPath() {
   if (!previewTablePath.value) return;
-  navigator.clipboard.writeText(previewTablePath.value);
+  await copyToClipboard(previewTablePath.value, 'Path copied to clipboard');
+}
+
+// ── DDL / Copy Path handlers ──────────────────────────────────────────
+
+/** Shared clipboard helper with textarea fallback for insecure contexts. */
+async function copyToClipboard(text: string, successMsg: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch {
+      visualStore.setSnackbarMsg({
+        function: 'copyFailed',
+        text: 'Failed to copy to clipboard',
+        ttl: 3000,
+        ts: Date.now(),
+        type: Type.ERROR,
+      });
+      return;
+    }
+  }
   visualStore.setSnackbarMsg({
-    function: 'copyPath',
-    text: 'Path copied to clipboard',
+    function: 'copy',
+    text: successMsg,
     ttl: 2000,
     ts: Date.now(),
     type: Type.SUCCESS,
   });
 }
 
-// ── DDL / Copy Path handlers ──────────────────────────────────────────
-
 /**
  * Serialise an Iceberg Type to its DDL string representation.
  */
-function typeToString(t: any): string {
+function typeToString(t: IcebergType): string {
   if (typeof t === 'string') return t;
-  if (t?.type === 'struct') {
-    const inner = (t.fields || [])
-      .map((f: any) => `${f.name}: ${typeToString(f.type)}${f.required ? ' NOT NULL' : ''}`)
+  if (t.type === 'struct') {
+    const st = t as StructType;
+    const inner = st.fields
+      .map((f: StructField) => `${f.name}: ${typeToString(f.type)}${f.required ? ' NOT NULL' : ''}`)
       .join(', ');
     return `struct<${inner}>`;
   }
-  if (t?.type === 'list') return `list<${typeToString(t.element)}>`;
-  if (t?.type === 'map') return `map<${typeToString(t.key)}, ${typeToString(t.value)}>`;
-  return String(t ?? 'unknown');
+  if (t.type === 'list') {
+    const lt = t as ListType;
+    return `list<${typeToString(lt.element)}>`;
+  }
+  if (t.type === 'map') {
+    const mt = t as MapType;
+    return `map<${typeToString(mt.key)}, ${typeToString(mt.value)}>`;
+  }
+  return String(t);
 }
 
-function generateTableDDL(tablePath: string, metadata: any): string {
+function generateTableDDL(tablePath: string, metadata: TableMetadataWritable): string {
   const lines: string[] = [];
   const schemaId = metadata['current-schema-id'] ?? 0;
-  const schema =
-    (metadata.schemas || []).find((s: any) => s['schema-id'] === schemaId) ||
-    (metadata.schemas || [])[0];
+  const schemas = metadata.schemas || [];
+  const schema = schemas.find((s) => (s as any)['schema-id'] === schemaId) || schemas[0];
 
   lines.push(`CREATE TABLE ${tablePath} (`);
   if (schema?.fields?.length) {
-    const cols = schema.fields.map((f: any) => {
+    const cols = schema.fields.map((f: StructField) => {
       let col = `  ${f.name} ${typeToString(f.type)}`;
       if (f.required) col += ' NOT NULL';
       if (f.doc) col += ` COMMENT '${f.doc.replace(/'/g, "''")}'`;
@@ -1360,14 +1413,13 @@ function generateTableDDL(tablePath: string, metadata: any): string {
 
   // Partition spec
   const specId = metadata['default-spec-id'] ?? 0;
-  const partSpec =
-    (metadata['partition-specs'] || []).find((s: any) => s['spec-id'] === specId) ||
-    (metadata['partition-specs'] || [])[0];
+  const partSpecs = metadata['partition-specs'] || [];
+  const partSpec = partSpecs.find((s) => (s as any)['spec-id'] === specId) || partSpecs[0];
   if (partSpec?.fields?.length) {
-    const sourceNames = schema?.fields
-      ? Object.fromEntries(schema.fields.map((f: any) => [f.id, f.name]))
+    const sourceNames: Record<number, string> = schema?.fields
+      ? Object.fromEntries(schema.fields.map((f: StructField) => [f.id, f.name]))
       : {};
-    const parts = partSpec.fields.map((pf: any) => {
+    const parts = partSpec.fields.map((pf: PartitionField) => {
       const colName = sourceNames[pf['source-id']] || `col_${pf['source-id']}`;
       return pf.transform === 'identity' ? colName : `${pf.transform}(${colName})`;
     });
@@ -1376,14 +1428,13 @@ function generateTableDDL(tablePath: string, metadata: any): string {
 
   // Sort order
   const sortId = metadata['default-sort-order-id'] ?? 0;
-  const sortOrder =
-    (metadata['sort-orders'] || []).find((s: any) => s['order-id'] === sortId) ||
-    (metadata['sort-orders'] || [])[0];
+  const sortOrders = metadata['sort-orders'] || [];
+  const sortOrder = sortOrders.find((s) => (s as any)['order-id'] === sortId) || sortOrders[0];
   if (sortOrder?.fields?.length) {
-    const sourceNames = schema?.fields
-      ? Object.fromEntries(schema.fields.map((f: any) => [f.id, f.name]))
+    const sourceNames: Record<number, string> = schema?.fields
+      ? Object.fromEntries(schema.fields.map((f: StructField) => [f.id, f.name]))
       : {};
-    const sorts = sortOrder.fields.map((sf: any) => {
+    const sorts = sortOrder.fields.map((sf: SortField) => {
       const colName = sourceNames[sf['source-id']] || `col_${sf['source-id']}`;
       const expr = sf.transform === 'identity' ? colName : `${sf.transform}(${colName})`;
       return `${expr} ${sf.direction} ${sf['null-order']}`;
@@ -1407,39 +1458,38 @@ function generateTableDDL(tablePath: string, metadata: any): string {
   return lines.join('\n') + '\n';
 }
 
-function generateViewDDL(viewPath: string, metadata: any): string {
+function generateViewDDL(viewPath: string, metadata: ViewMetadataWritable): string {
   const lines: string[] = [];
   const versionId = metadata['current-version-id'];
-  const version =
-    (metadata.versions || []).find((v: any) => v['version-id'] === versionId) ||
-    (metadata.versions || [])[0];
+  const version: ViewVersion | undefined =
+    metadata.versions.find((v) => v['version-id'] === versionId) || metadata.versions[0];
 
   // Schema
   const schemaId = version?.['schema-id'] ?? 0;
-  const schema =
-    (metadata.schemas || []).find((s: any) => s['schema-id'] === schemaId) ||
-    (metadata.schemas || [])[0];
+  const schemas = metadata.schemas || [];
+  const schema = schemas.find((s) => (s as any)['schema-id'] === schemaId) || schemas[0];
 
-  lines.push(`CREATE VIEW ${viewPath} (`);
+  // Standard CREATE VIEW: only column names in the parenthesised list
   if (schema?.fields?.length) {
-    const cols = schema.fields.map((f: any) => {
-      let col = `  ${f.name} ${typeToString(f.type)}`;
-      if (f.doc) col += ` COMMENT '${f.doc.replace(/'/g, "''")}'`;
-      return col;
-    });
-    lines.push(cols.join(',\n'));
+    const colNames = schema.fields.map((f: StructField) => `  ${f.name}`).join(',\n');
+    lines.push(`CREATE VIEW ${viewPath} (`);
+    lines.push(colNames);
+    lines.push(') AS');
+  } else {
+    lines.push(`CREATE VIEW ${viewPath} AS`);
   }
-  lines.push(') AS');
 
   // SQL representation
-  const sqlRep = version?.representations?.find((r: any) => r.type === 'sql');
+  const sqlRep: SqlViewRepresentation | undefined = version?.representations?.find(
+    (r): r is SqlViewRepresentation => r.type === 'sql',
+  );
   if (sqlRep?.sql) {
     lines.push(sqlRep.sql);
   } else {
     lines.push('-- (no SQL representation available)');
   }
 
-  // Properties
+  // Properties as comments
   if (metadata.properties && Object.keys(metadata.properties).length) {
     lines.push('');
     lines.push('-- View properties:');
@@ -1459,6 +1509,7 @@ async function handleShowDDL(item: {
   name: string;
 }) {
   const tablePath = buildTablePath(item);
+  const token = ++ddlRequestToken;
   ddlTitle.value = `${item.name} (${item.type})`;
   ddlContent.value = '';
   ddlError.value = null;
@@ -1468,6 +1519,7 @@ async function handleShowDDL(item: {
   try {
     if (item.type === 'view') {
       const result = await functions.loadView(item.warehouseId, item.namespaceId, item.name, false);
+      if (token !== ddlRequestToken) return;
       ddlContent.value = generateViewDDL(tablePath, result.metadata);
     } else {
       const result = await functions.loadTable(
@@ -1476,16 +1528,20 @@ async function handleShowDDL(item: {
         item.name,
         false,
       );
+      if (token !== ddlRequestToken) return;
       ddlContent.value = generateTableDDL(tablePath, result.metadata);
     }
   } catch (err: any) {
+    if (token !== ddlRequestToken) return;
     ddlError.value = err?.message || 'Failed to load metadata';
   } finally {
-    isDDLLoading.value = false;
+    if (token === ddlRequestToken) {
+      isDDLLoading.value = false;
+    }
   }
 }
 
-function handleCopyPath(item: {
+async function handleCopyPath(item: {
   type: string;
   warehouseId: string;
   warehouseName: string;
@@ -1493,26 +1549,12 @@ function handleCopyPath(item: {
   name: string;
 }) {
   const tablePath = buildTablePath(item);
-  navigator.clipboard.writeText(tablePath);
-  visualStore.setSnackbarMsg({
-    function: 'copyPath',
-    text: 'Path copied to clipboard',
-    ttl: 2000,
-    ts: Date.now(),
-    type: Type.SUCCESS,
-  });
+  await copyToClipboard(tablePath, 'Path copied to clipboard');
 }
 
-function copyDDLToClipboard() {
+async function copyDDLToClipboard() {
   if (!ddlContent.value) return;
-  navigator.clipboard.writeText(ddlContent.value);
-  visualStore.setSnackbarMsg({
-    function: 'copyDDL',
-    text: 'DDL copied to clipboard',
-    ttl: 2000,
-    ts: Date.now(),
-    type: Type.SUCCESS,
-  });
+  await copyToClipboard(ddlContent.value, 'DDL copied to clipboard');
 }
 
 async function handleAutoAttachWarehouse(wh: {
