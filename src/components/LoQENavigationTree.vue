@@ -217,6 +217,9 @@
             :icon="getTypeIcon(item.fieldType)"
             :color="getTypeColor(item.fieldType)"
             size="small" />
+          <v-icon v-else-if="item.type === 'load-more'" size="small" color="grey">
+            mdi-dots-horizontal
+          </v-icon>
         </template>
 
         <template v-slot:title="{ item }">
@@ -226,7 +229,14 @@
             :data-node-id="item.id"
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
-            <span class="tree-item-title text-caption" :title="item.fieldType || item.name">
+            <span
+              v-if="item.type === 'load-more'"
+              class="tree-item-title text-caption"
+              style="cursor: pointer; font-style: italic; color: grey"
+              @click.stop="handleLoadMore(item)">
+              {{ item.name }}
+            </span>
+            <span v-else class="tree-item-title text-caption" :title="item.fieldType || item.name">
               {{ item.name }}
             </span>
 
@@ -322,7 +332,7 @@ const visualStore = useVisualStore();
 interface TreeItem {
   id: string;
   name: string;
-  type: 'warehouse' | 'namespace' | 'table' | 'view' | 'field';
+  type: 'warehouse' | 'namespace' | 'table' | 'view' | 'field' | 'load-more';
   children?: TreeItem[];
   warehouseId: string;
   warehouseName?: string;
@@ -335,14 +345,24 @@ interface TreeItem {
   storageType?: 's3' | 'adls' | 'gcs';
   storageFlavor?: string;
   storageEndpoint?: string;
+  /** Which resource types still have pages to load (only on load-more nodes). */
+  loadMoreTypes?: ('namespace' | 'table' | 'view')[];
 }
 
 // ── State ─────────────────────────────────────────────────────────────
+
+/** Max items per API page for tree loads — keeps DOM light. */
+const TREE_PAGE_SIZE = 100;
 
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const hoveredItem = ref<string | null>(null);
 const isLoading = ref(false);
+
+// Pagination tokens keyed by parent node id
+const pageTokens = ref<Record<string, { namespaces?: string; tables?: string; views?: string }>>(
+  {},
+);
 
 // Search state
 const searchQuery = ref('');
@@ -568,7 +588,13 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
   if (item.loaded) return;
 
   try {
-    const response = await functions.listNamespaces(item.warehouseId, undefined, undefined, false);
+    const response = await functions.listNamespaces(
+      item.warehouseId,
+      undefined,
+      undefined,
+      false,
+      TREE_PAGE_SIZE,
+    );
 
     if (response?.namespaces) {
       item.children = response.namespaces.map((ns: string[]) => {
@@ -584,6 +610,20 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
           loaded: false,
         };
       });
+
+      // If the server returned a next-page-token, add a "Load more…" node
+      if (response['next-page-token']) {
+        pageTokens.value[item.id] = { namespaces: response['next-page-token'] };
+        item.children.push({
+          id: `load-more-${item.id}`,
+          name: 'Load more…',
+          type: 'load-more',
+          warehouseId: item.warehouseId,
+          warehouseName: item.warehouseName || item.name,
+          loaded: true,
+          loadMoreTypes: ['namespace'],
+        });
+      }
     }
 
     item.loaded = true;
@@ -613,9 +653,9 @@ async function loadChildrenForNamespace(item: TreeItem) {
     const apiNs = namespacePathToApiFormat(item.namespaceId);
 
     const [namespacesRes, tablesRes, viewsRes] = await Promise.all([
-      functions.listNamespaces(item.warehouseId, apiNs, undefined, false),
-      functions.listTables(item.warehouseId, apiNs, undefined, false),
-      functions.listViews(item.warehouseId, apiNs, undefined, false),
+      functions.listNamespaces(item.warehouseId, apiNs, undefined, false, TREE_PAGE_SIZE),
+      functions.listTables(item.warehouseId, apiNs, undefined, false, TREE_PAGE_SIZE),
+      functions.listViews(item.warehouseId, apiNs, undefined, false, TREE_PAGE_SIZE),
     ]);
 
     const children: TreeItem[] = [];
@@ -666,6 +706,35 @@ async function loadChildrenForNamespace(item: TreeItem) {
           children: [],
           loaded: false,
         });
+      });
+    }
+
+    // Add a "Load more…" node if any resource type has more pages
+    const tokens: { namespaces?: string; tables?: string; views?: string } = {};
+    const loadMoreTypes: ('namespace' | 'table' | 'view')[] = [];
+    if (namespacesRes?.['next-page-token']) {
+      tokens.namespaces = namespacesRes['next-page-token'];
+      loadMoreTypes.push('namespace');
+    }
+    if (tablesRes?.['next-page-token']) {
+      tokens.tables = tablesRes['next-page-token'];
+      loadMoreTypes.push('table');
+    }
+    if (viewsRes?.['next-page-token']) {
+      tokens.views = viewsRes['next-page-token'];
+      loadMoreTypes.push('view');
+    }
+    if (loadMoreTypes.length > 0) {
+      pageTokens.value[item.id] = tokens;
+      children.push({
+        id: `load-more-${item.id}`,
+        name: 'Load more…',
+        type: 'load-more',
+        warehouseId: item.warehouseId,
+        warehouseName: item.warehouseName,
+        namespaceId: item.namespaceId,
+        loaded: true,
+        loadMoreTypes,
       });
     }
 
@@ -740,6 +809,184 @@ function makeFieldItem(parent: TreeItem, field: any): TreeItem {
     parentType: parent.type as 'table' | 'view',
     parentName: parent.name,
   };
+}
+
+// ── Handle "Load more…" node clicks ──────────────────────────────────
+
+async function handleLoadMore(loadMoreItem: TreeItem) {
+  const parentId = loadMoreItem.id.replace('load-more-', '');
+  const parent = findItemById(treeItems.value, parentId);
+  if (!parent || !parent.children) return;
+
+  const tokens = pageTokens.value[parentId];
+  if (!tokens) return;
+
+  // Show loading state
+  loadMoreItem.name = 'Loading…';
+  treeItems.value = [...treeItems.value];
+
+  try {
+    // If parent is a warehouse, load more namespaces
+    if (parent.type === 'warehouse' && tokens.namespaces) {
+      const response = await functions.listNamespaces(
+        parent.warehouseId,
+        undefined,
+        tokens.namespaces,
+        false,
+        TREE_PAGE_SIZE,
+      );
+
+      parent.children = parent.children.filter((c) => c.id !== loadMoreItem.id);
+
+      if (response?.namespaces) {
+        response.namespaces.forEach((ns: string[]) => {
+          const fullPath = ns.join('.');
+          parent.children!.push({
+            id: `ns-${parent.warehouseId}-${fullPath}`,
+            name: ns[ns.length - 1],
+            type: 'namespace',
+            warehouseId: parent.warehouseId,
+            warehouseName: parent.warehouseName,
+            namespaceId: fullPath,
+            children: [],
+            loaded: false,
+          });
+        });
+      }
+
+      if (response?.['next-page-token']) {
+        pageTokens.value[parentId] = { namespaces: response['next-page-token'] };
+        parent.children.push({
+          id: `load-more-${parentId}`,
+          name: 'Load more…',
+          type: 'load-more',
+          warehouseId: parent.warehouseId,
+          warehouseName: parent.warehouseName,
+          loaded: true,
+          loadMoreTypes: ['namespace'],
+        });
+      } else {
+        delete pageTokens.value[parentId];
+      }
+    }
+
+    // If parent is a namespace, load more namespaces/tables/views
+    if (parent.type === 'namespace' && parent.namespaceId) {
+      const apiNs = namespacePathToApiFormat(parent.namespaceId);
+
+      const calls: Promise<any>[] = [];
+      const callTypes: string[] = [];
+      if (tokens.namespaces) {
+        calls.push(
+          functions.listNamespaces(
+            parent.warehouseId,
+            apiNs,
+            tokens.namespaces,
+            false,
+            TREE_PAGE_SIZE,
+          ),
+        );
+        callTypes.push('namespaces');
+      }
+      if (tokens.tables) {
+        calls.push(
+          functions.listTables(parent.warehouseId, apiNs, tokens.tables, false, TREE_PAGE_SIZE),
+        );
+        callTypes.push('tables');
+      }
+      if (tokens.views) {
+        calls.push(
+          functions.listViews(parent.warehouseId, apiNs, tokens.views, false, TREE_PAGE_SIZE),
+        );
+        callTypes.push('views');
+      }
+
+      const results = await Promise.all(calls);
+
+      parent.children = parent.children.filter((c) => c.id !== loadMoreItem.id);
+
+      const newTokens: { namespaces?: string; tables?: string; views?: string } = {};
+
+      results.forEach((data, idx) => {
+        const type = callTypes[idx];
+
+        if (type === 'namespaces' && data?.namespaces) {
+          data.namespaces.forEach((ns: string[]) => {
+            const fullPath = ns.join('.');
+            parent.children!.push({
+              id: `ns-${parent.warehouseId}-${fullPath}`,
+              name: ns[ns.length - 1],
+              type: 'namespace',
+              warehouseId: parent.warehouseId,
+              warehouseName: parent.warehouseName,
+              namespaceId: fullPath,
+              children: [],
+              loaded: false,
+            });
+          });
+          if (data['next-page-token']) newTokens.namespaces = data['next-page-token'];
+        }
+
+        if (type === 'tables' && data?.identifiers) {
+          data.identifiers.forEach((t: any) => {
+            parent.children!.push({
+              id: `table-${parent.warehouseId}-${parent.namespaceId}-${t.name}`,
+              name: t.name,
+              type: 'table',
+              warehouseId: parent.warehouseId,
+              warehouseName: parent.warehouseName,
+              namespaceId: parent.namespaceId,
+              children: [],
+              loaded: false,
+            });
+          });
+          if (data['next-page-token']) newTokens.tables = data['next-page-token'];
+        }
+
+        if (type === 'views' && data?.identifiers) {
+          data.identifiers.forEach((v: any) => {
+            parent.children!.push({
+              id: `view-${parent.warehouseId}-${parent.namespaceId}-${v.name}`,
+              name: v.name,
+              type: 'view',
+              warehouseId: parent.warehouseId,
+              warehouseName: parent.warehouseName,
+              namespaceId: parent.namespaceId,
+              children: [],
+              loaded: false,
+            });
+          });
+          if (data['next-page-token']) newTokens.views = data['next-page-token'];
+        }
+      });
+
+      const loadMoreTypes: ('namespace' | 'table' | 'view')[] = [];
+      if (newTokens.namespaces) loadMoreTypes.push('namespace');
+      if (newTokens.tables) loadMoreTypes.push('table');
+      if (newTokens.views) loadMoreTypes.push('view');
+
+      if (loadMoreTypes.length > 0) {
+        pageTokens.value[parentId] = newTokens;
+        parent.children.push({
+          id: `load-more-${parentId}`,
+          name: 'Load more…',
+          type: 'load-more',
+          warehouseId: parent.warehouseId,
+          warehouseName: parent.warehouseName,
+          namespaceId: parent.namespaceId,
+          loaded: true,
+          loadMoreTypes,
+        });
+      } else {
+        delete pageTokens.value[parentId];
+      }
+    }
+  } catch (error: any) {
+    logError('[LoQE Tree] handleLoadMore', error);
+    loadMoreItem.name = 'Load more…';
+  }
+
+  treeItems.value = [...treeItems.value];
 }
 
 // ── Watch opened items ────────────────────────────────────────────────

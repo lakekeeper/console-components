@@ -1001,6 +1001,7 @@ async function listNamespaces(
   parentNS?: string,
   page_token?: PageToken,
   notify?: boolean,
+  pageSize: number = 100,
 ): Promise<NamespaceResponse> {
   try {
     const client = iceClient.client;
@@ -1013,7 +1014,7 @@ async function listNamespaces(
         parent: parentNS,
         returnUuids: true,
         pageToken: page_token || undefined,
-        pageSize: 100,
+        pageSize,
       },
     });
 
@@ -1842,6 +1843,7 @@ async function listTables(
   ns?: string,
   pageToken?: PageToken,
   notify?: boolean,
+  pageSize: number = 1000,
 ): Promise<ListTablesResponse> {
   try {
     const client = iceClient.client;
@@ -1851,7 +1853,7 @@ async function listTables(
         prefix: id,
         namespace: ns ?? '',
       },
-      query: { pageToken: pageToken || undefined, pageSize: 1000 },
+      query: { pageToken: pageToken || undefined, pageSize },
     });
     if (error) throw error;
 
@@ -2168,6 +2170,7 @@ async function listViews(
   ns?: string,
   page_token?: PageToken,
   notify?: boolean,
+  pageSize: number = 1000,
 ): Promise<ListTablesResponse> {
   try {
     const client = iceClient.client;
@@ -2177,7 +2180,7 @@ async function listViews(
         prefix: id,
         namespace: ns ?? '',
       },
-      query: { pageToken: page_token || '', pageSize: 1000 },
+      query: { pageToken: page_token || '', pageSize },
     });
     if (error) throw error;
 
