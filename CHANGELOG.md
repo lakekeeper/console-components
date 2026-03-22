@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/lakekeeper/console-components/compare/v0.4.0...v0.4.1) (2026-03-22)
+
+
+### Bug Fixes
+
+* claude.md ([fda8b0a](https://github.com/lakekeeper/console-components/commit/fda8b0a79651ee8d29d1cd7aac6df7856f51b2dc))
+
 ## [0.4.0](https://github.com/lakekeeper/console-components/compare/v0.3.9...v0.4.0) (2026-03-22)
 
 
