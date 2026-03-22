@@ -98,7 +98,10 @@
             <LoQENavigationTree
               :attached-catalogs="loqe.attachedCatalogs.value"
               @item-selected="handleTreeItemSelected"
-              @attach-warehouse="handleAutoAttachWarehouse" />
+              @attach-warehouse="handleAutoAttachWarehouse"
+              @preview-table="handlePreviewTable"
+              @show-ddl="handleShowDDL"
+              @copy-path="handleCopyPath" />
           </div>
 
           <v-divider />
@@ -691,6 +694,105 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Table Preview Dialog -->
+    <v-dialog v-model="showPreviewDialog" max-width="900" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center text-subtitle-1">
+          <v-icon size="small" class="mr-2">mdi-eye-outline</v-icon>
+          {{ previewTitle }}
+          <v-spacer />
+          <v-btn icon size="small" variant="text" @click="showPreviewDialog = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="pa-0" style="max-height: 500px; overflow: auto">
+          <div v-if="isPreviewLoading" class="text-center py-8">
+            <v-progress-circular indeterminate size="32" color="primary" />
+            <div class="text-caption mt-2 text-grey">Loading preview…</div>
+          </div>
+          <div v-else-if="previewError" class="pa-4">
+            <v-alert type="error" variant="tonal" density="compact">{{ previewError }}</v-alert>
+          </div>
+          <v-data-table-virtual
+            v-else-if="previewResult"
+            :headers="previewHeaders"
+            :items="previewItems"
+            :height="Math.min(400, 28 + previewItems.length * 28)"
+            density="compact"
+            fixed-header
+            class="text-caption"
+            item-height="28" />
+        </v-card-text>
+        <v-divider />
+        <v-card-actions class="px-4 py-2">
+          <span class="text-caption text-medium-emphasis">
+            <template v-if="previewResult">
+              {{ previewResult.rowCount }} row{{ previewResult.rowCount !== 1 ? 's' : '' }} &middot;
+              {{ previewResult.columns.length }} column{{
+                previewResult.columns.length !== 1 ? 's' : ''
+              }}
+              &middot; {{ previewResult.executionTimeMs.toFixed(0) }}ms
+            </template>
+          </span>
+          <v-spacer />
+          <v-btn
+            v-if="previewTablePath"
+            size="small"
+            variant="text"
+            @click="copyPreviewPath"
+            prepend-icon="mdi-content-copy">
+            Copy path
+          </v-btn>
+          <v-btn
+            v-if="previewResult"
+            size="small"
+            variant="text"
+            @click="insertPreviewQuery"
+            prepend-icon="mdi-code-tags">
+            Insert SELECT
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- DDL Dialog -->
+    <v-dialog v-model="showDDLDialog" max-width="800" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center text-subtitle-1">
+          <v-icon size="small" class="mr-2">mdi-code-tags</v-icon>
+          {{ ddlTitle }}
+          <v-spacer />
+          <v-btn icon size="small" variant="text" @click="showDDLDialog = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider />
+        <v-card-text class="pa-0" style="max-height: 500px; overflow: auto">
+          <div v-if="isDDLLoading" class="text-center py-8">
+            <v-progress-circular indeterminate size="32" color="primary" />
+            <div class="text-caption mt-2 text-grey">Loading metadata…</div>
+          </div>
+          <div v-else-if="ddlError" class="pa-4">
+            <v-alert type="error" variant="tonal" density="compact">{{ ddlError }}</v-alert>
+          </div>
+          <SqlEditor v-else :model-value="ddlContent" disabled min-height="200px" placeholder="" />
+        </v-card-text>
+        <v-divider />
+        <v-card-actions class="px-4 py-2">
+          <v-spacer />
+          <v-btn
+            size="small"
+            variant="text"
+            @click="copyDDLToClipboard"
+            prepend-icon="mdi-content-copy"
+            :disabled="!ddlContent">
+            Copy DDL
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -702,6 +804,7 @@ import { useVisualStore } from '../stores/visual';
 import { useCsvDownload } from '../composables/useCsvDownload';
 import { useDuckDBSettingsStore } from '../stores/duckdbSettings';
 import { useLoQEStore } from '../stores/loqe';
+import { useFunctions } from '../plugins/functions';
 import { Type } from '../common/enums';
 import type { LoQEQueryResult } from '../composables/loqe/types';
 import SqlEditor from './SqlEditor.vue';
@@ -737,6 +840,7 @@ const appConfig = inject<any>('appConfig', { enabledAuthentication: false });
 const userStore = useUserStore();
 const visualStore = useVisualStore();
 const csvDownload = useCsvDownload();
+const functions = useFunctions();
 
 // ── LoQE composable ──────────────────────────────────────────────────
 
@@ -770,6 +874,42 @@ const renameError = ref('');
 const showCloseOtherTabsDialog = ref(false);
 const tabToKeep = ref<{ id: string; name: string } | null>(null);
 const lastExecutedTabName = ref('');
+
+// Preview dialog state
+const showPreviewDialog = ref(false);
+const isPreviewLoading = ref(false);
+const previewResult = ref<LoQEQueryResult | null>(null);
+const previewError = ref<string | null>(null);
+const previewTitle = ref('');
+const previewTablePath = ref('');
+
+const previewHeaders = computed(() => {
+  if (!previewResult.value) return [];
+  return previewResult.value.columns.map((col) => ({
+    title: col,
+    key: col,
+    sortable: false,
+  }));
+});
+
+const previewItems = computed(() => {
+  if (!previewResult.value) return [];
+  const cols = previewResult.value.columns;
+  return previewResult.value.rows.map((row) => {
+    const obj: Record<string, string> = {};
+    for (let i = 0; i < cols.length; i++) {
+      obj[cols[i]] = formatCell(row[i]);
+    }
+    return obj;
+  });
+});
+
+// DDL dialog state
+const showDDLDialog = ref(false);
+const isDDLLoading = ref(false);
+const ddlContent = ref('');
+const ddlError = ref<string | null>(null);
+const ddlTitle = ref('');
 
 // Multi-result state (one entry per statement when running multiple queries)
 interface ResultEntry {
@@ -1094,10 +1234,9 @@ function handleTreeItemSelected(item: {
     item.warehouseName &&
     item.namespaceId
   ) {
-    const nsDisplay = item.namespaceId.includes('\x1F')
-      ? item.namespaceId.split('\x1F').join('.')
-      : item.namespaceId;
-    textToInsert = `"${item.warehouseName}"."${nsDisplay}"."${item.name}"`;
+    textToInsert = buildTablePath(
+      item as { warehouseName: string; namespaceId: string; name: string },
+    );
   }
 
   if (textToInsert) {
@@ -1122,6 +1261,258 @@ async function handleFreeMemory() {
   } finally {
     isFreeing.value = false;
   }
+}
+
+function buildTablePath(item: { warehouseName: string; namespaceId: string; name: string }) {
+  const nsDisplay = item.namespaceId.includes('\x1F')
+    ? item.namespaceId.split('\x1F').join('.')
+    : item.namespaceId;
+  return `"${item.warehouseName}"."${nsDisplay}"."${item.name}"`;
+}
+
+async function handlePreviewTable(item: {
+  type: string;
+  warehouseId: string;
+  warehouseName: string;
+  namespaceId: string;
+  name: string;
+}) {
+  const tablePath = buildTablePath(item);
+  previewTablePath.value = tablePath;
+  previewTitle.value = `${item.name} (${item.type})`;
+  previewResult.value = null;
+  previewError.value = null;
+  isPreviewLoading.value = true;
+  showPreviewDialog.value = true;
+
+  try {
+    const result = await loqe.query(`SELECT * FROM ${tablePath} LIMIT 50`);
+    previewResult.value = result;
+  } catch (err: any) {
+    previewError.value = err?.message || 'Failed to load preview';
+  } finally {
+    isPreviewLoading.value = false;
+  }
+}
+
+function insertPreviewQuery() {
+  if (!previewTablePath.value) return;
+  const query = `SELECT * FROM ${previewTablePath.value} LIMIT 50`;
+  if (!sqlQuery.value) {
+    sqlQuery.value = query;
+  } else {
+    const before = sqlQuery.value.substring(0, cursorPosition.value);
+    const after = sqlQuery.value.substring(cursorPosition.value);
+    sqlQuery.value = before + query + after;
+    cursorPosition.value += query.length;
+  }
+  showPreviewDialog.value = false;
+}
+
+function copyPreviewPath() {
+  if (!previewTablePath.value) return;
+  navigator.clipboard.writeText(previewTablePath.value);
+  visualStore.setSnackbarMsg({
+    function: 'copyPath',
+    text: 'Path copied to clipboard',
+    ttl: 2000,
+    ts: Date.now(),
+    type: Type.SUCCESS,
+  });
+}
+
+// ── DDL / Copy Path handlers ──────────────────────────────────────────
+
+/**
+ * Serialise an Iceberg Type to its DDL string representation.
+ */
+function typeToString(t: any): string {
+  if (typeof t === 'string') return t;
+  if (t?.type === 'struct') {
+    const inner = (t.fields || [])
+      .map((f: any) => `${f.name}: ${typeToString(f.type)}${f.required ? ' NOT NULL' : ''}`)
+      .join(', ');
+    return `struct<${inner}>`;
+  }
+  if (t?.type === 'list') return `list<${typeToString(t.element)}>`;
+  if (t?.type === 'map') return `map<${typeToString(t.key)}, ${typeToString(t.value)}>`;
+  return String(t ?? 'unknown');
+}
+
+function generateTableDDL(tablePath: string, metadata: any): string {
+  const lines: string[] = [];
+  const schemaId = metadata['current-schema-id'] ?? 0;
+  const schema =
+    (metadata.schemas || []).find((s: any) => s['schema-id'] === schemaId) ||
+    (metadata.schemas || [])[0];
+
+  lines.push(`CREATE TABLE ${tablePath} (`);
+  if (schema?.fields?.length) {
+    const cols = schema.fields.map((f: any) => {
+      let col = `  ${f.name} ${typeToString(f.type)}`;
+      if (f.required) col += ' NOT NULL';
+      if (f.doc) col += ` COMMENT '${f.doc.replace(/'/g, "''")}'`;
+      return col;
+    });
+    lines.push(cols.join(',\n'));
+  }
+  lines.push(')');
+
+  // Partition spec
+  const specId = metadata['default-spec-id'] ?? 0;
+  const partSpec =
+    (metadata['partition-specs'] || []).find((s: any) => s['spec-id'] === specId) ||
+    (metadata['partition-specs'] || [])[0];
+  if (partSpec?.fields?.length) {
+    const sourceNames = schema?.fields
+      ? Object.fromEntries(schema.fields.map((f: any) => [f.id, f.name]))
+      : {};
+    const parts = partSpec.fields.map((pf: any) => {
+      const colName = sourceNames[pf['source-id']] || `col_${pf['source-id']}`;
+      return pf.transform === 'identity' ? colName : `${pf.transform}(${colName})`;
+    });
+    lines.push(`PARTITIONED BY (${parts.join(', ')})`);
+  }
+
+  // Sort order
+  const sortId = metadata['default-sort-order-id'] ?? 0;
+  const sortOrder =
+    (metadata['sort-orders'] || []).find((s: any) => s['order-id'] === sortId) ||
+    (metadata['sort-orders'] || [])[0];
+  if (sortOrder?.fields?.length) {
+    const sourceNames = schema?.fields
+      ? Object.fromEntries(schema.fields.map((f: any) => [f.id, f.name]))
+      : {};
+    const sorts = sortOrder.fields.map((sf: any) => {
+      const colName = sourceNames[sf['source-id']] || `col_${sf['source-id']}`;
+      const expr = sf.transform === 'identity' ? colName : `${sf.transform}(${colName})`;
+      return `${expr} ${sf.direction} ${sf['null-order']}`;
+    });
+    lines.push(`SORTED BY (${sorts.join(', ')})`);
+  }
+
+  // Location
+  if (metadata.location) {
+    lines.push(`LOCATION '${metadata.location}'`);
+  }
+
+  // Properties
+  if (metadata.properties && Object.keys(metadata.properties).length) {
+    const props = Object.entries(metadata.properties)
+      .map(([k, v]) => `  '${k}' = '${String(v).replace(/'/g, "''")}'`)
+      .join(',\n');
+    lines.push(`TBLPROPERTIES (\n${props}\n)`);
+  }
+
+  return lines.join('\n') + '\n';
+}
+
+function generateViewDDL(viewPath: string, metadata: any): string {
+  const lines: string[] = [];
+  const versionId = metadata['current-version-id'];
+  const version =
+    (metadata.versions || []).find((v: any) => v['version-id'] === versionId) ||
+    (metadata.versions || [])[0];
+
+  // Schema
+  const schemaId = version?.['schema-id'] ?? 0;
+  const schema =
+    (metadata.schemas || []).find((s: any) => s['schema-id'] === schemaId) ||
+    (metadata.schemas || [])[0];
+
+  lines.push(`CREATE VIEW ${viewPath} (`);
+  if (schema?.fields?.length) {
+    const cols = schema.fields.map((f: any) => {
+      let col = `  ${f.name} ${typeToString(f.type)}`;
+      if (f.doc) col += ` COMMENT '${f.doc.replace(/'/g, "''")}'`;
+      return col;
+    });
+    lines.push(cols.join(',\n'));
+  }
+  lines.push(') AS');
+
+  // SQL representation
+  const sqlRep = version?.representations?.find((r: any) => r.type === 'sql');
+  if (sqlRep?.sql) {
+    lines.push(sqlRep.sql);
+  } else {
+    lines.push('-- (no SQL representation available)');
+  }
+
+  // Properties
+  if (metadata.properties && Object.keys(metadata.properties).length) {
+    lines.push('');
+    lines.push('-- View properties:');
+    for (const [k, v] of Object.entries(metadata.properties)) {
+      lines.push(`--   ${k} = ${v}`);
+    }
+  }
+
+  return lines.join('\n') + '\n';
+}
+
+async function handleShowDDL(item: {
+  type: string;
+  warehouseId: string;
+  warehouseName: string;
+  namespaceId: string;
+  name: string;
+}) {
+  const tablePath = buildTablePath(item);
+  ddlTitle.value = `${item.name} (${item.type})`;
+  ddlContent.value = '';
+  ddlError.value = null;
+  isDDLLoading.value = true;
+  showDDLDialog.value = true;
+
+  try {
+    if (item.type === 'view') {
+      const result = await functions.loadView(item.warehouseId, item.namespaceId, item.name, false);
+      ddlContent.value = generateViewDDL(tablePath, result.metadata);
+    } else {
+      const result = await functions.loadTable(
+        item.warehouseId,
+        item.namespaceId,
+        item.name,
+        false,
+      );
+      ddlContent.value = generateTableDDL(tablePath, result.metadata);
+    }
+  } catch (err: any) {
+    ddlError.value = err?.message || 'Failed to load metadata';
+  } finally {
+    isDDLLoading.value = false;
+  }
+}
+
+function handleCopyPath(item: {
+  type: string;
+  warehouseId: string;
+  warehouseName: string;
+  namespaceId: string;
+  name: string;
+}) {
+  const tablePath = buildTablePath(item);
+  navigator.clipboard.writeText(tablePath);
+  visualStore.setSnackbarMsg({
+    function: 'copyPath',
+    text: 'Path copied to clipboard',
+    ttl: 2000,
+    ts: Date.now(),
+    type: Type.SUCCESS,
+  });
+}
+
+function copyDDLToClipboard() {
+  if (!ddlContent.value) return;
+  navigator.clipboard.writeText(ddlContent.value);
+  visualStore.setSnackbarMsg({
+    function: 'copyDDL',
+    text: 'DDL copied to clipboard',
+    ttl: 2000,
+    ts: Date.now(),
+    type: Type.SUCCESS,
+  });
 }
 
 async function handleAutoAttachWarehouse(wh: {
