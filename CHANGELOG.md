@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.9](https://github.com/lakekeeper/console-components/compare/v0.3.8...v0.3.9) (2026-03-22)
+
+
+### Bug Fixes
+
+* **ui:** reduce tree page size and add load-more pagination ([9dc5a90](https://github.com/lakekeeper/console-components/commit/9dc5a90cbeef6f94f523aa6fb873d545ddb862ef))
+
 ## [0.3.8](https://github.com/lakekeeper/console-components/compare/v0.3.7...v0.3.8) (2026-03-21)
 
 
