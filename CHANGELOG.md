@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/lakekeeper/console-components/compare/v0.3.9...v0.4.0) (2026-03-22)
+
+
+### Features
+
+* **ui:** add kebab actions menu to LoQE tree and search results ([f9b1032](https://github.com/lakekeeper/console-components/commit/f9b10322d599770cb2d68e9cb9a54215ff1938e6))
+
 ## [0.3.9](https://github.com/lakekeeper/console-components/compare/v0.3.8...v0.3.9) (2026-03-22)
 
 
