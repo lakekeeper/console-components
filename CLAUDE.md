@@ -552,12 +552,17 @@ The consuming app must provide: `vue ^3.5`, `vuetify ^3.8`, `pinia ^2.3`, `vue-r
   - `fix(ui): …` for bug fixes
   - `chore:` / `ci:` / `docs:` for non-user-facing changes
 - **PR title**: `fix: <description>` or `feat: <description>` (no scope in the title)
-- **PR body**: add the `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` block so release-please picks up the scoped commit messages on squash-merge. **Every line** inside the block must be a conventional commit (`feat(ui):`, `fix(ui):`, or `chore(ui):`). No dashes, bullets, or markdown — release-please parses each line as a separate commit entry for the changelog.
+- **PR body**: add the `BEGIN_COMMIT_OVERRIDE` / `END_COMMIT_OVERRIDE` block so release-please picks up the scoped commit messages on squash-merge:
   ```text
   BEGIN_COMMIT_OVERRIDE
-  fix(ui): bump console-components to 0.4.0
-  feat(ui): add kebab actions menu to LoQE tree
-  fix(ui): reduce tree page size and add load-more pagination
+  fix(ui): short description of what was fixed
+  END_COMMIT_OVERRIDE
+  ```
+  For multiple changes, list each on its own line:
+  ```text
+  BEGIN_COMMIT_OVERRIDE
+  feat(ui): first change summary
+  fix(ui): second change summary
   END_COMMIT_OVERRIDE
   ```
 - **`just reviewable`** before every commit (install + format + lint + build)
