@@ -1,6 +1,6 @@
 import { inject } from 'vue';
 import { permissionActions } from '@/common/permissionActions';
-import { logError, isClientError, isForbiddenError, isNotFoundError } from '@/common/errorUtils';
+import { logError, isClientError, isNotFoundError } from '@/common/errorUtils';
 import {
   NamespaceResponse,
   SearchTabularRequest,
