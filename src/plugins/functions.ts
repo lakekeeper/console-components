@@ -1,6 +1,6 @@
 import { inject } from 'vue';
 import { permissionActions } from '@/common/permissionActions';
-import { logError, isClientError, isForbiddenError, isNotFoundError } from '@/common/errorUtils';
+import { logError, isClientError, isNotFoundError } from '@/common/errorUtils';
 import {
   NamespaceResponse,
   SearchTabularRequest,
@@ -190,9 +190,10 @@ export function handleError(error: any, functionError: Error | string, notify?: 
       logError('handleError', error);
     }
 
-    // 403/404 are handled inline by the UI (v-alert, router.replace to parent, etc.).
-    // Don't show snackbar unless the caller explicitly requested notification (notify=true).
-    if ((isForbiddenError(error) || isNotFoundError(error)) && notify !== true) {
+    // 403 errors always show a snackbar so the user knows they lack permission.
+    // 404 errors are handled inline by the UI (v-alert, router.replace to parent, etc.)
+    // and don't show a snackbar unless the caller explicitly requested notification (notify=true).
+    if (isNotFoundError(error) && notify !== true) {
       return;
     }
 
