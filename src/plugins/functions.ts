@@ -1,6 +1,6 @@
 import { inject } from 'vue';
 import { permissionActions } from '@/common/permissionActions';
-import { logError, isClientError, isForbiddenError, isNotFoundError } from '@/common/errorUtils';
+import { logError, isClientError, isNotFoundError } from '@/common/errorUtils';
 import {
   NamespaceResponse,
   SearchTabularRequest,
@@ -190,9 +190,10 @@ export function handleError(error: any, functionError: Error | string, notify?: 
       logError('handleError', error);
     }
 
-    // 403/404 are handled inline by the UI (v-alert, router.replace to parent, etc.).
-    // Don't show snackbar unless the caller explicitly requested notification (notify=true).
-    if ((isForbiddenError(error) || isNotFoundError(error)) && notify !== true) {
+    // 404 errors are handled inline by the UI (router.replace to parent, error alerts, etc.).
+    // Don't show snackbar for 404 unless the caller explicitly requested notification (notify=true).
+    // 403 errors always show a snackbar so the user knows they lack permission.
+    if (isNotFoundError(error) && notify !== true) {
       return;
     }
 
@@ -809,7 +810,7 @@ async function updateStorageCredential(
     }
     return data;
   } catch (error) {
-    handleError(error, 'updateStorageCredential');
+    handleError(error, 'updateStorageCredential', notify);
     throw error;
   }
 }
@@ -841,7 +842,7 @@ async function updateStorageProfile(
     }
     return data;
   } catch (error) {
-    handleError(error, 'updateStorageProfile');
+    handleError(error, 'updateStorageProfile', notify);
     throw error;
   }
 }
@@ -872,7 +873,7 @@ async function updateWarehouseDeleteProfile(
     }
     return true;
   } catch (error) {
-    handleError(error, 'updateWarehouseDeleteProfile');
+    handleError(error, 'updateWarehouseDeleteProfile', notify);
     throw error;
   }
 }
