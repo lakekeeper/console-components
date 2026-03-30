@@ -171,6 +171,10 @@ export const useVisualStore = defineStore(
       offlineReason.value = reason;
     }
 
+    function clearOfflineReason() {
+      offlineReason.value = null;
+    }
+
     function getServerInfo() {
       return serverInfo;
     }
@@ -367,6 +371,7 @@ export const useVisualStore = defineStore(
       refreshNavTree,
       offlineReason,
       setOfflineReason,
+      clearOfflineReason,
       policyBuilderDraft,
       policyEditorText,
       projectList,

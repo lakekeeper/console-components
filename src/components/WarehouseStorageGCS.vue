@@ -559,28 +559,24 @@ const saveAsJson = () => {
 };
 
 const emitNewCredentials = () => {
+  const cred = warehouseObjectData['storage-credential'];
   const credentials = {
     type: 'gcs',
-    'credential-type': 'service-account-key',
-    key:
-      warehouseObjectData['storage-credential']['credential-type'] === 'service-account-key'
-        ? warehouseObjectData['storage-credential'].key
-        : undefined,
+    'credential-type': credentialType.value,
+    key: cred['credential-type'] === 'service-account-key' ? cred.key : undefined,
   } as StorageCredential;
 
   emit('updateCredentials', credentials);
 };
 
 const emitNewProfile = () => {
+  const cred = warehouseObjectData['storage-credential'];
   const newProfile = {
     profile: warehouseObjectData['storage-profile'],
     credentials: {
       type: 'gcs',
-      'credential-type': 'service-account-key',
-      key:
-        warehouseObjectData['storage-credential']['credential-type'] === 'service-account-key'
-          ? warehouseObjectData['storage-credential'].key
-          : undefined,
+      'credential-type': credentialType.value,
+      key: cred['credential-type'] === 'service-account-key' ? cred.key : undefined,
     } as StorageCredential,
   } as { profile: StorageProfile; credentials: StorageCredential };
   emit('updateProfile', newProfile);

@@ -279,7 +279,7 @@
 
 <script lang="ts" setup>
 import { reactive, ref, watch, computed, onMounted } from 'vue';
-import { useFunctions } from '../plugins/functions';
+import { useFunctions, handleError } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import WarehouseStorageS3 from './WarehouseStorageS3.vue';
 import WarehouseStorageAzure from './WarehouseStorageAzure.vue';
@@ -293,7 +293,6 @@ import {
   GcsServiceKey,
   GetWarehouseResponse,
   StorageCredential,
-  StorageCredentialType,
   StorageProfile,
   TabularDeleteProfile,
 } from '../gen/management/types.gen';
@@ -510,8 +509,7 @@ async function createWarehouse(
     isDialogActive.value = false;
   } catch (error) {
     creatingWarehouse.value = false;
-
-    console.error(error);
+    handleError(error, 'createWarehouse', true);
   }
 }
 
@@ -560,8 +558,7 @@ async function createWarehouseJSON(wh: CreateWarehouseRequest) {
     isDialogActive.value = false;
   } catch (error) {
     creatingWarehouse.value = false;
-
-    console.error(error);
+    handleError(error, 'createWarehouseJSON', true);
   }
 }
 
