@@ -19,6 +19,13 @@ export interface WarehouseSqlData {
   tabs: SqlTab[];
 }
 
+// Offline reason captured by router guard
+export interface OfflineReason {
+  statusCode: number;
+  message: string;
+  timestamp: number;
+}
+
 // Cedar Policy Builder draft state
 export interface PolicyBuilderState {
   effect: 'permit' | 'forbid';
@@ -61,6 +68,9 @@ export const useVisualStore = defineStore(
 
     // Requested tab for namespace detail page (set by navigation tree context menu)
     const requestedNamespaceTab = ref<string | null>(null);
+
+    // Offline reason captured by router guard when server is unreachable
+    const offlineReason = ref<OfflineReason | null>(null);
 
     // Cedar Policy Builder & Editor state
     const policyBuilderDraft = ref<PolicyBuilderState>({
@@ -155,6 +165,10 @@ export const useVisualStore = defineStore(
     function setServerInfo(serverInfoInput: ServerInfo) {
       // Use the authz-backend from the server directly
       Object.assign(serverInfo, serverInfoInput);
+    }
+
+    function setOfflineReason(reason: OfflineReason) {
+      offlineReason.value = reason;
     }
 
     function getServerInfo() {
@@ -351,6 +365,8 @@ export const useVisualStore = defineStore(
       warehouseTreeState,
       navTreeRefreshSignal,
       refreshNavTree,
+      offlineReason,
+      setOfflineReason,
       policyBuilderDraft,
       policyEditorText,
       projectList,

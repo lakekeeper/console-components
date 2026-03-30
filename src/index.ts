@@ -177,7 +177,7 @@ export {
 export * from './composables/useAuth';
 
 // Export stores
-export { useVisualStore, type PolicyBuilderState } from './stores/visual';
+export { useVisualStore, type PolicyBuilderState, type OfflineReason } from './stores/visual';
 export { usePermissionStore } from './stores/permissions';
 export { useUserStore } from './stores/user';
 export { useNotificationStore } from './stores/notifications';
