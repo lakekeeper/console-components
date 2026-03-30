@@ -56,6 +56,11 @@ export type AzCredential = {
     'credential-type': 'azure-system-identity';
 };
 
+/**
+ * The type of Azure credential.
+ */
+export type AzCredentialType = 'client-credentials' | 'shared-access-key' | 'azure-system-identity';
+
 export type BootstrapRequest = {
     /**
      * Set to true if you accept LAKEKEEPER terms of use.
@@ -483,6 +488,11 @@ export type GcsCredential = {
     'credential-type': 'gcp-system-identity';
 };
 
+/**
+ * The type of GCS credential.
+ */
+export type GcsCredentialType = 'service-account-key' | 'gcp-system-identity';
+
 export type GcsProfile = {
     /**
      * Name of the GCS bucket
@@ -749,6 +759,7 @@ export type GetWarehouseResponse = {
      * Whether the warehouse is active.
      */
     status: WarehouseStatus;
+    'storage-credential-type'?: null | StorageCredentialType;
     /**
      * Storage profile used for the warehouse.
      */
@@ -1442,6 +1453,11 @@ export type S3Credential = (S3AccessKeyCredential & {
     'credential-type': 'cloudflare-r2';
 });
 
+/**
+ * The type of S3 credential.
+ */
+export type S3CredentialType = 'access-key' | 'aws-system-identity' | 'cloudflare-r2';
+
 export type S3Flavor = 'aws' | 's3-compat';
 
 export type S3Profile = {
@@ -1753,6 +1769,32 @@ export type StorageCredential = (S3Credential & {
 });
 
 /**
+ * The type of storage credential configured for a warehouse, without secret values.
+ *
+ * This is returned in API responses so clients know which credential type
+ * was selected (e.g. to restore radio button state in the UI).
+ */
+export type StorageCredentialType = {
+    /**
+     * S3 credential type
+     */
+    'credential-type': S3CredentialType;
+    type: 's3';
+} | {
+    /**
+     * Azure credential type
+     */
+    'credential-type': AzCredentialType;
+    type: 'az';
+} | {
+    /**
+     * GCS credential type
+     */
+    'credential-type': GcsCredentialType;
+    type: 'gcs';
+};
+
+/**
  * Controls how namespace and tabular paths are constructed under the warehouse base location.
  *
  * - `default` / omitted: one directory per direct-parent namespace, one per tabular, both with `"{uuid}"` segments.
@@ -2034,7 +2076,7 @@ export type UpdateWarehouseStorageRequest = {
      * Storage profile to use for the warehouse.
      * The new profile must point to the same location as the existing profile
      * to avoid data loss. For S3 this means that you may not change the
-     * bucket, key prefix, or region.
+     * bucket or key prefix. The region may only be changed if an endpoint is set.
      */
     'storage-profile': StorageProfile;
 };

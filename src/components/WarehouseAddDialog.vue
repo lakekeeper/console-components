@@ -259,6 +259,7 @@ import {
   GcsServiceKey,
   GetWarehouseResponse,
   StorageCredential,
+  StorageCredentialType,
   StorageProfile,
   TabularDeleteProfile,
 } from '../gen/management/types.gen';
@@ -511,19 +512,30 @@ function newProfile(item: { profile: StorageProfile; credentials: StorageCredent
 onMounted(() => {
   if (props.warehouse) {
     emptyWarehouse.value = false;
+    const credType = props.warehouse['storage-credential-type'];
+
     if (props.warehouse['storage-profile'].type === 's3') {
       storageCredentialType.value = 'S3';
       Object.assign(warehouseObjectS3, props.warehouse);
+      if (credType && credType.type === 's3') {
+        warehouseObjectS3['storage-credential']['credential-type'] = credType['credential-type'];
+      }
     }
 
     if (props.warehouse['storage-profile'].type === 'adls') {
       storageCredentialType.value = 'AZURE';
       Object.assign(warehouseObjectAz, props.warehouse);
+      if (credType && credType.type === 'az') {
+        warehouseObjectAz['storage-credential']['credential-type'] = credType['credential-type'];
+      }
     }
 
     if (props.warehouse['storage-profile'].type === 'gcs') {
       storageCredentialType.value = 'GCS';
       Object.assign(warehouseObjectGCS, props.warehouse);
+      if (credType && credType.type === 'gcs') {
+        warehouseObjectGCS['storage-credential']['credential-type'] = credType['credential-type'];
+      }
     }
     if (
       props.objectType === ObjectType.DELETION_PROFILE &&

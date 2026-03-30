@@ -589,6 +589,8 @@ const emitNewProfile = () => {
 onMounted(() => {
   if (props.warehouseObject) {
     Object.assign(warehouseObjectData, props.warehouseObject);
+    credentialType.value =
+      warehouseObjectData['storage-credential']['credential-type'] || 'service-account-key';
     keyString.value = JSON.stringify(
       warehouseObjectData['storage-credential']['credential-type'] === 'service-account-key'
         ? warehouseObjectData['storage-credential'].key
