@@ -174,16 +174,24 @@
             <span v-if="props.objectType !== ObjectType.DELETION_PROFILE">
               <v-tabs v-model="storageCredentialType" color="primary" :disabled="!emptyWarehouse">
                 <v-tab value="S3">
-                  <v-icon start>mdi-aws</v-icon>
-                  S3
+                  <v-icon start color="orange">mdi-aws</v-icon>
+                  AWS S3
                 </v-tab>
                 <v-tab value="GCS">
-                  <v-icon start>mdi-google-cloud</v-icon>
+                  <v-icon start color="info">mdi-google-cloud</v-icon>
                   GCS
                 </v-tab>
                 <v-tab value="AZURE">
-                  <v-icon start>mdi-microsoft-azure</v-icon>
+                  <v-icon start color="primary">mdi-microsoft-azure</v-icon>
                   Azure
+                </v-tab>
+                <v-tab value="R2">
+                  <v-img :src="cfIcon" width="20" height="20" class="mr-2" />
+                  R2
+                </v-tab>
+                <v-tab value="S3_COMPAT">
+                  <v-icon start color="primary">mdi-bucket-outline</v-icon>
+                  S3 Compatible
                 </v-tab>
               </v-tabs>
 
@@ -193,6 +201,7 @@
                     :credentials-only="emptyWarehouse"
                     :intent="intent"
                     :object-type="objectType"
+                    s3-variant="aws"
                     :warehouse-object="warehouseObjectS3"
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
@@ -219,6 +228,30 @@
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
                     @update-profile="newProfile"></WarehouseStorageAzure>
+                </v-tabs-window-item>
+
+                <v-tabs-window-item value="R2">
+                  <WarehouseStorageS3
+                    :credentials-only="emptyWarehouse"
+                    :intent="intent"
+                    :object-type="objectType"
+                    s3-variant="cloudflare-r2"
+                    :warehouse-object="warehouseObjectR2"
+                    @submit="createWarehouse"
+                    @update-credentials="newCredentials"
+                    @update-profile="newProfile"></WarehouseStorageS3>
+                </v-tabs-window-item>
+
+                <v-tabs-window-item value="S3_COMPAT">
+                  <WarehouseStorageS3
+                    :credentials-only="emptyWarehouse"
+                    :intent="intent"
+                    :object-type="objectType"
+                    s3-variant="s3-compat"
+                    :warehouse-object="warehouseObjectS3Compat"
+                    @submit="createWarehouse"
+                    @update-credentials="newCredentials"
+                    @update-profile="newProfile"></WarehouseStorageS3>
                 </v-tabs-window-item>
               </v-tabs-window>
             </span>
@@ -252,6 +285,7 @@ import WarehouseStorageS3 from './WarehouseStorageS3.vue';
 import WarehouseStorageAzure from './WarehouseStorageAzure.vue';
 import WarehouseStorageGCS from './WarehouseStorageGCS.vue';
 import WarehouseStorageJSON from './WarehouseStorageJSON.vue';
+import cfIcon from '@/assets/cf.svg';
 
 import {
   CreateWarehouseRequest,
@@ -325,6 +359,43 @@ const warehouseObjectS3 = reactive<WarehousObject>({
     region: '',
     'remote-signing-enabled': true,
     'sts-enabled': false,
+    flavor: 'aws',
+  },
+  'storage-credential': {
+    type: 's3',
+    'aws-access-key-id': '',
+    'aws-secret-access-key': '',
+    'credential-type': 'access-key',
+  },
+});
+
+const warehouseObjectR2 = reactive<WarehousObject>({
+  'storage-profile': {
+    type: 's3',
+    bucket: '',
+    region: '',
+    'remote-signing-enabled': true,
+    'sts-enabled': true,
+    flavor: 's3-compat',
+  },
+  'storage-credential': {
+    type: 's3',
+    'credential-type': 'cloudflare-r2',
+    'access-key-id': '',
+    'secret-access-key': '',
+    'account-id': '',
+    token: '',
+  },
+});
+
+const warehouseObjectS3Compat = reactive<WarehousObject>({
+  'storage-profile': {
+    type: 's3',
+    bucket: '',
+    region: 'local',
+    'remote-signing-enabled': true,
+    'sts-enabled': false,
+    flavor: 's3-compat',
   },
   'storage-credential': {
     type: 's3',
@@ -383,8 +454,15 @@ async function createWarehouse(
   try {
     if (warehouseObject['storage-profile'].type === 'gcs')
       Object.assign(warehouseObjectGCS, warehouseObject);
-    if (warehouseObject['storage-profile'].type === 's3')
-      Object.assign(warehouseObjectS3, warehouseObject);
+    if (warehouseObject['storage-profile'].type === 's3') {
+      if (storageCredentialType.value === 'R2') {
+        Object.assign(warehouseObjectR2, warehouseObject);
+      } else if (storageCredentialType.value === 'S3_COMPAT') {
+        Object.assign(warehouseObjectS3Compat, warehouseObject);
+      } else {
+        Object.assign(warehouseObjectS3, warehouseObject);
+      }
+    }
     if (warehouseObject['storage-profile'].type === 'az')
       Object.assign(warehouseObjectAz, warehouseObject);
 
@@ -437,10 +515,43 @@ async function createWarehouse(
   }
 }
 
+function cleanS3Credential(cred: any): StorageCredential {
+  if (cred?.type !== 's3') return cred;
+  const credType = cred['credential-type'];
+  if (credType === 'cloudflare-r2') {
+    return {
+      type: 's3',
+      'credential-type': 'cloudflare-r2',
+      'access-key-id': cred['access-key-id'] ?? '',
+      'secret-access-key': cred['secret-access-key'] ?? '',
+      token: cred.token ?? '',
+      'account-id': cred['account-id'] ?? '',
+    } as StorageCredential;
+  }
+  if (credType === 'aws-system-identity') {
+    return {
+      type: 's3',
+      'credential-type': 'aws-system-identity',
+      'external-id': cred['external-id'] || null,
+    } as StorageCredential;
+  }
+  return {
+    type: 's3',
+    'credential-type': 'access-key',
+    'aws-access-key-id': cred['aws-access-key-id'] ?? '',
+    'aws-secret-access-key': cred['aws-secret-access-key'] ?? '',
+    'external-id': cred['external-id'] || null,
+  } as StorageCredential;
+}
+
 async function createWarehouseJSON(wh: CreateWarehouseRequest) {
   try {
     creatingWarehouse.value = true;
-    const res: any = await functions.createWarehouse(wh, true);
+    const cleaned = {
+      ...wh,
+      'storage-credential': cleanS3Credential(wh['storage-credential']),
+    };
+    const res: any = await functions.createWarehouse(cleaned, true);
 
     if (res.status === 400) throw new Error(res.message);
 
@@ -460,6 +571,16 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
     const type = wh['storage-profile'].type;
     if (type === 'adls') {
       storageCredentialType.value = 'AZURE';
+    } else if (type === 's3') {
+      const credType = wh['storage-credential']?.['credential-type'];
+      const flavor = wh['storage-profile']?.flavor;
+      if (credType === 'cloudflare-r2') {
+        storageCredentialType.value = 'R2';
+      } else if (flavor === 's3-compat') {
+        storageCredentialType.value = 'S3_COMPAT';
+      } else {
+        storageCredentialType.value = 'S3';
+      }
     } else {
       storageCredentialType.value = type.toUpperCase();
     }
@@ -468,11 +589,21 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
         'storage-profile': wh['storage-profile'],
         'storage-credential': wh['storage-credential'],
       });
-    if (wh['storage-profile'].type === 's3')
-      Object.assign(warehouseObjectS3, {
+    if (wh['storage-profile'].type === 's3') {
+      const credType = wh['storage-credential']?.['credential-type'];
+      const flavor = wh['storage-profile']?.flavor;
+      const data = {
         'storage-profile': wh['storage-profile'],
         'storage-credential': wh['storage-credential'],
-      });
+      };
+      if (credType === 'cloudflare-r2') {
+        Object.assign(warehouseObjectR2, data);
+      } else if (flavor === 's3-compat') {
+        Object.assign(warehouseObjectS3Compat, data);
+      } else {
+        Object.assign(warehouseObjectS3, data);
+      }
+    }
     if (wh['storage-profile'].type === 'adls')
       Object.assign(warehouseObjectAz, {
         'storage-profile': wh['storage-profile'],
@@ -515,10 +646,25 @@ onMounted(() => {
     const credType = props.warehouse['storage-credential-type'];
 
     if (props.warehouse['storage-profile'].type === 's3') {
-      storageCredentialType.value = 'S3';
-      Object.assign(warehouseObjectS3, props.warehouse);
-      if (credType && credType.type === 's3') {
-        warehouseObjectS3['storage-credential']['credential-type'] = credType['credential-type'];
+      const s3CredType = credType && credType.type === 's3' ? credType['credential-type'] : null;
+
+      if (s3CredType === 'cloudflare-r2') {
+        storageCredentialType.value = 'R2';
+        Object.assign(warehouseObjectR2, props.warehouse);
+        warehouseObjectR2['storage-credential']['credential-type'] = 'cloudflare-r2';
+      } else if (
+        s3CredType === 'access-key' &&
+        props.warehouse['storage-profile'].flavor === 's3-compat'
+      ) {
+        storageCredentialType.value = 'S3_COMPAT';
+        Object.assign(warehouseObjectS3Compat, props.warehouse);
+        warehouseObjectS3Compat['storage-credential']['credential-type'] = 'access-key';
+      } else {
+        storageCredentialType.value = 'S3';
+        Object.assign(warehouseObjectS3, props.warehouse);
+        if (s3CredType) {
+          warehouseObjectS3['storage-credential']['credential-type'] = s3CredType;
+        }
       }
     }
 
