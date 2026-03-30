@@ -16,7 +16,10 @@
       </v-card-title>
       <v-card-text>
         <v-alert
-          v-if="warehouseObjectData['storage-credential']['credential-type'] === 'access-key' && !props.s3Variant"
+          v-if="
+            warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
+            !props.s3Variant
+          "
           type="info"
           variant="tonal"
           density="compact"
@@ -27,7 +30,8 @@
         </v-alert>
         <v-alert
           v-if="
-            warehouseObjectData['storage-credential']['credential-type'] === 'aws-system-identity' && !props.s3Variant
+            warehouseObjectData['storage-credential']['credential-type'] ===
+              'aws-system-identity' && !props.s3Variant
           "
           type="info"
           variant="tonal"
@@ -37,7 +41,10 @@
           Use IAM roles from the Lakekeeper server. Most secure for production AWS environments.
         </v-alert>
         <v-alert
-          v-if="warehouseObjectData['storage-credential']['credential-type'] === 'cloudflare-r2' && !props.s3Variant"
+          v-if="
+            warehouseObjectData['storage-credential']['credential-type'] === 'cloudflare-r2' &&
+            !props.s3Variant
+          "
           type="info"
           variant="tonal"
           density="compact"
@@ -46,7 +53,10 @@
           Optimized for Cloudflare's S3-compatible object storage.
         </v-alert>
 
-        <v-radio-group v-if="!props.s3Variant" v-model="warehouseObjectData['storage-credential']['credential-type']" row>
+        <v-radio-group
+          v-if="!props.s3Variant"
+          v-model="warehouseObjectData['storage-credential']['credential-type']"
+          row>
           <v-row>
             <v-col>
               <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
@@ -81,7 +91,10 @@
         </v-radio-group>
 
         <!-- AWS variant: show credential type toggle between access-key and system-identity -->
-        <v-radio-group v-if="props.s3Variant === 'aws'" v-model="warehouseObjectData['storage-credential']['credential-type']" row>
+        <v-radio-group
+          v-if="props.s3Variant === 'aws'"
+          v-model="warehouseObjectData['storage-credential']['credential-type']"
+          row>
           <v-row>
             <v-col>
               <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
@@ -250,12 +263,7 @@
             <v-combobox
               v-model="warehouseObjectData['storage-profile'].region"
               :items="regions"
-              :label="
-                getFieldLabel(
-                  'Bucket Region',
-                  isRegionRequired,
-                )
-              "
+              :label="getFieldLabel('Bucket Region', isRegionRequired)"
               placeholder="eu-central-1"
               :rules="[rules.requiredForAws]"
               :error="isRegionInvalid"
@@ -544,154 +552,153 @@
         </v-expansion-panels>
 
         <div v-if="props.s3Variant !== 'cloudflare-r2'">
-        <v-divider class="my-4"></v-divider>
+          <v-divider class="my-4"></v-divider>
 
-        <!-- Credential Vending Options -->
-        <h4 class="text-subtitle-1 mb-3 d-flex align-center">
-          Credential Vending Options
-          <v-tooltip location="top" max-width="400">
-            <template #activator="{ props: tooltipProps }">
-              <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
-                mdi-information-outline
-              </v-icon>
-            </template>
-            <span>
-              Enable clients to request temporary credentials directly from Lakekeeper instead of
-              using static credentials
-            </span>
-          </v-tooltip>
-        </h4>
-
-        <v-row>
-          <v-col>
-            <v-switch
-              v-model="warehouseObjectData['storage-profile']['remote-signing-enabled']"
-              color="primary"
-              :label="
-                warehouseObjectData['storage-profile']['remote-signing-enabled']
-                  ? `Remote Signing Enabled`
-                  : `Enable Remote Signing`
-              ">
-              <template #append>
-                <v-tooltip location="top" max-width="400">
-                  <template #activator="{ props: tooltipProps }">
-                    <v-icon v-bind="tooltipProps" size="small" color="info">
-                      mdi-help-circle-outline
-                    </v-icon>
-                  </template>
-                  <span>
-                    Allows Lakekeeper to sign S3 requests on behalf of clients. Clients send
-                    unsigned requests to Lakekeeper which adds authentication.
-                  </span>
-                </v-tooltip>
+          <!-- Credential Vending Options -->
+          <h4 class="text-subtitle-1 mb-3 d-flex align-center">
+            Credential Vending Options
+            <v-tooltip location="top" max-width="400">
+              <template #activator="{ props: tooltipProps }">
+                <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+                  mdi-information-outline
+                </v-icon>
               </template>
-            </v-switch>
-          </v-col>
-        </v-row>
+              <span>
+                Enable clients to request temporary credentials directly from Lakekeeper instead of
+                using static credentials
+              </span>
+            </v-tooltip>
+          </h4>
 
-        <v-row>
-          <v-col>
-            <v-switch
-              v-model="warehouseObjectData['storage-profile']['sts-enabled']"
-              color="primary"
-              :label="
-                warehouseObjectData['storage-profile']['sts-enabled']
-                  ? `STS Enabled`
-                  : `Enable STS (Secure Token Service)`
-              ">
-              <template #append>
-                <v-tooltip location="top" max-width="400">
-                  <template #activator="{ props: tooltipProps }">
-                    <v-icon v-bind="tooltipProps" size="small" color="info">
-                      mdi-help-circle-outline
-                    </v-icon>
-                  </template>
-                  <span>
-                    Enables vending of temporary AWS credentials (STS tokens) to clients. Provides
-                    time-limited access to S3 without sharing long-term credentials.
-                  </span>
-                </v-tooltip>
-              </template>
-            </v-switch>
-          </v-col>
-        </v-row>
-
-        <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
-          <v-col>
-            <v-text-field
-              v-model="warehouseObjectData['storage-profile']['sts-role-arn']"
-              label="STS Role ARN"
-              placeholder="arn:aws:iam::123456789012:role/role-name"
-              hint="ARN of the IAM role to assume when vending STS credentials"></v-text-field>
-          </v-col>
-        </v-row>
-
-        <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
-          <v-col>
-            <v-text-field
-              v-model="warehouseObjectData['storage-profile']['sts-endpoint']"
-              label="STS Endpoint (Optional)"
-              placeholder="https://sts.amazonaws.com"
-              hint="Custom STS endpoint. If not set, the S3 endpoint is used for STS requests."
-              persistent-hint
-              clearable></v-text-field>
-          </v-col>
-        </v-row>
-
-        <!-- STS Session Tags -->
-        <div v-if="warehouseObjectData['storage-profile']['sts-enabled']">
           <v-row>
             <v-col>
-              <h4 class="text-subtitle-1 mb-2">STS Session Tags (Optional)</h4>
-              <p class="text-caption text-medium-emphasis mb-3">
-                Key-value pairs that are passed as session tags when assuming the STS role
-              </p>
+              <v-switch
+                v-model="warehouseObjectData['storage-profile']['remote-signing-enabled']"
+                color="primary"
+                :label="
+                  warehouseObjectData['storage-profile']['remote-signing-enabled']
+                    ? `Remote Signing Enabled`
+                    : `Enable Remote Signing`
+                ">
+                <template #append>
+                  <v-tooltip location="top" max-width="400">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-icon v-bind="tooltipProps" size="small" color="info">
+                        mdi-help-circle-outline
+                      </v-icon>
+                    </template>
+                    <span>
+                      Allows Lakekeeper to sign S3 requests on behalf of clients. Clients send
+                      unsigned requests to Lakekeeper which adds authentication.
+                    </span>
+                  </v-tooltip>
+                </template>
+              </v-switch>
             </v-col>
           </v-row>
 
-          <div v-if="stsSessionTagsArray.length > 0">
-            <v-row v-for="(tag, index) in stsSessionTagsArray" :key="index">
-              <v-col cols="5">
-                <v-text-field
-                  v-model="tag.key"
-                  label="Key"
-                  placeholder="Environment"
-                  density="compact"
-                  @input="updateStsSessionTags"></v-text-field>
+          <v-row>
+            <v-col>
+              <v-switch
+                v-model="warehouseObjectData['storage-profile']['sts-enabled']"
+                color="primary"
+                :label="
+                  warehouseObjectData['storage-profile']['sts-enabled']
+                    ? `STS Enabled`
+                    : `Enable STS (Secure Token Service)`
+                ">
+                <template #append>
+                  <v-tooltip location="top" max-width="400">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-icon v-bind="tooltipProps" size="small" color="info">
+                        mdi-help-circle-outline
+                      </v-icon>
+                    </template>
+                    <span>
+                      Enables vending of temporary AWS credentials (STS tokens) to clients. Provides
+                      time-limited access to S3 without sharing long-term credentials.
+                    </span>
+                  </v-tooltip>
+                </template>
+              </v-switch>
+            </v-col>
+          </v-row>
+
+          <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
+            <v-col>
+              <v-text-field
+                v-model="warehouseObjectData['storage-profile']['sts-role-arn']"
+                label="STS Role ARN"
+                placeholder="arn:aws:iam::123456789012:role/role-name"
+                hint="ARN of the IAM role to assume when vending STS credentials"></v-text-field>
+            </v-col>
+          </v-row>
+
+          <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
+            <v-col>
+              <v-text-field
+                v-model="warehouseObjectData['storage-profile']['sts-endpoint']"
+                label="STS Endpoint (Optional)"
+                placeholder="https://sts.amazonaws.com"
+                hint="Custom STS endpoint. If not set, the S3 endpoint is used for STS requests."
+                persistent-hint
+                clearable></v-text-field>
+            </v-col>
+          </v-row>
+
+          <!-- STS Session Tags -->
+          <div v-if="warehouseObjectData['storage-profile']['sts-enabled']">
+            <v-row>
+              <v-col>
+                <h4 class="text-subtitle-1 mb-2">STS Session Tags (Optional)</h4>
+                <p class="text-caption text-medium-emphasis mb-3">
+                  Key-value pairs that are passed as session tags when assuming the STS role
+                </p>
               </v-col>
-              <v-col cols="5">
-                <v-text-field
-                  v-model="tag.value"
-                  label="Value"
-                  placeholder="Production"
-                  density="compact"
-                  @input="updateStsSessionTags"></v-text-field>
-              </v-col>
-              <v-col cols="2" class="d-flex align-center">
+            </v-row>
+
+            <div v-if="stsSessionTagsArray.length > 0">
+              <v-row v-for="(tag, index) in stsSessionTagsArray" :key="index">
+                <v-col cols="5">
+                  <v-text-field
+                    v-model="tag.key"
+                    label="Key"
+                    placeholder="Environment"
+                    density="compact"
+                    @input="updateStsSessionTags"></v-text-field>
+                </v-col>
+                <v-col cols="5">
+                  <v-text-field
+                    v-model="tag.value"
+                    label="Value"
+                    placeholder="Production"
+                    density="compact"
+                    @input="updateStsSessionTags"></v-text-field>
+                </v-col>
+                <v-col cols="2" class="d-flex align-center">
+                  <v-btn
+                    icon="mdi-delete"
+                    variant="text"
+                    size="small"
+                    color="error"
+                    @click="removeStsSessionTag(index)"></v-btn>
+                </v-col>
+              </v-row>
+            </div>
+
+            <v-row>
+              <v-col>
                 <v-btn
-                  icon="mdi-delete"
-                  variant="text"
+                  prepend-icon="mdi-plus"
+                  variant="outlined"
                   size="small"
-                  color="error"
-                  @click="removeStsSessionTag(index)"></v-btn>
+                  class="mb-2"
+                  @click="addStsSessionTag">
+                  Session Tag
+                </v-btn>
               </v-col>
             </v-row>
           </div>
-
-          <v-row>
-            <v-col>
-              <v-btn
-                prepend-icon="mdi-plus"
-                variant="outlined"
-                size="small"
-                class="mb-2"
-                @click="addStsSessionTag">
-                Session Tag
-              </v-btn>
-            </v-col>
-          </v-row>
-        </div>
-
         </div>
 
         <v-btn-group
@@ -1021,8 +1028,7 @@ const rules = {
 // Computed properties for field requirements
 const isRegionRequired = computed(
   () =>
-    warehouseObjectData['storage-profile'].flavor === 'aws' ||
-    props.s3Variant === 'cloudflare-r2',
+    warehouseObjectData['storage-profile'].flavor === 'aws' || props.s3Variant === 'cloudflare-r2',
 );
 
 const areAccessKeysRequired = computed(() => {
