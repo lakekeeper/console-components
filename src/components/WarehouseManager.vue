@@ -67,7 +67,6 @@
         <td @click="navigateToWarehouse(item)" style="cursor: pointer !important">
           <span style="display: flex; align-items: center">
             <component :is="getStorageIcon(item)" />
-            <v-icon class="mr-2">mdi-database</v-icon>
             {{ item.name }}
           </span>
         </td>
@@ -115,7 +114,6 @@ import WarehouseAddDialog from './WarehouseAddDialog.vue';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 
 // Import SVG assets
-import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
 
 const router = useRouter();
@@ -198,11 +196,7 @@ function getStorageIcon(item: GetWarehouseResponseExtended) {
     }
 
     // Generic S3
-    return h(VImg, {
-      class: 'mb-2 mr-2',
-      src: s3Icon,
-      width: 24,
-    });
+    return h(VIcon, { class: 'mr-2', color: 'primary', size: 'large' }, () => 'mdi-bucket-outline');
   }
 
   if (profile.type === 'adls') {

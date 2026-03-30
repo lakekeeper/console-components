@@ -16,7 +16,10 @@
       </v-card-title>
       <v-card-text>
         <v-alert
-          v-if="warehouseObjectData['storage-credential']['credential-type'] === 'access-key'"
+          v-if="
+            warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
+            !props.s3Variant
+          "
           type="info"
           variant="tonal"
           density="compact"
@@ -27,7 +30,8 @@
         </v-alert>
         <v-alert
           v-if="
-            warehouseObjectData['storage-credential']['credential-type'] === 'aws-system-identity'
+            warehouseObjectData['storage-credential']['credential-type'] ===
+              'aws-system-identity' && !props.s3Variant
           "
           type="info"
           variant="tonal"
@@ -37,7 +41,10 @@
           Use IAM roles from the Lakekeeper server. Most secure for production AWS environments.
         </v-alert>
         <v-alert
-          v-if="warehouseObjectData['storage-credential']['credential-type'] === 'cloudflare-r2'"
+          v-if="
+            warehouseObjectData['storage-credential']['credential-type'] === 'cloudflare-r2' &&
+            !props.s3Variant
+          "
           type="info"
           variant="tonal"
           density="compact"
@@ -46,7 +53,10 @@
           Optimized for Cloudflare's S3-compatible object storage.
         </v-alert>
 
-        <v-radio-group v-model="warehouseObjectData['storage-credential']['credential-type']" row>
+        <v-radio-group
+          v-if="!props.s3Variant"
+          v-model="warehouseObjectData['storage-credential']['credential-type']"
+          row>
           <v-row>
             <v-col>
               <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
@@ -74,6 +84,36 @@
                 <div class="d-flex align-center">
                   <v-img :src="cfIcon" width="20" height="20" class="mr-2"></v-img>
                   Cloudflare R2
+                </div>
+              </template>
+            </v-radio>
+          </v-row>
+        </v-radio-group>
+
+        <!-- AWS variant: show credential type toggle between access-key and system-identity -->
+        <v-radio-group
+          v-if="props.s3Variant === 'aws'"
+          v-model="warehouseObjectData['storage-credential']['credential-type']"
+          row>
+          <v-row>
+            <v-col>
+              <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
+            </v-col>
+          </v-row>
+          <v-row>
+            <v-radio value="access-key" color="primary">
+              <template #label>
+                <div>
+                  <v-icon color="primary">mdi-key</v-icon>
+                  Access Key
+                </div>
+              </template>
+            </v-radio>
+            <v-radio value="aws-system-identity" color="primary">
+              <template #label>
+                <div>
+                  <v-icon color="primary">mdi-shield-key</v-icon>
+                  AWS System Identity
                 </div>
               </template>
             </v-radio>
@@ -190,7 +230,7 @@
       </v-card-title>
       <v-card-text>
         <v-row>
-          <v-col>
+          <v-col v-if="!props.s3Variant">
             <v-select
               v-model="warehouseObjectData['storage-profile'].flavor"
               item-title="name"
@@ -223,12 +263,7 @@
             <v-combobox
               v-model="warehouseObjectData['storage-profile'].region"
               :items="regions"
-              :label="
-                getFieldLabel(
-                  'Bucket Region',
-                  warehouseObjectData['storage-profile'].flavor === 'aws',
-                )
-              "
+              :label="getFieldLabel('Bucket Region', isRegionRequired)"
               placeholder="eu-central-1"
               :rules="[rules.requiredForAws]"
               :error="isRegionInvalid"
@@ -516,152 +551,154 @@
           </v-expansion-panel>
         </v-expansion-panels>
 
-        <v-divider class="my-4"></v-divider>
+        <div v-if="props.s3Variant !== 'cloudflare-r2'">
+          <v-divider class="my-4"></v-divider>
 
-        <!-- Credential Vending Options -->
-        <h4 class="text-subtitle-1 mb-3 d-flex align-center">
-          Credential Vending Options
-          <v-tooltip location="top" max-width="400">
-            <template #activator="{ props: tooltipProps }">
-              <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
-                mdi-information-outline
-              </v-icon>
-            </template>
-            <span>
-              Enable clients to request temporary credentials directly from Lakekeeper instead of
-              using static credentials
-            </span>
-          </v-tooltip>
-        </h4>
-
-        <v-row>
-          <v-col>
-            <v-switch
-              v-model="warehouseObjectData['storage-profile']['remote-signing-enabled']"
-              color="primary"
-              :label="
-                warehouseObjectData['storage-profile']['remote-signing-enabled']
-                  ? `Remote Signing Enabled`
-                  : `Enable Remote Signing`
-              ">
-              <template #append>
-                <v-tooltip location="top" max-width="400">
-                  <template #activator="{ props: tooltipProps }">
-                    <v-icon v-bind="tooltipProps" size="small" color="info">
-                      mdi-help-circle-outline
-                    </v-icon>
-                  </template>
-                  <span>
-                    Allows Lakekeeper to sign S3 requests on behalf of clients. Clients send
-                    unsigned requests to Lakekeeper which adds authentication.
-                  </span>
-                </v-tooltip>
+          <!-- Credential Vending Options -->
+          <h4 class="text-subtitle-1 mb-3 d-flex align-center">
+            Credential Vending Options
+            <v-tooltip location="top" max-width="400">
+              <template #activator="{ props: tooltipProps }">
+                <v-icon v-bind="tooltipProps" class="ml-2" size="small" color="info">
+                  mdi-information-outline
+                </v-icon>
               </template>
-            </v-switch>
-          </v-col>
-        </v-row>
+              <span>
+                Enable clients to request temporary credentials directly from Lakekeeper instead of
+                using static credentials
+              </span>
+            </v-tooltip>
+          </h4>
 
-        <v-row>
-          <v-col>
-            <v-switch
-              v-model="warehouseObjectData['storage-profile']['sts-enabled']"
-              color="primary"
-              :label="
-                warehouseObjectData['storage-profile']['sts-enabled']
-                  ? `STS Enabled`
-                  : `Enable STS (Secure Token Service)`
-              ">
-              <template #append>
-                <v-tooltip location="top" max-width="400">
-                  <template #activator="{ props: tooltipProps }">
-                    <v-icon v-bind="tooltipProps" size="small" color="info">
-                      mdi-help-circle-outline
-                    </v-icon>
-                  </template>
-                  <span>
-                    Enables vending of temporary AWS credentials (STS tokens) to clients. Provides
-                    time-limited access to S3 without sharing long-term credentials.
-                  </span>
-                </v-tooltip>
-              </template>
-            </v-switch>
-          </v-col>
-        </v-row>
-
-        <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
-          <v-col>
-            <v-text-field
-              v-model="warehouseObjectData['storage-profile']['sts-role-arn']"
-              label="STS Role ARN"
-              placeholder="arn:aws:iam::123456789012:role/role-name"
-              hint="ARN of the IAM role to assume when vending STS credentials"></v-text-field>
-          </v-col>
-        </v-row>
-
-        <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
-          <v-col>
-            <v-text-field
-              v-model="warehouseObjectData['storage-profile']['sts-endpoint']"
-              label="STS Endpoint (Optional)"
-              placeholder="https://sts.amazonaws.com"
-              hint="Custom STS endpoint. If not set, the S3 endpoint is used for STS requests."
-              persistent-hint
-              clearable></v-text-field>
-          </v-col>
-        </v-row>
-
-        <!-- STS Session Tags -->
-        <div v-if="warehouseObjectData['storage-profile']['sts-enabled']">
           <v-row>
             <v-col>
-              <h4 class="text-subtitle-1 mb-2">STS Session Tags (Optional)</h4>
-              <p class="text-caption text-medium-emphasis mb-3">
-                Key-value pairs that are passed as session tags when assuming the STS role
-              </p>
+              <v-switch
+                v-model="warehouseObjectData['storage-profile']['remote-signing-enabled']"
+                color="primary"
+                :label="
+                  warehouseObjectData['storage-profile']['remote-signing-enabled']
+                    ? `Remote Signing Enabled`
+                    : `Enable Remote Signing`
+                ">
+                <template #append>
+                  <v-tooltip location="top" max-width="400">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-icon v-bind="tooltipProps" size="small" color="info">
+                        mdi-help-circle-outline
+                      </v-icon>
+                    </template>
+                    <span>
+                      Allows Lakekeeper to sign S3 requests on behalf of clients. Clients send
+                      unsigned requests to Lakekeeper which adds authentication.
+                    </span>
+                  </v-tooltip>
+                </template>
+              </v-switch>
             </v-col>
           </v-row>
 
-          <div v-if="stsSessionTagsArray.length > 0">
-            <v-row v-for="(tag, index) in stsSessionTagsArray" :key="index">
-              <v-col cols="5">
-                <v-text-field
-                  v-model="tag.key"
-                  label="Key"
-                  placeholder="Environment"
-                  density="compact"
-                  @input="updateStsSessionTags"></v-text-field>
+          <v-row>
+            <v-col>
+              <v-switch
+                v-model="warehouseObjectData['storage-profile']['sts-enabled']"
+                color="primary"
+                :label="
+                  warehouseObjectData['storage-profile']['sts-enabled']
+                    ? `STS Enabled`
+                    : `Enable STS (Secure Token Service)`
+                ">
+                <template #append>
+                  <v-tooltip location="top" max-width="400">
+                    <template #activator="{ props: tooltipProps }">
+                      <v-icon v-bind="tooltipProps" size="small" color="info">
+                        mdi-help-circle-outline
+                      </v-icon>
+                    </template>
+                    <span>
+                      Enables vending of temporary AWS credentials (STS tokens) to clients. Provides
+                      time-limited access to S3 without sharing long-term credentials.
+                    </span>
+                  </v-tooltip>
+                </template>
+              </v-switch>
+            </v-col>
+          </v-row>
+
+          <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
+            <v-col>
+              <v-text-field
+                v-model="warehouseObjectData['storage-profile']['sts-role-arn']"
+                label="STS Role ARN"
+                placeholder="arn:aws:iam::123456789012:role/role-name"
+                hint="ARN of the IAM role to assume when vending STS credentials"></v-text-field>
+            </v-col>
+          </v-row>
+
+          <v-row v-if="warehouseObjectData['storage-profile']['sts-enabled']">
+            <v-col>
+              <v-text-field
+                v-model="warehouseObjectData['storage-profile']['sts-endpoint']"
+                label="STS Endpoint (Optional)"
+                placeholder="https://sts.amazonaws.com"
+                hint="Custom STS endpoint. If not set, the S3 endpoint is used for STS requests."
+                persistent-hint
+                clearable></v-text-field>
+            </v-col>
+          </v-row>
+
+          <!-- STS Session Tags -->
+          <div v-if="warehouseObjectData['storage-profile']['sts-enabled']">
+            <v-row>
+              <v-col>
+                <h4 class="text-subtitle-1 mb-2">STS Session Tags (Optional)</h4>
+                <p class="text-caption text-medium-emphasis mb-3">
+                  Key-value pairs that are passed as session tags when assuming the STS role
+                </p>
               </v-col>
-              <v-col cols="5">
-                <v-text-field
-                  v-model="tag.value"
-                  label="Value"
-                  placeholder="Production"
-                  density="compact"
-                  @input="updateStsSessionTags"></v-text-field>
-              </v-col>
-              <v-col cols="2" class="d-flex align-center">
+            </v-row>
+
+            <div v-if="stsSessionTagsArray.length > 0">
+              <v-row v-for="(tag, index) in stsSessionTagsArray" :key="index">
+                <v-col cols="5">
+                  <v-text-field
+                    v-model="tag.key"
+                    label="Key"
+                    placeholder="Environment"
+                    density="compact"
+                    @input="updateStsSessionTags"></v-text-field>
+                </v-col>
+                <v-col cols="5">
+                  <v-text-field
+                    v-model="tag.value"
+                    label="Value"
+                    placeholder="Production"
+                    density="compact"
+                    @input="updateStsSessionTags"></v-text-field>
+                </v-col>
+                <v-col cols="2" class="d-flex align-center">
+                  <v-btn
+                    icon="mdi-delete"
+                    variant="text"
+                    size="small"
+                    color="error"
+                    @click="removeStsSessionTag(index)"></v-btn>
+                </v-col>
+              </v-row>
+            </div>
+
+            <v-row>
+              <v-col>
                 <v-btn
-                  icon="mdi-delete"
-                  variant="text"
+                  prepend-icon="mdi-plus"
+                  variant="outlined"
                   size="small"
-                  color="error"
-                  @click="removeStsSessionTag(index)"></v-btn>
+                  class="mb-2"
+                  @click="addStsSessionTag">
+                  Session Tag
+                </v-btn>
               </v-col>
             </v-row>
           </div>
-
-          <v-row>
-            <v-col>
-              <v-btn
-                prepend-icon="mdi-plus"
-                variant="outlined"
-                size="small"
-                class="mb-2"
-                @click="addStsSessionTag">
-                Session Tag
-              </v-btn>
-            </v-col>
-          </v-row>
         </div>
 
         <v-btn-group
@@ -780,10 +817,14 @@ const s3UrlDetectionModes = [
 ];
 
 const showPasswordExternalId = ref(false);
+
+export type S3Variant = 'aws' | 'cloudflare-r2' | 's3-compat';
+
 const props = defineProps<{
   credentialsOnly: boolean;
   intent: Intent;
   objectType: ObjectType;
+  s3Variant?: S3Variant;
   warehouseObject: WarehousObject | null;
 }>();
 
@@ -975,6 +1016,9 @@ const rules = {
     if (warehouseObjectData['storage-profile'].flavor === 'aws') {
       return !!value || 'Required for AWS flavor.';
     }
+    if (props.s3Variant === 'cloudflare-r2') {
+      return !!value || 'Required for Cloudflare R2.';
+    }
     return true;
   },
   // Optional field helper (for visual indication)
@@ -982,7 +1026,10 @@ const rules = {
 };
 
 // Computed properties for field requirements
-const isRegionRequired = computed(() => warehouseObjectData['storage-profile'].flavor === 'aws');
+const isRegionRequired = computed(
+  () =>
+    warehouseObjectData['storage-profile'].flavor === 'aws' || props.s3Variant === 'cloudflare-r2',
+);
 
 const areAccessKeysRequired = computed(() => {
   return warehouseObjectData['storage-credential']['credential-type'] === 'access-key';
@@ -1055,97 +1102,58 @@ const s3Flavor = [
   { name: 'S3 Compatible Storage', code: 's3-compat' },
 ];
 
+const buildCleanCredential = (): S3Credential & { type: 's3' } => {
+  const credentialType = warehouseObjectData['storage-credential']['credential-type'];
+  if (credentialType === 'cloudflare-r2') {
+    return {
+      type: 's3' as const,
+      'credential-type': 'cloudflare-r2',
+      'access-key-id': warehouseObjectData['storage-credential']['access-key-id'],
+      'secret-access-key': warehouseObjectData['storage-credential']['secret-access-key'],
+      token: warehouseObjectData['storage-credential'].token,
+      'account-id': warehouseObjectData['storage-credential']['account-id'],
+    } as S3Credential & { type: 's3' };
+  } else if (credentialType === 'aws-system-identity') {
+    return {
+      type: 's3' as const,
+      'credential-type': 'aws-system-identity',
+      'external-id': warehouseObjectData['storage-credential']['external-id'] || null,
+    } as S3Credential & { type: 's3' };
+  }
+  return {
+    type: 's3' as const,
+    'credential-type': 'access-key',
+    'aws-access-key-id': warehouseObjectData['storage-credential']['aws-access-key-id'],
+    'aws-secret-access-key': warehouseObjectData['storage-credential']['aws-secret-access-key'],
+    'external-id': warehouseObjectData['storage-credential']['external-id'] || null,
+  } as S3Credential & { type: 's3' };
+};
+
+const buildCleanData = () => {
+  return {
+    'storage-profile': warehouseObjectData['storage-profile'],
+    'storage-credential': buildCleanCredential(),
+  };
+};
+
 const handleSubmit = () => {
   shouldSaveAsJson.value = false;
-  emit('submit', warehouseObjectData, shouldSaveAsJson.value);
+  emit('submit', buildCleanData(), shouldSaveAsJson.value);
 };
 
 const saveAsJson = () => {
   shouldSaveAsJson.value = true;
-  emit('submit', warehouseObjectData, shouldSaveAsJson.value);
+  emit('submit', buildCleanData(), shouldSaveAsJson.value);
 };
 
 const emitNewCredentials = () => {
-  let credentials: StorageCredential = {
-    type: 's3',
-    'credential-type': 'access-key',
-    'aws-access-key-id': '',
-    'aws-secret-access-key': '',
-    'external-id': null,
-  }; // Initialize with default values
-  const credentialType = warehouseObjectData['storage-credential']['credential-type'];
-
-  if (credentialType === 'access-key') {
-    // Handle 'access-key' type
-    credentials = {
-      type: 's3' as const,
-      'credential-type': 'access-key',
-      'aws-access-key-id': warehouseObjectData['storage-credential']['aws-access-key-id'],
-      'aws-secret-access-key': warehouseObjectData['storage-credential']['aws-secret-access-key'],
-      'external-id': warehouseObjectData['storage-credential']['external-id'] || null, // Optional
-    } as S3Credential & { type: 's3' };
-  } else if (credentialType === 'aws-system-identity') {
-    // Handle 'aws-system-identity' type
-    credentials = {
-      type: 's3' as const,
-      'credential-type': 'aws-system-identity',
-      'external-id': warehouseObjectData['storage-credential']['external-id'] || null, // Optional
-    } as S3Credential & { type: 's3' };
-  } else if (credentialType === 'cloudflare-r2') {
-    // Handle 'cloudflare-r2' type
-    credentials = {
-      type: 's3' as const,
-      'credential-type': 'cloudflare-r2',
-      'access-key-id': warehouseObjectData['storage-credential']['access-key-id'],
-      'secret-access-key': warehouseObjectData['storage-credential']['secret-access-key'],
-      token: warehouseObjectData['storage-credential'].token,
-      'account-id': warehouseObjectData['storage-credential']['account-id'],
-    } as S3Credential & { type: 's3' };
-  }
-
-  emit('updateCredentials', credentials);
+  emit('updateCredentials', buildCleanCredential());
 };
 
 const emitNewProfile = () => {
-  let credentials: StorageCredential = {
-    type: 's3',
-    'credential-type': 'access-key',
-    'aws-access-key-id': '',
-    'aws-secret-access-key': '',
-    'external-id': null,
-  }; // Initialize with default values
-  const credentialType = warehouseObjectData['storage-credential']['credential-type'];
-
-  if (credentialType === 'access-key') {
-    // Handle 'access-key' type
-    credentials = {
-      type: 's3' as const,
-      'credential-type': 'access-key',
-      'aws-access-key-id': warehouseObjectData['storage-credential']['aws-access-key-id'],
-      'aws-secret-access-key': warehouseObjectData['storage-credential']['aws-secret-access-key'],
-      'external-id': warehouseObjectData['storage-credential']['external-id'] || null, // Optional
-    } as S3Credential & { type: 's3' };
-  } else if (credentialType === 'aws-system-identity') {
-    // Handle 'aws-system-identity' type
-    credentials = {
-      type: 's3' as const,
-      'credential-type': 'aws-system-identity',
-      'external-id': warehouseObjectData['storage-credential']['external-id'] || null, // Optional
-    } as S3Credential & { type: 's3' };
-  } else if (credentialType === 'cloudflare-r2') {
-    // Handle 'cloudflare-r2' type
-    credentials = {
-      type: 's3' as const,
-      'credential-type': 'cloudflare-r2',
-      'access-key-id': warehouseObjectData['storage-credential']['access-key-id'],
-      'secret-access-key': warehouseObjectData['storage-credential']['secret-access-key'],
-      token: warehouseObjectData['storage-credential'].token,
-      'account-id': warehouseObjectData['storage-credential']['account-id'],
-    } as S3Credential & { type: 's3' };
-  }
   const newProfile = {
     profile: warehouseObjectData['storage-profile'],
-    credentials: credentials,
+    credentials: buildCleanCredential(),
   } as { profile: StorageProfile; credentials: StorageCredential };
 
   emit('updateProfile', newProfile);
@@ -1176,6 +1184,21 @@ onMounted(() => {
         key,
         value,
       }));
+    }
+  }
+
+  // Apply variant defaults (after Object.assign so they take precedence for new warehouses)
+  if (props.s3Variant && !props.warehouseObject) {
+    if (props.s3Variant === 'aws') {
+      warehouseObjectData['storage-credential']['credential-type'] = 'access-key';
+      warehouseObjectData['storage-profile'].flavor = 'aws';
+    } else if (props.s3Variant === 'cloudflare-r2') {
+      warehouseObjectData['storage-credential']['credential-type'] = 'cloudflare-r2';
+      warehouseObjectData['storage-profile'].flavor = 's3-compat';
+      warehouseObjectData['storage-profile']['sts-enabled'] = true;
+    } else if (props.s3Variant === 's3-compat') {
+      warehouseObjectData['storage-credential']['credential-type'] = 'access-key';
+      warehouseObjectData['storage-profile'].flavor = 's3-compat';
     }
   }
 });
