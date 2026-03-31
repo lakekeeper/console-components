@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/lakekeeper/console-components/compare/v0.4.1...v0.5.0) (2026-03-30)
+
+
+### Features
+
+* **ui:** add memory card game to server-offline page ([86466b6](https://github.com/lakekeeper/console-components/commit/86466b6990001a908872adaddb90ce4c0be7e3d4))
+* **ui:** show connection diagnostics on server-offline page ([86466b6](https://github.com/lakekeeper/console-components/commit/86466b6990001a908872adaddb90ce4c0be7e3d4))
+
 ## [0.4.1](https://github.com/lakekeeper/console-components/compare/v0.4.0...v0.4.1) (2026-03-24)
 
 
