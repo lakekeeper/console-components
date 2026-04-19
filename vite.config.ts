@@ -124,12 +124,8 @@ export default defineConfig({
       },
     },
     cssCodeSplit: false,
-    minify: 'esbuild',
+    minify: 'oxc',
     target: 'esnext',
-  },
-  esbuild: {
-    keepNames: false,
-    minifyIdentifiers: true,
   },
   optimizeDeps: {
     exclude: ['@duckdb/duckdb-wasm'],
