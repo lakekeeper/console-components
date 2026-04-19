@@ -24,7 +24,6 @@
       "automerge": true
     },
     {
-      "matchPackageNames": ["typescript", "vuetify", "/eslint/"],
       "matchUpdateTypes": ["major"],
       "enabled": false
     }
