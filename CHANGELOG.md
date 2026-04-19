@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/lakekeeper/console-components/compare/v0.5.0...v0.5.1) (2026-04-19)
+
+
+### Bug Fixes
+
+* **deps:** bump vite to ^7.3.2 (security), prettier to ^3.8.3, typescript-eslint to ^8.58.2 ([6357007](https://github.com/lakekeeper/console-components/commit/6357007f680ff22430af46e8e437d9d6485e0542))
+
 ## [0.5.0](https://github.com/lakekeeper/console-components/compare/v0.4.1...v0.5.0) (2026-03-30)
 
 
