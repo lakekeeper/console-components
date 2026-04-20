@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.4](https://github.com/lakekeeper/console-components/compare/v0.5.3...v0.5.4) (2026-04-20)
+
+
+### Bug Fixes
+
+* **ui:** add view select action and rename S3 credential key fields ([2ffbd4d](https://github.com/lakekeeper/console-components/commit/2ffbd4d9c59e406de3d43bcf079ca101a538a198))
+
 ## [0.5.3](https://github.com/lakekeeper/console-components/compare/v0.5.2...v0.5.3) (2026-04-20)
 
 
