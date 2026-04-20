@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.2](https://github.com/lakekeeper/console-components/compare/v0.5.1...v0.5.2) (2026-04-20)
+
+
+### Bug Fixes
+
+* **ui:** enlarge DDL dialog and respect custom extension repo for httpfs ([d3e1851](https://github.com/lakekeeper/console-components/commit/d3e18515d1ea5cf4855941a28977a0ea710e597b))
+
 ## [0.5.1](https://github.com/lakekeeper/console-components/compare/v0.5.0...v0.5.1) (2026-04-19)
 
 
