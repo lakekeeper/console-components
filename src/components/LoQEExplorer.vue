@@ -758,8 +758,8 @@
     </v-dialog>
 
     <!-- DDL Dialog -->
-    <v-dialog v-model="showDDLDialog" max-width="800" scrollable>
-      <v-card>
+    <v-dialog v-model="showDDLDialog" max-width="1200" height="80vh" scrollable>
+      <v-card style="height: 100%; display: flex; flex-direction: column">
         <v-card-title class="d-flex align-center text-subtitle-1">
           <v-icon size="small" class="mr-2">mdi-code-tags</v-icon>
           {{ ddlTitle }}
@@ -769,7 +769,7 @@
           </v-btn>
         </v-card-title>
         <v-divider />
-        <v-card-text class="pa-0" style="max-height: 500px; overflow: auto">
+        <v-card-text class="pa-0" style="flex: 1; overflow: auto">
           <div v-if="isDDLLoading" class="text-center py-8">
             <v-progress-circular indeterminate size="32" color="primary" />
             <div class="text-caption mt-2 text-grey">Loading metadata…</div>
@@ -777,7 +777,7 @@
           <div v-else-if="ddlError" class="pa-4">
             <v-alert type="error" variant="tonal" density="compact">{{ ddlError }}</v-alert>
           </div>
-          <SqlEditor v-else :model-value="ddlContent" disabled min-height="200px" placeholder="" />
+          <SqlEditor v-else :model-value="ddlContent" disabled min-height="60vh" placeholder="" />
         </v-card-text>
         <v-divider />
         <v-card-actions class="px-4 py-2">

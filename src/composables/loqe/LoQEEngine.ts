@@ -383,12 +383,10 @@ export class LoQEEngine {
       const pooled = await this.pool.acquire();
       try {
         await pooled.connection.query('SET builtin_httpfs = false');
-        await pooled.connection.query('INSTALL httpfs');
-        await pooled.connection.query('LOAD httpfs');
-        this.installedExtensions.add('httpfs');
       } finally {
         this.pool.release(pooled);
       }
+      await this.installExtension('httpfs');
     }
 
     if (!this.installedExtensions.has('iceberg')) {
