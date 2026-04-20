@@ -5,10 +5,10 @@
   "type": "module",
   "main": "dist/console-components.umd.js",
   "module": "dist/console-components.es.js",
-  "types": "dist/types/index.d.ts",
+  "types": "dist/types/src/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/index.d.ts",
+      "types": "./dist/types/src/index.d.ts",
       "import": "./dist/console-components.es.js",
       "require": "./dist/console-components.umd.js"
     },
