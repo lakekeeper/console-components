@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.3](https://github.com/lakekeeper/console-components/compare/v0.5.2...v0.5.3) (2026-04-20)
+
+
+### Bug Fixes
+
+* **ui:** correct types entry path for TypeScript 6 ([cee9bc5](https://github.com/lakekeeper/console-components/commit/cee9bc54adcf2abc6f18bc3d7bc9ed6e5fb267b1))
+
 ## [0.5.2](https://github.com/lakekeeper/console-components/compare/v0.5.1...v0.5.2) (2026-04-20)
 
 
