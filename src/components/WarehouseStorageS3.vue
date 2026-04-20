@@ -123,7 +123,7 @@
         <!-- Access Key Fields -->
         <v-text-field
           v-if="warehouseObjectData['storage-credential']['credential-type'] === 'access-key'"
-          v-model="warehouseObjectData['storage-credential']['aws-access-key-id']"
+          v-model="warehouseObjectData['storage-credential']['access-key-id']"
           autocomplete="username"
           :label="getFieldLabel('AWS Access Key ID', areAccessKeysRequired)"
           placeholder="AKIAIOSFODNN7EXAMPLE"
@@ -133,11 +133,11 @@
           :style="isAccessKeyIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
         <v-text-field
           v-if="warehouseObjectData['storage-credential']['credential-type'] === 'access-key'"
-          v-model="warehouseObjectData['storage-credential']['aws-secret-access-key']"
+          v-model="warehouseObjectData['storage-credential']['secret-access-key']"
           :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
           autocomplete="current-password"
           :label="getFieldLabel('AWS Secret Access Key', areAccessKeysRequired)"
-          placeholder="your-aws-secret-access-key"
+          placeholder="your-secret-access-key"
           :rules="[rules.requiredForAccessKey]"
           :type="showPassword ? 'text' : 'password'"
           :error="isSecretKeyInvalid"
@@ -199,8 +199,8 @@
           color="success"
           :disabled="
             warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-            (!warehouseObjectData['storage-credential']['aws-access-key-id'] ||
-              !warehouseObjectData['storage-credential']['aws-secret-access-key'])
+            (!warehouseObjectData['storage-credential']['access-key-id'] ||
+              !warehouseObjectData['storage-credential']['secret-access-key'])
           "
           @click="emitNewCredentials">
           Update Credentials
@@ -709,8 +709,8 @@
             type="submit"
             :disabled="
               (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-                (!warehouseObjectData['storage-credential']['aws-access-key-id'] ||
-                  !warehouseObjectData['storage-credential']['aws-secret-access-key'])) ||
+                (!warehouseObjectData['storage-credential']['access-key-id'] ||
+                  !warehouseObjectData['storage-credential']['secret-access-key'])) ||
               !warehouseObjectData['storage-profile'].bucket ||
               (warehouseObjectData['storage-profile'].flavor === 'aws' &&
                 !warehouseObjectData['storage-profile'].region) ||
@@ -734,8 +734,8 @@
                 size="small"
                 :disabled="
                   (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-                    (!warehouseObjectData['storage-credential']['aws-access-key-id'] ||
-                      !warehouseObjectData['storage-credential']['aws-secret-access-key'])) ||
+                    (!warehouseObjectData['storage-credential']['access-key-id'] ||
+                      !warehouseObjectData['storage-credential']['secret-access-key'])) ||
                   !warehouseObjectData['storage-profile'].bucket ||
                   (warehouseObjectData['storage-profile'].flavor === 'aws' &&
                     !warehouseObjectData['storage-profile'].region) ||
@@ -770,8 +770,8 @@
           color="success"
           :disabled="
             (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-              (!warehouseObjectData['storage-credential']['aws-access-key-id'] ||
-                !warehouseObjectData['storage-credential']['aws-secret-access-key'])) ||
+              (!warehouseObjectData['storage-credential']['access-key-id'] ||
+                !warehouseObjectData['storage-credential']['secret-access-key'])) ||
             !warehouseObjectData['storage-profile'].bucket ||
             (warehouseObjectData['storage-profile'].flavor === 'aws' &&
               !warehouseObjectData['storage-profile'].region) ||
@@ -854,8 +854,8 @@ const warehouseObjectData = reactive<{
   'storage-credential': {
     type: 's3',
     'credential-type': 'access-key',
-    'aws-access-key-id': '',
-    'aws-secret-access-key': '',
+    'access-key-id': '',
+    'secret-access-key': '',
     'external-id': null, // Optional, can be used for both credential types
   },
 });
@@ -1040,7 +1040,7 @@ const isAccessKeyIdInvalid = computed(() => {
   return (
     areAccessKeysRequired.value &&
     warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-    !(warehouseObjectData['storage-credential'] as any)['aws-access-key-id']
+    !(warehouseObjectData['storage-credential'] as any)['access-key-id']
   );
 });
 
@@ -1048,7 +1048,7 @@ const isSecretKeyInvalid = computed(() => {
   return (
     areAccessKeysRequired.value &&
     warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-    !(warehouseObjectData['storage-credential'] as any)['aws-secret-access-key']
+    !(warehouseObjectData['storage-credential'] as any)['secret-access-key']
   );
 });
 
@@ -1123,8 +1123,8 @@ const buildCleanCredential = (): S3Credential & { type: 's3' } => {
   return {
     type: 's3' as const,
     'credential-type': 'access-key',
-    'aws-access-key-id': warehouseObjectData['storage-credential']['aws-access-key-id'],
-    'aws-secret-access-key': warehouseObjectData['storage-credential']['aws-secret-access-key'],
+    'access-key-id': warehouseObjectData['storage-credential']['access-key-id'],
+    'secret-access-key': warehouseObjectData['storage-credential']['secret-access-key'],
     'external-id': warehouseObjectData['storage-credential']['external-id'] || null,
   } as S3Credential & { type: 's3' };
 };

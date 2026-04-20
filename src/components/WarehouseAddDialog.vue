@@ -362,8 +362,8 @@ const warehouseObjectS3 = reactive<WarehousObject>({
   },
   'storage-credential': {
     type: 's3',
-    'aws-access-key-id': '',
-    'aws-secret-access-key': '',
+    'access-key-id': '',
+    'secret-access-key': '',
     'credential-type': 'access-key',
   },
 });
@@ -398,8 +398,8 @@ const warehouseObjectS3Compat = reactive<WarehousObject>({
   },
   'storage-credential': {
     type: 's3',
-    'aws-access-key-id': '',
-    'aws-secret-access-key': '',
+    'access-key-id': '',
+    'secret-access-key': '',
     'credential-type': 'access-key',
   },
 });
@@ -536,8 +536,8 @@ function cleanS3Credential(cred: any): StorageCredential {
   return {
     type: 's3',
     'credential-type': 'access-key',
-    'aws-access-key-id': cred['aws-access-key-id'] ?? '',
-    'aws-secret-access-key': cred['aws-secret-access-key'] ?? '',
+    'access-key-id': cred['access-key-id'] ?? '',
+    'secret-access-key': cred['secret-access-key'] ?? '',
     'external-id': cred['external-id'] || null,
   } as StorageCredential;
 }
