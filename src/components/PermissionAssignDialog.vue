@@ -278,6 +278,7 @@ const viewRelation: ViewRelation[] = [
   'pass_grants',
   'manage_grants',
   'describe',
+  'select',
   'modify',
 ];
 const warehouseRelation: WarehouseRelation[] = [

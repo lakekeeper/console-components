@@ -95,6 +95,7 @@ const catalogTableActions: LakekeeperTableAction[] = [
 const catalogViewActions: LakekeeperViewAction[] = [
   { action: 'drop' },
   { action: 'get_metadata' },
+  { action: 'select' },
   { action: 'commit' },
   { action: 'include_in_list' },
   { action: 'rename' },

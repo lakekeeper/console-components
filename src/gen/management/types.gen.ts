@@ -945,6 +945,8 @@ export type LakekeeperViewAction = {
 } | {
     action: 'get_metadata';
 } | {
+    action: 'select';
+} | {
     action: 'commit';
     removed_properties?: Array<string>;
     updated_properties?: {
@@ -1213,7 +1215,7 @@ export type OpenFgaServerAction = 'read_assignments' | 'grant_admin';
 
 export type OpenFgaTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
-export type OpenFgaViewAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_modify' | 'change_ownership';
+export type OpenFgaViewAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
 export type OpenFgaWarehouseAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'change_ownership';
 
@@ -1410,9 +1412,9 @@ export type RoleRelation = 'assignee' | 'ownership';
  * S3CredentialAccessKey
  */
 export type S3AccessKeyCredential = {
-    'aws-access-key-id': string;
-    'aws-secret-access-key': string;
+    'access-key-id': string;
     'external-id'?: string | null;
+    'secret-access-key': string;
 };
 
 /**
@@ -2140,7 +2142,7 @@ export type UserOrRole = {
  */
 export type UserType = 'human' | 'application';
 
-export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
+export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
 export type ViewAssignment = (UserOrRole & {
     type: 'ownership';
@@ -2151,10 +2153,12 @@ export type ViewAssignment = (UserOrRole & {
 }) | (UserOrRole & {
     type: 'describe';
 }) | (UserOrRole & {
+    type: 'select';
+}) | (UserOrRole & {
     type: 'modify';
 });
 
-export type ViewRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'modify';
+export type ViewRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify';
 
 export type WarehouseAction = 'create_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'get_endpoint_statistics';
 
