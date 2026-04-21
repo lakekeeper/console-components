@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.5](https://github.com/lakekeeper/console-components/compare/v0.5.4...v0.5.5) (2026-04-21)
+
+
+### Bug Fixes
+
+* **ui:** fix stale warehouse name in TablePreview after rename ([5e6d843](https://github.com/lakekeeper/console-components/commit/5e6d8437b5fdbfff406d8efd08125143a671dd64))
+* **ui:** refresh nav tree on warehouse rename and add ([5e6d843](https://github.com/lakekeeper/console-components/commit/5e6d8437b5fdbfff406d8efd08125143a671dd64))
+* **ui:** replace JSON toggle with import warehouse button in add dialog ([5e6d843](https://github.com/lakekeeper/console-components/commit/5e6d8437b5fdbfff406d8efd08125143a671dd64))
+
 ## [0.5.4](https://github.com/lakekeeper/console-components/compare/v0.5.3...v0.5.4) (2026-04-20)
 
 
