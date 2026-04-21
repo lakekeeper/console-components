@@ -342,18 +342,23 @@ const slider = ref(7);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 
 function handleFileImport(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (e) => {
     try {
       preloadWarehouseJSON(JSON.parse(e.target?.result as string));
     } catch (err) {
-      console.error('Error parsing JSON:', err);
+      handleError(err, 'importing warehouse JSON', true);
     }
+    input.value = '';
+  };
+  reader.onerror = () => {
+    handleError(reader.error || new Error('File read error'), 'reading warehouse JSON file', true);
+    input.value = '';
   };
   reader.readAsText(file);
-  (event.target as HTMLInputElement).value = '';
 }
 
 // const storageCredentialTypes = ref(['S3', 'GCS', 'AZURE']);

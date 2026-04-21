@@ -1266,11 +1266,11 @@ watch(
   },
 );
 
-// Watch for warehouse list changes (rename, add) and reload the full warehouse list
+// Watch for warehouse list changes (rename, add, delete) — use refreshWarehouses to preserve expansion state
 watch(
   () => visualStore.warehouseListRefreshSignal,
   async () => {
-    await loadWarehouses();
+    await refreshWarehouses();
   },
 );
 

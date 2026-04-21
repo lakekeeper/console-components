@@ -306,9 +306,14 @@ async function loadPreview() {
     return;
   }
   try {
-    // Load warehouse
+    // Load warehouse — snapshot name immediately so later async steps use a stable value
     const wh = await functions.getWarehouse(props.warehouseId);
-    resolvedWarehouseName.value = wh.name;
+    const warehouseName = wh.name;
+    if (!warehouseName) {
+      error.value = 'Warehouse name is unavailable.';
+      return;
+    }
+    resolvedWarehouseName.value = warehouseName;
 
     // Load table metadata via loadTableCustomized (uses json-bigint to preserve snapshot IDs)
     if (!loadedTable.value) {
@@ -329,17 +334,17 @@ async function loadPreview() {
 
     // Check if catalog is already attached
     const attached = loqe.attachedCatalogs.value;
-    const alreadyAttached = attached.some((c) => c.catalogName === resolvedWarehouseName.value);
+    const alreadyAttached = attached.some((c) => c.catalogName === warehouseName);
     if (!alreadyAttached) {
       await loqe.attachCatalog({
-        catalogName: resolvedWarehouseName.value,
+        catalogName: warehouseName,
         restUri: props.catalogUrl,
         accessToken: userStore.user.access_token,
         projectId: wh['project-id'],
       });
     }
 
-    const tablePath = `"${resolvedWarehouseName.value}"."${namespaceDisplay.value}"."${props.tableName}"`;
+    const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
 
     // Build query with optional time travel
     let sql: string;
