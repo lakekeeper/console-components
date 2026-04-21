@@ -105,6 +105,7 @@ async function renameWarehouse(name: string) {
   try {
     await functions.renameWarehouse(props.warehouseId, name, notify);
     await loadWarehouse();
+    visual.refreshWarehouseList();
   } catch (error) {
     console.error('Failed to rename warehouse:', error);
   }

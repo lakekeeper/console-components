@@ -243,6 +243,7 @@ async function listWarehouse() {
         warehouse.can_delete = hasAction(warehouseAccess, 'delete');
       }),
     );
+    visual.refreshWarehouseList();
   } catch (error) {
     logError('listWarehouse', error);
   }

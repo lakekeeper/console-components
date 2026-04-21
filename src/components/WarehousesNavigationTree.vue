@@ -1266,6 +1266,14 @@ watch(
   },
 );
 
+// Watch for warehouse list changes (rename, add) and reload the full warehouse list
+watch(
+  () => visualStore.warehouseListRefreshSignal,
+  async () => {
+    await loadWarehouses();
+  },
+);
+
 // Watch for navTreeRefreshSignal to reload specific nodes when objects are created/deleted
 watch(
   () => visualStore.navTreeRefreshSignal,

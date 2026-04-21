@@ -36,19 +36,23 @@
     </template>
     <v-card style="max-height: 90vh; overflow-y: auto; min-width: 850px; width: 100%">
       <v-card-title v-if="props.objectType === ObjectType.WAREHOUSE" class="mt-8">
-        <v-row>
+        <v-row align="center">
           <v-col cols="8" class="ml-2">Add new warehouse</v-col>
-          <v-col>
-            <v-switch v-model="useFileInput">
-              <template #label>
-                <v-icon class="mr-2" color="info">
-                  {{ useFileInput ? 'mdi-keyboard-outline' : 'mdi-code-json' }}
-                </v-icon>
-                <span>
-                  {{ useFileInput ? 'Activate manual input' : 'Activate JSON upload' }}
-                </span>
-              </template>
-            </v-switch>
+          <v-col class="d-flex justify-end">
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept="application/json"
+              style="display: none"
+              @change="handleFileImport" />
+            <v-btn
+              color="info"
+              prepend-icon="mdi-upload"
+              size="small"
+              variant="outlined"
+              @click="fileInputRef?.click()">
+              Import Warehouse
+            </v-btn>
           </v-col>
         </v-row>
       </v-card-title>
@@ -110,7 +114,7 @@
               </span>
             </v-col>
           </v-row>
-          <v-form v-if="!useFileInput">
+          <v-form>
             <v-text-field
               v-if="emptyWarehouse"
               v-model="warehouseName"
@@ -198,6 +202,7 @@
               <v-tabs-window v-model="storageCredentialType" class="mt-4" style="min-height: 600px">
                 <v-tabs-window-item value="S3">
                   <WarehouseStorageS3
+                    :key="importKey"
                     :credentials-only="emptyWarehouse"
                     :intent="intent"
                     :object-type="objectType"
@@ -210,6 +215,7 @@
 
                 <v-tabs-window-item value="GCS">
                   <WarehouseStorageGCS
+                    :key="importKey"
                     :credentials-only="emptyWarehouse"
                     :intent="intent"
                     :object-type="objectType"
@@ -221,6 +227,7 @@
 
                 <v-tabs-window-item value="AZURE">
                   <WarehouseStorageAzure
+                    :key="importKey"
                     :credentials-only="emptyWarehouse"
                     :intent="intent"
                     :object-type="objectType"
@@ -232,6 +239,7 @@
 
                 <v-tabs-window-item value="R2">
                   <WarehouseStorageS3
+                    :key="importKey"
                     :credentials-only="emptyWarehouse"
                     :intent="intent"
                     :object-type="objectType"
@@ -244,6 +252,7 @@
 
                 <v-tabs-window-item value="S3_COMPAT">
                   <WarehouseStorageS3
+                    :key="importKey"
                     :credentials-only="emptyWarehouse"
                     :intent="intent"
                     :object-type="objectType"
@@ -256,11 +265,6 @@
               </v-tabs-window>
             </span>
           </v-form>
-
-          <WarehouseStorageJSON
-            v-if="useFileInput"
-            @submit="createWarehouseJSON"
-            @preload="preloadWarehouseJSON"></WarehouseStorageJSON>
         </v-card-text>
         <v-card-actions>
           <v-btn
@@ -284,7 +288,6 @@ import { useVisualStore } from '../stores/visual';
 import WarehouseStorageS3 from './WarehouseStorageS3.vue';
 import WarehouseStorageAzure from './WarehouseStorageAzure.vue';
 import WarehouseStorageGCS from './WarehouseStorageGCS.vue';
-import WarehouseStorageJSON from './WarehouseStorageJSON.vue';
 import cfIcon from '@/assets/cf.svg';
 
 import {
@@ -331,10 +334,27 @@ const props = defineProps<{
   processStatus: string;
 }>();
 
+const importKey = ref(0);
+
 const min = ref(0);
 const max = ref(90);
 const slider = ref(7);
-const useFileInput = ref(false);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+
+function handleFileImport(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      preloadWarehouseJSON(JSON.parse(e.target?.result as string));
+    } catch (err) {
+      console.error('Error parsing JSON:', err);
+    }
+  };
+  reader.readAsText(file);
+  (event.target as HTMLInputElement).value = '';
+}
 
 // const storageCredentialTypes = ref(['S3', 'GCS', 'AZURE']);
 const storageCredentialType = ref('');
@@ -513,55 +533,6 @@ async function createWarehouse(
   }
 }
 
-function cleanS3Credential(cred: any): StorageCredential {
-  if (cred?.type !== 's3') return cred;
-  const credType = cred['credential-type'];
-  if (credType === 'cloudflare-r2') {
-    return {
-      type: 's3',
-      'credential-type': 'cloudflare-r2',
-      'access-key-id': cred['access-key-id'] ?? '',
-      'secret-access-key': cred['secret-access-key'] ?? '',
-      token: cred.token ?? '',
-      'account-id': cred['account-id'] ?? '',
-    } as StorageCredential;
-  }
-  if (credType === 'aws-system-identity') {
-    return {
-      type: 's3',
-      'credential-type': 'aws-system-identity',
-      'external-id': cred['external-id'] || null,
-    } as StorageCredential;
-  }
-  return {
-    type: 's3',
-    'credential-type': 'access-key',
-    'access-key-id': cred['access-key-id'] ?? '',
-    'secret-access-key': cred['secret-access-key'] ?? '',
-    'external-id': cred['external-id'] || null,
-  } as StorageCredential;
-}
-
-async function createWarehouseJSON(wh: CreateWarehouseRequest) {
-  try {
-    creatingWarehouse.value = true;
-    const cleaned = {
-      ...wh,
-      'storage-credential': cleanS3Credential(wh['storage-credential']),
-    };
-    const res: any = await functions.createWarehouse(cleaned, true);
-
-    if (res.status === 400) throw new Error(res.message);
-
-    emit('addedWarehouse');
-    creatingWarehouse.value = false;
-    isDialogActive.value = false;
-  } catch (error) {
-    creatingWarehouse.value = false;
-    handleError(error, 'createWarehouseJSON', true);
-  }
-}
-
 async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
   try {
     warehouseName.value = wh['warehouse-name'];
@@ -606,7 +577,7 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
         'storage-profile': wh['storage-profile'],
         'storage-credential': wh['storage-credential'],
       });
-    useFileInput.value = false;
+    importKey.value++;
   } catch (error) {
     console.error(error);
   }
