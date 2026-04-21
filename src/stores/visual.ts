@@ -110,6 +110,13 @@ export const useVisualStore = defineStore(
       };
     }
 
+    // Signal to tell WarehousesNavigationTree to reload the full warehouse list
+    const warehouseListRefreshSignal = ref(0);
+
+    function refreshWarehouseList() {
+      warehouseListRefreshSignal.value++;
+    }
+
     // Multi-tab SQL editor state - warehouse-specific
     // Key: warehouseId, Value: { activeTabId, tabs[] }
     const warehouseSqlData = ref<Record<string, WarehouseSqlData>>({});
@@ -369,6 +376,8 @@ export const useVisualStore = defineStore(
       warehouseTreeState,
       navTreeRefreshSignal,
       refreshNavTree,
+      warehouseListRefreshSignal,
+      refreshWarehouseList,
       offlineReason,
       setOfflineReason,
       clearOfflineReason,

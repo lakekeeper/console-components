@@ -1266,6 +1266,14 @@ watch(
   },
 );
 
+// Watch for warehouse list changes (rename, add, delete) — use refreshWarehouses to preserve expansion state
+watch(
+  () => visualStore.warehouseListRefreshSignal,
+  async () => {
+    await refreshWarehouses();
+  },
+);
+
 // Watch for navTreeRefreshSignal to reload specific nodes when objects are created/deleted
 watch(
   () => visualStore.navTreeRefreshSignal,

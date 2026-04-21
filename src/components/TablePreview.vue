@@ -47,7 +47,7 @@
     <!-- Results -->
     <div v-else-if="queryResults">
       <div class="text-h6 mb-3">
-        Preview: {{ warehouseName }}.{{ namespaceDisplay }}.{{ tableName }}
+        Preview: {{ resolvedWarehouseName }}.{{ namespaceDisplay }}.{{ tableName }}
       </div>
 
       <!-- Branch & Time Travel Toolbar -->
@@ -158,6 +158,7 @@ const props = defineProps<{
   tableName: string;
   catalogUrl: string;
   storageType?: string;
+  warehouseName?: string;
 }>();
 
 const config = inject<any>('appConfig', { enabledAuthentication: false });
@@ -181,7 +182,7 @@ const storageValidation = useStorageValidation(
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 const queryResults = ref<any>(null);
-const warehouseName = ref<string | undefined>(undefined);
+const resolvedWarehouseName = ref<string | undefined>(undefined);
 const loadedTable = ref<BigIntLoadTableResult | null>(null);
 const selectedSnapshot = ref<string | null>(null);
 const selectedBranch = ref<string>('main');
@@ -305,9 +306,14 @@ async function loadPreview() {
     return;
   }
   try {
-    // Load warehouse
+    // Load warehouse — snapshot name immediately so later async steps use a stable value
     const wh = await functions.getWarehouse(props.warehouseId);
-    warehouseName.value = wh.name;
+    const warehouseName = wh.name;
+    if (!warehouseName) {
+      error.value = 'Warehouse name is unavailable.';
+      return;
+    }
+    resolvedWarehouseName.value = warehouseName;
 
     // Load table metadata via loadTableCustomized (uses json-bigint to preserve snapshot IDs)
     if (!loadedTable.value) {
@@ -328,17 +334,17 @@ async function loadPreview() {
 
     // Check if catalog is already attached
     const attached = loqe.attachedCatalogs.value;
-    const alreadyAttached = attached.some((c) => c.catalogName === warehouseName.value);
+    const alreadyAttached = attached.some((c) => c.catalogName === warehouseName);
     if (!alreadyAttached) {
       await loqe.attachCatalog({
-        catalogName: warehouseName.value,
+        catalogName: warehouseName,
         restUri: props.catalogUrl,
         accessToken: userStore.user.access_token,
         projectId: wh['project-id'],
       });
     }
 
-    const tablePath = `"${warehouseName.value}"."${namespaceDisplay.value}"."${props.tableName}"`;
+    const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
 
     // Build query with optional time travel
     let sql: string;
@@ -388,6 +394,14 @@ function downloadCSV() {
 onMounted(() => {
   loadPreview();
 });
+
+// Keep local resolvedWarehouseName in sync with prop (updated after rename in parent)
+watch(
+  () => props.warehouseName,
+  (name) => {
+    if (name) resolvedWarehouseName.value = name;
+  },
+);
 
 // Watch for table/namespace/warehouse changes and reload preview
 watch([() => props.tableName, () => props.namespaceId, () => props.warehouseId], () => {

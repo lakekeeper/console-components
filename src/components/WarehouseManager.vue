@@ -35,7 +35,7 @@
       <WarehouseAddDialog
         v-if="canCreateWarehouse"
         v-bind="addWarehouseProps"
-        @added-warehouse="listWarehouse" />
+        @added-warehouse="onWarehouseAdded" />
     </v-toolbar>
 
     <v-data-table
@@ -90,7 +90,7 @@
         <WarehouseAddDialog
           v-if="canCreateWarehouse"
           v-bind="addWarehouseProps"
-          @added-warehouse="listWarehouse" />
+          @added-warehouse="onWarehouseAdded" />
       </template>
     </v-data-table>
 
@@ -248,6 +248,11 @@ async function listWarehouse() {
   }
 }
 
+async function onWarehouseAdded() {
+  await listWarehouse();
+  visual.refreshWarehouseList();
+}
+
 function navigateToWarehouse(item: GetWarehouseResponseExtended) {
   visual.whId = item.id;
   visual.wahrehouseName = item.name;
@@ -258,6 +263,7 @@ async function deleteWarehouse(id: string) {
   try {
     await functions.deleteWarehouse(id, notify);
     await listWarehouse();
+    visual.refreshWarehouseList();
   } catch (error) {
     logError('deleteWarehouse', error);
   }
