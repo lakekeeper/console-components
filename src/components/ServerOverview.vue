@@ -258,7 +258,9 @@
           <tr>
             <td class="font-weight-medium" style="width: 220px">Lakekeeper URL</td>
             <td>
-              <code>{{ functions ? functions.icebergCatalogUrl() : '(auto-detected from browser)' }}</code>
+              <code>
+                {{ functions ? functions.icebergCatalogUrl() : '(auto-detected from browser)' }}
+              </code>
               <v-btn
                 v-if="functions"
                 icon="mdi-content-copy"
@@ -270,7 +272,9 @@
           <tr>
             <td class="font-weight-medium">Catalog URL</td>
             <td>
-              <code>{{ functions ? functions.icebergCatalogUrlSuffixed() : '(not available)' }}</code>
+              <code>
+                {{ functions ? functions.icebergCatalogUrlSuffixed() : '(not available)' }}
+              </code>
               <v-btn
                 v-if="functions"
                 icon="mdi-content-copy"
