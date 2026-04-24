@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.6](https://github.com/lakekeeper/console-components/compare/v0.5.5...v0.5.6) (2026-04-24)
+
+
+### Bug Fixes
+
+* **ui:** normalize catalog URLs and add copy buttons in ServerOverview ([4fde698](https://github.com/lakekeeper/console-components/commit/4fde69843efec630ddfdc0f50937797e8916dd91))
+
 ## [0.5.5](https://github.com/lakekeeper/console-components/compare/v0.5.4...v0.5.5) (2026-04-21)
 
 
