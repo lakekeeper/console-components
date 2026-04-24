@@ -258,7 +258,25 @@
           <tr>
             <td class="font-weight-medium" style="width: 220px">Lakekeeper URL</td>
             <td>
-              <code>{{ appConfig.icebergCatalogUrl || '(auto-detected from browser)' }}</code>
+              <code>{{ functions ? functions.icebergCatalogUrl() : '(auto-detected from browser)' }}</code>
+              <v-btn
+                v-if="functions"
+                icon="mdi-content-copy"
+                size="x-small"
+                variant="text"
+                @click="copyToClipboard(functions.icebergCatalogUrl())"></v-btn>
+            </td>
+          </tr>
+          <tr>
+            <td class="font-weight-medium">Catalog URL</td>
+            <td>
+              <code>{{ functions ? functions.icebergCatalogUrlSuffixed() : '(not available)' }}</code>
+              <v-btn
+                v-if="functions"
+                icon="mdi-content-copy"
+                size="x-small"
+                variant="text"
+                @click="copyToClipboard(functions.icebergCatalogUrlSuffixed())"></v-btn>
             </td>
           </tr>
           <tr>
@@ -336,13 +354,8 @@ const appConfig = inject<any>('appConfig', {});
 const projectInfo = ref<any>({});
 
 async function copyToClipboard(text: string) {
-  try {
-    await navigator.clipboard.writeText(text);
-    if (functions && functions.showSnackbar) {
-      functions.showSnackbar('Copied to clipboard', 'success');
-    }
-  } catch (err) {
-    console.error('Failed to copy:', err);
+  if (functions?.copyToClipboard) {
+    await functions.copyToClipboard(text);
   }
 }
 
