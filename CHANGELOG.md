@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.7](https://github.com/lakekeeper/console-components/compare/v0.5.6...v0.5.7) (2026-04-29)
+
+
+### Bug Fixes
+
+* **ui:** detach LoQE catalog on warehouse rename ([feee389](https://github.com/lakekeeper/console-components/commit/feee3892ae8ca2fdcd21d41071a5ffb1ea1d7f22))
+
 ## [0.5.6](https://github.com/lakekeeper/console-components/compare/v0.5.5...v0.5.6) (2026-04-24)
 
 
