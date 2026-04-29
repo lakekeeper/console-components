@@ -114,10 +114,14 @@ async function renameWarehouse(name: string) {
       // DuckDB ATTACHes catalogs by warehouse name; detach the stale
       // entry (and its persisted Pinia record) so it isn't re-attached
       // alongside the renamed catalog on the next preview/reload.
+      // Best-effort: the rename itself already succeeded (and the
+      // success snackbar fired), and a stale ATTACH at worst causes
+      // one extra /catalog/v1/config request until next reload —
+      // not worth bugging the user with a follow-up error snackbar.
       try {
         await loqe.detachCatalog(previousName);
       } catch (e) {
-        console.warn('Failed to detach renamed catalog from LoQE:', e);
+        logError(`WarehouseHeader.renameWarehouse.detach(${previousName})`, e);
       }
     }
   } catch (error) {
