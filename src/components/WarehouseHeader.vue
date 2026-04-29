@@ -35,9 +35,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, computed } from 'vue';
+import { ref, reactive, watch, onMounted, computed, inject } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
+import { useLoQE } from '@/composables/useLoQE';
 import type {
   GetWarehouseResponse,
   StorageCredential,
@@ -53,6 +54,8 @@ const props = defineProps<{
 
 const functions = useFunctions();
 const visual = useVisualStore();
+const appConfig = inject<{ baseUrlPrefix?: string }>('appConfig', {});
+const loqe = useLoQE({ baseUrlPrefix: appConfig.baseUrlPrefix ?? '' });
 const notify = true;
 const processStatus = ref('starting');
 
@@ -102,10 +105,25 @@ async function loadWarehouse() {
 }
 
 async function renameWarehouse(name: string) {
+  const previousName = warehouse.name;
   try {
     await functions.renameWarehouse(props.warehouseId, name, notify);
     await loadWarehouse();
     visual.refreshWarehouseList();
+    if (previousName && previousName !== name) {
+      // DuckDB ATTACHes catalogs by warehouse name; detach the stale
+      // entry (and its persisted Pinia record) so it isn't re-attached
+      // alongside the renamed catalog on the next preview/reload.
+      // Best-effort: the rename itself already succeeded (and the
+      // success snackbar fired), and a stale ATTACH at worst causes
+      // one extra /catalog/v1/config request until next reload —
+      // not worth bugging the user with a follow-up error snackbar.
+      try {
+        await loqe.detachCatalog(previousName);
+      } catch (e) {
+        logError(`WarehouseHeader.renameWarehouse.detach(${previousName})`, e);
+      }
+    }
   } catch (error) {
     console.error('Failed to rename warehouse:', error);
   }
