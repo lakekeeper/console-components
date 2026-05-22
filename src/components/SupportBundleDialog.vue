@@ -51,6 +51,7 @@
 <script setup lang="ts">
 import { computed, inject, ref, watch } from 'vue';
 import type { ServerInfo } from '@/gen/management/types.gen';
+import { useFunctions } from '@/plugins/functions';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -60,8 +61,18 @@ defineEmits<{
   (e: 'update:modelValue', value: boolean): void;
 }>();
 
-const functions = inject<any>('functions');
+const functions = useFunctions();
 const appConfig = inject<any>('appConfig', {});
+
+function sanitizedUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const u = new URL(window.location.href);
+    return u.origin + u.pathname;
+  } catch {
+    return null;
+  }
+}
 
 const projectInfo = ref<Partial<ServerInfo>>({});
 
@@ -81,7 +92,7 @@ const supportBundleJson = computed(() =>
       generatedAt: new Date().toISOString(),
       app: {
         edition: appConfig?.edition ?? 'unknown',
-        url: typeof window !== 'undefined' ? window.location.href : null,
+        url: sanitizedUrl(),
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
       },
       serverInfo: projectInfo.value,
@@ -109,8 +120,8 @@ async function loadServerInfo() {
   if (!functions?.getServerInfo) return;
   try {
     projectInfo.value = await functions.getServerInfo();
-  } catch {
-    // Fail silently — bundle just won't include serverInfo
+  } catch (error) {
+    functions?.handleError?.(error, 'loading server info', true);
   }
 }
 
@@ -122,10 +133,14 @@ watch(
 );
 
 async function copySupportBundle() {
-  if (functions?.copyToClipboard) {
-    await functions.copyToClipboard(supportBundleJson.value);
-  } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-    await navigator.clipboard.writeText(supportBundleJson.value);
+  try {
+    if (functions?.copyToClipboard) {
+      functions.copyToClipboard(supportBundleJson.value);
+    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(supportBundleJson.value);
+    }
+  } catch (error) {
+    functions?.handleError?.(error, 'copySupportBundle', true);
   }
 }
 

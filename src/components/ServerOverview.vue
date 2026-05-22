@@ -59,10 +59,10 @@
                   </span>
                 </td>
               </tr>
-              <tr v-if="isEnterpriseConsole && projectInfo['lakekeeper-enterprise-version']">
+              <tr v-if="isEnterpriseConsole">
                 <td class="font-weight-medium">Enterprise Version</td>
                 <td>
-                  {{ projectInfo['lakekeeper-enterprise-version'] }}
+                  {{ projectInfo['lakekeeper-enterprise-version'] || 'N/A' }}
                   <span
                     v-if="projectInfo['lakekeeper-enterprise-commit-sha']"
                     class="text-medium-emphasis ml-2">
