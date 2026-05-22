@@ -203,6 +203,26 @@ export type CheckResponse = {
     allowed: boolean;
 };
 
+/**
+ * Information about the UI (console) shipped with this binary.
+ */
+export type ConsoleInfo = {
+    /**
+     * Git commit SHA of the console source, if known.
+     */
+    'commit-sha'?: string | null;
+    /**
+     * Edition / crate name of the bundled console.
+     * e.g. `lakekeeper-console` for the OSS console or
+     * `lakekeeper-console-plus` for the enterprise console.
+     */
+    edition: string;
+    /**
+     * SemVer of the console crate.
+     */
+    version: string;
+};
+
 export type ControlTaskAction = {
     'action-type': 'stop';
 } | {
@@ -1704,6 +1724,7 @@ export type ServerInfo = {
      * Whether the catalog has been bootstrapped.
      */
     bootstrapped: boolean;
+    console?: null | ConsoleInfo;
     /**
      * Default Project ID. Null if not set
      */
@@ -1712,6 +1733,25 @@ export type ServerInfo = {
      * If using GCP system identities for GCS storage profiles are enabled.
      */
     'gcp-system-identities-enabled': boolean;
+    /**
+     * Git commit SHA of the upstream `lakekeeper` crate, if the binary
+     * reported it at build time.
+     */
+    'lakekeeper-commit-sha'?: string | null;
+    /**
+     * Git commit SHA of the enterprise binary, if known.
+     */
+    'lakekeeper-enterprise-commit-sha'?: string | null;
+    /**
+     * SemVer of the enterprise binary (e.g. `lakekeeper-plus`) when this
+     * server is an enterprise build. `None` on OSS builds.
+     */
+    'lakekeeper-enterprise-version'?: string | null;
+    /**
+     * SemVer of the upstream `lakekeeper` crate the server was built
+     * against.
+     */
+    'lakekeeper-version': string;
     /**
      * License status information
      */
@@ -1726,7 +1766,11 @@ export type ServerInfo = {
      */
     'server-id': string;
     /**
-     * Version of the server.
+     * Deprecated alias of `lakekeeper-version`. Always equal to it; kept
+     * for clients that read the plain `version` field. New clients should
+     * read `lakekeeper-version` and/or `lakekeeper-enterprise-version`.
+     *
+     * @deprecated
      */
     version: string;
 };
@@ -2078,7 +2122,9 @@ export type UpdateWarehouseStorageRequest = {
      * Storage profile to use for the warehouse.
      * The new profile must point to the same location as the existing profile
      * to avoid data loss. For S3 this means that you may not change the
-     * bucket or key prefix. The region may only be changed if an endpoint is set.
+     * bucket or key prefix. The region may only be changed if an `endpoint`
+     * is set on the new profile (so the endpoint, not the region, determines
+     * where S3 requests are routed).
      */
     'storage-profile': StorageProfile;
 };
