@@ -123,6 +123,7 @@ export const useVisualStore = defineStore(
 
     const serverInfo = reactive<ServerInfo>({
       version: '0.0.0',
+      'lakekeeper-version': '0.0.0',
       bootstrapped: true,
       'server-id': '00000000-0000-0000-0000-000000000000',
       'default-project-id': '00000000-0000-0000-0000-000000000000',

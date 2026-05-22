@@ -47,9 +47,15 @@
           <v-list-item prepend-icon="mdi-face-agent" @click="goToSupport">
             <v-list-item-title>Support</v-list-item-title>
           </v-list-item>
+          <v-divider class="my-1"></v-divider>
+          <v-list-item prepend-icon="mdi-export-variant" @click="supportBundleOpen = true">
+            <v-list-item-title>Export for GitHub</v-list-item-title>
+          </v-list-item>
         </v-list>
       </v-menu>
     </slot>
+
+    <SupportBundleDialog v-model="supportBundleOpen" />
 
     <v-menu v-if="showUserMenu" open-on-hover>
       <template #activator="{ props }">
@@ -97,11 +103,27 @@
       variant="text"
       @click="toggleTheme"></v-btn>
 
+    <!-- Feedback button (OSS only) -->
+    <v-tooltip v-if="!isEnterpriseEdition" location="bottom" text="Share feedback">
+      <template #activator="{ props: tipProps }">
+        <v-btn
+          v-bind="tipProps"
+          icon="mdi-message-text"
+          size="small"
+          class="ml-2"
+          variant="text"
+          @click="feedbackOpen = true"></v-btn>
+      </template>
+    </v-tooltip>
+
     <!-- Notification Panel -->
     <NotificationPanel />
 
     <!-- Token Dialog -->
     <TokenDialog ref="tokenDialog" />
+
+    <!-- Feedback Dialog (OSS only) -->
+    <FeedbackDialog v-if="!isEnterpriseEdition" v-model="feedbackOpen" />
   </v-app-bar>
 </template>
 
@@ -116,6 +138,14 @@ import { useRouter } from 'vue-router';
 import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT_SIDE.svg';
 import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE_SIDE.svg';
 import TokenDialog from './TokenDialog.vue';
+import SupportBundleDialog from './SupportBundleDialog.vue';
+import FeedbackDialog from './FeedbackDialog.vue';
+
+const supportBundleOpen = ref(false);
+const feedbackOpen = ref(false);
+
+const appConfigInjected = inject<any>('appConfig', {});
+const isEnterpriseEdition = computed(() => appConfigInjected?.edition === 'enterprise');
 
 // Props
 const props = defineProps({

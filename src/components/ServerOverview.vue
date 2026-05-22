@@ -1,78 +1,161 @@
 <template>
   <v-container fluid class="pa-4" style="max-height: calc(100vh - 200px); overflow-y: auto">
-    <!-- Server Information -->
-    <v-card class="mb-4" elevation="1">
-      <v-toolbar color="transparent" density="compact" flat>
-        <v-toolbar-title class="text-subtitle-1">
-          <v-icon class="mr-2" color="primary">mdi-server</v-icon>
-          Server Information
-        </v-toolbar-title>
-        <v-spacer></v-spacer>
-        <v-chip
-          v-if="projectInfo.version"
-          size="small"
-          color="primary"
-          variant="outlined"
-          class="mr-2">
-          v{{ projectInfo.version }}
-        </v-chip>
-      </v-toolbar>
-      <v-divider></v-divider>
-      <v-table density="compact">
-        <tbody>
-          <tr>
-            <td class="font-weight-medium" style="width: 220px">Server ID</td>
-            <td>
-              {{ projectInfo['server-id'] || 'N/A' }}
-              <v-btn
-                v-if="projectInfo['server-id']"
-                icon="mdi-content-copy"
-                size="x-small"
-                variant="text"
-                @click="copyToClipboard(projectInfo['server-id'])"></v-btn>
-            </td>
-          </tr>
-          <tr>
-            <td class="font-weight-medium">Version</td>
-            <td>{{ projectInfo.version || 'N/A' }}</td>
-          </tr>
-          <tr>
-            <td class="font-weight-medium">Bootstrap Status</td>
-            <td>
-              <v-chip
-                :color="projectInfo.bootstrapped ? 'success' : 'warning'"
-                size="small"
-                variant="flat">
-                <v-icon start>
-                  {{ projectInfo.bootstrapped ? 'mdi-check' : 'mdi-alert' }}
-                </v-icon>
-                {{ projectInfo.bootstrapped ? 'Bootstrapped' : 'Not Bootstrapped' }}
-              </v-chip>
-            </td>
-          </tr>
-          <tr>
-            <td class="font-weight-medium">Default Project ID</td>
-            <td>
-              {{ projectInfo['default-project-id'] || 'N/A' }}
-              <v-btn
-                v-if="projectInfo['default-project-id']"
-                icon="mdi-content-copy"
-                size="x-small"
-                variant="text"
-                @click="copyToClipboard(projectInfo['default-project-id'])"></v-btn>
-            </td>
-          </tr>
-          <tr>
-            <td class="font-weight-medium">Authorization Backend</td>
-            <td>
-              <v-chip size="small" color="info">
-                {{ projectInfo['authz-backend'] || 'N/A' }}
-              </v-chip>
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-    </v-card>
+    <!-- Export bundle (available in both OSS and Enterprise editions) -->
+    <div class="d-flex justify-end mb-3">
+      <v-btn
+        prepend-icon="mdi-export-variant"
+        variant="tonal"
+        color="primary"
+        size="small"
+        @click="exportDialog = true">
+        {{ isEnterpriseConsole ? 'Export for Support' : 'Export for GitHub' }}
+      </v-btn>
+    </div>
+
+    <SupportBundleDialog v-model="exportDialog" />
+
+    <!-- Server Information + Console side by side -->
+    <v-row class="mb-4">
+      <v-col cols="12" :md="projectInfo.console ? 6 : 12">
+        <v-card elevation="1" class="fill-height">
+          <v-toolbar color="transparent" density="compact" flat>
+            <v-toolbar-title class="text-subtitle-1">
+              <v-icon class="mr-2" color="primary">mdi-server</v-icon>
+              Server Information
+            </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <v-chip
+              v-if="projectInfo['lakekeeper-version']"
+              size="small"
+              color="primary"
+              variant="outlined"
+              class="mr-2">
+              v{{ projectInfo['lakekeeper-version'] }}
+            </v-chip>
+          </v-toolbar>
+          <v-divider></v-divider>
+          <v-table density="compact">
+            <tbody>
+              <tr>
+                <td class="font-weight-medium" style="width: 220px">Server ID</td>
+                <td>
+                  {{ projectInfo['server-id'] || 'N/A' }}
+                  <v-btn
+                    v-if="projectInfo['server-id']"
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    @click="copyToClipboard(projectInfo['server-id'])"></v-btn>
+                </td>
+              </tr>
+              <tr v-if="!isEnterpriseConsole">
+                <td class="font-weight-medium">Lakekeeper Version</td>
+                <td>
+                  {{ projectInfo['lakekeeper-version'] || 'N/A' }}
+                  <span
+                    v-if="projectInfo['lakekeeper-commit-sha']"
+                    class="text-medium-emphasis ml-2">
+                    ({{ shortSha(projectInfo['lakekeeper-commit-sha']) }})
+                  </span>
+                </td>
+              </tr>
+              <tr v-if="isEnterpriseConsole && projectInfo['lakekeeper-enterprise-version']">
+                <td class="font-weight-medium">Enterprise Version</td>
+                <td>
+                  {{ projectInfo['lakekeeper-enterprise-version'] }}
+                  <span
+                    v-if="projectInfo['lakekeeper-enterprise-commit-sha']"
+                    class="text-medium-emphasis ml-2">
+                    ({{ shortSha(projectInfo['lakekeeper-enterprise-commit-sha']) }})
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td class="font-weight-medium">Bootstrap Status</td>
+                <td>
+                  <v-chip
+                    :color="projectInfo.bootstrapped ? 'success' : 'warning'"
+                    size="small"
+                    variant="flat">
+                    <v-icon start>
+                      {{ projectInfo.bootstrapped ? 'mdi-check' : 'mdi-alert' }}
+                    </v-icon>
+                    {{ projectInfo.bootstrapped ? 'Bootstrapped' : 'Not Bootstrapped' }}
+                  </v-chip>
+                </td>
+              </tr>
+              <tr>
+                <td class="font-weight-medium">Default Project ID</td>
+                <td>
+                  {{ projectInfo['default-project-id'] || 'N/A' }}
+                  <v-btn
+                    v-if="projectInfo['default-project-id']"
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    @click="copyToClipboard(projectInfo['default-project-id'])"></v-btn>
+                </td>
+              </tr>
+              <tr>
+                <td class="font-weight-medium">Authorization Backend</td>
+                <td>
+                  <v-chip size="small" color="info">
+                    {{ projectInfo['authz-backend'] || 'N/A' }}
+                  </v-chip>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card>
+      </v-col>
+
+      <!-- Console -->
+      <v-col v-if="projectInfo.console" cols="12" md="6">
+        <v-card elevation="1" class="fill-height">
+          <v-toolbar color="transparent" density="compact" flat>
+            <v-toolbar-title class="text-subtitle-1">
+              <v-icon class="mr-2" color="primary">mdi-monitor-dashboard</v-icon>
+              Console
+            </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <v-chip
+              v-if="projectInfo.console.version"
+              size="small"
+              color="primary"
+              variant="outlined"
+              class="mr-2">
+              v{{ projectInfo.console.version }}
+            </v-chip>
+          </v-toolbar>
+          <v-divider></v-divider>
+          <v-table density="compact">
+            <tbody>
+              <tr>
+                <td class="font-weight-medium" style="width: 220px">Edition</td>
+                <td>
+                  <v-chip size="small" color="info">{{ projectInfo.console.edition }}</v-chip>
+                </td>
+              </tr>
+              <tr>
+                <td class="font-weight-medium">Version</td>
+                <td>{{ projectInfo.console.version || 'N/A' }}</td>
+              </tr>
+              <tr v-if="projectInfo.console['commit-sha']">
+                <td class="font-weight-medium">Commit SHA</td>
+                <td>
+                  <code>{{ shortSha(projectInfo.console['commit-sha']) }}</code>
+                  <v-btn
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    @click="copyToClipboard(projectInfo.console['commit-sha']!)"></v-btn>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card>
+      </v-col>
+    </v-row>
 
     <!-- License & Cloud Identities side by side -->
     <v-row class="mb-4">
@@ -289,6 +372,17 @@
               <code>{{ appConfig.baseUrlPrefix || '(none)' }}</code>
             </td>
           </tr>
+          <tr v-if="appConfig.enabledUserSurveys !== undefined">
+            <td class="font-weight-medium">User Surveys</td>
+            <td>
+              <v-chip
+                :color="appConfig.enabledUserSurveys ? 'success' : 'grey'"
+                size="small"
+                variant="flat">
+                {{ appConfig.enabledUserSurveys ? 'Enabled' : 'Disabled' }}
+              </v-chip>
+            </td>
+          </tr>
           <tr>
             <td class="font-weight-medium">Authentication</td>
             <td>
@@ -351,11 +445,17 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref, inject } from 'vue';
+import { onMounted, ref, computed, inject } from 'vue';
+import type { ServerInfo } from '@/gen/management/types.gen';
+import SupportBundleDialog from './SupportBundleDialog.vue';
 
 const functions = inject<any>('functions');
 const appConfig = inject<any>('appConfig', {});
-const projectInfo = ref<any>({});
+const projectInfo = ref<Partial<ServerInfo>>({});
+
+const isEnterpriseConsole = computed(() => appConfig?.edition === 'enterprise');
+
+const exportDialog = ref(false);
 
 async function copyToClipboard(text: string) {
   if (functions?.copyToClipboard) {
@@ -381,6 +481,10 @@ function getExpirationColor(expirationDate: string): string {
   if (daysUntilExpiration < 30) return 'warning'; // Less than 30 days
   if (daysUntilExpiration < 90) return 'orange'; // Less than 90 days
   return 'success'; // More than 90 days
+}
+
+function shortSha(sha: string | null | undefined): string {
+  return sha ? sha.slice(0, 7) : '';
 }
 
 function formatDate(dateString: string): string {

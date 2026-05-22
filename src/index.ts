@@ -69,6 +69,8 @@ import DeleteDialog from './components/DeleteDialog.vue';
 import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
 import ServerOverview from './components/ServerOverview.vue';
+import SupportBundleDialog from './components/SupportBundleDialog.vue';
+import FeedbackDialog from './components/FeedbackDialog.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
@@ -95,6 +97,8 @@ export {
   EntityPropertiesDialog,
   TaskConfigDialog,
   ServerOverview,
+  SupportBundleDialog,
+  FeedbackDialog,
   UserManager,
   ProjectNameAddOrEditDialog,
   AuthenticationDisabledWarningBanner,
@@ -255,6 +259,8 @@ const components = {
   EntityPropertiesDialog,
   TaskConfigDialog,
   ServerOverview,
+  SupportBundleDialog,
+  FeedbackDialog,
   UserManager,
   AuthenticationDisabledWarningBanner,
   WarehouseRenameDialog,
