@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.0](https://github.com/lakekeeper/console-components/compare/v0.5.7...v0.6.0) (2026-05-22)
+
+
+### Features
+
+* **ui:** edition-gated Lakekeeper / Enterprise Version row ([11c766f](https://github.com/lakekeeper/console-components/commit/11c766f6d1c2f989cce22bcf9063d998cd6f8a93))
+* **ui:** Export item added to AppBar help menu ([11c766f](https://github.com/lakekeeper/console-components/commit/11c766f6d1c2f989cce22bcf9063d998cd6f8a93))
+* **ui:** FeedbackDialog (OSS) wired to AppBar with mailto draft ([11c766f](https://github.com/lakekeeper/console-components/commit/11c766f6d1c2f989cce22bcf9063d998cd6f8a93))
+* **ui:** SupportBundleDialog with Copy and Download JSON actions ([11c766f](https://github.com/lakekeeper/console-components/commit/11c766f6d1c2f989cce22bcf9063d998cd6f8a93))
+* **ui:** two-column Server Information + Console layout in ServerOverview ([11c766f](https://github.com/lakekeeper/console-components/commit/11c766f6d1c2f989cce22bcf9063d998cd6f8a93))
+* **ui:** User Surveys row in UI Configuration ([11c766f](https://github.com/lakekeeper/console-components/commit/11c766f6d1c2f989cce22bcf9063d998cd6f8a93))
+
 ## [0.5.7](https://github.com/lakekeeper/console-components/compare/v0.5.6...v0.5.7) (2026-04-29)
 
 
