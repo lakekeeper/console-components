@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/lakekeeper/console-components/compare/v0.6.0...v0.6.1) (2026-05-23)
+
+
+### Bug Fixes
+
+* **docs:** typos in README (backeend, browaser) ([8be40f1](https://github.com/lakekeeper/console-components/commit/8be40f1a53c029681eeb7eb944e9c6140ad00f30))
+
 ## [0.6.0](https://github.com/lakekeeper/console-components/compare/v0.5.7...v0.6.0) (2026-05-22)
 
 
