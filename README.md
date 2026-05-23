@@ -1,7 +1,7 @@
 # @lakekeeper/console-components
 
 A shared Vue 3 component library for Lakekeeper console applications. This library provides reusable UI components, composables, stores, and utilities built with Vue 3, Vuetify 3, and TypeScript.
-It needs a backeend server of Lakekeeper https://github.com/lakekeeper/lakekeeper
+It needs a backend server of Lakekeeper https://github.com/lakekeeper/lakekeeper
 
 ## 📦 What's Included
 
@@ -14,7 +14,7 @@ This library exports:
 - **Theme**: Custom Vuetify light theme
 - **Utilities**: Common interfaces, enums, and helper functions
 - **OpenAPI Client**: Auto-generated API client for Lakekeeper management and catalog services
-- **Loads browser default theme**: App loads default theme of browaser but can be changed in app bar
+- **Loads browser default theme**: App loads default theme of browser but can be changed in app bar
 
 ## 🚀 Installation
 
