@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.2](https://github.com/lakekeeper/console-components/compare/v0.6.1...v0.6.2) (2026-05-23)
+
+
+### Bug Fixes
+
+* **deps:** bump @hey-api/openapi-ts to ^0.97 and regenerate SDKs ([9161551](https://github.com/lakekeeper/console-components/commit/9161551cda9f561b8bf67c5cd667f45d7b3f37fe))
+
 ## [0.6.1](https://github.com/lakekeeper/console-components/compare/v0.6.0...v0.6.1) (2026-05-23)
 
 
