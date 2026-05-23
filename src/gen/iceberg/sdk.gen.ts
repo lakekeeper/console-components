@@ -4,7 +4,7 @@ import { type Client, type Options as Options2, type TDataShape, urlSearchParams
 import { client } from './client.gen';
 import type { CancelPlanningData, CancelPlanningErrors, CancelPlanningResponses, CommitTransactionData, CommitTransactionErrors, CommitTransactionResponses, CreateNamespaceData, CreateNamespaceErrors, CreateNamespaceResponses, CreateTableData, CreateTableErrors, CreateTableResponses, CreateViewData, CreateViewErrors, CreateViewResponses, DropNamespaceData, DropNamespaceErrors, DropNamespaceResponses, DropTableData, DropTableErrors, DropTableResponses, DropViewData, DropViewErrors, DropViewResponses, FetchPlanningResultData, FetchPlanningResultErrors, FetchPlanningResultResponses, FetchScanTasksData, FetchScanTasksErrors, FetchScanTasksResponses, GetConfigData, GetConfigErrors, GetConfigResponses, GetTokenData, GetTokenErrors, GetTokenResponses, ListNamespacesData, ListNamespacesErrors, ListNamespacesResponses, ListTablesData, ListTablesErrors, ListTablesResponses, ListViewsData, ListViewsErrors, ListViewsResponses, LoadCredentialsData, LoadCredentialsErrors, LoadCredentialsResponses, LoadNamespaceMetadataData, LoadNamespaceMetadataErrors, LoadNamespaceMetadataResponses, LoadTableData, LoadTableErrors, LoadTableResponses, LoadViewData, LoadViewErrors, LoadViewResponses, NamespaceExistsData, NamespaceExistsErrors, NamespaceExistsResponses, PlanTableScanData, PlanTableScanErrors, PlanTableScanResponses, RegisterTableData, RegisterTableErrors, RegisterTableResponses, RenameTableData, RenameTableErrors, RenameTableResponses, RenameViewData, RenameViewErrors, RenameViewResponses, ReplaceViewData, ReplaceViewErrors, ReplaceViewResponses, ReportMetricsData, ReportMetricsErrors, ReportMetricsResponses, TableExistsData, TableExistsErrors, TableExistsResponses, UpdatePropertiesData, UpdatePropertiesErrors, UpdatePropertiesResponses, UpdateTableData, UpdateTableErrors, UpdateTableResponses, ViewExistsData, ViewExistsErrors, ViewExistsResponses } from './types.gen';
 
-export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
+export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
      * You can provide a client instance returned by `createClient()` instead of
      * individual options. This might be also useful if you want to implement a
@@ -47,22 +47,11 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * - POST /v1/{prefix}/tables/rename
  * - POST /v1/{prefix}/transactions/commit
  */
-export const getConfig = <ThrowOnError extends boolean = false>(options?: Options<GetConfigData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetConfigResponses, GetConfigErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/config',
-        ...options
-    });
-};
+export const getConfig = <ThrowOnError extends boolean = false>(options?: Options<GetConfigData, ThrowOnError>) => (options?.client ?? client).get<GetConfigResponses, GetConfigErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/config',
+    ...options
+});
 
 /**
  * Get a token using an OAuth2 flow (DEPRECATED for REMOVAL)
@@ -87,141 +76,75 @@ export const getConfig = <ThrowOnError extends boolean = false>(options?: Option
  *
  * @deprecated
  */
-export const getToken = <ThrowOnError extends boolean = false>(options: Options<GetTokenData, ThrowOnError>) => {
-    return (options.client ?? client).post<GetTokenResponses, GetTokenErrors, ThrowOnError>({
-        ...urlSearchParamsBodySerializer,
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/oauth/tokens',
-        ...options,
-        headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            ...options.headers
-        }
-    });
-};
+export const getToken = <ThrowOnError extends boolean = false>(options: Options<GetTokenData, ThrowOnError>) => (options.client ?? client).post<GetTokenResponses, GetTokenErrors, ThrowOnError>({
+    ...urlSearchParamsBodySerializer,
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/oauth/tokens',
+    ...options,
+    headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        ...options.headers
+    }
+});
 
 /**
  * List namespaces, optionally providing a parent namespace to list underneath
  *
  * List all namespaces at a certain level, optionally starting from a given parent namespace. If table accounting.tax.paid.info exists, using 'SELECT NAMESPACE IN accounting' would translate into `GET /namespaces?parent=accounting` and must return a namespace, ["accounting", "tax"] only. Using 'SELECT NAMESPACE IN accounting.tax' would translate into `GET /namespaces?parent=accounting%1Ftax` and must return a namespace, ["accounting", "tax", "paid"]. If `parent` is not provided, all top-level namespaces should be listed.
  */
-export const listNamespaces = <ThrowOnError extends boolean = false>(options: Options<ListNamespacesData, ThrowOnError>) => {
-    return (options.client ?? client).get<ListNamespacesResponses, ListNamespacesErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces',
-        ...options
-    });
-};
+export const listNamespaces = <ThrowOnError extends boolean = false>(options: Options<ListNamespacesData, ThrowOnError>) => (options.client ?? client).get<ListNamespacesResponses, ListNamespacesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces',
+    ...options
+});
 
 /**
  * Create a namespace
  *
  * Create a namespace, with an optional set of properties. The server might also add properties, such as `last_modified_time` etc.
  */
-export const createNamespace = <ThrowOnError extends boolean = false>(options: Options<CreateNamespaceData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateNamespaceResponses, CreateNamespaceErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const createNamespace = <ThrowOnError extends boolean = false>(options: Options<CreateNamespaceData, ThrowOnError>) => (options.client ?? client).post<CreateNamespaceResponses, CreateNamespaceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Drop a namespace from the catalog.
  *
  * Drop a namespace from the catalog. By default, the namespace needs to be empty. You can however set `recursive=true` which will delete all tables, views and namespaces under this namespace. The namespace itself will also be deleted. If the warehouse containing the namespace is configured with a soft-deletion profile, the `force` flag has to be provided. The deletion will not be a soft-deletion. Every table, view and namespace will be gone as soon as this call returns. Depending on whether the `purge` flag was set to true, the data will be queued for deletion too. Any pending `tabular_expiration` will be cancelled. If there is a running `tabular_expiration`, this call will fail with a `409 Conflict` error.
  */
-export const dropNamespace = <ThrowOnError extends boolean = false>(options: Options<DropNamespaceData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DropNamespaceResponses, DropNamespaceErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}',
-        ...options
-    });
-};
+export const dropNamespace = <ThrowOnError extends boolean = false>(options: Options<DropNamespaceData, ThrowOnError>) => (options.client ?? client).delete<DropNamespaceResponses, DropNamespaceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}',
+    ...options
+});
 
 /**
  * Load the metadata properties for a namespace
  *
  * Return all stored metadata properties for a given namespace
  */
-export const loadNamespaceMetadata = <ThrowOnError extends boolean = false>(options: Options<LoadNamespaceMetadataData, ThrowOnError>) => {
-    return (options.client ?? client).get<LoadNamespaceMetadataResponses, LoadNamespaceMetadataErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}',
-        ...options
-    });
-};
+export const loadNamespaceMetadata = <ThrowOnError extends boolean = false>(options: Options<LoadNamespaceMetadataData, ThrowOnError>) => (options.client ?? client).get<LoadNamespaceMetadataResponses, LoadNamespaceMetadataErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}',
+    ...options
+});
 
 /**
  * Check if a namespace exists
  *
  * Check if a namespace exists. The response does not contain a body.
  */
-export const namespaceExists = <ThrowOnError extends boolean = false>(options: Options<NamespaceExistsData, ThrowOnError>) => {
-    return (options.client ?? client).head<NamespaceExistsResponses, NamespaceExistsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}',
-        ...options
-    });
-};
+export const namespaceExists = <ThrowOnError extends boolean = false>(options: Options<NamespaceExistsData, ThrowOnError>) => (options.client ?? client).head<NamespaceExistsResponses, NamespaceExistsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}',
+    ...options
+});
 
 /**
  * Set or remove properties on a namespace
@@ -230,48 +153,26 @@ export const namespaceExists = <ThrowOnError extends boolean = false>(options: O
  * Properties that are not in the request are not modified or removed by this call.
  * Server implementations are not required to support namespace properties.
  */
-export const updateProperties = <ThrowOnError extends boolean = false>(options: Options<UpdatePropertiesData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdatePropertiesResponses, UpdatePropertiesErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/properties',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateProperties = <ThrowOnError extends boolean = false>(options: Options<UpdatePropertiesData, ThrowOnError>) => (options.client ?? client).post<UpdatePropertiesResponses, UpdatePropertiesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/properties',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List all table identifiers underneath a given namespace
  *
  * Return all table identifiers under this namespace
  */
-export const listTables = <ThrowOnError extends boolean = false>(options: Options<ListTablesData, ThrowOnError>) => {
-    return (options.client ?? client).get<ListTablesResponses, ListTablesErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables',
-        ...options
-    });
-};
+export const listTables = <ThrowOnError extends boolean = false>(options: Options<ListTablesData, ThrowOnError>) => (options.client ?? client).get<ListTablesResponses, ListTablesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables',
+    ...options
+});
 
 /**
  * Create a table in the given namespace
@@ -282,26 +183,15 @@ export const listTables = <ThrowOnError extends boolean = false>(options: Option
  *
  * If `stage-create` is true, the table is not created, but table metadata is initialized and returned. The service should prepare as needed for a commit to the table commit endpoint to complete the create transaction. The client uses the returned metadata to begin a transaction. To commit the transaction, the client sends all create and subsequent changes to the table commit route. Changes from the table create operation include changes like AddSchemaUpdate and SetCurrentSchemaUpdate that set the initial table state.
  */
-export const createTable = <ThrowOnError extends boolean = false>(options: Options<CreateTableData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateTableResponses, CreateTableErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const createTable = <ThrowOnError extends boolean = false>(options: Options<CreateTableData, ThrowOnError>) => (options.client ?? client).post<CreateTableResponses, CreateTableErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Submit a scan for planning
@@ -331,26 +221,15 @@ export const createTable = <ThrowOnError extends boolean = false>(options: Optio
  * fetchScanTasks has been used to fetch scan tasks for each plan task.
  *
  */
-export const planTableScan = <ThrowOnError extends boolean = false>(options: Options<PlanTableScanData, ThrowOnError>) => {
-    return (options.client ?? client).post<PlanTableScanResponses, PlanTableScanErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/plan',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const planTableScan = <ThrowOnError extends boolean = false>(options: Options<PlanTableScanData, ThrowOnError>) => (options.client ?? client).post<PlanTableScanResponses, PlanTableScanErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/plan',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Cancels scan planning for a plan-id
@@ -364,22 +243,11 @@ export const planTableScan = <ThrowOnError extends boolean = false>(options: Opt
  * planTableScan or fetchPlanningResult
  *
  */
-export const cancelPlanning = <ThrowOnError extends boolean = false>(options: Options<CancelPlanningData, ThrowOnError>) => {
-    return (options.client ?? client).delete<CancelPlanningResponses, CancelPlanningErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/plan/{plan-id}',
-        ...options
-    });
-};
+export const cancelPlanning = <ThrowOnError extends boolean = false>(options: Options<CancelPlanningData, ThrowOnError>) => (options.client ?? client).delete<CancelPlanningResponses, CancelPlanningErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/plan/{plan-id}',
+    ...options
+});
 
 /**
  * Fetches the result of scan planning for a plan-id
@@ -399,96 +267,52 @@ export const cancelPlanning = <ThrowOnError extends boolean = false>(options: Op
  * The response for a "completed" planning operation includes two types of tasks (file scan tasks and plan tasks) and both may be included in the response. Tasks must not be included for any other response status.
  *
  */
-export const fetchPlanningResult = <ThrowOnError extends boolean = false>(options: Options<FetchPlanningResultData, ThrowOnError>) => {
-    return (options.client ?? client).get<FetchPlanningResultResponses, FetchPlanningResultErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/plan/{plan-id}',
-        ...options
-    });
-};
+export const fetchPlanningResult = <ThrowOnError extends boolean = false>(options: Options<FetchPlanningResultData, ThrowOnError>) => (options.client ?? client).get<FetchPlanningResultResponses, FetchPlanningResultErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/plan/{plan-id}',
+    ...options
+});
 
 /**
  * Fetches result tasks for a plan task
  *
  * Fetches result tasks for a plan task.
  */
-export const fetchScanTasks = <ThrowOnError extends boolean = false>(options: Options<FetchScanTasksData, ThrowOnError>) => {
-    return (options.client ?? client).post<FetchScanTasksResponses, FetchScanTasksErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/tasks',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const fetchScanTasks = <ThrowOnError extends boolean = false>(options: Options<FetchScanTasksData, ThrowOnError>) => (options.client ?? client).post<FetchScanTasksResponses, FetchScanTasksErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/tasks',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Register a table in the given namespace using given metadata file location
  *
  * Register a table using given metadata file location.
  */
-export const registerTable = <ThrowOnError extends boolean = false>(options: Options<RegisterTableData, ThrowOnError>) => {
-    return (options.client ?? client).post<RegisterTableResponses, RegisterTableErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/register',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const registerTable = <ThrowOnError extends boolean = false>(options: Options<RegisterTableData, ThrowOnError>) => (options.client ?? client).post<RegisterTableResponses, RegisterTableErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/register',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Drop a table from the catalog
  *
  * Remove a table from the catalog
  */
-export const dropTable = <ThrowOnError extends boolean = false>(options: Options<DropTableData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DropTableResponses, DropTableErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}',
-        ...options
-    });
-};
+export const dropTable = <ThrowOnError extends boolean = false>(options: Options<DropTableData, ThrowOnError>) => (options.client ?? client).delete<DropTableResponses, DropTableErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}',
+    ...options
+});
 
 /**
  * Load a table from the catalog
@@ -501,44 +325,22 @@ export const dropTable = <ThrowOnError extends boolean = false>(options: Options
  *
  * The catalog configuration may contain credentials that should be used for subsequent requests for the table. The configuration key "token" is used to pass an access token to be used as a bearer token for table requests. Otherwise, a token may be passed using a RFC 8693 token type as a configuration key. For example, "urn:ietf:params:oauth:token-type:jwt=<JWT-token>".
  */
-export const loadTable = <ThrowOnError extends boolean = false>(options: Options<LoadTableData, ThrowOnError>) => {
-    return (options.client ?? client).get<LoadTableResponses, LoadTableErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}',
-        ...options
-    });
-};
+export const loadTable = <ThrowOnError extends boolean = false>(options: Options<LoadTableData, ThrowOnError>) => (options.client ?? client).get<LoadTableResponses, LoadTableErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}',
+    ...options
+});
 
 /**
  * Check if a table exists
  *
  * Check if a table exists within a given namespace. The response does not contain a body.
  */
-export const tableExists = <ThrowOnError extends boolean = false>(options: Options<TableExistsData, ThrowOnError>) => {
-    return (options.client ?? client).head<TableExistsResponses, TableExistsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}',
-        ...options
-    });
-};
+export const tableExists = <ThrowOnError extends boolean = false>(options: Options<TableExistsData, ThrowOnError>) => (options.client ?? client).head<TableExistsResponses, TableExistsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}',
+    ...options
+});
 
 /**
  * Commit updates to a table
@@ -551,192 +353,104 @@ export const tableExists = <ThrowOnError extends boolean = false>(options: Optio
  *
  * Create table transactions that are started by createTable with `stage-create` set to true are committed using this route. Transactions should include all changes to the table, including table initialization, like AddSchemaUpdate and SetCurrentSchemaUpdate. The `assert-create` requirement is used to ensure that the table was not created concurrently.
  */
-export const updateTable = <ThrowOnError extends boolean = false>(options: Options<UpdateTableData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateTableResponses, UpdateTableErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateTable = <ThrowOnError extends boolean = false>(options: Options<UpdateTableData, ThrowOnError>) => (options.client ?? client).post<UpdateTableResponses, UpdateTableErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Load vended credentials for a table from the catalog
  *
  * Load vended credentials for a table from the catalog.
  */
-export const loadCredentials = <ThrowOnError extends boolean = false>(options: Options<LoadCredentialsData, ThrowOnError>) => {
-    return (options.client ?? client).get<LoadCredentialsResponses, LoadCredentialsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/credentials',
-        ...options
-    });
-};
+export const loadCredentials = <ThrowOnError extends boolean = false>(options: Options<LoadCredentialsData, ThrowOnError>) => (options.client ?? client).get<LoadCredentialsResponses, LoadCredentialsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/credentials',
+    ...options
+});
 
 /**
  * Rename a table from its current name to a new name
  *
  * Rename a table from one identifier to another. It's valid to move a table across namespaces, but the server implementation is not required to support it.
  */
-export const renameTable = <ThrowOnError extends boolean = false>(options: Options<RenameTableData, ThrowOnError>) => {
-    return (options.client ?? client).post<RenameTableResponses, RenameTableErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/tables/rename',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const renameTable = <ThrowOnError extends boolean = false>(options: Options<RenameTableData, ThrowOnError>) => (options.client ?? client).post<RenameTableResponses, RenameTableErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/tables/rename',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Send a metrics report to this endpoint to be processed by the backend
  */
-export const reportMetrics = <ThrowOnError extends boolean = false>(options: Options<ReportMetricsData, ThrowOnError>) => {
-    return (options.client ?? client).post<ReportMetricsResponses, ReportMetricsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/metrics',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const reportMetrics = <ThrowOnError extends boolean = false>(options: Options<ReportMetricsData, ThrowOnError>) => (options.client ?? client).post<ReportMetricsResponses, ReportMetricsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/metrics',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Commit updates to multiple tables in an atomic operation
  */
-export const commitTransaction = <ThrowOnError extends boolean = false>(options: Options<CommitTransactionData, ThrowOnError>) => {
-    return (options.client ?? client).post<CommitTransactionResponses, CommitTransactionErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/transactions/commit',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const commitTransaction = <ThrowOnError extends boolean = false>(options: Options<CommitTransactionData, ThrowOnError>) => (options.client ?? client).post<CommitTransactionResponses, CommitTransactionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/transactions/commit',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List all view identifiers underneath a given namespace
  *
  * Return all view identifiers under this namespace
  */
-export const listViews = <ThrowOnError extends boolean = false>(options: Options<ListViewsData, ThrowOnError>) => {
-    return (options.client ?? client).get<ListViewsResponses, ListViewsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/views',
-        ...options
-    });
-};
+export const listViews = <ThrowOnError extends boolean = false>(options: Options<ListViewsData, ThrowOnError>) => (options.client ?? client).get<ListViewsResponses, ListViewsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/views',
+    ...options
+});
 
 /**
  * Create a view in the given namespace
  *
  * Create a view in the given namespace.
  */
-export const createView = <ThrowOnError extends boolean = false>(options: Options<CreateViewData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateViewResponses, CreateViewErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/views',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const createView = <ThrowOnError extends boolean = false>(options: Options<CreateViewData, ThrowOnError>) => (options.client ?? client).post<CreateViewResponses, CreateViewErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/views',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Drop a view from the catalog
  *
  * Remove a view from the catalog
  */
-export const dropView = <ThrowOnError extends boolean = false>(options: Options<DropViewData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DropViewResponses, DropViewErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/views/{view}',
-        ...options
-    });
-};
+export const dropView = <ThrowOnError extends boolean = false>(options: Options<DropViewData, ThrowOnError>) => (options.client ?? client).delete<DropViewResponses, DropViewErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/views/{view}',
+    ...options
+});
 
 /**
  * Load a view from the catalog
@@ -749,93 +463,49 @@ export const dropView = <ThrowOnError extends boolean = false>(options: Options<
  *
  * The catalog configuration may contain credentials that should be used for subsequent requests for the view. The configuration key "token" is used to pass an access token to be used as a bearer token for view requests. Otherwise, a token may be passed using a RFC 8693 token type as a configuration key. For example, "urn:ietf:params:oauth:token-type:jwt=<JWT-token>".
  */
-export const loadView = <ThrowOnError extends boolean = false>(options: Options<LoadViewData, ThrowOnError>) => {
-    return (options.client ?? client).get<LoadViewResponses, LoadViewErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/views/{view}',
-        ...options
-    });
-};
+export const loadView = <ThrowOnError extends boolean = false>(options: Options<LoadViewData, ThrowOnError>) => (options.client ?? client).get<LoadViewResponses, LoadViewErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/views/{view}',
+    ...options
+});
 
 /**
  * Check if a view exists
  *
  * Check if a view exists within a given namespace. This request does not return a response body.
  */
-export const viewExists = <ThrowOnError extends boolean = false>(options: Options<ViewExistsData, ThrowOnError>) => {
-    return (options.client ?? client).head<ViewExistsResponses, ViewExistsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/views/{view}',
-        ...options
-    });
-};
+export const viewExists = <ThrowOnError extends boolean = false>(options: Options<ViewExistsData, ThrowOnError>) => (options.client ?? client).head<ViewExistsResponses, ViewExistsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/views/{view}',
+    ...options
+});
 
 /**
  * Replace a view
  *
  * Commit updates to a view.
  */
-export const replaceView = <ThrowOnError extends boolean = false>(options: Options<ReplaceViewData, ThrowOnError>) => {
-    return (options.client ?? client).post<ReplaceViewResponses, ReplaceViewErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/namespaces/{namespace}/views/{view}',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const replaceView = <ThrowOnError extends boolean = false>(options: Options<ReplaceViewData, ThrowOnError>) => (options.client ?? client).post<ReplaceViewResponses, ReplaceViewErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/namespaces/{namespace}/views/{view}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Rename a view from its current name to a new name
  *
  * Rename a view from one identifier to another. It's valid to move a view across namespaces, but the server implementation is not required to support it.
  */
-export const renameView = <ThrowOnError extends boolean = false>(options: Options<RenameViewData, ThrowOnError>) => {
-    return (options.client ?? client).post<RenameViewResponses, RenameViewErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            },
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/v1/{prefix}/views/rename',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const renameView = <ThrowOnError extends boolean = false>(options: Options<RenameViewData, ThrowOnError>) => (options.client ?? client).post<RenameViewResponses, RenameViewErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { scheme: 'bearer', type: 'http' }],
+    url: '/v1/{prefix}/views/rename',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
