@@ -4,7 +4,7 @@ import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
 import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigTabularExpirationData, GetTaskQueueConfigTabularExpirationErrors, GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTaskQueueConfigTabularExpirationData, SetTaskQueueConfigTabularExpirationErrors, SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
-export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean> = Options2<TData, ThrowOnError> & {
+export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
      * You can provide a client instance returned by `createClient()` instead of
      * individual options. This might be also useful if you want to implement a
@@ -33,22 +33,15 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
  * Each check in the request can optionally override the identity being checked.
  * If no identity is specified, the current user's identity is used.
  */
-export const batchCheckActions = <ThrowOnError extends boolean = false>(options: Options<BatchCheckActionsData, ThrowOnError>) => {
-    return (options.client ?? client).post<BatchCheckActionsResponses, BatchCheckActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/action/batch-check',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const batchCheckActions = <ThrowOnError extends boolean = false>(options: Options<BatchCheckActionsData, ThrowOnError>) => (options.client ?? client).post<BatchCheckActionsResponses, BatchCheckActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/action/batch-check',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Bootstrap
@@ -56,22 +49,15 @@ export const batchCheckActions = <ThrowOnError extends boolean = false>(options:
  * Initializes the Lakekeeper server and sets the initial administrator account.
  * This operation can only be performed once.
  */
-export const bootstrap = <ThrowOnError extends boolean = false>(options: Options<BootstrapData, ThrowOnError>) => {
-    return (options.client ?? client).post<BootstrapResponses, BootstrapErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/bootstrap',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const bootstrap = <ThrowOnError extends boolean = false>(options: Options<BootstrapData, ThrowOnError>) => (options.client ?? client).post<BootstrapResponses, BootstrapErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/bootstrap',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get API Statistics
@@ -113,76 +99,48 @@ export const bootstrap = <ThrowOnError extends boolean = false>(options: Options
  * - 01:00:36: table deleted:
  * - `timestamps: ["01:00:00","02:00:00"], called_endpoints: [[{"count": 1, "http_route": "POST /management/v1/warehouse", "status_code": 201, "warehouse_id": null, "warehouse_name": null, "created_at": "00:16:32", "updated_at": null},{"count": 1, "http_route": "POST /catalog/v1/{prefix}/namespaces/{namespace}/tables", "status_code": 201, "warehouse_id": "ff17f1d0-90ad-4e7d-bf02-be718b78c2ee", "warehouse_name": "staging", "created_at": "00:30:00", "updated_at": "00:45:00"}],[{"count": 1, "http_route": "DELETE /catalog/v1/{prefix}/namespaces/{namespace}/tables/{table}", "status_code": 200, "warehouse_id": "ff17f1d0-90ad-4e7d-bf02-be718b78c2ee", "warehouse_name": "staging", "created_at": "01:00:36", "updated_at": "null"}]]`
  */
-export const getEndpointStatistics = <ThrowOnError extends boolean = false>(options: Options<GetEndpointStatisticsData, ThrowOnError>) => {
-    return (options.client ?? client).post<GetEndpointStatisticsResponses, GetEndpointStatisticsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/endpoint-statistics',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const getEndpointStatistics = <ThrowOnError extends boolean = false>(options: Options<GetEndpointStatisticsData, ThrowOnError>) => (options.client ?? client).post<GetEndpointStatisticsResponses, GetEndpointStatisticsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/endpoint-statistics',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Server Info
  *
  * Returns basic information about the server configuration and status.
  */
-export const getServerInfo = <ThrowOnError extends boolean = false>(options?: Options<GetServerInfoData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetServerInfoResponses, GetServerInfoErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/info',
-        ...options
-    });
-};
+export const getServerInfo = <ThrowOnError extends boolean = false>(options?: Options<GetServerInfoData, ThrowOnError>) => (options?.client ?? client).get<GetServerInfoResponses, GetServerInfoErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/info',
+    ...options
+});
 
 /**
  * Check if a specific action is allowed on the given object
  */
-export const check = <ThrowOnError extends boolean = false>(options: Options<CheckData, ThrowOnError>) => {
-    return (options.client ?? client).post<CheckResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/check',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const check = <ThrowOnError extends boolean = false>(options: Options<CheckData, ThrowOnError>) => (options.client ?? client).post<CheckResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/check',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Authorization properties of a namespace
  */
-export const getNamespaceById = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetNamespaceByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/namespace/{namespace_id}',
-        ...options
-    });
-};
+export const getNamespaceById = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceByIdData, ThrowOnError>) => (options.client ?? client).get<GetNamespaceByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/namespace/{namespace_id}',
+    ...options
+});
 
 /**
  * Get my access to a namespace
@@ -192,54 +150,33 @@ export const getNamespaceById = <ThrowOnError extends boolean = false>(options: 
  *
  * @deprecated
  */
-export const getNamespaceAccessById = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceAccessByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetNamespaceAccessByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/namespace/{namespace_id}/access',
-        ...options
-    });
-};
+export const getNamespaceAccessById = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceAccessByIdData, ThrowOnError>) => (options.client ?? client).get<GetNamespaceAccessByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/namespace/{namespace_id}/access',
+    ...options
+});
 
 /**
  * Get user and role assignments for a namespace
  */
-export const getNamespaceAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetNamespaceAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/namespace/{namespace_id}/assignments',
-        ...options
-    });
-};
+export const getNamespaceAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).get<GetNamespaceAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/namespace/{namespace_id}/assignments',
+    ...options
+});
 
 /**
  * Update permissions for a namespace
  */
-export const updateNamespaceAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateNamespaceAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateNamespaceAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/namespace/{namespace_id}/assignments',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateNamespaceAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateNamespaceAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).post<UpdateNamespaceAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/namespace/{namespace_id}/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed Authorizer actions on a namespace
@@ -247,38 +184,24 @@ export const updateNamespaceAssignmentsById = <ThrowOnError extends boolean = fa
  * Returns Authorizer permissions (OpenFGA relations) for the specified namespace.
  * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/actions` instead.
  */
-export const getAuthorizerNamespaceActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerNamespaceActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetAuthorizerNamespaceActionsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/namespace/{namespace_id}/authorizer-actions',
-        ...options
-    });
-};
+export const getAuthorizerNamespaceActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerNamespaceActionsData, ThrowOnError>) => (options.client ?? client).get<GetAuthorizerNamespaceActionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/namespace/{namespace_id}/authorizer-actions',
+    ...options
+});
 
 /**
  * Set managed access property of a namespace
  */
-export const setNamespaceManagedAccess = <ThrowOnError extends boolean = false>(options: Options<SetNamespaceManagedAccessData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetNamespaceManagedAccessResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/namespace/{namespace_id}/managed-access',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setNamespaceManagedAccess = <ThrowOnError extends boolean = false>(options: Options<SetNamespaceManagedAccessData, ThrowOnError>) => (options.client ?? client).post<SetNamespaceManagedAccessResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/namespace/{namespace_id}/managed-access',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get my access to the default project
@@ -288,54 +211,33 @@ export const setNamespaceManagedAccess = <ThrowOnError extends boolean = false>(
  *
  * @deprecated
  */
-export const getProjectAccess = <ThrowOnError extends boolean = false>(options?: Options<GetProjectAccessData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetProjectAccessResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/project/access',
-        ...options
-    });
-};
+export const getProjectAccess = <ThrowOnError extends boolean = false>(options?: Options<GetProjectAccessData, ThrowOnError>) => (options?.client ?? client).get<GetProjectAccessResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/project/access',
+    ...options
+});
 
 /**
  * Get user and role assignments of a project
  */
-export const getProjectAssignments = <ThrowOnError extends boolean = false>(options?: Options<GetProjectAssignmentsData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetProjectAssignmentsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/project/assignments',
-        ...options
-    });
-};
+export const getProjectAssignments = <ThrowOnError extends boolean = false>(options?: Options<GetProjectAssignmentsData, ThrowOnError>) => (options?.client ?? client).get<GetProjectAssignmentsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/project/assignments',
+    ...options
+});
 
 /**
  * Update permissions for the default project
  */
-export const updateProjectAssignments = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectAssignmentsData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateProjectAssignmentsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/project/assignments',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateProjectAssignments = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectAssignmentsData, ThrowOnError>) => (options.client ?? client).post<UpdateProjectAssignmentsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/project/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed Authorizer actions on the default project
@@ -343,18 +245,11 @@ export const updateProjectAssignments = <ThrowOnError extends boolean = false>(o
  * Returns Authorizer permissions (OpenFGA relations) for the default project.
  * For Catalog permissions, use `/management/v1/project/actions` instead.
  */
-export const getAuthorizerProjectActions = <ThrowOnError extends boolean = false>(options?: Options<GetAuthorizerProjectActionsData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetAuthorizerProjectActionsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/project/authorizer-actions',
-        ...options
-    });
-};
+export const getAuthorizerProjectActions = <ThrowOnError extends boolean = false>(options?: Options<GetAuthorizerProjectActionsData, ThrowOnError>) => (options?.client ?? client).get<GetAuthorizerProjectActionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/project/authorizer-actions',
+    ...options
+});
 
 /**
  * Get my access to a project
@@ -364,18 +259,11 @@ export const getAuthorizerProjectActions = <ThrowOnError extends boolean = false
  *
  * @deprecated
  */
-export const getProjectAccessById = <ThrowOnError extends boolean = false>(options: Options<GetProjectAccessByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetProjectAccessByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/project/{project_id}/access',
-        ...options
-    });
-};
+export const getProjectAccessById = <ThrowOnError extends boolean = false>(options: Options<GetProjectAccessByIdData, ThrowOnError>) => (options.client ?? client).get<GetProjectAccessByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/project/{project_id}/access',
+    ...options
+});
 
 /**
  * Get user and role assignments to a project
@@ -384,38 +272,24 @@ export const getProjectAccessById = <ThrowOnError extends boolean = false>(optio
  *
  * @deprecated
  */
-export const getProjectAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetProjectAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetProjectAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/project/{project_id}/assignments',
-        ...options
-    });
-};
+export const getProjectAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetProjectAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).get<GetProjectAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/project/{project_id}/assignments',
+    ...options
+});
 
 /**
  * Update permissions for a project
  */
-export const updateProjectAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateProjectAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/project/{project_id}/assignments',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateProjectAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateProjectAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).post<UpdateProjectAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/project/{project_id}/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get my access to a role
@@ -425,51 +299,30 @@ export const updateProjectAssignmentsById = <ThrowOnError extends boolean = fals
  *
  * @deprecated
  */
-export const getRoleAccessById = <ThrowOnError extends boolean = false>(options: Options<GetRoleAccessByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetRoleAccessByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/role/{role_id}/access',
-        ...options
-    });
-};
+export const getRoleAccessById = <ThrowOnError extends boolean = false>(options: Options<GetRoleAccessByIdData, ThrowOnError>) => (options.client ?? client).get<GetRoleAccessByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/role/{role_id}/access',
+    ...options
+});
 
 /**
  * Get user and role assignments of a role
  */
-export const getRoleAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetRoleAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetRoleAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/role/{role_id}/assignments',
-        ...options
-    });
-};
+export const getRoleAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetRoleAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).get<GetRoleAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/role/{role_id}/assignments',
+    ...options
+});
 
-export const updateRoleAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateRoleAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateRoleAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/role/{role_id}/assignments',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateRoleAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateRoleAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).post<UpdateRoleAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/role/{role_id}/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed Authorizer actions on a role
@@ -477,18 +330,11 @@ export const updateRoleAssignmentsById = <ThrowOnError extends boolean = false>(
  * Returns Authorizer permissions (OpenFGA relations) for the specified role.
  * For Catalog permissions, use `/management/v1/role/{role_id}/actions` instead.
  */
-export const getAuthorizerRoleActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerRoleActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetAuthorizerRoleActionsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/role/{role_id}/authorizer-actions',
-        ...options
-    });
-};
+export const getAuthorizerRoleActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerRoleActionsData, ThrowOnError>) => (options.client ?? client).get<GetAuthorizerRoleActionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/role/{role_id}/authorizer-actions',
+    ...options
+});
 
 /**
  * Get my access to the server
@@ -498,54 +344,33 @@ export const getAuthorizerRoleActions = <ThrowOnError extends boolean = false>(o
  *
  * @deprecated
  */
-export const getServerAccess = <ThrowOnError extends boolean = false>(options?: Options<GetServerAccessData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetServerAccessResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/server/access',
-        ...options
-    });
-};
+export const getServerAccess = <ThrowOnError extends boolean = false>(options?: Options<GetServerAccessData, ThrowOnError>) => (options?.client ?? client).get<GetServerAccessResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/server/access',
+    ...options
+});
 
 /**
  * Get user and role assignments of the server
  */
-export const getServerAssignments = <ThrowOnError extends boolean = false>(options?: Options<GetServerAssignmentsData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetServerAssignmentsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/server/assignments',
-        ...options
-    });
-};
+export const getServerAssignments = <ThrowOnError extends boolean = false>(options?: Options<GetServerAssignmentsData, ThrowOnError>) => (options?.client ?? client).get<GetServerAssignmentsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/server/assignments',
+    ...options
+});
 
 /**
  * Update permissions for this server
  */
-export const updateServerAssignments = <ThrowOnError extends boolean = false>(options: Options<UpdateServerAssignmentsData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateServerAssignmentsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/server/assignments',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateServerAssignments = <ThrowOnError extends boolean = false>(options: Options<UpdateServerAssignmentsData, ThrowOnError>) => (options.client ?? client).post<UpdateServerAssignmentsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/server/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed Authorizer actions on the server
@@ -553,34 +378,20 @@ export const updateServerAssignments = <ThrowOnError extends boolean = false>(op
  * Returns Authorizer permissions (OpenFGA relations) for the server.
  * For Catalog permissions, use `/management/v1/server/actions` instead.
  */
-export const getAuthorizerServerActions = <ThrowOnError extends boolean = false>(options?: Options<GetAuthorizerServerActionsData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetAuthorizerServerActionsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/server/authorizer-actions',
-        ...options
-    });
-};
+export const getAuthorizerServerActions = <ThrowOnError extends boolean = false>(options?: Options<GetAuthorizerServerActionsData, ThrowOnError>) => (options?.client ?? client).get<GetAuthorizerServerActionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/server/authorizer-actions',
+    ...options
+});
 
 /**
  * Get Authorization properties of a warehouse
  */
-export const getWarehouseById = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetWarehouseByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}',
-        ...options
-    });
-};
+export const getWarehouseById = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseByIdData, ThrowOnError>) => (options.client ?? client).get<GetWarehouseByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}',
+    ...options
+});
 
 /**
  * Get my access to a warehouse
@@ -590,54 +401,33 @@ export const getWarehouseById = <ThrowOnError extends boolean = false>(options: 
  *
  * @deprecated
  */
-export const getWarehouseAccessById = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseAccessByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetWarehouseAccessByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/access',
-        ...options
-    });
-};
+export const getWarehouseAccessById = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseAccessByIdData, ThrowOnError>) => (options.client ?? client).get<GetWarehouseAccessByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/access',
+    ...options
+});
 
 /**
  * Get user and role assignments for a warehouse
  */
-export const getWarehouseAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetWarehouseAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/assignments',
-        ...options
-    });
-};
+export const getWarehouseAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).get<GetWarehouseAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/assignments',
+    ...options
+});
 
 /**
  * Update permissions for a warehouse
  */
-export const updateWarehouseAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateWarehouseAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateWarehouseAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/assignments',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateWarehouseAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateWarehouseAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).post<UpdateWarehouseAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed Authorizer actions on a warehouse
@@ -645,38 +435,24 @@ export const updateWarehouseAssignmentsById = <ThrowOnError extends boolean = fa
  * Returns Authorizer permissions (OpenFGA relations) for the specified warehouse.
  * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/actions` instead.
  */
-export const getAuthorizerWarehouseActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerWarehouseActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetAuthorizerWarehouseActionsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/authorizer-actions',
-        ...options
-    });
-};
+export const getAuthorizerWarehouseActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerWarehouseActionsData, ThrowOnError>) => (options.client ?? client).get<GetAuthorizerWarehouseActionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/authorizer-actions',
+    ...options
+});
 
 /**
  * Set managed access property of a warehouse
  */
-export const setWarehouseManagedAccess = <ThrowOnError extends boolean = false>(options: Options<SetWarehouseManagedAccessData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetWarehouseManagedAccessResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/managed-access',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setWarehouseManagedAccess = <ThrowOnError extends boolean = false>(options: Options<SetWarehouseManagedAccessData, ThrowOnError>) => (options.client ?? client).post<SetWarehouseManagedAccessResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/managed-access',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get my access to a table
@@ -686,54 +462,33 @@ export const setWarehouseManagedAccess = <ThrowOnError extends boolean = false>(
  *
  * @deprecated
  */
-export const getTableAccessById = <ThrowOnError extends boolean = false>(options: Options<GetTableAccessByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetTableAccessByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/access',
-        ...options
-    });
-};
+export const getTableAccessById = <ThrowOnError extends boolean = false>(options: Options<GetTableAccessByIdData, ThrowOnError>) => (options.client ?? client).get<GetTableAccessByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/access',
+    ...options
+});
 
 /**
  * Get user and role assignments for a table
  */
-export const getTableAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetTableAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetTableAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/assignments',
-        ...options
-    });
-};
+export const getTableAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetTableAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).get<GetTableAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/assignments',
+    ...options
+});
 
 /**
  * Update permissions for a table
  */
-export const updateTableAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateTableAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateTableAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/assignments',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateTableAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateTableAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).post<UpdateTableAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed Authorizer actions on a table
@@ -741,18 +496,11 @@ export const updateTableAssignmentsById = <ThrowOnError extends boolean = false>
  * Returns Authorizer permissions (OpenFGA relations) for the specified table.
  * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/table/{table_id}/actions` instead.
  */
-export const getAuthorizerTableActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerTableActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetAuthorizerTableActionsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/authorizer-actions',
-        ...options
-    });
-};
+export const getAuthorizerTableActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerTableActionsData, ThrowOnError>) => (options.client ?? client).get<GetAuthorizerTableActionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/table/{table_id}/authorizer-actions',
+    ...options
+});
 
 /**
  * Get my access to a view
@@ -762,54 +510,33 @@ export const getAuthorizerTableActions = <ThrowOnError extends boolean = false>(
  *
  * @deprecated
  */
-export const getViewAccessById = <ThrowOnError extends boolean = false>(options: Options<GetViewAccessByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetViewAccessByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/access',
-        ...options
-    });
-};
+export const getViewAccessById = <ThrowOnError extends boolean = false>(options: Options<GetViewAccessByIdData, ThrowOnError>) => (options.client ?? client).get<GetViewAccessByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/access',
+    ...options
+});
 
 /**
  * Get user and role assignments for a view
  */
-export const getViewAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetViewAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetViewAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/assignments',
-        ...options
-    });
-};
+export const getViewAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetViewAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).get<GetViewAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/assignments',
+    ...options
+});
 
 /**
  * Update permissions for a view
  */
-export const updateViewAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateViewAssignmentsByIdData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateViewAssignmentsByIdResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/assignments',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateViewAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateViewAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).post<UpdateViewAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed Authorizer actions on a view
@@ -817,226 +544,142 @@ export const updateViewAssignmentsById = <ThrowOnError extends boolean = false>(
  * Returns Authorizer permissions (OpenFGA relations) for the specified view.
  * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/view/{view_id}/actions` instead.
  */
-export const getAuthorizerViewActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerViewActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetAuthorizerViewActionsResponses, unknown, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/authorizer-actions',
-        ...options
-    });
-};
+export const getAuthorizerViewActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerViewActionsData, ThrowOnError>) => (options.client ?? client).get<GetAuthorizerViewActionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/view/{view_id}/authorizer-actions',
+    ...options
+});
 
 /**
  * Delete Project
  */
-export const deleteProject = <ThrowOnError extends boolean = false>(options?: Options<DeleteProjectData, ThrowOnError>) => {
-    return (options?.client ?? client).delete<DeleteProjectResponses, DeleteProjectErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project',
-        ...options
-    });
-};
+export const deleteProject = <ThrowOnError extends boolean = false>(options?: Options<DeleteProjectData, ThrowOnError>) => (options?.client ?? client).delete<DeleteProjectResponses, DeleteProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project',
+    ...options
+});
 
 /**
  * Get Project
  *
  * Retrieves information about the user's default project.
  */
-export const getProject = <ThrowOnError extends boolean = false>(options?: Options<GetProjectData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetProjectResponses, GetProjectErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project',
-        ...options
-    });
-};
+export const getProject = <ThrowOnError extends boolean = false>(options?: Options<GetProjectData, ThrowOnError>) => (options?.client ?? client).get<GetProjectResponses, GetProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project',
+    ...options
+});
 
 /**
  * Create Project
  *
  * Creates a new project with the specified configuration.
  */
-export const createProject = <ThrowOnError extends boolean = false>(options: Options<CreateProjectData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateProjectResponses, CreateProjectErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const createProject = <ThrowOnError extends boolean = false>(options: Options<CreateProjectData, ThrowOnError>) => (options.client ?? client).post<CreateProjectResponses, CreateProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Projects
  *
  * Lists all projects that the requesting user has access to.
  */
-export const listProjects = <ThrowOnError extends boolean = false>(options?: Options<ListProjectsData, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListProjectsResponses, ListProjectsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project-list',
-        ...options
-    });
-};
+export const listProjects = <ThrowOnError extends boolean = false>(options?: Options<ListProjectsData, ThrowOnError>) => (options?.client ?? client).get<ListProjectsResponses, ListProjectsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project-list',
+    ...options
+});
 
 /**
  * Get allowed actions for a project
  */
-export const getProjectActions = <ThrowOnError extends boolean = false>(options?: Options<GetProjectActionsData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetProjectActionsResponses, GetProjectActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/actions',
-        ...options
-    });
-};
+export const getProjectActions = <ThrowOnError extends boolean = false>(options?: Options<GetProjectActionsData, ThrowOnError>) => (options?.client ?? client).get<GetProjectActionsResponses, GetProjectActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/actions',
+    ...options
+});
 
 /**
  * Rename Project
  */
-export const renameProject = <ThrowOnError extends boolean = false>(options: Options<RenameProjectData, ThrowOnError>) => {
-    return (options.client ?? client).post<RenameProjectResponses, RenameProjectErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/rename',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const renameProject = <ThrowOnError extends boolean = false>(options: Options<RenameProjectData, ThrowOnError>) => (options.client ?? client).post<RenameProjectResponses, RenameProjectErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/rename',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get the configuration for a Project-level Task Queue.
  *
  * These configurations are global per project and shared across all instances of this kind of task.
  */
-export const getProjectTaskQueueConfigTaskLogCleanup = <ThrowOnError extends boolean = false>(options?: Options<GetProjectTaskQueueConfigTaskLogCleanupData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetProjectTaskQueueConfigTaskLogCleanupResponses, GetProjectTaskQueueConfigTaskLogCleanupErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/task-queue/task_log_cleanup/config',
-        ...options
-    });
-};
+export const getProjectTaskQueueConfigTaskLogCleanup = <ThrowOnError extends boolean = false>(options?: Options<GetProjectTaskQueueConfigTaskLogCleanupData, ThrowOnError>) => (options?.client ?? client).get<GetProjectTaskQueueConfigTaskLogCleanupResponses, GetProjectTaskQueueConfigTaskLogCleanupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/task-queue/task_log_cleanup/config',
+    ...options
+});
 
 /**
  * Set the configuration for a Project-level Task Queue.
  *
  * These configurations are global per project and shared across all instances of this kind of task.
  */
-export const setProjectTaskQueueConfigTaskLogCleanup = <ThrowOnError extends boolean = false>(options: Options<SetProjectTaskQueueConfigTaskLogCleanupData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetProjectTaskQueueConfigTaskLogCleanupResponses, SetProjectTaskQueueConfigTaskLogCleanupErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/task-queue/task_log_cleanup/config',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setProjectTaskQueueConfigTaskLogCleanup = <ThrowOnError extends boolean = false>(options: Options<SetProjectTaskQueueConfigTaskLogCleanupData, ThrowOnError>) => (options.client ?? client).post<SetProjectTaskQueueConfigTaskLogCleanupResponses, SetProjectTaskQueueConfigTaskLogCleanupErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/task-queue/task_log_cleanup/config',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Details about a specific Project-level task by its ID.
  */
-export const getProjectTaskDetails = <ThrowOnError extends boolean = false>(options: Options<GetProjectTaskDetailsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetProjectTaskDetailsResponses, GetProjectTaskDetailsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/task/by-id/{task_id}',
-        ...options
-    });
-};
+export const getProjectTaskDetails = <ThrowOnError extends boolean = false>(options: Options<GetProjectTaskDetailsData, ThrowOnError>) => (options.client ?? client).get<GetProjectTaskDetailsResponses, GetProjectTaskDetailsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/task/by-id/{task_id}',
+    ...options
+});
 
 /**
  * Control a set of Project-level tasks by their IDs (e.g., cancel, request stop, run now)
  *
  * Accepts at most 100 task IDs in one request.
  */
-export const controlProjectTasks = <ThrowOnError extends boolean = false>(options: Options<ControlProjectTasksData, ThrowOnError>) => {
-    return (options.client ?? client).post<ControlProjectTasksResponses, ControlProjectTasksErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/task/control',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const controlProjectTasks = <ThrowOnError extends boolean = false>(options: Options<ControlProjectTasksData, ThrowOnError>) => (options.client ?? client).post<ControlProjectTasksResponses, ControlProjectTasksErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/task/control',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List active and historic Project-level tasks.
  */
-export const listProjectTasks = <ThrowOnError extends boolean = false>(options: Options<ListProjectTasksData, ThrowOnError>) => {
-    return (options.client ?? client).post<ListProjectTasksResponses, ListProjectTasksErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/task/list',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const listProjectTasks = <ThrowOnError extends boolean = false>(options: Options<ListProjectTasksData, ThrowOnError>) => (options.client ?? client).post<ListProjectTasksResponses, ListProjectTasksErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/task/list',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Delete Project by ID
@@ -1045,36 +688,22 @@ export const listProjectTasks = <ThrowOnError extends boolean = false>(options: 
  *
  * @deprecated
  */
-export const deleteProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectByIdDeprecatedData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DeleteProjectByIdDeprecatedResponses, DeleteProjectByIdDeprecatedErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/{project_id}',
-        ...options
-    });
-};
+export const deleteProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<DeleteProjectByIdDeprecatedData, ThrowOnError>) => (options.client ?? client).delete<DeleteProjectByIdDeprecatedResponses, DeleteProjectByIdDeprecatedErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/{project_id}',
+    ...options
+});
 
 /**
  * Get Project
  *
  * @deprecated
  */
-export const getProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<GetProjectByIdDeprecatedData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetProjectByIdDeprecatedResponses, GetProjectByIdDeprecatedErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/{project_id}',
-        ...options
-    });
-};
+export const getProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<GetProjectByIdDeprecatedData, ThrowOnError>) => (options.client ?? client).get<GetProjectByIdDeprecatedResponses, GetProjectByIdDeprecatedErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/{project_id}',
+    ...options
+});
 
 /**
  * Rename Project by ID
@@ -1083,134 +712,85 @@ export const getProjectByIdDeprecated = <ThrowOnError extends boolean = false>(o
  *
  * @deprecated
  */
-export const renameProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<RenameProjectByIdDeprecatedData, ThrowOnError>) => {
-    return (options.client ?? client).post<RenameProjectByIdDeprecatedResponses, RenameProjectByIdDeprecatedErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/project/{project_id}/rename',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const renameProjectByIdDeprecated = <ThrowOnError extends boolean = false>(options: Options<RenameProjectByIdDeprecatedData, ThrowOnError>) => (options.client ?? client).post<RenameProjectByIdDeprecatedResponses, RenameProjectByIdDeprecatedErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/{project_id}/rename',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Roles
  *
  * Returns all roles in the project that the current user has access to view.
  */
-export const listRoles = <ThrowOnError extends boolean = false>(options?: Options<ListRolesData, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListRolesResponses, ListRolesErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/role',
-        ...options
-    });
-};
+export const listRoles = <ThrowOnError extends boolean = false>(options?: Options<ListRolesData, ThrowOnError>) => (options?.client ?? client).get<ListRolesResponses, ListRolesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role',
+    ...options
+});
 
 /**
  * Create Role
  *
  * Creates a role with the specified name, description, and permissions.
  */
-export const createRole = <ThrowOnError extends boolean = false>(options: Options<CreateRoleData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateRoleResponses, CreateRoleErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/role',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const createRole = <ThrowOnError extends boolean = false>(options: Options<CreateRoleData, ThrowOnError>) => (options.client ?? client).post<CreateRoleResponses, CreateRoleErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Delete Role
  *
  * Permanently removes a role and all its associated permissions.
  */
-export const deleteRole = <ThrowOnError extends boolean = false>(options: Options<DeleteRoleData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DeleteRoleResponses, DeleteRoleErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/role/{role_id}',
-        ...options
-    });
-};
+export const deleteRole = <ThrowOnError extends boolean = false>(options: Options<DeleteRoleData, ThrowOnError>) => (options.client ?? client).delete<DeleteRoleResponses, DeleteRoleErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}',
+    ...options
+});
 
 /**
  * Get Role
  *
  * Retrieves detailed information about a specific role.
  */
-export const getRole = <ThrowOnError extends boolean = false>(options: Options<GetRoleData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetRoleResponses, GetRoleErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/role/{role_id}',
-        ...options
-    });
-};
+export const getRole = <ThrowOnError extends boolean = false>(options: Options<GetRoleData, ThrowOnError>) => (options.client ?? client).get<GetRoleResponses, GetRoleErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}',
+    ...options
+});
 
 /**
  * Update Role
  */
-export const updateRole = <ThrowOnError extends boolean = false>(options: Options<UpdateRoleData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateRoleResponses, UpdateRoleErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/role/{role_id}',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateRole = <ThrowOnError extends boolean = false>(options: Options<UpdateRoleData, ThrowOnError>) => (options.client ?? client).post<UpdateRoleResponses, UpdateRoleErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed actions for a role
  */
-export const getRoleActions = <ThrowOnError extends boolean = false>(options: Options<GetRoleActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetRoleActionsResponses, GetRoleActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/role/{role_id}/actions',
-        ...options
-    });
-};
+export const getRoleActions = <ThrowOnError extends boolean = false>(options: Options<GetRoleActionsData, ThrowOnError>) => (options.client ?? client).get<GetRoleActionsResponses, GetRoleActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/actions',
+    ...options
+});
 
 /**
  * Get Role Metadata
@@ -1219,116 +799,74 @@ export const getRoleActions = <ThrowOnError extends boolean = false>(options: Op
  * Depending on the authorizer, this method is typically allowed also for roles in
  * other projects.
  */
-export const getRoleMetadata = <ThrowOnError extends boolean = false>(options: Options<GetRoleMetadataData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetRoleMetadataResponses, GetRoleMetadataErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/role/{role_id}/metadata',
-        ...options
-    });
-};
+export const getRoleMetadata = <ThrowOnError extends boolean = false>(options: Options<GetRoleMetadataData, ThrowOnError>) => (options.client ?? client).get<GetRoleMetadataResponses, GetRoleMetadataErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/metadata',
+    ...options
+});
 
 /**
  * Set the source system for a role
  */
-export const updateRoleSourceSystem = <ThrowOnError extends boolean = false>(options: Options<UpdateRoleSourceSystemData, ThrowOnError>) => {
-    return (options.client ?? client).put<UpdateRoleSourceSystemResponses, UpdateRoleSourceSystemErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/role/{role_id}/source-system',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateRoleSourceSystem = <ThrowOnError extends boolean = false>(options: Options<UpdateRoleSourceSystemData, ThrowOnError>) => (options.client ?? client).put<UpdateRoleSourceSystemResponses, UpdateRoleSourceSystemErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/source-system',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Search Role
  *
  * Performs a fuzzy search for roles based on the provided criteria.
  */
-export const searchRole = <ThrowOnError extends boolean = false>(options: Options<SearchRoleData, ThrowOnError>) => {
-    return (options.client ?? client).post<SearchRoleResponses, SearchRoleErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/search/role',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const searchRole = <ThrowOnError extends boolean = false>(options: Options<SearchRoleData, ThrowOnError>) => (options.client ?? client).post<SearchRoleResponses, SearchRoleErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/search/role',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Search User
  *
  * Performs a fuzzy search for users based on the provided criteria.
  */
-export const searchUser = <ThrowOnError extends boolean = false>(options: Options<SearchUserData, ThrowOnError>) => {
-    return (options.client ?? client).post<SearchUserResponses, SearchUserErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/search/user',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const searchUser = <ThrowOnError extends boolean = false>(options: Options<SearchUserData, ThrowOnError>) => (options.client ?? client).post<SearchUserResponses, SearchUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/search/user',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed server actions
  */
-export const getServerActions = <ThrowOnError extends boolean = false>(options?: Options<GetServerActionsData, ThrowOnError>) => {
-    return (options?.client ?? client).get<GetServerActionsResponses, GetServerActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/server/actions',
-        ...options
-    });
-};
+export const getServerActions = <ThrowOnError extends boolean = false>(options?: Options<GetServerActionsData, ThrowOnError>) => (options?.client ?? client).get<GetServerActionsResponses, GetServerActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/server/actions',
+    ...options
+});
 
 /**
  * List Users
  *
  * Returns a paginated list of users based on the provided query parameters.
  */
-export const listUser = <ThrowOnError extends boolean = false>(options?: Options<ListUserData, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListUserResponses, ListUserErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/user',
-        ...options
-    });
-};
+export const listUser = <ThrowOnError extends boolean = false>(options?: Options<ListUserData, ThrowOnError>) => (options?.client ?? client).get<ListUserResponses, ListUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/user',
+    ...options
+});
 
 /**
  * Provision User
@@ -1336,22 +874,15 @@ export const listUser = <ThrowOnError extends boolean = false>(options?: Options
  * Creates a new user or updates an existing user's metadata from the provided token.
  * The token should include "profile" and "email" scopes for complete user information.
  */
-export const createUser = <ThrowOnError extends boolean = false>(options: Options<CreateUserData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateUserResponses, CreateUserErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/user',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const createUser = <ThrowOnError extends boolean = false>(options: Options<CreateUserData, ThrowOnError>) => (options.client ?? client).post<CreateUserResponses, CreateUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/user',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Delete User
@@ -1359,36 +890,22 @@ export const createUser = <ThrowOnError extends boolean = false>(options: Option
  * Permanently removes a user and all their associated permissions.
  * If the user is re-registered later, their permissions will need to be re-added.
  */
-export const deleteUser = <ThrowOnError extends boolean = false>(options: Options<DeleteUserData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DeleteUserResponses, DeleteUserErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/user/{user_id}',
-        ...options
-    });
-};
+export const deleteUser = <ThrowOnError extends boolean = false>(options: Options<DeleteUserData, ThrowOnError>) => (options.client ?? client).delete<DeleteUserResponses, DeleteUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/user/{user_id}',
+    ...options
+});
 
 /**
  * Get User by ID
  *
  * Retrieves detailed information about a specific user.
  */
-export const getUser = <ThrowOnError extends boolean = false>(options: Options<GetUserData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetUserResponses, GetUserErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/user/{user_id}',
-        ...options
-    });
-};
+export const getUser = <ThrowOnError extends boolean = false>(options: Options<GetUserData, ThrowOnError>) => (options.client ?? client).get<GetUserResponses, GetUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/user/{user_id}',
+    ...options
+});
 
 /**
  * Replace User
@@ -1396,38 +913,24 @@ export const getUser = <ThrowOnError extends boolean = false>(options: Options<G
  * Replaces the current user details with the new details provided in the request.
  * If a field is not provided, it will be set to `None`.
  */
-export const updateUser = <ThrowOnError extends boolean = false>(options: Options<UpdateUserData, ThrowOnError>) => {
-    return (options.client ?? client).put<UpdateUserResponses, UpdateUserErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/user/{user_id}',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateUser = <ThrowOnError extends boolean = false>(options: Options<UpdateUserData, ThrowOnError>) => (options.client ?? client).put<UpdateUserResponses, UpdateUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/user/{user_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed actions on a user
  */
-export const getUserActions = <ThrowOnError extends boolean = false>(options: Options<GetUserActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetUserActionsResponses, GetUserActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/user/{user_id}/actions',
-        ...options
-    });
-};
+export const getUserActions = <ThrowOnError extends boolean = false>(options: Options<GetUserActionsData, ThrowOnError>) => (options.client ?? client).get<GetUserActionsResponses, GetUserActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/user/{user_id}/actions',
+    ...options
+});
 
 /**
  * List Warehouses
@@ -1436,18 +939,11 @@ export const getUserActions = <ThrowOnError extends boolean = false>(options: Op
  * By default, deactivated warehouses are not included in the results.
  * Set the `include_deactivated` query parameter to `true` to include them.
  */
-export const listWarehouses = <ThrowOnError extends boolean = false>(options?: Options<ListWarehousesData, ThrowOnError>) => {
-    return (options?.client ?? client).get<ListWarehousesResponses, ListWarehousesErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse',
-        ...options
-    });
-};
+export const listWarehouses = <ThrowOnError extends boolean = false>(options?: Options<ListWarehousesData, ThrowOnError>) => (options?.client ?? client).get<ListWarehousesResponses, ListWarehousesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse',
+    ...options
+});
 
 /**
  * Create Warehouse
@@ -1456,22 +952,15 @@ export const listWarehouses = <ThrowOnError extends boolean = false>(options?: O
  * The project of a warehouse cannot be changed after creation.
  * This operation validates the storage configuration.
  */
-export const createWarehouse = <ThrowOnError extends boolean = false>(options: Options<CreateWarehouseData, ThrowOnError>) => {
-    return (options.client ?? client).post<CreateWarehouseResponses, CreateWarehouseErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const createWarehouse = <ThrowOnError extends boolean = false>(options: Options<CreateWarehouseData, ThrowOnError>) => (options.client ?? client).post<CreateWarehouseResponses, CreateWarehouseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Delete Warehouse
@@ -1479,250 +968,159 @@ export const createWarehouse = <ThrowOnError extends boolean = false>(options: O
  * Permanently removes a warehouse and all its associated resources.
  * Use the `force` parameter to delete protected warehouses.
  */
-export const deleteWarehouse = <ThrowOnError extends boolean = false>(options: Options<DeleteWarehouseData, ThrowOnError>) => {
-    return (options.client ?? client).delete<DeleteWarehouseResponses, DeleteWarehouseErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}',
-        ...options
-    });
-};
+export const deleteWarehouse = <ThrowOnError extends boolean = false>(options: Options<DeleteWarehouseData, ThrowOnError>) => (options.client ?? client).delete<DeleteWarehouseResponses, DeleteWarehouseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}',
+    ...options
+});
 
 /**
  * Get Warehouse
  *
  * Retrieves detailed information about a specific warehouse.
  */
-export const getWarehouse = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetWarehouseResponses, GetWarehouseErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}',
-        ...options
-    });
-};
+export const getWarehouse = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseData, ThrowOnError>) => (options.client ?? client).get<GetWarehouseResponses, GetWarehouseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}',
+    ...options
+});
 
 /**
  * Get allowed actions for a warehouse
  */
-export const getWarehouseActions = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetWarehouseActionsResponses, GetWarehouseActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/actions',
-        ...options
-    });
-};
+export const getWarehouseActions = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseActionsData, ThrowOnError>) => (options.client ?? client).get<GetWarehouseActionsResponses, GetWarehouseActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/actions',
+    ...options
+});
 
 /**
  * Activate Warehouse
  *
  * Re-enables access to a previously deactivated warehouse.
  */
-export const activateWarehouse = <ThrowOnError extends boolean = false>(options: Options<ActivateWarehouseData, ThrowOnError>) => {
-    return (options.client ?? client).post<ActivateWarehouseResponses, ActivateWarehouseErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/activate',
-        ...options
-    });
-};
+export const activateWarehouse = <ThrowOnError extends boolean = false>(options: Options<ActivateWarehouseData, ThrowOnError>) => (options.client ?? client).post<ActivateWarehouseResponses, ActivateWarehouseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/activate',
+    ...options
+});
 
 /**
  * Deactivate Warehouse
  *
  * Temporarily disables access to a warehouse without deleting its data.
  */
-export const deactivateWarehouse = <ThrowOnError extends boolean = false>(options: Options<DeactivateWarehouseData, ThrowOnError>) => {
-    return (options.client ?? client).post<DeactivateWarehouseResponses, DeactivateWarehouseErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/deactivate',
-        ...options
-    });
-};
+export const deactivateWarehouse = <ThrowOnError extends boolean = false>(options: Options<DeactivateWarehouseData, ThrowOnError>) => (options.client ?? client).post<DeactivateWarehouseResponses, DeactivateWarehouseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/deactivate',
+    ...options
+});
 
 /**
  * Update Deletion Profile
  *
  * Configures the soft-delete behavior for a warehouse.
  */
-export const updateWarehouseDeleteProfile = <ThrowOnError extends boolean = false>(options: Options<UpdateWarehouseDeleteProfileData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateWarehouseDeleteProfileResponses, UpdateWarehouseDeleteProfileErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/delete-profile',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateWarehouseDeleteProfile = <ThrowOnError extends boolean = false>(options: Options<UpdateWarehouseDeleteProfileData, ThrowOnError>) => (options.client ?? client).post<UpdateWarehouseDeleteProfileResponses, UpdateWarehouseDeleteProfileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/delete-profile',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List Soft-Deleted Tabulars
  *
  * Returns all soft-deleted tables and views in the warehouse that are visible to the current user.
  */
-export const listDeletedTabulars = <ThrowOnError extends boolean = false>(options: Options<ListDeletedTabularsData, ThrowOnError>) => {
-    return (options.client ?? client).get<ListDeletedTabularsResponses, ListDeletedTabularsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/deleted-tabulars',
-        ...options
-    });
-};
+export const listDeletedTabulars = <ThrowOnError extends boolean = false>(options: Options<ListDeletedTabularsData, ThrowOnError>) => (options.client ?? client).get<ListDeletedTabularsResponses, ListDeletedTabularsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/deleted-tabulars',
+    ...options
+});
 
 /**
  * Undrop Tabular
  *
  * Restores previously deleted tables or views to make them accessible again.
  */
-export const undropTabulars = <ThrowOnError extends boolean = false>(options: Options<UndropTabularsData, ThrowOnError>) => {
-    return (options.client ?? client).post<UndropTabularsResponses, UndropTabularsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/deleted-tabulars/undrop',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const undropTabulars = <ThrowOnError extends boolean = false>(options: Options<UndropTabularsData, ThrowOnError>) => (options.client ?? client).post<UndropTabularsResponses, UndropTabularsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/deleted-tabulars/undrop',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed actions for a namespace
  */
-export const getNamespaceActions = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetNamespaceActionsResponses, GetNamespaceActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/actions',
-        ...options
-    });
-};
+export const getNamespaceActions = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceActionsData, ThrowOnError>) => (options.client ?? client).get<GetNamespaceActionsResponses, GetNamespaceActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/actions',
+    ...options
+});
 
 /**
  * Get Namespace Protection
  *
  * Retrieves whether a namespace is protected from deletion.
  */
-export const getNamespaceProtection = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceProtectionData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetNamespaceProtectionResponses, GetNamespaceProtectionErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/protection',
-        ...options
-    });
-};
+export const getNamespaceProtection = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceProtectionData, ThrowOnError>) => (options.client ?? client).get<GetNamespaceProtectionResponses, GetNamespaceProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/protection',
+    ...options
+});
 
 /**
  * Set Namespace Protection
  *
  * Configures whether a namespace should be protected from deletion.
  */
-export const setNamespaceProtection = <ThrowOnError extends boolean = false>(options: Options<SetNamespaceProtectionData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetNamespaceProtectionResponses, SetNamespaceProtectionErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/protection',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setNamespaceProtection = <ThrowOnError extends boolean = false>(options: Options<SetNamespaceProtectionData, ThrowOnError>) => (options.client ?? client).post<SetNamespaceProtectionResponses, SetNamespaceProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/protection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Set Warehouse Protection
  *
  * Configures whether a warehouse should be protected from deletion.
  */
-export const setWarehouseProtection = <ThrowOnError extends boolean = false>(options: Options<SetWarehouseProtectionData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetWarehouseProtectionResponses, SetWarehouseProtectionErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/protection',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setWarehouseProtection = <ThrowOnError extends boolean = false>(options: Options<SetWarehouseProtectionData, ThrowOnError>) => (options.client ?? client).post<SetWarehouseProtectionResponses, SetWarehouseProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/protection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Rename Warehouse
  *
  * Updates the name of a specific warehouse.
  */
-export const renameWarehouse = <ThrowOnError extends boolean = false>(options: Options<RenameWarehouseData, ThrowOnError>) => {
-    return (options.client ?? client).post<RenameWarehouseResponses, RenameWarehouseErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/rename',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const renameWarehouse = <ThrowOnError extends boolean = false>(options: Options<RenameWarehouseData, ThrowOnError>) => (options.client ?? client).post<RenameWarehouseResponses, RenameWarehouseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/rename',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Search Tabulars
@@ -1732,22 +1130,15 @@ export const renameWarehouse = <ThrowOnError extends boolean = false>(options: O
  * - if there is tabular with that uuid, the tabular is in the response
  * - if there is a namespace with that uuid, tables in that namespace are in the response
  */
-export const searchTabular = <ThrowOnError extends boolean = false>(options: Options<SearchTabularData, ThrowOnError>) => {
-    return (options.client ?? client).post<SearchTabularResponses, SearchTabularErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/search-tabular',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const searchTabular = <ThrowOnError extends boolean = false>(options: Options<SearchTabularData, ThrowOnError>) => (options.client ?? client).post<SearchTabularResponses, SearchTabularErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/search-tabular',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Warehouse Statistics
@@ -1770,40 +1161,26 @@ export const searchTabular = <ThrowOnError extends boolean = false>(options: Opt
  * - `timestamp: 02:00:00, created_at: 01:00:36, updated_at: null, 0 tables, 1 view`
  * - `timestamp: 01:00:00, created_at: 00:16:32, updated_at: 00:45:00, 1 table, 1 view`
  */
-export const getWarehouseStatistics = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseStatisticsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetWarehouseStatisticsResponses, GetWarehouseStatisticsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/statistics',
-        ...options
-    });
-};
+export const getWarehouseStatistics = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseStatisticsData, ThrowOnError>) => (options.client ?? client).get<GetWarehouseStatisticsResponses, GetWarehouseStatisticsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/statistics',
+    ...options
+});
 
 /**
  * Update Storage Profile
  *
  * Updates both the storage profile and credentials of a warehouse.
  */
-export const updateStorageProfile = <ThrowOnError extends boolean = false>(options: Options<UpdateStorageProfileData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateStorageProfileResponses, UpdateStorageProfileErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/storage',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateStorageProfile = <ThrowOnError extends boolean = false>(options: Options<UpdateStorageProfileData, ThrowOnError>) => (options.client ?? client).post<UpdateStorageProfileResponses, UpdateStorageProfileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/storage',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Update Storage Credential
@@ -1811,287 +1188,182 @@ export const updateStorageProfile = <ThrowOnError extends boolean = false>(optio
  * Updates only the storage credential of a warehouse without modifying the storage profile.
  * Useful for refreshing expiring credentials.
  */
-export const updateStorageCredential = <ThrowOnError extends boolean = false>(options: Options<UpdateStorageCredentialData, ThrowOnError>) => {
-    return (options.client ?? client).post<UpdateStorageCredentialResponses, UpdateStorageCredentialErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/storage-credential',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const updateStorageCredential = <ThrowOnError extends boolean = false>(options: Options<UpdateStorageCredentialData, ThrowOnError>) => (options.client ?? client).post<UpdateStorageCredentialResponses, UpdateStorageCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/storage-credential',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed actions for a table
  */
-export const getTableActions = <ThrowOnError extends boolean = false>(options: Options<GetTableActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetTableActionsResponses, GetTableActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/actions',
-        ...options
-    });
-};
+export const getTableActions = <ThrowOnError extends boolean = false>(options: Options<GetTableActionsData, ThrowOnError>) => (options.client ?? client).get<GetTableActionsResponses, GetTableActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/actions',
+    ...options
+});
 
 /**
  * Get Table Protection
  *
  * Retrieves whether a table is protected from deletion.
  */
-export const getTableProtection = <ThrowOnError extends boolean = false>(options: Options<GetTableProtectionData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetTableProtectionResponses, GetTableProtectionErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/protection',
-        ...options
-    });
-};
+export const getTableProtection = <ThrowOnError extends boolean = false>(options: Options<GetTableProtectionData, ThrowOnError>) => (options.client ?? client).get<GetTableProtectionResponses, GetTableProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/protection',
+    ...options
+});
 
 /**
  * Set Table Protection
  *
  * Configures whether a table should be protected from deletion.
  */
-export const setTableProtection = <ThrowOnError extends boolean = false>(options: Options<SetTableProtectionData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetTableProtectionResponses, SetTableProtectionErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/protection',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setTableProtection = <ThrowOnError extends boolean = false>(options: Options<SetTableProtectionData, ThrowOnError>) => (options.client ?? client).post<SetTableProtectionResponses, SetTableProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/protection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get the configuration for a Task Queue.
  *
  * These configurations are global per warehouse and shared across all instances of this kind of task.
  */
-export const getTaskQueueConfigTabularExpiration = <ThrowOnError extends boolean = false>(options: Options<GetTaskQueueConfigTabularExpirationData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularExpirationErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_expiration/config',
-        ...options
-    });
-};
+export const getTaskQueueConfigTabularExpiration = <ThrowOnError extends boolean = false>(options: Options<GetTaskQueueConfigTabularExpirationData, ThrowOnError>) => (options.client ?? client).get<GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularExpirationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_expiration/config',
+    ...options
+});
 
 /**
  * Set the configuration for a Task Queue.
  *
  * These configurations are global per warehouse and shared across all instances of this kind of task.
  */
-export const setTaskQueueConfigTabularExpiration = <ThrowOnError extends boolean = false>(options: Options<SetTaskQueueConfigTabularExpirationData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularExpirationErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_expiration/config',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setTaskQueueConfigTabularExpiration = <ThrowOnError extends boolean = false>(options: Options<SetTaskQueueConfigTabularExpirationData, ThrowOnError>) => (options.client ?? client).post<SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularExpirationErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_expiration/config',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get the configuration for a Task Queue.
  *
  * These configurations are global per warehouse and shared across all instances of this kind of task.
  */
-export const getTaskQueueConfigTabularPurge = <ThrowOnError extends boolean = false>(options: Options<GetTaskQueueConfigTabularPurgeData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetTaskQueueConfigTabularPurgeResponses, GetTaskQueueConfigTabularPurgeErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_purge/config',
-        ...options
-    });
-};
+export const getTaskQueueConfigTabularPurge = <ThrowOnError extends boolean = false>(options: Options<GetTaskQueueConfigTabularPurgeData, ThrowOnError>) => (options.client ?? client).get<GetTaskQueueConfigTabularPurgeResponses, GetTaskQueueConfigTabularPurgeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_purge/config',
+    ...options
+});
 
 /**
  * Set the configuration for a Task Queue.
  *
  * These configurations are global per warehouse and shared across all instances of this kind of task.
  */
-export const setTaskQueueConfigTabularPurge = <ThrowOnError extends boolean = false>(options: Options<SetTaskQueueConfigTabularPurgeData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetTaskQueueConfigTabularPurgeResponses, SetTaskQueueConfigTabularPurgeErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_purge/config',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setTaskQueueConfigTabularPurge = <ThrowOnError extends boolean = false>(options: Options<SetTaskQueueConfigTabularPurgeData, ThrowOnError>) => (options.client ?? client).post<SetTaskQueueConfigTabularPurgeResponses, SetTaskQueueConfigTabularPurgeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_purge/config',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Details about a specific task by its ID.
  */
-export const getTaskDetails = <ThrowOnError extends boolean = false>(options: Options<GetTaskDetailsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetTaskDetailsResponses, GetTaskDetailsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/task/by-id/{task_id}',
-        ...options
-    });
-};
+export const getTaskDetails = <ThrowOnError extends boolean = false>(options: Options<GetTaskDetailsData, ThrowOnError>) => (options.client ?? client).get<GetTaskDetailsResponses, GetTaskDetailsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/task/by-id/{task_id}',
+    ...options
+});
 
 /**
  * Control a set of tasks by their IDs (e.g., cancel, request stop, run now)
  *
  * Accepts at most 100 task IDs in one request.
  */
-export const controlTasks = <ThrowOnError extends boolean = false>(options: Options<ControlTasksData, ThrowOnError>) => {
-    return (options.client ?? client).post<ControlTasksResponses, ControlTasksErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/task/control',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const controlTasks = <ThrowOnError extends boolean = false>(options: Options<ControlTasksData, ThrowOnError>) => (options.client ?? client).post<ControlTasksResponses, ControlTasksErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/task/control',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * List active and historic tasks.
  */
-export const listTasks = <ThrowOnError extends boolean = false>(options: Options<ListTasksData, ThrowOnError>) => {
-    return (options.client ?? client).post<ListTasksResponses, ListTasksErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/task/list',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const listTasks = <ThrowOnError extends boolean = false>(options: Options<ListTasksData, ThrowOnError>) => (options.client ?? client).post<ListTasksResponses, ListTasksErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/task/list',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get allowed actions for a view
  */
-export const getViewActions = <ThrowOnError extends boolean = false>(options: Options<GetViewActionsData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetViewActionsResponses, GetViewActionsErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/actions',
-        ...options
-    });
-};
+export const getViewActions = <ThrowOnError extends boolean = false>(options: Options<GetViewActionsData, ThrowOnError>) => (options.client ?? client).get<GetViewActionsResponses, GetViewActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/actions',
+    ...options
+});
 
 /**
  * Get View Protection
  *
  * Retrieves whether a view is protected from deletion.
  */
-export const getViewProtection = <ThrowOnError extends boolean = false>(options: Options<GetViewProtectionData, ThrowOnError>) => {
-    return (options.client ?? client).get<GetViewProtectionResponses, GetViewProtectionErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/protection',
-        ...options
-    });
-};
+export const getViewProtection = <ThrowOnError extends boolean = false>(options: Options<GetViewProtectionData, ThrowOnError>) => (options.client ?? client).get<GetViewProtectionResponses, GetViewProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/protection',
+    ...options
+});
 
 /**
  * Set View Protection
  *
  * Configures whether a view should be protected from deletion.
  */
-export const setViewProtection = <ThrowOnError extends boolean = false>(options: Options<SetViewProtectionData, ThrowOnError>) => {
-    return (options.client ?? client).post<SetViewProtectionResponses, SetViewProtectionErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/protection',
-        ...options,
-        headers: {
-            'Content-Type': 'application/json',
-            ...options.headers
-        }
-    });
-};
+export const setViewProtection = <ThrowOnError extends boolean = false>(options: Options<SetViewProtectionData, ThrowOnError>) => (options.client ?? client).post<SetViewProtectionResponses, SetViewProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/protection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Whoami
  *
  * Returns information about the user associated with the current authentication token.
  */
-export const whoami = <ThrowOnError extends boolean = false>(options?: Options<WhoamiData, ThrowOnError>) => {
-    return (options?.client ?? client).get<WhoamiResponses, WhoamiErrors, ThrowOnError>({
-        security: [
-            {
-                scheme: 'bearer',
-                type: 'http'
-            }
-        ],
-        url: '/management/v1/whoami',
-        ...options
-    });
-};
+export const whoami = <ThrowOnError extends boolean = false>(options?: Options<WhoamiData, ThrowOnError>) => (options?.client ?? client).get<WhoamiResponses, WhoamiErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/whoami',
+    ...options
+});

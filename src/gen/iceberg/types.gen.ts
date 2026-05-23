@@ -347,21 +347,21 @@ export type BaseUpdate = {
 /**
  * Assigning a UUID to a table/view should only be done when creating the table/view. It is not safe to re-assign the UUID if a table/view already has a UUID assigned
  */
-export type AssignUuidUpdate = BaseUpdate & {
+export type AssignUuidUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'assign-uuid';
 } & {
     action?: 'assign-uuid';
     uuid: string;
 };
 
-export type UpgradeFormatVersionUpdate = BaseUpdate & {
+export type UpgradeFormatVersionUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'upgrade-format-version';
 } & {
     action?: 'upgrade-format-version';
     'format-version': number;
 };
 
-export type AddSchemaUpdate = BaseUpdate & {
+export type AddSchemaUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'add-schema';
 } & {
     action?: 'add-schema';
@@ -375,7 +375,7 @@ export type AddSchemaUpdate = BaseUpdate & {
     'last-column-id'?: number;
 };
 
-export type SetCurrentSchemaUpdate = BaseUpdate & {
+export type SetCurrentSchemaUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'set-current-schema';
 } & {
     action?: 'set-current-schema';
@@ -385,14 +385,14 @@ export type SetCurrentSchemaUpdate = BaseUpdate & {
     'schema-id': number;
 };
 
-export type AddPartitionSpecUpdate = BaseUpdate & {
+export type AddPartitionSpecUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'add-spec';
 } & {
     action?: 'add-spec';
     spec: PartitionSpec;
 };
 
-export type SetDefaultSpecUpdate = BaseUpdate & {
+export type SetDefaultSpecUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'set-default-spec';
 } & {
     action?: 'set-default-spec';
@@ -402,14 +402,14 @@ export type SetDefaultSpecUpdate = BaseUpdate & {
     'spec-id': number;
 };
 
-export type AddSortOrderUpdate = BaseUpdate & {
+export type AddSortOrderUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'add-sort-order';
 } & {
     action?: 'add-sort-order';
     'sort-order': SortOrder;
 };
 
-export type SetDefaultSortOrderUpdate = BaseUpdate & {
+export type SetDefaultSortOrderUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'set-default-sort-order';
 } & {
     action?: 'set-default-sort-order';
@@ -419,42 +419,42 @@ export type SetDefaultSortOrderUpdate = BaseUpdate & {
     'sort-order-id': number;
 };
 
-export type AddSnapshotUpdate = BaseUpdate & {
+export type AddSnapshotUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'add-snapshot';
 } & {
     action?: 'add-snapshot';
     snapshot: Snapshot;
 };
 
-export type SetSnapshotRefUpdate = BaseUpdate & {
+export type SetSnapshotRefUpdate = Omit<BaseUpdate, 'action'> & SnapshotReference & {
     action: 'set-snapshot-ref';
-} & SnapshotReference & {
+} & {
     action?: 'set-snapshot-ref';
     'ref-name': string;
 };
 
-export type RemoveSnapshotsUpdate = BaseUpdate & {
+export type RemoveSnapshotsUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'remove-snapshots';
 } & {
     action?: 'remove-snapshots';
     'snapshot-ids': Array<number>;
 };
 
-export type RemoveSnapshotRefUpdate = BaseUpdate & {
+export type RemoveSnapshotRefUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'remove-snapshot-ref';
 } & {
     action?: 'remove-snapshot-ref';
     'ref-name': string;
 };
 
-export type SetLocationUpdate = BaseUpdate & {
+export type SetLocationUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'set-location';
 } & {
     action?: 'set-location';
     location: string;
 };
 
-export type SetPropertiesUpdate = BaseUpdate & {
+export type SetPropertiesUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'set-properties';
 } & {
     action?: 'set-properties';
@@ -463,21 +463,21 @@ export type SetPropertiesUpdate = BaseUpdate & {
     };
 };
 
-export type RemovePropertiesUpdate = BaseUpdate & {
+export type RemovePropertiesUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'remove-properties';
 } & {
     action?: 'remove-properties';
     removals: Array<string>;
 };
 
-export type AddViewVersionUpdate = BaseUpdate & {
+export type AddViewVersionUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'add-view-version';
 } & {
     action?: 'add-view-version';
     'view-version': ViewVersion;
 };
 
-export type SetCurrentViewVersionUpdate = BaseUpdate & {
+export type SetCurrentViewVersionUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'set-current-view-version';
 } & {
     action?: 'set-current-view-version';
@@ -487,7 +487,7 @@ export type SetCurrentViewVersionUpdate = BaseUpdate & {
     'view-version-id': number;
 };
 
-export type SetStatisticsUpdate = BaseUpdate & {
+export type SetStatisticsUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'set-statistics';
 } & {
     action?: 'set-statistics';
@@ -500,49 +500,49 @@ export type SetStatisticsUpdate = BaseUpdate & {
     statistics: StatisticsFile;
 };
 
-export type RemoveStatisticsUpdate = BaseUpdate & {
+export type RemoveStatisticsUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'remove-statistics';
 } & {
     action?: 'remove-statistics';
     'snapshot-id': number;
 };
 
-export type SetPartitionStatisticsUpdate = BaseUpdate & {
+export type SetPartitionStatisticsUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'set-partition-statistics';
 } & {
     action?: 'set-partition-statistics';
     'partition-statistics': PartitionStatisticsFile;
 };
 
-export type RemovePartitionStatisticsUpdate = BaseUpdate & {
+export type RemovePartitionStatisticsUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'remove-partition-statistics';
 } & {
     action?: 'remove-partition-statistics';
     'snapshot-id': number;
 };
 
-export type RemovePartitionSpecsUpdate = BaseUpdate & {
+export type RemovePartitionSpecsUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'remove-partition-specs';
 } & {
     action?: 'remove-partition-specs';
     'spec-ids': Array<number>;
 };
 
-export type RemoveSchemasUpdate = BaseUpdate & {
+export type RemoveSchemasUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'remove-schemas';
 } & {
     action?: 'remove-schemas';
     'schema-ids': Array<number>;
 };
 
-export type AddEncryptionKeyUpdate = BaseUpdate & {
+export type AddEncryptionKeyUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'add-encryption-key';
 } & {
     action?: 'add-encryption-key';
     'encryption-key': EncryptedKey;
 };
 
-export type RemoveEncryptionKeyUpdate = BaseUpdate & {
+export type RemoveEncryptionKeyUpdate = Omit<BaseUpdate, 'action'> & {
     action: 'remove-encryption-key';
 } & {
     action?: 'remove-encryption-key';
@@ -560,7 +560,7 @@ export type TableRequirement = {
 /**
  * The table must not already exist; used for create transactions
  */
-export type AssertCreate = TableRequirement & {
+export type AssertCreate = Omit<TableRequirement, 'type'> & {
     type: 'assert-create';
 } & {
     type: 'assert-create';
@@ -569,7 +569,7 @@ export type AssertCreate = TableRequirement & {
 /**
  * The table UUID must match the requirement's `uuid`
  */
-export type AssertTableUuid = TableRequirement & {
+export type AssertTableUuid = Omit<TableRequirement, 'type'> & {
     type: 'assert-table-uuid';
 } & {
     type: 'assert-table-uuid';
@@ -582,7 +582,7 @@ export type AssertTableUuid = TableRequirement & {
  * the ref must not already exist.
  *
  */
-export type AssertRefSnapshotId = TableRequirement & {
+export type AssertRefSnapshotId = Omit<TableRequirement, 'type'> & {
     type: 'assert-ref-snapshot-id';
 } & {
     type?: 'assert-ref-snapshot-id';
@@ -593,7 +593,7 @@ export type AssertRefSnapshotId = TableRequirement & {
 /**
  * The table's last assigned column id must match the requirement's `last-assigned-field-id`
  */
-export type AssertLastAssignedFieldId = TableRequirement & {
+export type AssertLastAssignedFieldId = Omit<TableRequirement, 'type'> & {
     type: 'assert-last-assigned-field-id';
 } & {
     type?: 'assert-last-assigned-field-id';
@@ -603,7 +603,7 @@ export type AssertLastAssignedFieldId = TableRequirement & {
 /**
  * The table's current schema id must match the requirement's `current-schema-id`
  */
-export type AssertCurrentSchemaId = TableRequirement & {
+export type AssertCurrentSchemaId = Omit<TableRequirement, 'type'> & {
     type: 'assert-current-schema-id';
 } & {
     type?: 'assert-current-schema-id';
@@ -613,7 +613,7 @@ export type AssertCurrentSchemaId = TableRequirement & {
 /**
  * The table's last assigned partition id must match the requirement's `last-assigned-partition-id`
  */
-export type AssertLastAssignedPartitionId = TableRequirement & {
+export type AssertLastAssignedPartitionId = Omit<TableRequirement, 'type'> & {
     type: 'assert-last-assigned-partition-id';
 } & {
     type?: 'assert-last-assigned-partition-id';
@@ -623,7 +623,7 @@ export type AssertLastAssignedPartitionId = TableRequirement & {
 /**
  * The table's default spec id must match the requirement's `default-spec-id`
  */
-export type AssertDefaultSpecId = TableRequirement & {
+export type AssertDefaultSpecId = Omit<TableRequirement, 'type'> & {
     type: 'assert-default-spec-id';
 } & {
     type?: 'assert-default-spec-id';
@@ -633,7 +633,7 @@ export type AssertDefaultSpecId = TableRequirement & {
 /**
  * The table's default sort order id must match the requirement's `default-sort-order-id`
  */
-export type AssertDefaultSortOrderId = TableRequirement & {
+export type AssertDefaultSortOrderId = Omit<TableRequirement, 'type'> & {
     type: 'assert-default-sort-order-id';
 } & {
     type?: 'assert-default-sort-order-id';
@@ -1232,7 +1232,7 @@ export type ContentFile = {
     'sort-order-id'?: number;
 };
 
-export type DataFile = ContentFile & {
+export type DataFile = Omit<ContentFile, 'content'> & {
     content: 'data';
 } & {
     content: 'data';
@@ -1272,7 +1272,7 @@ export type DeleteFile = ({
     content: 'equality-deletes';
 } & EqualityDeleteFile);
 
-export type PositionDeleteFile = ContentFile & {
+export type PositionDeleteFile = Omit<ContentFile, 'content'> & {
     content: 'position-deletes';
 } & {
     content: 'position-deletes';
@@ -1286,7 +1286,7 @@ export type PositionDeleteFile = ContentFile & {
     'content-size-in-bytes'?: number;
 };
 
-export type EqualityDeleteFile = ContentFile & {
+export type EqualityDeleteFile = Omit<ContentFile, 'content'> & {
     content: 'equality-deletes';
 } & {
     content: 'equality-deletes';
@@ -1417,8 +1417,8 @@ export type ViewMetadataWritable = {
     };
 };
 
-export type AddSchemaUpdateWritable = BaseUpdate & {
-    action: 'AddSchemaUpdateWritable';
+export type AddSchemaUpdateWritable = Omit<BaseUpdateWritable, 'action'> & {
+    action: 'add-schema';
 } & {
     action?: 'add-schema';
     schema: SchemaWritable;
@@ -1431,15 +1431,15 @@ export type AddSchemaUpdateWritable = BaseUpdate & {
     'last-column-id'?: number;
 };
 
-export type AddPartitionSpecUpdateWritable = BaseUpdate & {
-    action: 'AddPartitionSpecUpdateWritable';
+export type AddPartitionSpecUpdateWritable = Omit<BaseUpdateWritable, 'action'> & {
+    action: 'add-spec';
 } & {
     action?: 'add-spec';
     spec: PartitionSpecWritable;
 };
 
-export type AddSortOrderUpdateWritable = BaseUpdate & {
-    action: 'AddSortOrderUpdateWritable';
+export type AddSortOrderUpdateWritable = Omit<BaseUpdateWritable, 'action'> & {
+    action: 'add-sort-order';
 } & {
     action?: 'add-sort-order';
     'sort-order': SortOrderWritable;
@@ -1570,6 +1570,10 @@ export type CommitTableResponseWritable = {
 };
 
 export type PrimitiveTypeValueWritable = BooleanTypeValue | IntegerTypeValue | LongTypeValue | FloatTypeValue | DoubleTypeValue | DecimalTypeValue | StringTypeValue | UuidTypeValue | DateTypeValue | TimeTypeValue | TimestampTypeValue | TimestampTzTypeValue | TimestampNanoTypeValue | TimestampTzNanoTypeValue | FixedTypeValue | BinaryTypeValue;
+
+export type BaseUpdateWritable = {
+    action: string;
+};
 
 /**
  * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
