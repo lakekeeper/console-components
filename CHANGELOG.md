@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/lakekeeper/console-components/compare/v0.6.2...v0.7.0) (2026-05-25)
+
+
+### Features
+
+* **ui:** add multi-select provider filter and Provider column to role list, truncate description with tooltip ([bd7f56c](https://github.com/lakekeeper/console-components/commit/bd7f56c2e8282166f2ed2d8effcd37801ec7fd28))
+* **ui:** redesign role detail card with avatar, chips, two-column metadata grid and scrollable description ([bd7f56c](https://github.com/lakekeeper/console-components/commit/bd7f56c2e8282166f2ed2d8effcd37801ec7fd28))
+
+
+### Bug Fixes
+
+* **ui:** encode listRoles array query params as key[]=value so serde_qs backend accepts provider/source filters ([bd7f56c](https://github.com/lakekeeper/console-components/commit/bd7f56c2e8282166f2ed2d8effcd37801ec7fd28))
+* **ui:** remove frontend-only role name min length and description max length ([bd7f56c](https://github.com/lakekeeper/console-components/commit/bd7f56c2e8282166f2ed2d8effcd37801ec7fd28))
+
 ## [0.6.2](https://github.com/lakekeeper/console-components/compare/v0.6.1...v0.6.2) (2026-05-23)
 
 
