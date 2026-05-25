@@ -17,7 +17,7 @@
       fixed-header
       :headers="headers"
       hover
-      :items="searchResults"
+      :items="displayedResults"
       :sort-by="[{ key: 'name', order: 'asc' }]"
       :items-per-page-options="[
         { title: '25 items', value: 25 },
@@ -27,6 +27,19 @@
       @update:options="paginationCheck">
       <template #top>
         <v-toolbar color="transparent" density="compact" flat>
+          <v-combobox
+            class="ml-4"
+            v-model="selectedProviders"
+            label="Filter by provider"
+            :items="providerOptions"
+            variant="underlined"
+            hide-details
+            clearable
+            multiple
+            chips
+            closable-chips
+            style="max-width: 400px"
+            @update:model-value="onProviderFilterChange"></v-combobox>
           <v-spacer></v-spacer>
           <v-text-field
             v-model="searchRoles"
@@ -46,6 +59,18 @@
             {{ item.name }}
           </span>
         </td>
+      </template>
+      <template #item.description="{ item }">
+        <v-tooltip
+          v-if="item.description && item.description.length > 50"
+          :text="item.description"
+          location="top"
+          max-width="400">
+          <template #activator="{ props: tipProps }">
+            <span v-bind="tipProps">{{ item.description.slice(0, 50) }}…</span>
+          </template>
+        </v-tooltip>
+        <span v-else>{{ item.description }}</span>
       </template>
       <template #item.actions="{ item }">
         <DeleteConfirmDialog
@@ -94,11 +119,23 @@ const role = reactive({
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Description', key: 'description', align: 'start' },
-  // Provider and Source columns disabled until role provider feature is stable
-  // { title: 'Provider', key: 'provider-id', align: 'start' },
-  // { title: 'Source', key: 'source-id', align: 'start' },
+  { title: 'Provider', key: 'provider-id', align: 'start' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
+
+const selectedProviders = ref<string[]>([]);
+const providerOptions = computed(() => {
+  const set = new Set<string>();
+  for (const r of loadedRoles) {
+    if (r['provider-id']) set.add(r['provider-id']);
+  }
+  return Array.from(set).sort();
+});
+const displayedResults = computed(() => {
+  if (!selectedProviders.value.length) return searchResults;
+  const set = new Set(selectedProviders.value);
+  return searchResults.filter((r) => r['provider-id'] && set.has(r['provider-id']));
+});
 
 const projectId = computed(() => visual.projectSelected['project-id']);
 
@@ -138,7 +175,8 @@ async function loadRoles() {
     loading.value = true;
     loadedRoles.splice(0, loadedRoles.length);
 
-    const data = await functions.listRoles(101);
+    const providerIds = selectedProviders.value.length ? selectedProviders.value : undefined;
+    const data = await functions.listRoles(101, undefined, undefined, providerIds);
     const initialRoles = (data.roles || []) as ExtendedRole[];
 
     paginationTokenRole.value = data['next-page-token'] || '';
@@ -198,7 +236,13 @@ async function paginationCheck(option: any) {
 
   if (shouldLoadMore && paginationTokenRole.value) {
     try {
-      const data = await functions.listRoles(100, paginationTokenRole.value);
+      const providerIds = selectedProviders.value.length ? selectedProviders.value : undefined;
+      const data = await functions.listRoles(
+        100,
+        paginationTokenRole.value,
+        undefined,
+        providerIds,
+      );
       const loadedRolesTmp: ExtendedRole[] = (data.roles || []) as ExtendedRole[];
 
       paginationTokenRole.value = data['next-page-token'] || '';
@@ -241,6 +285,14 @@ async function deleteRole(roleId: string) {
   } catch (error) {
     console.error(error);
   }
+}
+
+async function onProviderFilterChange() {
+  searchRoles.value = '';
+  paginationTokenRole.value = '';
+  searchResults.splice(0, searchResults.length);
+  await loadRoles();
+  searchResults.push(...loadedRoles);
 }
 
 function roleInput(roleIn: {

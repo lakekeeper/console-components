@@ -16,12 +16,8 @@
           v-model="roleData.name"
           label="Role Name"
           placeholder="my-role"
-          :rules="[roleRule]"></v-text-field>
-        <v-textarea
-          v-model="roleData.description"
-          label="Role description"
-          maxlength="500"
-          :rules="[roleRule]"></v-textarea>
+          :rules="[nameRule]"></v-text-field>
+        <v-textarea v-model="roleData.description" label="Role description"></v-textarea>
         <!--v-text-field
           v-model="roleData.providerId"
           label="Provider ID (optional)"
@@ -41,12 +37,7 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
-        <v-btn
-          color="success"
-          :disabled="roleData.name == '' || roleData.name.length < 3"
-          @click="createRole">
-          save role
-        </v-btn>
+        <v-btn color="success" :disabled="roleData.name == ''" @click="createRole">save role</v-btn>
         <v-btn color="error" text="Cancel" @click="cancelRoleInput"></v-btn>
       </v-card-actions>
     </v-card>
@@ -81,8 +72,7 @@ const roleData = reactive({
   sourceId: '',
 });
 
-const roleRule = (value: string) =>
-  (value && value.length >= 3) || 'Role must be at least 3 characters long';
+const nameRule = (value: string) => !!value || 'Role name is required';
 
 function createRole() {
   emit('roleInput', {
