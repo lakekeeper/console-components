@@ -288,6 +288,10 @@ async function deleteRole(roleId: string) {
 }
 
 async function onProviderFilterChange() {
+  if (searchTimeout) {
+    clearTimeout(searchTimeout);
+    searchTimeout = null;
+  }
   searchRoles.value = '';
   paginationTokenRole.value = '';
   searchResults.splice(0, searchResults.length);

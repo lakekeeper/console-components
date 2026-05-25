@@ -37,7 +37,7 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
-        <v-btn color="success" :disabled="roleData.name == ''" @click="createRole">save role</v-btn>
+        <v-btn color="success" :disabled="!isNameValid" @click="createRole">save role</v-btn>
         <v-btn color="error" text="Cancel" @click="cancelRoleInput"></v-btn>
       </v-card-actions>
     </v-card>
@@ -45,7 +45,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, onMounted, ref } from 'vue';
+import { reactive, onMounted, ref, computed } from 'vue';
 
 const isDialogActive = ref(false);
 const emit = defineEmits<{
@@ -72,9 +72,13 @@ const roleData = reactive({
   sourceId: '',
 });
 
-const nameRule = (value: string) => !!value || 'Role name is required';
+const isNameValid = computed(() => roleData.name.trim() !== '');
+
+const nameRule = (value: string) =>
+  (typeof value === 'string' && value.trim() !== '') || 'Role name is required';
 
 function createRole() {
+  if (!isNameValid.value) return;
   emit('roleInput', {
     name: roleData.name,
     description: roleData.description,

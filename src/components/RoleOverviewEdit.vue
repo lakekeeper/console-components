@@ -73,6 +73,8 @@
               icon="mdi-content-copy"
               size="x-small"
               variant="text"
+              :aria-label="`Copy identifier ${role.ident}`"
+              :title="`Copy identifier ${role.ident}`"
               @click="functions.copyToClipboard(role.ident)"></v-btn>
           </div>
 
@@ -85,6 +87,8 @@
               icon="mdi-content-copy"
               size="x-small"
               variant="text"
+              :aria-label="`Copy role ID ${role.id}`"
+              :title="`Copy role ID ${role.id}`"
               @click="functions.copyToClipboard(role.id)"></v-btn>
           </div>
         </v-col>
@@ -106,6 +110,7 @@
 import { onMounted, reactive } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useRolePermissions } from '../composables/useCatalogPermissions';
+import type { Role } from '../gen/management/types.gen';
 
 const props = defineProps<{
   roleId: string;
@@ -120,13 +125,16 @@ const functions = useFunctions();
 // Use the role permissions composable
 const { canUpdate } = useRolePermissions(props.roleId);
 
-const role = reactive<any>({
+const role = reactive<Role>({
   id: '',
   ident: '',
   name: '',
   description: '',
   'created-at': '',
   'updated-at': '',
+  'project-id': '',
+  'provider-id': '',
+  'source-id': '',
 });
 
 onMounted(async () => {
