@@ -3201,6 +3201,24 @@ async function listRoles(
 
     const client = mngClient.client;
 
+    // Backend uses serde_qs-style query parsing: arrays must be encoded as
+    // `key[]=value`. The SDK default emits `key=value`, which the backend
+    // rejects as not-a-sequence. Override the serializer for this call.
+    const qsArraySerializer = (q: Record<string, unknown>) => {
+      const parts: string[] = [];
+      for (const [k, v] of Object.entries(q)) {
+        if (v === undefined || v === null) continue;
+        if (Array.isArray(v)) {
+          for (const item of v) {
+            parts.push(`${encodeURIComponent(k)}%5B%5D=${encodeURIComponent(String(item))}`);
+          }
+        } else {
+          parts.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+        }
+      }
+      return parts.join('&');
+    };
+
     const { data, error } = await mng.listRoles({
       client,
       query: {
@@ -3209,6 +3227,7 @@ async function listRoles(
         ...(providerIds?.length ? { providerIds } : {}),
         ...(sourceIds?.length ? { sourceIds } : {}),
       },
+      querySerializer: qsArraySerializer,
     });
 
     if (error) throw error;
