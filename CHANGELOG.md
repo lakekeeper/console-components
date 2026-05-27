@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.2](https://github.com/lakekeeper/console-components/compare/v0.7.1...v0.7.2) (2026-05-27)
+
+
+### Bug Fixes
+
+* **ui:** improve Server Information version and commit SHA display ([c6cbeaf](https://github.com/lakekeeper/console-components/commit/c6cbeafbbf2f629e749e773303e4ff50aea845b3))
+
 ## [0.7.1](https://github.com/lakekeeper/console-components/compare/v0.7.0...v0.7.1) (2026-05-27)
 
 
