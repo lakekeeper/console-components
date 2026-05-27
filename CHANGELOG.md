@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.1](https://github.com/lakekeeper/console-components/compare/v0.7.0...v0.7.1) (2026-05-27)
+
+
+### Bug Fixes
+
+* **ui:** drop obsolete baseUrl and ignoreDeprecations from tsconfig ([3e6fe00](https://github.com/lakekeeper/console-components/commit/3e6fe00021170cc0173369e7885dea4a993d2d29))
+
 ## [0.7.0](https://github.com/lakekeeper/console-components/compare/v0.6.2...v0.7.0) (2026-05-25)
 
 
