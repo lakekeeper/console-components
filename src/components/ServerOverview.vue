@@ -23,15 +23,6 @@
               <v-icon class="mr-2" color="primary">mdi-server</v-icon>
               Server Information
             </v-toolbar-title>
-            <v-spacer></v-spacer>
-            <v-chip
-              v-if="projectInfo['lakekeeper-version']"
-              size="small"
-              color="primary"
-              variant="outlined"
-              class="mr-2">
-              v{{ projectInfo['lakekeeper-version'] }}
-            </v-chip>
           </v-toolbar>
           <v-divider></v-divider>
           <v-table density="compact">
@@ -48,26 +39,48 @@
                     @click="copyToClipboard(projectInfo['server-id'])"></v-btn>
                 </td>
               </tr>
-              <tr v-if="!isEnterpriseConsole">
+              <tr>
                 <td class="font-weight-medium">Lakekeeper Version</td>
                 <td>
                   {{ projectInfo['lakekeeper-version'] || 'N/A' }}
-                  <span
-                    v-if="projectInfo['lakekeeper-commit-sha']"
-                    class="text-medium-emphasis ml-2">
-                    ({{ shortSha(projectInfo['lakekeeper-commit-sha']) }})
-                  </span>
+                  <template v-if="projectInfo['lakekeeper-commit-sha']">
+                    <v-tooltip :text="projectInfo['lakekeeper-commit-sha']" location="top">
+                      <template #activator="{ props }">
+                        <code v-bind="props" class="ml-2">
+                          {{ shortSha(projectInfo['lakekeeper-commit-sha']) }}
+                        </code>
+                      </template>
+                    </v-tooltip>
+                    <v-btn
+                      icon="mdi-content-copy"
+                      size="x-small"
+                      variant="text"
+                      @click="copyToClipboard(projectInfo['lakekeeper-commit-sha']!)"></v-btn>
+                  </template>
                 </td>
               </tr>
-              <tr v-if="isEnterpriseConsole">
+              <tr v-if="isEnterpriseConsole && projectInfo['lakekeeper-enterprise-version']">
                 <td class="font-weight-medium">Enterprise Version</td>
                 <td>
                   {{ projectInfo['lakekeeper-enterprise-version'] || 'N/A' }}
-                  <span
-                    v-if="projectInfo['lakekeeper-enterprise-commit-sha']"
-                    class="text-medium-emphasis ml-2">
-                    ({{ shortSha(projectInfo['lakekeeper-enterprise-commit-sha']) }})
-                  </span>
+                  <template v-if="projectInfo['lakekeeper-enterprise-commit-sha']">
+                    <v-tooltip
+                      :text="projectInfo['lakekeeper-enterprise-commit-sha']"
+                      location="top">
+                      <template #activator="{ props }">
+                        <code v-bind="props" class="ml-2">
+                          {{ shortSha(projectInfo['lakekeeper-enterprise-commit-sha']) }}
+                        </code>
+                      </template>
+                    </v-tooltip>
+                    <v-btn
+                      icon="mdi-content-copy"
+                      size="x-small"
+                      variant="text"
+                      @click="
+                        copyToClipboard(projectInfo['lakekeeper-enterprise-commit-sha']!)
+                      "></v-btn>
+                  </template>
                 </td>
               </tr>
               <tr>
@@ -117,15 +130,6 @@
               <v-icon class="mr-2" color="primary">mdi-monitor-dashboard</v-icon>
               Console
             </v-toolbar-title>
-            <v-spacer></v-spacer>
-            <v-chip
-              v-if="projectInfo.console.version"
-              size="small"
-              color="primary"
-              variant="outlined"
-              class="mr-2">
-              v{{ projectInfo.console.version }}
-            </v-chip>
           </v-toolbar>
           <v-divider></v-divider>
           <v-table density="compact">
@@ -143,7 +147,11 @@
               <tr v-if="projectInfo.console['commit-sha']">
                 <td class="font-weight-medium">Commit SHA</td>
                 <td>
-                  <code>{{ shortSha(projectInfo.console['commit-sha']) }}</code>
+                  <v-tooltip :text="projectInfo.console['commit-sha']" location="top">
+                    <template #activator="{ props }">
+                      <code v-bind="props">{{ shortSha(projectInfo.console['commit-sha']) }}</code>
+                    </template>
+                  </v-tooltip>
                   <v-btn
                     icon="mdi-content-copy"
                     size="x-small"
@@ -463,6 +471,10 @@ async function copyToClipboard(text: string) {
   }
 }
 
+function shortSha(sha: string | null | undefined): string {
+  return sha ? sha.slice(0, 7) : '';
+}
+
 function getLicenseTypeColor(licenseType: string): string {
   if (!licenseType) return 'grey';
   if (licenseType.includes('Apache') || licenseType.includes('MIT')) return 'success';
@@ -481,10 +493,6 @@ function getExpirationColor(expirationDate: string): string {
   if (daysUntilExpiration < 30) return 'warning'; // Less than 30 days
   if (daysUntilExpiration < 90) return 'orange'; // Less than 90 days
   return 'success'; // More than 90 days
-}
-
-function shortSha(sha: string | null | undefined): string {
-  return sha ? sha.slice(0, 7) : '';
 }
 
 function formatDate(dateString: string): string {
