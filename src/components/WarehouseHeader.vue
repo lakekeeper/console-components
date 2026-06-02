@@ -29,7 +29,7 @@
       @close="processStatus = 'starting'"
       @rename-warehouse="renameWarehouse"
       @update-credentials="updateCredentials"
-      @update-delprofile="updateDelProfile"
+      @update-catalog-settings="updateCatalogSettings"
       @update-profile="updateProfile" />
   </v-toolbar>
 </template>
@@ -162,19 +162,38 @@ async function updateProfile(newProfile: {
   }
 }
 
-async function updateDelProfile(profile: TabularDeleteProfile) {
+async function updateCatalogSettings(payload: {
+  deleteProfile?: TabularDeleteProfile;
+  formatPolicy?: { allowed: number[]; default: number };
+}) {
   try {
-    await functions.updateWarehouseDeleteProfile(props.warehouseId, profile, true);
+    const calls: Promise<unknown>[] = [];
+    if (payload.deleteProfile) {
+      calls.push(
+        functions.updateWarehouseDeleteProfile(props.warehouseId, payload.deleteProfile, false),
+      );
+    }
+    if (payload.formatPolicy) {
+      calls.push(
+        functions.setWarehouseFormatVersionPolicy(
+          props.warehouseId,
+          payload.formatPolicy.allowed,
+          payload.formatPolicy.default,
+          false,
+        ),
+      );
+    }
+    await Promise.all(calls);
     await loadWarehouse();
     visual.setSnackbarMsg({
-      function: 'updateDelProfile',
-      text: 'Deletion profile updated successfully',
+      function: 'updateCatalogSettings',
+      text: 'Catalog settings updated successfully',
       ttl: 3000,
       ts: Date.now(),
       type: Type.SUCCESS,
     });
   } catch (error) {
-    console.error('Failed to update deletion profile:', error);
+    console.error('Failed to update catalog settings:', error);
   }
 }
 

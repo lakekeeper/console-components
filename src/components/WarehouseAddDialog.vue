@@ -28,9 +28,9 @@
       <v-list-item
         prepend-icon="mdi-update"
         v-bind="activatorProps"
-        v-else-if="props.objectType === ObjectType.DELETION_PROFILE">
+        v-else-if="props.objectType === ObjectType.CATALOG_SETTINGS">
         <v-list-item-title>
-          <span class="text-subtitle-2">Change Deletion</span>
+          <span class="text-subtitle-2">Catalog Settings</span>
         </v-list-item-title>
       </v-list-item>
     </template>
@@ -126,91 +126,95 @@
               :style="
                 isWarehouseNameInvalid ? 'color: rgb(var(--v-theme-error));' : ''
               "></v-text-field>
-            <v-row justify="center">
-              <v-col
-                v-if="
-                  props.objectType === ObjectType.WAREHOUSE ||
-                  props.objectType === ObjectType.DELETION_PROFILE
-                ">
-                <v-switch
-                  v-model="delProfileSoftActive"
-                  color="primary"
-                  :label="
-                    delProfileSoftActive ? `Soft Deletion is enabled` : `Enable Soft Deletion`
-                  "></v-switch>
-              </v-col>
-              <v-col class="d-flex justify-center">
-                <v-slider
-                  v-if="delProfileSoftActive"
-                  v-model="slider"
-                  class="align-center"
-                  hide-details
-                  label="Define number of Days"
-                  :max="max"
-                  :min="min"
-                  :step="1">
-                  <template #append>
-                    <v-text-field
-                      v-model="slider"
-                      density="compact"
-                      hide-details
-                      single-line
-                      style="width: 100px"
-                      type="number"></v-text-field>
-                  </template>
-                </v-slider>
-              </v-col>
-            </v-row>
-            <v-row v-if="props.objectType === ObjectType.DELETION_PROFILE">
+            <!-- General settings: deletion + format policy grouped -->
+            <div
+              v-if="
+                props.objectType === ObjectType.WAREHOUSE ||
+                props.objectType === ObjectType.CATALOG_SETTINGS
+              "
+              class="mb-12">
+              <div
+                class="text-overline text-medium-emphasis d-flex align-center mb-2"
+                style="gap: 8px">
+                General settings
+       
+              </div>
+
+              <v-row align="start" dense>
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-medium-emphasis mb-2">Soft deletion</div>
+                  <v-switch
+                    v-model="delProfileSoftActive"
+                    color="primary"
+                    hide-details
+                    density="compact"
+                    :label="
+                      delProfileSoftActive ? `Soft Deletion is enabled` : `Enable Soft Deletion`
+                    "></v-switch>
+                  <v-slider
+                    v-if="delProfileSoftActive"
+                    v-model="slider"
+                    class="mt-3"
+                    hide-details
+                    label="Days"
+                    :max="max"
+                    :min="min"
+                    :step="1">
+                    <template #append>
+                      <v-text-field
+                        v-model="slider"
+                        density="compact"
+                        hide-details
+                        single-line
+                        style="width: 80px"
+                        type="number"></v-text-field>
+                    </template>
+                  </v-slider>
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <div class="text-caption text-medium-emphasis mb-2">Iceberg format policy</div>
+                  <div class="d-flex align-center" style="gap: 16px">
+                    <div>
+                      <div class="text-caption text-medium-emphasis mb-1">Allowed</div>
+                      <v-btn-toggle
+                        v-model="policyAllowed"
+                        multiple
+                        mandatory
+                        variant="outlined"
+                        color="primary"
+                        density="comfortable">
+                        <v-btn :value="1">v1</v-btn>
+                        <v-btn :value="2">v2</v-btn>
+                        <v-btn :value="3">v3</v-btn>
+                      </v-btn-toggle>
+                    </div>
+                    <div style="flex: 1; max-width: 140px">
+                      <div class="text-caption text-medium-emphasis mb-1">Default</div>
+                      <v-select
+                        v-model="policyDefault"
+                        :items="policyDefaultItems"
+                        variant="outlined"
+                        density="comfortable"
+                        hide-details />
+                    </div>
+                  </div>
+                </v-col>
+              </v-row>
+            </div>
+
+            <v-row v-if="props.objectType === ObjectType.CATALOG_SETTINGS">
               <v-col>
                 <v-btn
                   color="success"
-                  :disabled="
-                    slider === loadedDeltionSeconds &&
-                    delProfileSoftActive === loadedDelProfileSoftActive
-                  "
-                  @click="emitDeletionProfile">
-                  Change Deletion
+                  :disabled="!catalogSettingsDirty"
+                  @click="emitCatalogSettings">
+                  Update Catalog Settings
                 </v-btn>
               </v-col>
             </v-row>
 
-            <!-- Iceberg format-version policy (optional; server defaults to all versions allowed) -->
-            <v-row v-if="props.objectType === ObjectType.WAREHOUSE" align="center">
-              <v-col cols="12" sm="6">
-                <div class="text-overline text-medium-emphasis mb-2">
-                  Iceberg allowed format versions
-                </div>
-                <v-btn-toggle
-                  v-model="policyAllowed"
-                  multiple
-                  mandatory
-                  density="compact"
-                  variant="outlined"
-                  color="primary">
-                  <v-btn :value="1" size="small">v1</v-btn>
-                  <v-btn :value="2" size="small">v2</v-btn>
-                  <v-btn :value="3" size="small">v3</v-btn>
-                </v-btn-toggle>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <v-select
-                  v-model="policyDefault"
-                  :items="policyDefaultItems"
-                  label="Default format version"
-                  density="compact"
-                  variant="outlined"
-                  hide-details="auto"
-                  :hint="
-                    policyDefault === null
-                      ? 'Auto: v2 if allowed, otherwise highest allowed.'
-                      : ''
-                  "
-                  persistent-hint />
-              </v-col>
-            </v-row>
-
-            <span v-if="props.objectType !== ObjectType.DELETION_PROFILE">
+            <span v-if="props.objectType !== ObjectType.CATALOG_SETTINGS">
               <v-tabs v-model="storageCredentialType" color="primary" :disabled="!emptyWarehouse">
                 <v-tab value="S3">
                   <v-icon start color="orange">mdi-aws</v-icon>
@@ -350,19 +354,28 @@ const loadedDelProfileSoftActive = ref(false);
 const delProfileSoftActive = ref(false);
 const isDialogActive = ref(false);
 
-// Iceberg format-version policy (create-flow defaults: all allowed, auto default)
+// Iceberg format-version policy (create-flow defaults: all allowed, v2 default).
+// Default mirrors server semantics: v2 if allowed, otherwise highest allowed.
+function pickDefaultFromAllowed(allowed: number[]): number {
+  if (allowed.includes(2)) return 2;
+  return Math.max(...allowed);
+}
 const policyAllowed = ref<number[]>([1, 2, 3]);
-const policyDefault = ref<number | null>(null);
-const policyDefaultItems = computed(() => [
-  { title: 'Auto (server-chosen)', value: null },
-  ...policyAllowed.value.map((v) => ({ title: `v${v}`, value: v })),
-]);
-// Clear stale default when its version is removed from allowed
-watch(policyAllowed, (next) => {
-  if (policyDefault.value !== null && !next.includes(policyDefault.value)) {
-    policyDefault.value = null;
-  }
-});
+const policyDefault = ref<number>(2);
+const policyDefaultItems = computed(() =>
+  policyAllowed.value.map((v) => ({ title: `v${v}`, value: v })),
+);
+// If allowed changes such that the current default is no longer in it, pick a sensible one.
+// deep:true because v-btn-toggle (multiple) may mutate the bound array in place.
+watch(
+  policyAllowed,
+  (next) => {
+    if (next.length > 0 && !next.includes(policyDefault.value)) {
+      policyDefault.value = pickDefaultFromAllowed(next);
+    }
+  },
+  { deep: true },
+);
 
 const emit = defineEmits<{
   (e: 'addedWarehouse'): void;
@@ -373,7 +386,13 @@ const emit = defineEmits<{
     e: 'updateProfile',
     newProfile: { profile: StorageProfile; credentials: StorageCredential },
   ): void;
-  (e: 'updateDeletionProfile', profile: TabularDeleteProfile): void;
+  (
+    e: 'updateCatalogSettings',
+    payload: {
+      deleteProfile?: TabularDeleteProfile;
+      formatPolicy?: { allowed: number[]; default: number };
+    },
+  ): void;
 }>();
 
 const props = defineProps<{
@@ -554,19 +573,18 @@ async function createWarehouse(
       return delProfileSoftActive.value ? delProfileSoft : delProfileHard;
     });
 
+    // Belt-and-suspenders: never send a default that's not in the allowed set.
+    const effectiveDefault = policyAllowed.value.includes(policyDefault.value)
+      ? policyDefault.value
+      : pickDefaultFromAllowed(policyAllowed.value);
     const wh = reactive<CreateWarehouseRequest>({
       'delete-profile': delProfile.value,
       'warehouse-name': warehouseName.value,
       'project-id': projectId.value,
       'storage-credential': warehouseObject['storage-credential'] as StorageCredential,
       'storage-profile': warehouseObject['storage-profile'] as StorageProfile,
-      // Only send when user opted out of the defaults (all-allowed, auto).
-      ...(policyAllowed.value.length !== 3
-        ? { 'allowed-format-versions': [...policyAllowed.value].sort((a, b) => a - b) }
-        : {}),
-      ...(policyDefault.value !== null
-        ? { 'default-format-version': policyDefault.value }
-        : {}),
+      'allowed-format-versions': [...policyAllowed.value].sort((a, b) => a - b),
+      'default-format-version': effectiveDefault,
     });
 
     const res: CreateWarehouseResponse = await functions.createWarehouse(wh, true);
@@ -644,21 +662,42 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
   }
 }
 
-function emitDeletionProfile() {
-  const delProfileSoft = reactive<TabularDeleteProfile>({
-    type: 'soft',
-    'expiration-seconds': Math.round(slider.value * 86400),
-  });
+// Tracks whether any catalog-settings field differs from the loaded warehouse state.
+const catalogSettingsDirty = computed(() => {
+  const deletionChanged =
+    slider.value !== loadedDeltionSeconds.value ||
+    delProfileSoftActive.value !== loadedDelProfileSoftActive.value;
+  const serverAllowed = (props.warehouse?.['allowed-format-versions'] ?? []) as number[];
+  const serverDefault = (props.warehouse?.['default-format-version'] ?? null) as number | null;
+  const resolvedServerDefault =
+    serverDefault !== null
+      ? serverDefault
+      : serverAllowed.length > 0
+        ? serverAllowed.includes(2)
+          ? 2
+          : Math.max(...serverAllowed)
+        : null;
+  const allowedChanged =
+    serverAllowed.length !== policyAllowed.value.length ||
+    serverAllowed.some((v) => !policyAllowed.value.includes(v));
+  const defaultChanged = policyDefault.value !== resolvedServerDefault;
+  return deletionChanged || allowedChanged || defaultChanged;
+});
 
-  const delProfileHard = reactive<TabularDeleteProfile>({
-    type: 'hard',
+function emitCatalogSettings() {
+  const delProfile: TabularDeleteProfile = delProfileSoftActive.value
+    ? { type: 'soft', 'expiration-seconds': Math.round(slider.value * 86400) }
+    : { type: 'hard' };
+  const effectiveDefault = policyAllowed.value.includes(policyDefault.value)
+    ? policyDefault.value
+    : pickDefaultFromAllowed(policyAllowed.value);
+  emit('updateCatalogSettings', {
+    deleteProfile: delProfile,
+    formatPolicy: {
+      allowed: [...policyAllowed.value].sort((a, b) => a - b),
+      default: effectiveDefault,
+    },
   });
-
-  const delProfile = computed(() => {
-    return delProfileSoftActive.value ? delProfileSoft : delProfileHard;
-  });
-
-  emit('updateDeletionProfile', delProfile.value);
 }
 
 function newCredentials(credentials: StorageCredential) {
@@ -713,7 +752,7 @@ onMounted(() => {
       }
     }
     if (
-      props.objectType === ObjectType.DELETION_PROFILE &&
+      props.objectType === ObjectType.CATALOG_SETTINGS &&
       props.warehouse['delete-profile'].type === 'soft'
     ) {
       slider.value = Math.round(props.warehouse['delete-profile']['expiration-seconds'] / 86400);
@@ -722,6 +761,15 @@ onMounted(() => {
       delProfileSoftActive.value = true;
     }
     loadedDelProfileSoftActive.value = delProfileSoftActive.value;
+
+    // Seed the Iceberg format-policy controls from the loaded warehouse.
+    if (props.objectType === ObjectType.CATALOG_SETTINGS) {
+      const serverAllowed = (props.warehouse['allowed-format-versions'] ?? [1, 2, 3]) as number[];
+      const serverDefault = (props.warehouse['default-format-version'] ?? null) as number | null;
+      policyAllowed.value = [...serverAllowed];
+      policyDefault.value =
+        serverDefault !== null ? serverDefault : pickDefaultFromAllowed(serverAllowed);
+    }
   }
 });
 
