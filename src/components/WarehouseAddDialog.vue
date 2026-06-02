@@ -175,6 +175,41 @@
               </v-col>
             </v-row>
 
+            <!-- Iceberg format-version policy (optional; server defaults to all versions allowed) -->
+            <v-row v-if="props.objectType === ObjectType.WAREHOUSE" align="center">
+              <v-col cols="12" sm="6">
+                <div class="text-overline text-medium-emphasis mb-2">
+                  Iceberg allowed format versions
+                </div>
+                <v-btn-toggle
+                  v-model="policyAllowed"
+                  multiple
+                  mandatory
+                  density="compact"
+                  variant="outlined"
+                  color="primary">
+                  <v-btn :value="1" size="small">v1</v-btn>
+                  <v-btn :value="2" size="small">v2</v-btn>
+                  <v-btn :value="3" size="small">v3</v-btn>
+                </v-btn-toggle>
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-select
+                  v-model="policyDefault"
+                  :items="policyDefaultItems"
+                  label="Default format version"
+                  density="compact"
+                  variant="outlined"
+                  hide-details="auto"
+                  :hint="
+                    policyDefault === null
+                      ? 'Auto: v2 if allowed, otherwise highest allowed.'
+                      : ''
+                  "
+                  persistent-hint />
+              </v-col>
+            </v-row>
+
             <span v-if="props.objectType !== ObjectType.DELETION_PROFILE">
               <v-tabs v-model="storageCredentialType" color="primary" :disabled="!emptyWarehouse">
                 <v-tab value="S3">
@@ -314,6 +349,20 @@ const loadedDelProfileSoftActive = ref(false);
 
 const delProfileSoftActive = ref(false);
 const isDialogActive = ref(false);
+
+// Iceberg format-version policy (create-flow defaults: all allowed, auto default)
+const policyAllowed = ref<number[]>([1, 2, 3]);
+const policyDefault = ref<number | null>(null);
+const policyDefaultItems = computed(() => [
+  { title: 'Auto (server-chosen)', value: null },
+  ...policyAllowed.value.map((v) => ({ title: `v${v}`, value: v })),
+]);
+// Clear stale default when its version is removed from allowed
+watch(policyAllowed, (next) => {
+  if (policyDefault.value !== null && !next.includes(policyDefault.value)) {
+    policyDefault.value = null;
+  }
+});
 
 const emit = defineEmits<{
   (e: 'addedWarehouse'): void;
@@ -511,6 +560,13 @@ async function createWarehouse(
       'project-id': projectId.value,
       'storage-credential': warehouseObject['storage-credential'] as StorageCredential,
       'storage-profile': warehouseObject['storage-profile'] as StorageProfile,
+      // Only send when user opted out of the defaults (all-allowed, auto).
+      ...(policyAllowed.value.length !== 3
+        ? { 'allowed-format-versions': [...policyAllowed.value].sort((a, b) => a - b) }
+        : {}),
+      ...(policyDefault.value !== null
+        ? { 'default-format-version': policyDefault.value }
+        : {}),
     });
 
     const res: CreateWarehouseResponse = await functions.createWarehouse(wh, true);

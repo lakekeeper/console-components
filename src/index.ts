@@ -32,11 +32,14 @@ import HomeStatistics from './components/HomeStatistics.vue';
 import WarehouseNamespaces from './components/WarehouseNamespaces.vue';
 import NamespaceNamespaces from './components/NamespaceNamespaces.vue';
 import NamespaceTables from './components/NamespaceTables.vue';
+import NamespaceGenericTables from './components/NamespaceGenericTables.vue';
 import NamespaceDeleted from './components/NamespaceDeleted.vue';
 import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import TableHeader from './components/TableHeader.vue';
+import GenericTableHeader from './components/GenericTableHeader.vue';
+import GenericTableOverview from './components/GenericTableOverview.vue';
 import TableDetails from './components/TableDetails.vue';
 import TableHealth from './components/TableHealth.vue';
 import TableHealthActions from './components/TableHealthActions.vue';
@@ -125,11 +128,14 @@ export {
   WarehouseNamespaces,
   NamespaceNamespaces,
   NamespaceTables,
+  NamespaceGenericTables,
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
   NamespacePropertiesDialog,
   TableHeader,
+  GenericTableHeader,
+  GenericTableOverview,
   TableDetails,
   TableHealth,
   TableHealthActions,
@@ -163,6 +169,7 @@ export {
   useNamespacePermissions,
   useTablePermissions,
   useViewPermissions,
+  useGenericTablePermissions,
   useRolePermissions,
 } from './composables/useCatalogPermissions';
 
@@ -174,6 +181,7 @@ export {
   useNamespaceAuthorizerPermissions,
   useTableAuthorizerPermissions,
   useViewAuthorizerPermissions,
+  useGenericTableAuthorizerPermissions,
   useRoleAuthorizerPermissions, // ← Note: singular "Role", not "Roles"
 } from './composables/useAuthorizerPermissions';
 
@@ -202,6 +210,7 @@ export type {
   LakekeeperNamespaceAction,
   LakekeeperTableAction,
   LakekeeperViewAction,
+  LakekeeperGenericTableAction,
   LakekeeperRoleAction,
   LakekeeperUserAction,
   // Authorizer/Delegation Action Types (OpenFGA)
@@ -211,6 +220,7 @@ export type {
   OpenFgaNamespaceAction,
   OpenFgaTableAction,
   OpenFgaViewAction,
+  OpenFgaGenericTableAction,
   OpenFgaRoleAction,
   // Assignment Types
   ServerAssignment,
@@ -219,6 +229,7 @@ export type {
   NamespaceAssignment,
   TableAssignment,
   ViewAssignment,
+  GenericTableAssignment,
   RoleAssignment,
   // Response Types
   GetServerAssignmentsResponse,
@@ -227,6 +238,7 @@ export type {
   GetNamespaceAssignmentsResponse,
   GetTableAssignmentsResponse,
   GetViewAssignmentsResponse,
+  GetGenericTableAssignmentsResponse,
   GetRoleAssignmentsResponse,
   GetProjectResponse,
   GetWarehouseResponse,
@@ -238,6 +250,17 @@ export type {
   ProjectTaskInfo,
   TaskStatus,
 } from './gen/management/types.gen';
+
+// Export generic-table data plane types
+export type {
+  GenericTableData,
+  GenericTableIdentifier,
+  CreateGenericTableRequest,
+  ListGenericTablesResponse,
+  LoadGenericTableResponse,
+  LoadGenericTableCredentialsResponse,
+  RenameGenericTableRequest,
+} from './gen/generic-table/types.gen';
 
 // Register all components in an object
 const components = {
@@ -287,11 +310,14 @@ const components = {
   WarehousesNavigationTree,
   NamespaceNamespaces,
   NamespaceTables,
+  NamespaceGenericTables,
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
   NamespacePropertiesDialog,
   TableHeader,
+  GenericTableHeader,
+  GenericTableOverview,
   TableDetails,
   TableHealth,
   TableHealthActions,

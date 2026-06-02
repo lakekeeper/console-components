@@ -39,7 +39,7 @@
         v-model="searchQuery"
         density="compact"
         :variant="!props.warehouseId ? 'outlined' : 'filled'"
-        placeholder="Search tables & views..."
+        placeholder="Search tables, views, generic tables..."
         hide-details
         clearable
         class="filter-field"
@@ -100,8 +100,17 @@
             class="search-result-item"
             @click="navigateToSearchResult(result)">
             <template #prepend>
-              <v-icon size="small" :color="result.type === 'table' ? 'blue' : 'green'">
-                {{ result.type === 'table' ? 'mdi-table' : 'mdi-eye-outline' }}
+              <v-icon v-if="result.type === 'view'" size="small" color="green">
+                mdi-eye-outline
+              </v-icon>
+              <v-icon
+                v-else-if="result.type === 'table'"
+                size="small"
+                :title="`Iceberg ${result.type}`">
+                <v-img :src="icebergIcon" width="18" height="18" />
+              </v-icon>
+              <v-icon v-else size="small" color="grey" title="Generic table">
+                mdi-alpha-g
               </v-icon>
             </template>
             <v-list-item-title class="text-caption">
@@ -173,7 +182,19 @@
           </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
+          <v-icon
+            v-else-if="
+              (item.type === 'table' || item.type === 'generic-table') && formatIcon(item.format)
+            "
+            size="small">
+            <v-img :src="formatIcon(item.format)!" width="18" height="18" />
+          </v-icon>
+          <v-icon
+            v-else-if="item.type === 'table' || item.type === 'generic-table'"
+            size="small"
+            color="grey">
+            mdi-alpha-g
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'load-more'" color="grey">
             mdi-dots-horizontal
@@ -194,6 +215,7 @@
                   item.type === 'namespace' ||
                   item.type === 'table' ||
                   item.type === 'view' ||
+                  item.type === 'generic-table' ||
                   item.type === 'load-more'
                     ? 'pointer'
                     : 'default',
@@ -252,6 +274,11 @@ import { logError } from '@/common/errorUtils';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
+import icebergIcon from '@/assets/iceberg.svg';
+import deltaIcon from '@/assets/delta.svg';
+import vortexLightIcon from '@/assets/vortex_logo.svg';
+import vortexDarkIcon from '@/assets/vortex_logo_dark_theme.svg';
+import lanceIcon from '@/assets/lance.png';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -279,7 +306,7 @@ const emit = defineEmits<{
 interface TreeItem {
   id: string;
   name: string;
-  type: 'warehouse' | 'namespace' | 'table' | 'view' | 'load-more';
+  type: 'warehouse' | 'namespace' | 'table' | 'view' | 'generic-table' | 'load-more';
   children?: TreeItem[];
   warehouseId: string;
   namespaceId?: string; // Full namespace path with dots (e.g., 'finance.sub')
@@ -288,22 +315,44 @@ interface TreeItem {
   storageType?: 's3' | 'adls' | 'gcs';
   storageFlavor?: string;
   storageEndpoint?: string;
+  /** Tabular format — 'iceberg' on table nodes, gt.format on generic-table nodes. */
+  format?: string;
   /** For load-more nodes: which resource types to load more of */
-  loadMoreTypes?: ('namespace' | 'table' | 'view')[];
+  loadMoreTypes?: ('namespace' | 'table' | 'view' | 'generic-table')[];
 }
 
 /** Max items per API page for tree loads — keeps DOM light. */
 const TREE_PAGE_SIZE = 100;
+
+// Per-format brand icon. Anything outside this map renders as `mdi-alpha-g` (generic).
+// Vortex ships dark/light variants — pick by the current theme.
+function formatIcon(format?: string): string | null {
+  switch ((format ?? '').toLowerCase()) {
+    case 'iceberg':
+      return icebergIcon;
+    case 'delta':
+      return deltaIcon;
+    case 'lance':
+      return lanceIcon;
+    case 'vortex':
+      return visualStore.themeLight ? vortexLightIcon : vortexDarkIcon;
+    default:
+      return null;
+  }
+}
 
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
 
-// Pagination tokens keyed by parent node id → { namespaces, tables, views }
-const pageTokens = ref<Record<string, { namespaces?: string; tables?: string; views?: string }>>(
-  {},
-);
+// Pagination tokens keyed by parent node id → { namespaces, tables, views, genericTables }
+const pageTokens = ref<
+  Record<
+    string,
+    { namespaces?: string; tables?: string; views?: string; genericTables?: string }
+  >
+>({});
 const searchQuery = ref('');
 const selectedSearchWarehouse = ref<string | null>(props.warehouseId || null);
 const isSearching = ref(false);
@@ -474,6 +523,8 @@ async function navigateToSearchResult(result: {
       await functions.loadTable(result.warehouseId, apiNamespace, result.name, false);
     } else if (result.type === 'view') {
       await functions.loadView(result.warehouseId, apiNamespace, result.name, false);
+    } else if (result.type === 'generic-table') {
+      await functions.loadGenericTable(result.warehouseId, apiNamespace, result.name, false);
     }
   } catch (error: any) {
     const code = error?.error?.code || error?.status || error?.response?.status || 0;
@@ -655,9 +706,11 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
       item.children = namespaceItems;
       item.loaded = true;
 
-      // Store pagination token and add load-more node if needed
+      // Store pagination token and add load-more node if needed.
+      // Only honor the token when the page came back full — some backends return a
+      // non-empty token on partial/final pages.
       const nsToken = response['next-page-token'];
-      if (nsToken) {
+      if (nsToken && (response.namespaces?.length ?? 0) >= TREE_PAGE_SIZE) {
         pageTokens.value[item.id] = { namespaces: nsToken };
         namespaceItems.push({
           id: `load-more-${item.id}`,
@@ -714,19 +767,22 @@ async function loadChildrenForNamespace(item: TreeItem) {
     }
   }
 
-  // Load sub-namespaces, tables and views in parallel.
+  // Load sub-namespaces, tables, views and generic tables in parallel.
   // Use Promise.allSettled so a 403 on one resource type doesn't block the others.
-  const [namespacesResult, tablesResult, viewsResult] = await Promise.allSettled([
-    functions.listNamespaces(item.warehouseId, apiNamespace, undefined, false, TREE_PAGE_SIZE),
-    functions.listTables(item.warehouseId, apiNamespace, undefined, false, TREE_PAGE_SIZE),
-    functions.listViews(item.warehouseId, apiNamespace, undefined, false, TREE_PAGE_SIZE),
-  ]);
+  const [namespacesResult, tablesResult, viewsResult, genericTablesResult] =
+    await Promise.allSettled([
+      functions.listNamespaces(item.warehouseId, apiNamespace, undefined, false, TREE_PAGE_SIZE),
+      functions.listTables(item.warehouseId, apiNamespace, undefined, false, TREE_PAGE_SIZE),
+      functions.listViews(item.warehouseId, apiNamespace, undefined, false, TREE_PAGE_SIZE),
+      functions.listGenericTables(item.warehouseId, apiNamespace, undefined, false, TREE_PAGE_SIZE),
+    ]);
 
-  // If ALL three failed, collapse the node and show an error
+  // If ALL four failed, collapse the node and show an error
   if (
     namespacesResult.status === 'rejected' &&
     tablesResult.status === 'rejected' &&
-    viewsResult.status === 'rejected'
+    viewsResult.status === 'rejected' &&
+    genericTablesResult.status === 'rejected'
   ) {
     const error: any = namespacesResult.reason;
     const code = error?.error?.code || error?.status || error?.response?.status || 0;
@@ -796,6 +852,7 @@ async function loadChildrenForNamespace(item: TreeItem) {
           type: 'table',
           warehouseId: item.warehouseId,
           namespaceId: item.namespaceId,
+          format: 'iceberg',
           loaded: true,
         });
       });
@@ -819,25 +876,70 @@ async function loadChildrenForNamespace(item: TreeItem) {
     }
   }
 
+  // Add generic tables (if that call succeeded)
+  if (genericTablesResult.status === 'fulfilled') {
+    const gtResponse = genericTablesResult.value;
+    if (gtResponse && gtResponse.identifiers) {
+      gtResponse.identifiers.forEach((gt: any) => {
+        children.push({
+          id: `generic-table-${item.warehouseId}-${item.namespaceId}-${gt.name}`,
+          name: gt.name,
+          type: 'generic-table',
+          warehouseId: item.warehouseId,
+          namespaceId: item.namespaceId,
+          format: gt.format || 'generic',
+          loaded: true,
+        });
+      });
+    }
+  }
+
   item.children = children;
   item.loaded = true;
 
-  // Track pagination tokens for this namespace node
-  const tokens: { namespaces?: string; tables?: string; views?: string } = {};
-  if (namespacesResult.status === 'fulfilled' && namespacesResult.value?.['next-page-token']) {
+  // Track pagination tokens for this namespace node.
+  // Treat a token as "more available" only if the page came back full —
+  // some backends return a non-empty token even on a partial/final page.
+  const tokens: {
+    namespaces?: string;
+    tables?: string;
+    views?: string;
+    genericTables?: string;
+  } = {};
+  if (
+    namespacesResult.status === 'fulfilled' &&
+    namespacesResult.value?.['next-page-token'] &&
+    (namespacesResult.value.namespaces?.length ?? 0) >= TREE_PAGE_SIZE
+  ) {
     tokens.namespaces = namespacesResult.value['next-page-token'];
   }
-  if (tablesResult.status === 'fulfilled' && tablesResult.value?.['next-page-token']) {
+  if (
+    tablesResult.status === 'fulfilled' &&
+    tablesResult.value?.['next-page-token'] &&
+    (tablesResult.value.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
+  ) {
     tokens.tables = tablesResult.value['next-page-token'];
   }
-  if (viewsResult.status === 'fulfilled' && viewsResult.value?.['next-page-token']) {
+  if (
+    viewsResult.status === 'fulfilled' &&
+    viewsResult.value?.['next-page-token'] &&
+    (viewsResult.value.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
+  ) {
     tokens.views = viewsResult.value['next-page-token'];
   }
+  if (
+    genericTablesResult.status === 'fulfilled' &&
+    genericTablesResult.value?.['next-page-token'] &&
+    (genericTablesResult.value.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
+  ) {
+    tokens.genericTables = genericTablesResult.value['next-page-token'];
+  }
 
-  const loadMoreTypes: ('namespace' | 'table' | 'view')[] = [];
+  const loadMoreTypes: ('namespace' | 'table' | 'view' | 'generic-table')[] = [];
   if (tokens.namespaces) loadMoreTypes.push('namespace');
   if (tokens.tables) loadMoreTypes.push('table');
   if (tokens.views) loadMoreTypes.push('view');
+  if (tokens.genericTables) loadMoreTypes.push('generic-table');
 
   if (loadMoreTypes.length > 0) {
     pageTokens.value[item.id] = tokens;
@@ -902,8 +1004,11 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
         });
       }
 
-      // Add new load-more if there's another page
-      if (response?.['next-page-token']) {
+      // Add new load-more only when the page came back full
+      if (
+        response?.['next-page-token'] &&
+        (response.namespaces?.length ?? 0) >= TREE_PAGE_SIZE
+      ) {
         pageTokens.value[parentId] = { namespaces: response['next-page-token'] };
         parent.children.push({
           id: `load-more-${parentId}`,
@@ -961,13 +1066,30 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
         );
         callTypes.push('views');
       }
+      if (tokens.genericTables) {
+        calls.push(
+          functions.listGenericTables(
+            parent.warehouseId,
+            apiNamespace,
+            tokens.genericTables,
+            false,
+            TREE_PAGE_SIZE,
+          ),
+        );
+        callTypes.push('genericTables');
+      }
 
       const results = await Promise.allSettled(calls);
 
       // Remove the old load-more node
       parent.children = parent.children.filter((c) => c.id !== loadMoreItem.id);
 
-      const newTokens: { namespaces?: string; tables?: string; views?: string } = {};
+      const newTokens: {
+        namespaces?: string;
+        tables?: string;
+        views?: string;
+        genericTables?: string;
+      } = {};
 
       results.forEach((result, idx) => {
         if (result.status !== 'fulfilled') return;
@@ -987,7 +1109,12 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
               loaded: false,
             });
           });
-          if (data['next-page-token']) newTokens.namespaces = data['next-page-token'];
+          if (
+            data['next-page-token'] &&
+            (data.namespaces?.length ?? 0) >= TREE_PAGE_SIZE
+          ) {
+            newTokens.namespaces = data['next-page-token'];
+          }
         }
 
         if (type === 'tables' && data?.identifiers) {
@@ -998,10 +1125,16 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
               type: 'table',
               warehouseId: parent.warehouseId,
               namespaceId: parent.namespaceId,
+              format: 'iceberg',
               loaded: true,
             });
           });
-          if (data['next-page-token']) newTokens.tables = data['next-page-token'];
+          if (
+            data['next-page-token'] &&
+            (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
+          ) {
+            newTokens.tables = data['next-page-token'];
+          }
         }
 
         if (type === 'views' && data?.identifiers) {
@@ -1015,15 +1148,41 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
               loaded: true,
             });
           });
-          if (data['next-page-token']) newTokens.views = data['next-page-token'];
+          if (
+            data['next-page-token'] &&
+            (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
+          ) {
+            newTokens.views = data['next-page-token'];
+          }
+        }
+
+        if (type === 'genericTables' && data?.identifiers) {
+          data.identifiers.forEach((gt: any) => {
+            parent.children!.push({
+              id: `generic-table-${parent.warehouseId}-${parent.namespaceId}-${gt.name}`,
+              name: gt.name,
+              type: 'generic-table',
+              warehouseId: parent.warehouseId,
+              namespaceId: parent.namespaceId,
+              format: gt.format || 'generic',
+              loaded: true,
+            });
+          });
+          if (
+            data['next-page-token'] &&
+            (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
+          ) {
+            newTokens.genericTables = data['next-page-token'];
+          }
         }
       });
 
       // Add new load-more node if any tokens remain
-      const loadMoreTypes: ('namespace' | 'table' | 'view')[] = [];
+      const loadMoreTypes: ('namespace' | 'table' | 'view' | 'generic-table')[] = [];
       if (newTokens.namespaces) loadMoreTypes.push('namespace');
       if (newTokens.tables) loadMoreTypes.push('table');
       if (newTokens.views) loadMoreTypes.push('view');
+      if (newTokens.genericTables) loadMoreTypes.push('generic-table');
 
       if (loadMoreTypes.length > 0) {
         pageTokens.value[parentId] = newTokens;
@@ -1116,7 +1275,7 @@ async function handleNavigate(item: TreeItem) {
     return;
   }
 
-  // Permission pre-check for tables and views (notify=false — completely silent)
+  // Permission pre-check for tables, views and generic tables (notify=false — completely silent)
   try {
     if (item.type === 'table' && item.namespaceId) {
       const apiNamespace = namespacePathToApiFormat(item.namespaceId);
@@ -1124,6 +1283,9 @@ async function handleNavigate(item: TreeItem) {
     } else if (item.type === 'view' && item.namespaceId) {
       const apiNamespace = namespacePathToApiFormat(item.namespaceId);
       await functions.loadView(item.warehouseId, apiNamespace, item.name, false);
+    } else if (item.type === 'generic-table' && item.namespaceId) {
+      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
+      await functions.loadGenericTable(item.warehouseId, apiNamespace, item.name, false);
     }
   } catch (error: any) {
     const code = error?.error?.code || error?.status || error?.response?.status || 0;
@@ -1177,10 +1339,36 @@ function navigateToTab(item: TreeItem, tab: string) {
   });
 }
 
+// Cached trees from before the format-badge change miss `format` on table/generic-table nodes;
+// detect that and discard the cache so the badge resolves correctly on next load.
+function cacheNeedsFormatMigration(items: TreeItem[]): boolean {
+  for (const item of items) {
+    if ((item.type === 'table' || item.type === 'generic-table') && !item.format) return true;
+    if (item.children && cacheNeedsFormatMigration(item.children)) return true;
+  }
+  return false;
+}
+
+// Strip any cached `load-more` children. Tokens that drive load-more live only in the
+// in-memory `pageTokens` ref (not persisted), so a cached load-more node would never
+// have a backing token — drop them, the next fresh expand will re-add if warranted.
+function stripStaleLoadMore(items: TreeItem[]): void {
+  for (const item of items) {
+    if (item.children?.length) {
+      item.children = item.children.filter((c) => c.type !== 'load-more');
+      stripStaleLoadMore(item.children);
+    }
+  }
+}
+
 onMounted(async () => {
   const savedState = visualStore.warehouseTreeState[storageKey.value];
 
-  if (savedState && savedState.treeItems.length > 0) {
+  if (
+    savedState &&
+    savedState.treeItems.length > 0 &&
+    !cacheNeedsFormatMigration(savedState.treeItems)
+  ) {
     // Validate cached warehouses against the server to remove stale/deleted ones
     try {
       const response = await functions.listWarehouses(false);
@@ -1197,6 +1385,7 @@ onMounted(async () => {
         );
 
         if (validTreeItems.length > 0) {
+          stripStaleLoadMore(validTreeItems);
           treeItems.value = validTreeItems;
           // Filter opened items to those belonging to valid warehouses
           openedItems.value = (savedState.openedItems || []).filter((id: string) =>
@@ -1328,6 +1517,7 @@ onBeforeUnmount(() => {
   min-width: max-content;
   background-color: transparent !important;
 }
+
 
 /* Force transparency on all treeview internal components */
 .tree-view :deep(.v-treeview),

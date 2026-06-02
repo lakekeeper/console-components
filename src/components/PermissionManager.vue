@@ -145,6 +145,7 @@ import {
   useRoleAuthorizerPermissions,
   useViewAuthorizerPermissions,
   useTableAuthorizerPermissions,
+  useGenericTableAuthorizerPermissions,
 } from '../composables/useAuthorizerPermissions';
 
 import { AssignmentCollection, Header, RelationType } from '../common/interfaces';
@@ -271,6 +272,7 @@ let authzPerms:
   | ReturnType<typeof useRoleAuthorizerPermissions>
   | ReturnType<typeof useTableAuthorizerPermissions>
   | ReturnType<typeof useViewAuthorizerPermissions>
+  | ReturnType<typeof useGenericTableAuthorizerPermissions>
   | null = null;
 
 if (props.relationType === RelationType.Server) {
@@ -287,6 +289,8 @@ if (props.relationType === RelationType.Server) {
   authzPerms = useTableAuthorizerPermissions(objectIdRef, warehouseIdRef);
 } else if (props.relationType === RelationType.View) {
   authzPerms = useViewAuthorizerPermissions(objectIdRef, warehouseIdRef);
+} else if (props.relationType === RelationType.GenericTable) {
+  authzPerms = useGenericTableAuthorizerPermissions(objectIdRef, warehouseIdRef);
 }
 
 // Computed property to check if user can manage grants
@@ -316,6 +320,10 @@ async function loadObjectData() {
       // For views, we get basic info from the view list
       assignableObj.id = props.objectId;
       assignableObj.name = props.objectId; // Views don't have a separate get endpoint
+    } else if (props.relationType === RelationType.GenericTable) {
+      // Generic tables have no dedicated get-by-id endpoint
+      assignableObj.id = props.objectId;
+      assignableObj.name = props.objectId;
     } else if (props.relationType === RelationType.Project) {
       objData = await functions.getProject(props.objectId);
       assignableObj.id = objData['project-id'];
@@ -346,6 +354,11 @@ async function fetchAssignments() {
       assignments = await functions.getTableAssignmentsById(assignableObj.id, props.warehouseId);
     } else if (props.relationType === RelationType.View && props.warehouseId) {
       assignments = await functions.getViewAssignmentsById(assignableObj.id, props.warehouseId);
+    } else if (props.relationType === RelationType.GenericTable && props.warehouseId) {
+      assignments = await functions.getGenericTableAssignmentsById(
+        assignableObj.id,
+        props.warehouseId,
+      );
     } else if (props.relationType === RelationType.Project) {
       assignments = await functions.getProjectAssignments();
     } else if (props.relationType === RelationType.Role) {
@@ -482,6 +495,19 @@ async function assign(permissions: { del: AssignmentCollection; writes: Assignme
         throw new Error('warehouseId is required for view assignments');
       }
       await functions.updateViewAssignmentsById(
+        assignableObj.id,
+        del,
+        writes,
+        props.warehouseId,
+        true,
+      );
+    } else if (props.relationType === RelationType.GenericTable) {
+      const del = permissions.del as any[];
+      const writes = permissions.writes as any[];
+      if (!props.warehouseId) {
+        throw new Error('warehouseId is required for generic table assignments');
+      }
+      await functions.updateGenericTableAssignmentsById(
         assignableObj.id,
         del,
         writes,

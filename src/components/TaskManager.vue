@@ -447,7 +447,8 @@ const props = defineProps<{
   warehouseId: string;
   tableId?: string;
   viewId?: string;
-  entityType?: 'warehouse' | 'table' | 'view';
+  genericTableId?: string;
+  entityType?: 'warehouse' | 'table' | 'view' | 'generic-table';
 }>();
 
 // Composables
@@ -462,6 +463,8 @@ const getEntityId = () => {
     return props.viewId;
   } else if (props.entityType === 'table') {
     return props.tableId;
+  } else if (props.entityType === 'generic-table') {
+    return props.genericTableId;
   }
   return null;
 };
@@ -483,6 +486,14 @@ const createEntityFilter = (): any[] | undefined => {
       {
         type: 'table',
         'table-id': entityId,
+        'warehouse-id': props.warehouseId,
+      },
+    ];
+  } else if (props.entityType === 'generic-table') {
+    return [
+      {
+        type: 'generic-table',
+        'generic-table-id': entityId,
         'warehouse-id': props.warehouseId,
       },
     ];
@@ -885,7 +896,12 @@ async function listTasks() {
     if (error?.response?.status === 404 || error?.isTaskManagementError) {
       const entityId = getEntityId();
       if (entityId) {
-        const entityName = props.entityType === 'view' ? 'view' : 'table';
+        const entityName =
+          props.entityType === 'view'
+            ? 'view'
+            : props.entityType === 'generic-table'
+              ? 'generic table'
+              : 'table';
         errorMessage.value = `Task management is not available for this ${entityName}. This may be because:
 • The ${entityName} does not support task operations
 • Task features are not enabled for this ${entityName} type
@@ -936,6 +952,16 @@ onMounted(async () => {
   if (props.entityType === 'view' && (!props.viewId || props.viewId.trim() === '')) {
     hasError.value = true;
     errorMessage.value = 'View ID is required to load view-specific tasks.';
+    return;
+  }
+
+  // For generic-table context, ensure genericTableId is provided and valid
+  if (
+    props.entityType === 'generic-table' &&
+    (!props.genericTableId || props.genericTableId.trim() === '')
+  ) {
+    hasError.value = true;
+    errorMessage.value = 'Generic table ID is required to load generic-table-specific tasks.';
     return;
   }
 

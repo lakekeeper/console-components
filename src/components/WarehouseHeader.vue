@@ -79,6 +79,7 @@ const warehouse = reactive<GetWarehouseResponse>({
     flavor: undefined,
   },
   protected: false,
+  'allowed-format-versions': [1, 2, 3],
 });
 
 const isNavigationCollapsed = computed({

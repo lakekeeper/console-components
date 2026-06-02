@@ -7,6 +7,7 @@ import type {
   OpenFgaRoleAction,
   OpenFgaTableAction,
   OpenFgaViewAction,
+  OpenFgaGenericTableAction,
 } from '@/gen/management/types.gen';
 import type { Ref } from 'vue';
 import { useVisualStore } from '@/stores/visual';
@@ -648,6 +649,95 @@ export function useViewAuthorizerPermissions(
     [viewIdRef, warehouseIdRef],
     ([newViewId, newWhId], [oldViewId, oldWhId]) => {
       if (newViewId && newWhId && (newViewId !== oldViewId || newWhId !== oldWhId)) {
+        loadPermissions();
+      }
+    },
+    { flush: 'post' },
+  );
+
+  return {
+    loading,
+    permissions,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions,
+    canReadAssignments,
+    canManageGrants,
+    showPermissionsTab,
+    refresh: loadPermissions,
+  };
+}
+
+/**
+ * Composable for managing generic table authorizer permissions (OpenFGA delegation)
+ */
+export function useGenericTableAuthorizerPermissions(
+  genericTableId: Ref<string> | string,
+  warehouseId: Ref<string> | string,
+) {
+  const functions = useFunctions();
+  const config = usePermissionsConfig();
+  const loading = ref(false);
+  const permissions = ref<OpenFgaGenericTableAction[]>([]);
+
+  const genericTableIdRef = computed(() =>
+    typeof genericTableId === 'string' ? genericTableId : genericTableId.value,
+  );
+  const warehouseIdRef = computed(() =>
+    typeof warehouseId === 'string' ? warehouseId : warehouseId.value,
+  );
+
+  async function loadPermissions() {
+    if (!genericTableIdRef.value || !warehouseIdRef.value) return;
+
+    if (!config.enabledPermissions.value) {
+      permissions.value = [];
+      return;
+    }
+
+    loading.value = true;
+    try {
+      permissions.value = await functions.getAuthorizerGenericTableActions(
+        genericTableIdRef.value,
+        warehouseIdRef.value,
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  function hasPermission(action: OpenFgaGenericTableAction): boolean {
+    return permissions.value.includes(action);
+  }
+
+  function hasAnyPermission(...actions: OpenFgaGenericTableAction[]): boolean {
+    return actions.some((action) => permissions.value.includes(action));
+  }
+
+  function hasAllPermissions(...actions: OpenFgaGenericTableAction[]): boolean {
+    return actions.every((action) => permissions.value.includes(action));
+  }
+
+  const canReadAssignments = computed(() => hasPermission('read_assignments'));
+  const canManageGrants = computed(() => hasPermission('grant_manage_grants'));
+
+  const showPermissionsTab = computed(
+    () =>
+      canReadAssignments.value &&
+      config.enabledAuthentication.value &&
+      config.enabledPermissions.value,
+  );
+
+  onMounted(() => {
+    if (genericTableIdRef.value && warehouseIdRef.value) {
+      loadPermissions();
+    }
+  });
+
+  watch(
+    [genericTableIdRef, warehouseIdRef],
+    ([newId, newWhId], [oldId, oldWhId]) => {
+      if (newId && newWhId && (newId !== oldId || newWhId !== oldWhId)) {
         loadPermissions();
       }
     },

@@ -7,6 +7,7 @@ import type {
   LakekeeperRoleAction,
   LakekeeperTableAction,
   LakekeeperViewAction,
+  LakekeeperGenericTableAction,
 } from '@/gen/management/types.gen';
 import { usePermissionStore } from '@/stores/permissions';
 
@@ -352,6 +353,12 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const canSetFormatVersionPolicy = computed(
+    () =>
+      hasPermission('set_format_version_policy') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
   const canModifyWarehouse = computed(() =>
     hasAnyPermission('update_storage', 'update_storage_credential', 'rename'),
   );
@@ -410,6 +417,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canControlAllTasks,
     canRename,
     canSetProtection,
+    canSetFormatVersionPolicy,
     canGetEndpointStatistics,
     showTasksTab,
     showStatisticsTab,
@@ -715,6 +723,97 @@ export function useViewPermissions(
     canSetProtection,
     canDrop,
     canCommit,
+    showTasksTab,
+    refresh: loadPermissions,
+  };
+}
+
+/**
+ * Composable for managing generic table permissions
+ */
+export function useGenericTablePermissions(
+  genericTableId: Ref<string> | string,
+  warehouseId: Ref<string> | string,
+) {
+  const functions = useFunctions();
+  const loading = ref(false);
+  const permissions = ref<LakekeeperGenericTableAction[]>([]);
+  const config = useConfig();
+
+  const genericTableIdRef = computed(() =>
+    typeof genericTableId === 'string' ? genericTableId : genericTableId.value,
+  );
+  const warehouseIdRef = computed(() =>
+    typeof warehouseId === 'string' ? warehouseId : warehouseId.value,
+  );
+
+  async function loadPermissions() {
+    if (!genericTableIdRef.value || !warehouseIdRef.value) return;
+
+    loading.value = true;
+    try {
+      permissions.value = await functions.getGenericTableCatalogActions(
+        genericTableIdRef.value,
+        warehouseIdRef.value,
+      );
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  function hasPermission(action: LakekeeperGenericTableAction | string): boolean {
+    return hasAction(permissions.value, action);
+  }
+
+  function hasAnyPermission(...actions: (LakekeeperGenericTableAction | string)[]): boolean {
+    return actions.some((action) => hasAction(permissions.value, action));
+  }
+
+  function hasAllPermissions(...actions: (LakekeeperGenericTableAction | string)[]): boolean {
+    return actions.every((action) => hasAction(permissions.value, action));
+  }
+
+  const canGetTasks = computed(() => hasPermission('get_tasks'));
+  const canControlTasks = computed(() => hasPermission('control_tasks'));
+  const canSetProtection = computed(
+    () =>
+      hasPermission('set_protection') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
+  const canDrop = computed(() => hasPermission('drop'));
+  const canWriteData = computed(() => hasPermission('write_data'));
+  const canReadData = computed(() => hasPermission('read_data'));
+
+  const showTasksTab = computed(
+    () =>
+      canGetTasks.value || !config.enabledAuthentication.value || !config.enabledPermissions.value,
+  );
+
+  onMounted(() => {
+    if (genericTableIdRef.value && warehouseIdRef.value) {
+      loadPermissions();
+    }
+  });
+
+  watch([genericTableIdRef, warehouseIdRef], ([newId, newWarehouseId]) => {
+    if (newId && newWarehouseId) {
+      loadPermissions();
+    }
+  });
+
+  return {
+    loading,
+    permissions,
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions,
+    canGetTasks,
+    canControlTasks,
+    canSetProtection,
+    canDrop,
+    canWriteData,
+    canReadData,
     showTasksTab,
     refresh: loadPermissions,
   };

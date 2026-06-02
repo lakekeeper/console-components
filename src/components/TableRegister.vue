@@ -17,6 +17,18 @@
         <v-btn icon="mdi-close" variant="text" @click="closeDialog"></v-btn>
       </v-card-title>
 
+      <v-tabs v-model="formatTab" align-tabs="start" density="compact" color="primary">
+        <v-tab value="iceberg">
+          <v-img :src="icebergIcon" width="16" height="16" class="mr-2" />
+          Iceberg
+        </v-tab>
+        <v-tab value="generic">Generic (Lance, Delta, Vortex…)</v-tab>
+      </v-tabs>
+      <v-divider></v-divider>
+
+      <v-tabs-window v-model="formatTab">
+        <v-tabs-window-item value="iceberg">
+
       <v-card-text>
         <!-- Namespace Info -->
         <v-alert type="info" variant="tonal" class="mb-4">
@@ -208,6 +220,25 @@
           Register {{ validEntries.length }} Table{{ validEntries.length !== 1 ? 's' : '' }}
         </v-btn>
       </v-card-actions>
+        </v-tabs-window-item>
+
+        <v-tabs-window-item value="generic">
+          <v-card-text>
+            <v-alert type="info" variant="tonal" prominent class="my-2">
+              <div class="text-body-1 font-weight-bold mb-2">Roadmap</div>
+              <div class="text-body-2">
+                Registering existing generic tables (Lance, Delta, Vortex, …) through the UI
+                is on the roadmap. For now, register them via your data engine and they will
+                appear here automatically.
+              </div>
+            </v-alert>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn variant="text" @click="closeDialog">Close</v-btn>
+          </v-card-actions>
+        </v-tabs-window-item>
+      </v-tabs-window>
     </v-card>
   </v-dialog>
 </template>
@@ -215,6 +246,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import icebergIcon from '@/assets/iceberg.svg';
 
 interface TableEntry {
   name: string;
@@ -236,6 +268,7 @@ const emit = defineEmits<{
 const functions = useFunctions();
 
 const dialog = ref(false);
+const formatTab = ref<'iceberg' | 'generic'>('iceberg');
 const warehouseName = ref<string>('');
 const isRegistering = ref(false);
 const registrationDone = ref(false);

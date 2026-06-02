@@ -15,10 +15,21 @@
     @update:options="paginationCheck($event)"
     :headers="headers"
     hover
-    :items="loadedTables"
+    :items="filteredRows"
     :sort-by="[{ key: 'name', order: 'asc' }]">
     <template #top>
       <v-toolbar color="transparent" density="compact" flat>
+        <v-btn-toggle
+          v-model="typeFilter"
+          density="compact"
+          variant="outlined"
+          mandatory
+          color="primary"
+          class="ml-2">
+          <v-btn value="all" size="small">All</v-btn>
+          <v-btn value="iceberg" size="small">Iceberg</v-btn>
+          <v-btn value="generic" size="small">Generic</v-btn>
+        </v-btn-toggle>
         <v-spacer></v-spacer>
         <v-text-field
           v-model="searchTbl"
@@ -30,27 +41,25 @@
       </v-toolbar>
     </template>
     <template #item.name="{ item }">
-      <td @click="routeToTable(item)" style="cursor: pointer !important">
+      <td @click="routeToRow(item)" style="cursor: pointer !important">
         <span style="display: flex; align-items: center">
-          <v-icon class="mr-2">mdi-table</v-icon>
+          <v-icon v-if="formatIcon(item.format)" size="small" class="mr-2">
+            <v-img :src="formatIcon(item.format)!" width="18" height="18" />
+          </v-icon>
+          <v-icon v-else size="small" color="grey" class="mr-2">mdi-alpha-g</v-icon>
           {{ item.name }}
         </span>
       </td>
     </template>
     <template #item.actions="{ item }">
       <div class="d-flex justify-end align-center">
-        <v-btn
-          v-if="item.type === 'table'"
-          rounded="pill"
-          variant="flat"
-          @click="openRenameDialog(item)">
+        <v-btn rounded="pill" variant="flat" @click="openRenameDialog(item)">
           <v-icon color="primary">mdi-pencil-outline</v-icon>
         </v-btn>
         <DeleteDialog
-          v-if="item.type === 'table'"
-          :type="item.type"
+          :type="item.source === 'generic' ? 'generic-table' : 'table'"
           :name="item.name"
-          @delete-table-with-options="deleteTableWithOptions($event, item)"></DeleteDialog>
+          @delete-table-with-options="onDelete($event, item)"></DeleteDialog>
       </div>
     </template>
     <template #no-data>
@@ -63,18 +72,18 @@
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
-        Rename Table
+        Rename {{ renameTarget?.source === 'generic' ? 'Generic Table' : 'Table' }}
       </v-card-title>
       <v-card-text>
-        <template v-if="isDefaultLayout">
+        <template v-if="isDefaultLayout || renameTarget?.source === 'generic'">
           <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-            Rename table
+            Rename
             <strong>"{{ renameOldName }}"</strong>
             within the same namespace.
           </v-alert>
           <v-text-field
             v-model="renameNewName"
-            label="New table name"
+            label="New name"
             density="compact"
             hide-details="auto"
             variant="outlined"
@@ -93,7 +102,7 @@
       <v-card-actions>
         <v-spacer></v-spacer>
         <v-btn
-          v-if="isDefaultLayout"
+          v-if="isDefaultLayout || renameTarget?.source === 'generic'"
           color="primary"
           :disabled="
             !renameNewName ||
@@ -105,7 +114,9 @@
           @click="executeRename">
           Rename
         </v-btn>
-        <v-btn @click="closeRenameDialog">{{ isDefaultLayout ? 'Cancel' : 'Close' }}</v-btn>
+        <v-btn @click="closeRenameDialog">
+          {{ isDefaultLayout || renameTarget?.source === 'generic' ? 'Cancel' : 'Close' }}
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -119,12 +130,23 @@ import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
 import type { Header, Options } from '@/common/interfaces';
 import type { TableIdentifier } from '@/gen/iceberg/types.gen';
+import type { GenericTableIdentifier } from '@/gen/generic-table/types.gen';
 import { isForbiddenError } from '@/common/errorUtils';
+import icebergIcon from '@/assets/iceberg.svg';
+import deltaIcon from '@/assets/delta.svg';
+import vortexLightIcon from '@/assets/vortex_logo.svg';
+import vortexDarkIcon from '@/assets/vortex_logo_dark_theme.svg';
+import lanceIcon from '@/assets/lance.png';
 
-export type TableIdentifierExtended = TableIdentifier & {
-  actions: string[];
-  id: string;
-  type: string;
+type TableRow = {
+  name: string;
+  namespace?: string[];
+  /** Iceberg tables don't return a UUID from listTables — only generic tables do. */
+  id?: string;
+  /** Discriminator: 'iceberg' = Iceberg table; 'generic' = generic table. */
+  source: 'iceberg' | 'generic';
+  /** Display value for the Format column. */
+  format: string;
 };
 
 const props = defineProps<{
@@ -141,122 +163,161 @@ const notify = true;
 const isDefaultLayout = computed(() => !props.storageLayout || props.storageLayout === 'default');
 
 const searchTbl = ref('');
+const typeFilter = ref<'all' | 'iceberg' | 'generic'>('all');
 const forbidden = ref(false);
-const loadedTables: TableIdentifierExtended[] = reactive([]);
+const loadedRows: TableRow[] = reactive([]);
 const paginationToken = ref('');
 
-// Rename state
 const renameDialog = ref(false);
 const renameOldName = ref('');
 const renameNewName = ref('');
 const renameLoading = ref(false);
+const renameTarget = ref<TableRow | null>(null);
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
 
-onMounted(loadTables);
-watch(() => props.namespacePath, loadTables);
+// Per-format brand icon. Anything outside this map falls back to `mdi-alpha-g`.
+// Vortex ships dark/light variants — pick by the current theme.
+function formatIcon(format?: string): string | null {
+  switch ((format ?? '').toLowerCase()) {
+    case 'iceberg':
+      return icebergIcon;
+    case 'delta':
+      return deltaIcon;
+    case 'lance':
+      return lanceIcon;
+    case 'vortex':
+      return visual.themeLight ? vortexLightIcon : vortexDarkIcon;
+    default:
+      return null;
+  }
+}
 
-async function loadTables() {
+const filteredRows = computed(() => {
+  if (typeFilter.value === 'all') return loadedRows;
+  return loadedRows.filter((r) =>
+    typeFilter.value === 'iceberg' ? r.source === 'iceberg' : r.source === 'generic',
+  );
+});
+
+onMounted(loadAll);
+watch(() => props.namespacePath, loadAll);
+
+async function loadAll() {
   forbidden.value = false;
   try {
-    const loadedTablesTmp: TableIdentifierExtended[] = [];
-    const data = await functions.listTables(
-      props.warehouseId,
-      props.namespacePath,
-      undefined,
-      false,
-    );
-    Object.assign(loadedTablesTmp, data.identifiers);
-    paginationToken.value = data['next-page-token'] || '';
-
-    loadedTablesTmp.forEach((table) => {
-      table.actions = ['delete'];
-      table.type = 'table';
-    });
-
-    loadedTables.splice(0, loadedTables.length);
-    Object.assign(loadedTables, loadedTablesTmp);
+    const [icebergRows, genericRows] = await Promise.all([
+      loadIceberg(undefined),
+      loadGeneric(),
+    ]);
+    loadedRows.splice(0, loadedRows.length);
+    loadedRows.push(...icebergRows, ...genericRows);
   } catch (error) {
     if (isForbiddenError(error)) {
       forbidden.value = true;
       return;
     }
+    functions.handleError(error, 'NamespaceTables.loadAll');
+  }
+}
+
+async function loadIceberg(pageToken: string | undefined): Promise<TableRow[]> {
+  try {
+    const data = await functions.listTables(
+      props.warehouseId,
+      props.namespacePath,
+      pageToken,
+      false,
+    );
+    paginationToken.value = data['next-page-token'] || '';
+    return (data.identifiers ?? []).map((t: TableIdentifier) => ({
+      name: t.name,
+      namespace: t.namespace,
+      source: 'iceberg' as const,
+      format: 'iceberg',
+    }));
+  } catch (error) {
+    if (isForbiddenError(error)) throw error;
     functions.handleError(error, 'listTables');
+    return [];
+  }
+}
+
+async function loadGeneric(): Promise<TableRow[]> {
+  try {
+    const data = await functions.listGenericTables(
+      props.warehouseId,
+      props.namespacePath,
+      undefined,
+      false,
+    );
+    return (data.identifiers ?? []).map((g: GenericTableIdentifier) => ({
+      name: g.name,
+      namespace: g.namespace,
+      id: g.id ?? undefined,
+      source: 'generic' as const,
+      format: g.format || 'generic',
+    }));
+  } catch (error) {
+    if (isForbiddenError(error)) return [];
+    functions.handleError(error, 'listGenericTables');
+    return [];
   }
 }
 
 async function paginationCheck(option: Options) {
-  if (loadedTables.length >= 10000) return;
+  if (loadedRows.length >= 10000) return;
+  // Only the Iceberg list endpoint paginates; generic-tables loaded eagerly above.
+  if (option.page * option.itemsPerPage == loadedRows.length && paginationToken.value != '') {
+    const more = await loadIceberg(paginationToken.value);
+    loadedRows.push(...more);
+  }
+}
 
-  if (option.page * option.itemsPerPage == loadedTables.length && paginationToken.value != '') {
-    try {
-      const loadedTablesTmp: TableIdentifierExtended[] = [];
-      const data = await functions.listTables(
-        props.warehouseId,
-        props.namespacePath,
-        paginationToken.value,
-      );
-      Object.assign(loadedTablesTmp, data.identifiers);
-      paginationToken.value = data['next-page-token'] || '';
-      loadedTablesTmp.forEach((table) => {
-        table.actions = ['delete'];
-        table.type = 'table';
-      });
-
-      loadedTables.push(...loadedTablesTmp.flat());
-    } catch (error) {
-      if (isForbiddenError(error)) {
-        forbidden.value = true;
-        return;
-      }
-      functions.handleError(error, 'listTables');
+async function onDelete(e: any, item: TableRow) {
+  try {
+    if (item.source === 'generic') {
+      await functions.dropGenericTable(props.warehouseId, props.namespacePath, item.name, notify);
+    } else {
+      await functions.dropTable(props.warehouseId, props.namespacePath, item.name, e, notify);
     }
-  }
-}
-
-async function deleteTableWithOptions(e: any, item: TableIdentifierExtended) {
-  try {
-    await functions.dropTable(props.warehouseId, props.namespacePath, item.name, e, notify);
-    await loadTables();
+    await loadAll();
   } catch (error) {
-    console.error(`Failed to drop table-${item.name}`, error);
+    console.error(`Failed to drop ${item.source}-${item.name}`, error);
   }
 }
 
-async function routeToTable(item: TableIdentifierExtended) {
+async function routeToRow(item: TableRow) {
+  const segment = item.source === 'generic' ? 'generic-table' : 'table';
   try {
-    await functions.loadTable(props.warehouseId, props.namespacePath, item.name, false);
+    if (item.source === 'generic') {
+      await functions.loadGenericTable(props.warehouseId, props.namespacePath, item.name, false);
+    } else {
+      await functions.loadTable(props.warehouseId, props.namespacePath, item.name, false);
+    }
   } catch (error: any) {
     const code = error?.error?.code || error?.status || error?.response?.status || 0;
     const message = error?.error?.message || error?.message || 'An unknown error occurred';
-    if (code === 403 || code === 404) {
-      visual.setSnackbarMsg({
-        function: 'routeToTable',
-        text: `Access denied: table "${item.name}"`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    } else {
-      visual.setSnackbarMsg({
-        function: 'routeToTable',
-        text: message,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    }
+    const label = item.source === 'generic' ? 'generic table' : 'table';
+    visual.setSnackbarMsg({
+      function: 'routeToRow',
+      text: code === 403 || code === 404 ? `Access denied: ${label} "${item.name}"` : message,
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.ERROR,
+    });
     return;
   }
   router.push(
-    `/warehouse/${props.warehouseId}/namespace/${props.namespacePath}/table/${encodeURIComponent(item.name)}`,
+    `/warehouse/${props.warehouseId}/namespace/${props.namespacePath}/${segment}/${encodeURIComponent(item.name)}`,
   );
 }
 
-function openRenameDialog(item: TableIdentifierExtended) {
+function openRenameDialog(item: TableRow) {
+  renameTarget.value = item;
   renameOldName.value = item.name;
   renameNewName.value = '';
   renameDialog.value = true;
@@ -264,24 +325,36 @@ function openRenameDialog(item: TableIdentifierExtended) {
 
 function closeRenameDialog() {
   renameDialog.value = false;
+  renameTarget.value = null;
   renameOldName.value = '';
   renameNewName.value = '';
 }
 
 async function executeRename() {
-  if (!renameNewName.value) return;
+  if (!renameNewName.value || !renameTarget.value) return;
 
   renameLoading.value = true;
   try {
-    await functions.renameTable(
-      props.warehouseId,
-      props.namespacePath,
-      renameOldName.value,
-      renameNewName.value,
-      notify,
-    );
+    if (renameTarget.value.source === 'generic') {
+      await functions.renameGenericTable(
+        props.warehouseId,
+        props.namespacePath,
+        renameOldName.value,
+        props.namespacePath,
+        renameNewName.value,
+        notify,
+      );
+    } else {
+      await functions.renameTable(
+        props.warehouseId,
+        props.namespacePath,
+        renameOldName.value,
+        renameNewName.value,
+        notify,
+      );
+    }
     closeRenameDialog();
-    await loadTables();
+    await loadAll();
   } catch {
     // error handled by functions plugin
   } finally {
@@ -290,6 +363,6 @@ async function executeRename() {
 }
 
 defineExpose({
-  loadTables,
+  loadTables: loadAll,
 });
 </script>

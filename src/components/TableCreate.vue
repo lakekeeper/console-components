@@ -17,6 +17,18 @@
         <v-btn icon="mdi-close" variant="text" @click="closeDialog"></v-btn>
       </v-card-title>
 
+      <v-tabs v-model="formatTab" align-tabs="start" density="compact" color="primary">
+        <v-tab value="iceberg">
+          <v-img :src="icebergIcon" width="16" height="16" class="mr-2" />
+          Iceberg
+        </v-tab>
+        <v-tab value="generic">Generic (Lance, Delta, Vortex…)</v-tab>
+      </v-tabs>
+      <v-divider></v-divider>
+
+      <v-tabs-window v-model="formatTab">
+        <v-tabs-window-item value="iceberg">
+
       <v-card-text>
         <!-- Table Name -->
         <v-text-field
@@ -173,6 +185,25 @@
           Create Table
         </v-btn>
       </v-card-actions>
+        </v-tabs-window-item>
+
+        <v-tabs-window-item value="generic">
+          <v-card-text>
+            <v-alert type="info" variant="tonal" prominent class="my-2">
+              <div class="text-body-1 font-weight-bold mb-2">Roadmap</div>
+              <div class="text-body-2">
+                Creating generic tables (Lance, Delta, Vortex, …) through the UI is on the
+                roadmap. For now, create them from your data engine (for example a Lance
+                writer) and they will appear here automatically.
+              </div>
+            </v-alert>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn variant="text" @click="closeDialog">Close</v-btn>
+          </v-card-actions>
+        </v-tabs-window-item>
+      </v-tabs-window>
     </v-card>
   </v-dialog>
 </template>
@@ -183,6 +214,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useLoQE } from '@/composables/useLoQE';
 import { useStorageValidation } from '@/composables/useStorageValidation';
+import icebergIcon from '@/assets/iceberg.svg';
 
 const props = defineProps<{
   warehouseId: string;
@@ -237,6 +269,7 @@ const icebergDataTypes = [
 ];
 
 const dialog = ref(false);
+const formatTab = ref<'iceberg' | 'generic'>('iceberg');
 const tableName = ref('');
 const warehouseName = ref<string>('');
 const fields = ref<Field[]>([]);

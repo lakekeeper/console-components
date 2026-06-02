@@ -130,6 +130,10 @@ export type CatalogActionCheckOperation = {
     view: TabularIdentOrUuid & {
         action: LakekeeperViewAction;
     };
+} | {
+    'generic-table': TabularIdentOrUuid & {
+        action: LakekeeperGenericTableAction;
+    };
 };
 
 export type CatalogActionsBatchCheckRequest = {
@@ -182,6 +186,10 @@ export type CheckOperation = {
 } | {
     view: TabularIdentOrUuid & {
         action: ViewAction;
+    };
+} | {
+    'generic-table': TabularIdentOrUuid & {
+        action: GenericTableAction;
     };
 };
 
@@ -323,6 +331,18 @@ export type CreateUserRequest = {
 };
 
 export type CreateWarehouseRequest = {
+    /**
+     * Iceberg table format versions that may be created in, or upgraded to,
+     * within this warehouse. Must be a non-empty subset of `[1, 2, 3]`.
+     * Defaults to all supported versions when omitted.
+     */
+    'allowed-format-versions'?: Array<number> | null;
+    /**
+     * Default Iceberg table format version applied when a create-table request
+     * does not specify one. Must be a member of `allowed-format-versions`. When
+     * omitted, resolves to v2 if allowed, otherwise the highest allowed version.
+     */
+    'default-format-version'?: number | null;
     /**
      * Profile to determine behavior upon dropping of tabulars. Default: hard deletion.
      */
@@ -545,6 +565,24 @@ export type GcsServiceKey = {
     universe_domain: string;
 };
 
+export type GenericTableAction = 'drop' | 'undrop' | 'write_data' | 'read_data' | 'get_metadata' | 'rename' | 'include_in_list' | 'get_tasks' | 'control_tasks' | 'set_protection' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+
+export type GenericTableAssignment = (UserOrRole & {
+    type: 'ownership';
+}) | (UserOrRole & {
+    type: 'pass_grants';
+}) | (UserOrRole & {
+    type: 'manage_grants';
+}) | (UserOrRole & {
+    type: 'describe';
+}) | (UserOrRole & {
+    type: 'select';
+}) | (UserOrRole & {
+    type: 'modify';
+});
+
+export type GenericTableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify';
+
 export type GetEndpointStatisticsRequest = {
     'range-specifier'?: null | TimeWindowSelector;
     /**
@@ -560,6 +598,14 @@ export type GetEndpointStatisticsRequest = {
      * associated to any warehouse.
      */
     warehouse: WarehouseFilter;
+};
+
+export type GetGenericTableAssignmentsResponse = {
+    assignments: Array<GenericTableAssignment>;
+};
+
+export type GetLakekeeperGenericTableActionsResponse = {
+    'allowed-actions': Array<LakekeeperGenericTableAction>;
 };
 
 export type GetLakekeeperNamespaceActionsResponse = {
@@ -605,6 +651,10 @@ export type GetNamespaceAssignmentsResponse = {
 export type GetNamespaceAuthPropertiesResponse = {
     'managed-access': boolean;
     'managed-access-inherited': boolean;
+};
+
+export type GetOpenFgaGenericTableActionsResponse = {
+    'allowed-actions': Array<OpenFgaGenericTableAction>;
 };
 
 export type GetOpenFgaNamespaceActionsResponse = {
@@ -754,6 +804,17 @@ export type GetWarehouseAuthPropertiesResponse = {
 
 export type GetWarehouseResponse = {
     /**
+     * Iceberg table format versions that may be created in, or upgraded to,
+     * within this warehouse.
+     */
+    'allowed-format-versions': Array<number>;
+    /**
+     * Default Iceberg table format version applied when a create-table request
+     * does not specify one. When absent, resolves to v2 if allowed, otherwise
+     * the highest allowed version.
+     */
+    'default-format-version'?: number | null;
+    /**
      * Delete profile used for the warehouse.
      */
     'delete-profile': TabularDeleteProfile;
@@ -799,6 +860,28 @@ export type GetWarehouseResponse = {
  */
 export type IcebergErrorResponse = {
     error: ErrorModel;
+};
+
+export type LakekeeperGenericTableAction = {
+    action: 'drop';
+} | {
+    action: 'read_data';
+} | {
+    action: 'write_data';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'rename';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'undrop';
+} | {
+    action: 'get_tasks';
+} | {
+    action: 'control_tasks';
+} | {
+    action: 'set_protection';
 };
 
 export type LakekeeperNamespaceAction = {
@@ -854,6 +937,31 @@ export type LakekeeperNamespaceAction = {
     action: 'set_protection';
 } | {
     action: 'include_in_list';
+} | {
+    action: 'create_generic_table';
+    /**
+     * User-supplied base location override — primary lever for
+     * path-based authorization policy.
+     */
+    base_location?: string | null;
+    /**
+     * Generic table format (e.g. "lance", "delta") — primary lever for
+     * format-based authorization policy.
+     */
+    format?: string | null;
+    /**
+     * Generic table ID, if externally provided.
+     */
+    generic_table_id?: string | null;
+    /**
+     * Name of the generic table to create.
+     */
+    name?: string | null;
+    properties?: {
+        [key: string]: string;
+    };
+} | {
+    action: 'list_generic_tables';
 };
 
 export type LakekeeperProjectAction = {
@@ -1034,6 +1142,8 @@ export type LakekeeperWarehouseAction = {
 } | {
     action: 'set_protection';
 } | {
+    action: 'set_format_version_policy';
+} | {
     action: 'get_endpoint_statistics';
 };
 
@@ -1194,7 +1304,7 @@ export type ListWarehousesResponse = {
     warehouses: Array<GetWarehouseResponse>;
 };
 
-export type NamespaceAction = 'create_table' | 'create_view' | 'create_namespace' | 'delete' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'set_protection';
+export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'set_protection';
 
 export type NamespaceAssignment = (UserOrRole & {
     type: 'ownership';
@@ -1224,6 +1334,8 @@ export type NamespaceIdentOrUuid = {
 };
 
 export type NamespaceRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify';
+
+export type OpenFgaGenericTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
 export type OpenFgaNamespaceAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants';
 
@@ -1604,6 +1716,16 @@ export type S3Profile = {
 
 export type S3UrlStyleDetectionMode = 'path' | 'virtual_host' | 'auto';
 
+/**
+ * Response returned on a successful schedule call.
+ */
+export type ScheduleTaskResponse = {
+    /**
+     * The id of the newly scheduled task.
+     */
+    'task-id': string;
+};
+
 export type SearchRoleRequest = {
     /**
      * Deprecated: Please use the `x-project-id` header instead.
@@ -1932,7 +2054,10 @@ export type TabularExpirationQueueConfig = {
 };
 
 /**
- * Identifier for a table or view, either a UUID or its name and namespace
+ * Identifier for a tabular (table, view, or generic table) — either a UUID
+ * or its name and namespace. Wire format primary names are `table-id` and
+ * `table`; `view_id` / `view` and `generic_table_id` / `generic_table` are
+ * accepted as input aliases for client ergonomics.
  */
 export type TabularIdentOrUuid = {
     'table-id': string;
@@ -1940,7 +2065,7 @@ export type TabularIdentOrUuid = {
 } | {
     namespace: Array<string>;
     /**
-     * Name of the table or view
+     * Name of the table, view, or generic table.
      */
     table: string;
     'warehouse-id': string;
@@ -1952,12 +2077,15 @@ export type TabularIdentUuid = {
 } | {
     id: string;
     type: 'view';
+} | {
+    id: string;
+    type: 'generic-table';
 };
 
 /**
  * Type of tabular
  */
-export type TabularType = 'table' | 'view';
+export type TabularType = 'table' | 'view' | 'generic-table';
 
 export type TaskAttempt = {
     /**
@@ -2045,6 +2173,11 @@ export type UndropTabularsRequest = {
     targets: Array<TabularIdentUuid>;
 };
 
+export type UpdateGenericTableAssignmentsRequest = {
+    deletes?: Array<GenericTableAssignment>;
+    writes?: Array<GenericTableAssignment>;
+};
+
 export type UpdateNamespaceAssignmentsRequest = {
     deletes?: Array<NamespaceAssignment>;
     writes?: Array<NamespaceAssignment>;
@@ -2114,6 +2247,20 @@ export type UpdateWarehouseCredentialRequest = {
 
 export type UpdateWarehouseDeleteProfileRequest = {
     'delete-profile': TabularDeleteProfile;
+};
+
+export type UpdateWarehouseFormatVersionPolicyRequest = {
+    /**
+     * Iceberg table format versions that may be created in, or upgraded to,
+     * within this warehouse. Must be a non-empty subset of `[1, 2, 3]`.
+     */
+    'allowed-format-versions': Array<number>;
+    /**
+     * Default Iceberg table format version applied when a create-table request
+     * does not specify one. Must be a member of `allowed-format-versions`. When
+     * omitted, resolves to v2 if allowed, otherwise the highest allowed version.
+     */
+    'default-format-version'?: number | null;
 };
 
 export type UpdateWarehouseStorageRequest = {
@@ -2206,7 +2353,7 @@ export type ViewAssignment = (UserOrRole & {
 
 export type ViewRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify';
 
-export type WarehouseAction = 'create_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'get_endpoint_statistics';
+export type WarehouseAction = 'create_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'set_format_version_policy' | 'get_endpoint_statistics';
 
 export type WarehouseAssignment = (UserOrRole & {
     type: 'ownership';
@@ -2285,6 +2432,9 @@ export type WarehouseTaskEntityFilter = {
     type: 'view';
     'view-id': string;
 } | {
+    'generic-table-id': string;
+    type: 'generic-table';
+} | {
     type: 'warehouse';
 };
 
@@ -2294,6 +2444,9 @@ export type WarehouseTaskEntityId = {
 } | {
     type: 'view';
     'view-id': string;
+} | {
+    'generic-table-id': string;
+    type: 'generic-table';
 };
 
 export type WarehouseTaskInfo = {
@@ -3078,6 +3231,94 @@ export type GetAuthorizerWarehouseActionsResponses = {
 };
 
 export type GetAuthorizerWarehouseActionsResponse = GetAuthorizerWarehouseActionsResponses[keyof GetAuthorizerWarehouseActionsResponses];
+
+export type GetGenericTableAssignmentsByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Generic Table ID
+         */
+        generic_table_id: string;
+    };
+    query?: {
+        /**
+         * Relations to be loaded. If not specified, all relations are returned.
+         */
+        relations?: Array<GenericTableRelation>;
+    };
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/generic-table/{generic_table_id}/assignments';
+};
+
+export type GetGenericTableAssignmentsByIdResponses = {
+    200: GetGenericTableAssignmentsResponse;
+};
+
+export type GetGenericTableAssignmentsByIdResponse = GetGenericTableAssignmentsByIdResponses[keyof GetGenericTableAssignmentsByIdResponses];
+
+export type UpdateGenericTableAssignmentsByIdData = {
+    body: UpdateGenericTableAssignmentsRequest;
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Generic Table ID
+         */
+        generic_table_id: string;
+    };
+    query?: never;
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/generic-table/{generic_table_id}/assignments';
+};
+
+export type UpdateGenericTableAssignmentsByIdResponses = {
+    /**
+     * Permissions updated successfully
+     */
+    204: void;
+};
+
+export type UpdateGenericTableAssignmentsByIdResponse = UpdateGenericTableAssignmentsByIdResponses[keyof UpdateGenericTableAssignmentsByIdResponses];
+
+export type GetAuthorizerGenericTableActionsData = {
+    body?: never;
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Generic Table ID
+         */
+        generic_table_id: string;
+    };
+    query?: {
+        /**
+         * The user to show actions for.
+         * If neither user nor role is specified, shows actions for the current user.
+         */
+        principalUser?: string;
+        /**
+         * The role to show actions for.
+         * If neither user nor role is specified, shows actions for the current user.
+         */
+        principalRole?: string;
+    };
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/generic-table/{generic_table_id}/authorizer-actions';
+};
+
+export type GetAuthorizerGenericTableActionsResponses = {
+    /**
+     * Generic Table Authorizer Actions
+     */
+    200: GetOpenFgaGenericTableActionsResponse;
+};
+
+export type GetAuthorizerGenericTableActionsResponse = GetAuthorizerGenericTableActionsResponses[keyof GetAuthorizerGenericTableActionsResponses];
 
 export type SetWarehouseManagedAccessData = {
     body: SetManagedAccessRequest;
@@ -4505,6 +4746,110 @@ export type UndropTabularsResponses = {
 };
 
 export type UndropTabularsResponse = UndropTabularsResponses[keyof UndropTabularsResponses];
+
+export type UpdateWarehouseFormatVersionPolicyData = {
+    body: UpdateWarehouseFormatVersionPolicyRequest;
+    path: {
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/format-version-policy';
+};
+
+export type UpdateWarehouseFormatVersionPolicyErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type UpdateWarehouseFormatVersionPolicyError = UpdateWarehouseFormatVersionPolicyErrors[keyof UpdateWarehouseFormatVersionPolicyErrors];
+
+export type UpdateWarehouseFormatVersionPolicyResponses = {
+    /**
+     * Format version policy updated successfully
+     */
+    200: GetWarehouseResponse;
+};
+
+export type UpdateWarehouseFormatVersionPolicyResponse = UpdateWarehouseFormatVersionPolicyResponses[keyof UpdateWarehouseFormatVersionPolicyResponses];
+
+export type GetGenericTableActionsData = {
+    body?: never;
+    path: {
+        warehouse_id: string;
+        generic_table_id: string;
+    };
+    query?: {
+        /**
+         * The user to show actions for.
+         * If neither user nor role is specified, shows actions for the current user.
+         */
+        principalUser?: string;
+        /**
+         * The role to show actions for.
+         * If neither user nor role is specified, shows actions for the current user.
+         */
+        principalRole?: string;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/actions';
+};
+
+export type GetGenericTableActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetGenericTableActionsError = GetGenericTableActionsErrors[keyof GetGenericTableActionsErrors];
+
+export type GetGenericTableActionsResponses = {
+    200: GetLakekeeperGenericTableActionsResponse;
+};
+
+export type GetGenericTableActionsResponse = GetGenericTableActionsResponses[keyof GetGenericTableActionsResponses];
+
+export type GetGenericTableProtectionData = {
+    body?: never;
+    path: {
+        warehouse_id: string;
+        generic_table_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/protection';
+};
+
+export type GetGenericTableProtectionErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetGenericTableProtectionError = GetGenericTableProtectionErrors[keyof GetGenericTableProtectionErrors];
+
+export type GetGenericTableProtectionResponses = {
+    200: ProtectionResponse;
+};
+
+export type GetGenericTableProtectionResponse = GetGenericTableProtectionResponses[keyof GetGenericTableProtectionResponses];
+
+export type SetGenericTableProtectionData = {
+    body: SetProtectionRequest;
+    path: {
+        warehouse_id: string;
+        generic_table_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/protection';
+};
+
+export type SetGenericTableProtectionErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetGenericTableProtectionError = SetGenericTableProtectionErrors[keyof SetGenericTableProtectionErrors];
+
+export type SetGenericTableProtectionResponses = {
+    /**
+     * Generic table protection set successfully
+     */
+    200: ProtectionResponse;
+};
+
+export type SetGenericTableProtectionResponse = SetGenericTableProtectionResponses[keyof SetGenericTableProtectionResponses];
 
 export type GetNamespaceActionsData = {
     body?: never;

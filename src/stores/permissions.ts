@@ -5,6 +5,7 @@ import type {
   LakekeeperNamespaceAction,
   LakekeeperServerAction,
   LakekeeperRoleAction,
+  LakekeeperGenericTableAction,
 } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from './visual';
@@ -85,11 +86,33 @@ export const usePermissionStore = defineStore('permissions', () => {
     }
   }
 
+  async function getGenericTablePermissions(
+    genericTableId: string,
+    warehouseId?: string,
+  ): Promise<LakekeeperGenericTableAction[]> {
+    try {
+      const visual = useVisualStore();
+      const whId = warehouseId || visual.whId;
+
+      if (!whId) {
+        console.error('Failed to load generic table permissions: warehouseId not available');
+        return [];
+      }
+
+      const permissions = await functions.getGenericTableCatalogActions(genericTableId, whId);
+      return permissions;
+    } catch (error) {
+      logError(`getGenericTablePermissions(${genericTableId})`, error);
+      return [];
+    }
+  }
+
   return {
     getServerPermissions,
     getRolePermissions,
     getProjectPermissions,
     getWarehousePermissions,
     getNamespacePermissions,
+    getGenericTablePermissions,
   };
 });

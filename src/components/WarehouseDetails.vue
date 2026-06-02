@@ -88,6 +88,65 @@
                 </v-card-text>
               </v-card>
 
+              <!-- Format Version Policy Section -->
+              <v-card variant="outlined" class="mb-4">
+                <v-card-title class="bg-surface-light d-flex align-center">
+                  <v-icon icon="mdi-format-list-numbered" class="mr-2" color="primary"></v-icon>
+                  Iceberg Format Version Policy
+                </v-card-title>
+                <v-card-text>
+                  <div class="text-overline text-medium-emphasis">Allowed versions</div>
+                  <v-btn-toggle
+                    v-model="policyAllowed"
+                    multiple
+                    mandatory
+                    density="compact"
+                    variant="outlined"
+                    color="primary"
+                    class="mt-2 mb-3"
+                    :disabled="!canSetFormatVersionPolicy || policySaving">
+                    <v-btn :value="1" size="small">v1</v-btn>
+                    <v-btn :value="2" size="small">v2</v-btn>
+                    <v-btn :value="3" size="small">v3</v-btn>
+                  </v-btn-toggle>
+
+                  <div class="text-overline text-medium-emphasis">Default version</div>
+                  <v-select
+                    v-model="policyDefault"
+                    :items="policyDefaultItems"
+                    density="compact"
+                    variant="outlined"
+                    hide-details="auto"
+                    class="mt-2"
+                    :disabled="!canSetFormatVersionPolicy || policySaving"
+                    :hint="
+                      policyDefault === null
+                        ? 'Falls back to v2 if allowed, otherwise the highest allowed version.'
+                        : ''
+                    "
+                    persistent-hint />
+
+                  <div v-if="policyDirty" class="d-flex justify-end mt-3">
+                    <v-btn
+                      variant="text"
+                      size="small"
+                      :disabled="policySaving"
+                      @click="resetPolicy">
+                      Cancel
+                    </v-btn>
+                    <v-btn
+                      color="primary"
+                      size="small"
+                      class="ml-2"
+                      :loading="policySaving"
+                      :disabled="policyAllowed.length === 0"
+                      @click="savePolicy">
+                      Save policy
+                    </v-btn>
+                  </div>
+                </v-card-text>
+              </v-card>
+
               <!-- Deletion Profile Section -->
               <v-card variant="outlined" class="mb-4">
                 <v-card-title class="bg-surface-light d-flex align-center">
@@ -292,8 +351,9 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, inject } from 'vue';
+import { reactive, ref, computed, onMounted, watch, inject } from 'vue';
 import { logError } from '@/common/errorUtils';
+import { useWarehousePermissions } from '@/composables/useCatalogPermissions';
 
 const props = defineProps<{
   warehouseId: string;
@@ -302,6 +362,10 @@ const props = defineProps<{
 // const router = useRouter();
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
+
+const { canSetFormatVersionPolicy } = useWarehousePermissions(
+  computed(() => props.warehouseId),
+);
 
 const warehouse = reactive<any>({
   'delete-profile': { type: 'hard' },
@@ -331,9 +395,59 @@ async function loadWarehouse() {
       Object.assign(warehouse, whResponse);
       visual.wahrehouseName = whResponse.name;
       visual.whId = whResponse.id;
+      resetPolicy();
     }
   } catch (error) {
     logError('WarehouseDetails.loadWarehouse', error);
+  }
+}
+
+// --- Format version policy state ---
+const policyAllowed = ref<number[]>([1, 2, 3]);
+const policyDefault = ref<number | null>(null);
+const policySaving = ref(false);
+
+const policyDefaultItems = computed(() => [
+  { title: 'Auto (server-chosen)', value: null },
+  ...policyAllowed.value.map((v) => ({ title: `v${v}`, value: v })),
+]);
+
+const policyDirty = computed(() => {
+  const serverAllowed = (warehouse['allowed-format-versions'] ?? []) as number[];
+  const serverDefault = (warehouse['default-format-version'] ?? null) as number | null;
+  const allowedChanged =
+    serverAllowed.length !== policyAllowed.value.length ||
+    serverAllowed.some((v) => !policyAllowed.value.includes(v));
+  return allowedChanged || policyDefault.value !== serverDefault;
+});
+
+// If user removes the current default from `allowed`, clear it back to auto.
+watch(policyAllowed, (next) => {
+  if (policyDefault.value !== null && !next.includes(policyDefault.value)) {
+    policyDefault.value = null;
+  }
+});
+
+function resetPolicy() {
+  policyAllowed.value = [...((warehouse['allowed-format-versions'] ?? [1, 2, 3]) as number[])];
+  policyDefault.value = (warehouse['default-format-version'] ?? null) as number | null;
+}
+
+async function savePolicy() {
+  if (policyAllowed.value.length === 0) return;
+  policySaving.value = true;
+  try {
+    await functions.setWarehouseFormatVersionPolicy(
+      props.warehouseId,
+      [...policyAllowed.value].sort((a, b) => a - b),
+      policyDefault.value,
+      true,
+    );
+    await loadWarehouse();
+  } catch (error) {
+    logError('WarehouseDetails.savePolicy', error);
+  } finally {
+    policySaving.value = false;
   }
 }
 
