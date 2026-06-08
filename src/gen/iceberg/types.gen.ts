@@ -43,6 +43,10 @@ export type CatalogConfig = {
      * A list of endpoints that the server supports. The format of each endpoint must be "<HTTP verb> <resource path from OpenAPI REST spec>". The HTTP verb and the resource path must be separated by a space character.
      */
     endpoints?: Array<string>;
+    /**
+     * Client reuse window for an Idempotency-Key (ISO-8601 duration, e.g., PT30M, PT24H). Interpreted as the maximum time from the first submission using a key to the last retry during which a client may reuse that key. Servers SHOULD accept retries for at least this duration and MAY include a grace period to account for delays/clock skew. Clients SHOULD NOT reuse an Idempotency-Key after this window elapses; they SHOULD generate a new key for any subsequent attempt. Presence of this field indicates the server supports Idempotency-Key semantics for mutation endpoints. If absent, clients MUST assume idempotency is not supported.
+     */
+    'idempotency-key-lifetime'?: string;
 };
 
 export type CreateNamespaceRequest = {
@@ -152,25 +156,18 @@ export type NotExpression = {
 export type UnaryExpression = {
     type: ExpressionType;
     term: Term;
-    value: {
-        [key: string]: unknown;
-    };
 };
 
 export type LiteralExpression = {
     type: ExpressionType;
     term: Term;
-    value: {
-        [key: string]: unknown;
-    };
+    value: PrimitiveTypeValue;
 };
 
 export type SetExpression = {
     type: ExpressionType;
     term: Term;
-    values: Array<{
-        [key: string]: unknown;
-    }>;
+    values: Array<PrimitiveTypeValue>;
 };
 
 export type Term = Reference | TransformTerm;
@@ -669,19 +666,19 @@ export type LoadCredentialsResponse = {
 /**
  * Result used when a table is successfully loaded.
  *
- *
  * The table metadata JSON is returned in the `metadata` field. The corresponding file location of table metadata should be returned in the `metadata-location` field, unless the metadata is not yet committed. For example, a create transaction may return metadata that is staged but not committed.
  * Clients can check whether metadata has changed by comparing metadata locations after the table has been created.
  *
- *
  * The `config` map returns table-specific configuration for the table's resources, including its HTTP client and FileIO. For example, config may contain a specific FileIO implementation class for the table depending on its underlying storage.
- *
  *
  * The following configurations should be respected by clients:
  *
  * ## General Configurations
  *
  * - `token`: Authorization bearer token to use for table requests if OAuth2 security is enabled
+ * - `scan-planning-mode`: Communicates to clients the supported planning mode. Clients should use this value to fail fast if the supported scanning mode is not available on the client. Valid values:
+ * - `client`: Clients MUST use client-side scan planning
+ * - `server`: Clients MUST use server-side scan planning via the `planTableScan` endpoint
  *
  * ## AWS Configurations
  *
@@ -734,13 +731,18 @@ export type ScanTasks = {
  */
 export type CompletedPlanningResult = ScanTasks & {
     status: PlanStatus;
+    /**
+     * Storage credentials for accessing the files returned in the scan result.
+     * If the server returns storage credentials as part of the completed scan planning response, the expectation is for the client to use these credentials to read the files returned in the FileScanTasks as part of the scan result.
+     */
+    'storage-credentials'?: Array<StorageCredential>;
 };
 
 export type CompletedPlanningWithIdResult = CompletedPlanningResult & {
     /**
      * ID used to track a planning request
      */
-    'plan-id'?: string;
+    'plan-id': string;
 };
 
 /**
@@ -755,7 +757,7 @@ export type AsyncPlanningResult = {
     /**
      * ID used to track a planning request
      */
-    'plan-id'?: string;
+    'plan-id': string;
 };
 
 /**
@@ -1310,6 +1312,10 @@ export type PlanTableScanRequest = {
      */
     filter?: Expression;
     /**
+     * The minimum number of rows requested for the scan. This is used as a hint to the server to not have to return more rows than necessary. It is not required for the server to return that many rows since the scan may not produce that many rows. The server can also return more rows than requested.
+     */
+    'min-rows-requested'?: number;
+    /**
      * Enables case sensitive field matching for filter and select
      */
     'case-sensitive'?: boolean;
@@ -1452,19 +1458,19 @@ export type ViewUpdateWritable = AssignUuidUpdate | UpgradeFormatVersionUpdate |
 /**
  * Result used when a table is successfully loaded.
  *
- *
  * The table metadata JSON is returned in the `metadata` field. The corresponding file location of table metadata should be returned in the `metadata-location` field, unless the metadata is not yet committed. For example, a create transaction may return metadata that is staged but not committed.
  * Clients can check whether metadata has changed by comparing metadata locations after the table has been created.
  *
- *
  * The `config` map returns table-specific configuration for the table's resources, including its HTTP client and FileIO. For example, config may contain a specific FileIO implementation class for the table depending on its underlying storage.
- *
  *
  * The following configurations should be respected by clients:
  *
  * ## General Configurations
  *
  * - `token`: Authorization bearer token to use for table requests if OAuth2 security is enabled
+ * - `scan-planning-mode`: Communicates to clients the supported planning mode. Clients should use this value to fail fast if the supported scanning mode is not available on the client. Valid values:
+ * - `client`: Clients MUST use client-side scan planning
+ * - `server`: Clients MUST use server-side scan planning via the `planTableScan` endpoint
  *
  * ## AWS Configurations
  *
@@ -1576,7 +1582,7 @@ export type BaseUpdateWritable = {
 };
 
 /**
- * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+ * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
  */
 export type Namespace2 = string;
 
@@ -1603,7 +1609,7 @@ export type View = string;
 /**
  * Optional signal to the server that the client supports delegated access via a comma-separated list of access mechanisms.  The server may choose to supply access via any or none of the requested mechanisms.
  * Specific properties and handling for `vended-credentials` is documented in the `LoadTableResult` schema section of this spec document.
- * The protocol and specification for `remote-signing` is documented in  the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
+ * The protocol and specification for `remote-signing` is documented in the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
  *
  */
 export type DataAccess = 'vended-credentials' | 'remote-signing';
@@ -1617,8 +1623,40 @@ export type PageSize = number;
 
 /**
  * Identifies a unique version of the table metadata.
+ * Implementations that support ETags should produce unique tags for responses that return different metadata content but represent the same version of table metadata.  For example, the `snapshots` query parameter may result in different metadata representations depending on whether `refs` or `all` is provided, therefore should have distinct ETags.
  */
 export type Etag = string;
+
+/**
+ * A comma-separated list of fully qualified view names (namespace and view name) representing the view reference chain when an entity (table or view) is loaded via a view. The list should be ordered with the outermost view first, followed by any intermediate views it references, down to the view that directly references the entity. For a simple case where a view directly references the entity, the list contains a single view identifier. For nested views (a view referencing another view which references the entity), the list contains multiple view identifiers representing the complete dependency chain.
+ * The view identifier is a composite string of the format {namespace}{separator}{viewName}. The namespace-separator (defined in /config) acts as the delimiter. When parsing, the last occurrence of this separator identifies the boundary between the namespace and the view name. Multipart namespaces must follow the encoding rules of the parent parameter in the list namespaces endpoint.
+ * Multiple view identifiers are separated by commas. Servers should split the parameter value on comma characters to parse individual view identifiers. If view names contain commas, they must be url-encoded as %2C.
+ * Example with multiple views (where prod%1Fanalytics is a nested namespace which has a quarterly_view which references to monthly_view which then references the entity being loaded) - prod%1Fanalytics%1Fquarterly_view,prod%1Fanalytics%1Fmonthly_view
+ */
+export type ReferencedBy = string;
+
+/**
+ * Optional client-provided idempotency key for safe request retries.
+ *
+ * When present, the server ensures no additional effects for requests that carry the same
+ * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+ * an equivalent final response without re-running the operation. The response body may
+ * reflect a newer state of the catalog than existed at the time of the commit.
+ *
+ * Finalization rules:
+ * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+ * such as AlreadyExists, NamespaceNotEmpty, etc.)
+ * - Do not finalize (not stored/replayed): 5xx
+ *
+ * Key Requirements:
+ * - Key format: UUIDv7 in string form (RFC 9562).
+ * - The idempotency key must be globally unique (no reuse across different operations).
+ * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+ * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+ * logical operation and MUST generate a new key for a different operation.
+ *
+ */
+export type IdempotencyKey = string;
 
 export type GetConfigData = {
     body?: never;
@@ -1719,7 +1757,7 @@ export type ListNamespacesData = {
          */
         pageSize?: number;
         /**
-         * An optional namespace, underneath which to list namespaces. If not provided or empty, all top-level namespaces should be listed. If parent is a multipart namespace, the parts must be separated by the unit separator (`0x1F`) byte.
+         * An optional namespace, underneath which to list namespaces. If not provided, all top-level namespaces should be listed. For backward compatibility, empty string is treated as absent for now. If parent is a multipart namespace, the parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         parent?: string;
         /**
@@ -1779,6 +1817,30 @@ export type ListNamespacesResponse2 = ListNamespacesResponses[keyof ListNamespac
 
 export type CreateNamespaceData = {
     body: CreateNamespaceRequest;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
@@ -1838,13 +1900,37 @@ export type CreateNamespaceResponse2 = CreateNamespaceResponses[keyof CreateName
 
 export type DropNamespaceData = {
     body?: never;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -1920,7 +2006,7 @@ export type LoadNamespaceMetadataData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -1984,7 +2070,7 @@ export type NamespaceExistsData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -2037,13 +2123,37 @@ export type NamespaceExistsResponse = NamespaceExistsResponses[keyof NamespaceEx
 
 export type UpdatePropertiesData = {
     body: UpdateNamespacePropertiesRequest;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -2110,7 +2220,7 @@ export type ListTablesData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -2181,10 +2291,32 @@ export type CreateTableData = {
         /**
          * Optional signal to the server that the client supports delegated access via a comma-separated list of access mechanisms.  The server may choose to supply access via any or none of the requested mechanisms.
          * Specific properties and handling for `vended-credentials` is documented in the `LoadTableResult` schema section of this spec document.
-         * The protocol and specification for `remote-signing` is documented in  the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
+         * The protocol and specification for `remote-signing` is documented in the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
          *
          */
         'X-Iceberg-Access-Delegation'?: 'vended-credentials' | 'remote-signing';
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
     };
     path: {
         /**
@@ -2192,7 +2324,7 @@ export type CreateTableData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -2249,13 +2381,44 @@ export type CreateTableResponse = CreateTableResponses[keyof CreateTableResponse
 
 export type PlanTableScanData = {
     body?: PlanTableScanRequest;
+    headers?: {
+        /**
+         * Optional signal to the server that the client supports delegated access via a comma-separated list of access mechanisms.  The server may choose to supply access via any or none of the requested mechanisms.
+         * Specific properties and handling for `vended-credentials` is documented in the `LoadTableResult` schema section of this spec document.
+         * The protocol and specification for `remote-signing` is documented in the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
+         *
+         */
+        'X-Iceberg-Access-Delegation'?: 'vended-credentials' | 'remote-signing';
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2316,13 +2479,44 @@ export type PlanTableScanResponse = PlanTableScanResponses[keyof PlanTableScanRe
 
 export type CancelPlanningData = {
     body?: never;
+    headers?: {
+        /**
+         * Optional signal to the server that the client supports delegated access via a comma-separated list of access mechanisms.  The server may choose to supply access via any or none of the requested mechanisms.
+         * Specific properties and handling for `vended-credentials` is documented in the `LoadTableResult` schema section of this spec document.
+         * The protocol and specification for `remote-signing` is documented in the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
+         *
+         */
+        'X-Iceberg-Access-Delegation'?: 'vended-credentials' | 'remote-signing';
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2352,7 +2546,7 @@ export type CancelPlanningErrors = {
      */
     403: IcebergErrorResponse;
     /**
-     * Not Found - NoSuchTableException, the table does not exist - NoSuchNamespaceException, the namespace does not exist
+     * Not Found - NoSuchPlanIdException, the plan-id does not exist - NoSuchTableException, the table does not exist - NoSuchNamespaceException, the namespace does not exist
      */
     404: IcebergErrorResponse;
     /**
@@ -2383,13 +2577,22 @@ export type CancelPlanningResponse = CancelPlanningResponses[keyof CancelPlannin
 
 export type FetchPlanningResultData = {
     body?: never;
+    headers?: {
+        /**
+         * Optional signal to the server that the client supports delegated access via a comma-separated list of access mechanisms.  The server may choose to supply access via any or none of the requested mechanisms.
+         * Specific properties and handling for `vended-credentials` is documented in the `LoadTableResult` schema section of this spec document.
+         * The protocol and specification for `remote-signing` is documented in the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
+         *
+         */
+        'X-Iceberg-Access-Delegation'?: 'vended-credentials' | 'remote-signing';
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2450,13 +2653,37 @@ export type FetchPlanningResultResponse = FetchPlanningResultResponses[keyof Fet
 
 export type FetchScanTasksData = {
     body?: FetchScanTasksRequest;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2513,13 +2740,44 @@ export type FetchScanTasksResponse = FetchScanTasksResponses[keyof FetchScanTask
 
 export type RegisterTableData = {
     body: RegisterTableRequest;
+    headers?: {
+        /**
+         * Optional signal to the server that the client supports delegated access via a comma-separated list of access mechanisms.  The server may choose to supply access via any or none of the requested mechanisms.
+         * Specific properties and handling for `vended-credentials` is documented in the `LoadTableResult` schema section of this spec document.
+         * The protocol and specification for `remote-signing` is documented in the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
+         *
+         */
+        'X-Iceberg-Access-Delegation'?: 'vended-credentials' | 'remote-signing';
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -2576,13 +2834,37 @@ export type RegisterTableResponse = RegisterTableResponses[keyof RegisterTableRe
 
 export type DropTableData = {
     body?: never;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2652,12 +2934,12 @@ export type LoadTableData = {
         /**
          * Optional signal to the server that the client supports delegated access via a comma-separated list of access mechanisms.  The server may choose to supply access via any or none of the requested mechanisms.
          * Specific properties and handling for `vended-credentials` is documented in the `LoadTableResult` schema section of this spec document.
-         * The protocol and specification for `remote-signing` is documented in  the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
+         * The protocol and specification for `remote-signing` is documented in the `s3-signer-open-api.yaml` OpenApi spec in the `aws` module.
          *
          */
         'X-Iceberg-Access-Delegation'?: 'vended-credentials' | 'remote-signing';
         /**
-         * An optional header that allows the server to return 304 (Not Modified) if the metadata is current. The content is the value of the ETag received in a CreateTableResponse or LoadTableResponse.
+         * An optional header that allows the server to return 304 (Not Modified) if the metadata is current. The content is the value of the ETag received in a CreateTableResponse, LoadTableResponse or CommitTableResponse.
          */
         'If-None-Match'?: string;
     };
@@ -2667,7 +2949,7 @@ export type LoadTableData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2681,6 +2963,13 @@ export type LoadTableData = {
          * Default if no param is provided is `all`.
          */
         snapshots?: 'all' | 'refs';
+        /**
+         * A comma-separated list of fully qualified view names (namespace and view name) representing the view reference chain when an entity (table or view) is loaded via a view. The list should be ordered with the outermost view first, followed by any intermediate views it references, down to the view that directly references the entity. For a simple case where a view directly references the entity, the list contains a single view identifier. For nested views (a view referencing another view which references the entity), the list contains multiple view identifiers representing the complete dependency chain.
+         * The view identifier is a composite string of the format {namespace}{separator}{viewName}. The namespace-separator (defined in /config) acts as the delimiter. When parsing, the last occurrence of this separator identifies the boundary between the namespace and the view name. Multipart namespaces must follow the encoding rules of the parent parameter in the list namespaces endpoint.
+         * Multiple view identifiers are separated by commas. Servers should split the parameter value on comma characters to parse individual view identifiers. If view names contain commas, they must be url-encoded as %2C.
+         * Example with multiple views (where prod%1Fanalytics is a nested namespace which has a quarterly_view which references to monthly_view which then references the entity being loaded) - prod%1Fanalytics%1Fquarterly_view,prod%1Fanalytics%1Fmonthly_view
+         */
+        'referenced-by'?: string;
     };
     url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}';
 };
@@ -2736,7 +3025,7 @@ export type TableExistsData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2793,13 +3082,37 @@ export type TableExistsResponse = TableExistsResponses[keyof TableExistsResponse
 
 export type UpdateTableData = {
     body: CommitTableRequestWritable;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2879,7 +3192,7 @@ export type LoadCredentialsData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -2887,7 +3200,19 @@ export type LoadCredentialsData = {
          */
         table: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * The plan ID that has been used for server-side scan planning
+         */
+        planId?: string;
+        /**
+         * A comma-separated list of fully qualified view names (namespace and view name) representing the view reference chain when an entity (table or view) is loaded via a view. The list should be ordered with the outermost view first, followed by any intermediate views it references, down to the view that directly references the entity. For a simple case where a view directly references the entity, the list contains a single view identifier. For nested views (a view referencing another view which references the entity), the list contains multiple view identifiers representing the complete dependency chain.
+         * The view identifier is a composite string of the format {namespace}{separator}{viewName}. The namespace-separator (defined in /config) acts as the delimiter. When parsing, the last occurrence of this separator identifies the boundary between the namespace and the view name. Multipart namespaces must follow the encoding rules of the parent parameter in the list namespaces endpoint.
+         * Multiple view identifiers are separated by commas. Servers should split the parameter value on comma characters to parse individual view identifiers. If view names contain commas, they must be url-encoded as %2C.
+         * Example with multiple views (where prod%1Fanalytics is a nested namespace which has a quarterly_view which references to monthly_view which then references the entity being loaded) - prod%1Fanalytics%1Fquarterly_view,prod%1Fanalytics%1Fmonthly_view
+         */
+        'referenced-by'?: string;
+    };
     url: '/v1/{prefix}/namespaces/{namespace}/tables/{table}/credentials';
 };
 
@@ -2939,6 +3264,30 @@ export type RenameTableData = {
      * Current table identifier to rename and new table identifier to rename to
      */
     body: RenameTableRequest;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
@@ -3011,7 +3360,7 @@ export type ReportMetricsData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -3074,6 +3423,30 @@ export type CommitTransactionData = {
      * Updates are changes to make to table metadata. For example, after asserting that the current main ref is at the expected snapshot, a commit may add a new child snapshot and set the ref to the new snapshot id.
      */
     body: CommitTransactionRequestWritable;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
@@ -3151,7 +3524,7 @@ export type ListViewsData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -3224,7 +3597,7 @@ export type CreateViewData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
     };
@@ -3281,13 +3654,37 @@ export type CreateViewResponse = CreateViewResponses[keyof CreateViewResponses];
 
 export type DropViewData = {
     body?: never;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -3355,7 +3752,7 @@ export type LoadViewData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -3363,7 +3760,15 @@ export type LoadViewData = {
          */
         view: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * A comma-separated list of fully qualified view names (namespace and view name) representing the view reference chain when an entity (table or view) is loaded via a view. The list should be ordered with the outermost view first, followed by any intermediate views it references, down to the view that directly references the entity. For a simple case where a view directly references the entity, the list contains a single view identifier. For nested views (a view referencing another view which references the entity), the list contains multiple view identifiers representing the complete dependency chain.
+         * The view identifier is a composite string of the format {namespace}{separator}{viewName}. The namespace-separator (defined in /config) acts as the delimiter. When parsing, the last occurrence of this separator identifies the boundary between the namespace and the view name. Multipart namespaces must follow the encoding rules of the parent parameter in the list namespaces endpoint.
+         * Multiple view identifiers are separated by commas. Servers should split the parameter value on comma characters to parse individual view identifiers. If view names contain commas, they must be url-encoded as %2C.
+         * Example with multiple views (where prod%1Fanalytics is a nested namespace which has a quarterly_view which references to monthly_view which then references the entity being loaded) - prod%1Fanalytics%1Fquarterly_view,prod%1Fanalytics%1Fmonthly_view
+         */
+        'referenced-by'?: string;
+    };
     url: '/v1/{prefix}/namespaces/{namespace}/views/{view}';
 };
 
@@ -3418,7 +3823,7 @@ export type ViewExistsData = {
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -3471,13 +3876,37 @@ export type ViewExistsResponse = ViewExistsResponses[keyof ViewExistsResponses];
 
 export type ReplaceViewData = {
     body: CommitViewRequestWritable;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path
          */
         prefix: string;
         /**
-         * A namespace identifier as a single string. Multipart namespace parts should be separated by the unit separator (`0x1F`) byte.
+         * A namespace identifier as a single string. Multipart namespace parts must be separated by the namespace separator as indicated via the /config override `namespace-separator`, which defaults to the unit separator `0x1F` byte (url encoded `%1F`). To be compatible with older clients, servers must use both the advertised separator and `0x1F` as valid separators when decoding namespaces. The `namespace-separator` should be provided in a url encoded form.
          */
         namespace: string;
         /**
@@ -3553,6 +3982,30 @@ export type RenameViewData = {
      * Current view identifier to rename and new view identifier to rename to
      */
     body: RenameTableRequest;
+    headers?: {
+        /**
+         * Optional client-provided idempotency key for safe request retries.
+         *
+         * When present, the server ensures no additional effects for requests that carry the same
+         * Idempotency-Key. If a prior request with this key has been finalized, the server returns
+         * an equivalent final response without re-running the operation. The response body may
+         * reflect a newer state of the catalog than existed at the time of the commit.
+         *
+         * Finalization rules:
+         * - Finalize & replay: 200, 201, 204, and deterministic terminal 4xx (including 409
+         * such as AlreadyExists, NamespaceNotEmpty, etc.)
+         * - Do not finalize (not stored/replayed): 5xx
+         *
+         * Key Requirements:
+         * - Key format: UUIDv7 in string form (RFC 9562).
+         * - The idempotency key must be globally unique (no reuse across different operations).
+         * - Catalogs SHOULD NOT expire keys before the end of the advertised token lifetime.
+         * - If Idempotency-Key is used, clients MUST reuse the same key when retrying the same
+         * logical operation and MUST generate a new key for a different operation.
+         *
+         */
+        'Idempotency-Key'?: string;
+    };
     path: {
         /**
          * An optional prefix in the path

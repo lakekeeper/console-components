@@ -233,6 +233,27 @@
                       </template>
                     </v-combobox>
 
+                    <v-combobox
+                      v-if="selectedResourceType === 'generic-table'"
+                      v-model="selectedGenericTables"
+                      :items="availableGenericTables"
+                      item-title="name"
+                      item-value="name"
+                      label="Enter Generic Table Names (e.g., my_schema.my_table)"
+                      hint="Type fully qualified generic table names (namespace.name)"
+                      persistent-hint
+                      multiple
+                      chips
+                      closable-chips
+                      density="compact">
+                      <template #chip="{ props: chipProps, item }">
+                        <v-chip v-bind="chipProps" size="small">
+                          <v-icon start size="small">mdi-table-multiple</v-icon>
+                          {{ item.title }}
+                        </v-chip>
+                      </template>
+                    </v-combobox>
+
                     <v-select
                       v-model="selectedActions"
                       :items="availableActions"
@@ -408,7 +429,7 @@ const availableRoles = ref<Role[]>([]);
 
 // Resource selection
 const selectedResourceType = ref<
-  'warehouse' | 'namespace' | 'table' | 'view' | 'server' | 'project'
+  'warehouse' | 'namespace' | 'table' | 'view' | 'generic-table' | 'server' | 'project'
 >('warehouse');
 const selectedWarehouses = ref<string[]>([]);
 const availableWarehouses = ref<Array<{ id: string; name: string }>>([]);
@@ -418,6 +439,8 @@ const selectedTables = ref<string[]>([]);
 const availableTables = ref<Array<{ name: string; namespace: string }>>([]);
 const selectedViews = ref<string[]>([]);
 const availableViews = ref<Array<{ name: string; namespace: string }>>([]);
+const selectedGenericTables = ref<string[]>([]);
+const availableGenericTables = ref<Array<{ name: string; namespace: string }>>([]);
 const selectedActions = ref<string[]>([]);
 
 // Results
@@ -445,6 +468,7 @@ const resourceTypes = [
   { label: 'Namespaces', value: 'namespace' },
   { label: 'Tables', value: 'table' },
   { label: 'Views', value: 'view' },
+  { label: 'Generic Tables', value: 'generic-table' },
   { label: 'Server', value: 'server' },
   { label: 'Project', value: 'project' },
 ];
@@ -461,6 +485,10 @@ const tableActions: string[] = permissionActions.catalogTableActions.map((a) => 
 
 const viewActions: string[] = permissionActions.catalogViewActions.map((a) => a.action);
 
+const genericTableActions: string[] = permissionActions.catalogGenericTableActions.map(
+  (a) => a.action,
+);
+
 // Computed
 const availableActions = computed(() => {
   if (selectedResourceType.value === 'warehouse') {
@@ -471,6 +499,8 @@ const availableActions = computed(() => {
     return tableActions;
   } else if (selectedResourceType.value === 'view') {
     return viewActions;
+  } else if (selectedResourceType.value === 'generic-table') {
+    return genericTableActions;
   } else if (selectedResourceType.value === 'server') {
     return serverActions;
   } else if (selectedResourceType.value === 'project') {
@@ -490,7 +520,8 @@ const canRunMatrix = computed(() => {
     (selectedResourceType.value === 'warehouse' && selectedWarehouses.value.length > 0) ||
     (selectedResourceType.value === 'namespace' && selectedNamespaces.value.length > 0) ||
     (selectedResourceType.value === 'table' && selectedTables.value.length > 0) ||
-    (selectedResourceType.value === 'view' && selectedViews.value.length > 0);
+    (selectedResourceType.value === 'view' && selectedViews.value.length > 0) ||
+    (selectedResourceType.value === 'generic-table' && selectedGenericTables.value.length > 0);
 
   const hasActions = selectedActions.value.length > 0;
 
@@ -561,6 +592,7 @@ async function onResourceTypeChange() {
   selectedNamespaces.value = [];
   selectedTables.value = [];
   selectedViews.value = [];
+  selectedGenericTables.value = [];
   selectedActions.value = [];
 
   if (selectedResourceType.value === 'warehouse') {
@@ -692,6 +724,16 @@ async function loadMatrix() {
           namespace: parts.slice(0, -1).join('.'),
         };
       });
+    } else if (selectedResourceType.value === 'generic-table') {
+      resources = selectedGenericTables.value.map((name) => {
+        const parts = name.split('.');
+        return {
+          type: 'generic-table',
+          id: name,
+          name: parts[parts.length - 1],
+          namespace: parts.slice(0, -1).join('.'),
+        };
+      });
     }
 
     for (const identity of identities) {
@@ -736,6 +778,15 @@ async function loadMatrix() {
                 action: actionObj,
                 namespace: resource.namespace,
                 view: resource.name,
+                'warehouse-id': null,
+              },
+            };
+          } else if (resource.type === 'generic-table') {
+            check.operation = {
+              'generic-table': {
+                action: actionObj,
+                namespace: resource.namespace,
+                table: resource.name,
                 'warehouse-id': null,
               },
             };
@@ -804,6 +855,7 @@ function clearSelection() {
   selectedNamespaces.value = [];
   selectedTables.value = [];
   selectedViews.value = [];
+  selectedGenericTables.value = [];
   selectedActions.value = [];
   matrixResults.value = [];
 }

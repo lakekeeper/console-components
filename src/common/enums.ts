@@ -17,7 +17,7 @@ export enum ObjectType {
   WAREHOUSE = 'Warehouse',
   STORAGE_PROFILE = 'StorageProfile',
   STORAGE_CREDENTIAL = 'StorageCredential',
-  DELETION_PROFILE = 'DeletionProfile',
+  CATALOG_SETTINGS = 'CatalogSettings',
 }
 
 export enum TokenType {

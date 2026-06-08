@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigTabularExpirationData, GetTaskQueueConfigTabularExpirationErrors, GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTaskQueueConfigTabularExpirationData, SetTaskQueueConfigTabularExpirationErrors, SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, GetAuthorizerGenericTableActionsData, GetAuthorizerGenericTableActionsResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetGenericTableActionsData, GetGenericTableActionsErrors, GetGenericTableActionsResponses, GetGenericTableAssignmentsByIdData, GetGenericTableAssignmentsByIdResponses, GetGenericTableProtectionData, GetGenericTableProtectionErrors, GetGenericTableProtectionResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigTabularExpirationData, GetTaskQueueConfigTabularExpirationErrors, GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetGenericTableProtectionData, SetGenericTableProtectionErrors, SetGenericTableProtectionResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTaskQueueConfigTabularExpirationData, SetTaskQueueConfigTabularExpirationErrors, SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateGenericTableAssignmentsByIdData, UpdateGenericTableAssignmentsByIdResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, UpdateWarehouseFormatVersionPolicyData, UpdateWarehouseFormatVersionPolicyErrors, UpdateWarehouseFormatVersionPolicyResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -438,6 +438,40 @@ export const updateWarehouseAssignmentsById = <ThrowOnError extends boolean = fa
 export const getAuthorizerWarehouseActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerWarehouseActionsData, ThrowOnError>) => (options.client ?? client).get<GetAuthorizerWarehouseActionsResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/permissions/warehouse/{warehouse_id}/authorizer-actions',
+    ...options
+});
+
+/**
+ * Get user and role assignments for a generic table
+ */
+export const getGenericTableAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetGenericTableAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).get<GetGenericTableAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/generic-table/{generic_table_id}/assignments',
+    ...options
+});
+
+/**
+ * Update permissions for a generic table
+ */
+export const updateGenericTableAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateGenericTableAssignmentsByIdData, ThrowOnError>) => (options.client ?? client).post<UpdateGenericTableAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/generic-table/{generic_table_id}/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get allowed Authorizer actions on a generic table
+ *
+ * Returns Authorizer permissions (OpenFGA relations) for the specified generic table.
+ * For Catalog permissions, use `/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/actions` instead.
+ */
+export const getAuthorizerGenericTableActions = <ThrowOnError extends boolean = false>(options: Options<GetAuthorizerGenericTableActionsData, ThrowOnError>) => (options.client ?? client).get<GetAuthorizerGenericTableActionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/warehouse/{warehouse_id}/generic-table/{generic_table_id}/authorizer-actions',
     ...options
 });
 
@@ -1050,6 +1084,58 @@ export const listDeletedTabulars = <ThrowOnError extends boolean = false>(option
 export const undropTabulars = <ThrowOnError extends boolean = false>(options: Options<UndropTabularsData, ThrowOnError>) => (options.client ?? client).post<UndropTabularsResponses, UndropTabularsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/warehouse/{warehouse_id}/deleted-tabulars/undrop',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Update Format Version Policy
+ *
+ * Configures which Iceberg table format versions may be created in, or
+ * upgraded to, within a warehouse, and the default version applied when a
+ * create-table request does not specify one.
+ */
+export const updateWarehouseFormatVersionPolicy = <ThrowOnError extends boolean = false>(options: Options<UpdateWarehouseFormatVersionPolicyData, ThrowOnError>) => (options.client ?? client).post<UpdateWarehouseFormatVersionPolicyResponses, UpdateWarehouseFormatVersionPolicyErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/format-version-policy',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get allowed actions for a generic table
+ */
+export const getGenericTableActions = <ThrowOnError extends boolean = false>(options: Options<GetGenericTableActionsData, ThrowOnError>) => (options.client ?? client).get<GetGenericTableActionsResponses, GetGenericTableActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/actions',
+    ...options
+});
+
+/**
+ * Get Generic Table Protection
+ *
+ * Retrieves whether a generic table is protected from deletion.
+ */
+export const getGenericTableProtection = <ThrowOnError extends boolean = false>(options: Options<GetGenericTableProtectionData, ThrowOnError>) => (options.client ?? client).get<GetGenericTableProtectionResponses, GetGenericTableProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/protection',
+    ...options
+});
+
+/**
+ * Set Generic Table Protection
+ *
+ * Configures whether a generic table should be protected from deletion.
+ */
+export const setGenericTableProtection = <ThrowOnError extends boolean = false>(options: Options<SetGenericTableProtectionData, ThrowOnError>) => (options.client ?? client).post<SetGenericTableProtectionResponses, SetGenericTableProtectionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/protection',
     ...options,
     headers: {
         'Content-Type': 'application/json',

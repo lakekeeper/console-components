@@ -5,6 +5,7 @@ import {
   LakekeeperNamespaceAction,
   LakekeeperTableAction,
   LakekeeperViewAction,
+  LakekeeperGenericTableAction,
   LakekeeperRoleAction,
   LakekeeperUserAction,
   OpenFgaServerAction,
@@ -13,6 +14,7 @@ import {
   OpenFgaNamespaceAction,
   OpenFgaTableAction,
   OpenFgaViewAction,
+  OpenFgaGenericTableAction,
   OpenFgaRoleAction,
 } from '@/gen/management/types.gen';
 
@@ -60,18 +62,21 @@ const catalogWarehouseActions: LakekeeperWarehouseAction[] = [
   { action: 'get_all_tasks' },
   { action: 'control_all_tasks' },
   { action: 'set_protection' },
+  { action: 'set_format_version_policy' },
   { action: 'get_endpoint_statistics' },
 ];
 
 const catalogNamespaceActions: LakekeeperNamespaceAction[] = [
   { action: 'create_table' },
   { action: 'create_view' },
+  { action: 'create_generic_table' },
   { action: 'create_namespace' },
   { action: 'delete' },
   { action: 'update_properties' },
   { action: 'get_metadata' },
   { action: 'list_tables' },
   { action: 'list_views' },
+  { action: 'list_generic_tables' },
   { action: 'list_namespaces' },
   { action: 'list_everything' },
   { action: 'set_protection' },
@@ -99,6 +104,19 @@ const catalogViewActions: LakekeeperViewAction[] = [
   { action: 'commit' },
   { action: 'include_in_list' },
   { action: 'rename' },
+  { action: 'undrop' },
+  { action: 'get_tasks' },
+  { action: 'control_tasks' },
+  { action: 'set_protection' },
+];
+
+const catalogGenericTableActions: LakekeeperGenericTableAction[] = [
+  { action: 'drop' },
+  { action: 'read_data' },
+  { action: 'write_data' },
+  { action: 'get_metadata' },
+  { action: 'rename' },
+  { action: 'include_in_list' },
   { action: 'undrop' },
   { action: 'get_tasks' },
   { action: 'control_tasks' },
@@ -173,6 +191,16 @@ const authorizerViewActions: OpenFgaViewAction[] = [
   'change_ownership',
 ];
 
+const authorizerGenericTableActions: OpenFgaGenericTableAction[] = [
+  'read_assignments',
+  'grant_pass_grants',
+  'grant_manage_grants',
+  'grant_describe',
+  'grant_select',
+  'grant_modify',
+  'change_ownership',
+];
+
 const authorizerRoleActions: OpenFgaRoleAction[] = [
   'assume',
   'can_grant_assignee',
@@ -188,6 +216,7 @@ export const permissionActions = {
   catalogNamespaceActions,
   catalogTableActions,
   catalogViewActions,
+  catalogGenericTableActions,
   catalogRoleActions,
   catalogUserActions,
   // Authorizer actions (permission delegation)
@@ -197,6 +226,7 @@ export const permissionActions = {
   authorizerNamespaceActions,
   authorizerTableActions,
   authorizerViewActions,
+  authorizerGenericTableActions,
   authorizerRoleActions,
 };
 

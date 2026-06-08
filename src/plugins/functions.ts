@@ -34,6 +34,15 @@ import JSONBig from 'json-bigint';
 
 import * as mng from '@/gen/management/sdk.gen';
 import * as mngClient from '@/gen/management/client.gen';
+
+import * as gt from '@/gen/generic-table/sdk.gen';
+import * as gtClient from '@/gen/generic-table/client.gen';
+import {
+  CreateGenericTableRequest,
+  ListGenericTablesResponse,
+  LoadGenericTableResponse,
+  LoadGenericTableCredentialsResponse,
+} from '@/gen/generic-table/types.gen';
 import {
   CreateRoleRequest,
   CreateWarehouseRequest,
@@ -60,6 +69,7 @@ import {
   OpenFgaNamespaceAction,
   OpenFgaTableAction,
   OpenFgaViewAction,
+  OpenFgaGenericTableAction,
   OpenFgaRoleAction,
   LakekeeperServerAction,
   LakekeeperProjectAction,
@@ -67,6 +77,7 @@ import {
   LakekeeperNamespaceAction,
   LakekeeperTableAction,
   LakekeeperViewAction,
+  LakekeeperGenericTableAction,
   LakekeeperRoleAction,
   LakekeeperUserAction,
   PurgeQueueConfig,
@@ -81,6 +92,7 @@ import {
   StorageCredential,
   StorageProfile,
   TableAssignment,
+  GenericTableAssignment,
   TabularDeleteProfile,
   TimeWindowSelector,
   UpdateRoleRequest,
@@ -125,6 +137,17 @@ function init() {
 
   iceClient.client.interceptors.request.use((request) => {
     // Get the token dynamically on each request
+    const accessToken = useUserStore().user.access_token;
+    request.headers.set('Authorization', `Bearer ${accessToken}`);
+    return request;
+  });
+
+  gtClient.client.setConfig({
+    baseUrl: icebergCatalogUrl(),
+    headers: { 'x-project-id': projectId },
+  });
+
+  gtClient.client.interceptors.request.use((request) => {
     const accessToken = useUserStore().user.access_token;
     request.headers.set('Authorization', `Bearer ${accessToken}`);
     return request;
@@ -940,6 +963,41 @@ async function setWarehouseProtection(
     return data;
   } catch (error) {
     handleError(error, 'setWarehouseProtection');
+    throw error;
+  }
+}
+
+async function setWarehouseFormatVersionPolicy(
+  warehouseId: string,
+  allowedFormatVersions: number[],
+  defaultFormatVersion?: number | null,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { error } = await mng.updateWarehouseFormatVersionPolicy({
+      client,
+      path: { warehouse_id: warehouseId },
+      body: {
+        'allowed-format-versions': allowedFormatVersions,
+        'default-format-version': defaultFormatVersion ?? null,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'setWarehouseFormatVersionPolicy',
+        'Format-version policy updated successfully',
+        notify,
+      );
+    }
+    return true;
+  } catch (error) {
+    handleError(error, 'setWarehouseFormatVersionPolicy', notify);
     throw error;
   }
 }
@@ -1873,6 +1931,206 @@ async function listTables(
   }
 }
 
+async function listGenericTables(
+  warehouseId: string,
+  namespacePath: string,
+  pageToken?: string,
+  notify?: boolean,
+  pageSize: number = 1000,
+): Promise<ListGenericTablesResponse> {
+  try {
+    init();
+    const client = gtClient.client;
+    const { data, error } = await gt.listGenericTables({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: normalizeNamespacePath(namespacePath),
+      },
+      query: { pageToken: pageToken || undefined, pageSize },
+    });
+    if (error) throw error;
+
+    const result = (data ?? { identifiers: [] }) as ListGenericTablesResponse;
+    if (notify) {
+      handleSuccess(
+        'listGenericTables',
+        `${result.identifiers?.length || 0} generic table(s) loaded successfully`,
+        notify,
+      );
+    }
+    return result;
+  } catch (error: any) {
+    handleError(error, 'listGenericTables', notify);
+    throw error;
+  }
+}
+
+async function loadGenericTable(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  notify?: boolean,
+): Promise<LoadGenericTableResponse> {
+  try {
+    init();
+    const client = gtClient.client;
+    const { data, error } = await gt.loadGenericTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: normalizeNamespacePath(namespacePath),
+        table: tableName,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('loadGenericTable', `Generic table '${tableName}' loaded successfully`, notify);
+    }
+    return data as LoadGenericTableResponse;
+  } catch (error: any) {
+    handleError(error, 'loadGenericTable', notify);
+    throw error;
+  }
+}
+
+async function loadGenericTableCredentials(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  notify?: boolean,
+): Promise<LoadGenericTableCredentialsResponse> {
+  try {
+    init();
+    const client = gtClient.client;
+    const { data, error } = await gt.loadGenericTableCredentials({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: normalizeNamespacePath(namespacePath),
+        table: tableName,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'loadGenericTableCredentials',
+        'Generic table credentials loaded successfully',
+        notify,
+      );
+    }
+    return data as LoadGenericTableCredentialsResponse;
+  } catch (error: any) {
+    handleError(error, 'loadGenericTableCredentials', notify);
+    throw error;
+  }
+}
+
+async function createGenericTable(
+  warehouseId: string,
+  namespacePath: string,
+  body: CreateGenericTableRequest,
+  notify?: boolean,
+): Promise<LoadGenericTableResponse> {
+  try {
+    init();
+    const client = gtClient.client;
+    const { data, error } = await gt.createGenericTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: normalizeNamespacePath(namespacePath),
+      },
+      body,
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'createGenericTable',
+        `Generic table '${body.name}' created successfully`,
+        notify,
+      );
+    }
+    return data as LoadGenericTableResponse;
+  } catch (error: any) {
+    handleError(error, 'createGenericTable', notify);
+    throw error;
+  }
+}
+
+async function dropGenericTable(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const client = gtClient.client;
+    const { error } = await gt.dropGenericTable({
+      client,
+      path: {
+        prefix: warehouseId,
+        namespace: normalizeNamespacePath(namespacePath),
+        table: tableName,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'dropGenericTable',
+        `Generic table '${tableName}' deleted successfully`,
+        notify,
+      );
+    }
+    return true;
+  } catch (error: any) {
+    handleError(error, 'dropGenericTable', notify);
+    throw error;
+  }
+}
+
+async function renameGenericTable(
+  warehouseId: string,
+  sourceNamespace: string,
+  sourceName: string,
+  destNamespace: string,
+  destName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const client = gtClient.client;
+    const { error } = await gt.renameGenericTable({
+      client,
+      path: { prefix: warehouseId },
+      body: {
+        source: {
+          namespace: normalizeNamespacePath(sourceNamespace).split('\x1f'),
+          name: sourceName,
+        },
+        destination: {
+          namespace: normalizeNamespacePath(destNamespace).split('\x1f'),
+          name: destName,
+        },
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('renameGenericTable', `Generic table renamed to '${destName}'`, notify);
+    }
+    return true;
+  } catch (error: any) {
+    handleError(error, 'renameGenericTable', notify);
+    throw error;
+  }
+}
+
 async function loadTable(
   warehouseId: string,
   namespacePath: string,
@@ -2165,6 +2423,79 @@ async function setTableProtection(
   }
 }
 
+async function getGenericTableProtection(
+  warehouseId: string,
+  genericTableId: string,
+  notify?: boolean,
+): Promise<ProtectionResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getGenericTableProtection({
+      client,
+
+      path: {
+        warehouse_id: warehouseId,
+        generic_table_id: genericTableId,
+      },
+    });
+    if (error) throw error;
+
+    const result = data as GetNamespaceProtectionResponse;
+    if (notify) {
+      handleSuccess(
+        'getGenericTableProtection',
+        'Generic table protection status loaded successfully',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'getGenericTableProtection', notify);
+    throw error;
+  }
+}
+
+async function setGenericTableProtection(
+  warehouseId: string,
+  genericTableId: string,
+  protected_state: boolean,
+  notify?: boolean,
+): Promise<ProtectionResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.setGenericTableProtection({
+      client,
+
+      path: {
+        warehouse_id: warehouseId,
+        generic_table_id: genericTableId,
+      },
+      body: {
+        protected: protected_state,
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'setGenericTableProtection',
+        `Generic table protection ${protected_state ? 'enabled' : 'disabled'}`,
+        notify,
+      );
+    }
+    return data;
+  } catch (error) {
+    handleError(error, 'setGenericTableProtection', notify);
+    throw error;
+  }
+}
+
 // View
 async function listViews(
   id: string,
@@ -2333,7 +2664,7 @@ async function setViewProtection(
 async function undropTabular(
   warehouseId: string,
   id: string,
-  type: 'table' | 'view',
+  type: 'table' | 'view' | 'generic-table',
   notify?: boolean,
 ) {
   try {
@@ -2926,6 +3257,82 @@ async function updateViewAssignmentsById(
     return true;
   } catch (error: any) {
     handleError(error, 'updateViewAssignmentsById');
+    throw error;
+  }
+}
+
+async function getGenericTableAssignmentsById(
+  genericTableId: string,
+  warehouseId: string,
+): Promise<GenericTableAssignment[]> {
+  try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) return [];
+
+    init();
+
+    const client = mngClient.client;
+    const { data, error } = await mng.getGenericTableAssignmentsById({
+      client,
+      path: {
+        generic_table_id: genericTableId,
+        warehouse_id: warehouseId,
+      },
+    });
+
+    if (error) throw error;
+
+    return ((data ?? {}).assignments as GenericTableAssignment[]) ?? [];
+  } catch (error: any) {
+    handleError(error, 'getGenericTableAssignmentsById');
+    throw error;
+  }
+}
+
+async function updateGenericTableAssignmentsById(
+  genericTableId: string,
+  deletes: GenericTableAssignment[],
+  writes: GenericTableAssignment[],
+  warehouseId: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update generic table assignments: OpenFGA backend is required');
+      return false;
+    }
+
+    init();
+
+    const client = mngClient.client;
+
+    const { error } = await mng.updateGenericTableAssignmentsById({
+      client,
+      body: { deletes, writes },
+      path: {
+        generic_table_id: genericTableId,
+        warehouse_id: warehouseId,
+      },
+    });
+
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess(
+        'updateGenericTableAssignmentsById',
+        'Generic table assignments updated successfully',
+        notify,
+      );
+    }
+
+    return true;
+  } catch (error: any) {
+    handleError(error, 'updateGenericTableAssignmentsById');
     throw error;
   }
 }
@@ -4104,6 +4511,80 @@ async function getTableCatalogActions(
   }
 }
 
+async function getAuthorizerGenericTableActions(
+  genericTableId: string,
+  warehouseId: string,
+  notify?: boolean,
+): Promise<OpenFgaGenericTableAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) return [];
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getAuthorizerGenericTableActions({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaGenericTableAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerGenericTableActions',
+        'Generic table authorizer actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getAuthorizerGenericTableActions', notify);
+    return [];
+  }
+}
+
+async function getGenericTableCatalogActions(
+  genericTableId: string,
+  warehouseId: string,
+  notify?: boolean,
+): Promise<LakekeeperGenericTableAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogGenericTableActions;
+    }
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getGenericTableActions({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperGenericTableAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getGenericTableCatalogActions',
+        'Generic table catalog actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getGenericTableCatalogActions', notify);
+    return [];
+  }
+}
+
 async function getAuthorizerViewActions(
   viewId: string,
   warehouseId: string,
@@ -4574,6 +5055,7 @@ export function useFunctions(config?: any) {
     getAuthorizerNamespaceActions,
     getAuthorizerTableActions,
     getAuthorizerViewActions,
+    getAuthorizerGenericTableActions,
     getAuthorizerRoleActions,
     // New catalog actions (operational permissions - work with ALL backends)
     getServerCatalogActions,
@@ -4582,6 +5064,7 @@ export function useFunctions(config?: any) {
     getNamespaceCatalogActions,
     getTableCatalogActions,
     getViewCatalogActions,
+    getGenericTableCatalogActions,
     getRoleCatalogActions,
     getUserCatalogActions,
     getNamespaceAssignmentsById,
@@ -4598,14 +5081,22 @@ export function useFunctions(config?: any) {
     renameTag,
     deleteTag,
     listViews,
+    listGenericTables,
     listDeletedTabulars,
     loadTable,
     loadTableCustomized,
     loadView,
+    loadGenericTable,
+    loadGenericTableCredentials,
+    createGenericTable,
+    dropGenericTable,
+    renameGenericTable,
     updateTableAssignmentsById,
     updateViewAssignmentsById,
+    updateGenericTableAssignmentsById,
     getTableAssignmentsById,
     getViewAssignmentsById,
+    getGenericTableAssignmentsById,
     getProjectAssignments,
     updateProjectAssignments,
     renameWarehouse,
@@ -4632,12 +5123,15 @@ export function useFunctions(config?: any) {
     getWarehouseStatistics,
     getEndpointStatistics,
     setWarehouseProtection,
+    setWarehouseFormatVersionPolicy,
     setNamespaceProtection,
     getNamespaceProtection,
     getTableProtection,
     setTableProtection,
     setViewProtection,
     getViewProtection,
+    getGenericTableProtection,
+    setGenericTableProtection,
     // Warehouse activation/deactivation
     activateWarehouse,
     deactivateWarehouse,

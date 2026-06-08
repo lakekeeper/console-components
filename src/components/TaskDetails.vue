@@ -344,6 +344,8 @@ function getEntityId(entity: any): string | null {
       return entity['table-id'] || null;
     case 'view':
       return entity['view-id'] || null;
+    case 'generic-table':
+      return entity['generic-table-id'] || null;
     case 'namespace':
       return entity['namespace-id'] || null;
     case 'warehouse':
@@ -359,6 +361,8 @@ function getEntityTypeColor(type: string): string {
       return 'blue';
     case 'view':
       return 'purple';
+    case 'generic-table':
+      return 'orange';
     case 'namespace':
       return 'green';
     default:
@@ -372,6 +376,8 @@ function getEntityTypeIcon(type: string): string {
       return 'mdi-table';
     case 'view':
       return 'mdi-eye-outline';
+    case 'generic-table':
+      return 'mdi-table-multiple';
     case 'namespace':
       return 'mdi-folder-outline';
     default:

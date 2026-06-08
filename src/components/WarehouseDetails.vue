@@ -84,6 +84,31 @@
                         </v-chip>
                       </div>
                     </v-col>
+                    <v-col v-if="allowedFormatVersions.length > 0" cols="12">
+                      <div class="text-overline text-medium-emphasis">
+                        Iceberg allowed format versions
+                      </div>
+                      <div class="mt-2 d-flex" style="gap: 6px; flex-wrap: wrap">
+                        <v-chip
+                          v-for="v in allowedFormatVersions"
+                          :key="v"
+                          size="small"
+                          variant="tonal"
+                          color="primary">
+                          v{{ v }}
+                        </v-chip>
+                      </div>
+                    </v-col>
+                    <v-col v-if="resolvedDefaultFormatVersion !== null" cols="12">
+                      <div class="text-overline text-medium-emphasis">
+                        Iceberg default format version
+                      </div>
+                      <div class="mt-2">
+                        <v-chip size="small" variant="outlined" color="primary">
+                          v{{ resolvedDefaultFormatVersion }}
+                        </v-chip>
+                      </div>
+                    </v-col>
                   </v-row>
                 </v-card-text>
               </v-card>
@@ -292,7 +317,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, inject } from 'vue';
+import { reactive, computed, onMounted, inject } from 'vue';
 import { logError } from '@/common/errorUtils';
 
 const props = defineProps<{
@@ -336,6 +361,19 @@ async function loadWarehouse() {
     logError('WarehouseDetails.loadWarehouse', error);
   }
 }
+
+// Display-only: server may return null `default-format-version`; resolve to v2 if allowed,
+// otherwise highest allowed version (mirrors server semantics).
+const allowedFormatVersions = computed<number[]>(
+  () => (warehouse['allowed-format-versions'] ?? []) as number[],
+);
+const resolvedDefaultFormatVersion = computed<number | null>(() => {
+  const allowed = allowedFormatVersions.value;
+  const serverDefault = (warehouse['default-format-version'] ?? null) as number | null;
+  if (serverDefault !== null) return serverDefault;
+  if (allowed.length === 0) return null;
+  return allowed.includes(2) ? 2 : Math.max(...allowed);
+});
 
 onMounted(() => {
   loadWarehouse();

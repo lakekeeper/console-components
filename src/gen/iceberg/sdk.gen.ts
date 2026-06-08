@@ -197,26 +197,26 @@ export const createTable = <ThrowOnError extends boolean = false>(options: Optio
  * Submit a scan for planning
  *
  * Submits a scan for server-side planning.
- *
  * Point-in-time scans are planned by passing snapshot-id to identify the table snapshot to scan. Incremental scans are planned by passing both start-snapshot-id and end-snapshot-id. Requests that include both point in time config properties and incremental config properties are invalid. If the request does not include either incremental or point-in-time config properties, scan planning should produce a point-in-time scan of the latest snapshot in the table's main branch.
- *
  * Responses must include a valid status listed below. A "cancelled" status is considered invalid for this endpoint.
  * - When "completed" the planning operation has produced plan tasks and
+ *
  * file scan tasks that must be returned in the response (not fetched
  * later by calling fetchPlanningResult)
  *
  * - When "submitted" the response must include a plan-id used to poll
+ *
  * fetchPlanningResult to fetch the planning result when it is ready
  *
  * - When "failed" the response must be a valid error response
  * The response for a "completed" planning operation includes two types of tasks (file scan tasks and plan tasks) and both may be included in the response. Tasks must not be included for any other response status.
- *
  * Responses that include a plan-id indicate that the service is holding state or performing work for the client.
- *
  * - Clients should use the plan-id to fetch results from
+ *
  * fetchPlanningResult when the response status is "submitted"
  *
  * - Clients should inform the service if planning results are no longer
+ *
  * needed by calling cancelPlanning. Cancellation is not necessary after
  * fetchScanTasks has been used to fetch scan tasks for each plan task.
  *

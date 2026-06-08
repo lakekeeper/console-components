@@ -12,6 +12,7 @@ import {
   ServerAssignment,
   TableAssignment,
   ViewAssignment,
+  GenericTableAssignment,
   WarehouseAssignment,
 } from '../gen/management/types.gen';
 import { Type } from './enums';
@@ -54,6 +55,7 @@ export enum RelationType {
   Namespace = 'namespace',
   View = 'view',
   Table = 'table',
+  GenericTable = 'generic-table',
 }
 
 export type AssignmentCollection =
@@ -63,7 +65,8 @@ export type AssignmentCollection =
   | WarehouseAssignment[]
   | NamespaceAssignment[]
   | TableAssignment[]
-  | ViewAssignment[];
+  | ViewAssignment[]
+  | GenericTableAssignment[];
 
 export interface Item {
   name: string;

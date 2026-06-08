@@ -27,11 +27,11 @@
 
       <WarehouseAddDialog
         :intent="Intent.UPDATE"
-        :object-type="ObjectType.DELETION_PROFILE"
+        :object-type="ObjectType.CATALOG_SETTINGS"
         :process-status="processStatus"
         :warehouse="warehouse"
         @cancel="menuOpen = false"
-        @update-deletion-profile="updateDeletionProfile" />
+        @update-catalog-settings="updateCatalogSettings" />
 
       <v-divider></v-divider>
 
@@ -54,6 +54,11 @@ import { Intent, ObjectType } from '../common/enums';
 const menuOpen = ref(false);
 // const functions = useFunctions();
 
+interface CatalogSettingsUpdate {
+  deleteProfile?: TabularDeleteProfile;
+  formatPolicy?: { allowed: number[]; default: number };
+}
+
 const emit = defineEmits<{
   (e: 'renameWarehouse', warehouse: string): void;
   (e: 'updateCredentials', credentials: StorageCredential): void;
@@ -61,7 +66,7 @@ const emit = defineEmits<{
     e: 'updateProfile',
     newProfile: { profile: StorageProfile; credentials: StorageCredential },
   ): void;
-  (e: 'updateDelprofile', profile: TabularDeleteProfile): void;
+  (e: 'updateCatalogSettings', payload: CatalogSettingsUpdate): void;
   (e: 'warehouseStatusChanged'): void;
   (e: 'close'): void;
 }>();
@@ -86,8 +91,8 @@ function updateStorageProfile(e: { profile: StorageProfile; credentials: Storage
   emit('updateProfile', e);
 }
 
-function updateDeletionProfile(e: TabularDeleteProfile) {
-  emit('updateDelprofile', e);
+function updateCatalogSettings(e: CatalogSettingsUpdate) {
+  emit('updateCatalogSettings', e);
   menuOpen.value = false;
 }
 

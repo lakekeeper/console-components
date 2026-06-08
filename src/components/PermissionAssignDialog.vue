@@ -208,6 +208,7 @@ import {
   TableRelation,
   User,
   ViewRelation,
+  GenericTableRelation,
   WarehouseRelation,
 } from '@/gen/management/types.gen';
 
@@ -252,6 +253,8 @@ const objRelation = computed(() => {
     return tableRelation;
   } else if (props.relation === 'view') {
     return viewRelation;
+  } else if (props.relation === 'generic-table') {
+    return genericTableRelation;
   } else if (props.relation === 'warehouse') {
     return warehouseRelation;
   } else if (props.relation === 'namespace') {
@@ -274,6 +277,14 @@ const tableRelation: TableRelation[] = [
   'modify',
 ];
 const viewRelation: ViewRelation[] = [
+  'ownership',
+  'pass_grants',
+  'manage_grants',
+  'describe',
+  'select',
+  'modify',
+];
+const genericTableRelation: GenericTableRelation[] = [
   'ownership',
   'pass_grants',
   'manage_grants',

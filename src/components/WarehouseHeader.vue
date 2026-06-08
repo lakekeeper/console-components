@@ -29,7 +29,7 @@
       @close="processStatus = 'starting'"
       @rename-warehouse="renameWarehouse"
       @update-credentials="updateCredentials"
-      @update-delprofile="updateDelProfile"
+      @update-catalog-settings="updateCatalogSettings"
       @update-profile="updateProfile" />
   </v-toolbar>
 </template>
@@ -79,6 +79,7 @@ const warehouse = reactive<GetWarehouseResponse>({
     flavor: undefined,
   },
   protected: false,
+  'allowed-format-versions': [1, 2, 3],
 });
 
 const isNavigationCollapsed = computed({
@@ -161,19 +162,62 @@ async function updateProfile(newProfile: {
   }
 }
 
-async function updateDelProfile(profile: TabularDeleteProfile) {
+async function updateCatalogSettings(payload: {
+  deleteProfile?: TabularDeleteProfile;
+  formatPolicy?: { allowed: number[]; default: number };
+}) {
+  // Each part is independent: with Promise.all, a single rejection would skip
+  // the loadWarehouse() reconciliation and leave the UI inconsistent with what
+  // actually persisted. allSettled lets us report exact failures and always
+  // refresh.
+  const calls: Promise<unknown>[] = [];
+  const labels: string[] = [];
+  if (payload.deleteProfile) {
+    calls.push(
+      functions.updateWarehouseDeleteProfile(props.warehouseId, payload.deleteProfile, false),
+    );
+    labels.push('deletion profile');
+  }
+  if (payload.formatPolicy) {
+    calls.push(
+      functions.setWarehouseFormatVersionPolicy(
+        props.warehouseId,
+        payload.formatPolicy.allowed,
+        payload.formatPolicy.default,
+        false,
+      ),
+    );
+    labels.push('format-version policy');
+  }
+
+  const results = await Promise.allSettled(calls);
+  const failures = results
+    .map((r, i) => ({ r, label: labels[i] }))
+    .filter((x) => x.r.status === 'rejected');
+
   try {
-    await functions.updateWarehouseDeleteProfile(props.warehouseId, profile, true);
     await loadWarehouse();
+  } catch (error) {
+    functions.handleError(error, 'reloading warehouse after catalog settings update', true);
+  }
+
+  if (failures.length === 0) {
     visual.setSnackbarMsg({
-      function: 'updateDelProfile',
-      text: 'Deletion profile updated successfully',
+      function: 'updateCatalogSettings',
+      text: 'Catalog settings updated successfully',
       ttl: 3000,
       ts: Date.now(),
       type: Type.SUCCESS,
     });
-  } catch (error) {
-    console.error('Failed to update deletion profile:', error);
+    return;
+  }
+
+  for (const f of failures) {
+    functions.handleError(
+      (f.r as PromiseRejectedResult).reason,
+      `Failed to update ${f.label}`,
+      true,
+    );
   }
 }
 
