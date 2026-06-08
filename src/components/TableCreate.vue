@@ -336,6 +336,7 @@ function resetForm() {
   fields.value = [];
   error.value = null;
   success.value = false;
+  formatTab.value = 'iceberg';
 }
 
 function closeDialog() {

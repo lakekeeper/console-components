@@ -748,7 +748,11 @@ export function useGenericTablePermissions(
   );
 
   async function loadPermissions() {
-    if (!genericTableIdRef.value || !warehouseIdRef.value) return;
+    if (!genericTableIdRef.value || !warehouseIdRef.value) {
+      // Clear stale permissions from a previous (id-bound) target.
+      permissions.value = [];
+      return;
+    }
 
     loading.value = true;
     try {

@@ -101,6 +101,10 @@ onMounted(loadTableData);
 watch(() => [props.warehouseId, props.namespaceId, props.tableName], loadTableData);
 
 async function loadTableData() {
+  // Clear stale fields before fetching so a partial failure or a misnamed lookup
+  // can never leave the previous table's data or id visible.
+  for (const key of Object.keys(table)) delete (table as Record<string, unknown>)[key];
+  genericTableId.value = '';
   try {
     const response = await functions.loadGenericTable(
       props.warehouseId,
@@ -122,12 +126,13 @@ async function loadTableData() {
     );
     if (match?.id) genericTableId.value = match.id;
   } catch (error) {
-    console.error('Failed to load generic table data:', error);
+    functions.handleError(error, 'loading generic table data', true);
   }
 }
 
 async function setProtection() {
   if (!genericTableId.value) return;
+  const previous = recursiveDeleteProtection.value;
   try {
     await functions.setGenericTableProtection(
       props.warehouseId,
@@ -137,8 +142,10 @@ async function setProtection() {
     );
     recursiveDeleteProtection.value = pendingProtectionValue.value;
   } catch (error) {
-    console.error(error);
-    recursiveDeleteProtection.value = !recursiveDeleteProtection.value;
+    // Restore the actual prior state rather than toggling, so the switch always
+    // reflects what the server still has.
+    recursiveDeleteProtection.value = previous;
+    functions.handleError(error, 'updating generic table protection', true);
   }
 }
 

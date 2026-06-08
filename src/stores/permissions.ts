@@ -95,7 +95,11 @@ export const usePermissionStore = defineStore('permissions', () => {
       const whId = warehouseId || visual.whId;
 
       if (!whId) {
-        console.error('Failed to load generic table permissions: warehouseId not available');
+        functions.handleError(
+          new Error('warehouseId not available'),
+          'Failed to load generic table permissions',
+          true,
+        );
         return [];
       }
 

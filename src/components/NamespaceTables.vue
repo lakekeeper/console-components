@@ -267,8 +267,11 @@ async function loadGeneric(): Promise<TableRow[]> {
 
 async function paginationCheck(option: Options) {
   if (loadedRows.length >= 10000) return;
-  // Only the Iceberg list endpoint paginates; generic-tables loaded eagerly above.
-  if (option.page * option.itemsPerPage == loadedRows.length && paginationToken.value != '') {
+  // Only the Iceberg list endpoint paginates; the trigger has to be based on the
+  // Iceberg row count alone, otherwise generic-table rows would push the table
+  // past the current page and the "fetch next page" condition would never fire.
+  const icebergCount = loadedRows.filter((r) => r.source === 'iceberg').length;
+  if (option.page * option.itemsPerPage == icebergCount && paginationToken.value != '') {
     const more = await loadIceberg(paginationToken.value);
     loadedRows.push(...more);
   }
@@ -283,7 +286,7 @@ async function onDelete(e: any, item: TableRow) {
     }
     await loadAll();
   } catch (error) {
-    console.error(`Failed to drop ${item.source}-${item.name}`, error);
+    functions.handleError(error, `Failed to drop ${item.source}-${item.name}`, true);
   }
 }
 

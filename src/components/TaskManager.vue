@@ -681,8 +681,8 @@ async function runQueueNow(task: Task) {
       true,
     );
     await refreshTasks();
-  } catch {
-    /* handled by functions plugin */
+  } catch (error) {
+    functions.handleError(error, 'run-now queue task', true);
   }
 }
 
@@ -695,8 +695,8 @@ async function cancelQueueTask(task: Task) {
       true,
     );
     await refreshTasks();
-  } catch {
-    /* handled by functions plugin */
+  } catch (error) {
+    functions.handleError(error, 'cancel queue task', true);
   }
 }
 
@@ -708,9 +708,17 @@ const rescheduleSaving = ref(false);
 
 function openReschedule(task: Task) {
   rescheduleTarget.value = task;
-  // Pre-fill with the existing scheduled time, formatted for datetime-local
+  // Pre-fill with the existing scheduled time, in the user's local wall-clock,
+  // as a `datetime-local` input expects (`YYYY-MM-DDTHH:MM`). Slicing the ISO
+  // string would treat the UTC value as local time and shift it by the offset.
   const iso = task['scheduled-for'];
-  rescheduleAt.value = iso ? iso.slice(0, 16) : '';
+  if (iso) {
+    const d = new Date(iso);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    rescheduleAt.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } else {
+    rescheduleAt.value = '';
+  }
   rescheduleDialog.value = true;
 }
 
@@ -902,7 +910,7 @@ async function confirmCancelTask() {
     closeCancelConfirmDialog();
     await refreshTasks();
   } catch (error: any) {
-    console.error('Failed to cancel task:', error);
+    functions.handleError(error, 'cancel task', true);
   } finally {
     taskActionLoading.value = false;
   }
@@ -922,7 +930,7 @@ async function confirmRunTaskNow() {
     closeRunNowConfirmDialog();
     await refreshTasks();
   } catch (error: any) {
-    console.error('Failed to run task now:', error);
+    functions.handleError(error, 'run task now', true);
   } finally {
     taskActionLoading.value = false;
   }
@@ -1002,7 +1010,7 @@ async function stopTask(task: Task) {
     );
     await refreshTasks();
   } catch (error: any) {
-    console.error('Failed to stop task:', error);
+    functions.handleError(error, 'stop task', true);
   }
 }
 

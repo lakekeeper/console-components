@@ -356,6 +356,10 @@ const isDialogActive = ref(false);
 // Iceberg format-version policy (create-flow defaults: all allowed, v2 default).
 // Default mirrors server semantics: v2 if allowed, otherwise highest allowed.
 function pickDefaultFromAllowed(allowed: number[]): number {
+  // Guard against empty input. The btn-toggle is `mandatory` so this should not
+  // happen in practice, but `Math.max(...[])` returns -Infinity and would land
+  // in the payload if it ever did.
+  if (allowed.length === 0) return 2;
   if (allowed.includes(2)) return 2;
   return Math.max(...allowed);
 }

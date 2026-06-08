@@ -688,7 +688,12 @@ export function useGenericTableAuthorizerPermissions(
   );
 
   async function loadPermissions() {
-    if (!genericTableIdRef.value || !warehouseIdRef.value) return;
+    if (!genericTableIdRef.value || !warehouseIdRef.value) {
+      // Clear stale grants from a previous (id-bound) target so we never show
+      // permissions for something the user is no longer looking at.
+      permissions.value = [];
+      return;
+    }
 
     if (!config.enabledPermissions.value) {
       permissions.value = [];

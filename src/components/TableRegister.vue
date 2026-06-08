@@ -470,6 +470,7 @@ function resetForm() {
   totalAttempted.value = 0;
   succeededCount.value = 0;
   importError.value = '';
+  formatTab.value = 'iceberg';
 }
 
 function closeDialog() {

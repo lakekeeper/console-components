@@ -166,25 +166,42 @@ async function updateCatalogSettings(payload: {
   deleteProfile?: TabularDeleteProfile;
   formatPolicy?: { allowed: number[]; default: number };
 }) {
+  // Each part is independent: with Promise.all, a single rejection would skip
+  // the loadWarehouse() reconciliation and leave the UI inconsistent with what
+  // actually persisted. allSettled lets us report exact failures and always
+  // refresh.
+  const calls: Promise<unknown>[] = [];
+  const labels: string[] = [];
+  if (payload.deleteProfile) {
+    calls.push(
+      functions.updateWarehouseDeleteProfile(props.warehouseId, payload.deleteProfile, false),
+    );
+    labels.push('deletion profile');
+  }
+  if (payload.formatPolicy) {
+    calls.push(
+      functions.setWarehouseFormatVersionPolicy(
+        props.warehouseId,
+        payload.formatPolicy.allowed,
+        payload.formatPolicy.default,
+        false,
+      ),
+    );
+    labels.push('format-version policy');
+  }
+
+  const results = await Promise.allSettled(calls);
+  const failures = results
+    .map((r, i) => ({ r, label: labels[i] }))
+    .filter((x) => x.r.status === 'rejected');
+
   try {
-    const calls: Promise<unknown>[] = [];
-    if (payload.deleteProfile) {
-      calls.push(
-        functions.updateWarehouseDeleteProfile(props.warehouseId, payload.deleteProfile, false),
-      );
-    }
-    if (payload.formatPolicy) {
-      calls.push(
-        functions.setWarehouseFormatVersionPolicy(
-          props.warehouseId,
-          payload.formatPolicy.allowed,
-          payload.formatPolicy.default,
-          false,
-        ),
-      );
-    }
-    await Promise.all(calls);
     await loadWarehouse();
+  } catch (error) {
+    functions.handleError(error, 'reloading warehouse after catalog settings update', true);
+  }
+
+  if (failures.length === 0) {
     visual.setSnackbarMsg({
       function: 'updateCatalogSettings',
       text: 'Catalog settings updated successfully',
@@ -192,8 +209,15 @@ async function updateCatalogSettings(payload: {
       ts: Date.now(),
       type: Type.SUCCESS,
     });
-  } catch (error) {
-    console.error('Failed to update catalog settings:', error);
+    return;
+  }
+
+  for (const f of failures) {
+    functions.handleError(
+      (f.r as PromiseRejectedResult).reason,
+      `Failed to update ${f.label}`,
+      true,
+    );
   }
 }
 

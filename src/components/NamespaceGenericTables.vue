@@ -146,7 +146,7 @@ const headers: readonly Header[] = Object.freeze([
 ]);
 
 onMounted(loadGenericTables);
-watch(() => props.namespacePath, loadGenericTables);
+watch(() => [props.namespacePath, props.warehouseId], loadGenericTables);
 
 async function loadGenericTables() {
   forbidden.value = false;
@@ -210,7 +210,7 @@ async function deleteGenericTable(item: GenericTableIdentifierExtended) {
     await functions.dropGenericTable(props.warehouseId, props.namespacePath, item.name, notify);
     await loadGenericTables();
   } catch (error) {
-    console.error(`Failed to drop generic-table ${item.name}`, error);
+    functions.handleError(error, `Failed to drop generic-table ${item.name}`, true);
   }
 }
 
