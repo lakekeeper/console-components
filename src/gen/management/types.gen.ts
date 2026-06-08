@@ -1010,6 +1010,10 @@ export type LakekeeperRoleAction = {
     action: 'delete';
 } | {
     action: 'update';
+} | {
+    action: 'manage_role_assignments';
+} | {
+    action: 'read_role_assignments';
 };
 
 export type LakekeeperServerAction = {
@@ -1066,6 +1070,8 @@ export type LakekeeperUserAction = {
     action: 'update';
 } | {
     action: 'delete';
+} | {
+    action: 'read_role_assignments';
 };
 
 export type LakekeeperViewAction = {

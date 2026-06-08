@@ -137,7 +137,6 @@
                 class="text-overline text-medium-emphasis d-flex align-center mb-2"
                 style="gap: 8px">
                 General settings
-       
               </div>
 
               <v-row align="start" dense>

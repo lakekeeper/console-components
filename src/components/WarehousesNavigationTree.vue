@@ -109,9 +109,7 @@
                 :title="`Iceberg ${result.type}`">
                 <v-img :src="icebergIcon" width="18" height="18" />
               </v-icon>
-              <v-icon v-else size="small" color="grey" title="Generic table">
-                mdi-alpha-g
-              </v-icon>
+              <v-icon v-else size="small" color="grey" title="Generic table">mdi-alpha-g</v-icon>
             </template>
             <v-list-item-title class="text-caption">
               {{ result.name }}
@@ -208,15 +206,16 @@
             <span
               class="tree-item-title text-caption"
               :title="item.name"
-              @click="item.type === 'load-more' ? handleLoadMore(item) : handleNavigate(item)"
+              @click="onTitleClick(item)"
               :style="{
                 cursor:
-                  item.type === 'warehouse' ||
-                  item.type === 'namespace' ||
-                  item.type === 'table' ||
-                  item.type === 'view' ||
-                  item.type === 'generic-table' ||
-                  item.type === 'load-more'
+                  item.type === 'load-more' ||
+                  (!props.pickable &&
+                    (item.type === 'warehouse' ||
+                      item.type === 'namespace' ||
+                      item.type === 'table' ||
+                      item.type === 'view' ||
+                      item.type === 'generic-table'))
                     ? 'pointer'
                     : 'default',
                 fontStyle: item.type === 'load-more' ? 'italic' : 'normal',
@@ -224,7 +223,24 @@
               }">
               {{ item.name }}
             </span>
-            <v-menu v-if="item.type === 'namespace'">
+            <v-btn
+              v-if="
+                props.pickable &&
+                (item.type === 'warehouse' ||
+                  item.type === 'namespace' ||
+                  item.type === 'table' ||
+                  item.type === 'view' ||
+                  item.type === 'generic-table')
+              "
+              icon
+              size="x-small"
+              variant="text"
+              class="tree-item-action-btn"
+              :title="`Pick ${item.name}`"
+              @click.stop="handlePick(item)">
+              <v-icon size="small" color="primary">mdi-plus-circle-outline</v-icon>
+            </v-btn>
+            <v-menu v-if="!props.pickable && item.type === 'namespace'">
               <template v-slot:activator="{ props }">
                 <v-btn
                   icon
@@ -284,6 +300,9 @@ const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
   warehouseName?: string; // Optional: warehouse name for header
   activeNamespacePath?: string; // Dot-separated namespace path to auto-expand to
+  // When true, row click no longer navigates; a `+` button per row emits `pick` instead.
+  // Use this when the tree is used as a resource picker (e.g. Cedar Resolve).
+  pickable?: boolean;
 }>();
 
 const functions = useFunctions();
@@ -301,7 +320,38 @@ const emit = defineEmits<{
       tab?: string;
     },
   ): void;
+  (
+    e: 'pick',
+    item: {
+      type: string;
+      warehouseId: string;
+      namespaceId?: string;
+      name: string;
+      id?: string;
+    },
+  ): void;
 }>();
+
+function handlePick(item: TreeItem) {
+  emit('pick', {
+    type: item.type,
+    warehouseId: item.warehouseId,
+    namespaceId: item.namespaceId,
+    name: item.name,
+    id: item.id,
+  });
+}
+
+// In pickable mode, suppress row-click navigation entirely (treeview chevron still
+// handles expansion); only the `+` button picks. Load-more remains active.
+function onTitleClick(item: TreeItem) {
+  if (item.type === 'load-more') {
+    handleLoadMore(item);
+    return;
+  }
+  if (props.pickable) return;
+  handleNavigate(item);
+}
 
 interface TreeItem {
   id: string;
@@ -348,10 +398,7 @@ const hoveredItem = ref<string | null>(null);
 
 // Pagination tokens keyed by parent node id → { namespaces, tables, views, genericTables }
 const pageTokens = ref<
-  Record<
-    string,
-    { namespaces?: string; tables?: string; views?: string; genericTables?: string }
-  >
+  Record<string, { namespaces?: string; tables?: string; views?: string; genericTables?: string }>
 >({});
 const searchQuery = ref('');
 const selectedSearchWarehouse = ref<string | null>(props.warehouseId || null);
@@ -1005,10 +1052,7 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
       }
 
       // Add new load-more only when the page came back full
-      if (
-        response?.['next-page-token'] &&
-        (response.namespaces?.length ?? 0) >= TREE_PAGE_SIZE
-      ) {
+      if (response?.['next-page-token'] && (response.namespaces?.length ?? 0) >= TREE_PAGE_SIZE) {
         pageTokens.value[parentId] = { namespaces: response['next-page-token'] };
         parent.children.push({
           id: `load-more-${parentId}`,
@@ -1109,10 +1153,7 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
               loaded: false,
             });
           });
-          if (
-            data['next-page-token'] &&
-            (data.namespaces?.length ?? 0) >= TREE_PAGE_SIZE
-          ) {
+          if (data['next-page-token'] && (data.namespaces?.length ?? 0) >= TREE_PAGE_SIZE) {
             newTokens.namespaces = data['next-page-token'];
           }
         }
@@ -1129,10 +1170,7 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
               loaded: true,
             });
           });
-          if (
-            data['next-page-token'] &&
-            (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
-          ) {
+          if (data['next-page-token'] && (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE) {
             newTokens.tables = data['next-page-token'];
           }
         }
@@ -1148,10 +1186,7 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
               loaded: true,
             });
           });
-          if (
-            data['next-page-token'] &&
-            (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
-          ) {
+          if (data['next-page-token'] && (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE) {
             newTokens.views = data['next-page-token'];
           }
         }
@@ -1168,10 +1203,7 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
               loaded: true,
             });
           });
-          if (
-            data['next-page-token'] &&
-            (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE
-          ) {
+          if (data['next-page-token'] && (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE) {
             newTokens.genericTables = data['next-page-token'];
           }
         }
@@ -1517,7 +1549,6 @@ onBeforeUnmount(() => {
   min-width: max-content;
   background-color: transparent !important;
 }
-
 
 /* Force transparency on all treeview internal components */
 .tree-view :deep(.v-treeview),

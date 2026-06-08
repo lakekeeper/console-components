@@ -160,6 +160,124 @@
       </v-card>
     </v-expand-transition>
 
+    <!-- Per-entity maintenance summary: one card per queue with last/next + actions -->
+    <v-card
+      v-if="entityScoped && Object.keys(tasksByQueue).length > 0"
+      variant="outlined"
+      class="mb-4">
+      <v-card-title class="bg-surface-light d-flex align-center">
+        <v-icon icon="mdi-wrench" class="mr-2" color="primary"></v-icon>
+        Maintenance
+      </v-card-title>
+      <v-card-text>
+        <v-row dense>
+          <v-col v-for="(state, queue) in tasksByQueue" :key="queue" cols="12" md="6" lg="4">
+            <v-card variant="outlined" class="pa-3 h-100">
+              <div class="d-flex align-center mb-2">
+                <v-icon size="small" color="primary" class="mr-2">mdi-cog-outline</v-icon>
+                <span class="text-subtitle-2">{{ formatQueueName(String(queue)) }}</span>
+              </div>
+
+              <div class="text-caption text-medium-emphasis">Last run</div>
+              <div v-if="state.last" class="d-flex align-center mb-2">
+                <v-chip
+                  size="x-small"
+                  :color="state.last.status === 'SUCCESS' ? 'success' : 'error'"
+                  variant="tonal"
+                  class="mr-2">
+                  {{ state.last.status }}
+                </v-chip>
+                <span class="text-caption">
+                  {{ formatDate(state.last['updated-at'] || state.last['created-at']) }}
+                </span>
+              </div>
+              <div v-else class="text-caption text-disabled mb-2">—</div>
+
+              <div class="text-caption text-medium-emphasis">Next</div>
+              <div v-if="state.next" class="d-flex align-center mb-2">
+                <v-chip
+                  size="x-small"
+                  :color="state.next.status === 'RUNNING' ? 'info' : 'default'"
+                  variant="tonal"
+                  class="mr-2">
+                  {{ state.next.status }}
+                </v-chip>
+                <span class="text-caption">
+                  {{ formatDate(state.next['scheduled-for']) }}
+                </span>
+              </div>
+              <div v-else class="text-caption text-disabled mb-2">No upcoming run</div>
+
+              <div
+                v-if="state.next && canControlTasks"
+                class="d-flex flex-wrap mt-2"
+                style="gap: 6px">
+                <v-btn
+                  v-if="state.next.status === 'SCHEDULED'"
+                  size="x-small"
+                  variant="tonal"
+                  color="primary"
+                  prepend-icon="mdi-play"
+                  @click="runQueueNow(state.next)">
+                  Run now
+                </v-btn>
+                <v-btn
+                  v-if="state.next.status === 'SCHEDULED'"
+                  size="x-small"
+                  variant="tonal"
+                  prepend-icon="mdi-clock-edit-outline"
+                  @click="openReschedule(state.next)">
+                  Reschedule
+                </v-btn>
+                <v-btn
+                  v-if="state.next.status === 'SCHEDULED' || state.next.status === 'STOPPING'"
+                  size="x-small"
+                  variant="tonal"
+                  color="error"
+                  prepend-icon="mdi-close-circle-outline"
+                  @click="cancelQueueTask(state.next)">
+                  Cancel
+                </v-btn>
+              </div>
+            </v-card>
+          </v-col>
+        </v-row>
+      </v-card-text>
+    </v-card>
+
+    <!-- Reschedule dialog -->
+    <v-dialog v-model="rescheduleDialog" max-width="420" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon class="mr-2" color="primary">mdi-clock-edit-outline</v-icon>
+          Reschedule task
+        </v-card-title>
+        <v-card-text>
+          <div class="text-caption text-medium-emphasis mb-2">
+            {{ rescheduleTarget ? formatQueueName(rescheduleTarget['queue-name']) : '' }}
+          </div>
+          <v-text-field
+            v-model="rescheduleAt"
+            type="datetime-local"
+            label="Scheduled for"
+            variant="outlined"
+            density="compact"
+            hide-details="auto" />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="closeReschedule">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            :disabled="!rescheduleAt"
+            :loading="rescheduleSaving"
+            @click="confirmReschedule">
+            Reschedule
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <v-data-table
       v-if="!hasError"
       :loading="tasksLoading"
@@ -522,6 +640,107 @@ const tasksLoading = ref(false);
 const tasksNextPageToken = ref<string | undefined>(undefined);
 const hasError = ref(false);
 const errorMessage = ref('');
+
+// --- Per-entity maintenance summary ---
+const entityScoped = computed(
+  () => props.entityType && props.entityType !== 'warehouse' && !!getEntityId(),
+);
+
+const TERMINAL_STATUSES: TaskStatus[] = ['SUCCESS', 'FAILED', 'CANCELLED'];
+
+const tasksByQueue = computed<Record<string, { last?: Task; next?: Task }>>(() => {
+  if (!entityScoped.value) return {};
+  const grouped: Record<string, { last?: Task; next?: Task }> = {};
+  for (const t of tasks) {
+    const q = t['queue-name'];
+    if (!grouped[q]) grouped[q] = {};
+    if (TERMINAL_STATUSES.includes(t.status)) {
+      const cur = grouped[q].last;
+      const tTime = t['updated-at'] || t['created-at'];
+      const curTime = cur ? cur['updated-at'] || cur['created-at'] : null;
+      if (!cur || (curTime && tTime && tTime > curTime)) grouped[q].last = t;
+    } else {
+      const cur = grouped[q].next;
+      if (!cur || t['scheduled-for'] < cur['scheduled-for']) grouped[q].next = t;
+    }
+  }
+  return grouped;
+});
+
+function formatDate(value?: string | null): string {
+  if (!value) return '—';
+  return formatDateTime(value);
+}
+
+async function runQueueNow(task: Task) {
+  try {
+    await functions.controlTasks(
+      props.warehouseId,
+      { 'action-type': 'run-now' },
+      [task['task-id']],
+      true,
+    );
+    await refreshTasks();
+  } catch {
+    /* handled by functions plugin */
+  }
+}
+
+async function cancelQueueTask(task: Task) {
+  try {
+    await functions.controlTasks(
+      props.warehouseId,
+      { 'action-type': 'cancel' },
+      [task['task-id']],
+      true,
+    );
+    await refreshTasks();
+  } catch {
+    /* handled by functions plugin */
+  }
+}
+
+// Reschedule dialog state
+const rescheduleDialog = ref(false);
+const rescheduleTarget = ref<Task | null>(null);
+const rescheduleAt = ref('');
+const rescheduleSaving = ref(false);
+
+function openReschedule(task: Task) {
+  rescheduleTarget.value = task;
+  // Pre-fill with the existing scheduled time, formatted for datetime-local
+  const iso = task['scheduled-for'];
+  rescheduleAt.value = iso ? iso.slice(0, 16) : '';
+  rescheduleDialog.value = true;
+}
+
+function closeReschedule() {
+  rescheduleDialog.value = false;
+  rescheduleTarget.value = null;
+  rescheduleAt.value = '';
+}
+
+async function confirmReschedule() {
+  if (!rescheduleTarget.value || !rescheduleAt.value) return;
+  rescheduleSaving.value = true;
+  try {
+    await functions.controlTasks(
+      props.warehouseId,
+      {
+        'action-type': 'run-at',
+        'scheduled-for': new Date(rescheduleAt.value).toISOString(),
+      },
+      [rescheduleTarget.value['task-id']],
+      true,
+    );
+    closeReschedule();
+    await refreshTasks();
+  } catch {
+    /* handled by functions plugin */
+  } finally {
+    rescheduleSaving.value = false;
+  }
+}
 
 // Task details modal data
 const showTaskDetailsDialog = ref(false);

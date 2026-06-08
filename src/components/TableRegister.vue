@@ -28,198 +28,199 @@
 
       <v-tabs-window v-model="formatTab">
         <v-tabs-window-item value="iceberg">
+          <v-card-text>
+            <!-- Namespace Info -->
+            <v-alert type="info" variant="tonal" class="mb-4">
+              <div class="text-body-2">
+                <strong>Catalog:</strong>
+                {{ warehouseName }}
+                <br />
+                <strong>Namespace:</strong>
+                {{ displayNamespace }}
+              </div>
+            </v-alert>
 
-      <v-card-text>
-        <!-- Namespace Info -->
-        <v-alert type="info" variant="tonal" class="mb-4">
-          <div class="text-body-2">
-            <strong>Catalog:</strong>
-            {{ warehouseName }}
-            <br />
-            <strong>Namespace:</strong>
-            {{ displayNamespace }}
-          </div>
-        </v-alert>
-
-        <!-- Import from file -->
-        <div class="d-flex align-center mb-4 ga-2">
-          <v-btn
-            size="small"
-            variant="tonal"
-            color="primary"
-            prepend-icon="mdi-upload"
-            @click="triggerFileUpload"
-            :disabled="isRegistering">
-            Import from CSV / JSON
-          </v-btn>
-          <v-menu>
-            <template #activator="{ props: menuProps }">
+            <!-- Import from file -->
+            <div class="d-flex align-center mb-4 ga-2">
               <v-btn
-                v-bind="menuProps"
                 size="small"
                 variant="tonal"
-                prepend-icon="mdi-download"
+                color="primary"
+                prepend-icon="mdi-upload"
+                @click="triggerFileUpload"
                 :disabled="isRegistering">
-                Download Template
+                Import from CSV / JSON
               </v-btn>
-            </template>
-            <v-list density="compact">
-              <v-list-item @click="downloadTemplate('csv')" prepend-icon="mdi-file-delimited">
-                <v-list-item-title>CSV Template</v-list-item-title>
-              </v-list-item>
-              <v-list-item @click="downloadTemplate('json')" prepend-icon="mdi-code-json">
-                <v-list-item-title>JSON Template</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-menu>
-          <input
-            ref="fileInput"
-            type="file"
-            accept=".csv,.json"
-            style="display: none"
-            @change="handleFileUpload" />
-          <v-chip
-            v-if="importError"
-            color="error"
-            size="small"
-            closable
-            @click:close="importError = ''">
-            {{ importError }}
-          </v-chip>
-        </div>
-
-        <!-- Column headers -->
-        <v-row dense class="text-caption text-medium-emphasis mb-1 px-1" no-gutters>
-          <v-col cols="3">Table Name</v-col>
-          <v-col cols="5">Metadata Location</v-col>
-          <v-col cols="2" class="text-center">Overwrite</v-col>
-          <v-col cols="2" class="text-center">Actions</v-col>
-        </v-row>
-
-        <v-divider class="mb-2"></v-divider>
-
-        <!-- Table entries -->
-        <v-row
-          v-for="(entry, index) in tableEntries"
-          :key="index"
-          dense
-          no-gutters
-          align="center"
-          class="mb-2">
-          <v-col cols="3" class="pr-2">
-            <v-text-field
-              v-model="entry.name"
-              placeholder="my_table"
-              variant="outlined"
-              density="compact"
-              :rules="[rules.required, rules.validIdentifier]"
-              :disabled="isRegistering"
-              hide-details="auto"></v-text-field>
-          </v-col>
-
-          <v-col cols="5" class="pr-2">
-            <v-text-field
-              v-model="entry.metadataLocation"
-              placeholder="s3://bucket/path/to/v1.metadata.json"
-              variant="outlined"
-              density="compact"
-              :rules="[rules.required, rules.validUrl]"
-              :disabled="isRegistering"
-              hide-details="auto"></v-text-field>
-          </v-col>
-
-          <v-col cols="2" class="d-flex justify-center">
-            <v-checkbox
-              v-model="entry.overwrite"
-              density="compact"
-              color="warning"
-              :disabled="isRegistering"
-              hide-details></v-checkbox>
-          </v-col>
-
-          <v-col cols="2" class="d-flex justify-center align-center ga-1">
-            <!-- Status indicator -->
-            <v-icon v-if="entry.status === 'success'" color="success" size="small">
-              mdi-check-circle
-            </v-icon>
-            <v-tooltip v-else-if="entry.status === 'error'" location="top" max-width="400">
-              <template #activator="{ props: tooltipProps }">
-                <v-icon v-bind="tooltipProps" color="error" size="small">mdi-alert-circle</v-icon>
-              </template>
-              <span>{{ entry.errorMessage }}</span>
-            </v-tooltip>
-            <v-progress-circular
-              v-else-if="entry.status === 'loading'"
-              indeterminate
-              size="18"
-              width="2"
-              color="primary"></v-progress-circular>
-
-            <v-btn
-              icon="mdi-close"
-              size="x-small"
-              variant="text"
-              color="error"
-              :disabled="isRegistering || tableEntries.length <= 1"
-              @click="removeEntry(index)"></v-btn>
-          </v-col>
-        </v-row>
-
-        <!-- Add row button -->
-        <v-btn
-          size="small"
-          variant="text"
-          color="primary"
-          prepend-icon="mdi-plus"
-          @click="addEntry"
-          :disabled="isRegistering"
-          class="mb-4">
-          Add Table
-        </v-btn>
-
-        <!-- Results summary after registration -->
-        <v-alert
-          v-if="registrationDone && failedEntries.length > 0"
-          type="warning"
-          variant="tonal"
-          class="mt-4">
-          <div class="text-body-2">
-            <strong>
-              {{ succeededCount }} of {{ totalAttempted }} table(s) registered successfully.
-            </strong>
-            <div class="mt-2">
-              <div v-for="entry in failedEntries" :key="entry.name" class="d-flex align-center">
-                <v-icon size="x-small" color="error" class="mr-1">mdi-close-circle</v-icon>
-                <strong>{{ entry.name }}:</strong>
-                &nbsp;{{ entry.errorMessage }}
-              </div>
+              <v-menu>
+                <template #activator="{ props: menuProps }">
+                  <v-btn
+                    v-bind="menuProps"
+                    size="small"
+                    variant="tonal"
+                    prepend-icon="mdi-download"
+                    :disabled="isRegistering">
+                    Download Template
+                  </v-btn>
+                </template>
+                <v-list density="compact">
+                  <v-list-item @click="downloadTemplate('csv')" prepend-icon="mdi-file-delimited">
+                    <v-list-item-title>CSV Template</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item @click="downloadTemplate('json')" prepend-icon="mdi-code-json">
+                    <v-list-item-title>JSON Template</v-list-item-title>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
+              <input
+                ref="fileInput"
+                type="file"
+                accept=".csv,.json"
+                style="display: none"
+                @change="handleFileUpload" />
+              <v-chip
+                v-if="importError"
+                color="error"
+                size="small"
+                closable
+                @click:close="importError = ''">
+                {{ importError }}
+              </v-chip>
             </div>
-          </div>
-        </v-alert>
-        <v-alert
-          v-else-if="registrationDone && failedEntries.length === 0"
-          type="success"
-          variant="tonal"
-          class="mt-4">
-          All {{ totalAttempted }} table(s) registered successfully.
-        </v-alert>
-      </v-card-text>
 
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn variant="text" @click="closeDialog" :disabled="isRegistering">
-          {{ registrationDone ? 'Close' : 'Cancel' }}
-        </v-btn>
-        <v-btn
-          v-if="!registrationDone"
-          color="secondary"
-          variant="elevated"
-          @click="registerTables"
-          :disabled="!canRegister || isRegistering"
-          :loading="isRegistering">
-          Register {{ validEntries.length }} Table{{ validEntries.length !== 1 ? 's' : '' }}
-        </v-btn>
-      </v-card-actions>
+            <!-- Column headers -->
+            <v-row dense class="text-caption text-medium-emphasis mb-1 px-1" no-gutters>
+              <v-col cols="3">Table Name</v-col>
+              <v-col cols="5">Metadata Location</v-col>
+              <v-col cols="2" class="text-center">Overwrite</v-col>
+              <v-col cols="2" class="text-center">Actions</v-col>
+            </v-row>
+
+            <v-divider class="mb-2"></v-divider>
+
+            <!-- Table entries -->
+            <v-row
+              v-for="(entry, index) in tableEntries"
+              :key="index"
+              dense
+              no-gutters
+              align="center"
+              class="mb-2">
+              <v-col cols="3" class="pr-2">
+                <v-text-field
+                  v-model="entry.name"
+                  placeholder="my_table"
+                  variant="outlined"
+                  density="compact"
+                  :rules="[rules.required, rules.validIdentifier]"
+                  :disabled="isRegistering"
+                  hide-details="auto"></v-text-field>
+              </v-col>
+
+              <v-col cols="5" class="pr-2">
+                <v-text-field
+                  v-model="entry.metadataLocation"
+                  placeholder="s3://bucket/path/to/v1.metadata.json"
+                  variant="outlined"
+                  density="compact"
+                  :rules="[rules.required, rules.validUrl]"
+                  :disabled="isRegistering"
+                  hide-details="auto"></v-text-field>
+              </v-col>
+
+              <v-col cols="2" class="d-flex justify-center">
+                <v-checkbox
+                  v-model="entry.overwrite"
+                  density="compact"
+                  color="warning"
+                  :disabled="isRegistering"
+                  hide-details></v-checkbox>
+              </v-col>
+
+              <v-col cols="2" class="d-flex justify-center align-center ga-1">
+                <!-- Status indicator -->
+                <v-icon v-if="entry.status === 'success'" color="success" size="small">
+                  mdi-check-circle
+                </v-icon>
+                <v-tooltip v-else-if="entry.status === 'error'" location="top" max-width="400">
+                  <template #activator="{ props: tooltipProps }">
+                    <v-icon v-bind="tooltipProps" color="error" size="small">
+                      mdi-alert-circle
+                    </v-icon>
+                  </template>
+                  <span>{{ entry.errorMessage }}</span>
+                </v-tooltip>
+                <v-progress-circular
+                  v-else-if="entry.status === 'loading'"
+                  indeterminate
+                  size="18"
+                  width="2"
+                  color="primary"></v-progress-circular>
+
+                <v-btn
+                  icon="mdi-close"
+                  size="x-small"
+                  variant="text"
+                  color="error"
+                  :disabled="isRegistering || tableEntries.length <= 1"
+                  @click="removeEntry(index)"></v-btn>
+              </v-col>
+            </v-row>
+
+            <!-- Add row button -->
+            <v-btn
+              size="small"
+              variant="text"
+              color="primary"
+              prepend-icon="mdi-plus"
+              @click="addEntry"
+              :disabled="isRegistering"
+              class="mb-4">
+              Add Table
+            </v-btn>
+
+            <!-- Results summary after registration -->
+            <v-alert
+              v-if="registrationDone && failedEntries.length > 0"
+              type="warning"
+              variant="tonal"
+              class="mt-4">
+              <div class="text-body-2">
+                <strong>
+                  {{ succeededCount }} of {{ totalAttempted }} table(s) registered successfully.
+                </strong>
+                <div class="mt-2">
+                  <div v-for="entry in failedEntries" :key="entry.name" class="d-flex align-center">
+                    <v-icon size="x-small" color="error" class="mr-1">mdi-close-circle</v-icon>
+                    <strong>{{ entry.name }}:</strong>
+                    &nbsp;{{ entry.errorMessage }}
+                  </div>
+                </div>
+              </div>
+            </v-alert>
+            <v-alert
+              v-else-if="registrationDone && failedEntries.length === 0"
+              type="success"
+              variant="tonal"
+              class="mt-4">
+              All {{ totalAttempted }} table(s) registered successfully.
+            </v-alert>
+          </v-card-text>
+
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn variant="text" @click="closeDialog" :disabled="isRegistering">
+              {{ registrationDone ? 'Close' : 'Cancel' }}
+            </v-btn>
+            <v-btn
+              v-if="!registrationDone"
+              color="secondary"
+              variant="elevated"
+              @click="registerTables"
+              :disabled="!canRegister || isRegistering"
+              :loading="isRegistering">
+              Register {{ validEntries.length }} Table{{ validEntries.length !== 1 ? 's' : '' }}
+            </v-btn>
+          </v-card-actions>
         </v-tabs-window-item>
 
         <v-tabs-window-item value="generic">
@@ -227,9 +228,9 @@
             <v-alert type="info" variant="tonal" prominent class="my-2">
               <div class="text-body-1 font-weight-bold mb-2">Roadmap</div>
               <div class="text-body-2">
-                Registering existing generic tables (Lance, Delta, Vortex, …) through the UI
-                is on the roadmap. For now, register them via your data engine and they will
-                appear here automatically.
+                Registering existing generic tables (Lance, Delta, Vortex, …) through the UI is on
+                the roadmap. For now, register them via your data engine and they will appear here
+                automatically.
               </div>
             </v-alert>
           </v-card-text>

@@ -209,10 +209,7 @@ watch(() => props.namespacePath, loadAll);
 async function loadAll() {
   forbidden.value = false;
   try {
-    const [icebergRows, genericRows] = await Promise.all([
-      loadIceberg(undefined),
-      loadGeneric(),
-    ]);
+    const [icebergRows, genericRows] = await Promise.all([loadIceberg(undefined), loadGeneric()]);
     loadedRows.splice(0, loadedRows.length);
     loadedRows.push(...icebergRows, ...genericRows);
   } catch (error) {

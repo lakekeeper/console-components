@@ -28,163 +28,162 @@
 
       <v-tabs-window v-model="formatTab">
         <v-tabs-window-item value="iceberg">
+          <v-card-text>
+            <!-- Table Name -->
+            <v-text-field
+              v-model="tableName"
+              label="Table Name"
+              placeholder="my_table"
+              variant="outlined"
+              density="comfortable"
+              :rules="[rules.required, rules.validIdentifier]"
+              class="mb-4"
+              autofocus></v-text-field>
 
-      <v-card-text>
-        <!-- Table Name -->
-        <v-text-field
-          v-model="tableName"
-          label="Table Name"
-          placeholder="my_table"
-          variant="outlined"
-          density="comfortable"
-          :rules="[rules.required, rules.validIdentifier]"
-          class="mb-4"
-          autofocus></v-text-field>
+            <!-- S3/GCS + HTTP Warning -->
+            <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
+              <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
+              <div class="text-body-2">
+                {{ storageValidation.httpWarningMessage }}
+              </div>
+            </v-alert>
 
-        <!-- S3/GCS + HTTP Warning -->
-        <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
-          <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
-          <div class="text-body-2">
-            {{ storageValidation.httpWarningMessage }}
-          </div>
-        </v-alert>
+            <!-- Table Creation Not Available Warning -->
+            <v-alert
+              v-if="!isCreateAvailable.available"
+              type="warning"
+              variant="tonal"
+              prominent
+              class="mb-4">
+              <div class="text-body-1 font-weight-bold mb-2">
+                <v-icon class="mr-2">mdi-alert</v-icon>
+                Table Creation Not Available
+              </div>
+              <div class="text-body-2">{{ isCreateAvailable.reason }}</div>
+              <div class="text-body-2 mt-3">
+                <strong>Requirements for DuckDB WASM:</strong>
+                <ul class="mt-2">
+                  <li>{{ storageValidation.requirementsText.value.storageRequirement }}</li>
+                  <li>{{ storageValidation.requirementsText.value.protocolRequirement }}</li>
+                </ul>
+              </div>
+            </v-alert>
+            <!-- Namespace Info -->
+            <v-alert type="info" variant="tonal" class="mb-4">
+              <div class="text-body-2">
+                <strong>Catalog:</strong>
+                {{ warehouseName }}
+                <br />
+                <strong>Namespace:</strong>
+                {{ namespaceId }}
+              </div>
+            </v-alert>
 
-        <!-- Table Creation Not Available Warning -->
-        <v-alert
-          v-if="!isCreateAvailable.available"
-          type="warning"
-          variant="tonal"
-          prominent
-          class="mb-4">
-          <div class="text-body-1 font-weight-bold mb-2">
-            <v-icon class="mr-2">mdi-alert</v-icon>
-            Table Creation Not Available
-          </div>
-          <div class="text-body-2">{{ isCreateAvailable.reason }}</div>
-          <div class="text-body-2 mt-3">
-            <strong>Requirements for DuckDB WASM:</strong>
-            <ul class="mt-2">
-              <li>{{ storageValidation.requirementsText.value.storageRequirement }}</li>
-              <li>{{ storageValidation.requirementsText.value.protocolRequirement }}</li>
-            </ul>
-          </div>
-        </v-alert>
-        <!-- Namespace Info -->
-        <v-alert type="info" variant="tonal" class="mb-4">
-          <div class="text-body-2">
-            <strong>Catalog:</strong>
-            {{ warehouseName }}
-            <br />
-            <strong>Namespace:</strong>
-            {{ namespaceId }}
-          </div>
-        </v-alert>
+            <!-- Schema Fields -->
+            <div class="mb-4">
+              <div class="d-flex justify-space-between align-center mb-2">
+                <span class="text-h6">Schema</span>
+                <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="addField">
+                  Add Field
+                </v-btn>
+              </div>
 
-        <!-- Schema Fields -->
-        <div class="mb-4">
-          <div class="d-flex justify-space-between align-center mb-2">
-            <span class="text-h6">Schema</span>
-            <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="addField">
-              Add Field
+              <v-alert v-if="fields.length === 0" type="warning" variant="tonal">
+                No fields defined. Add at least one field to create the table.
+              </v-alert>
+
+              <v-list v-else lines="two" class="pa-0">
+                <v-list-item
+                  v-for="(field, index) in fields"
+                  :key="index"
+                  class="px-0 mb-2 border rounded">
+                  <v-row dense class="px-4">
+                    <!-- Field Name -->
+                    <v-col cols="12" sm="4">
+                      <v-text-field
+                        v-model="field.name"
+                        label="Field Name"
+                        placeholder="column_name"
+                        variant="outlined"
+                        density="compact"
+                        :rules="[rules.required, rules.validIdentifier]"
+                        hide-details="auto"></v-text-field>
+                    </v-col>
+
+                    <!-- Field Type -->
+                    <v-col cols="12" sm="4">
+                      <v-select
+                        v-model="field.type"
+                        :items="icebergDataTypes"
+                        label="Data Type"
+                        variant="outlined"
+                        density="compact"
+                        :rules="[rules.required]"
+                        hide-details="auto"></v-select>
+                    </v-col>
+
+                    <!-- Nullable + Delete -->
+                    <v-col cols="12" sm="4" class="d-flex align-center">
+                      <v-checkbox
+                        v-model="field.nullable"
+                        label="Nullable"
+                        density="compact"
+                        hide-details></v-checkbox>
+                      <v-spacer></v-spacer>
+                      <v-btn
+                        icon="mdi-delete"
+                        size="small"
+                        color="error"
+                        variant="text"
+                        @click="removeField(index)"></v-btn>
+                    </v-col>
+                  </v-row>
+                </v-list-item>
+              </v-list>
+            </div>
+
+            <!-- SQL Preview -->
+            <v-expansion-panels v-if="sqlPreview" class="mb-4">
+              <v-expansion-panel>
+                <v-expansion-panel-title>
+                  <v-icon class="mr-2">mdi-code-braces</v-icon>
+                  SQL Preview
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                  <pre class="bg-grey-lighten-4 pa-3 rounded text-caption">{{ sqlPreview }}</pre>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+
+            <!-- Error Message -->
+            <v-alert v-if="error" type="error" variant="tonal" class="mb-4">
+              {{ error }}
+            </v-alert>
+
+            <!-- Loading State -->
+            <v-alert v-if="isCreating" type="info" variant="tonal" class="mb-4">
+              <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
+              Creating table...
+            </v-alert>
+
+            <!-- Success Message -->
+            <v-alert v-if="success" type="success" variant="tonal" class="mb-4">
+              Table created successfully!
+            </v-alert>
+          </v-card-text>
+
+          <v-card-actions>
+            <v-spacer></v-spacer>
+            <v-btn variant="text" @click="closeDialog" :disabled="isCreating">Cancel</v-btn>
+            <v-btn
+              color="primary"
+              variant="elevated"
+              @click="createTable"
+              :disabled="!canCreate || isCreating"
+              :loading="isCreating">
+              Create Table
             </v-btn>
-          </div>
-
-          <v-alert v-if="fields.length === 0" type="warning" variant="tonal">
-            No fields defined. Add at least one field to create the table.
-          </v-alert>
-
-          <v-list v-else lines="two" class="pa-0">
-            <v-list-item
-              v-for="(field, index) in fields"
-              :key="index"
-              class="px-0 mb-2 border rounded">
-              <v-row dense class="px-4">
-                <!-- Field Name -->
-                <v-col cols="12" sm="4">
-                  <v-text-field
-                    v-model="field.name"
-                    label="Field Name"
-                    placeholder="column_name"
-                    variant="outlined"
-                    density="compact"
-                    :rules="[rules.required, rules.validIdentifier]"
-                    hide-details="auto"></v-text-field>
-                </v-col>
-
-                <!-- Field Type -->
-                <v-col cols="12" sm="4">
-                  <v-select
-                    v-model="field.type"
-                    :items="icebergDataTypes"
-                    label="Data Type"
-                    variant="outlined"
-                    density="compact"
-                    :rules="[rules.required]"
-                    hide-details="auto"></v-select>
-                </v-col>
-
-                <!-- Nullable + Delete -->
-                <v-col cols="12" sm="4" class="d-flex align-center">
-                  <v-checkbox
-                    v-model="field.nullable"
-                    label="Nullable"
-                    density="compact"
-                    hide-details></v-checkbox>
-                  <v-spacer></v-spacer>
-                  <v-btn
-                    icon="mdi-delete"
-                    size="small"
-                    color="error"
-                    variant="text"
-                    @click="removeField(index)"></v-btn>
-                </v-col>
-              </v-row>
-            </v-list-item>
-          </v-list>
-        </div>
-
-        <!-- SQL Preview -->
-        <v-expansion-panels v-if="sqlPreview" class="mb-4">
-          <v-expansion-panel>
-            <v-expansion-panel-title>
-              <v-icon class="mr-2">mdi-code-braces</v-icon>
-              SQL Preview
-            </v-expansion-panel-title>
-            <v-expansion-panel-text>
-              <pre class="bg-grey-lighten-4 pa-3 rounded text-caption">{{ sqlPreview }}</pre>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
-
-        <!-- Error Message -->
-        <v-alert v-if="error" type="error" variant="tonal" class="mb-4">
-          {{ error }}
-        </v-alert>
-
-        <!-- Loading State -->
-        <v-alert v-if="isCreating" type="info" variant="tonal" class="mb-4">
-          <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
-          Creating table...
-        </v-alert>
-
-        <!-- Success Message -->
-        <v-alert v-if="success" type="success" variant="tonal" class="mb-4">
-          Table created successfully!
-        </v-alert>
-      </v-card-text>
-
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn variant="text" @click="closeDialog" :disabled="isCreating">Cancel</v-btn>
-        <v-btn
-          color="primary"
-          variant="elevated"
-          @click="createTable"
-          :disabled="!canCreate || isCreating"
-          :loading="isCreating">
-          Create Table
-        </v-btn>
-      </v-card-actions>
+          </v-card-actions>
         </v-tabs-window-item>
 
         <v-tabs-window-item value="generic">
@@ -192,9 +191,9 @@
             <v-alert type="info" variant="tonal" prominent class="my-2">
               <div class="text-body-1 font-weight-bold mb-2">Roadmap</div>
               <div class="text-body-2">
-                Creating generic tables (Lance, Delta, Vortex, …) through the UI is on the
-                roadmap. For now, create them from your data engine (for example a Lance
-                writer) and they will appear here automatically.
+                Creating generic tables (Lance, Delta, Vortex, …) through the UI is on the roadmap.
+                For now, create them from your data engine (for example a Lance writer) and they
+                will appear here automatically.
               </div>
             </v-alert>
           </v-card-text>
