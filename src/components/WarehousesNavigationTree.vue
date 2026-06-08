@@ -562,39 +562,9 @@ async function navigateToSearchResult(result: {
   warehouseId: string;
   namespaceId: string;
 }) {
-  const apiNamespace = namespacePathToApiFormat(result.namespaceId);
-
-  // Permission pre-check with notify=false (completely silent)
-  try {
-    if (result.type === 'table') {
-      await functions.loadTable(result.warehouseId, apiNamespace, result.name, false);
-    } else if (result.type === 'view') {
-      await functions.loadView(result.warehouseId, apiNamespace, result.name, false);
-    } else if (result.type === 'generic-table') {
-      await functions.loadGenericTable(result.warehouseId, apiNamespace, result.name, false);
-    }
-  } catch (error: any) {
-    const code = error?.error?.code || error?.status || error?.response?.status || 0;
-    const message = error?.error?.message || error?.message || 'An unknown error occurred';
-    if (code === 403 || code === 404) {
-      visualStore.setSnackbarMsg({
-        function: 'navigateToSearchResult',
-        text: `Access denied: ${result.type} "${result.name}"`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    } else {
-      visualStore.setSnackbarMsg({
-        function: 'navigateToSearchResult',
-        text: message,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    }
-    return;
-  }
+  // No permission pre-check: the detail page renders a friendly not-found /
+  // forbidden alert inline, so we always navigate (or emit pick) and let it
+  // handle the error state.
 
   // Expand the tree to show the full path to this item
   await expandTreeToPath(result.warehouseId, result.namespaceId);
@@ -1321,40 +1291,10 @@ async function handleNavigate(item: TreeItem) {
     return;
   }
 
-  // Permission pre-check for tables, views and generic tables (notify=false — completely silent)
-  try {
-    if (item.type === 'table' && item.namespaceId) {
-      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-      await functions.loadTable(item.warehouseId, apiNamespace, item.name, false);
-    } else if (item.type === 'view' && item.namespaceId) {
-      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-      await functions.loadView(item.warehouseId, apiNamespace, item.name, false);
-    } else if (item.type === 'generic-table' && item.namespaceId) {
-      const apiNamespace = namespacePathToApiFormat(item.namespaceId);
-      await functions.loadGenericTable(item.warehouseId, apiNamespace, item.name, false);
-    }
-  } catch (error: any) {
-    const code = error?.error?.code || error?.status || error?.response?.status || 0;
-    const message = error?.error?.message || error?.message || 'An unknown error occurred';
-    if (code === 403 || code === 404) {
-      visualStore.setSnackbarMsg({
-        function: 'handleNavigate',
-        text: `Access denied: ${item.type} "${item.name}"`,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    } else {
-      visualStore.setSnackbarMsg({
-        function: 'handleNavigate',
-        text: message,
-        ttl: 3000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    }
-    return;
-  }
+  // No permission pre-check for tables / views / generic tables. The detail
+  // pages already render a friendly not-found / forbidden v-alert inline, so
+  // blocking navigation here adds a wasted round-trip and prevents the user
+  // from even seeing the resource breadcrumbs.
 
   // Save warehouse subtree state so the target page's tree picks up the expanded state
   saveWarehouseSubtreeState(item.warehouseId);

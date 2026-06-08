@@ -127,7 +127,6 @@ import { computed, reactive, ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
-import { Type } from '@/common/enums';
 import type { Header, Options } from '@/common/interfaces';
 import type { TableIdentifier } from '@/gen/iceberg/types.gen';
 import type { GenericTableIdentifier } from '@/gen/generic-table/types.gen';
@@ -290,27 +289,11 @@ async function onDelete(e: any, item: TableRow) {
   }
 }
 
-async function routeToRow(item: TableRow) {
+function routeToRow(item: TableRow) {
+  // No permission pre-check: the detail page already renders a friendly
+  // not-found / forbidden alert inline, so blocking navigation here just adds
+  // a wasted round-trip and a less informative snackbar.
   const segment = item.source === 'generic' ? 'generic-table' : 'table';
-  try {
-    if (item.source === 'generic') {
-      await functions.loadGenericTable(props.warehouseId, props.namespacePath, item.name, false);
-    } else {
-      await functions.loadTable(props.warehouseId, props.namespacePath, item.name, false);
-    }
-  } catch (error: any) {
-    const code = error?.error?.code || error?.status || error?.response?.status || 0;
-    const message = error?.error?.message || error?.message || 'An unknown error occurred';
-    const label = item.source === 'generic' ? 'generic table' : 'table';
-    visual.setSnackbarMsg({
-      function: 'routeToRow',
-      text: code === 403 || code === 404 ? `Access denied: ${label} "${item.name}"` : message,
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
-    return;
-  }
   router.push(
     `/warehouse/${props.warehouseId}/namespace/${props.namespacePath}/${segment}/${encodeURIComponent(item.name)}`,
   );
