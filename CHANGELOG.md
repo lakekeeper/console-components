@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.8.0](https://github.com/lakekeeper/console-components/compare/v0.7.2...v0.8.0) (2026-06-08)
+
+
+### Features
+
+* **ui:** add \`pickable\` mode + \`+\` action button to WarehousesNavigationTree ([4fcbb4a](https://github.com/lakekeeper/console-components/commit/4fcbb4a1a47df1fcbe684ebe64f8bb1977764dc9))
+* **ui:** add generic-table (Lance/Delta/Vortex/…) support across navigation, list, detail, and search ([4fcbb4a](https://github.com/lakekeeper/console-components/commit/4fcbb4a1a47df1fcbe684ebe64f8bb1977764dc9))
+* **ui:** add Iceberg format-version policy editor to warehouse create and "Catalog Settings" dialogs ([4fcbb4a](https://github.com/lakekeeper/console-components/commit/4fcbb4a1a47df1fcbe684ebe64f8bb1977764dc9))
+* **ui:** add per-queue maintenance summary (last/next/run-now/reschedule/cancel) inside TaskManager ([4fcbb4a](https://github.com/lakekeeper/console-components/commit/4fcbb4a1a47df1fcbe684ebe64f8bb1977764dc9))
+* **ui:** rename "Change Deletion" to "Catalog Settings" combining deletion + format policy in one update ([4fcbb4a](https://github.com/lakekeeper/console-components/commit/4fcbb4a1a47df1fcbe684ebe64f8bb1977764dc9))
+* **ui:** unify Iceberg + generic tables under one Tables tab with format icons and type filter ([4fcbb4a](https://github.com/lakekeeper/console-components/commit/4fcbb4a1a47df1fcbe684ebe64f8bb1977764dc9))
+
 ## [0.7.2](https://github.com/lakekeeper/console-components/compare/v0.7.1...v0.7.2) (2026-05-27)
 
 
