@@ -285,6 +285,59 @@
                 </v-card-text>
               </v-card>
 
+              <!-- OneLake Storage -->
+              <v-card v-if="warehouse['storage-profile'].type === 'onelake'" variant="outlined">
+                <v-card-title class="bg-surface-light d-flex align-center">
+                  <v-icon icon="mdi-microsoft" class="mr-2" color="blue"></v-icon>
+                  Microsoft OneLake Configuration
+                </v-card-title>
+                <v-card-text>
+                  <v-row dense>
+                    <v-col cols="12">
+                      <div class="text-overline text-medium-emphasis">Workspace ID</div>
+                      <div class="text-body-1 text-mono mt-2">
+                        {{ warehouse['storage-profile']['workspace-id'] }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12">
+                      <div class="text-overline text-medium-emphasis">Lakehouse ID</div>
+                      <div class="text-body-1 text-mono mt-2">
+                        {{ warehouse['storage-profile']['lakehouse-id'] }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                      <div class="text-overline text-medium-emphasis">Top-level folder</div>
+                      <div class="text-body-1 text-mono mt-2">
+                        {{ warehouse['storage-profile']['top-level-folder'] || 'Files' }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                      <div class="text-overline text-medium-emphasis">Directory path</div>
+                      <div class="text-body-1 text-mono mt-2">
+                        {{ warehouse['storage-profile']['directory-rel-path'] || '-' }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                      <div class="text-overline text-medium-emphasis">Endpoint mode</div>
+                      <div class="text-body-1 text-mono mt-2">
+                        {{ warehouse['storage-profile']['endpoint-mode']?.type || 'default' }}
+                      </div>
+                    </v-col>
+                    <v-col cols="12" sm="6">
+                      <div class="text-overline text-medium-emphasis">SAS enabled</div>
+                      <div class="text-body-1 mt-2">
+                        <v-chip
+                          size="small"
+                          :color="warehouse['storage-profile']['sas-enabled'] ? 'success' : 'default'"
+                          variant="tonal">
+                          {{ warehouse['storage-profile']['sas-enabled'] ? 'Yes' : 'No' }}
+                        </v-chip>
+                      </div>
+                    </v-col>
+                  </v-row>
+                </v-card-text>
+              </v-card>
+
               <!-- GCS Storage -->
               <v-card v-if="warehouse['storage-profile'].type === 'gcs'" variant="outlined">
                 <v-card-title class="bg-surface-light d-flex align-center">

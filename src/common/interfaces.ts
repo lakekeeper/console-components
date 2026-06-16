@@ -4,6 +4,7 @@ import {
   AzCredential,
   GcsCredential,
   GcsProfile,
+  OneLakeProfile,
   NamespaceAssignment,
   ProjectAssignment,
   RoleAssignment,
@@ -98,6 +99,7 @@ export interface WarehousObject {
   'storage-profile':
     | (S3Profile & { type: string })
     | (AdlsProfile & { type: string })
+    | (OneLakeProfile & { type: string })
     | (GcsProfile & { type: string });
   'storage-credential':
     | (S3Credential & { type: string })

@@ -207,6 +207,10 @@ function getStorageIcon(item: GetWarehouseResponseExtended) {
     );
   }
 
+  if (profile.type === 'onelake') {
+    return h(VIcon, { class: 'mr-2', color: 'primary', size: 'large' }, () => 'mdi-microsoft');
+  }
+
   if (profile.type === 'gcs') {
     return h(VIcon, { class: 'mr-2', color: 'info', size: 'large' }, () => 'mdi-google-cloud');
   }
