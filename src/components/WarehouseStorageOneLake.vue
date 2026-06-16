@@ -26,15 +26,6 @@
           production environments.
         </v-alert>
         <v-alert
-          v-if="credentialType === 'shared-access-key'"
-          type="info"
-          variant="tonal"
-          density="compact"
-          class="mb-4">
-          <strong>Shared Access Key:</strong>
-          Use a storage account access key. Simpler but less secure than service principals.
-        </v-alert>
-        <v-alert
           v-if="credentialType === 'azure-system-identity'"
           type="info"
           variant="tonal"
@@ -54,11 +45,6 @@
             <v-radio value="client-credentials" color="primary">
               <template #label>
                 <div><v-icon color="primary">mdi-account-key</v-icon> Client Credentials</div>
-              </template>
-            </v-radio>
-            <v-radio value="shared-access-key" color="primary">
-              <template #label>
-                <div><v-icon color="primary">mdi-key</v-icon> Shared Access Key</div>
               </template>
             </v-radio>
             <v-radio value="azure-system-identity" color="primary">
@@ -106,27 +92,6 @@
               !warehouseObjectData['storage-credential']['client-secret'] ||
               !warehouseObjectData['storage-credential']['tenant-id']
             "
-            @click="emitNewCredentials">
-            Update Credentials
-          </v-btn>
-        </template>
-
-        <template v-else-if="isSharedAccessKey(warehouseObjectData['storage-credential'])">
-          <v-text-field
-            v-model="warehouseObjectData['storage-credential']['key']"
-            :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
-            label="Shared Access Key *"
-            placeholder="your-access-key"
-            hint="Storage account access key from Azure portal"
-            :rules="[rules.required]"
-            :type="showPassword ? 'text' : 'password'"
-            :error="isSharedKeyInvalid"
-            :color="isSharedKeyInvalid ? 'error' : 'primary'"
-            @click:append-inner="showPassword = !showPassword" />
-          <v-btn
-            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-            color="success"
-            :disabled="!warehouseObjectData['storage-credential']['key']"
             @click="emitNewCredentials">
             Update Credentials
           </v-btn>
@@ -378,7 +343,7 @@ import { Intent, ObjectType } from '@/common/enums';
 import { WarehousObject } from '@/common/interfaces';
 
 const showPassword = ref(false);
-const credentialType: Ref<'client-credentials' | 'shared-access-key' | 'azure-system-identity'> =
+const credentialType: Ref<'client-credentials' | 'azure-system-identity'> =
   ref('client-credentials');
 
 const props = defineProps<{
@@ -488,12 +453,6 @@ watch(credentialType, (newValue) => {
       'tenant-id': '',
       type: 'az',
     };
-  } else if (newValue === 'shared-access-key') {
-    warehouseObjectData['storage-credential'] = {
-      'credential-type': 'shared-access-key',
-      key: '',
-      type: 'az',
-    };
   } else {
     warehouseObjectData['storage-credential'] = {
       'credential-type': 'azure-system-identity',
@@ -509,12 +468,6 @@ function isClientCredentials(credential: AzCredential): credential is {
   'tenant-id': string;
 } {
   return credential['credential-type'] === 'client-credentials';
-}
-function isSharedAccessKey(credential: AzCredential): credential is {
-  'credential-type': 'shared-access-key';
-  key: string;
-} {
-  return credential['credential-type'] === 'shared-access-key';
 }
 function isAzureSystemIdentityKey(credential: AzCredential): credential is {
   'credential-type': 'azure-system-identity';
@@ -541,11 +494,6 @@ const isTenantIdInvalid = computed(
   () =>
     isClientCredentials(warehouseObjectData['storage-credential']) &&
     !warehouseObjectData['storage-credential']['tenant-id'],
-);
-const isSharedKeyInvalid = computed(
-  () =>
-    isSharedAccessKey(warehouseObjectData['storage-credential']) &&
-    !warehouseObjectData['storage-credential']['key'],
 );
 const isWorkspaceIdInvalid = computed(
   () => !warehouseObjectData['storage-profile']['workspace-id'],
@@ -574,13 +522,6 @@ function buildCredential(): StorageCredential {
       'tenant-id': c['tenant-id'],
     } as StorageCredential;
   }
-  if (isSharedAccessKey(c)) {
-    return {
-      type: 'az',
-      'credential-type': 'shared-access-key',
-      key: c['key'],
-    } as StorageCredential;
-  }
   return { type: 'az', 'credential-type': 'azure-system-identity' } as StorageCredential;
 }
 
@@ -596,7 +537,9 @@ const emitNewProfile = () => {
 onMounted(() => {
   if (props.warehouseObject) Object.assign(warehouseObjectData, props.warehouseObject);
   credentialType.value =
-    warehouseObjectData['storage-credential']['credential-type'] || 'client-credentials';
+    warehouseObjectData['storage-credential']['credential-type'] === 'azure-system-identity'
+      ? 'azure-system-identity'
+      : 'client-credentials';
 
   const mode = warehouseObjectData['storage-profile']['endpoint-mode'];
   if (mode) {
