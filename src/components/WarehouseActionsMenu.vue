@@ -5,35 +5,42 @@
     </template>
 
     <v-list activatable>
-      <WarehouseRenameDialog :warehouse-name="warehouse.name" @rename-warehouse="emitRename" />
+      <v-list-item v-if="locked" disabled prepend-icon="mdi-shield-lock">
+        <v-list-item-title>Managed by instance admin</v-list-item-title>
+        <v-list-item-subtitle>Spec changes are restricted</v-list-item-subtitle>
+      </v-list-item>
 
-      <WarehouseAddDialog
-        :intent="Intent.UPDATE"
-        :object-type="ObjectType.STORAGE_CREDENTIAL"
-        :process-status="processStatus"
-        :warehouse="warehouse"
-        @cancel="menuOpen = false"
-        @close="$emit('close')"
-        @update-credentials="updateStorageCredential" />
+      <template v-if="!locked">
+        <WarehouseRenameDialog :warehouse-name="warehouse.name" @rename-warehouse="emitRename" />
 
-      <WarehouseAddDialog
-        :warehouse="warehouse"
-        :processStatus="processStatus"
-        :intent="Intent.UPDATE"
-        :object-type="ObjectType.STORAGE_PROFILE"
-        @close="$emit('close')"
-        @update-profile="updateStorageProfile"
-        @cancel="menuOpen = false" />
+        <WarehouseAddDialog
+          :intent="Intent.UPDATE"
+          :object-type="ObjectType.STORAGE_CREDENTIAL"
+          :process-status="processStatus"
+          :warehouse="warehouse"
+          @cancel="menuOpen = false"
+          @close="$emit('close')"
+          @update-credentials="updateStorageCredential" />
 
-      <WarehouseAddDialog
-        :intent="Intent.UPDATE"
-        :object-type="ObjectType.CATALOG_SETTINGS"
-        :process-status="processStatus"
-        :warehouse="warehouse"
-        @cancel="menuOpen = false"
-        @update-catalog-settings="updateCatalogSettings" />
+        <WarehouseAddDialog
+          :warehouse="warehouse"
+          :processStatus="processStatus"
+          :intent="Intent.UPDATE"
+          :object-type="ObjectType.STORAGE_PROFILE"
+          @close="$emit('close')"
+          @update-profile="updateStorageProfile"
+          @cancel="menuOpen = false" />
 
-      <v-divider></v-divider>
+        <WarehouseAddDialog
+          :intent="Intent.UPDATE"
+          :object-type="ObjectType.CATALOG_SETTINGS"
+          :process-status="processStatus"
+          :warehouse="warehouse"
+          @cancel="menuOpen = false"
+          @update-catalog-settings="updateCatalogSettings" />
+
+        <v-divider></v-divider>
+      </template>
 
       <ComputeConnectDialog :warehouse="warehouse" />
     </v-list>
@@ -47,11 +54,17 @@ import {
   StorageProfile,
   TabularDeleteProfile,
 } from '../gen/management/types.gen';
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import { Intent, ObjectType } from '../common/enums';
-// import { useFunctions } from '../plugins/functions';
+import { useUserStore } from '../stores/user';
 
 const menuOpen = ref(false);
+const userStore = useUserStore();
+// Lock spec-mutating actions on instance-admin-managed warehouses for non-admins.
+const locked = computed(
+  () =>
+    (warehouse['managed-by'] as string) === 'instance-admin' && userStore.isInstanceAdmin !== true,
+);
 // const functions = useFunctions();
 
 interface CatalogSettingsUpdate {

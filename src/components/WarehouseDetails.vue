@@ -84,6 +84,36 @@
                         </v-chip>
                       </div>
                     </v-col>
+                    <v-col cols="12">
+                      <div class="text-overline text-medium-emphasis">Managed by</div>
+                      <div class="mt-2 d-flex align-center" style="gap: 8px">
+                        <v-chip
+                          :color="managedBy === 'instance-admin' ? 'primary' : 'default'"
+                          size="small"
+                          :prepend-icon="
+                            managedBy === 'instance-admin' ? 'mdi-shield-account' : 'mdi-account'
+                          ">
+                          {{ managedBy === 'instance-admin' ? 'Instance admin' : 'Self-managed' }}
+                        </v-chip>
+                        <v-btn
+                          v-if="isInstanceAdmin"
+                          size="x-small"
+                          variant="outlined"
+                          :loading="managedBySaving"
+                          @click="toggleManagedBy">
+                          {{ managedBy === 'instance-admin' ? 'Make self-managed' : 'Mark instance-admin' }}
+                        </v-btn>
+                      </div>
+                      <v-alert
+                        v-if="isManagedLocked"
+                        type="info"
+                        variant="tonal"
+                        density="compact"
+                        class="mt-2">
+                        This warehouse is managed by an instance administrator. Spec changes (rename,
+                        delete, storage, activation) are restricted to instance admins.
+                      </v-alert>
+                    </v-col>
                     <v-col v-if="allowedFormatVersions.length > 0" cols="12">
                       <div class="text-overline text-medium-emphasis">
                         Iceberg allowed format versions
@@ -372,9 +402,10 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, onMounted, inject } from 'vue';
+import { reactive, ref, computed, onMounted, inject } from 'vue';
 import { logError } from '@/common/errorUtils';
 import oneLakeIcon from '@/assets/onelake.png';
+import { useUserStore } from '@/stores/user';
 
 const props = defineProps<{
   warehouseId: string;
@@ -383,6 +414,30 @@ const props = defineProps<{
 // const router = useRouter();
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
+const userStore = useUserStore();
+
+// --- Managed-by (lakekeeper#1828) -------------------------------------------
+const isInstanceAdmin = computed(() => userStore.isInstanceAdmin === true);
+const managedBy = computed<'self-managed' | 'instance-admin'>(
+  () => (warehouse['managed-by'] as any) || 'self-managed',
+);
+// Spec mutations are locked for non-instance-admins on instance-admin warehouses.
+const isManagedLocked = computed(
+  () => managedBy.value === 'instance-admin' && !isInstanceAdmin.value,
+);
+const managedBySaving = ref(false);
+async function toggleManagedBy() {
+  const next = managedBy.value === 'instance-admin' ? 'self-managed' : 'instance-admin';
+  managedBySaving.value = true;
+  try {
+    await functions.setWarehouseManagedBy(props.warehouseId, next, true);
+    await loadWarehouse();
+  } catch {
+    /* surfaced by the functions plugin */
+  } finally {
+    managedBySaving.value = false;
+  }
+}
 
 const warehouse = reactive<any>({
   'delete-profile': { type: 'hard' },
