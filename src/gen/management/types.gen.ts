@@ -4,6 +4,35 @@ export type ClientOptions = {
     baseUrl: '{scheme}://{host}{basePath}' | (string & {});
 };
 
+/**
+ * Request body for `POST /role/{id}/members`. Batch: adds every listed member to
+ * the role atomically (all-or-nothing).
+ */
+export type AddRoleMembersRequest = {
+    members: Array<RoleMemberRef>;
+};
+
+/**
+ * Response for `POST /role/{id}/members`: the requested members confirmed present
+ * (idempotent — already-present members are included). Echoes identity
+ * [`RoleMemberRef`]s, not hydrated [`RoleMember`]s — use `GET /role/{id}/members`
+ * for display names.
+ */
+export type AddRoleMembersResponse = {
+    members: Array<RoleMemberRef>;
+};
+
+/**
+ * Storage profile for a generic Azure Data Lake Storage Gen2 account.
+ *
+ * This profile speaks ADLS Gen2 against any storage account (including
+ * Microsoft Fabric / `OneLake`, if you configure `account_name = "onelake"`,
+ * `host = "dfs.fabric.microsoft.com"`, and a `key_prefix` like
+ * `<lakehouse>/Files/<sub>`). Lakekeeper offers `OneLakeProfile` as a
+ * convenience layer that knows how to compute those values from
+ * workspace + lakehouse IDs and that supports `OneLake`'s private-link endpoint
+ * pattern.
+ */
 export type AdlsProfile = {
     /**
      * Name of the azure storage account.
@@ -38,7 +67,7 @@ export type AdlsProfile = {
      */
     'sas-enabled'?: boolean;
     /**
-     * The validity of the sas token in seconds. Default: 3600.
+     * The validity of the sas token in seconds. Default: 3600. Max: 7 days.
      */
     'sas-token-validity-seconds'?: number | null;
     'storage-layout'?: null | StorageLayout;
@@ -348,6 +377,12 @@ export type CreateWarehouseRequest = {
      */
     'delete-profile'?: TabularDeleteProfile;
     /**
+     * Which control plane, if any, exclusively manages this warehouse's spec.
+     * Defaults to `self-managed`. Creating a managed warehouse (e.g. `instance-admin`)
+     * requires instance-admin privilege.
+     */
+    'managed-by'?: ManagedBy;
+    /**
      * Project ID in which to create the warehouse.
      * Deprecated: Please use the `x-project-id` header instead.
      */
@@ -399,6 +434,41 @@ export type DeletedTabularResponse = {
      * Warehouse ID where the tabular is stored
      */
     'warehouse-id': string;
+};
+
+/**
+ * How Lakekeeper connects to the `OneLake` DFS endpoint.
+ *
+ * Fabric supports two kinds of Azure Private Link configurations, and only
+ * one of them maps to a dedicated variant here:
+ *
+ * - **Tenant-level private link**: traffic to the global host
+ * `onelake.dfs.fabric.microsoft.com` is routed privately via DNS that
+ * points the global FQDN at a tenant-PE NIC. From Lakekeeper's
+ * perspective this is indistinguishable from public traffic — use
+ * `Default`. (Same shape as a private endpoint in front of a regular
+ * ADLS Gen2 storage account.)
+ * - **Workspace-level private link**: each workspace gets its own
+ * `<wsId>.z<xy>.dfs.fabric.microsoft.com` FQDN routed via a
+ * workspace-scoped PE. Lakekeeper needs to build that FQDN — use
+ * [`WorkspacePrivateLink`].
+ */
+export type EndpointMode = {
+    type: 'default';
+} | {
+    /**
+     * Azure region slug, e.g. `westus`, `centralus`, `northeurope`.
+     * Trimmed and lowercased at validation time, then pattern-checked to
+     * match the Azure region-slug shape (lowercase ASCII letter followed
+     * by lowercase letters or digits) so a stray `.` or `-` can't smuggle
+     * an extra host segment into the resolved DFS host. An unknown but
+     * well-shaped slug still surfaces as a DNS-resolution failure at
+     * access time. See `normalize_endpoint_mode` for the exact rule.
+     */
+    region: string;
+    type: 'regional';
+} | {
+    type: 'workspace-private-link';
 };
 
 export type EndpointStatistic = {
@@ -825,6 +895,11 @@ export type GetWarehouseResponse = {
      */
     id: string;
     /**
+     * Which control plane, if any, exclusively manages this warehouse's spec.
+     * When not `self-managed`, spec mutations are restricted to that control plane.
+     */
+    'managed-by'?: ManagedBy;
+    /**
      * Name of the warehouse.
      */
     name: string;
@@ -1014,6 +1089,9 @@ export type LakekeeperRoleAction = {
     action: 'manage_role_assignments';
 } | {
     action: 'read_role_assignments';
+} | {
+    action: 'update_source_system';
+    target: SourceSystemTarget;
 };
 
 export type LakekeeperServerAction = {
@@ -1249,6 +1327,36 @@ export type ListProjectsResponse = {
     projects: Array<GetProjectResponse>;
 };
 
+/**
+ * One page of a role's direct members (users ∪ member roles).
+ */
+export type ListRoleMembersResponse = {
+    members: Array<RoleMember>;
+    /**
+     * Token for the next page; `null`/absent once the listing is exhausted.
+     * Note for SDK authors: **stop when `next_page_token` is null/absent.** The
+     * final page of results may itself return a null token, so don't rely on
+     * receiving a separate trailing empty page — keep requesting until the token
+     * is null.
+     */
+    'next-page-token'?: string | null;
+};
+
+/**
+ * One page of roles (the `member-of` set, or a user's directly-assigned roles).
+ */
+export type ListRoleMembershipsResponse = {
+    /**
+     * Token for the next page; `null`/absent once the listing is exhausted.
+     * Note for SDK authors: **stop when `next_page_token` is null/absent.** The
+     * final page of results may itself return a null token, so don't rely on
+     * receiving a separate trailing empty page — keep requesting until the token
+     * is null.
+     */
+    'next-page-token'?: string | null;
+    roles: Array<RoleMembership>;
+};
+
 export type ListRolesResponse = {
     'next-page-token'?: string | null;
     roles: Array<Role>;
@@ -1310,6 +1418,19 @@ export type ListWarehousesResponse = {
     warehouses: Array<GetWarehouseResponse>;
 };
 
+/**
+ * Which control plane, if any, exclusively manages a warehouse's spec.
+ *
+ * `self-managed` (the default) leaves the spec mutable by the warehouse's own
+ * owners through the usual grants. When set to `instance-admin`, spec changes —
+ * storage profile, credentials, delete profile, rename, status, protection,
+ * format-version policy, and deletion — are accepted only from instance
+ * administrators; other callers are rejected even when their grants would
+ * otherwise allow it. Child resources (namespaces, tables, grants), task-queue
+ * configuration, and data access are unaffected.
+ */
+export type ManagedBy = 'self-managed' | 'instance-admin';
+
 export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'set_protection';
 
 export type NamespaceAssignment = (UserOrRole & {
@@ -1340,6 +1461,52 @@ export type NamespaceIdentOrUuid = {
 };
 
 export type NamespaceRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify';
+
+/**
+ * Storage profile for a Microsoft Fabric / `OneLake` lakehouse.
+ *
+ * Convenience wrapper around the ADLS Gen2 surface that derives the
+ * account name (`onelake`), container (workspace ID), key prefix
+ * (`<lakehouse>/Files/<sub>`), and endpoint host from the supplied workspace
+ * and lakehouse UUIDs and endpoint mode.
+ */
+export type OneLakeProfile = {
+    /**
+     * The authority host to use for authentication.
+     * Default: `https://login.microsoftonline.com`.
+     */
+    'authority-host'?: string | null;
+    /**
+     * Subpath beneath `<top-level-folder>/` inside the lakehouse — the root
+     * directory under which Lakekeeper writes all warehouse data.
+     */
+    'directory-rel-path'?: string | null;
+    /**
+     * Endpoint connection mode. Defaults to the global endpoint.
+     */
+    'endpoint-mode'?: EndpointMode;
+    /**
+     * UUID of the lakehouse within the workspace.
+     */
+    'lakehouse-id': string;
+    /**
+     * Enable SAS-token generation. Defaults to true.
+     */
+    'sas-enabled'?: boolean;
+    /**
+     * SAS-token validity in seconds. Default: 3600. Max: 3600 (`OneLake` cap).
+     */
+    'sas-token-validity-seconds'?: number | null;
+    'storage-layout'?: null | StorageLayout;
+    /**
+     * Top-level managed folder. Defaults to `Files`.
+     */
+    'top-level-folder'?: TopLevelFolder;
+    /**
+     * UUID of the Fabric workspace this warehouse lives in.
+     */
+    'workspace-id': string;
+};
 
 export type OpenFgaGenericTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
@@ -1514,6 +1681,51 @@ export type RoleAssignment = (UserOrRole & {
 });
 
 /**
+ * A member of a role, returned by `GET /role/{id}/members`. Discriminated by
+ * `type`: a `user` (direct user→role assignment) or a `role` (role→role edge).
+ * Identity is hydrated; for requests and add/remove confirmations use the
+ * un-hydrated [`RoleMemberRef`] instead.
+ */
+export type RoleMember = (UserMembership & {
+    type: 'user';
+}) | (RoleMembership & {
+    type: 'role';
+});
+
+/**
+ * An identity reference to a role member — a `user` or a `role`, by typed id.
+ * Sent in `POST /role/{id}/members` requests and echoed by the add/remove
+ * confirmations. Unlike [`RoleMember`] it is never hydrated (no display name):
+ * it names *which* principal, not its display identity.
+ */
+export type RoleMemberRef = {
+    id: string;
+    type: 'user';
+} | {
+    id: string;
+    type: 'role';
+};
+
+/**
+ * Kind of a role member. Serializes as `"user"` / `"role"`.
+ */
+export type RoleMemberType = 'user' | 'role';
+
+/**
+ * A role's display identity in a membership listing: the role-member variant of
+ * [`RoleMember`], and the item type of `/member-of` and `/user/{id}/roles`.
+ * `ident` (`provider/source-id`) is the stable external handle a client references
+ * the role by; `id` is the internal UUID. All fields are always present — a role
+ * whose id no longer resolves in the catalog (a dangling authorizer edge) is
+ * dropped from the listing and logged, never surfaced with a null identity.
+ */
+export type RoleMembership = {
+    id: string;
+    ident: string;
+    name: string;
+};
+
+/**
  * Metadata of a role with reduced information.
  * Returned for cross-project role references.
  */
@@ -1545,6 +1757,23 @@ export type RoleMetadata = {
 };
 
 export type RoleRelation = 'assignee' | 'ownership';
+
+/**
+ * The external identity (source system) a role is bound to: a `(provider_id,
+ * source_id)` pair. An external identity is always both parts together, so this
+ * type makes a partial binding unrepresentable. Used as the rebind destination
+ * in [`CatalogRoleAction::UpdateSourceSystem`].
+ */
+export type RoleSourceSystem = {
+    /**
+     * Provider that owns the role (e.g. `oidc`, `ldap`).
+     */
+    provider_id: string;
+    /**
+     * Identifier of the role within the provider.
+     */
+    source_id: string;
+};
 
 /**
  * S3CredentialAccessKey
@@ -1931,6 +2160,31 @@ export type SetTaskLogCleanupConfig = {
     'queue-config': TaskLogCleanupConfig;
 };
 
+export type SetWarehouseManagedByRequest = {
+    /**
+     * New managed-by marker. Use `self-managed` to clear. Setting or clearing the
+     * marker requires instance-admin privilege.
+     */
+    'managed-by': ManagedBy;
+};
+
+/**
+ * The destination of a [`CatalogRoleAction::UpdateSourceSystem`] rebind.
+ *
+ * `To` names a concrete external identity (the real authorization check); `Any`
+ * is the destination-less base-capability marker used for permission
+ * introspection and "can this principal rebind at all?" queries. Keeping the base
+ * case an explicit, named variant — rather than an absent/`None` value — means an
+ * authorizer is never silently asked to allow an unspecified rebind: a
+ * per-destination policy gates the concrete `To` target and never matches `Any`.
+ */
+export type SourceSystemTarget = {
+    /**
+     * Concrete rebind destination.
+     */
+    to: RoleSourceSystem;
+} | 'any';
+
 /**
  * Storage secret for a warehouse.
  */
@@ -2028,34 +2282,6 @@ export type StorageProfile = (AdlsProfile & {
 }) | (GcsProfile & {
     type: 'gcs';
 });
-
-// NOTE: OneLake types manually backported (lakekeeper#1852) pending a full
-// `just generate-management-client` regeneration from the #1852 OpenAPI spec.
-export type TopLevelFolder = 'Files' | 'Tables';
-
-export type EndpointMode = {
-    type: 'default';
-} | {
-    region: string;
-    type: 'regional';
-} | {
-    type: 'workspace-private-link';
-};
-
-/**
- * Storage profile for a Microsoft Fabric / `OneLake` lakehouse.
- */
-export type OneLakeProfile = {
-    'authority-host'?: string | null;
-    'directory-rel-path'?: string | null;
-    'endpoint-mode'?: EndpointMode;
-    'lakehouse-id': string;
-    'sas-enabled'?: boolean;
-    'sas-token-validity-seconds'?: number | null;
-    'storage-layout'?: null | StorageLayout;
-    'top-level-folder'?: TopLevelFolder;
-    'workspace-id': string;
-};
 
 export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
@@ -2201,6 +2427,16 @@ export type TimeWindowSelector = {
     token: string;
     type: 'page-token';
 };
+
+/**
+ * Top-level managed folder within a Fabric lakehouse.
+ *
+ * Fabric reserves `Files/` and `Tables/` as managed folders directly under
+ * each lakehouse item. `Files/` is the default for Lakekeeper-managed Iceberg
+ * tables; `Tables/` is supported for completeness but writing Iceberg metadata
+ * there conflicts with Fabric's automatic Delta/Iceberg virtualization.
+ */
+export type TopLevelFolder = 'Files' | 'Tables';
 
 export type UndropTabularsRequest = {
     /**
@@ -2350,6 +2586,29 @@ export type User = {
  * How the user was last updated
  */
 export type UserLastUpdatedWith = 'create-endpoint' | 'config-call-creation' | 'update-endpoint' | 'role-provider';
+
+/**
+ * A user's identity in a membership listing (the `user` variant of
+ * [`RoleMember`]). All identity fields are nullable: under an assignment-managing
+ * authorizer (e.g. OpenFGA) a member may be assigned but not yet provisioned in
+ * the catalog, so only the `id` is known. `name`/`email` are also `null` for a
+ * provisioned-but-nameless user.
+ */
+export type UserMembership = {
+    /**
+     * Email; `null` if unknown.
+     */
+    email?: string | null;
+    /**
+     * `IdP` subject id of the user.
+     */
+    id: string;
+    /**
+     * Display name; `null` when the user has no name.
+     */
+    name?: string | null;
+    'user-type'?: null | UserType;
+};
 
 /**
  * Identifies a user or a role
@@ -2543,6 +2802,20 @@ export type WarehouseTaskInfo = {
      * Warehouse ID associated with the task
      */
     'warehouse-id': string;
+};
+
+/**
+ * Response of the `whoami` endpoint: the catalog user for the current token,
+ * plus request-scoped privilege not stored on the user record.
+ */
+export type WhoamiResponse = User & {
+    /**
+     * Whether the authenticated principal is an instance admin (configured via
+     * `LAKEKEEPER__INSTANCE_ADMINS`). Instance admins may modify the spec of
+     * warehouses marked `managed-by: instance-admin`. Only ever `true` for a
+     * principal acting directly; role-assumed requests do not inherit it.
+     */
+    'is-instance-admin': boolean;
 };
 
 export type BatchCheckActionsData = {
@@ -4210,6 +4483,252 @@ export type GetRoleActionsResponses = {
 
 export type GetRoleActionsResponse = GetRoleActionsResponses[keyof GetRoleActionsResponses];
 
+export type ListRoleMemberOfData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Role ID
+         */
+        role_id: string;
+    };
+    query?: {
+        pageToken?: string | null;
+        /**
+         * Upper bound on the number of results returned. Default: 100.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/role/{role_id}/member-of';
+};
+
+export type ListRoleMemberOfErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListRoleMemberOfError = ListRoleMemberOfErrors[keyof ListRoleMemberOfErrors];
+
+export type ListRoleMemberOfResponses = {
+    /**
+     * Roles the role is a member of
+     */
+    200: ListRoleMembershipsResponse;
+};
+
+export type ListRoleMemberOfResponse = ListRoleMemberOfResponses[keyof ListRoleMemberOfResponses];
+
+export type ListRoleTransitiveMemberOfData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Role ID
+         */
+        role_id: string;
+    };
+    query?: {
+        pageToken?: string | null;
+        /**
+         * Upper bound on the number of results returned. Default: 100.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/role/{role_id}/member-of/transitive';
+};
+
+export type ListRoleTransitiveMemberOfErrors = {
+    /**
+     * Transitive listing is not supported under the configured authorizer backend
+     */
+    501: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListRoleTransitiveMemberOfError = ListRoleTransitiveMemberOfErrors[keyof ListRoleTransitiveMemberOfErrors];
+
+export type ListRoleTransitiveMemberOfResponses = {
+    /**
+     * Transitive roles the role belongs to
+     */
+    200: ListRoleMembershipsResponse;
+};
+
+export type ListRoleTransitiveMemberOfResponse = ListRoleTransitiveMemberOfResponses[keyof ListRoleTransitiveMemberOfResponses];
+
+export type ListRoleMembersData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Role ID
+         */
+        role_id: string;
+    };
+    query?: {
+        /**
+         * Restrict to one member kind (`user` or `role`). Both kinds when omitted.
+         */
+        type?: null | RoleMemberType;
+        pageToken?: string | null;
+        /**
+         * Upper bound on the number of results returned. Default: 100.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/role/{role_id}/members';
+};
+
+export type ListRoleMembersErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListRoleMembersError = ListRoleMembersErrors[keyof ListRoleMembersErrors];
+
+export type ListRoleMembersResponses = {
+    /**
+     * Direct members of the role
+     */
+    200: ListRoleMembersResponse;
+};
+
+export type ListRoleMembersResponse2 = ListRoleMembersResponses[keyof ListRoleMembersResponses];
+
+export type AddRoleMembersData = {
+    body: AddRoleMembersRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Role ID
+         */
+        role_id: string;
+    };
+    query?: never;
+    url: '/management/v1/role/{role_id}/members';
+};
+
+export type AddRoleMembersErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type AddRoleMembersError = AddRoleMembersErrors[keyof AddRoleMembersErrors];
+
+export type AddRoleMembersResponses = {
+    /**
+     * Members added
+     */
+    200: AddRoleMembersResponse;
+};
+
+export type AddRoleMembersResponse2 = AddRoleMembersResponses[keyof AddRoleMembersResponses];
+
+export type ListRoleTransitiveMembersData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Role ID
+         */
+        role_id: string;
+    };
+    query?: {
+        /**
+         * Restrict to one member kind (`user` or `role`). Both kinds when omitted.
+         */
+        type?: null | RoleMemberType;
+        pageToken?: string | null;
+        /**
+         * Upper bound on the number of results returned. Default: 100.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/role/{role_id}/members/transitive';
+};
+
+export type ListRoleTransitiveMembersErrors = {
+    /**
+     * Transitive listing is not supported under the configured authorizer backend
+     */
+    501: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListRoleTransitiveMembersError = ListRoleTransitiveMembersErrors[keyof ListRoleTransitiveMembersErrors];
+
+export type ListRoleTransitiveMembersResponses = {
+    /**
+     * Transitive members of the role
+     */
+    200: ListRoleMembersResponse;
+};
+
+export type ListRoleTransitiveMembersResponse = ListRoleTransitiveMembersResponses[keyof ListRoleTransitiveMembersResponses];
+
+export type RemoveRoleMemberData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Role ID
+         */
+        role_id: string;
+        /**
+         * Member kind: `user` or `role`
+         */
+        member_type: RoleMemberType;
+        /**
+         * User id or role UUID
+         */
+        member_id: string;
+    };
+    query?: never;
+    url: '/management/v1/role/{role_id}/members/{member_type}/{member_id}';
+};
+
+export type RemoveRoleMemberErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type RemoveRoleMemberError = RemoveRoleMemberErrors[keyof RemoveRoleMemberErrors];
+
+export type RemoveRoleMemberResponses = {
+    /**
+     * Member removed (or already absent)
+     */
+    204: void;
+};
+
+export type RemoveRoleMemberResponse = RemoveRoleMemberResponses[keyof RemoveRoleMemberResponses];
+
 export type GetRoleMetadataData = {
     body?: never;
     path: {
@@ -4513,6 +5032,88 @@ export type GetUserActionsResponses = {
 };
 
 export type GetUserActionsResponse = GetUserActionsResponses[keyof GetUserActionsResponses];
+
+export type ListUserRolesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * User ID
+         */
+        user_id: string;
+    };
+    query?: {
+        pageToken?: string | null;
+        /**
+         * Upper bound on the number of results returned. Default: 100.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/user/{user_id}/roles';
+};
+
+export type ListUserRolesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListUserRolesError = ListUserRolesErrors[keyof ListUserRolesErrors];
+
+export type ListUserRolesResponses = {
+    /**
+     * Roles the user is assigned to
+     */
+    200: ListRoleMembershipsResponse;
+};
+
+export type ListUserRolesResponse = ListUserRolesResponses[keyof ListUserRolesResponses];
+
+export type ListUserTransitiveRolesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * User ID
+         */
+        user_id: string;
+    };
+    query?: {
+        pageToken?: string | null;
+        /**
+         * Upper bound on the number of results returned. Default: 100.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/user/{user_id}/roles/transitive';
+};
+
+export type ListUserTransitiveRolesErrors = {
+    /**
+     * Transitive listing is not supported under the configured authorizer backend
+     */
+    501: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListUserTransitiveRolesError = ListUserTransitiveRolesErrors[keyof ListUserTransitiveRolesErrors];
+
+export type ListUserTransitiveRolesResponses = {
+    /**
+     * Transitive roles the user holds
+     */
+    200: ListRoleMembershipsResponse;
+};
+
+export type ListUserTransitiveRolesResponse = ListUserTransitiveRolesResponses[keyof ListUserTransitiveRolesResponses];
 
 export type ListWarehousesData = {
     body?: never;
@@ -4886,6 +5487,30 @@ export type SetGenericTableProtectionResponses = {
 };
 
 export type SetGenericTableProtectionResponse = SetGenericTableProtectionResponses[keyof SetGenericTableProtectionResponses];
+
+export type SetWarehouseManagedByData = {
+    body: SetWarehouseManagedByRequest;
+    path: {
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/managed-by';
+};
+
+export type SetWarehouseManagedByErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetWarehouseManagedByError = SetWarehouseManagedByErrors[keyof SetWarehouseManagedByErrors];
+
+export type SetWarehouseManagedByResponses = {
+    /**
+     * Warehouse managed-by marker set successfully
+     */
+    200: GetWarehouseResponse;
+};
+
+export type SetWarehouseManagedByResponse = SetWarehouseManagedByResponses[keyof SetWarehouseManagedByResponses];
 
 export type GetNamespaceActionsData = {
     body?: never;
@@ -5457,9 +6082,9 @@ export type WhoamiError = WhoamiErrors[keyof WhoamiErrors];
 
 export type WhoamiResponses = {
     /**
-     * User details
+     * Current user and instance-admin status
      */
-    200: User;
+    200: WhoamiResponse;
 };
 
-export type WhoamiResponse = WhoamiResponses[keyof WhoamiResponses];
+export type WhoamiResponse2 = WhoamiResponses[keyof WhoamiResponses];
