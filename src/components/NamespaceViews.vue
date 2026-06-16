@@ -4,10 +4,14 @@
   </v-alert>
   <v-data-table
     v-else
+    v-model="selected"
     items-per-page="50"
     height="65vh"
     :search="searchView"
     fixed-header
+    show-select
+    return-object
+    item-value="name"
     :headers="headers"
     hover
     :items="loadedViews"
@@ -35,6 +39,18 @@
           variant="underlined"
           hide-details
           clearable></v-text-field>
+      </v-toolbar>
+      <v-toolbar v-if="selected.length" color="primary" density="compact" flat class="px-2">
+        <span class="text-body-2 font-weight-medium">{{ selected.length }} selected</span>
+        <v-spacer></v-spacer>
+        <v-btn
+          size="small"
+          variant="text"
+          prepend-icon="mdi-delete-outline"
+          @click="openBulkDelete">
+          Delete ({{ selected.length }})
+        </v-btn>
+        <v-btn size="small" variant="text" icon="mdi-close" @click="selected = []"></v-btn>
       </v-toolbar>
     </template>
     <template #item.actions="{ item }">
@@ -106,6 +122,57 @@
           Rename
         </v-btn>
         <v-btn @click="closeRenameDialog">{{ isDefaultLayout ? 'Cancel' : 'Close' }}</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Bulk delete -->
+  <v-dialog v-model="bulkDeleteDialog" max-width="540" persistent>
+    <v-card>
+      <v-card-title class="d-flex align-center">
+        <v-icon color="error" class="mr-2">mdi-delete-alert-outline</v-icon>
+        Delete {{ selected.length }} {{ selected.length === 1 ? 'view' : 'views' }}?
+      </v-card-title>
+      <v-card-text>
+        <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
+          This permanently removes the selected views and cannot be undone.
+          {{ bulkForce ? '' : 'Delete-protected views will be skipped.' }}
+        </v-alert>
+        <v-switch v-model="bulkForce" color="info" density="compact">
+          <template #label>
+            <div>
+              <span>{{ bulkForce ? 'Force activated' : 'Force deactivated' }}</span>
+              <div v-if="bulkForce" class="text-caption text-error">
+                Bypass Protection and Skip Soft-Deletion
+              </div>
+            </div>
+          </template>
+        </v-switch>
+        <v-list v-if="bulkResults.length" density="compact" class="mt-2" max-height="220">
+          <v-list-item v-for="r in bulkResults" :key="r.name">
+            <template #prepend>
+              <v-icon :color="r.ok ? 'success' : 'error'" size="small">
+                {{ r.ok ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+              </v-icon>
+            </template>
+            <v-list-item-title class="text-body-2">{{ r.name }}</v-list-item-title>
+            <v-list-item-subtitle v-if="!r.ok" class="text-error">{{ r.reason }}</v-list-item-subtitle>
+          </v-list-item>
+        </v-list>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn :disabled="bulkDeleting" @click="bulkDeleteDialog = false">
+          {{ bulkDone ? 'Close' : 'Cancel' }}
+        </v-btn>
+        <v-btn
+          v-if="!bulkDone"
+          color="error"
+          variant="flat"
+          :loading="bulkDeleting"
+          @click="confirmBulkDelete">
+          Delete
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -224,6 +291,57 @@ async function deleteViewWithOptions(e: any, item: ViewIdentifierExtended) {
   } catch (error) {
     console.error(`Failed to drop view-${item.name}`, error);
   }
+}
+
+// --- Bulk selection / delete ------------------------------------------------
+const selected = ref<ViewIdentifierExtended[]>([]);
+const bulkDeleteDialog = ref(false);
+const bulkForce = ref(false);
+const bulkDeleting = ref(false);
+const bulkDone = ref(false);
+const bulkResults = ref<Array<{ name: string; ok: boolean; reason?: string }>>([]);
+
+function openBulkDelete() {
+  bulkForce.value = false;
+  bulkDone.value = false;
+  bulkResults.value = [];
+  bulkDeleteDialog.value = true;
+}
+
+async function confirmBulkDelete() {
+  bulkDeleting.value = true;
+  bulkResults.value = [];
+  for (const view of [...selected.value]) {
+    try {
+      await functions.dropView(
+        props.warehouseId,
+        props.namespacePath,
+        view.name,
+        { force: bulkForce.value },
+        false,
+      );
+      bulkResults.value.push({ name: view.name, ok: true });
+    } catch (error: any) {
+      bulkResults.value.push({
+        name: view.name,
+        ok: false,
+        reason: error?.error?.message || error?.message || 'Failed to delete',
+      });
+    }
+  }
+  bulkDeleting.value = false;
+  bulkDone.value = true;
+  const ok = bulkResults.value.filter((r) => r.ok).length;
+  const failed = bulkResults.value.length - ok;
+  visual.setSnackbarMsg({
+    function: 'bulkDeleteViews',
+    text: `${ok} deleted${failed ? `, ${failed} failed` : ''}.`,
+    ttl: 5000,
+    ts: Date.now(),
+    type: failed ? Type.WARNING : Type.SUCCESS,
+  });
+  selected.value = [];
+  await loadViews();
 }
 
 async function routeToView(item: ViewIdentifierExtended) {

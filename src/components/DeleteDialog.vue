@@ -167,7 +167,7 @@ const isDialogActive = ref(false);
 function confirm() {
   if (props.type === 'namespace') {
     emit('deleteWithOptions', optionsNamespace);
-  } else if (props.type === 'table') {
+  } else if (props.type === 'table' || props.type === 'generic-table') {
     emit('deleteTableWithOptions', optionsTable);
   } else if (props.type === 'view') {
     emit('deleteViewWithOptions', optionsView);

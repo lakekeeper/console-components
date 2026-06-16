@@ -224,14 +224,7 @@
               {{ item.name }}
             </span>
             <v-btn
-              v-if="
-                props.pickable &&
-                (item.type === 'warehouse' ||
-                  item.type === 'namespace' ||
-                  item.type === 'table' ||
-                  item.type === 'view' ||
-                  item.type === 'generic-table')
-              "
+              v-if="props.pickable && canPick(item.type)"
               icon
               size="x-small"
               variant="text"
@@ -295,6 +288,7 @@ import deltaIcon from '@/assets/delta.svg';
 import vortexLightIcon from '@/assets/vortex_logo.svg';
 import vortexDarkIcon from '@/assets/vortex_logo_dark_theme.svg';
 import lanceIcon from '@/assets/lance.png';
+import paimonIcon from '@/assets/paimon.svg';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -303,7 +297,17 @@ const props = defineProps<{
   // When true, row click no longer navigates; a `+` button per row emits `pick` instead.
   // Use this when the tree is used as a resource picker (e.g. Cedar Resolve).
   pickable?: boolean;
+  // Restrict which node types show the pick button (e.g. ['table']). When omitted,
+  // all supported types are pickable.
+  pickableTypes?: Array<'warehouse' | 'namespace' | 'table' | 'view' | 'generic-table'>;
 }>();
+
+// Whether a node type can be picked, honouring the optional pickableTypes restriction.
+function canPick(type: string): boolean {
+  const supported = ['warehouse', 'namespace', 'table', 'view', 'generic-table'];
+  if (!supported.includes(type)) return false;
+  return !props.pickableTypes || props.pickableTypes.includes(type as any);
+}
 
 const functions = useFunctions();
 const visualStore = useVisualStore();
@@ -384,6 +388,8 @@ function formatIcon(format?: string): string | null {
       return deltaIcon;
     case 'lance':
       return lanceIcon;
+    case 'paimon':
+      return paimonIcon;
     case 'vortex':
       return visualStore.themeLight ? vortexLightIcon : vortexDarkIcon;
     default:

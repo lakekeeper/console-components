@@ -162,7 +162,7 @@
 
     <!-- Per-entity maintenance summary: one card per queue with last/next + actions -->
     <v-card
-      v-if="entityScoped && Object.keys(tasksByQueue).length > 0"
+      v-if="showMaintenanceSummary && entityScoped && Object.keys(tasksByQueue).length > 0"
       variant="outlined"
       class="mb-4">
       <v-card-title class="bg-surface-light d-flex align-center">
@@ -278,6 +278,36 @@
       </v-card>
     </v-dialog>
 
+    <!-- Inline quick filters (status chips + active queue) -->
+    <div v-if="!hasError" class="d-flex flex-wrap align-center mb-3" style="gap: 6px">
+      <span class="text-caption text-medium-emphasis mr-1">Status:</span>
+      <v-chip
+        v-for="opt in statusOptions"
+        :key="opt.value"
+        size="small"
+        :color="filters.status.includes(opt.value) ? getStatusColor(opt.value) : undefined"
+        :variant="filters.status.includes(opt.value) ? 'flat' : 'outlined'"
+        @click="toggleStatusChip(opt.value)">
+        {{ opt.title }}
+      </v-chip>
+      <v-spacer />
+      <v-chip
+        v-if="filters.queueNames.length"
+        size="small"
+        color="primary"
+        variant="tonal">
+        queue: {{ filters.queueNames.map((q) => formatQueueName(queueVal(q))).join(', ') }}
+      </v-chip>
+      <v-btn
+        v-if="filters.status.length"
+        size="small"
+        variant="text"
+        prepend-icon="mdi-filter-remove-outline"
+        @click="clearStatusFilter">
+        Clear status
+      </v-btn>
+    </div>
+
     <v-data-table
       v-if="!hasError"
       :loading="tasksLoading"
@@ -311,20 +341,23 @@
         </span>
       </template>
       <template #item.status="{ item }">
-        <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
+        <v-chip :color="getStatusColor(item.status)" size="x-small" variant="flat">
           {{ item.status }}
         </v-chip>
       </template>
 
       <template #item.task-id="{ item }">
-        <span style="display: flex; align-items: center">
+        <div class="d-flex align-center" style="gap: 2px">
+          <code class="text-caption" :title="item['task-id']">
+            {{ item['task-id'].slice(0, 8) }}…
+          </code>
           <v-btn
             icon="mdi-content-copy"
-            size="small"
-            variant="flat"
+            size="x-small"
+            variant="text"
+            density="comfortable"
             @click="functions.copyToClipboard(item['task-id'])"></v-btn>
-          {{ item['task-id'] }}
-        </span>
+        </div>
       </template>
 
       <template #item.queue-name="{ item }">
@@ -351,27 +384,27 @@
       <template #item.actions="{ item }">
         <v-btn
           icon="mdi-information"
-          size="small"
+          size="x-small"
           variant="text"
           @click="viewTaskDetails(item)"></v-btn>
         <v-btn
           v-if="item.status === 'RUNNING' && canControlTasks"
           icon="mdi-stop"
-          size="small"
+          size="x-small"
           variant="text"
           color="warning"
           @click="stopTask(item)"></v-btn>
         <v-btn
           v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
           icon="mdi-cancel"
-          size="small"
+          size="x-small"
           variant="text"
           color="error"
           @click="cancelTask(item)"></v-btn>
         <v-btn
           v-if="item.status === 'SCHEDULED' && canControlTasks"
           icon="mdi-play"
-          size="small"
+          size="x-small"
           variant="text"
           color="success"
           @click="runTaskNow(item)"></v-btn>
@@ -549,7 +582,7 @@
 import { useWarehousePermissions } from '../composables/useCatalogPermissions';
 import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
-import { reactive, ref, onMounted, computed, inject } from 'vue';
+import { reactive, ref, onMounted, computed, inject, watch } from 'vue';
 import TaskDetails from './TaskDetails.vue';
 import { getStatusColor, formatDateTime } from '../common/taskUtils';
 import type {
@@ -567,6 +600,13 @@ const props = defineProps<{
   viewId?: string;
   genericTableId?: string;
   entityType?: 'warehouse' | 'table' | 'view' | 'generic-table';
+  // Show the per-entity maintenance summary cards (Expire/Orphan last/next run +
+  // actions). Off by default — it's a Plus-flavored feature, so the OSS console
+  // and plain task views don't surface it unless explicitly enabled.
+  showMaintenanceSummary?: boolean;
+  // Externally-controlled queue filter (e.g. clicking a queue row in the
+  // maintenance panel). Overrides the queue selection and refetches.
+  queueFilter?: string[];
 }>();
 
 // Composables
@@ -791,13 +831,16 @@ const statusOptions = [
   { title: 'Failed', value: 'FAILED' as TaskStatus },
 ];
 
-// Queue name options from configuration
-const queueNameOptions = computed(() =>
-  queueManager.options.map((option) => ({
-    title: option.title,
-    value: option.value,
-  })),
-);
+// Queue/task-type options come from the server's registered queue list
+// (serverInfo.queues), so all task types the server provides are selectable —
+// not just the hardcoded defaults. Falls back to the defaults if unavailable.
+const queueNameOptions = computed(() => {
+  const serverQueues: string[] = (visual.getServerInfo?.()?.queues as string[]) || [];
+  const values = serverQueues.length
+    ? serverQueues
+    : queueManager.options.map((o) => o.value);
+  return values.map((q) => ({ title: queueManager.formatQueueName(q), value: q }));
+});
 
 // Permission-based computed properties (using composable)
 
@@ -846,6 +889,30 @@ function clearFilters() {
   filters.parentTaskId = '';
   applyFilters();
 }
+
+// Inline status quick-filter (chips above the table).
+function toggleStatusChip(s: TaskStatus) {
+  const i = filters.status.indexOf(s);
+  if (i >= 0) filters.status.splice(i, 1);
+  else filters.status.push(s);
+  applyFilters();
+}
+function clearStatusFilter() {
+  filters.status = [];
+  applyFilters();
+}
+function queueVal(q: string | { title: string; value: string }): string {
+  return typeof q === 'string' ? q : q.value;
+}
+
+// Apply an externally-controlled queue filter (maintenance panel row clicks).
+watch(
+  () => props.queueFilter,
+  (qf) => {
+    filters.queueNames = (qf ?? []).map((v) => ({ title: formatQueueName(v), value: v }));
+    applyFilters();
+  },
+);
 
 // Task details modal functions
 function closeTaskDetailsDialog() {

@@ -4,10 +4,14 @@
   </v-alert>
   <v-data-table
     v-else
+    v-model="selected"
     height="65vh"
     items-per-page="50"
     :search="searchTbl"
     fixed-header
+    show-select
+    return-object
+    :item-value="rowKey"
     :items-per-page-options="[
       { title: '50 items', value: 50 },
       { title: '100 items', value: 100 },
@@ -38,6 +42,19 @@
           variant="underlined"
           hide-details
           clearable></v-text-field>
+      </v-toolbar>
+      <v-toolbar v-if="selected.length" color="primary" density="compact" flat class="px-2">
+        <span class="text-body-2 font-weight-medium">{{ selected.length }} selected</span>
+        <v-spacer></v-spacer>
+        <slot name="bulk-actions" :selected="selected" :selected-iceberg="selectedIcebergTables" />
+        <v-btn
+          size="small"
+          variant="text"
+          prepend-icon="mdi-delete-outline"
+          @click="openBulkDelete">
+          Delete ({{ selected.length }})
+        </v-btn>
+        <v-btn size="small" variant="text" icon="mdi-close" @click="selected = []"></v-btn>
       </v-toolbar>
     </template>
     <template #item.name="{ item }">
@@ -120,6 +137,87 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- Bulk delete -->
+  <v-dialog v-model="bulkDeleteDialog" max-width="540" persistent>
+    <v-card>
+      <v-card-title class="d-flex align-center">
+        <v-icon color="error" class="mr-2">mdi-delete-alert-outline</v-icon>
+        Delete {{ selected.length }} {{ selected.length === 1 ? 'table' : 'tables' }}?
+      </v-card-title>
+      <v-card-text>
+        <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
+          This permanently removes the selected tables and cannot be undone.
+          {{ bulkForce ? '' : 'Delete-protected tables will be skipped.' }}
+        </v-alert>
+        <v-switch
+          v-if="selectedIcebergTables.length"
+          v-model="bulkForce"
+          color="info"
+          density="compact">
+          <template #label>
+            <div>
+              <span>{{ bulkForce ? 'Force activated' : 'Force deactivated' }}</span>
+              <div v-if="bulkForce" class="text-caption text-error">
+                Bypass Protection and Skip Soft-Deletion
+              </div>
+            </div>
+          </template>
+        </v-switch>
+        <v-switch
+          v-if="selectedIcebergTables.length"
+          v-model="bulkPurge"
+          color="info"
+          density="compact">
+          <template #label>
+            <div>
+              <span>{{ bulkPurge ? 'Purge activated' : 'Purge deactivated' }}</span>
+              <div v-if="bulkPurge" class="text-caption text-error">
+                Purge the underlying table's data and metadata
+              </div>
+            </div>
+          </template>
+        </v-switch>
+        <div v-if="selectedIcebergTables.length" class="text-caption text-medium-emphasis mt-1">
+          <v-icon size="x-small" class="mr-1">mdi-information-outline</v-icon>
+          Force and Purge apply to Iceberg tables only{{
+            selected.length > selectedIcebergTables.length
+              ? ';'
+              : '.'
+          }}
+        </div>
+
+        <!-- Per-item results after an attempt -->
+        <v-list v-if="bulkResults.length" density="compact" class="mt-2" max-height="220">
+          <v-list-item v-for="r in bulkResults" :key="r.name">
+            <template #prepend>
+              <v-icon :color="r.ok ? 'success' : 'error'" size="small">
+                {{ r.ok ? 'mdi-check-circle' : 'mdi-alert-circle' }}
+              </v-icon>
+            </template>
+            <v-list-item-title class="text-body-2">{{ r.name }}</v-list-item-title>
+            <v-list-item-subtitle v-if="!r.ok" class="text-error">
+              {{ r.reason }}
+            </v-list-item-subtitle>
+          </v-list-item>
+        </v-list>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn :disabled="bulkDeleting" @click="bulkDeleteDialog = false">
+          {{ bulkDone ? 'Close' : 'Cancel' }}
+        </v-btn>
+        <v-btn
+          v-if="!bulkDone"
+          color="error"
+          variant="flat"
+          :loading="bulkDeleting"
+          @click="confirmBulkDelete">
+          Delete
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
@@ -136,6 +234,7 @@ import deltaIcon from '@/assets/delta.svg';
 import vortexLightIcon from '@/assets/vortex_logo.svg';
 import vortexDarkIcon from '@/assets/vortex_logo_dark_theme.svg';
 import lanceIcon from '@/assets/lance.png';
+import paimonIcon from '@/assets/paimon.svg';
 
 type TableRow = {
   name: string;
@@ -188,6 +287,8 @@ function formatIcon(format?: string): string | null {
       return deltaIcon;
     case 'lance':
       return lanceIcon;
+    case 'paimon':
+      return paimonIcon;
     case 'vortex':
       return visual.themeLight ? vortexLightIcon : vortexDarkIcon;
     default:
@@ -201,6 +302,67 @@ const filteredRows = computed(() => {
     typeFilter.value === 'iceberg' ? r.source === 'iceberg' : r.source === 'generic',
   );
 });
+
+// --- Bulk selection / delete ------------------------------------------------
+const selected = ref<TableRow[]>([]);
+const rowKey = (item: TableRow) => `${item.source}:${item.name}`;
+const selectedIcebergTables = computed(() => selected.value.filter((r) => r.source === 'iceberg'));
+
+const bulkDeleteDialog = ref(false);
+const bulkPurge = ref(false);
+const bulkForce = ref(false);
+const bulkDeleting = ref(false);
+const bulkDone = ref(false);
+const bulkResults = ref<Array<{ name: string; ok: boolean; reason?: string }>>([]);
+
+function openBulkDelete() {
+  bulkPurge.value = false;
+  bulkForce.value = false;
+  bulkDone.value = false;
+  bulkResults.value = [];
+  bulkDeleteDialog.value = true;
+}
+
+async function confirmBulkDelete() {
+  bulkDeleting.value = true;
+  bulkResults.value = [];
+  // Continue through failures; report each outcome rather than stopping.
+  for (const row of [...selected.value]) {
+    try {
+      if (row.source === 'generic') {
+        await functions.dropGenericTable(props.warehouseId, props.namespacePath, row.name, false);
+      } else {
+        await functions.dropTable(
+          props.warehouseId,
+          props.namespacePath,
+          row.name,
+          { purgeRequested: bulkPurge.value, force: bulkForce.value },
+          false,
+        );
+      }
+      bulkResults.value.push({ name: row.name, ok: true });
+    } catch (error: any) {
+      bulkResults.value.push({
+        name: row.name,
+        ok: false,
+        reason: error?.error?.message || error?.message || 'Failed to delete',
+      });
+    }
+  }
+  bulkDeleting.value = false;
+  bulkDone.value = true;
+  const ok = bulkResults.value.filter((r) => r.ok).length;
+  const failed = bulkResults.value.length - ok;
+  visual.setSnackbarMsg({
+    function: 'bulkDeleteTables',
+    text: `${ok} deleted${failed ? `, ${failed} failed` : ''}.`,
+    ttl: 5000,
+    ts: Date.now(),
+    type: (failed ? 'warning' : 'success') as any,
+  });
+  selected.value = [];
+  await loadAll();
+}
 
 onMounted(loadAll);
 watch(() => props.namespacePath, loadAll);

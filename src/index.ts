@@ -78,6 +78,7 @@ import FeedbackDialog from './components/FeedbackDialog.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
+import StackedAreaChart from './components/StackedAreaChart.vue';
 import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
 import NotificationButton from './components/NotificationButton.vue';
 import NotificationPanel from './components/NotificationPanel.vue';
@@ -117,6 +118,7 @@ export {
   DeleteConfirmDialog,
   StatisticsDialog,
   StatisticsProject,
+  StackedAreaChart,
   ComputeConnectDialog,
   ProjectManager,
   ProjectStatistics,
@@ -299,6 +301,7 @@ const components = {
   DeleteConfirmDialog,
   StatisticsDialog,
   StatisticsProject,
+  StackedAreaChart,
   ComputeConnectDialog,
   ProjectManager,
   ProjectStatistics,

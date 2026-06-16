@@ -1,8 +1,10 @@
 <template>
-  <v-card variant="outlined">
-    <v-card-title class="d-flex align-center text-subtitle-1">
+  <v-card>
+    <v-card-title class="d-flex align-center text-subtitle-1 snapshot-header">
       <v-icon class="mr-2">mdi-camera-outline</v-icon>
       {{ title || 'Snapshot Details' }}
+      <v-spacer></v-spacer>
+      <slot name="append"></slot>
     </v-card-title>
     <v-divider></v-divider>
 
@@ -90,46 +92,59 @@
         </v-list-item-subtitle>
       </v-list-item>
 
-      <!-- Summary -->
-      <v-list-item v-if="snapshot.summary && showSummary">
-        <v-list-item-title class="d-flex align-center justify-space-between">
-          <span>Summary</span>
-          <v-btn
-            :icon="summaryExpanded ? 'mdi-chevron-up' : 'mdi-chevron-down'"
-            size="small"
-            variant="text"
-            @click="summaryExpanded = !summaryExpanded"></v-btn>
-        </v-list-item-title>
-        <v-list-item-subtitle>
-          <v-expand-transition>
-            <div v-show="summaryExpanded">
-              <v-row class="mt-2">
-                <v-col v-for="(value, key) in snapshot.summary" :key="key" cols="12" md="6">
-                  <v-list-item class="pa-2" density="compact" variant="tonal" rounded>
-                    <v-list-item-title class="text-caption font-weight-medium">
-                      {{ formatSummaryKey(String(key)) }}
-                    </v-list-item-title>
-                    <v-list-item-subtitle class="font-mono">
-                      {{ formatSummaryValue(value) }}
-                    </v-list-item-subtitle>
-                  </v-list-item>
-                </v-col>
-              </v-row>
-            </div>
-          </v-expand-transition>
-        </v-list-item-subtitle>
-      </v-list-item>
     </v-list>
+
+    <!-- Summary — always visible: highlights + remaining fields -->
+    <template v-if="(highlights.length || otherEntries.length) && showSummary">
+      <v-divider></v-divider>
+      <v-card-text>
+        <div class="text-subtitle-2 mb-3 d-flex align-center">
+          <v-icon size="18" class="mr-1">mdi-clipboard-text-outline</v-icon>
+          Summary
+        </div>
+
+        <v-row v-if="highlights.length" dense class="mb-2">
+          <v-col v-for="h in highlights" :key="h.label" cols="6" sm="3">
+            <v-sheet border rounded="lg" class="pa-3 h-100">
+              <div class="d-flex align-center text-caption text-medium-emphasis mb-1">
+                <v-icon size="14" class="mr-1">{{ h.icon }}</v-icon>{{ h.label }}
+              </div>
+              <div class="text-h6 font-weight-medium summary-value">{{ h.value }}</div>
+              <div v-if="h.added || h.deleted" class="text-caption">
+                <span v-if="h.added" class="text-success">+{{ h.added }}</span>
+                <span v-if="h.deleted" class="text-error ml-1">−{{ h.deleted }}</span>
+              </div>
+            </v-sheet>
+          </v-col>
+        </v-row>
+
+        <template v-if="otherEntries.length">
+          <div class="text-caption text-medium-emphasis text-uppercase mt-3 mb-1">
+            Other properties
+          </div>
+          <v-table density="compact" class="summary-table">
+            <tbody>
+              <tr v-for="e in otherEntries" :key="e.key">
+                <td class="text-medium-emphasis" style="width: 45%">
+                  {{ formatSummaryKey(e.key) }}
+                </td>
+                <td class="font-mono summary-value">{{ e.display }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </template>
+      </v-card-text>
+    </template>
   </v-card>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import type { Snapshot } from '../gen/iceberg/types.gen';
 
 // Props
-withDefaults(
+const props = withDefaults(
   defineProps<{
     snapshot?: Snapshot;
     title?: string;
@@ -143,8 +158,81 @@ withDefaults(
 // Composables
 const functions = useFunctions();
 
-// Reactive state
-const summaryExpanded = ref(false);
+const summary = computed<Record<string, any>>(
+  () => (props.snapshot?.summary as Record<string, any>) ?? {},
+);
+const has = (k: string) => summary.value[k] !== undefined;
+const n = (k: string) => {
+  const v = Number(summary.value[k]);
+  return Number.isFinite(v) ? v : 0;
+};
+const fmtCount = (v: number) => v.toLocaleString();
+const fmtBytes = (bytes: number): string => {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ['KB', 'MB', 'GB', 'TB', 'PB'];
+  let value = bytes / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i++;
+  }
+  return `${value.toFixed(value < 10 ? 2 : 1)} ${units[i]}`;
+};
+
+// Prominent metrics with added/deleted deltas
+const highlights = computed(() => {
+  const out: Array<{
+    label: string;
+    value: string;
+    icon: string;
+    added: string;
+    deleted: string;
+  }> = [];
+  const add = (
+    label: string,
+    icon: string,
+    total: string,
+    addedKey: string,
+    deletedKey: string,
+    fmt: (v: number) => string,
+  ) => {
+    out.push({
+      label,
+      icon,
+      value: total,
+      added: has(addedKey) && n(addedKey) > 0 ? fmt(n(addedKey)) : '',
+      deleted: has(deletedKey) && n(deletedKey) > 0 ? fmt(n(deletedKey)) : '',
+    });
+  };
+  if (has('total-records') || has('added-records') || has('deleted-records'))
+    add('Records', 'mdi-table-row', fmtCount(n('total-records')), 'added-records', 'deleted-records', fmtCount);
+  if (has('total-data-files') || has('added-data-files') || has('deleted-data-files'))
+    add('Data files', 'mdi-file-multiple-outline', fmtCount(n('total-data-files')), 'added-data-files', 'deleted-data-files', fmtCount);
+  if (has('total-delete-files') || has('added-delete-files') || has('removed-delete-files'))
+    add('Delete files', 'mdi-file-remove-outline', fmtCount(n('total-delete-files')), 'added-delete-files', 'removed-delete-files', fmtCount);
+  if (has('total-files-size') || has('added-files-size') || has('removed-files-size'))
+    add('Total size', 'mdi-database-outline', fmtBytes(n('total-files-size')), 'added-files-size', 'removed-files-size', fmtBytes);
+  return out;
+});
+
+const HIGHLIGHT_KEYS = new Set([
+  'total-records', 'added-records', 'deleted-records',
+  'total-data-files', 'added-data-files', 'deleted-data-files',
+  'total-delete-files', 'added-delete-files', 'removed-delete-files',
+  'total-files-size', 'added-files-size', 'removed-files-size',
+]);
+
+// Everything else (engine info, partition counts, etc.) as a key/value table
+const otherEntries = computed(() => {
+  const s = summary.value;
+  return Object.keys(s)
+    .filter((key) => key !== 'operation' && !HIGHLIGHT_KEYS.has(key))
+    .map((key) => ({
+      key,
+      display: /size|bytes/.test(key) ? fmtBytes(n(key)) : formatSummaryValue(s[key]),
+    }));
+});
 
 // Methods
 const copyToClipboard = (text: string) => {
@@ -217,5 +305,11 @@ const getOperationColor = (operation: string): string => {
 <style scoped>
 .font-mono {
   font-family: 'Roboto Mono', monospace;
+}
+.snapshot-header {
+  background: rgba(var(--v-theme-on-surface), 0.04);
+}
+.summary-value {
+  word-break: break-word;
 }
 </style>
