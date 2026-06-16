@@ -56,6 +56,12 @@ import {
   GetWarehouseStatisticsResponse,
   ListDeletedTabularsResponse,
   ListRolesResponse,
+  ListRoleMembersResponse,
+  ListUserRolesResponse,
+  ListRoleMemberOfResponse,
+  ManagedBy,
+  RoleMemberRef,
+  RoleMemberType,
   ListWarehousesResponse,
   NamespaceAction,
   NamespaceAssignment,
@@ -3654,6 +3660,117 @@ async function listRoles(
   }
 }
 
+// --- Role membership (lakekeeper#1829) --------------------------------------
+async function listRoleMembers(roleId: string): Promise<ListRoleMembersResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listRoleMembers({
+      client: mngClient.client,
+      path: { role_id: roleId },
+    });
+    if (error) throw error;
+    return (data as ListRoleMembersResponse) ?? { members: [] };
+  } catch (error: any) {
+    handleError(error, 'listRoleMembers');
+    throw error;
+  }
+}
+
+async function addRoleMembers(
+  roleId: string,
+  members: RoleMemberRef[],
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const { error } = await mng.addRoleMembers({
+      client: mngClient.client,
+      path: { role_id: roleId },
+      body: { members },
+    });
+    if (error) throw error;
+    if (notify) handleSuccess('addRoleMembers', `${members.length} member(s) added`, notify);
+    return true;
+  } catch (error: any) {
+    handleError(error, 'addRoleMembers');
+    throw error;
+  }
+}
+
+async function removeRoleMember(
+  roleId: string,
+  memberType: RoleMemberType,
+  memberId: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const { error } = await mng.removeRoleMember({
+      client: mngClient.client,
+      path: { role_id: roleId, member_type: memberType, member_id: memberId },
+    });
+    if (error) throw error;
+    if (notify) handleSuccess('removeRoleMember', 'Member removed', notify);
+    return true;
+  } catch (error: any) {
+    handleError(error, 'removeRoleMember');
+    throw error;
+  }
+}
+
+async function listRoleMemberOf(roleId: string): Promise<ListRoleMemberOfResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listRoleMemberOf({
+      client: mngClient.client,
+      path: { role_id: roleId },
+    });
+    if (error) throw error;
+    return data as ListRoleMemberOfResponse;
+  } catch (error: any) {
+    handleError(error, 'listRoleMemberOf');
+    throw error;
+  }
+}
+
+async function listUserRoles(userId: string): Promise<ListUserRolesResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listUserRoles({
+      client: mngClient.client,
+      path: { user_id: userId },
+    });
+    if (error) throw error;
+    return data as ListUserRolesResponse;
+  } catch (error: any) {
+    handleError(error, 'listUserRoles');
+    throw error;
+  }
+}
+
+// --- Warehouse managed-by (lakekeeper#1828) ---------------------------------
+async function setWarehouseManagedBy(
+  warehouseId: string,
+  managedBy: ManagedBy,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const { error } = await mng.setWarehouseManagedBy({
+      client: mngClient.client,
+      path: { warehouse_id: warehouseId },
+      body: { 'managed-by': managedBy },
+    });
+    if (error) throw error;
+    if (notify)
+      handleSuccess('setWarehouseManagedBy', `Warehouse marked ${managedBy}`, notify);
+    return true;
+  } catch (error: any) {
+    handleError(error, 'setWarehouseManagedBy');
+    throw error;
+  }
+}
+
 async function getRole(roleId: string, notify?: boolean): Promise<Role> {
   try {
     init();
@@ -5034,6 +5151,12 @@ export function useFunctions(config?: any) {
     searchRole,
     searchTabular,
     listRoles,
+    listRoleMembers,
+    addRoleMembers,
+    removeRoleMember,
+    listRoleMemberOf,
+    listUserRoles,
+    setWarehouseManagedBy,
     deleteRole,
     getRole,
     createRole,
