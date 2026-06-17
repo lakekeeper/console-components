@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.9.0](https://github.com/lakekeeper/console-components/compare/v0.8.0...v0.9.0) (2026-06-17)
+
+
+### Features
+
+* **ui:** add Microsoft OneLake storage backend ([f51e5a3](https://github.com/lakekeeper/console-components/commit/f51e5a34997ceec2b2a6cf3df234b452a4293a8c))
+
+
+### Bug Fixes
+
+* **ui:** OneLake supports only client-credentials and system identity ([f51e5a3](https://github.com/lakekeeper/console-components/commit/f51e5a34997ceec2b2a6cf3df234b452a4293a8c))
+
 ## [0.8.0](https://github.com/lakekeeper/console-components/compare/v0.7.2...v0.8.0) (2026-06-08)
 
 
