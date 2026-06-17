@@ -115,6 +115,7 @@ import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 
 // Import SVG assets
 import cfIcon from '@/assets/cf.svg';
+import oneLakeIcon from '@/assets/onelake.png';
 
 const router = useRouter();
 const functions = useFunctions();
@@ -208,7 +209,7 @@ function getStorageIcon(item: GetWarehouseResponseExtended) {
   }
 
   if (profile.type === 'onelake') {
-    return h(VIcon, { class: 'mr-2', color: 'primary', size: 'large' }, () => 'mdi-microsoft');
+    return h(VImg, { class: 'mb-2 mr-2', src: oneLakeIcon, width: 24 });
   }
 
   if (profile.type === 'gcs') {

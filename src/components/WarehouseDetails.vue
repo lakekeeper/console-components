@@ -288,7 +288,7 @@
               <!-- OneLake Storage -->
               <v-card v-if="warehouse['storage-profile'].type === 'onelake'" variant="outlined">
                 <v-card-title class="bg-surface-light d-flex align-center">
-                  <v-icon icon="mdi-microsoft" class="mr-2" color="blue"></v-icon>
+                  <v-img :src="oneLakeIcon" width="22" height="22" class="mr-2" />
                   Microsoft OneLake Configuration
                 </v-card-title>
                 <v-card-text>
@@ -374,6 +374,7 @@
 <script setup lang="ts">
 import { reactive, computed, onMounted, inject } from 'vue';
 import { logError } from '@/common/errorUtils';
+import oneLakeIcon from '@/assets/onelake.png';
 
 const props = defineProps<{
   warehouseId: string;
