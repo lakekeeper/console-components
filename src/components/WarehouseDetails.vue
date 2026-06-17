@@ -131,32 +131,20 @@
                         </v-chip>
                       </div>
                     </v-col>
-                  </v-row>
-                </v-card-text>
-              </v-card>
-
-              <!-- Deletion Profile Section -->
-              <v-card variant="outlined" class="mb-4">
-                <v-card-title class="bg-surface-light d-flex align-center">
-                  <v-icon icon="mdi-delete-outline" class="mr-2" color="error"></v-icon>
-                  Deletion Profile
-                </v-card-title>
-                <v-card-text>
-                  <v-row dense>
                     <v-col cols="12">
-                      <div class="text-overline text-medium-emphasis">Type</div>
-                      <div class="mt-2">
+                      <div class="text-overline text-medium-emphasis">Deletion profile</div>
+                      <div class="mt-2 d-flex align-center" style="gap: 8px">
                         <v-chip
                           :color="warehouse['delete-profile'].type === 'hard' ? 'error' : 'info'"
                           size="small">
                           {{ warehouse['delete-profile'].type }}
                         </v-chip>
-                      </div>
-                    </v-col>
-                    <v-col v-if="warehouse['delete-profile'].type === 'soft'" cols="12">
-                      <div class="text-overline text-medium-emphasis">Expiration</div>
-                      <div class="text-body-1 mt-2">
-                        {{ formatSeconds(warehouse['delete-profile']['expiration-seconds']) }}
+                        <span
+                          v-if="warehouse['delete-profile'].type === 'soft'"
+                          class="text-body-2 text-medium-emphasis">
+                          expires after
+                          {{ formatSeconds(warehouse['delete-profile']['expiration-seconds']) }}
+                        </span>
                       </div>
                     </v-col>
                   </v-row>
