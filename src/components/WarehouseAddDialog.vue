@@ -227,14 +227,13 @@
                   <v-row align="start" dense>
                     <v-col cols="12" md="6">
                       <v-switch
-                        v-model="csProtected"
+                        :model-value="csProtected"
                         color="primary"
                         hide-details
                         density="compact"
                         :prepend-icon="csProtected ? 'mdi-lock' : 'mdi-lock-open-variant-outline'"
-                        :label="
-                          csProtected ? 'Deletion protected' : 'Deletion protection off'
-                        "></v-switch>
+                        :label="csProtected ? 'Deletion protected' : 'Deletion protection off'"
+                        @update:model-value="requestProtection($event === true)"></v-switch>
                       <div class="text-caption text-medium-emphasis ml-10">
                         Prevent this warehouse from being deleted.
                       </div>
@@ -253,9 +252,7 @@
                             ? 'Managed by instance admin'
                             : 'Self-managed'
                         "
-                        @update:model-value="
-                          csManagedBy = $event ? 'instance-admin' : 'self-managed'
-                        "></v-switch>
+                        @update:model-value="requestManagedBy($event === true)"></v-switch>
                       <div class="text-caption text-medium-emphasis ml-10">
                         Restrict spec changes (rename, storage, delete) to instance admins.
                       </div>
@@ -277,6 +274,27 @@
                 </v-btn>
               </div>
             </div>
+
+            <!-- Confirm dialog for the immediate access/protection toggles -->
+            <v-dialog v-model="accessConfirm.open" max-width="460">
+              <v-card>
+                <v-card-title class="text-subtitle-1 font-weight-medium">
+                  {{ accessConfirm.title }}
+                </v-card-title>
+                <v-card-text class="text-body-2">{{ accessConfirm.message }}</v-card-text>
+                <v-card-actions>
+                  <v-spacer></v-spacer>
+                  <v-btn variant="text" @click="accessConfirm.open = false">Cancel</v-btn>
+                  <v-btn
+                    :color="accessConfirm.danger ? 'error' : 'primary'"
+                    variant="flat"
+                    :loading="accessConfirm.saving"
+                    @click="confirmAccess">
+                    Confirm
+                  </v-btn>
+                </v-card-actions>
+              </v-card>
+            </v-dialog>
 
             <span v-if="props.objectType !== ObjectType.CATALOG_SETTINGS">
               <v-tabs v-model="storageCredentialType" color="primary" :disabled="!emptyWarehouse">
@@ -803,9 +821,7 @@ const catalogSettingsDirty = computed(() => {
     serverAllowed.length !== policyAllowed.value.length ||
     serverAllowed.some((v) => !policyAllowed.value.includes(v));
   const defaultChanged = policyDefault.value !== resolvedServerDefault;
-  const accessChanged =
-    csManagedBy.value !== loadedManagedBy.value || csProtected.value !== loadedProtected.value;
-  return deletionChanged || allowedChanged || defaultChanged || accessChanged;
+  return deletionChanged || allowedChanged || defaultChanged;
 });
 
 function emitCatalogSettings() {
@@ -821,10 +837,56 @@ function emitCatalogSettings() {
       allowed: [...policyAllowed.value].sort((a, b) => a - b),
       default: effectiveDefault,
     },
-    // Only include access/protection fields that actually changed.
-    ...(csManagedBy.value !== loadedManagedBy.value ? { managedBy: csManagedBy.value } : {}),
-    ...(csProtected.value !== loadedProtected.value ? { protected: csProtected.value } : {}),
   });
+}
+
+// Access & protection toggles apply immediately, each behind a confirm dialog.
+const accessConfirm = reactive({
+  open: false,
+  kind: null as null | 'protected' | 'managedBy',
+  value: null as boolean | ManagedBy | null,
+  title: '',
+  message: '',
+  danger: false,
+  saving: false,
+});
+
+function requestProtection(val: boolean) {
+  if (val === csProtected.value) return;
+  accessConfirm.kind = 'protected';
+  accessConfirm.value = val;
+  accessConfirm.danger = !val; // turning protection OFF is the riskier action
+  accessConfirm.title = val ? 'Enable deletion protection?' : 'Disable deletion protection?';
+  accessConfirm.message = val
+    ? 'The warehouse will be protected and cannot be deleted until protection is turned off.'
+    : 'The warehouse will no longer be protected and can be deleted.';
+  accessConfirm.open = true;
+}
+
+function requestManagedBy(instanceAdmin: boolean) {
+  const next: ManagedBy = instanceAdmin ? 'instance-admin' : 'self-managed';
+  if (next === csManagedBy.value) return;
+  accessConfirm.kind = 'managedBy';
+  accessConfirm.value = next;
+  accessConfirm.danger = instanceAdmin;
+  accessConfirm.title = instanceAdmin ? 'Mark managed by instance admin?' : 'Make self-managed?';
+  accessConfirm.message = instanceAdmin
+    ? 'Spec changes (rename, storage, delete, activation) will be restricted to instance admins.'
+    : 'Owners will manage this warehouse through the usual grants.';
+  accessConfirm.open = true;
+}
+
+function confirmAccess() {
+  if (accessConfirm.kind === 'protected') {
+    csProtected.value = accessConfirm.value as boolean;
+    loadedProtected.value = accessConfirm.value as boolean;
+    emit('updateCatalogSettings', { protected: accessConfirm.value as boolean });
+  } else if (accessConfirm.kind === 'managedBy') {
+    csManagedBy.value = accessConfirm.value as ManagedBy;
+    loadedManagedBy.value = accessConfirm.value as ManagedBy;
+    emit('updateCatalogSettings', { managedBy: accessConfirm.value as ManagedBy });
+  }
+  accessConfirm.open = false;
 }
 
 function newCredentials(credentials: StorageCredential) {
