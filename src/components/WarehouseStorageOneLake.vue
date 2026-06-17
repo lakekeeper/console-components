@@ -511,7 +511,13 @@ const isLakehouseIdInvalid = computed(
   () => !warehouseObjectData['storage-profile']['lakehouse-id'],
 );
 
+// Only the create-warehouse flow submits; in update modes the form's submit
+// event (e.g. Enter in a field) must not route to the parent's createWarehouse.
+const isCreateFlow = () =>
+  props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE;
+
 const handleSubmit = () => {
+  if (!isCreateFlow()) return;
   shouldSaveAsJson.value = false;
   emit('submit', warehouseObjectData, shouldSaveAsJson.value);
 };

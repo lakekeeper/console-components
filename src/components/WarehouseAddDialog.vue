@@ -694,9 +694,14 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
         'storage-profile': wh['storage-profile'],
         'storage-credential': wh['storage-credential'],
       });
+    if (wh['storage-profile'].type === 'onelake')
+      Object.assign(warehouseObjectOneLake, {
+        'storage-profile': wh['storage-profile'],
+        'storage-credential': wh['storage-credential'],
+      });
     importKey.value++;
   } catch (error) {
-    console.error(error);
+    handleError(error, 'importing warehouse JSON', true);
   }
 }
 
