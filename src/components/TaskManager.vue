@@ -291,11 +291,7 @@
         {{ opt.title }}
       </v-chip>
       <v-spacer />
-      <v-chip
-        v-if="filters.queueNames.length"
-        size="small"
-        color="primary"
-        variant="tonal">
+      <v-chip v-if="filters.queueNames.length" size="small" color="primary" variant="tonal">
         queue: {{ filters.queueNames.map((q) => formatQueueName(queueVal(q))).join(', ') }}
       </v-chip>
       <v-btn
@@ -836,9 +832,7 @@ const statusOptions = [
 // not just the hardcoded defaults. Falls back to the defaults if unavailable.
 const queueNameOptions = computed(() => {
   const serverQueues: string[] = (visual.getServerInfo?.()?.queues as string[]) || [];
-  const values = serverQueues.length
-    ? serverQueues
-    : queueManager.options.map((o) => o.value);
+  const values = serverQueues.length ? serverQueues : queueManager.options.map((o) => o.value);
   return values.map((q) => ({ title: queueManager.formatQueueName(q), value: q }));
 });
 
@@ -912,6 +906,7 @@ watch(
     filters.queueNames = (qf ?? []).map((v) => ({ title: formatQueueName(v), value: v }));
     applyFilters();
   },
+  { immediate: true, deep: true },
 );
 
 // Task details modal functions

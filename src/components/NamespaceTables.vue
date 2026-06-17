@@ -181,9 +181,7 @@
         <div v-if="selectedIcebergTables.length" class="text-caption text-medium-emphasis mt-1">
           <v-icon size="x-small" class="mr-1">mdi-information-outline</v-icon>
           Force and Purge apply to Iceberg tables only{{
-            selected.length > selectedIcebergTables.length
-              ? ';'
-              : '.'
+            selected.length > selectedIcebergTables.length ? ';' : '.'
           }}
         </div>
 
@@ -342,6 +340,7 @@ async function confirmBulkDelete() {
       }
       bulkResults.value.push({ name: row.name, ok: true });
     } catch (error: any) {
+      functions.handleError(error, 'NamespaceTables.confirmBulkDelete', false);
       bulkResults.value.push({
         name: row.name,
         ok: false,

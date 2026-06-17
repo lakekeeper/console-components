@@ -585,7 +585,7 @@ async function navigateToSearchResult(result: {
   // In pickable mode the tree is a resource picker (e.g. Cedar Resolve) — emit
   // `pick` so the consumer can set selection state. Otherwise behave as a
   // navigation tree and emit `navigate` for the consumer to route on.
-  if (props.pickable) {
+  if (props.pickable && canPick(result.type)) {
     emit('pick', {
       type: result.type,
       warehouseId: result.warehouseId,

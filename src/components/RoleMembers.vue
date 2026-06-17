@@ -85,7 +85,12 @@
       <v-card>
         <v-card-title>Add member</v-card-title>
         <v-card-text>
-          <v-btn-toggle v-model="addType" mandatory density="compact" variant="outlined" class="mb-3">
+          <v-btn-toggle
+            v-model="addType"
+            mandatory
+            density="compact"
+            variant="outlined"
+            class="mb-3">
             <v-btn value="user" size="small" prepend-icon="mdi-account">User</v-btn>
             <v-btn value="role" size="small" prepend-icon="mdi-account-group">Role</v-btn>
           </v-btn-toggle>
@@ -122,7 +127,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { onMounted, onUnmounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import type { RoleMember, RoleMembership } from '../gen/management/types.gen';
 
@@ -134,7 +139,9 @@ const props = defineProps<{
 const functions = useFunctions();
 
 const loading = ref(false);
-const members = ref<Array<RoleMember & { id: string; name?: string; ident?: string; email?: string }>>([]);
+const members = ref<
+  Array<RoleMember & { id: string; name?: string; ident?: string; email?: string }>
+>([]);
 const memberOf = ref<RoleMembership[]>([]);
 const removingId = ref<string | null>(null);
 
@@ -246,4 +253,7 @@ async function confirmAdd() {
 
 onMounted(load);
 watch(() => props.roleId, load);
+onUnmounted(() => {
+  if (searchTimer) clearTimeout(searchTimer);
+});
 </script>

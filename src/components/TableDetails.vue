@@ -107,7 +107,9 @@
             {{ selectedSchemaInfo?.fields?.length || 0 }} fields
           </v-chip>
           <v-chip
-            v-if="selectedSchemaId !== null && selectedSchemaId !== table.metadata['current-schema-id']"
+            v-if="
+              selectedSchemaId !== null && selectedSchemaId !== table.metadata['current-schema-id']
+            "
             size="x-small"
             color="warning"
             variant="flat"
@@ -157,7 +159,8 @@
               </template>
               <template #append="{ item }">
                 <span v-if="item.required" class="text-error" style="font-size: 0.65rem">
-                  required <v-icon color="error" size="x-small">mdi-asterisk</v-icon>
+                  required
+                  <v-icon color="error" size="x-small">mdi-asterisk</v-icon>
                 </span>
               </template>
             </v-treeview>
@@ -325,11 +328,15 @@
           </template>
           <template #item.records="{ item }">{{ fmtNum(item.totalRecords) }}</template>
           <template #item.delta="{ item }">
-            <span v-if="item.addedRecords" class="text-success">+{{ fmtNum(item.addedRecords) }}</span>
-            <span v-if="item.deletedRecords" class="text-error ml-1">
+            <span v-if="Number(item.addedRecords) > 0" class="text-success">
+              +{{ fmtNum(item.addedRecords) }}
+            </span>
+            <span v-if="Number(item.deletedRecords) > 0" class="text-error ml-1">
               −{{ fmtNum(item.deletedRecords) }}
             </span>
-            <span v-if="!item.addedRecords && !item.deletedRecords">—</span>
+            <span v-if="!(Number(item.addedRecords) > 0) && !(Number(item.deletedRecords) > 0)">
+              —
+            </span>
           </template>
           <template #item.files="{ item }">{{ fmtNum(item.totalDataFiles) }}</template>
           <template #item.id="{ item }">
@@ -344,13 +351,15 @@
 
     <!-- Snapshot detail popup -->
     <v-dialog v-model="snapshotDialog" max-width="900" scrollable>
-      <TableSnapshotDetails v-if="selectedSnapshot" :snapshot="selectedSnapshot" title="Snapshot detail">
+      <TableSnapshotDetails
+        v-if="selectedSnapshot"
+        :snapshot="selectedSnapshot"
+        title="Snapshot detail">
         <template #append>
           <v-btn icon="mdi-close" variant="text" @click="snapshotDialog = false"></v-btn>
         </template>
       </TableSnapshotDetails>
     </v-dialog>
-
   </v-card-text>
 </template>
 
@@ -559,7 +568,15 @@ function toNum(v: unknown): number {
   const n = typeof v === 'string' ? Number(v) : (v as number);
   return Number.isFinite(n) ? n : 0;
 }
-const fmtNum = (n: number): string => (n ? n.toLocaleString() : '0');
+// Format integer counters string-safely so i64 values above
+// Number.MAX_SAFE_INTEGER are grouped without precision loss.
+const fmtNum = (v: unknown): string => {
+  if (v === null || v === undefined || v === '') return '0';
+  const s = String(v);
+  if (/^-?\d+$/.test(s)) return s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const num = Number(s);
+  return Number.isFinite(num) ? num.toLocaleString() : '0';
+};
 
 const snapshotRows = computed(() => {
   const snaps = props.table.metadata.snapshots;
@@ -575,10 +592,10 @@ const snapshotRows = computed(() => {
         committedAbs: s['timestamp-ms'] ? absoluteTimestamp(s['timestamp-ms']) : '—',
         operation: summary.operation ?? '—',
         current: String(s['snapshot-id']) === currentId,
-        totalRecords: toNum(summary['total-records']),
-        addedRecords: toNum(summary['added-records']),
-        deletedRecords: toNum(summary['deleted-records']),
-        totalDataFiles: toNum(summary['total-data-files']),
+        totalRecords: summary['total-records'],
+        addedRecords: summary['added-records'],
+        deletedRecords: summary['deleted-records'],
+        totalDataFiles: summary['total-data-files'],
       };
     });
 });
@@ -747,7 +764,10 @@ const identityRows = computed(() => {
 });
 
 function tableJsonString(): string {
-  return JSON.stringify(props.table, null, 2);
+  // Export table metadata only — the full LoadTableResult may carry
+  // storage-credentials and other load-response fields that must not be
+  // written to disk.
+  return JSON.stringify(props.table.metadata, null, 2);
 }
 function downloadTableJson() {
   const blob = new Blob([tableJsonString()], { type: 'application/json' });

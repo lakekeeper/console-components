@@ -101,7 +101,11 @@
                           variant="outlined"
                           :loading="managedBySaving"
                           @click="toggleManagedBy">
-                          {{ managedBy === 'instance-admin' ? 'Make self-managed' : 'Mark instance-admin' }}
+                          {{
+                            managedBy === 'instance-admin'
+                              ? 'Make self-managed'
+                              : 'Mark instance-admin'
+                          }}
                         </v-btn>
                       </div>
                       <v-alert
@@ -110,8 +114,8 @@
                         variant="tonal"
                         density="compact"
                         class="mt-2">
-                        This warehouse is managed by an instance administrator. Spec changes (rename,
-                        delete, storage, activation) are restricted to instance admins.
+                        This warehouse is managed by an instance administrator. Spec changes
+                        (rename, delete, storage, activation) are restricted to instance admins.
                       </v-alert>
                     </v-col>
                     <v-col v-if="allowedFormatVersions.length > 0" cols="12">

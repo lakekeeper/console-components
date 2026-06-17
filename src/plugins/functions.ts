@@ -3699,7 +3699,7 @@ async function addRoleMembers(
     if (notify) handleSuccess('addRoleMembers', `${members.length} member(s) added`, notify);
     return true;
   } catch (error: any) {
-    handleError(error, 'addRoleMembers');
+    handleError(error, 'addRoleMembers', notify);
     throw error;
   }
 }
@@ -3720,7 +3720,7 @@ async function removeRoleMember(
     if (notify) handleSuccess('removeRoleMember', 'Member removed', notify);
     return true;
   } catch (error: any) {
-    handleError(error, 'removeRoleMember');
+    handleError(error, 'removeRoleMember', notify);
     throw error;
   }
 }
@@ -3769,11 +3769,10 @@ async function setWarehouseManagedBy(
       body: { 'managed-by': managedBy },
     });
     if (error) throw error;
-    if (notify)
-      handleSuccess('setWarehouseManagedBy', `Warehouse marked ${managedBy}`, notify);
+    if (notify) handleSuccess('setWarehouseManagedBy', `Warehouse marked ${managedBy}`, notify);
     return true;
   } catch (error: any) {
-    handleError(error, 'setWarehouseManagedBy');
+    handleError(error, 'setWarehouseManagedBy', notify);
     throw error;
   }
 }

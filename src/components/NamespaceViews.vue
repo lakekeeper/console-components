@@ -156,7 +156,9 @@
               </v-icon>
             </template>
             <v-list-item-title class="text-body-2">{{ r.name }}</v-list-item-title>
-            <v-list-item-subtitle v-if="!r.ok" class="text-error">{{ r.reason }}</v-list-item-subtitle>
+            <v-list-item-subtitle v-if="!r.ok" class="text-error">
+              {{ r.reason }}
+            </v-list-item-subtitle>
           </v-list-item>
         </v-list>
       </v-card-text>
@@ -322,6 +324,7 @@ async function confirmBulkDelete() {
       );
       bulkResults.value.push({ name: view.name, ok: true });
     } catch (error: any) {
+      functions.handleError(error, 'NamespaceViews.confirmBulkDelete', false);
       bulkResults.value.push({
         name: view.name,
         ok: false,

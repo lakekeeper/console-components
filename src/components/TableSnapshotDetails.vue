@@ -91,7 +91,6 @@
             @click="copyToClipboard(snapshot['manifest-list'])"></v-btn>
         </v-list-item-subtitle>
       </v-list-item>
-
     </v-list>
 
     <!-- Summary — always visible: highlights + remaining fields -->
@@ -107,7 +106,8 @@
           <v-col v-for="h in highlights" :key="h.label" cols="6" sm="3">
             <v-sheet border rounded="lg" class="pa-3 h-100">
               <div class="d-flex align-center text-caption text-medium-emphasis mb-1">
-                <v-icon size="14" class="mr-1">{{ h.icon }}</v-icon>{{ h.label }}
+                <v-icon size="14" class="mr-1">{{ h.icon }}</v-icon>
+                {{ h.label }}
               </div>
               <div class="text-h6 font-weight-medium summary-value">{{ h.value }}</div>
               <div v-if="h.added || h.deleted" class="text-caption">
@@ -166,7 +166,17 @@ const n = (k: string) => {
   const v = Number(summary.value[k]);
   return Number.isFinite(v) ? v : 0;
 };
-const fmtCount = (v: number) => v.toLocaleString();
+// Format integer counters string-safely so i64 values above
+// Number.MAX_SAFE_INTEGER are grouped without precision loss.
+const fmtCount = (v: unknown): string => {
+  if (v === null || v === undefined || v === '') return '0';
+  const s = String(v);
+  if (/^-?\d+$/.test(s)) return s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const num = Number(s);
+  return Number.isFinite(num) ? num.toLocaleString() : '0';
+};
+// Count formatter keyed by summary field (preserves precision from the raw string).
+const countFmt = (k: string) => fmtCount(summary.value[k]);
 const fmtBytes = (bytes: number): string => {
   if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
@@ -195,32 +205,68 @@ const highlights = computed(() => {
     total: string,
     addedKey: string,
     deletedKey: string,
-    fmt: (v: number) => string,
+    fmt: (k: string) => string,
   ) => {
     out.push({
       label,
       icon,
       value: total,
-      added: has(addedKey) && n(addedKey) > 0 ? fmt(n(addedKey)) : '',
-      deleted: has(deletedKey) && n(deletedKey) > 0 ? fmt(n(deletedKey)) : '',
+      added: has(addedKey) && n(addedKey) > 0 ? fmt(addedKey) : '',
+      deleted: has(deletedKey) && n(deletedKey) > 0 ? fmt(deletedKey) : '',
     });
   };
   if (has('total-records') || has('added-records') || has('deleted-records'))
-    add('Records', 'mdi-table-row', fmtCount(n('total-records')), 'added-records', 'deleted-records', fmtCount);
+    add(
+      'Records',
+      'mdi-table-row',
+      countFmt('total-records'),
+      'added-records',
+      'deleted-records',
+      countFmt,
+    );
   if (has('total-data-files') || has('added-data-files') || has('deleted-data-files'))
-    add('Data files', 'mdi-file-multiple-outline', fmtCount(n('total-data-files')), 'added-data-files', 'deleted-data-files', fmtCount);
+    add(
+      'Data files',
+      'mdi-file-multiple-outline',
+      countFmt('total-data-files'),
+      'added-data-files',
+      'deleted-data-files',
+      countFmt,
+    );
   if (has('total-delete-files') || has('added-delete-files') || has('removed-delete-files'))
-    add('Delete files', 'mdi-file-remove-outline', fmtCount(n('total-delete-files')), 'added-delete-files', 'removed-delete-files', fmtCount);
+    add(
+      'Delete files',
+      'mdi-file-remove-outline',
+      countFmt('total-delete-files'),
+      'added-delete-files',
+      'removed-delete-files',
+      countFmt,
+    );
   if (has('total-files-size') || has('added-files-size') || has('removed-files-size'))
-    add('Total size', 'mdi-database-outline', fmtBytes(n('total-files-size')), 'added-files-size', 'removed-files-size', fmtBytes);
+    add(
+      'Total size',
+      'mdi-database-outline',
+      fmtBytes(n('total-files-size')),
+      'added-files-size',
+      'removed-files-size',
+      (k: string) => fmtBytes(n(k)),
+    );
   return out;
 });
 
 const HIGHLIGHT_KEYS = new Set([
-  'total-records', 'added-records', 'deleted-records',
-  'total-data-files', 'added-data-files', 'deleted-data-files',
-  'total-delete-files', 'added-delete-files', 'removed-delete-files',
-  'total-files-size', 'added-files-size', 'removed-files-size',
+  'total-records',
+  'added-records',
+  'deleted-records',
+  'total-data-files',
+  'added-data-files',
+  'deleted-data-files',
+  'total-delete-files',
+  'added-delete-files',
+  'removed-delete-files',
+  'total-files-size',
+  'added-files-size',
+  'removed-files-size',
 ]);
 
 // Everything else (engine info, partition counts, etc.) as a key/value table
