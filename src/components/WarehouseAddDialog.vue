@@ -189,6 +189,10 @@
                   <v-icon start color="primary">mdi-microsoft-azure</v-icon>
                   Azure
                 </v-tab>
+                <v-tab value="ONELAKE">
+                  <v-img :src="oneLakeIcon" width="20" height="20" class="mr-2" />
+                  OneLake
+                </v-tab>
                 <v-tab value="R2">
                   <v-img :src="cfIcon" width="20" height="20" class="mr-2" />
                   R2
@@ -235,6 +239,18 @@
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
                     @update-profile="newProfile"></WarehouseStorageAzure>
+                </v-tabs-window-item>
+
+                <v-tabs-window-item value="ONELAKE">
+                  <WarehouseStorageOneLake
+                    :key="importKey"
+                    :credentials-only="emptyWarehouse"
+                    :intent="intent"
+                    :object-type="objectType"
+                    :warehouse-object="warehouseObjectOneLake"
+                    @submit="createWarehouse"
+                    @update-credentials="newCredentials"
+                    @update-profile="newProfile"></WarehouseStorageOneLake>
                 </v-tabs-window-item>
 
                 <v-tabs-window-item value="R2">
@@ -289,6 +305,8 @@ import WarehouseStorageS3 from './WarehouseStorageS3.vue';
 import WarehouseStorageAzure from './WarehouseStorageAzure.vue';
 import WarehouseStorageGCS from './WarehouseStorageGCS.vue';
 import cfIcon from '@/assets/cf.svg';
+import oneLakeIcon from '@/assets/onelake.png';
+import WarehouseStorageOneLake from './WarehouseStorageOneLake.vue';
 
 import {
   CreateWarehouseRequest,
@@ -471,6 +489,23 @@ const warehouseObjectAz = reactive<WarehousObject>({
   },
 });
 
+const warehouseObjectOneLake = reactive<WarehousObject>({
+  'storage-profile': {
+    'workspace-id': '',
+    'lakehouse-id': '',
+    'top-level-folder': 'Files',
+    'sas-enabled': true,
+    type: 'onelake',
+  },
+  'storage-credential': {
+    'client-id': '',
+    'client-secret': '',
+    'credential-type': 'client-credentials',
+    'tenant-id': '',
+    type: 'az',
+  },
+});
+
 async function createWarehouse(
   warehouseObject: WarehousObject,
   shouldDownloadJson: boolean = false,
@@ -582,9 +617,14 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
         'storage-profile': wh['storage-profile'],
         'storage-credential': wh['storage-credential'],
       });
+    if (wh['storage-profile'].type === 'onelake')
+      Object.assign(warehouseObjectOneLake, {
+        'storage-profile': wh['storage-profile'],
+        'storage-credential': wh['storage-credential'],
+      });
     importKey.value++;
   } catch (error) {
-    console.error(error);
+    handleError(error, 'importing warehouse JSON', true);
   }
 }
 
@@ -646,6 +686,15 @@ onMounted(() => {
       Object.assign(warehouseObjectAz, props.warehouse);
       if (credType && credType.type === 'az') {
         warehouseObjectAz['storage-credential']['credential-type'] = credType['credential-type'];
+      }
+    }
+
+    if (props.warehouse['storage-profile'].type === 'onelake') {
+      storageCredentialType.value = 'ONELAKE';
+      Object.assign(warehouseObjectOneLake, props.warehouse);
+      if (credType && credType.type === 'az') {
+        warehouseObjectOneLake['storage-credential']['credential-type'] =
+          credType['credential-type'];
       }
     }
 

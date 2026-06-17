@@ -1893,11 +1893,41 @@ export type StorageLayoutTabularTemplate = string;
  */
 export type StorageProfile = (AdlsProfile & {
     type: 'adls';
+}) | (OneLakeProfile & {
+    type: 'onelake';
 }) | (S3Profile & {
     type: 's3';
 }) | (GcsProfile & {
     type: 'gcs';
 });
+
+// NOTE: OneLake types manually backported (lakekeeper#1852) pending a full
+// `just generate-management-client` regeneration from the #1852 OpenAPI spec.
+export type TopLevelFolder = 'Files' | 'Tables';
+
+export type EndpointMode = {
+    type: 'default';
+} | {
+    region: string;
+    type: 'regional';
+} | {
+    type: 'workspace-private-link';
+};
+
+/**
+ * Storage profile for a Microsoft Fabric / `OneLake` lakehouse.
+ */
+export type OneLakeProfile = {
+    'authority-host'?: string | null;
+    'directory-rel-path'?: string | null;
+    'endpoint-mode'?: EndpointMode;
+    'lakehouse-id': string;
+    'sas-enabled'?: boolean;
+    'sas-token-validity-seconds'?: number | null;
+    'storage-layout'?: null | StorageLayout;
+    'top-level-folder'?: TopLevelFolder;
+    'workspace-id': string;
+};
 
 export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
