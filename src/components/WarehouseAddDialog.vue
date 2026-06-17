@@ -202,6 +202,42 @@
               </v-row>
             </div>
 
+            <div v-if="props.objectType === ObjectType.CATALOG_SETTINGS" class="mb-12">
+              <div class="text-overline text-medium-emphasis mb-2">Access &amp; protection</div>
+              <v-row align="start" dense>
+                <v-col cols="12" md="4">
+                  <div class="text-caption text-medium-emphasis mb-1">Status</div>
+                  <v-switch
+                    v-model="csActive"
+                    color="primary"
+                    hide-details
+                    density="compact"
+                    :label="csActive ? 'Active' : 'Inactive'"></v-switch>
+                </v-col>
+                <v-col cols="12" md="4">
+                  <div class="text-caption text-medium-emphasis mb-1">Deletion protection</div>
+                  <v-switch
+                    v-model="csProtected"
+                    color="primary"
+                    hide-details
+                    density="compact"
+                    :label="csProtected ? 'Protected' : 'Unprotected'"></v-switch>
+                </v-col>
+                <v-col v-if="isInstanceAdmin" cols="12" md="4">
+                  <div class="text-caption text-medium-emphasis mb-1">Managed by</div>
+                  <v-switch
+                    :model-value="csManagedBy === 'instance-admin'"
+                    color="primary"
+                    hide-details
+                    density="compact"
+                    :label="csManagedBy === 'instance-admin' ? 'Instance admin' : 'Self-managed'"
+                    @update:model-value="
+                      csManagedBy = $event ? 'instance-admin' : 'self-managed'
+                    "></v-switch>
+                </v-col>
+              </v-row>
+            </div>
+
             <v-row v-if="props.objectType === ObjectType.CATALOG_SETTINGS">
               <v-col>
                 <v-btn
@@ -351,14 +387,19 @@ import {
   CreateWarehouseResponse,
   GcsServiceKey,
   GetWarehouseResponse,
+  ManagedBy,
   StorageCredential,
   StorageProfile,
   TabularDeleteProfile,
 } from '../gen/management/types.gen';
 import { Intent, ObjectType } from '../common/enums';
 import { WarehousObject } from '@/common/interfaces';
+import { useUserStore } from '../stores/user';
 
 const visual = useVisualStore();
+const userStore = useUserStore();
+// Managed-by can only be changed by instance admins (lakekeeper#1828).
+const isInstanceAdmin = computed(() => userStore.isInstanceAdmin === true);
 const projectId = computed(() => {
   return visual.projectSelected['project-id'];
 });
@@ -367,6 +408,15 @@ const expanded = ref(false);
 const creatingWarehouse = ref(false);
 const loadedDeltionSeconds = ref(0);
 const loadedDelProfileSoftActive = ref(false);
+
+// Access & protection (catalog-settings only). Current + loaded baseline so we
+// only emit changed values — avoids no-op mutations that could 403/permission-fail.
+const csManagedBy = ref<ManagedBy>('self-managed');
+const csProtected = ref(false);
+const csActive = ref(true);
+const loadedManagedBy = ref<ManagedBy>('self-managed');
+const loadedProtected = ref(false);
+const loadedActive = ref(true);
 
 const delProfileSoftActive = ref(false);
 const isDialogActive = ref(false);
@@ -412,6 +462,9 @@ const emit = defineEmits<{
     payload: {
       deleteProfile?: TabularDeleteProfile;
       formatPolicy?: { allowed: number[]; default: number };
+      managedBy?: ManagedBy;
+      protected?: boolean;
+      active?: boolean;
     },
   ): void;
 }>();
@@ -724,7 +777,11 @@ const catalogSettingsDirty = computed(() => {
     serverAllowed.length !== policyAllowed.value.length ||
     serverAllowed.some((v) => !policyAllowed.value.includes(v));
   const defaultChanged = policyDefault.value !== resolvedServerDefault;
-  return deletionChanged || allowedChanged || defaultChanged;
+  const accessChanged =
+    csManagedBy.value !== loadedManagedBy.value ||
+    csProtected.value !== loadedProtected.value ||
+    csActive.value !== loadedActive.value;
+  return deletionChanged || allowedChanged || defaultChanged || accessChanged;
 });
 
 function emitCatalogSettings() {
@@ -740,6 +797,10 @@ function emitCatalogSettings() {
       allowed: [...policyAllowed.value].sort((a, b) => a - b),
       default: effectiveDefault,
     },
+    // Only include access/protection fields that actually changed.
+    ...(csManagedBy.value !== loadedManagedBy.value ? { managedBy: csManagedBy.value } : {}),
+    ...(csProtected.value !== loadedProtected.value ? { protected: csProtected.value } : {}),
+    ...(csActive.value !== loadedActive.value ? { active: csActive.value } : {}),
   });
 }
 
@@ -821,6 +882,14 @@ onMounted(() => {
       policyAllowed.value = [...serverAllowed];
       policyDefault.value =
         serverDefault !== null ? serverDefault : pickDefaultFromAllowed(serverAllowed);
+
+      // Seed access & protection controls from the loaded warehouse.
+      csManagedBy.value = (props.warehouse['managed-by'] ?? 'self-managed') as ManagedBy;
+      csProtected.value = props.warehouse.protected === true;
+      csActive.value = props.warehouse.status !== 'inactive';
+      loadedManagedBy.value = csManagedBy.value;
+      loadedProtected.value = csProtected.value;
+      loadedActive.value = csActive.value;
     }
   }
 });

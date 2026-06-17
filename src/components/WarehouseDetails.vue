@@ -95,18 +95,6 @@
                           ">
                           {{ managedBy === 'instance-admin' ? 'Instance admin' : 'Self-managed' }}
                         </v-chip>
-                        <v-btn
-                          v-if="isInstanceAdmin"
-                          size="x-small"
-                          variant="outlined"
-                          :loading="managedBySaving"
-                          @click="toggleManagedBy">
-                          {{
-                            managedBy === 'instance-admin'
-                              ? 'Make self-managed'
-                              : 'Mark instance-admin'
-                          }}
-                        </v-btn>
                       </div>
                       <v-alert
                         v-if="isManagedLocked"
@@ -406,7 +394,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted, inject } from 'vue';
+import { reactive, computed, onMounted, inject } from 'vue';
 import { logError } from '@/common/errorUtils';
 import oneLakeIcon from '@/assets/onelake.png';
 import { useUserStore } from '@/stores/user';
@@ -426,22 +414,10 @@ const managedBy = computed<'self-managed' | 'instance-admin'>(
   () => (warehouse['managed-by'] as any) || 'self-managed',
 );
 // Spec mutations are locked for non-instance-admins on instance-admin warehouses.
+// The managed-by control itself now lives in the Catalog Settings dialog.
 const isManagedLocked = computed(
   () => managedBy.value === 'instance-admin' && !isInstanceAdmin.value,
 );
-const managedBySaving = ref(false);
-async function toggleManagedBy() {
-  const next = managedBy.value === 'instance-admin' ? 'self-managed' : 'instance-admin';
-  managedBySaving.value = true;
-  try {
-    await functions.setWarehouseManagedBy(props.warehouseId, next, true);
-    await loadWarehouse();
-  } catch {
-    /* surfaced by the functions plugin */
-  } finally {
-    managedBySaving.value = false;
-  }
-}
 
 const warehouse = reactive<any>({
   'delete-profile': { type: 'hard' },

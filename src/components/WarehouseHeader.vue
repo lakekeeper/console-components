@@ -41,6 +41,7 @@ import { useVisualStore } from '@/stores/visual';
 import { useLoQE } from '@/composables/useLoQE';
 import type {
   GetWarehouseResponse,
+  ManagedBy,
   StorageCredential,
   StorageProfile,
   TabularDeleteProfile,
@@ -165,6 +166,9 @@ async function updateProfile(newProfile: {
 async function updateCatalogSettings(payload: {
   deleteProfile?: TabularDeleteProfile;
   formatPolicy?: { allowed: number[]; default: number };
+  managedBy?: ManagedBy;
+  protected?: boolean;
+  active?: boolean;
 }) {
   // Each part is independent: with Promise.all, a single rejection would skip
   // the loadWarehouse() reconciliation and leave the UI inconsistent with what
@@ -188,6 +192,22 @@ async function updateCatalogSettings(payload: {
       ),
     );
     labels.push('format-version policy');
+  }
+  if (payload.managedBy !== undefined) {
+    calls.push(functions.setWarehouseManagedBy(props.warehouseId, payload.managedBy, false));
+    labels.push('managed-by');
+  }
+  if (payload.protected !== undefined) {
+    calls.push(functions.setWarehouseProtection(props.warehouseId, payload.protected, false));
+    labels.push('deletion protection');
+  }
+  if (payload.active !== undefined) {
+    calls.push(
+      payload.active
+        ? functions.activateWarehouse(props.warehouseId, false)
+        : functions.deactivateWarehouse(props.warehouseId, false),
+    );
+    labels.push('status');
   }
 
   const results = await Promise.allSettled(calls);
