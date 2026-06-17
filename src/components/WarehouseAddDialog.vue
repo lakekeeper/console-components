@@ -821,7 +821,9 @@ const catalogSettingsDirty = computed(() => {
     serverAllowed.length !== policyAllowed.value.length ||
     serverAllowed.some((v) => !policyAllowed.value.includes(v));
   const defaultChanged = policyDefault.value !== resolvedServerDefault;
-  return deletionChanged || allowedChanged || defaultChanged;
+  const accessChanged =
+    csManagedBy.value !== loadedManagedBy.value || csProtected.value !== loadedProtected.value;
+  return deletionChanged || allowedChanged || defaultChanged || accessChanged;
 });
 
 function emitCatalogSettings() {
@@ -837,10 +839,14 @@ function emitCatalogSettings() {
       allowed: [...policyAllowed.value].sort((a, b) => a - b),
       default: effectiveDefault,
     },
+    // Only include access/protection fields that actually changed.
+    ...(csManagedBy.value !== loadedManagedBy.value ? { managedBy: csManagedBy.value } : {}),
+    ...(csProtected.value !== loadedProtected.value ? { protected: csProtected.value } : {}),
   });
 }
 
-// Access & protection toggles apply immediately, each behind a confirm dialog.
+// Access & protection toggles are confirmed for visibility, then staged — they
+// apply with the rest only when "Update catalog settings" is clicked.
 const accessConfirm = reactive({
   open: false,
   kind: null as null | 'protected' | 'managedBy',
@@ -877,14 +883,11 @@ function requestManagedBy(instanceAdmin: boolean) {
 }
 
 function confirmAccess() {
+  // Stage only — the change is persisted when "Update catalog settings" is clicked.
   if (accessConfirm.kind === 'protected') {
     csProtected.value = accessConfirm.value as boolean;
-    loadedProtected.value = accessConfirm.value as boolean;
-    emit('updateCatalogSettings', { protected: accessConfirm.value as boolean });
   } else if (accessConfirm.kind === 'managedBy') {
     csManagedBy.value = accessConfirm.value as ManagedBy;
-    loadedManagedBy.value = accessConfirm.value as ManagedBy;
-    emit('updateCatalogSettings', { managedBy: accessConfirm.value as ManagedBy });
   }
   accessConfirm.open = false;
 }
