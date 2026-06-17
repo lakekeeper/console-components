@@ -126,128 +126,157 @@
               :style="
                 isWarehouseNameInvalid ? 'color: rgb(var(--v-theme-error));' : ''
               "></v-text-field>
-            <!-- General settings: deletion + format policy grouped -->
+            <!-- General settings + access/protection, grouped into cards -->
             <div
               v-if="
                 props.objectType === ObjectType.WAREHOUSE ||
                 props.objectType === ObjectType.CATALOG_SETTINGS
-              "
-              class="mb-12">
-              <div
-                class="text-overline text-medium-emphasis d-flex align-center mb-2"
-                style="gap: 8px">
-                General settings
-              </div>
-
-              <v-row align="start" dense>
-                <v-col cols="12" md="6">
-                  <div class="text-caption text-medium-emphasis mb-2">Soft deletion</div>
-                  <v-switch
-                    v-model="delProfileSoftActive"
-                    color="primary"
-                    hide-details
-                    density="compact"
-                    :label="
-                      delProfileSoftActive ? `Soft Deletion is enabled` : `Enable Soft Deletion`
-                    "></v-switch>
-                  <v-slider
-                    v-if="delProfileSoftActive"
-                    v-model="slider"
-                    class="mt-3"
-                    hide-details
-                    label="Days"
-                    :max="max"
-                    :min="min"
-                    :step="1">
-                    <template #append>
-                      <v-text-field
-                        v-model="slider"
-                        density="compact"
-                        hide-details
-                        single-line
-                        style="width: 80px"
-                        type="number"></v-text-field>
-                    </template>
-                  </v-slider>
-                </v-col>
-
-                <v-col cols="12" md="6">
-                  <div class="text-caption text-medium-emphasis mb-2">Iceberg format policy</div>
-                  <div class="d-flex align-center" style="gap: 16px">
-                    <div>
-                      <div class="text-caption text-medium-emphasis mb-1">Allowed</div>
-                      <v-btn-toggle
-                        v-model="policyAllowed"
-                        multiple
-                        mandatory
-                        variant="outlined"
+              ">
+              <v-card variant="outlined" rounded="lg" class="mb-4">
+                <v-card-item class="pb-1">
+                  <template #prepend>
+                    <v-icon color="primary">mdi-tune-variant</v-icon>
+                  </template>
+                  <v-card-title class="text-subtitle-1 font-weight-medium">
+                    General settings
+                  </v-card-title>
+                  <v-card-subtitle>
+                    Data retention and Iceberg table format defaults
+                  </v-card-subtitle>
+                </v-card-item>
+                <v-card-text>
+                  <v-row align="start" dense>
+                    <v-col cols="12" md="6">
+                      <div class="text-caption text-medium-emphasis mb-1">Soft deletion</div>
+                      <v-switch
+                        v-model="delProfileSoftActive"
                         color="primary"
-                        density="comfortable">
-                        <v-btn :value="1">v1</v-btn>
-                        <v-btn :value="2">v2</v-btn>
-                        <v-btn :value="3">v3</v-btn>
-                      </v-btn-toggle>
-                    </div>
-                    <div style="flex: 1; max-width: 140px">
-                      <div class="text-caption text-medium-emphasis mb-1">Default</div>
-                      <v-select
-                        v-model="policyDefault"
-                        :items="policyDefaultItems"
-                        variant="outlined"
-                        density="comfortable"
-                        hide-details />
-                    </div>
-                  </div>
-                </v-col>
-              </v-row>
-            </div>
+                        hide-details
+                        density="compact"
+                        :label="delProfileSoftActive ? 'Enabled' : 'Disabled'"></v-switch>
+                      <v-slider
+                        v-if="delProfileSoftActive"
+                        v-model="slider"
+                        class="mt-3"
+                        hide-details
+                        label="Days"
+                        :max="max"
+                        :min="min"
+                        :step="1">
+                        <template #append>
+                          <v-text-field
+                            v-model="slider"
+                            density="compact"
+                            hide-details
+                            single-line
+                            style="width: 80px"
+                            type="number"></v-text-field>
+                        </template>
+                      </v-slider>
+                    </v-col>
 
-            <div v-if="props.objectType === ObjectType.CATALOG_SETTINGS" class="mb-12">
-              <div class="text-overline text-medium-emphasis mb-2">Access &amp; protection</div>
-              <v-row align="start" dense>
-                <v-col cols="12" md="4">
-                  <div class="text-caption text-medium-emphasis mb-1">Status</div>
-                  <v-switch
-                    v-model="csActive"
-                    color="primary"
-                    hide-details
-                    density="compact"
-                    :label="csActive ? 'Active' : 'Inactive'"></v-switch>
-                </v-col>
-                <v-col cols="12" md="4">
-                  <div class="text-caption text-medium-emphasis mb-1">Deletion protection</div>
-                  <v-switch
-                    v-model="csProtected"
-                    color="primary"
-                    hide-details
-                    density="compact"
-                    :label="csProtected ? 'Protected' : 'Unprotected'"></v-switch>
-                </v-col>
-                <v-col v-if="isInstanceAdmin" cols="12" md="4">
-                  <div class="text-caption text-medium-emphasis mb-1">Managed by</div>
-                  <v-switch
-                    :model-value="csManagedBy === 'instance-admin'"
-                    color="primary"
-                    hide-details
-                    density="compact"
-                    :label="csManagedBy === 'instance-admin' ? 'Instance admin' : 'Self-managed'"
-                    @update:model-value="
-                      csManagedBy = $event ? 'instance-admin' : 'self-managed'
-                    "></v-switch>
-                </v-col>
-              </v-row>
-            </div>
+                    <v-col cols="12" md="6">
+                      <div class="text-caption text-medium-emphasis mb-2">
+                        Iceberg format policy
+                      </div>
+                      <div class="d-flex align-center flex-wrap" style="gap: 16px">
+                        <div>
+                          <div class="text-caption text-medium-emphasis mb-1">Allowed</div>
+                          <v-btn-toggle
+                            v-model="policyAllowed"
+                            multiple
+                            mandatory
+                            variant="outlined"
+                            color="primary"
+                            density="comfortable">
+                            <v-btn :value="1">v1</v-btn>
+                            <v-btn :value="2">v2</v-btn>
+                            <v-btn :value="3">v3</v-btn>
+                          </v-btn-toggle>
+                        </div>
+                        <div style="flex: 1; max-width: 140px">
+                          <div class="text-caption text-medium-emphasis mb-1">Default</div>
+                          <v-select
+                            v-model="policyDefault"
+                            :items="policyDefaultItems"
+                            variant="outlined"
+                            density="comfortable"
+                            hide-details />
+                        </div>
+                      </div>
+                    </v-col>
+                  </v-row>
+                </v-card-text>
+              </v-card>
 
-            <v-row v-if="props.objectType === ObjectType.CATALOG_SETTINGS">
-              <v-col>
+              <v-card
+                v-if="props.objectType === ObjectType.CATALOG_SETTINGS"
+                variant="outlined"
+                rounded="lg"
+                class="mb-6">
+                <v-card-item class="pb-1">
+                  <template #prepend>
+                    <v-icon color="primary">mdi-shield-lock-outline</v-icon>
+                  </template>
+                  <v-card-title class="text-subtitle-1 font-weight-medium">
+                    Access &amp; protection
+                  </v-card-title>
+                  <v-card-subtitle>Deletion safety and management ownership</v-card-subtitle>
+                </v-card-item>
+                <v-card-text>
+                  <v-row align="start" dense>
+                    <v-col cols="12" md="6">
+                      <v-switch
+                        v-model="csProtected"
+                        color="primary"
+                        hide-details
+                        density="compact"
+                        :prepend-icon="csProtected ? 'mdi-lock' : 'mdi-lock-open-variant-outline'"
+                        :label="
+                          csProtected ? 'Deletion protected' : 'Deletion protection off'
+                        "></v-switch>
+                      <div class="text-caption text-medium-emphasis ml-10">
+                        Prevent this warehouse from being deleted.
+                      </div>
+                    </v-col>
+                    <v-col v-if="isInstanceAdmin" cols="12" md="6">
+                      <v-switch
+                        :model-value="csManagedBy === 'instance-admin'"
+                        color="primary"
+                        hide-details
+                        density="compact"
+                        :prepend-icon="
+                          csManagedBy === 'instance-admin' ? 'mdi-shield-account' : 'mdi-account'
+                        "
+                        :label="
+                          csManagedBy === 'instance-admin'
+                            ? 'Managed by instance admin'
+                            : 'Self-managed'
+                        "
+                        @update:model-value="
+                          csManagedBy = $event ? 'instance-admin' : 'self-managed'
+                        "></v-switch>
+                      <div class="text-caption text-medium-emphasis ml-10">
+                        Restrict spec changes (rename, storage, delete) to instance admins.
+                      </div>
+                    </v-col>
+                  </v-row>
+                </v-card-text>
+              </v-card>
+
+              <div
+                v-if="props.objectType === ObjectType.CATALOG_SETTINGS"
+                class="d-flex justify-end">
                 <v-btn
                   color="success"
+                  variant="flat"
+                  prepend-icon="mdi-content-save-outline"
                   :disabled="!catalogSettingsDirty"
                   @click="emitCatalogSettings">
-                  Update Catalog Settings
+                  Update catalog settings
                 </v-btn>
-              </v-col>
-            </v-row>
+              </div>
+            </div>
 
             <span v-if="props.objectType !== ObjectType.CATALOG_SETTINGS">
               <v-tabs v-model="storageCredentialType" color="primary" :disabled="!emptyWarehouse">
@@ -413,10 +442,8 @@ const loadedDelProfileSoftActive = ref(false);
 // only emit changed values — avoids no-op mutations that could 403/permission-fail.
 const csManagedBy = ref<ManagedBy>('self-managed');
 const csProtected = ref(false);
-const csActive = ref(true);
 const loadedManagedBy = ref<ManagedBy>('self-managed');
 const loadedProtected = ref(false);
-const loadedActive = ref(true);
 
 const delProfileSoftActive = ref(false);
 const isDialogActive = ref(false);
@@ -464,7 +491,6 @@ const emit = defineEmits<{
       formatPolicy?: { allowed: number[]; default: number };
       managedBy?: ManagedBy;
       protected?: boolean;
-      active?: boolean;
     },
   ): void;
 }>();
@@ -778,9 +804,7 @@ const catalogSettingsDirty = computed(() => {
     serverAllowed.some((v) => !policyAllowed.value.includes(v));
   const defaultChanged = policyDefault.value !== resolvedServerDefault;
   const accessChanged =
-    csManagedBy.value !== loadedManagedBy.value ||
-    csProtected.value !== loadedProtected.value ||
-    csActive.value !== loadedActive.value;
+    csManagedBy.value !== loadedManagedBy.value || csProtected.value !== loadedProtected.value;
   return deletionChanged || allowedChanged || defaultChanged || accessChanged;
 });
 
@@ -800,7 +824,6 @@ function emitCatalogSettings() {
     // Only include access/protection fields that actually changed.
     ...(csManagedBy.value !== loadedManagedBy.value ? { managedBy: csManagedBy.value } : {}),
     ...(csProtected.value !== loadedProtected.value ? { protected: csProtected.value } : {}),
-    ...(csActive.value !== loadedActive.value ? { active: csActive.value } : {}),
   });
 }
 
@@ -886,10 +909,8 @@ onMounted(() => {
       // Seed access & protection controls from the loaded warehouse.
       csManagedBy.value = (props.warehouse['managed-by'] ?? 'self-managed') as ManagedBy;
       csProtected.value = props.warehouse.protected === true;
-      csActive.value = props.warehouse.status !== 'inactive';
       loadedManagedBy.value = csManagedBy.value;
       loadedProtected.value = csProtected.value;
-      loadedActive.value = csActive.value;
     }
   }
 });
