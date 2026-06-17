@@ -19,6 +19,7 @@ import WarehouseActionsMenu from './components/WarehouseActionsMenu.vue';
 import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
 import WarehouseStorageS3 from './components/WarehouseStorageS3.vue';
 import WarehouseStorageAzure from './components/WarehouseStorageAzure.vue';
+import WarehouseStorageOneLake from './components/WarehouseStorageOneLake.vue';
 import WarehouseStorageGCS from './components/WarehouseStorageGCS.vue';
 import WarehouseStorageJSON from './components/WarehouseStorageJSON.vue';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue';
@@ -110,6 +111,7 @@ export {
   WarehouseAddDialog,
   WarehouseStorageS3,
   WarehouseStorageAzure,
+  WarehouseStorageOneLake,
   WarehouseStorageGCS,
   WarehouseStorageJSON,
   DeleteConfirmDialog,
@@ -291,6 +293,7 @@ const components = {
   WarehouseAddDialog,
   WarehouseStorageS3,
   WarehouseStorageAzure,
+  WarehouseStorageOneLake,
   WarehouseStorageGCS,
   WarehouseStorageJSON,
   DeleteConfirmDialog,
