@@ -44,12 +44,18 @@
           <v-row>
             <v-radio value="client-credentials" color="primary">
               <template #label>
-                <div><v-icon color="primary">mdi-account-key</v-icon> Client Credentials</div>
+                <div>
+                  <v-icon color="primary">mdi-account-key</v-icon>
+                  Client Credentials
+                </div>
               </template>
             </v-radio>
             <v-radio value="azure-system-identity" color="primary">
               <template #label>
-                <div><v-icon color="primary">mdi-shield-key</v-icon> Azure System Identity</div>
+                <div>
+                  <v-icon color="primary">mdi-shield-key</v-icon>
+                  Azure System Identity
+                </div>
               </template>
             </v-radio>
           </v-row>
@@ -208,7 +214,9 @@
                   target="_blank"
                   rel="noopener noreferrer">
                   <v-icon class="ml-2" size="small" color="info">mdi-information-outline</v-icon>
-                  <v-tooltip activator="parent" location="top">More docs on Storage Layout</v-tooltip>
+                  <v-tooltip activator="parent" location="top">
+                    More docs on Storage Layout
+                  </v-tooltip>
                 </a>
               </h4>
               <v-select
@@ -251,8 +259,9 @@
                 variant="tonal"
                 density="compact"
                 class="mt-2">
-                Template does not contain <code>{uuid}</code> — this may cause collisions if tabulars
-                are renamed and re-created.
+                Template does not contain
+                <code>{uuid}</code>
+                — this may cause collisions if tabulars are renamed and re-created.
               </v-alert>
             </v-expansion-panel-text>
           </v-expansion-panel>

@@ -328,7 +328,9 @@
                       <div class="text-body-1 mt-2">
                         <v-chip
                           size="small"
-                          :color="warehouse['storage-profile']['sas-enabled'] ? 'success' : 'default'"
+                          :color="
+                            warehouse['storage-profile']['sas-enabled'] ? 'success' : 'default'
+                          "
                           variant="tonal">
                           {{ warehouse['storage-profile']['sas-enabled'] ? 'Yes' : 'No' }}
                         </v-chip>
