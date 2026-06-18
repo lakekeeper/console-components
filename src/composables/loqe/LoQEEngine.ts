@@ -299,9 +299,10 @@ export class LoQEEngine {
       const q = `"${name.replace(/"/g, '""')}"`;
       if (/variant/i.test(type)) {
         hasVariant = true;
-        // VARIANT → JSON → VARCHAR yields real JSON text (double-quoted keys),
-        // unlike CAST(... AS VARCHAR) which gives DuckDB's struct notation.
-        projection.push(`CAST(${q} AS JSON)::VARCHAR AS ${q}`);
+        // CAST(... AS JSON) yields real JSON text and serializes to Arrow as a
+        // string (unlike VARIANT, which has no Arrow type). CAST(... AS VARCHAR)
+        // would instead give DuckDB's struct notation ({'k': v}), not JSON.
+        projection.push(`CAST(${q} AS JSON) AS ${q}`);
       } else {
         projection.push(q);
       }
