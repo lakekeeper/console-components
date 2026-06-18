@@ -26,9 +26,11 @@ export class CatalogManager {
   async attachCatalog(config: LoQECatalogConfig): Promise<void> {
     if (!this.db) throw new Error('[LoQE] Engine not initialised');
 
-    // Idempotent — skip if this catalog is already attached
+    // Idempotent — skip if already attached, unless force is set (then detach
+    // first so the re-attach re-vends fresh storage credentials).
     if (this.catalogs.has(config.catalogName)) {
-      return;
+      if (!config.force) return;
+      await this.detachCatalog(config.catalogName);
     }
 
     const projectId = config.projectId || 'default';
