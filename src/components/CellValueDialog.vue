@@ -17,7 +17,14 @@
       </v-card-title>
       <v-divider></v-divider>
       <v-card-text>
-        <pre class="cell-json">{{ state.pretty }}</pre>
+        <vue-json-pretty
+          v-if="state.isJson"
+          :data="jsonData"
+          :deep="3"
+          :theme="themeText"
+          :show-line-number="true"
+          :virtual="false" />
+        <pre v-else class="cell-json">{{ state.pretty }}</pre>
       </v-card-text>
     </v-card>
   </v-dialog>
@@ -25,13 +32,21 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import VueJsonPretty from 'vue-json-pretty';
+import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
 import type { CellDialogState } from '@/composables/useCellViewer';
 
 const props = defineProps<{ modelValue: boolean; state: CellDialogState }>();
 const emit = defineEmits<{ (e: 'update:modelValue', v: boolean): void }>();
 
 const functions = useFunctions();
+const visual = useVisualStore();
+const themeText = computed(() => (visual.themeLight ? 'light' : 'dark'));
+// vue-json-pretty's data prop is loosely typed; the parsed value is arbitrary JSON.
+const jsonData = computed<any>(() => props.state.data);
+
 const open = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),

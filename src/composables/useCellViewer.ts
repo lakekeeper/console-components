@@ -6,6 +6,8 @@ export interface CellDialogState {
   raw: string;
   pretty: string;
   isJson: boolean;
+  /** Parsed value when the cell is JSON (for the tree viewer); null otherwise. */
+  data: unknown;
 }
 
 /**
@@ -19,6 +21,7 @@ export function useCellViewer() {
     raw: '',
     pretty: '',
     isJson: false,
+    data: null,
   });
 
   /** A cell is worth expanding when it's long or looks like JSON. */
@@ -32,13 +35,15 @@ export function useCellViewer() {
     const raw = value == null ? '' : String(value);
     let pretty = raw;
     let isJson = false;
+    let data: unknown = null;
     try {
-      pretty = JSON.stringify(JSON.parse(raw), null, 2);
+      data = JSON.parse(raw);
+      pretty = JSON.stringify(data, null, 2);
       isJson = true;
     } catch {
       /* not JSON — show raw text */
     }
-    cellDialog.value = { open: true, title, raw, pretty, isJson };
+    cellDialog.value = { open: true, title, raw, pretty, isJson, data };
   }
 
   return { cellDialog, isExpandable, openCell };
