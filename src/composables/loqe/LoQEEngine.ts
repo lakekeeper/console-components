@@ -62,6 +62,9 @@ export class LoQEEngine {
   private initPromise: Promise<void> | null = null;
   private _pool: ConnectionPool | null = null;
   private installedExtensions = new Set<string>();
+  // Bundled (self-hosted) extension repository, resolved at init from the app
+  // origin. Used by default so extensions load offline instead of from the CDN.
+  private bundledExtensionRepo = '';
 
   readonly tokens = new TokenManager();
   readonly catalogs = new CatalogManager(this.tokens);
@@ -109,6 +112,8 @@ export class LoQEEngine {
         .slice(0, 2)
         .join('/');
       const baseUrl = basePath ? `${origin}${this.config.baseUrlPrefix}${basePath}` : origin;
+      // Self-hosted extension repo (vendored alongside the wasm bundles).
+      this.bundledExtensionRepo = `${baseUrl}/duckdb/extensions`;
 
       const bundles: duckdb.DuckDBBundles = {
         mvp: {
@@ -316,13 +321,14 @@ export class LoQEEngine {
 
     const pooled = await this.pool.acquire();
     try {
-      // Apply or reset custom extension repository URL
+      // Resolve the extension repository: an explicit user override wins; otherwise
+      // use the self-hosted bundled repo so installs work offline / airgapped
+      // (never silently falls back to extensions.duckdb.org).
       const settingsStore = useDuckDBSettingsStore();
-      const repo = (settingsStore.extensionRepository ?? '').trim();
+      const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
       if (repo) {
         await pooled.connection.query(`SET custom_extension_repository = '${repo}'`);
       } else {
-        // Reset to DuckDB built-in default so a previously SET value doesn't linger
         await pooled.connection.query(`RESET custom_extension_repository`);
       }
 
@@ -383,9 +389,14 @@ export class LoQEEngine {
   async attachCatalog(config: LoQECatalogConfig): Promise<void> {
     if (!this._isInitialized) throw new Error('[LoQE] Not initialised');
 
-    // Ensure required extensions are loaded
-    if (!this.installedExtensions.has('httpfs')) {
-      await this.installExtension('httpfs');
+    // Ensure required extensions are loaded BEFORE iceberg. The modern iceberg
+    // reader depends on avro (manifests) and parquet (data files) and will
+    // auto-install them at init; pre-installing from our bundled repo keeps the
+    // whole chain airgapped (otherwise iceberg's init pulls them from the CDN).
+    for (const dep of ['httpfs', 'avro', 'parquet']) {
+      if (!this.installedExtensions.has(dep)) {
+        await this.installExtension(dep);
+      }
     }
 
     if (!this.installedExtensions.has('iceberg')) {
