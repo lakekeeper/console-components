@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/lakekeeper/console-components/compare/v0.10.0...v0.10.1) (2026-06-18)
+
+
+### Bug Fixes
+
+* **ui:** re-vend LoQE storage credentials on table preview ([776b126](https://github.com/lakekeeper/console-components/commit/776b126f98a93506f0974461edb302b53f641923))
+
 ## [0.10.0](https://github.com/lakekeeper/console-components/compare/v0.9.0...v0.10.0) (2026-06-18)
 
 
