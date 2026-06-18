@@ -114,7 +114,14 @@
         density="compact"
         class="elevation-1"
         fixed-header
-        height="50vh"></v-data-table>
+        height="50vh">
+        <template v-for="h in tableHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
+          <CellValue :value="value" @open="openCell(h.title, value)" />
+        </template>
+      </v-data-table>
+
+      <!-- Full-value / JSON viewer -->
+      <CellValueDialog v-model="cellDialog.open" :state="cellDialog" />
     </div>
   </v-container>
 </template>
@@ -126,7 +133,10 @@ import { useUserStore } from '@/stores/user';
 import { useLoQE } from '@/composables/useLoQE';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
+import { useCellViewer } from '@/composables/useCellViewer';
 import CorsConfigDialog from './CorsConfigDialog.vue';
+import CellValue from './CellValue.vue';
+import CellValueDialog from './CellValueDialog.vue';
 
 // Local types for json-bigint parsed metadata (BigInt IDs stored as strings)
 interface BigIntSnapshot {
@@ -267,6 +277,10 @@ const tableRows = computed(() => {
   });
 });
 
+// Cell value viewer: long / JSON-looking values are clickable and open a dialog
+// showing the full value (shared with the LoQE results grid).
+const { cellDialog, openCell } = useCellViewer();
+
 // Check if preview is available
 const isPreviewAvailable = computed(() => {
   // Wait for storage type to be loaded first
@@ -346,16 +360,14 @@ async function loadPreview() {
 
     const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
 
-    // Build query with optional time travel
-    let sql: string;
-    if (selectedSnapshot.value) {
-      // snapshot IDs are BigInt-safe strings from loadTableCustomized (json-bigint)
-      sql = `SELECT * FROM ${tablePath} AT (VERSION => ${selectedSnapshot.value}) LIMIT 1000;`;
-    } else {
-      sql = `SELECT * FROM ${tablePath} LIMIT 1000;`;
-    }
+    // Optional time-travel clause (snapshot IDs are BigInt-safe strings).
+    // VARIANT columns that can't be Arrow-serialized are handled by the engine
+    // (it retries with a text cast), so a plain SELECT * is enough here.
+    const fromClause = selectedSnapshot.value
+      ? `${tablePath} AT (VERSION => ${selectedSnapshot.value})`
+      : tablePath;
 
-    const results = await loqe.query(sql);
+    const results = await loqe.query(`SELECT * FROM ${fromClause} LIMIT 1000;`);
     queryResults.value = results;
   } catch (err: any) {
     console.error('Failed to load table preview:', err);

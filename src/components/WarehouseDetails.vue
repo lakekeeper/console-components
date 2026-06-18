@@ -84,6 +84,28 @@
                         </v-chip>
                       </div>
                     </v-col>
+                    <v-col cols="12">
+                      <div class="text-overline text-medium-emphasis">Managed by</div>
+                      <div class="mt-2 d-flex align-center" style="gap: 8px">
+                        <v-chip
+                          :color="managedBy === 'instance-admin' ? 'primary' : 'default'"
+                          size="small"
+                          :prepend-icon="
+                            managedBy === 'instance-admin' ? 'mdi-shield-account' : 'mdi-account'
+                          ">
+                          {{ managedBy === 'instance-admin' ? 'Instance admin' : 'Self-managed' }}
+                        </v-chip>
+                      </div>
+                      <v-alert
+                        v-if="isManagedLocked"
+                        type="info"
+                        variant="tonal"
+                        density="compact"
+                        class="mt-2">
+                        This warehouse is managed by an instance administrator. Spec changes
+                        (rename, delete, storage, activation) are restricted to instance admins.
+                      </v-alert>
+                    </v-col>
                     <v-col v-if="allowedFormatVersions.length > 0" cols="12">
                       <div class="text-overline text-medium-emphasis">
                         Iceberg allowed format versions
@@ -109,32 +131,20 @@
                         </v-chip>
                       </div>
                     </v-col>
-                  </v-row>
-                </v-card-text>
-              </v-card>
-
-              <!-- Deletion Profile Section -->
-              <v-card variant="outlined" class="mb-4">
-                <v-card-title class="bg-surface-light d-flex align-center">
-                  <v-icon icon="mdi-delete-outline" class="mr-2" color="error"></v-icon>
-                  Deletion Profile
-                </v-card-title>
-                <v-card-text>
-                  <v-row dense>
                     <v-col cols="12">
-                      <div class="text-overline text-medium-emphasis">Type</div>
-                      <div class="mt-2">
+                      <div class="text-overline text-medium-emphasis">Deletion profile</div>
+                      <div class="mt-2 d-flex align-center" style="gap: 8px">
                         <v-chip
                           :color="warehouse['delete-profile'].type === 'hard' ? 'error' : 'info'"
                           size="small">
                           {{ warehouse['delete-profile'].type }}
                         </v-chip>
-                      </div>
-                    </v-col>
-                    <v-col v-if="warehouse['delete-profile'].type === 'soft'" cols="12">
-                      <div class="text-overline text-medium-emphasis">Expiration</div>
-                      <div class="text-body-1 mt-2">
-                        {{ formatSeconds(warehouse['delete-profile']['expiration-seconds']) }}
+                        <span
+                          v-if="warehouse['delete-profile'].type === 'soft'"
+                          class="text-body-2 text-medium-emphasis">
+                          expires after
+                          {{ formatSeconds(warehouse['delete-profile']['expiration-seconds']) }}
+                        </span>
                       </div>
                     </v-col>
                   </v-row>
@@ -375,6 +385,7 @@
 import { reactive, computed, onMounted, inject } from 'vue';
 import { logError } from '@/common/errorUtils';
 import oneLakeIcon from '@/assets/onelake.png';
+import { useUserStore } from '@/stores/user';
 
 const props = defineProps<{
   warehouseId: string;
@@ -383,6 +394,18 @@ const props = defineProps<{
 // const router = useRouter();
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
+const userStore = useUserStore();
+
+// --- Managed-by (lakekeeper#1828) -------------------------------------------
+const isInstanceAdmin = computed(() => userStore.isInstanceAdmin === true);
+const managedBy = computed<'self-managed' | 'instance-admin'>(
+  () => (warehouse['managed-by'] as any) || 'self-managed',
+);
+// Spec mutations are locked for non-instance-admins on instance-admin warehouses.
+// The managed-by control itself now lives in the Catalog Settings dialog.
+const isManagedLocked = computed(
+  () => managedBy.value === 'instance-admin' && !isInstanceAdmin.value,
+);
 
 const warehouse = reactive<any>({
   'delete-profile': { type: 'hard' },

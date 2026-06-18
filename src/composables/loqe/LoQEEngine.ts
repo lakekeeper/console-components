@@ -62,6 +62,9 @@ export class LoQEEngine {
   private initPromise: Promise<void> | null = null;
   private _pool: ConnectionPool | null = null;
   private installedExtensions = new Set<string>();
+  // Bundled (self-hosted) extension repository, resolved at init from the app
+  // origin. Used by default so extensions load offline instead of from the CDN.
+  private bundledExtensionRepo = '';
 
   readonly tokens = new TokenManager();
   readonly catalogs = new CatalogManager(this.tokens);
@@ -109,6 +112,8 @@ export class LoQEEngine {
         .slice(0, 2)
         .join('/');
       const baseUrl = basePath ? `${origin}${this.config.baseUrlPrefix}${basePath}` : origin;
+      // Self-hosted extension repo (vendored alongside the wasm bundles).
+      this.bundledExtensionRepo = `${baseUrl}/duckdb/extensions`;
 
       const bundles: duckdb.DuckDBBundles = {
         mvp: {
@@ -189,24 +194,38 @@ export class LoQEEngine {
 
     try {
       // ── Timeout guardrail ─────────────────────────────────────────
-      let result: any;
-      if (timeoutMs > 0) {
-        const queryPromise = pooled.connection.query(sql);
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
-                    `You can increase the timeout in Settings.`,
+      const exec = async (q: string): Promise<any> => {
+        if (timeoutMs > 0) {
+          const queryPromise = pooled.connection.query(q);
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
+                      `You can increase the timeout in Settings.`,
+                  ),
                 ),
-              ),
-            timeoutMs,
-          );
-        });
-        result = await Promise.race([queryPromise, timeoutPromise]);
-      } else {
-        result = await pooled.connection.query(sql);
+              timeoutMs,
+            );
+          });
+          return Promise.race([queryPromise, timeoutPromise]);
+        }
+        return pooled.connection.query(q);
+      };
+
+      let result: any;
+      try {
+        result = await exec(sql);
+      } catch (err: any) {
+        // DuckDB can't serialize VARIANT (and a few other types) to Arrow for
+        // transport to JS. Retry once with a wrapper that casts those columns to
+        // text so the result is at least viewable (value shown as JSON/text).
+        const casted = /unsupported arrow type/i.test(String(err?.message ?? err))
+          ? await this.buildArrowSafeQuery(pooled.connection, sql)
+          : null;
+        if (!casted) throw err;
+        result = await exec(casted);
       }
       const elapsed = performance.now() - start;
 
@@ -248,6 +267,49 @@ export class LoQEEngine {
     } finally {
       this.pool.release(pooled);
     }
+  }
+
+  /**
+   * Build a VARIANT-safe rewrite of a SELECT query: DESCRIBE it, and if any
+   * column is a VARIANT (which has no Arrow representation), wrap the original
+   * query and CAST those columns to VARCHAR. Returns null when the query isn't a
+   * single SELECT/WITH, can't be described, or has no VARIANT columns.
+   */
+  private async buildArrowSafeQuery(connection: any, sql: string): Promise<string | null> {
+    const trimmed = sql.trim().replace(/;\s*$/, '');
+    // Only wrap a single SELECT/WITH statement — never DDL, PRAGMA, multi-stmt.
+    if (!/^(select|with)\b/i.test(trimmed) || /;/.test(trimmed)) return null;
+
+    let desc: any;
+    try {
+      desc = await connection.query(`DESCRIBE ${trimmed}`);
+    } catch {
+      return null;
+    }
+
+    const names = desc.getChild('column_name');
+    const types = desc.getChild('column_type');
+    if (!names || !types) return null;
+
+    let hasVariant = false;
+    const projection: string[] = [];
+    for (let i = 0; i < desc.numRows; i++) {
+      const name = String(names.get(i));
+      const type = String(types.get(i) ?? '');
+      const q = `"${name.replace(/"/g, '""')}"`;
+      if (/variant/i.test(type)) {
+        hasVariant = true;
+        // CAST(... AS JSON) yields real JSON text and serializes to Arrow as a
+        // string (unlike VARIANT, which has no Arrow type). CAST(... AS VARCHAR)
+        // would instead give DuckDB's struct notation ({'k': v}), not JSON.
+        projection.push(`CAST(${q} AS JSON) AS ${q}`);
+      } else {
+        projection.push(q);
+      }
+    }
+    if (!hasVariant) return null;
+
+    return `SELECT ${projection.join(', ')} FROM (${trimmed}) AS _loqe_arrow_safe`;
   }
 
   // ── Extension management ────────────────────────────────────────────
@@ -316,13 +378,14 @@ export class LoQEEngine {
 
     const pooled = await this.pool.acquire();
     try {
-      // Apply or reset custom extension repository URL
+      // Resolve the extension repository: an explicit user override wins; otherwise
+      // use the self-hosted bundled repo so installs work offline / airgapped
+      // (never silently falls back to extensions.duckdb.org).
       const settingsStore = useDuckDBSettingsStore();
-      const repo = (settingsStore.extensionRepository ?? '').trim();
+      const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
       if (repo) {
         await pooled.connection.query(`SET custom_extension_repository = '${repo}'`);
       } else {
-        // Reset to DuckDB built-in default so a previously SET value doesn't linger
         await pooled.connection.query(`RESET custom_extension_repository`);
       }
 
@@ -383,9 +446,16 @@ export class LoQEEngine {
   async attachCatalog(config: LoQECatalogConfig): Promise<void> {
     if (!this._isInitialized) throw new Error('[LoQE] Not initialised');
 
-    // Ensure required extensions are loaded
-    if (!this.installedExtensions.has('httpfs')) {
-      await this.installExtension('httpfs');
+    // Ensure required extensions are loaded BEFORE iceberg. The modern iceberg
+    // reader depends on avro (manifests) and parquet (data files) and will
+    // auto-install them at init; pre-installing from our bundled repo keeps the
+    // whole chain airgapped (otherwise iceberg's init pulls them from the CDN).
+    // json is needed for the VARIANT -> JSON cast used to make variant columns
+    // Arrow-serializable (see buildArrowSafeQuery).
+    for (const dep of ['httpfs', 'avro', 'parquet', 'json']) {
+      if (!this.installedExtensions.has(dep)) {
+        await this.installExtension(dep);
+      }
     }
 
     if (!this.installedExtensions.has('iceberg')) {

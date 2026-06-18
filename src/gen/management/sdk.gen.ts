@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, GetAuthorizerGenericTableActionsData, GetAuthorizerGenericTableActionsResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetGenericTableActionsData, GetGenericTableActionsErrors, GetGenericTableActionsResponses, GetGenericTableAssignmentsByIdData, GetGenericTableAssignmentsByIdResponses, GetGenericTableProtectionData, GetGenericTableProtectionErrors, GetGenericTableProtectionResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigTabularExpirationData, GetTaskQueueConfigTabularExpirationErrors, GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetGenericTableProtectionData, SetGenericTableProtectionErrors, SetGenericTableProtectionResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTaskQueueConfigTabularExpirationData, SetTaskQueueConfigTabularExpirationErrors, SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateGenericTableAssignmentsByIdData, UpdateGenericTableAssignmentsByIdResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, UpdateWarehouseFormatVersionPolicyData, UpdateWarehouseFormatVersionPolicyErrors, UpdateWarehouseFormatVersionPolicyResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, AddRoleMembersData, AddRoleMembersErrors, AddRoleMembersResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, GetAuthorizerGenericTableActionsData, GetAuthorizerGenericTableActionsResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetGenericTableActionsData, GetGenericTableActionsErrors, GetGenericTableActionsResponses, GetGenericTableAssignmentsByIdData, GetGenericTableAssignmentsByIdResponses, GetGenericTableProtectionData, GetGenericTableProtectionErrors, GetGenericTableProtectionResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigTabularExpirationData, GetTaskQueueConfigTabularExpirationErrors, GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRoleMemberOfData, ListRoleMemberOfErrors, ListRoleMemberOfResponses, ListRoleMembersData, ListRoleMembersErrors, ListRoleMembersResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListRoleTransitiveMemberOfData, ListRoleTransitiveMemberOfErrors, ListRoleTransitiveMemberOfResponses, ListRoleTransitiveMembersData, ListRoleTransitiveMembersErrors, ListRoleTransitiveMembersResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListUserRolesData, ListUserRolesErrors, ListUserRolesResponses, ListUserTransitiveRolesData, ListUserTransitiveRolesErrors, ListUserTransitiveRolesResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, RemoveRoleMemberData, RemoveRoleMemberErrors, RemoveRoleMemberResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetGenericTableProtectionData, SetGenericTableProtectionErrors, SetGenericTableProtectionResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTaskQueueConfigTabularExpirationData, SetTaskQueueConfigTabularExpirationErrors, SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseManagedByData, SetWarehouseManagedByErrors, SetWarehouseManagedByResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateGenericTableAssignmentsByIdData, UpdateGenericTableAssignmentsByIdResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, UpdateWarehouseFormatVersionPolicyData, UpdateWarehouseFormatVersionPolicyErrors, UpdateWarehouseFormatVersionPolicyResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -827,6 +827,94 @@ export const getRoleActions = <ThrowOnError extends boolean = false>(options: Op
 });
 
 /**
+ * List Roles a Role Is a Member Of
+ *
+ * Lists the roles that the given role is a direct member of, keyset-paginated.
+ */
+export const listRoleMemberOf = <ThrowOnError extends boolean = false>(options: Options<ListRoleMemberOfData, ThrowOnError>) => (options.client ?? client).get<ListRoleMemberOfResponses, ListRoleMemberOfErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/member-of',
+    ...options
+});
+
+/**
+ * List Transitive Role Member-Of
+ *
+ * Lists the full transitive member-of set of a role — every role it
+ * effectively belongs to, reachable upward through membership — keyset-
+ * paginated. Supported only when assignments are catalog-managed; an
+ * assignment-managing authorizer (e.g. OpenFGA) returns `501`.
+ */
+export const listRoleTransitiveMemberOf = <ThrowOnError extends boolean = false>(options: Options<ListRoleTransitiveMemberOfData, ThrowOnError>) => (options.client ?? client).get<ListRoleTransitiveMemberOfResponses, ListRoleTransitiveMemberOfErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/member-of/transitive',
+    ...options
+});
+
+/**
+ * List Role Members
+ *
+ * Lists the direct members of a role — users and member roles — as one merged,
+ * keyset-paginated page. Optionally filtered to a single member kind via `?type=`.
+ */
+export const listRoleMembers = <ThrowOnError extends boolean = false>(options: Options<ListRoleMembersData, ThrowOnError>) => (options.client ?? client).get<ListRoleMembersResponses, ListRoleMembersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/members',
+    ...options
+});
+
+/**
+ * Add Role Members
+ *
+ * Adds one or more members (users and/or roles) to a role in a single atomic
+ * (all-or-nothing) batch. Idempotent — already-present members are accepted.
+ * Returns the requested members confirmed present.
+ *
+ * Handling of a not-yet-provisioned member depends on the configured
+ * authorization backend: a backend that stores assignments itself accepts the
+ * member by id, whereas catalog-backed authorization requires the member to
+ * exist first and otherwise returns `404` — provision the user (via
+ * `POST /user`) or create the role before assigning. Behavior is consistent
+ * within a deployment.
+ */
+export const addRoleMembers = <ThrowOnError extends boolean = false>(options: Options<AddRoleMembersData, ThrowOnError>) => (options.client ?? client).post<AddRoleMembersResponses, AddRoleMembersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/members',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Transitive Role Members
+ *
+ * Lists the role's transitive members — users assigned to the role or any role
+ * in its downward membership closure, plus every role in that closure — as one
+ * keyset-paginated page, optionally filtered to one kind. Supported only when
+ * assignments are catalog-managed; an assignment-managing authorizer (e.g.
+ * OpenFGA) returns `501`.
+ */
+export const listRoleTransitiveMembers = <ThrowOnError extends boolean = false>(options: Options<ListRoleTransitiveMembersData, ThrowOnError>) => (options.client ?? client).get<ListRoleTransitiveMembersResponses, ListRoleTransitiveMembersErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/members/transitive',
+    ...options
+});
+
+/**
+ * Remove Role Member
+ *
+ * Removes a single member (a user or a role) from a role. Idempotent — removing
+ * an absent member is a no-op and still returns `204`.
+ */
+export const removeRoleMember = <ThrowOnError extends boolean = false>(options: Options<RemoveRoleMemberData, ThrowOnError>) => (options.client ?? client).delete<RemoveRoleMemberResponses, RemoveRoleMemberErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/role/{role_id}/members/{member_type}/{member_id}',
+    ...options
+});
+
+/**
  * Get Role Metadata
  *
  * Retrieves high-level metadata about a specific role.
@@ -963,6 +1051,31 @@ export const updateUser = <ThrowOnError extends boolean = false>(options: Option
 export const getUserActions = <ThrowOnError extends boolean = false>(options: Options<GetUserActionsData, ThrowOnError>) => (options.client ?? client).get<GetUserActionsResponses, GetUserActionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/user/{user_id}/actions',
+    ...options
+});
+
+/**
+ * List User Roles
+ *
+ * Lists the roles a user is directly assigned to, keyset-paginated.
+ */
+export const listUserRoles = <ThrowOnError extends boolean = false>(options: Options<ListUserRolesData, ThrowOnError>) => (options.client ?? client).get<ListUserRolesResponses, ListUserRolesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/user/{user_id}/roles',
+    ...options
+});
+
+/**
+ * List Transitive User Roles
+ *
+ * Lists the full effective (transitive) role set a user holds — direct
+ * assignments plus every role reachable upward through membership — keyset-
+ * paginated. Supported only when assignments are catalog-managed; an
+ * assignment-managing authorizer (e.g. OpenFGA) returns `501`.
+ */
+export const listUserTransitiveRoles = <ThrowOnError extends boolean = false>(options: Options<ListUserTransitiveRolesData, ThrowOnError>) => (options.client ?? client).get<ListUserTransitiveRolesResponses, ListUserTransitiveRolesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/user/{user_id}/roles/transitive',
     ...options
 });
 
@@ -1136,6 +1249,23 @@ export const getGenericTableProtection = <ThrowOnError extends boolean = false>(
 export const setGenericTableProtection = <ThrowOnError extends boolean = false>(options: Options<SetGenericTableProtectionData, ThrowOnError>) => (options.client ?? client).post<SetGenericTableProtectionResponses, SetGenericTableProtectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/protection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Set Warehouse Managed-By
+ *
+ * Sets (or clears) the managed-by marker on a warehouse. When set, the
+ * warehouse spec becomes mutable only by the managing control plane
+ * (instance admins). Requires instance-admin privilege.
+ */
+export const setWarehouseManagedBy = <ThrowOnError extends boolean = false>(options: Options<SetWarehouseManagedByData, ThrowOnError>) => (options.client ?? client).post<SetWarehouseManagedByResponses, SetWarehouseManagedByErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/managed-by',
     ...options,
     headers: {
         'Content-Type': 'application/json',

@@ -58,7 +58,7 @@ export const useVisualStore = defineStore(
     };
 
     const themeLight = ref(getSystemTheme());
-    const navBarShow = ref(true);
+    const navBarShow = ref(false); // Left nav starts collapsed (rail) by default
     const whId = ref('');
     const wahrehouseName = ref('');
     const namespacePath = ref('');

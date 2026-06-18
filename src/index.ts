@@ -11,6 +11,7 @@ import ProjectStatistics from './components/ProjectStatistics.vue';
 import NamespaceAddDialog from './components/NamespaceAddDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
 import RoleManager from './components/RoleManager.vue';
+import RoleMembers from './components/RoleMembers.vue';
 import RoleOverviewEdit from './components/RoleOverviewEdit.vue';
 import ProjectNameAddOrEditDialog from './components/ProjectNameAddOrEditDialog.vue';
 import AuthenticationDisabledWarningBanner from './components/AuthenticationDisabledWarningBanner.vue';
@@ -78,6 +79,7 @@ import FeedbackDialog from './components/FeedbackDialog.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
+import StackedAreaChart from './components/StackedAreaChart.vue';
 import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
 import NotificationButton from './components/NotificationButton.vue';
 import NotificationPanel from './components/NotificationPanel.vue';
@@ -92,6 +94,7 @@ export {
   NamespaceAddDialog,
   RoleDialog,
   RoleManager,
+  RoleMembers,
   RoleOverviewEdit,
   AppBar,
   WarningBanner,
@@ -117,6 +120,7 @@ export {
   DeleteConfirmDialog,
   StatisticsDialog,
   StatisticsProject,
+  StackedAreaChart,
   ComputeConnectDialog,
   ProjectManager,
   ProjectStatistics,
@@ -275,6 +279,7 @@ const components = {
   ProjectNameAddOrEditDialog,
   RoleDialog,
   RoleManager,
+  RoleMembers,
   RoleOverviewEdit,
   AppBar,
   WarningBanner,
@@ -299,6 +304,7 @@ const components = {
   DeleteConfirmDialog,
   StatisticsDialog,
   StatisticsProject,
+  StackedAreaChart,
   ComputeConnectDialog,
   ProjectManager,
   ProjectStatistics,

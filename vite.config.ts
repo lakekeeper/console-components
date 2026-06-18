@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
-import { existsSync, mkdirSync, copyFileSync } from 'fs';
+import { existsSync, mkdirSync, copyFileSync, cpSync } from 'fs';
 
 const duckdbFiles = [
   'duckdb-browser-coi.pthread.worker.js',
@@ -37,6 +37,18 @@ function copyDuckDBFiles() {
         copyFileSync(resolve(srcDir, file), resolve(destDir, file));
       });
       console.log('Copied DuckDB WASM files from @duckdb/duckdb-wasm');
+
+      // Vendor the DuckDB extensions (iceberg/httpfs/avro, both wasm variants) so
+      // LoQE installs them from our own origin instead of extensions.duckdb.org —
+      // works airgapped/offline. These are committed (version-locked to the
+      // duckdb-wasm core version); update them when bumping @duckdb/duckdb-wasm.
+      const extSrc = resolve(__dirname, 'duckdb-extensions');
+      if (existsSync(extSrc)) {
+        cpSync(extSrc, resolve(destDir, 'extensions'), { recursive: true });
+        console.log('Copied DuckDB extensions (iceberg/httpfs/avro)');
+      } else {
+        console.warn(`DuckDB extensions not vendored at ${extSrc}; LoQE Iceberg will fail offline`);
+      }
     },
   };
 }

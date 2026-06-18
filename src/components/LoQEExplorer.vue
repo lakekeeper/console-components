@@ -499,7 +499,15 @@
                         density="compact"
                         fixed-header
                         class="text-caption loqe-result-table"
-                        item-height="28" />
+                        item-height="28">
+                        <template
+                          v-for="h in resultHeaders"
+                          :key="h.key"
+                          #[`item.${h.key}`]="{ value }">
+                          <CellValue :value="value" @open="openCell(h.title, value)" />
+                        </template>
+                      </v-data-table-virtual>
+                      <CellValueDialog v-model="cellDialog.open" :state="cellDialog" />
                     </v-card-text>
 
                     <!-- Resize handle -->
@@ -723,7 +731,11 @@
             density="compact"
             fixed-header
             class="text-caption"
-            item-height="28" />
+            item-height="28">
+            <template v-for="h in previewHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
+              <CellValue :value="value" @open="openCell(h.title, value)" />
+            </template>
+          </v-data-table-virtual>
         </v-card-text>
         <v-divider />
         <v-card-actions class="px-4 py-2">
@@ -802,6 +814,7 @@ import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
 import { useCsvDownload } from '../composables/useCsvDownload';
+import { useCellViewer } from '../composables/useCellViewer';
 import { useDuckDBSettingsStore } from '../stores/duckdbSettings';
 import { useLoQEStore } from '../stores/loqe';
 import { useFunctions } from '../plugins/functions';
@@ -824,6 +837,8 @@ import SqlEditor from './SqlEditor.vue';
 import LoQENavigationTree from './LoQENavigationTree.vue';
 import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
 import CorsConfigDialog from './CorsConfigDialog.vue';
+import CellValue from './CellValue.vue';
+import CellValueDialog from './CellValueDialog.vue';
 import { helix, hourglass } from 'ldrs';
 
 helix.register();
@@ -854,6 +869,9 @@ const userStore = useUserStore();
 const visualStore = useVisualStore();
 const csvDownload = useCsvDownload();
 const functions = useFunctions();
+
+// Click-to-view for long / JSON cells (shared with the table preview grid).
+const { cellDialog, openCell } = useCellViewer();
 
 // ── LoQE composable ──────────────────────────────────────────────────
 
