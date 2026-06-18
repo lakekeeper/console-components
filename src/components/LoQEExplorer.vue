@@ -504,14 +504,7 @@
                           v-for="h in resultHeaders"
                           :key="h.key"
                           #[`item.${h.key}`]="{ value }">
-                          <span
-                            v-if="isExpandable(value)"
-                            class="cell-link"
-                            title="Click to view full value"
-                            @click="openCell(h.title, value)">
-                            {{ value }}
-                          </span>
-                          <span v-else>{{ value }}</span>
+                          <CellValue :value="value" @open="openCell(h.title, value)" />
                         </template>
                       </v-data-table-virtual>
                       <CellValueDialog v-model="cellDialog.open" :state="cellDialog" />
@@ -740,14 +733,7 @@
             class="text-caption"
             item-height="28">
             <template v-for="h in previewHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
-              <span
-                v-if="isExpandable(value)"
-                class="cell-link"
-                title="Click to view full value"
-                @click="openCell(h.title, value)">
-                {{ value }}
-              </span>
-              <span v-else>{{ value }}</span>
+              <CellValue :value="value" @open="openCell(h.title, value)" />
             </template>
           </v-data-table-virtual>
         </v-card-text>
@@ -851,6 +837,7 @@ import SqlEditor from './SqlEditor.vue';
 import LoQENavigationTree from './LoQENavigationTree.vue';
 import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
 import CorsConfigDialog from './CorsConfigDialog.vue';
+import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
 import { helix, hourglass } from 'ldrs';
 
@@ -884,7 +871,7 @@ const csvDownload = useCsvDownload();
 const functions = useFunctions();
 
 // Click-to-view for long / JSON cells (shared with the table preview grid).
-const { cellDialog, isExpandable, openCell } = useCellViewer();
+const { cellDialog, openCell } = useCellViewer();
 
 // ── LoQE composable ──────────────────────────────────────────────────
 
@@ -1822,13 +1809,6 @@ onBeforeUnmount(() => {
 <style scoped>
 .font-monospace {
   font-family: 'Courier New', Courier, monospace;
-}
-
-.cell-link {
-  cursor: pointer;
-  color: rgb(var(--v-theme-primary));
-  text-decoration: underline dotted;
-  text-underline-offset: 2px;
 }
 
 /* Skeleton editor effect while DuckDB initialises */

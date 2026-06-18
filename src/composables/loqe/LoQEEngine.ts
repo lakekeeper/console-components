@@ -194,24 +194,38 @@ export class LoQEEngine {
 
     try {
       // ── Timeout guardrail ─────────────────────────────────────────
-      let result: any;
-      if (timeoutMs > 0) {
-        const queryPromise = pooled.connection.query(sql);
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
-                    `You can increase the timeout in Settings.`,
+      const exec = async (q: string): Promise<any> => {
+        if (timeoutMs > 0) {
+          const queryPromise = pooled.connection.query(q);
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
+                      `You can increase the timeout in Settings.`,
+                  ),
                 ),
-              ),
-            timeoutMs,
-          );
-        });
-        result = await Promise.race([queryPromise, timeoutPromise]);
-      } else {
-        result = await pooled.connection.query(sql);
+              timeoutMs,
+            );
+          });
+          return Promise.race([queryPromise, timeoutPromise]);
+        }
+        return pooled.connection.query(q);
+      };
+
+      let result: any;
+      try {
+        result = await exec(sql);
+      } catch (err: any) {
+        // DuckDB can't serialize VARIANT (and a few other types) to Arrow for
+        // transport to JS. Retry once with a wrapper that casts those columns to
+        // text so the result is at least viewable (value shown as JSON/text).
+        const casted = /unsupported arrow type/i.test(String(err?.message ?? err))
+          ? await this.buildArrowSafeQuery(pooled.connection, sql)
+          : null;
+        if (!casted) throw err;
+        result = await exec(casted);
       }
       const elapsed = performance.now() - start;
 
@@ -253,6 +267,48 @@ export class LoQEEngine {
     } finally {
       this.pool.release(pooled);
     }
+  }
+
+  /**
+   * Build a VARIANT-safe rewrite of a SELECT query: DESCRIBE it, and if any
+   * column is a VARIANT (which has no Arrow representation), wrap the original
+   * query and CAST those columns to VARCHAR. Returns null when the query isn't a
+   * single SELECT/WITH, can't be described, or has no VARIANT columns.
+   */
+  private async buildArrowSafeQuery(connection: any, sql: string): Promise<string | null> {
+    const trimmed = sql.trim().replace(/;\s*$/, '');
+    // Only wrap a single SELECT/WITH statement — never DDL, PRAGMA, multi-stmt.
+    if (!/^(select|with)\b/i.test(trimmed) || /;/.test(trimmed)) return null;
+
+    let desc: any;
+    try {
+      desc = await connection.query(`DESCRIBE ${trimmed}`);
+    } catch {
+      return null;
+    }
+
+    const names = desc.getChild('column_name');
+    const types = desc.getChild('column_type');
+    if (!names || !types) return null;
+
+    let hasVariant = false;
+    const projection: string[] = [];
+    for (let i = 0; i < desc.numRows; i++) {
+      const name = String(names.get(i));
+      const type = String(types.get(i) ?? '');
+      const q = `"${name.replace(/"/g, '""')}"`;
+      if (/variant/i.test(type)) {
+        hasVariant = true;
+        // VARIANT → JSON → VARCHAR yields real JSON text (double-quoted keys),
+        // unlike CAST(... AS VARCHAR) which gives DuckDB's struct notation.
+        projection.push(`CAST(${q} AS JSON)::VARCHAR AS ${q}`);
+      } else {
+        projection.push(q);
+      }
+    }
+    if (!hasVariant) return null;
+
+    return `SELECT ${projection.join(', ')} FROM (${trimmed}) AS _loqe_arrow_safe`;
   }
 
   // ── Extension management ────────────────────────────────────────────

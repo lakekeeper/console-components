@@ -116,14 +116,7 @@
         fixed-header
         height="50vh">
         <template v-for="h in tableHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
-          <span
-            v-if="isExpandable(value)"
-            class="cell-link"
-            title="Click to view full value"
-            @click="openCell(h.title, value)">
-            {{ value }}
-          </span>
-          <span v-else>{{ value }}</span>
+          <CellValue :value="value" @open="openCell(h.title, value)" />
         </template>
       </v-data-table>
 
@@ -142,6 +135,7 @@ import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 import { useCellViewer } from '@/composables/useCellViewer';
 import CorsConfigDialog from './CorsConfigDialog.vue';
+import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
 
 // Local types for json-bigint parsed metadata (BigInt IDs stored as strings)
@@ -285,7 +279,7 @@ const tableRows = computed(() => {
 
 // Cell value viewer: long / JSON-looking values are clickable and open a dialog
 // showing the full value (shared with the LoQE results grid).
-const { cellDialog, isExpandable, openCell } = useCellViewer();
+const { cellDialog, openCell } = useCellViewer();
 
 // Check if preview is available
 const isPreviewAvailable = computed(() => {
@@ -367,33 +361,13 @@ async function loadPreview() {
     const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
 
     // Optional time-travel clause (snapshot IDs are BigInt-safe strings).
+    // VARIANT columns that can't be Arrow-serialized are handled by the engine
+    // (it retries with a text cast), so a plain SELECT * is enough here.
     const fromClause = selectedSnapshot.value
       ? `${tablePath} AT (VERSION => ${selectedSnapshot.value})`
       : tablePath;
 
-    // VARIANT (and other types without an Arrow representation) cannot be
-    // serialized back to JS — DuckDB-WASM throws "Unsupported Arrow type".
-    // Introspect the columns and cast any VARIANT-bearing column to text so the
-    // preview still renders (the value shows as its JSON/text form).
-    let projection = '*';
-    try {
-      const desc = await loqe.query(`DESCRIBE SELECT * FROM ${fromClause};`);
-      const nameIdx = desc.columns.indexOf('column_name');
-      const typeIdx = desc.columns.indexOf('column_type');
-      if (nameIdx !== -1 && typeIdx !== -1 && desc.rows.length > 0) {
-        projection = desc.rows
-          .map((r) => {
-            const q = `"${String(r[nameIdx]).replace(/"/g, '""')}"`;
-            return /variant/i.test(String(r[typeIdx] ?? '')) ? `CAST(${q} AS VARCHAR) AS ${q}` : q;
-          })
-          .join(', ');
-      }
-    } catch {
-      // DESCRIBE unavailable — fall back to SELECT * and let any error surface.
-      projection = '*';
-    }
-
-    const results = await loqe.query(`SELECT ${projection} FROM ${fromClause} LIMIT 1000;`);
+    const results = await loqe.query(`SELECT * FROM ${fromClause} LIMIT 1000;`);
     queryResults.value = results;
   } catch (err: any) {
     console.error('Failed to load table preview:', err);
@@ -475,12 +449,5 @@ watch(
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.cell-link {
-  cursor: pointer;
-  color: rgb(var(--v-theme-primary));
-  text-decoration: underline dotted;
-  text-underline-offset: 2px;
 }
 </style>
