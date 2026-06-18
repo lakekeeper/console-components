@@ -2,13 +2,13 @@
   <v-card variant="outlined">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
-        <v-icon class="mr-2" color="primary">mdi-account-multiple</v-icon>
-        Members
-        <v-chip size="x-small" variant="tonal" class="ml-2">{{ members.length }}</v-chip>
+        <v-icon class="mr-2" color="primary">mdi-shield-account</v-icon>
+        Owners
+        <v-chip size="x-small" variant="tonal" class="ml-2">{{ owners.length }}</v-chip>
       </v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn-toggle
-        v-model="memberFilter"
+        v-model="ownerFilter"
         mandatory
         density="compact"
         variant="outlined"
@@ -18,32 +18,20 @@
         <v-btn value="role" size="small" prepend-icon="mdi-account-group">Roles</v-btn>
       </v-btn-toggle>
       <v-btn
-        v-if="canEdit && selected.length"
-        color="error"
-        variant="tonal"
-        size="small"
-        prepend-icon="mdi-account-remove"
-        class="mr-2"
-        @click="requestRemove(selectedItems)">
-        Remove ({{ selected.length }})
-      </v-btn>
-      <v-btn
         v-if="canEdit"
         color="primary"
         variant="tonal"
         size="small"
         prepend-icon="mdi-plus"
         @click="openAdd">
-        Add member
+        Add owner
       </v-btn>
     </v-toolbar>
     <v-divider></v-divider>
     <v-data-table
-      v-model="selected"
-      :headers="memberHeaders"
-      :items="filteredMembers"
+      :headers="ownerHeaders"
+      :items="filteredOwners"
       :loading="loading"
-      :show-select="canEdit"
       density="compact"
       item-value="id">
       <template #item.type="{ item }">
@@ -54,11 +42,8 @@
           {{ item.type }}
         </v-chip>
       </template>
-      <template #item.name="{ item }">{{ item.name || item.ident || item.id }}</template>
-      <template #item.detail="{ item }">
-        <span class="text-caption text-medium-emphasis">
-          {{ item.type === 'user' ? item.email || item.id : item.ident }}
-        </span>
+      <template #item.name="{ item }">
+        {{ item.name || item.id }}
         <span
           v-if="item.type === 'role' && item.projectId && item.projectId !== currentProjectId"
           class="text-caption text-grey">
@@ -80,17 +65,17 @@
           icon="mdi-close"
           size="x-small"
           variant="text"
-          @click="requestRemove([item])"></v-btn>
+          @click="requestRemove(item)"></v-btn>
       </template>
       <template #no-data>
-        <div class="text-center pa-4 text-medium-emphasis">No members</div>
+        <div class="text-center pa-4 text-medium-emphasis">No owners</div>
       </template>
     </v-data-table>
 
-    <!-- Add member dialog -->
+    <!-- Add owner dialog -->
     <v-dialog v-model="addOpen" max-width="1000">
       <v-card>
-        <v-card-title>Add member</v-card-title>
+        <v-card-title>Add owner</v-card-title>
         <v-card-text>
           <PrincipalSearch v-model="addSelected" :exclude-role-id="roleId" />
         </v-card-text>
@@ -108,21 +93,13 @@
       </v-card>
     </v-dialog>
 
-    <!-- Remove member(s) confirm dialog -->
-    <v-dialog v-model="removeConfirm.open" max-width="480">
+    <!-- Remove owner confirm -->
+    <v-dialog v-model="removeConfirm.open" max-width="460">
       <v-card>
-        <v-card-title class="text-subtitle-1 font-weight-medium">
-          Remove {{ removeConfirm.items.length }} member{{
-            removeConfirm.items.length === 1 ? '' : 's'
-          }}?
-        </v-card-title>
+        <v-card-title class="text-subtitle-1 font-weight-medium">Remove owner?</v-card-title>
         <v-card-text class="text-body-2">
-          They will lose the permissions inherited from this role.
-          <ul class="mt-2 ml-4">
-            <li v-for="it in removeConfirm.items" :key="it.id">
-              {{ it.name || it.ident || it.id }}
-            </li>
-          </ul>
+          {{ removeConfirm.item?.name || removeConfirm.item?.id }} will no longer be able to
+          administer this role.
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -140,7 +117,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
-import type { RoleMember } from '../gen/management/types.gen';
+import type { RoleAssignment } from '../gen/management/types.gen';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 
 const props = defineProps<{
@@ -152,49 +129,43 @@ const functions = useFunctions();
 const visual = useVisualStore();
 const currentProjectId = computed(() => visual.projectSelected['project-id'] || '');
 
+interface OwnerRow {
+  id: string;
+  type: 'user' | 'role';
+  name?: string;
+  projectId?: string;
+}
+
 const loading = ref(false);
-const members = ref<
-  Array<
-    RoleMember & { id: string; name?: string; ident?: string; email?: string; projectId?: string }
-  >
->([]);
-
-// Selection + type filter + remove-confirm state
-const selected = ref<string[]>([]);
-const memberFilter = ref<'all' | 'user' | 'role'>('all');
-const removing = ref(false);
-const removeConfirm = reactive<{ open: boolean; items: any[] }>({ open: false, items: [] });
-
-const filteredMembers = computed(() =>
-  memberFilter.value === 'all'
-    ? members.value
-    : members.value.filter((m) => m.type === memberFilter.value),
+const owners = ref<OwnerRow[]>([]);
+const ownerFilter = ref<'all' | 'user' | 'role'>('all');
+const filteredOwners = computed(() =>
+  ownerFilter.value === 'all'
+    ? owners.value
+    : owners.value.filter((o) => o.type === ownerFilter.value),
 );
-const selectedItems = computed(() => members.value.filter((m) => selected.value.includes(m.id)));
-
-const memberHeaders = [
+const ownerHeaders = [
   { title: 'Type', key: 'type', sortable: false, width: 90 },
   { title: 'Name', key: 'name', sortable: false },
-  { title: 'Identifier', key: 'detail', sortable: false },
   { title: '', key: 'actions', sortable: false, align: 'end' as const, width: 56 },
 ];
 
 async function load() {
   loading.value = true;
   try {
-    const m = await functions.listRoleMembers(props.roleId);
-    const list = (m?.members ?? []) as any[];
-    // RoleMembership carries no project-id, so resolve it for role members
-    // (lets the list flag nested roles from another project).
-    await Promise.all(
-      list
-        .filter((x) => x.type === 'role')
-        .map(async (x) => {
-          const meta: any = await functions.getRoleMetadata(x.id).catch(() => null);
-          x.projectId = meta?.['project-id'];
-        }),
-    );
-    members.value = list as any;
+    const assignments = (await functions.getRoleAssignmentsById(props.roleId)) as RoleAssignment[];
+    const ownerships = (assignments ?? []).filter((a: any) => a.type === 'ownership');
+    const rows: OwnerRow[] = [];
+    for (const a of ownerships as any[]) {
+      if (a.user) {
+        const u: any = await functions.getUser(a.user).catch(() => null);
+        rows.push({ id: a.user, type: 'user', name: u?.name || u?.['preferred_username'] });
+      } else if (a.role) {
+        const r: any = await functions.getRoleMetadata(a.role).catch(() => null);
+        rows.push({ id: a.role, type: 'role', name: r?.name, projectId: r?.['project-id'] });
+      }
+    }
+    owners.value = rows;
   } catch {
     /* surfaced by the functions plugin */
   } finally {
@@ -202,29 +173,37 @@ async function load() {
   }
 }
 
-function requestRemove(items: Array<{ id: string; type: 'user' | 'role'; name?: string }>) {
-  if (!items.length) return;
-  removeConfirm.items = [...items];
+// --- Remove ---------------------------------------------------------------
+const removing = ref(false);
+const removeConfirm = reactive<{ open: boolean; item: OwnerRow | null }>({
+  open: false,
+  item: null,
+});
+function requestRemove(item: OwnerRow) {
+  removeConfirm.item = item;
   removeConfirm.open = true;
 }
-
 async function confirmRemove() {
+  const item = removeConfirm.item;
+  if (!item) return;
   removing.value = true;
   try {
-    for (const it of removeConfirm.items) {
-      await functions.removeRoleMember(props.roleId, it.type, it.id, false);
-    }
-    selected.value = [];
+    const del: any[] = [
+      item.type === 'user'
+        ? { user: item.id, type: 'ownership' }
+        : { role: item.id, type: 'ownership' },
+    ];
+    await functions.updateRoleAssignmentsById(props.roleId, del, [], true);
     await load();
   } catch {
-    /* surfaced by the functions plugin */
+    /* surfaced */
   } finally {
     removing.value = false;
     removeConfirm.open = false;
   }
 }
 
-// --- Add member -------------------------------------------------------------
+// --- Add ------------------------------------------------------------------
 const addOpen = ref(false);
 const addSelected = ref<SelectedPrincipal | null>(null);
 const adding = ref(false);
@@ -238,11 +217,12 @@ async function confirmAdd() {
   if (!addSelected.value) return;
   adding.value = true;
   try {
-    await functions.addRoleMembers(
-      props.roleId,
-      [{ id: addSelected.value.id, type: addSelected.value.type }],
-      true,
-    );
+    const writes: any[] = [
+      addSelected.value.type === 'user'
+        ? { user: addSelected.value.id, type: 'ownership' }
+        : { role: addSelected.value.id, type: 'ownership' },
+    ];
+    await functions.updateRoleAssignmentsById(props.roleId, [], writes, true);
     addOpen.value = false;
     await load();
   } catch {

@@ -12,6 +12,8 @@ import NamespaceAddDialog from './components/NamespaceAddDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
 import RoleManager from './components/RoleManager.vue';
 import RoleMembers from './components/RoleMembers.vue';
+import RoleOwners from './components/RoleOwners.vue';
+import RoleDetail from './components/RoleDetail.vue';
 import RoleOverviewEdit from './components/RoleOverviewEdit.vue';
 import ProjectNameAddOrEditDialog from './components/ProjectNameAddOrEditDialog.vue';
 import AuthenticationDisabledWarningBanner from './components/AuthenticationDisabledWarningBanner.vue';
@@ -95,6 +97,8 @@ export {
   RoleDialog,
   RoleManager,
   RoleMembers,
+  RoleOwners,
+  RoleDetail,
   RoleOverviewEdit,
   AppBar,
   WarningBanner,
@@ -280,6 +284,8 @@ const components = {
   RoleDialog,
   RoleManager,
   RoleMembers,
+  RoleOwners,
+  RoleDetail,
   RoleOverviewEdit,
   AppBar,
   WarningBanner,

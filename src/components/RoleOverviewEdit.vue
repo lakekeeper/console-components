@@ -1,31 +1,19 @@
 <template>
-  <v-card>
-    <v-card-item>
-      <template #prepend>
-        <v-avatar color="info" variant="tonal" size="44">
-          <v-icon size="24">mdi-account-box-multiple-outline</v-icon>
-        </v-avatar>
-      </template>
-      <template #append>
-        <v-btn
-          color="info"
-          size="small"
-          to="/roles"
-          variant="outlined"
-          prepend-icon="mdi-arrow-left"
-          class="mr-2">
-          Back
-        </v-btn>
-        <RoleDialog
-          v-if="role.name && canUpdate"
-          :action-type="'edit'"
-          :role="role"
-          @role-input="editRole" />
-      </template>
-      <v-card-title class="text-h5">{{ role.name || '—' }}</v-card-title>
-    </v-card-item>
+  <v-card variant="outlined">
+    <v-toolbar color="transparent" density="compact" flat>
+      <v-toolbar-title class="text-subtitle-1">
+        <v-icon class="mr-2" color="primary">mdi-card-account-details-outline</v-icon>
+        Details
+      </v-toolbar-title>
+      <v-spacer></v-spacer>
+      <RoleDialog
+        v-if="role.name && canUpdate"
+        :action-type="'edit'"
+        :role="role"
+        @role-input="editRole" />
+    </v-toolbar>
 
-    <v-divider class="mx-4"></v-divider>
+    <v-divider></v-divider>
 
     <v-card-text v-if="role.id">
       <v-row dense>
