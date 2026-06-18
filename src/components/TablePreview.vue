@@ -128,32 +128,7 @@
       </v-data-table>
 
       <!-- Full-value / JSON viewer -->
-      <v-dialog v-model="cellDialog.open" max-width="820" scrollable>
-        <v-card>
-          <v-card-title class="d-flex align-center" style="gap: 8px">
-            <v-icon size="small" color="primary">
-              {{ cellDialog.isJson ? 'mdi-code-json' : 'mdi-text-long' }}
-            </v-icon>
-            <span class="text-truncate">{{ cellDialog.title }}</span>
-            <v-spacer></v-spacer>
-            <v-btn
-              icon="mdi-content-copy"
-              variant="text"
-              size="small"
-              title="Copy"
-              @click="copyCell"></v-btn>
-            <v-btn
-              icon="mdi-close"
-              variant="text"
-              size="small"
-              @click="cellDialog.open = false"></v-btn>
-          </v-card-title>
-          <v-divider></v-divider>
-          <v-card-text>
-            <pre class="cell-json">{{ cellDialog.pretty }}</pre>
-          </v-card-text>
-        </v-card>
-      </v-dialog>
+      <CellValueDialog v-model="cellDialog.open" :state="cellDialog" />
     </div>
   </v-container>
 </template>
@@ -165,7 +140,9 @@ import { useUserStore } from '@/stores/user';
 import { useLoQE } from '@/composables/useLoQE';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
+import { useCellViewer } from '@/composables/useCellViewer';
 import CorsConfigDialog from './CorsConfigDialog.vue';
+import CellValueDialog from './CellValueDialog.vue';
 
 // Local types for json-bigint parsed metadata (BigInt IDs stored as strings)
 interface BigIntSnapshot {
@@ -307,37 +284,8 @@ const tableRows = computed(() => {
 });
 
 // Cell value viewer: long / JSON-looking values are clickable and open a dialog
-// showing the full value (pretty-printed when it parses as JSON).
-const cellDialog = ref<{
-  open: boolean;
-  title: string;
-  raw: string;
-  pretty: string;
-  isJson: boolean;
-}>({ open: false, title: '', raw: '', pretty: '', isJson: false });
-
-function isExpandable(value: unknown): boolean {
-  if (value == null) return false;
-  const s = String(value);
-  return s.length > 60 || /^\s*[[{]/.test(s);
-}
-
-function openCell(title: string, value: unknown): void {
-  const raw = value == null ? '' : String(value);
-  let pretty = raw;
-  let isJson = false;
-  try {
-    pretty = JSON.stringify(JSON.parse(raw), null, 2);
-    isJson = true;
-  } catch {
-    /* not JSON — show raw text */
-  }
-  cellDialog.value = { open: true, title, raw, pretty, isJson };
-}
-
-function copyCell(): void {
-  functions.copyToClipboard(cellDialog.value.pretty);
-}
+// showing the full value (shared with the LoQE results grid).
+const { cellDialog, isExpandable, openCell } = useCellViewer();
 
 // Check if preview is available
 const isPreviewAvailable = computed(() => {
@@ -534,14 +482,5 @@ watch(
   color: rgb(var(--v-theme-primary));
   text-decoration: underline dotted;
   text-underline-offset: 2px;
-}
-
-.cell-json {
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: 'Roboto Mono', monospace;
-  font-size: 0.8rem;
-  line-height: 1.4;
-  margin: 0;
 }
 </style>
