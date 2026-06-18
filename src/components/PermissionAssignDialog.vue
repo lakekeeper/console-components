@@ -264,7 +264,9 @@ const objRelation = computed(() => {
   }
   throw new Error('Invalid relation type');
 });
-const roleRelations: RoleRelation[] = ['assignee', 'ownership'];
+// 'assignee' (role membership) is managed in the role's Members tab, so the
+// Permissions tab only grants 'ownership' (who can administer the role).
+const roleRelations: RoleRelation[] = ['ownership'];
 const serverRelation: ServerRelation[] = ['admin', 'operator'];
 const toWrite = reactive<any[]>([]);
 const toDelete = reactive<any[]>([]);

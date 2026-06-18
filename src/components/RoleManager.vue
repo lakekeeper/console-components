@@ -101,6 +101,11 @@ const visual = useVisualStore();
 const router = useRouter();
 const notify = true;
 
+// In `inline` mode (e.g. the Identities page) row clicks emit `select` so the
+// detail can render in-place instead of navigating to /roles/:id.
+const props = defineProps<{ inline?: boolean }>();
+const emit = defineEmits<{ (e: 'select', id: string): void }>();
+
 interface ExtendedRole extends Role {
   can_delete?: boolean;
 }
@@ -167,6 +172,10 @@ watch(
 );
 
 function getRole(id: string) {
+  if (props.inline) {
+    emit('select', id);
+    return;
+  }
   router.push(`/roles/${id}`);
 }
 

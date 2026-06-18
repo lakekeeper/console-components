@@ -414,6 +414,10 @@ async function init() {
   const assignments = await fetchAssignments();
 
   for (const permission of assignments) {
+    // Role membership ('assignee') is shown/managed in the Members tab — keep the
+    // Permissions tab to 'ownership' only so the two don't overlap.
+    if (props.relationType === RelationType.Role && permission.type === 'assignee') continue;
+
     const searchUser: any = permission;
 
     if (searchUser.user) {
