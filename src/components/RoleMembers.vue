@@ -202,6 +202,12 @@ function onSearch(q: string) {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = setTimeout(() => runSearch(q), 250);
 }
+// Treat a query as an identifier (so we also try a direct lookup) when it looks
+// like a UUID or carries an idp prefix (e.g. `oidc~…`, `kubernetes~…`).
+function looksLikeId(s: string): boolean {
+  return /~/.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s) || /^[A-Za-z0-9_-]{16,}$/.test(s);
+}
+
 async function runSearch(q: string) {
   if (!q) {
     addCandidates.value = [];
@@ -209,18 +215,44 @@ async function runSearch(q: string) {
   }
   searching.value = true;
   try {
+    let candidates: { id: string; title: string }[] = [];
     if (addType.value === 'user') {
       const users = await functions.searchUser(q);
-      addCandidates.value = (users ?? []).map((u: any) => ({
+      candidates = (users ?? []).map((u: any) => ({
         id: u.id,
         title: `${u.name || u['preferred_username'] || u.id}${u.email ? ` · ${u.email}` : ''}`,
       }));
     } else {
       const roles = await functions.searchRole(q);
-      addCandidates.value = (roles ?? [])
+      candidates = (roles ?? [])
         .filter((r: any) => r.id !== props.roleId)
         .map((r: any) => ({ id: r.id, title: r.name || r.ident || r.id }));
     }
+
+    // Also resolve by identifier (mirrors the Permissions dialog "Search by ID")
+    // so principals without a searchable name — service principals, OIDC/k8s
+    // subjects, or a known role id — are still findable.
+    if (looksLikeId(q) && !candidates.some((c) => c.id === q)) {
+      try {
+        if (addType.value === 'user') {
+          const u: any = await functions.getUser(q);
+          if (u?.id) {
+            candidates.unshift({
+              id: u.id,
+              title: `${u.name || u['preferred_username'] || u.id}${u.email ? ` · ${u.email}` : ''}`,
+            });
+          }
+        } else {
+          const r: any = await functions.getRoleMetadata(q);
+          if (r?.id && r.id !== props.roleId) {
+            candidates.unshift({ id: r.id, title: r.name || r.id });
+          }
+        }
+      } catch {
+        /* not a resolvable id — name results (if any) still stand */
+      }
+    }
+    addCandidates.value = candidates;
   } catch {
     addCandidates.value = [];
   } finally {
