@@ -23,7 +23,13 @@
           :deep="3"
           :theme="themeText"
           :show-line-number="true"
-          :virtual="false" />
+          :virtual="false">
+          <!-- Inline color so it doesn't depend on (cache-prone) CSS overrides:
+               string values blue instead of vue-json-pretty's default green. -->
+          <template #renderNodeValue="{ node, defaultValue }">
+            <span :style="{ color: valueColor(node) }">{{ defaultValue }}</span>
+          </template>
+        </vue-json-pretty>
         <pre v-else class="cell-json">{{ state.pretty }}</pre>
       </v-card-text>
     </v-card>
@@ -54,6 +60,16 @@ const open = computed({
 
 function copy(): void {
   functions.copyToClipboard(props.state.pretty);
+}
+
+// Per-value color: strings blue (vue-json-pretty defaults them to green);
+// keep its blue numbers and purple null/undefined, others inherit.
+function valueColor(node: { content?: unknown }): string | undefined {
+  const v = node?.content;
+  if (typeof v === 'string') return '#1976d2';
+  if (typeof v === 'number') return '#1d8ce0';
+  if (v === null || v === undefined) return '#d55fde';
+  return undefined;
 }
 </script>
 
