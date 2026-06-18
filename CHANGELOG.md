@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.11.0](https://github.com/lakekeeper/console-components/compare/v0.10.1...v0.11.0) (2026-06-18)
+
+
+### Features
+
+* **ui:** id-aware member search ([08b7f9e](https://github.com/lakekeeper/console-components/commit/08b7f9eba930bc75c650b6ebe56b7242a80093fc))
+* **ui:** single-page role detail with members, owners, and shared principal search ([08b7f9e](https://github.com/lakekeeper/console-components/commit/08b7f9eba930bc75c650b6ebe56b7242a80093fc))
+
+
+### Bug Fixes
+
+* **ui:** role Permissions manages ownership only, not membership ([08b7f9e](https://github.com/lakekeeper/console-components/commit/08b7f9eba930bc75c650b6ebe56b7242a80093fc))
+
 ## [0.10.1](https://github.com/lakekeeper/console-components/compare/v0.10.0...v0.10.1) (2026-06-18)
 
 
