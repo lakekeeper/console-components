@@ -449,7 +449,9 @@ export class LoQEEngine {
     // reader depends on avro (manifests) and parquet (data files) and will
     // auto-install them at init; pre-installing from our bundled repo keeps the
     // whole chain airgapped (otherwise iceberg's init pulls them from the CDN).
-    for (const dep of ['httpfs', 'avro', 'parquet']) {
+    // json is needed for the VARIANT -> JSON cast used to make variant columns
+    // Arrow-serializable (see buildArrowSafeQuery).
+    for (const dep of ['httpfs', 'avro', 'parquet', 'json']) {
       if (!this.installedExtensions.has(dep)) {
         await this.installExtension(dep);
       }
