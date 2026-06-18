@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.10.0](https://github.com/lakekeeper/console-components/compare/v0.9.0...v0.10.0) (2026-06-18)
+
+
+### Features
+
+* **ui:** functions wrappers for role membership and warehouse managed-by ([5ae9bec](https://github.com/lakekeeper/console-components/commit/5ae9becb1ed55544fdebab7e6090a05706ee5e26))
+* **ui:** role Members component ([5ae9bec](https://github.com/lakekeeper/console-components/commit/5ae9becb1ed55544fdebab7e6090a05706ee5e26))
+* **ui:** table details redesign, bulk table/view delete, activity chart, nav default-collapse ([5ae9bec](https://github.com/lakekeeper/console-components/commit/5ae9becb1ed55544fdebab7e6090a05706ee5e26))
+* **ui:** warehouse managed-by controls + instance-admin gating ([5ae9bec](https://github.com/lakekeeper/console-components/commit/5ae9becb1ed55544fdebab7e6090a05706ee5e26))
+
 ## [0.9.0](https://github.com/lakekeeper/console-components/compare/v0.8.0...v0.9.0) (2026-06-17)
 
 
