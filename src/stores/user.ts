@@ -24,6 +24,8 @@ export const useUserStore = defineStore(
 
     function setUser(newUser: User) {
       isAuthenticated.value = true;
+      // Clear any stale instance-admin flag from a prior session; whoAmI re-sets it.
+      isInstanceAdmin.value = false;
       user.access_token = newUser.access_token;
       user.id_token = newUser.id_token;
       user.refresh_token = newUser.refresh_token;
@@ -40,6 +42,7 @@ export const useUserStore = defineStore(
 
     function unsetUser() {
       isAuthenticated.value = false;
+      isInstanceAdmin.value = false;
       user.access_token = '';
       user.id_token = '';
       user.refresh_token = '';
