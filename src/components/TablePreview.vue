@@ -346,17 +346,16 @@ async function loadPreview() {
     // Initialize LoQE and attach the catalog (shared engine with LoQE Explorer)
     await loqe.initialize();
 
-    // Check if catalog is already attached
-    const attached = loqe.attachedCatalogs.value;
-    const alreadyAttached = attached.some((c) => c.catalogName === warehouseName);
-    if (!alreadyAttached) {
-      await loqe.attachCatalog({
-        catalogName: warehouseName,
-        restUri: props.catalogUrl,
-        accessToken: userStore.user.access_token,
-        projectId: wh['project-id'],
-      });
-    }
+    // Always (re)attach with the current token: vended storage credentials
+    // expire on a short TTL, so a stale attach causes 404s on manifest/data
+    // fetches. force re-attaches to re-vend fresh credentials.
+    await loqe.attachCatalog({
+      catalogName: warehouseName,
+      restUri: props.catalogUrl,
+      accessToken: userStore.user.access_token,
+      projectId: wh['project-id'],
+      force: true,
+    });
 
     const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
 

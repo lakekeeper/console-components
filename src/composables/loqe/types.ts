@@ -30,6 +30,9 @@ export interface LoQECatalogConfig {
   restUri: string;
   accessToken: string;
   projectId?: string;
+  /** Re-attach even if already attached, so DuckDB re-vends fresh storage
+   *  credentials (vended creds expire on a short TTL independent of the token). */
+  force?: boolean;
 }
 
 export interface AttachedCatalog {
