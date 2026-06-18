@@ -346,16 +346,34 @@ async function loadPreview() {
 
     const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
 
-    // Build query with optional time travel
-    let sql: string;
-    if (selectedSnapshot.value) {
-      // snapshot IDs are BigInt-safe strings from loadTableCustomized (json-bigint)
-      sql = `SELECT * FROM ${tablePath} AT (VERSION => ${selectedSnapshot.value}) LIMIT 1000;`;
-    } else {
-      sql = `SELECT * FROM ${tablePath} LIMIT 1000;`;
+    // Optional time-travel clause (snapshot IDs are BigInt-safe strings).
+    const fromClause = selectedSnapshot.value
+      ? `${tablePath} AT (VERSION => ${selectedSnapshot.value})`
+      : tablePath;
+
+    // VARIANT (and other types without an Arrow representation) cannot be
+    // serialized back to JS — DuckDB-WASM throws "Unsupported Arrow type".
+    // Introspect the columns and cast any VARIANT-bearing column to text so the
+    // preview still renders (the value shows as its JSON/text form).
+    let projection = '*';
+    try {
+      const desc = await loqe.query(`DESCRIBE SELECT * FROM ${fromClause};`);
+      const nameIdx = desc.columns.indexOf('column_name');
+      const typeIdx = desc.columns.indexOf('column_type');
+      if (nameIdx !== -1 && typeIdx !== -1 && desc.rows.length > 0) {
+        projection = desc.rows
+          .map((r) => {
+            const q = `"${String(r[nameIdx]).replace(/"/g, '""')}"`;
+            return /variant/i.test(String(r[typeIdx] ?? '')) ? `CAST(${q} AS VARCHAR) AS ${q}` : q;
+          })
+          .join(', ');
+      }
+    } catch {
+      // DESCRIBE unavailable — fall back to SELECT * and let any error surface.
+      projection = '*';
     }
 
-    const results = await loqe.query(sql);
+    const results = await loqe.query(`SELECT ${projection} FROM ${fromClause} LIMIT 1000;`);
     queryResults.value = results;
   } catch (err: any) {
     console.error('Failed to load table preview:', err);
