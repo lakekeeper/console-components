@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.12.0](https://github.com/lakekeeper/console-components/compare/v0.11.0...v0.12.0) (2026-06-19)
+
+
+### Features
+
+* **ui:** add multi-select bulk remove to role owners ([1153366](https://github.com/lakekeeper/console-components/commit/1153366c4d341c43911f6b4a500079ce6d5ef94e))
+
+
+### Bug Fixes
+
+* **ui:** show owners above members on role detail ([1153366](https://github.com/lakekeeper/console-components/commit/1153366c4d341c43911f6b4a500079ce6d5ef94e))
+
 ## [0.11.0](https://github.com/lakekeeper/console-components/compare/v0.10.1...v0.11.0) (2026-06-18)
 
 
