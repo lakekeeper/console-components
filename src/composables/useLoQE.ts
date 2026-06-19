@@ -302,6 +302,16 @@ export function useLoQE(config: LoQEConfig) {
   }
 
   /**
+   * Force DuckDB to re-read fresh iceberg metadata (detach + reattach all
+   * catalogs). Use after a read 404s on a `snap-*.avro` that still exists —
+   * DuckDB is on a stale, expired snapshot while the table is healthy.
+   */
+  async function refreshMetadata(): Promise<void> {
+    if (!isInitialized.value) return;
+    await engine.refreshMetadata();
+  }
+
+  /**
    * Free DuckDB WASM memory without destroying the engine.
    * Clears cached query results, closes idle connections, runs
    * CHECKPOINT + PRAGMA shrink_memory inside DuckDB.
@@ -490,6 +500,7 @@ export function useLoQE(config: LoQEConfig) {
     getExtensions,
     attachCatalog,
     detachCatalog,
+    refreshMetadata,
     freeMemory,
     resetDatabase,
     fetchCompletions,

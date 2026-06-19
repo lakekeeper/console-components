@@ -1,5 +1,6 @@
 import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import type { LoQECatalogConfig, AttachedCatalog } from './types';
+import { extraHttpHeadersClause } from './types';
 import type { TokenManager } from './TokenManager';
 
 /**
@@ -45,7 +46,7 @@ export class CatalogManager {
       await conn.query(
         `CREATE OR REPLACE SECRET ${secretName} (
           TYPE iceberg,
-          TOKEN '${token.replace(/'/g, "''")}'
+          TOKEN '${token.replace(/'/g, "''")}'${extraHttpHeadersClause()}
         )`,
       );
 
@@ -54,7 +55,6 @@ export class CatalogManager {
         `ATTACH IF NOT EXISTS '${projectId}/${config.catalogName}' AS "${config.catalogName}" (
           TYPE iceberg,
           SUPPORT_NESTED_NAMESPACES true,
-          SUPPORT_STAGE_CREATE true,
           SECRET ${secretName},
           ENDPOINT '${config.restUri}'
         )`,
@@ -144,7 +144,7 @@ export class CatalogManager {
           await conn.query(
             `CREATE OR REPLACE SECRET ${cat.secretName} (
               TYPE iceberg,
-              TOKEN '${newToken.replace(/'/g, "''")}'
+              TOKEN '${newToken.replace(/'/g, "''")}'${extraHttpHeadersClause()}
             )`,
           );
 
@@ -153,7 +153,6 @@ export class CatalogManager {
             `ATTACH IF NOT EXISTS '${cat.projectId}/${name}' AS "${name}" (
               TYPE iceberg,
               SUPPORT_NESTED_NAMESPACES true,
-              SUPPORT_STAGE_CREATE true,
               SECRET ${cat.secretName},
               ENDPOINT '${cat.restUri}'
             )`,
@@ -167,6 +166,72 @@ export class CatalogManager {
       }
     } catch (e) {
       console.error('[LoQE] Catalog refresh failed:', e);
+    } finally {
+      if (conn) {
+        try {
+          await conn.close();
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  /**
+   * Force DuckDB to re-vend fresh storage credentials and re-read table metadata.
+   *
+   * The iceberg extension caches, per session: (a) the table metadata/snapshot,
+   * and (b) an auto-created S3 `SECRET` built from `loadTable`'s vended
+   * `storage-credentials` — which carries a ~1h STS session token. When that
+   * token expires, S3 returns `403 ExpiredToken` (DuckDB-WASM masks it as a
+   * "404 / CORS"). DuckDB does not refresh it on its own. To recover we must:
+   *   1. DROP the stale auto-created storage secret(s) (TYPE s3/gcs/azure/r2),
+   *   2. DETACH + re-ATTACH each catalog (clears the cached binding),
+   * so the next scan does a fresh `loadTable` → fresh creds → new secret.
+   * Our own catalog secrets are TYPE iceberg and are preserved.
+   */
+  async reattachAll(): Promise<void> {
+    if (!this.db) return;
+
+    const entries = Array.from(this.catalogs.entries());
+    if (entries.length === 0) return;
+
+    let conn;
+    try {
+      conn = await this.db.connect();
+
+      // 1. Drop DuckDB's auto-created storage secrets holding the expired creds.
+      try {
+        const res: any = await conn.query(
+          `SELECT name FROM duckdb_secrets() WHERE lower(type) IN ('s3', 'gcs', 'azure', 'r2', 'huggingface')`,
+        );
+        for (const row of res.toArray()) {
+          const name = row.name ?? row[0];
+          if (name) {
+            console.debug(`[LoQE] dropping stale storage secret: ${name}`);
+            await conn.query(`DROP SECRET IF EXISTS "${String(name).replace(/"/g, '""')}"`);
+          }
+        }
+      } catch (e) {
+        console.warn('[LoQE] could not enumerate/drop storage secrets:', e);
+      }
+
+      // 2. Detach + reattach each catalog so the next scan re-loadTables.
+      for (const [name, cat] of entries) {
+        try {
+          await conn.query(`DETACH DATABASE IF EXISTS "${name}"`);
+          await conn.query(
+            `ATTACH IF NOT EXISTS '${cat.projectId}/${name}' AS "${name}" (
+              TYPE iceberg,
+              SUPPORT_NESTED_NAMESPACES true,
+              SECRET ${cat.secretName},
+              ENDPOINT '${cat.restUri}'
+            )`,
+          );
+        } catch (e) {
+          console.error(`[LoQE] Failed to reattach catalog "${name}":`, e);
+        }
+      }
     } finally {
       if (conn) {
         try {

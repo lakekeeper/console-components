@@ -7,6 +7,37 @@ import { CatalogManager } from './CatalogManager';
 import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
 
 /**
+ * Format an arbitrary thrown value for logging. DuckDB-WASM errors frequently
+ * surface as `Error: Invalid Configuration Error:` with an EMPTY message — the
+ * useful detail lives in other (non-enumerable) properties or the stack. This
+ * dumps name, message, stack, and every own property so we can see the real
+ * cause in the console.
+ */
+function describeError(e: any): string {
+  if (!(e instanceof Object)) return String(e);
+  const out: Record<string, unknown> = {
+    name: e.name,
+    message: e.message,
+    toString: String(e),
+  };
+  for (const k of Object.getOwnPropertyNames(e)) {
+    if (k === 'name' || k === 'message' || k === 'stack') continue;
+    try {
+      out[k] = e[k];
+    } catch {
+      /* ignore getters that throw */
+    }
+  }
+  let dump: string;
+  try {
+    dump = JSON.stringify(out);
+  } catch {
+    dump = String(out);
+  }
+  return `${dump}\nstack: ${e.stack ?? '(none)'}`;
+}
+
+/**
  * LoQEEngine — reference-counted singleton that owns the DuckDB WASM
  * lifecycle including connection pooling, token refresh, and catalog
  * management.
@@ -143,8 +174,13 @@ export class LoQEEngine {
       this.db = new duckdb.AsyncDuckDB(logger, this.worker);
       await this.db.instantiate(bundle.mainModule);
 
-      // 4. Open in-memory database
-      await this.db.open({});
+      // 4. Open in-memory database.
+      // allowUnsignedExtensions: we serve our OWN vendored extensions from the
+      // app origin (airgap). A pre-release/dev DuckDB core reports a version that
+      // doesn't match the released signed extensions, so signature validation
+      // fails ("signature is either missing or invalid"). Since we control the
+      // extension binaries, allow unsigned so they load from our repo.
+      await this.db.open({ allowUnsignedExtensions: true });
 
       // 5. Connection pool
       this._pool = new ConnectionPool(this.db, this.config.maxConnections ?? 4);
@@ -156,6 +192,9 @@ export class LoQEEngine {
       this.catalogs.initialize(this.db);
 
       this._isInitialized = true;
+      // Loud build marker so it's obvious in the console whether this (linked)
+      // build with the credential-refresh / hardReset logic is actually live.
+      console.info('%c[LoQE] engine ready — build: refresh+hardReset-on-expiry', 'color:#1976d2');
     } catch (e) {
       console.error('[LoQE] Initialisation failed:', e);
       throw e;
@@ -218,10 +257,15 @@ export class LoQEEngine {
       try {
         result = await exec(sql);
       } catch (err: any) {
-        // DuckDB can't serialize VARIANT (and a few other types) to Arrow for
-        // transport to JS. Retry once with a wrapper that casts those columns to
-        // text so the result is at least viewable (value shown as JSON/text).
-        const casted = /unsupported arrow type/i.test(String(err?.message ?? err))
+        // Log the failing statement and the FULL error — DuckDB's `.message` is
+        // often empty (e.g. "Invalid Configuration Error:"), so dump everything.
+        console.error(`[LoQE] query FAILED on SQL:\n${sql}\n`, describeError(err));
+        const msg = String(err?.message ?? err);
+
+        // Retry A: DuckDB can't serialize VARIANT (and a few other types) to Arrow
+        // for transport to JS. Retry once casting those columns to text so the
+        // result is at least viewable (value shown as JSON/text).
+        const casted = /unsupported arrow type/i.test(msg)
           ? await this.buildArrowSafeQuery(pooled.connection, sql)
           : null;
         if (!casted) throw err;
@@ -377,6 +421,34 @@ export class LoQEEngine {
     if (!this._isInitialized) throw new Error('[LoQE] Not initialised');
 
     const pooled = await this.pool.acquire();
+    // Run a statement with verbose logging so we can see exactly which SET/INSTALL
+    // /LOAD step fails and capture DuckDB's full error (the `.message` is often
+    // empty, e.g. "Invalid Configuration Error:" — the detail lives elsewhere).
+    const run = async (sql: string) => {
+      console.debug(`[LoQE] installExtension(${name}) exec:`, sql);
+      try {
+        return await pooled.connection.query(sql);
+      } catch (e) {
+        console.error(`[LoQE] installExtension(${name}) FAILED on: ${sql}\n`, describeError(e));
+        throw e;
+      }
+    };
+    // Best-effort variant: some config knobs (e.g. `builtin_httpfs`) were removed
+    // or renamed across DuckDB versions. A rejected SET there must NOT abort the
+    // whole install/attach (which would break EVERY subsequent query with an
+    // opaque "Invalid Configuration Error"). Log and continue instead.
+    const runOptional = async (sql: string) => {
+      console.debug(`[LoQE] installExtension(${name}) exec (optional):`, sql);
+      try {
+        return await pooled.connection.query(sql);
+      } catch (e) {
+        console.warn(
+          `[LoQE] installExtension(${name}) skipped optional: ${sql}\n`,
+          describeError(e),
+        );
+        return null;
+      }
+    };
     try {
       // Resolve the extension repository: an explicit user override wins; otherwise
       // use the self-hosted bundled repo so installs work offline / airgapped
@@ -384,18 +456,20 @@ export class LoQEEngine {
       const settingsStore = useDuckDBSettingsStore();
       const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
       if (repo) {
-        await pooled.connection.query(`SET custom_extension_repository = '${repo}'`);
+        await runOptional(`SET custom_extension_repository = '${repo}'`);
       } else {
-        await pooled.connection.query(`RESET custom_extension_repository`);
+        await runOptional(`RESET custom_extension_repository`);
       }
 
-      // httpfs must not use the built-in implementation so the custom repo is used
+      // httpfs must not use the built-in implementation so the custom repo is used.
+      // `builtin_httpfs` no longer exists in newer DuckDB — best-effort so it can't
+      // break the attach on 1.5.x.
       if (name === 'httpfs') {
-        await pooled.connection.query('SET builtin_httpfs = false');
+        await runOptional('SET builtin_httpfs = false');
       }
 
-      await pooled.connection.query(`INSTALL ${name}`);
-      await pooled.connection.query(`LOAD ${name}`);
+      await run(`INSTALL ${name}`);
+      await run(`LOAD ${name}`);
       this.installedExtensions.add(name);
     } finally {
       this.pool.release(pooled);
@@ -467,6 +541,54 @@ export class LoQEEngine {
 
   async detachCatalog(catalogName: string): Promise<void> {
     await this.catalogs.detachCatalog(catalogName);
+  }
+
+  /**
+   * Drop DuckDB's cached iceberg metadata by DETACHing + re-ATTACHing all
+   * catalogs, so the next query re-reads the current snapshot. Use when a read
+   * 404s on a `snap-*.avro` that still exists (DuckDB is on a stale, now-expired
+   * snapshot while the table itself is healthy).
+   */
+  async refreshMetadata(): Promise<void> {
+    if (!this._isInitialized) return;
+    await this.catalogs.reattachAll();
+  }
+
+  /**
+   * Nuclear credential refresh: tear down and rebuild the entire DuckDB instance,
+   * then re-attach all catalogs from scratch. A fresh instance holds no cached
+   * metadata or expired vended creds — exactly like opening an incognito window —
+   * so the next scan does a fresh `loadTable` and gets fresh STS credentials.
+   * Used as the fallback when `refreshMetadata` can't dislodge DuckDB's cached
+   * credentials. Preserves the singleton/refCount; only the inner db is replaced.
+   */
+  async hardReset(): Promise<void> {
+    // Capture what we need to restore BEFORE destroy() disposes the managers.
+    const cats = this.catalogs.getAttachedCatalogs().map((c) => ({
+      catalogName: c.catalogName,
+      restUri: c.restUri,
+      projectId: c.projectId,
+    }));
+    const token = this.tokens.currentToken;
+    console.warn(
+      `[LoQE] hardReset: rebuilding DuckDB instance, re-attaching ${cats.length} catalog(s)`,
+    );
+
+    this.destroy();
+    await this.initialize(token);
+
+    for (const c of cats) {
+      try {
+        await this.attachCatalog({
+          catalogName: c.catalogName,
+          restUri: c.restUri,
+          projectId: c.projectId,
+          accessToken: token,
+        });
+      } catch (e) {
+        console.error(`[LoQE] hardReset: failed to re-attach "${c.catalogName}"`, describeError(e));
+      }
+    }
   }
 
   // ── Internals ───────────────────────────────────────────────────────
