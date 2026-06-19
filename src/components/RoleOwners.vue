@@ -18,6 +18,16 @@
         <v-btn value="role" size="small" prepend-icon="mdi-account-group">Roles</v-btn>
       </v-btn-toggle>
       <v-btn
+        v-if="canEdit && selected.length"
+        color="error"
+        variant="tonal"
+        size="small"
+        prepend-icon="mdi-account-remove"
+        class="mr-2"
+        @click="requestRemove(selectedItems)">
+        Remove ({{ selected.length }})
+      </v-btn>
+      <v-btn
         v-if="canEdit"
         color="primary"
         variant="tonal"
@@ -29,9 +39,11 @@
     </v-toolbar>
     <v-divider></v-divider>
     <v-data-table
+      v-model="selected"
       :headers="ownerHeaders"
       :items="filteredOwners"
       :loading="loading"
+      :show-select="canEdit"
       density="compact"
       item-value="id">
       <template #item.type="{ item }">
@@ -65,7 +77,7 @@
           icon="mdi-close"
           size="x-small"
           variant="text"
-          @click="requestRemove(item)"></v-btn>
+          @click="requestRemove([item])"></v-btn>
       </template>
       <template #no-data>
         <div class="text-center pa-4 text-medium-emphasis">No owners</div>
@@ -93,13 +105,19 @@
       </v-card>
     </v-dialog>
 
-    <!-- Remove owner confirm -->
-    <v-dialog v-model="removeConfirm.open" max-width="460">
+    <!-- Remove owner(s) confirm -->
+    <v-dialog v-model="removeConfirm.open" max-width="480">
       <v-card>
-        <v-card-title class="text-subtitle-1 font-weight-medium">Remove owner?</v-card-title>
+        <v-card-title class="text-subtitle-1 font-weight-medium">
+          Remove {{ removeConfirm.items.length }} owner{{
+            removeConfirm.items.length === 1 ? '' : 's'
+          }}?
+        </v-card-title>
         <v-card-text class="text-body-2">
-          {{ removeConfirm.item?.name || removeConfirm.item?.id }} will no longer be able to
-          administer this role.
+          They will no longer be able to administer this role.
+          <ul class="mt-2 ml-4">
+            <li v-for="it in removeConfirm.items" :key="it.id">{{ it.name || it.id }}</li>
+          </ul>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -173,27 +191,26 @@ async function load() {
   }
 }
 
-// --- Remove ---------------------------------------------------------------
+// --- Selection + remove ---------------------------------------------------
+const selected = ref<string[]>([]);
+const selectedItems = computed(() => owners.value.filter((o) => selected.value.includes(o.id)));
 const removing = ref(false);
-const removeConfirm = reactive<{ open: boolean; item: OwnerRow | null }>({
-  open: false,
-  item: null,
-});
-function requestRemove(item: OwnerRow) {
-  removeConfirm.item = item;
+const removeConfirm = reactive<{ open: boolean; items: OwnerRow[] }>({ open: false, items: [] });
+
+function requestRemove(items: OwnerRow[]) {
+  if (!items.length) return;
+  removeConfirm.items = [...items];
   removeConfirm.open = true;
 }
+
 async function confirmRemove() {
-  const item = removeConfirm.item;
-  if (!item) return;
   removing.value = true;
   try {
-    const del: any[] = [
-      item.type === 'user'
-        ? { user: item.id, type: 'ownership' }
-        : { role: item.id, type: 'ownership' },
-    ];
-    await functions.updateRoleAssignmentsById(props.roleId, del, [], true);
+    const del = removeConfirm.items.map((it) =>
+      it.type === 'user' ? { user: it.id, type: 'ownership' } : { role: it.id, type: 'ownership' },
+    );
+    await functions.updateRoleAssignmentsById(props.roleId, del as any[], [], true);
+    selected.value = [];
     await load();
   } catch {
     /* surfaced */
