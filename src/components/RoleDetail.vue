@@ -13,8 +13,8 @@
     </v-breadcrumbs>
 
     <RoleOverviewEdit :role-id="roleId" class="mb-4" />
-    <RoleMembers :role-id="roleId" :can-edit="canEdit" class="mb-4" />
     <RoleOwners :role-id="roleId" :can-edit="canEdit" class="mb-4" />
+    <RoleMembers :role-id="roleId" :can-edit="canEdit" class="mb-4" />
 
     <!-- Roles this role is a member of (inherits from) -->
     <v-card variant="outlined" class="mt-4">
