@@ -31,6 +31,15 @@
             Shell Script
           </v-btn>
 
+          <v-switch
+            v-model="maskBuckets"
+            :prepend-icon="maskBuckets ? 'mdi-lock' : 'mdi-lock-open-outline'"
+            label="Mask buckets"
+            density="compact"
+            hide-details
+            color="warning"
+            class="flex-grow-0"></v-switch>
+
           <v-text-field
             v-model="datumDate"
             type="date"
@@ -57,14 +66,7 @@
             readonly
             style="max-width: 220px"></v-text-field>
 
-          <v-text-field
-            :model-value="licenseId"
-            label="License ID"
-            density="compact"
-            variant="outlined"
-            hide-details
-            readonly
-            style="min-width: 260px"></v-text-field>
+
         </div>
 
         <!-- Script preview dialog -->
@@ -121,6 +123,7 @@
             <thead>
               <tr>
                 <th>Server ID</th>
+                <th>License ID</th>
                 <th>Project IDs</th>
                 <th>Warehouse IDs</th>
                 <th>Bucket / Prefix</th>
@@ -146,14 +149,45 @@
             </thead>
             <tbody>
               <tr v-for="(row, i) in rows" :key="i">
-                <td class="text-caption mono">{{ row.serverId }}</td>
                 <td class="text-caption mono">
-                  <div v-for="pid in row.projectIds" :key="pid">{{ pid }}</div>
+                  <v-tooltip :text="row.serverId" location="top">
+                    <template #activator="{ props: tp }">
+                      <span v-bind="tp">{{ short(row.serverId) }}</span>
+                    </template>
+                  </v-tooltip>
                 </td>
                 <td class="text-caption mono">
-                  <div v-for="wid in row.warehouseIds" :key="wid">{{ wid }}</div>
+                  <v-tooltip :text="licenseId" location="top">
+                    <template #activator="{ props: tp }">
+                      <span v-bind="tp">{{ short(licenseId) }}</span>
+                    </template>
+                  </v-tooltip>
                 </td>
-                <td class="text-caption mono">{{ row.bucketPrefix }}</td>
+                <td class="text-caption mono">
+                  <div v-for="pid in row.projectIds" :key="pid">
+                    <v-tooltip :text="pid" location="top">
+                      <template #activator="{ props: tp }">
+                        <span v-bind="tp">{{ short(pid) }}</span>
+                      </template>
+                    </v-tooltip>
+                  </div>
+                </td>
+                <td class="text-caption mono">
+                  <div v-for="wid in row.warehouseIds" :key="wid">
+                    <v-tooltip :text="wid" location="top">
+                      <template #activator="{ props: tp }">
+                        <span v-bind="tp">{{ short(wid) }}</span>
+                      </template>
+                    </v-tooltip>
+                  </div>
+                </td>
+                <td class="text-caption mono">
+                  <v-tooltip :text="row.bucketPrefix" location="top">
+                    <template #activator="{ props: tp }">
+                      <span v-bind="tp">{{ displayBucket(row.bucketPrefix) }}</span>
+                    </template>
+                  </v-tooltip>
+                </td>
                 <td>
                   <v-text-field
                     v-model="row.volumeGb"
@@ -270,6 +304,37 @@ const licenseCustomer = computed(
 const licenseId = computed(
   () => visual.getServerInfo()['license-status']?.['license-id'] ?? '',
 );
+
+function short(id: string): string {
+  return id.length > 8 ? id.slice(0, 8) + '…' : id;
+}
+
+const maskBuckets = ref(false);
+const bucketHashes = ref<Record<string, string>>({});
+
+async function computeHashes() {
+  const enc = new TextEncoder();
+  const map: Record<string, string> = {};
+  for (const row of rows.value) {
+    const buf = await crypto.subtle.digest('SHA-256', enc.encode(row.bucketPrefix));
+    map[row.bucketPrefix] = Array.from(new Uint8Array(buf))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+  }
+  bucketHashes.value = map;
+}
+
+watch(maskBuckets, (on) => { if (on) computeHashes(); });
+
+function displayBucket(prefix: string): string {
+  if (!maskBuckets.value) return prefix;
+  return (bucketHashes.value[prefix] ?? '').slice(0, 16) || '…';
+}
+
+function exportBucket(prefix: string): string {
+  if (!maskBuckets.value) return prefix;
+  return bucketHashes.value[prefix] ?? prefix;
+}
 
 const scriptContent = computed(() => toShellScript());
 
@@ -418,28 +483,29 @@ async function loadData() {
 function toCsv(): string {
   const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
   const lines: string[] = [
-    ['Date', datumDate.value, '', '', '', ''].map(esc).join(','),
-    ['Creator', creator.value, '', '', '', ''].map(esc).join(','),
-    ['Customer', licenseCustomer.value, '', '', '', ''].map(esc).join(','),
-    ['License ID', licenseId.value, '', '', '', ''].map(esc).join(','),
-    ['Server ID', 'Project IDs', 'Warehouse IDs', 'Bucket / Prefix', 'Volume (GB)', 'Comments']
+    ['Date', datumDate.value, '', '', '', '', ''].map(esc).join(','),
+    ['Creator', creator.value, '', '', '', '', ''].map(esc).join(','),
+    ['Customer', licenseCustomer.value, '', '', '', '', ''].map(esc).join(','),
+    ['License ID', licenseId.value, '', '', '', '', ''].map(esc).join(','),
+    ['Server ID', 'License ID', 'Project IDs', 'Warehouse IDs', 'Bucket / Prefix', 'Volume (GB)', 'Comments']
       .map(esc)
       .join(','),
     ...rows.value.map((r) =>
       [
         r.serverId,
+        licenseId.value,
         r.projectIds.join(', '),
         r.warehouseIds.join(', '),
-        r.bucketPrefix,
+        exportBucket(r.bucketPrefix),
         r.volumeGb,
         r.comments,
       ]
         .map(esc)
         .join(','),
     ),
-    ['Total', `${totalPb.value} PB`, '', '', '', ''].map(esc).join(','),
-    ['', '', '', '', '', ''].map(esc).join(','),
-    ['Send this report to', 'accounts@vakamo.com', '', '', '', ''].map(esc).join(','),
+    ['Total', `${totalPb.value} PB`, '', '', '', '', ''].map(esc).join(','),
+    ['', '', '', '', '', '', ''].map(esc).join(','),
+    ['Send this report to', 'accounts@vakamo.com', '', '', '', '', ''].map(esc).join(','),
   ];
   return lines.join('\r\n');
 }
@@ -492,6 +558,8 @@ function toShellScript(): string {
     'S3_HOST=""                          # custom S3 endpoint hostname (e.g. minio.example.com), or empty for native AWS',
     '',
     `SERVER_ID=${JSON.stringify(serverId)}`,
+    `LICENSE_ID=${JSON.stringify(licenseId.value)}`,
+    `ENCRYPT_BUCKET_NAMES=${maskBuckets.value ? 'true' : 'false'}  # set to true to SHA-256 hash bucket paths in output`,
     'TOTAL_GB=0',
     '',
     '_csv() {',
@@ -500,9 +568,14 @@ function toShellScript(): string {
     '  printf \'"%s"\' "$v"',
     '}',
     '',
+    '_hash() { printf \'%s\' "$1" | sha256sum | cut -c1-64; }',
+    '_bucket() {',
+    '  if [ "$ENCRYPT_BUCKET_NAMES" = "true" ]; then _hash "$1"; else printf \'%s\' "$1"; fi',
+    '}',
+    '',
     `echo "Date,${datumDate.value}"`,
     `echo "Creator,${creator.value}"`,
-    'echo "Server ID,Project IDs,Warehouse IDs,Bucket / Prefix,Volume (GB),Comments"',
+    'echo "Server ID,License ID,Project IDs,Warehouse IDs,Bucket / Prefix,Volume (GB),Comments"',
     '',
   ];
 
@@ -535,11 +608,12 @@ function toShellScript(): string {
 
     lines.push(
       `TOTAL_GB=$(awk "BEGIN{printf \\"%.3f\\", $TOTAL_GB + ${'"${_gb:-0}"'}}")`,
-      `printf '%s,%s,%s,%s,%s,%s\\n' \\`,
+      `printf '%s,%s,%s,%s,%s,%s,%s\\n' \\`,
       `  "$(_csv "$SERVER_ID")" \\`,
+      `  "$(_csv "$LICENSE_ID")" \\`,
       `  "$(_csv ${JSON.stringify(projectIdsStr)})" \\`,
       `  "$(_csv ${JSON.stringify(warehouseIdsStr)})" \\`,
-      `  "$(_csv ${JSON.stringify(row.bucketPrefix)})" \\`,
+      `  "$(_csv "$(_bucket ${JSON.stringify(row.bucketPrefix)})")" \\`,
       `  "$(_csv "$_gb")" \\`,
       `  "$(_csv "")"`,
       '',
