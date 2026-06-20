@@ -439,7 +439,7 @@ function toCsv(): string {
     ),
     ['Total', `${totalPb.value} PB`, '', '', '', ''].map(esc).join(','),
     ['', '', '', '', '', ''].map(esc).join(','),
-    ['Send this report to', 'account@vakamo.com', '', '', '', ''].map(esc).join(','),
+    ['Send this report to', 'accounts@vakamo.com', '', '', '', ''].map(esc).join(','),
   ];
   return lines.join('\r\n');
 }
