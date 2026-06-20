@@ -1,5 +1,4 @@
 import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
-import { extraHttpHeadersClause } from './types';
 
 /**
  * TokenManager — keeps DuckDB `SECRET` objects in sync with the
@@ -52,12 +51,10 @@ export class TokenManager {
 
       for (const [secretName, { type }] of this.registeredSecrets) {
         try {
-          // EXTRA_HTTP_HEADERS only applies to iceberg/http secrets.
-          const extraHeaders = type === 'iceberg' ? extraHttpHeadersClause() : '';
           await conn.query(
             `CREATE OR REPLACE SECRET ${secretName} (
               TYPE ${type},
-              TOKEN '${newToken.replace(/'/g, "''")}'${extraHeaders}
+              TOKEN '${newToken.replace(/'/g, "''")}'
             )`,
           );
         } catch (e) {

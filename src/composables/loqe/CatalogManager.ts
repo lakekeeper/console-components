@@ -1,6 +1,5 @@
 import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import type { LoQECatalogConfig, AttachedCatalog } from './types';
-import { extraHttpHeadersClause } from './types';
 import type { TokenManager } from './TokenManager';
 
 /**
@@ -46,7 +45,7 @@ export class CatalogManager {
       await conn.query(
         `CREATE OR REPLACE SECRET ${secretName} (
           TYPE iceberg,
-          TOKEN '${token.replace(/'/g, "''")}'${extraHttpHeadersClause()}
+          TOKEN '${token.replace(/'/g, "''")}'
         )`,
       );
 
@@ -144,7 +143,7 @@ export class CatalogManager {
           await conn.query(
             `CREATE OR REPLACE SECRET ${cat.secretName} (
               TYPE iceberg,
-              TOKEN '${newToken.replace(/'/g, "''")}'${extraHttpHeadersClause()}
+              TOKEN '${newToken.replace(/'/g, "''")}'
             )`,
           );
 

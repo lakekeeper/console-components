@@ -38,6 +38,33 @@ function describeError(e: any): string {
 }
 
 /**
+ * Translate DuckDB-WASM's opaque download error into an actionable message.
+ *
+ * DuckDB reports any failed httpfs download as a generic
+ * `"Full download failed … : 404 (might be potentially a CORS error)"` — it
+ * doesn't read the real status or the S3 error body. A 404/CORS on a
+ * manifest/metadata file is almost always an EXPIRED vended S3 credential that
+ * the browser served from a stale cached `loadTable` response (the catalog
+ * returns `304` on a metadata-only ETag, so the cached body — with old creds —
+ * is reused). Surface that instead of the misleading "CORS" wording.
+ */
+function friendlyQueryError(err: unknown, msg: string): unknown {
+  const looksLikeStaleCreds =
+    /full download failed|might be.*cors|\b404\b/i.test(msg) &&
+    /(\.avro|snap-|manifest|metadata|\.json)/i.test(msg);
+  if (looksLikeStaleCreds) {
+    return new Error(
+      'Could not read table data — the storage credentials appear to have expired. ' +
+        'Your browser is serving a stale cached catalog response. ' +
+        'Reload the page (or open DevTools → Network → enable “Disable cache”) and retry. ' +
+        'If it keeps happening, the catalog needs to send "Cache-Control: no-store" on ' +
+        'credential responses.',
+    );
+  }
+  return err;
+}
+
+/**
  * LoQEEngine — reference-counted singleton that owns the DuckDB WASM
  * lifecycle including connection pooling, token refresh, and catalog
  * management.
@@ -192,9 +219,7 @@ export class LoQEEngine {
       this.catalogs.initialize(this.db);
 
       this._isInitialized = true;
-      // Loud build marker so it's obvious in the console whether this (linked)
-      // build with the credential-refresh / hardReset logic is actually live.
-      console.info('%c[LoQE] engine ready — build: refresh+hardReset-on-expiry', 'color:#1976d2');
+      console.info('%c[LoQE] engine ready (DuckDB v1.5.4)', 'color:#1976d2');
     } catch (e) {
       console.error('[LoQE] Initialisation failed:', e);
       throw e;
@@ -268,7 +293,7 @@ export class LoQEEngine {
         const casted = /unsupported arrow type/i.test(msg)
           ? await this.buildArrowSafeQuery(pooled.connection, sql)
           : null;
-        if (!casted) throw err;
+        if (!casted) throw friendlyQueryError(err, msg);
         result = await exec(casted);
       }
       const elapsed = performance.now() - start;
@@ -552,43 +577,6 @@ export class LoQEEngine {
   async refreshMetadata(): Promise<void> {
     if (!this._isInitialized) return;
     await this.catalogs.reattachAll();
-  }
-
-  /**
-   * Nuclear credential refresh: tear down and rebuild the entire DuckDB instance,
-   * then re-attach all catalogs from scratch. A fresh instance holds no cached
-   * metadata or expired vended creds — exactly like opening an incognito window —
-   * so the next scan does a fresh `loadTable` and gets fresh STS credentials.
-   * Used as the fallback when `refreshMetadata` can't dislodge DuckDB's cached
-   * credentials. Preserves the singleton/refCount; only the inner db is replaced.
-   */
-  async hardReset(): Promise<void> {
-    // Capture what we need to restore BEFORE destroy() disposes the managers.
-    const cats = this.catalogs.getAttachedCatalogs().map((c) => ({
-      catalogName: c.catalogName,
-      restUri: c.restUri,
-      projectId: c.projectId,
-    }));
-    const token = this.tokens.currentToken;
-    console.warn(
-      `[LoQE] hardReset: rebuilding DuckDB instance, re-attaching ${cats.length} catalog(s)`,
-    );
-
-    this.destroy();
-    await this.initialize(token);
-
-    for (const c of cats) {
-      try {
-        await this.attachCatalog({
-          catalogName: c.catalogName,
-          restUri: c.restUri,
-          projectId: c.projectId,
-          accessToken: token,
-        });
-      } catch (e) {
-        console.error(`[LoQE] hardReset: failed to re-attach "${c.catalogName}"`, describeError(e));
-      }
-    }
   }
 
   // ── Internals ───────────────────────────────────────────────────────
