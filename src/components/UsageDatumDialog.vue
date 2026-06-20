@@ -19,55 +19,63 @@
       <v-divider></v-divider>
 
       <v-card-text>
-        <!-- Top bar: shell script button + date -->
-        <div class="d-flex align-center flex-wrap ga-3 mb-4">
-          <v-btn
-            prepend-icon="mdi-console"
-            color="secondary"
-            variant="tonal"
-            size="large"
-            :disabled="rows.length === 0"
-            @click="scriptDialog = true">
-            Shell Script
-          </v-btn>
+        <!-- Row 1: metadata fields -->
+        <v-row align="center" dense class="mb-1">
+          <v-col cols="auto">
+            <v-text-field
+              v-model="datumDate"
+              type="date"
+              label="Date"
+              density="compact"
+              variant="plain"
+              hide-details
+              style="min-width: 160px"></v-text-field>
+          </v-col>
 
-          <v-switch
-            v-model="maskBuckets"
-            :prepend-icon="maskBuckets ? 'mdi-lock' : 'mdi-lock-open-outline'"
-            label="Mask buckets"
-            density="compact"
-            hide-details
-            color="warning"
-            class="flex-grow-0"></v-switch>
+          <v-col>
+            <v-text-field
+              v-model="creator"
+              label="Creator"
+              density="compact"
+              variant="plain"
+              hide-details></v-text-field>
+          </v-col>
 
-          <v-text-field
-            v-model="datumDate"
-            type="date"
-            label="Date"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 180px"></v-text-field>
+          <v-col>
+            <v-text-field
+              :model-value="licenseCustomer"
+              label="Customer"
+              density="compact"
+              variant="plain"
+              hide-details
+              readonly></v-text-field>
+          </v-col>
+        </v-row>
 
-          <v-text-field
-            v-model="creator"
-            label="Creator"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 220px"></v-text-field>
+        <!-- Row 2: actions -->
+        <v-row align="center" dense class="mb-4">
+          <v-col cols="auto">
+            <v-btn
+              prepend-icon="mdi-console"
+              color="secondary"
+              variant="tonal"
+              size="large"
+              :disabled="rows.length === 0"
+              @click="scriptDialog = true">
+              Shell Script
+            </v-btn>
+          </v-col>
 
-          <v-text-field
-            :model-value="licenseCustomer"
-            label="Customer"
-            density="compact"
-            variant="outlined"
-            hide-details
-            readonly
-            style="max-width: 220px"></v-text-field>
-
-
-        </div>
+          <v-col cols="auto">
+            <v-switch
+              v-model="maskBuckets"
+              :prepend-icon="maskBuckets ? 'mdi-lock' : 'mdi-lock-open-outline'"
+              label="Mask buckets"
+              density="compact"
+              hide-details
+              color="warning"></v-switch>
+          </v-col>
+        </v-row>
 
         <!-- Script preview dialog -->
         <v-dialog v-model="scriptDialog" max-width="860">
@@ -210,14 +218,16 @@
                 </td>
               </tr>
             </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="5" class="text-right text-body-2 text-medium-emphasis pr-2" style="vertical-align: middle">Total</td>
+                <td style="vertical-align: middle">
+                  <span class="text-subtitle-1 font-weight-bold">{{ totalGb }}</span>
+                </td>
+                <td class="text-caption text-medium-emphasis pl-2" style="vertical-align: middle">{{ totalPb }}</td>
+              </tr>
+            </tfoot>
           </v-table>
-
-          <!-- Total below the table -->
-          <div class="d-flex justify-end align-center ga-2 mt-3 pr-1">
-            <span class="text-body-2 text-medium-emphasis">Total:</span>
-            <span class="text-subtitle-1 font-weight-bold">{{ totalPb }} PB</span>
-            <span class="text-caption text-medium-emphasis">(Σ GB / 1,000,000, decimal)</span>
-          </div>
         </div>
       </v-card-text>
 
@@ -338,10 +348,17 @@ function exportBucket(prefix: string): string {
 
 const scriptContent = computed(() => toShellScript());
 
+const totalGb = computed(() =>
+  rows.value.reduce((acc, r) => acc + (parseFloat(r.volumeGb) || 0), 0),
+);
+
 const totalPb = computed(() => {
-  const sumGb = rows.value.reduce((acc, r) => acc + (parseFloat(r.volumeGb) || 0), 0);
-  const pb = sumGb / 1_000_000;
-  return (Math.floor(pb * 100) / 100).toFixed(2);
+  const pb = totalGb.value / 1_000_000;
+  const floored = Math.floor(pb * 100) / 100;
+  const display = floored.toFixed(2);
+  const actual = pb.toFixed(6);
+  const plus = pb > floored && display.endsWith('.00') ? '+' : '';
+  return `${display}${plus} (${actual}) PB`;
 });
 
 // ── Pinia persistence ─────────────────────────────────────────────────────────
@@ -503,7 +520,7 @@ function toCsv(): string {
         .map(esc)
         .join(','),
     ),
-    ['Total', `${totalPb.value} PB`, '', '', '', '', ''].map(esc).join(','),
+    ['', '', '', '', 'Total', `${totalGb.value}`, totalPb.value].map(esc).join(','),
     ['', '', '', '', '', '', ''].map(esc).join(','),
     ['Send this report to', 'accounts@vakamo.com', '', '', '', '', ''].map(esc).join(','),
   ];
