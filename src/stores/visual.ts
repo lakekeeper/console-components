@@ -317,6 +317,19 @@ export const useVisualStore = defineStore(
       return warehouseSqlData.value[warehouseId]?.tabs || [];
     }
 
+    // Usage Datum form state (persisted)
+    const usageDatumDate = ref('');
+    const usageDatumCreator = ref('');
+    const usageDatumRowData = ref<Record<string, { volumeGb: string; comments: string }>>({});
+
+    function setUsageDatumRow(bucketPrefix: string, volumeGb: string, comments: string) {
+      usageDatumRowData.value[bucketPrefix] = { volumeGb, comments };
+    }
+
+    function getUsageDatumRow(bucketPrefix: string) {
+      return usageDatumRowData.value[bucketPrefix] ?? null;
+    }
+
     // Cedar Policy Builder actions
     function setPolicyBuilderDraft(draft: PolicyBuilderState) {
       policyBuilderDraft.value = { ...draft };
@@ -398,6 +411,12 @@ export const useVisualStore = defineStore(
       setProjectSelected,
       setSavedSqlQuery,
       getSavedSqlQuery,
+      // Usage Datum
+      usageDatumDate,
+      usageDatumCreator,
+      usageDatumRowData,
+      setUsageDatumRow,
+      getUsageDatumRow,
       // Cedar Policy Builder
       setPolicyBuilderDraft,
       resetPolicyBuilderDraft,

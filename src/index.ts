@@ -77,6 +77,7 @@ import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
 import ServerOverview from './components/ServerOverview.vue';
 import SupportBundleDialog from './components/SupportBundleDialog.vue';
+import UsageDatumDialog from './components/UsageDatumDialog.vue';
 import FeedbackDialog from './components/FeedbackDialog.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
@@ -109,6 +110,7 @@ export {
   TaskConfigDialog,
   ServerOverview,
   SupportBundleDialog,
+  UsageDatumDialog,
   FeedbackDialog,
   UserManager,
   ProjectNameAddOrEditDialog,
@@ -296,6 +298,7 @@ const components = {
   TaskConfigDialog,
   ServerOverview,
   SupportBundleDialog,
+  UsageDatumDialog,
   FeedbackDialog,
   UserManager,
   AuthenticationDisabledWarningBanner,

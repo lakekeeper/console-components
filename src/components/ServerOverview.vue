@@ -1,7 +1,14 @@
 <template>
   <v-container fluid class="pa-4" style="max-height: calc(100vh - 200px); overflow-y: auto">
     <!-- Export bundle (available in both OSS and Enterprise editions) -->
-    <div class="d-flex justify-end mb-3">
+    <div class="d-flex justify-end ga-2 mb-3">
+      <v-btn
+        prepend-icon="mdi-table-arrow-down"
+        variant="tonal"
+        size="small"
+        @click="usageDatumDialog = true">
+        Usage Statistics
+      </v-btn>
       <v-btn
         prepend-icon="mdi-export-variant"
         variant="tonal"
@@ -13,6 +20,7 @@
     </div>
 
     <SupportBundleDialog v-model="exportDialog" />
+    <UsageDatumDialog v-model="usageDatumDialog" />
 
     <!-- Server Information + Console side by side -->
     <v-row class="mb-4">
@@ -456,6 +464,7 @@
 import { onMounted, ref, computed, inject } from 'vue';
 import type { ServerInfo } from '@/gen/management/types.gen';
 import SupportBundleDialog from './SupportBundleDialog.vue';
+import UsageDatumDialog from './UsageDatumDialog.vue';
 
 const functions = inject<any>('functions');
 const appConfig = inject<any>('appConfig', {});
@@ -464,6 +473,7 @@ const projectInfo = ref<Partial<ServerInfo>>({});
 const isEnterpriseConsole = computed(() => appConfig?.edition === 'enterprise');
 
 const exportDialog = ref(false);
+const usageDatumDialog = ref(false);
 
 async function copyToClipboard(text: string) {
   if (functions?.copyToClipboard) {

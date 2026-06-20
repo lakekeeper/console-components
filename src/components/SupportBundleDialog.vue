@@ -52,6 +52,7 @@
 import { computed, inject, ref, watch } from 'vue';
 import type { ServerInfo } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -63,6 +64,7 @@ defineEmits<{
 
 const functions = useFunctions();
 const appConfig = inject<any>('appConfig', {});
+const visual = useVisualStore();
 
 function sanitizedUrl(): string | null {
   if (typeof window === 'undefined') return null;
@@ -96,6 +98,10 @@ const supportBundleJson = computed(() =>
         userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
       },
       serverInfo: projectInfo.value,
+      activeProject: {
+        'project-id': visual.projectSelected['project-id'],
+        'project-name': visual.projectSelected['project-name'],
+      },
       uiConfig: {
         icebergCatalogUrl: appConfig?.icebergCatalogUrl,
         baseUrlPrefix: appConfig?.baseUrlPrefix,
