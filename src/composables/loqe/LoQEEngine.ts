@@ -56,9 +56,7 @@ function friendlyQueryError(err: unknown, msg: string): unknown {
     return new Error(
       'Could not read table data — the storage credentials appear to have expired. ' +
         'Your browser is serving a stale cached catalog response. ' +
-        'Reload the page (or open DevTools → Network → enable “Disable cache”) and retry. ' +
-        'If it keeps happening, the catalog needs to send "Cache-Control: no-store" on ' +
-        'credential responses.',
+        'Reload the page (or open DevTools → Network → enable “Disable cache”) and retry.',
     );
   }
   return err;
