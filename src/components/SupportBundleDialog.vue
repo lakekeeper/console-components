@@ -88,6 +88,34 @@ const description = computed(() =>
     : 'Attach this bundle when opening a GitHub issue. It contains server info and UI configuration; no tokens or credentials are included.',
 );
 
+function clientEnv() {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return null;
+  const ua = navigator.userAgent;
+  const tokens: Record<string, string> = {};
+  for (const [, name, ver] of ua.matchAll(/(\w+)\/(\S+)/g)) tokens[name] = ver;
+  const os = ua.match(/\(([^)]+)\)/)?.[1] ?? null;
+  const detected =
+    tokens['Edg']    ? `Edge ${tokens['Edg']}` :
+    tokens['OPR']    ? `Opera ${tokens['OPR']}` :
+    tokens['Firefox'] ? `Firefox ${tokens['Firefox']}` :
+    tokens['Chrome'] ? `Chrome ${tokens['Chrome']}` :
+    tokens['Safari'] && !tokens['Chrome'] ? `Safari ${tokens['Safari']}` :
+    'Unknown';
+  return {
+    userAgent: ua,
+    detected,
+    parsedTokens: tokens,
+    os,
+    viewport: `${window.innerWidth}x${window.innerHeight}`,
+    devicePixelRatio: window.devicePixelRatio,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    language: navigator.language,
+    hardwareConcurrency: navigator.hardwareConcurrency ?? null,
+    onLine: navigator.onLine,
+    webAssembly: typeof WebAssembly !== 'undefined',
+  };
+}
+
 const supportBundleJson = computed(() =>
   JSON.stringify(
     {
@@ -95,7 +123,7 @@ const supportBundleJson = computed(() =>
       app: {
         edition: appConfig?.edition ?? 'unknown',
         url: sanitizedUrl(),
-        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+        client: clientEnv(),
       },
       serverInfo: projectInfo.value,
       activeProject: {
