@@ -170,8 +170,13 @@ export class LoQEEngine {
         .slice(0, 2)
         .join('/');
       const baseUrl = basePath ? `${origin}${this.config.baseUrlPrefix}${basePath}` : origin;
-      // Self-hosted extension repo (vendored alongside the wasm bundles).
-      this.bundledExtensionRepo = `${baseUrl}/duckdb/extensions`;
+      // Load extensions from the default CDN (extensions.duckdb.org) rather than
+      // the vendored repo. The extension ABI must match this exact DuckDB build,
+      // and a dev build's version doesn't reliably match a vendored release
+      // version ("Unknown ABI type" on LOAD). The CDN always serves the matching
+      // build. (Airgap via vendored extensions can be restored once we pin the
+      // exact extension version this build requires.)
+      this.bundledExtensionRepo = '';
 
       const bundles: duckdb.DuckDBBundles = {
         mvp: {
@@ -219,7 +224,7 @@ export class LoQEEngine {
       this.catalogs.initialize(this.db);
 
       this._isInitialized = true;
-      console.info('%c[LoQE] engine ready (DuckDB v1.5.4)', 'color:#1976d2');
+      console.info('%c[LoQE] engine ready', 'color:#1976d2');
     } catch (e) {
       console.error('[LoQE] Initialisation failed:', e);
       throw e;

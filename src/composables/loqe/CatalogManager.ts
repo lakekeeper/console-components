@@ -54,7 +54,7 @@ export class CatalogManager {
         `ATTACH IF NOT EXISTS '${projectId}/${config.catalogName}' AS "${config.catalogName}" (
           TYPE iceberg,
           SUPPORT_NESTED_NAMESPACES true,
-          STAGE_CREATE_TABLES false,
+          SUPPORT_STAGE_CREATE true,
           SECRET ${secretName},
           ENDPOINT '${config.restUri}'
         )`,
@@ -153,7 +153,7 @@ export class CatalogManager {
             `ATTACH IF NOT EXISTS '${cat.projectId}/${name}' AS "${name}" (
               TYPE iceberg,
               SUPPORT_NESTED_NAMESPACES true,
-              STAGE_CREATE_TABLES false,
+              SUPPORT_STAGE_CREATE true,
               SECRET ${cat.secretName},
               ENDPOINT '${cat.restUri}'
             )`,
@@ -225,7 +225,7 @@ export class CatalogManager {
             `ATTACH IF NOT EXISTS '${cat.projectId}/${name}' AS "${name}" (
               TYPE iceberg,
               SUPPORT_NESTED_NAMESPACES true,
-              STAGE_CREATE_TABLES false,
+              SUPPORT_STAGE_CREATE true,
               SECRET ${cat.secretName},
               ENDPOINT '${cat.restUri}'
             )`,
