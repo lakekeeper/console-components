@@ -118,6 +118,8 @@ export class LoQEEngine {
   private initPromise: Promise<void> | null = null;
   private _pool: ConnectionPool | null = null;
   private installedExtensions = new Set<string>();
+  private _activeConnection: any = null;
+  private _cancelRequested = false;
   // Bundled (self-hosted) extension repository, resolved at init from the app
   // origin. Used by default so extensions load offline instead of from the CDN.
   private bundledExtensionRepo = '';
@@ -251,8 +253,10 @@ export class LoQEEngine {
     const maxRows = settingsStore.maxResultRows;
     const timeoutMs = settingsStore.queryTimeoutMs;
 
+    this._cancelRequested = false;
     const start = performance.now();
     const pooled = await this.pool.acquire();
+    this._activeConnection = pooled.connection;
 
     try {
       // ── Timeout guardrail ─────────────────────────────────────────
@@ -320,6 +324,7 @@ export class LoQEEngine {
 
         if (i > 0 && i % BATCH_SIZE === 0) {
           await new Promise<void>((r) => setTimeout(r, 0));
+          if (this._cancelRequested) throw new Error('Query cancelled.');
         }
       }
 
@@ -332,8 +337,14 @@ export class LoQEEngine {
         executionTimeMs: elapsed,
       };
     } finally {
+      this._activeConnection = null;
       this.pool.release(pooled);
     }
+  }
+
+  cancelCurrentQuery(): void {
+    this._cancelRequested = true;
+    this._activeConnection?.cancelSent().catch(() => {});
   }
 
   /**

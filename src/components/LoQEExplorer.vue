@@ -330,11 +330,20 @@
                     </v-btn>
                     <v-spacer />
                     <v-btn
+                      v-if="loqe.isQuerying.value"
+                      variant="outlined"
+                      size="x-small"
+                      color="error"
+                      @click="loqe.cancelQuery()">
+                      <v-icon start size="small">mdi-stop</v-icon>
+                      Cancel
+                    </v-btn>
+                    <v-btn
+                      v-else
                       variant="flat"
                       size="x-small"
                       color="primary"
                       @click="executeQuery"
-                      :loading="loqe.isQuerying.value"
                       :disabled="!sqlQuery.trim() || loqe.isInitializing.value">
                       <v-icon start size="small">mdi-play</v-icon>
                       {{ hasSelection ? 'Run Selection' : 'Run' }}
@@ -423,6 +432,22 @@
                       <v-icon start size="small">mdi-download</v-icon>
                       CSV
                     </v-btn>
+                    <v-btn-toggle
+                      v-if="activeResult"
+                      v-model="activeView"
+                      mandatory
+                      density="compact"
+                      variant="outlined"
+                      rounded="0">
+                      <v-btn value="table" size="x-small">
+                        <v-icon start size="small">mdi-table</v-icon>
+                        Table
+                      </v-btn>
+                      <v-btn value="chart" size="x-small">
+                        <v-icon start size="small">mdi-chart-bar</v-icon>
+                        Chart
+                      </v-btn>
+                    </v-btn-toggle>
                   </div>
 
                   <!-- Memory Warning -->
@@ -477,7 +502,7 @@
                   </v-tabs>
 
                   <!-- Results Table -->
-                  <v-card v-if="activeResult" variant="outlined">
+                  <v-card v-if="activeResult && activeView === 'table'" variant="outlined">
                     <v-card-text class="pa-0" style="overflow-x: auto">
                       <!-- Truncation warning -->
                       <v-alert
@@ -537,6 +562,13 @@
                       </div>
                     </div>
                   </v-card>
+
+                  <!-- Report Builder Panel -->
+                  <ReportBuilderPanel
+                    v-if="activeView === 'chart' && activeResult"
+                    :result="activeResult"
+                    :sql="lastExecutedSql"
+                    class="mt-2" />
 
                   <!-- Query running state -->
                   <v-card
@@ -839,6 +871,7 @@ import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
 import CorsConfigDialog from './CorsConfigDialog.vue';
 import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
+import ReportBuilderPanel from './ReportBuilderPanel.vue';
 import { helix, hourglass } from 'ldrs';
 
 helix.register();
@@ -957,6 +990,8 @@ interface ResultEntry {
 }
 const queryResults = ref<ResultEntry[]>([]);
 const activeResultTab = ref(0);
+const activeView = ref<'table' | 'chart'>('table');
+const lastExecutedSql = ref('');
 
 /** The currently visible result (driven by the active tab). */
 const activeResult = computed<LoQEQueryResult | null>(
@@ -1190,6 +1225,7 @@ async function executeQuery() {
   const selectedText = sqlEditorRef.value?.getSelectedText?.() ?? '';
   const textToRun = selectedText.trim() || sqlQuery.value.trim();
   if (!textToRun) return;
+  lastExecutedSql.value = textToRun;
 
   // Track which tab executed this query
   const activeTab = visualStore.getActiveSqlTab(LOQE_TAB_KEY);

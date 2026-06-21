@@ -495,6 +495,7 @@ export function useLoQE(config: LoQEConfig) {
     // Actions
     initialize,
     query,
+    cancelQuery: () => engine.cancelCurrentQuery(),
     installExtension,
     removeExtension,
     getExtensions,

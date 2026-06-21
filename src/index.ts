@@ -86,6 +86,7 @@ import StackedAreaChart from './components/StackedAreaChart.vue';
 import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
 import NotificationButton from './components/NotificationButton.vue';
 import NotificationPanel from './components/NotificationPanel.vue';
+import ReportBuilderPanel from './components/ReportBuilderPanel.vue';
 
 // Export individual components
 export {
@@ -170,6 +171,7 @@ export {
   NotificationPanel,
   WarehousesNavigationTree,
   LoQEExplorer,
+  ReportBuilderPanel,
 };
 
 // Export composables
@@ -207,6 +209,8 @@ export { useUserStore } from './stores/user';
 export { useNotificationStore } from './stores/notifications';
 export { useNavigationStore } from './stores/navigation';
 export type { NavigationState } from './stores/navigation';
+export { useReportsStore } from './stores/reports';
+export type { SavedReport, ChartConfig, ChartType } from './stores/reports';
 
 // Export common types and enums
 export * from './common/interfaces';
@@ -357,6 +361,7 @@ const components = {
   NotificationButton,
   NotificationPanel,
   LoQEExplorer,
+  ReportBuilderPanel,
 };
 
 // Create the plugin
