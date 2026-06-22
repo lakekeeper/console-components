@@ -1,9 +1,9 @@
 <template>
   <v-card variant="outlined" class="mb-4" elevation="1">
     <v-card-title class="d-flex align-center flex-wrap text-subtitle-1 py-3" style="gap: 8px">
-      <v-icon class="mr-2" color="primary">mdi-chart-box-outline</v-icon>
-      Schema Profiler
-      <v-chip size="x-small" variant="tonal">on demand</v-chip>
+      <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
+      Schema
+      <v-chip size="x-small" variant="tonal">{{ primitiveColumns.length }} fields</v-chip>
       <v-spacer></v-spacer>
       <v-select
         v-model="rowLimit"
@@ -75,11 +75,9 @@
                       icon
                       size="x-small"
                       variant="text"
-                      @click="expanded[col.name] = !expanded[col.name]">
-                      <v-icon size="small">
-                        {{ expanded[col.name] ? 'mdi-chevron-up' : 'mdi-chart-histogram' }}
-                      </v-icon>
-                      <v-tooltip activator="parent" location="top">Distribution</v-tooltip>
+                      @click="openHistogram(col.name)">
+                      <v-icon size="small">mdi-chart-histogram</v-icon>
+                      <v-tooltip activator="parent" location="top">Show distribution</v-tooltip>
                     </v-btn>
                     <div>
                       <div class="font-mono font-weight-medium">{{ col.name }}</div>
@@ -133,42 +131,51 @@
                   <span v-else class="text-caption text-disabled">Not analyzed</span>
                 </td>
               </tr>
-
-              <!-- Histogram (numeric, on expand) -->
-              <tr v-if="expanded[col.name] && results[col.name]?.data?.histogram">
-                <td colspan="11" class="histogram-cell">
-                  <div class="text-caption text-medium-emphasis mb-1">
-                    Value distribution — {{ col.name }} ({{
-                      results[col.name]!.data!.histogram!.bins.length
-                    }}
-                    bins)
-                  </div>
-                  <svg
-                    class="histogram-svg"
-                    :viewBox="`0 0 ${results[col.name]!.data!.histogram!.bins.length} 100`"
-                    preserveAspectRatio="none">
-                    <rect
-                      v-for="(c, i) in results[col.name]!.data!.histogram!.bins"
-                      :key="i"
-                      :x="i + 0.1"
-                      :width="0.8"
-                      :y="100 - barH(c, results[col.name]!.data!.histogram!.peak)"
-                      :height="barH(c, results[col.name]!.data!.histogram!.peak)"
-                      fill="#42a5f5">
-                      <title>{{ c.toLocaleString() }}</title>
-                    </rect>
-                  </svg>
-                  <div class="d-flex justify-space-between text-caption text-medium-emphasis mt-1">
-                    <span>{{ fmtNum(results[col.name]!.data!.histogram!.min) }}</span>
-                    <span>{{ fmtNum(results[col.name]!.data!.histogram!.max) }}</span>
-                  </div>
-                </td>
-              </tr>
             </template>
           </tbody>
         </v-table>
       </div>
     </div>
+
+    <!-- Value distribution popup (numeric columns) -->
+    <v-dialog v-model="histDialogOpen" max-width="680">
+      <v-card v-if="histData">
+        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+          <v-icon class="mr-2" color="primary">mdi-chart-histogram</v-icon>
+          Value distribution —
+          <span class="font-mono ml-1">{{ histColName }}</span>
+          <v-spacer></v-spacer>
+          <v-btn icon variant="text" size="small" @click="histDialogOpen = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text>
+          <div class="text-caption text-medium-emphasis mb-2">
+            {{ histData.bins.length }} bins over the scanned rows.
+          </div>
+          <svg
+            class="histogram-svg"
+            :viewBox="`0 0 ${histData.bins.length} 100`"
+            preserveAspectRatio="none">
+            <rect
+              v-for="(c, i) in histData.bins"
+              :key="i"
+              :x="i + 0.08"
+              :width="0.84"
+              :y="100 - barH(c, histData.peak)"
+              :height="barH(c, histData.peak)"
+              fill="#42a5f5">
+              <title>{{ c.toLocaleString() }}</title>
+            </rect>
+          </svg>
+          <div class="d-flex justify-space-between text-caption text-medium-emphasis mt-1">
+            <span>{{ fmtNum(histData.min) }}</span>
+            <span>{{ fmtNum(histData.max) }}</span>
+          </div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
@@ -227,8 +234,18 @@ interface ColumnState {
   data: ProfileData | null;
 }
 const results = reactive<Record<string, ColumnState>>({});
-const expanded = reactive<Record<string, boolean>>({});
 const analyzingAll = ref(false);
+
+// Distribution popup state.
+const histDialogOpen = ref(false);
+const histColName = ref<string | null>(null);
+const histData = computed(() =>
+  histColName.value ? (results[histColName.value]?.data?.histogram ?? null) : null,
+);
+function openHistogram(name: string) {
+  histColName.value = name;
+  histDialogOpen.value = true;
+}
 
 // Bar height (in the 0–100 viewBox) for a histogram bin.
 const barH = (count: number, peak: number) => (peak > 0 ? (count / peak) * 96 : 0);

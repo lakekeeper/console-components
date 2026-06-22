@@ -99,78 +99,6 @@
 
     <!-- Schema -->
     <v-expansion-panels v-model="schemaPanels" multiple class="mb-6">
-      <v-expansion-panel value="fields">
-        <v-expansion-panel-title>
-          <v-icon class="mr-2" size="small" color="primary">mdi-file-tree</v-icon>
-          Schema
-          <v-chip size="x-small" variant="tonal" class="ml-2">
-            {{ selectedSchemaInfo?.fields?.length || 0 }} fields
-          </v-chip>
-          <v-chip
-            v-if="
-              selectedSchemaId !== null && selectedSchemaId !== table.metadata['current-schema-id']
-            "
-            size="x-small"
-            color="warning"
-            variant="flat"
-            class="ml-2">
-            schema {{ selectedSchemaId }}
-          </v-chip>
-        </v-expansion-panel-title>
-        <v-expansion-panel-text>
-          <v-text-field
-            v-model="fieldSearch"
-            density="compact"
-            variant="outlined"
-            placeholder="Filter fields…"
-            prepend-inner-icon="mdi-magnify"
-            hide-details
-            clearable
-            class="mb-2"
-            style="max-width: 320px"></v-text-field>
-          <v-select
-            v-if="allSchemas.length > 1"
-            v-model="selectedSchemaId"
-            :items="schemaVersionOptions"
-            density="compact"
-            variant="outlined"
-            label="Schema version"
-            class="mb-2"
-            style="max-width: 360px"
-            hide-details></v-select>
-          <div style="max-height: 420px; overflow-y: auto">
-            <v-treeview
-              v-if="filteredSchemaFields.length"
-              :items="filteredSchemaFields"
-              open-on-click
-              density="compact">
-              <template #prepend="{ item }">
-                <v-icon v-if="item.datatype == 'string'" size="small">mdi-alphabetical</v-icon>
-                <v-icon v-else-if="item.datatype == 'int'" size="small">mdi-numeric</v-icon>
-                <v-icon
-                  v-else-if="item.datatype == 'long' || item.datatype == 'double'"
-                  size="small">
-                  mdi-decimal
-                </v-icon>
-                <v-icon v-else-if="item.datatype == 'array'" size="small">
-                  mdi-format-list-group
-                </v-icon>
-                <v-icon v-else size="small">mdi-pound-box-outline</v-icon>
-              </template>
-              <template #append="{ item }">
-                <span v-if="item.required" class="text-error" style="font-size: 0.65rem">
-                  required
-                  <v-icon color="error" size="x-small">mdi-asterisk</v-icon>
-                </span>
-              </template>
-            </v-treeview>
-            <div v-else class="text-medium-emphasis pa-3">
-              {{ fieldSearch ? 'No matching fields' : 'No schema information' }}
-            </div>
-          </div>
-        </v-expansion-panel-text>
-      </v-expansion-panel>
-
       <!-- Schema evolution -->
       <v-expansion-panel v-if="allSchemas.length > 1" value="evolution">
         <v-expansion-panel-title>
@@ -368,7 +296,6 @@ import { computed, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
-import { transformFields } from '../common/schemaUtils';
 import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
 
 // Props
@@ -614,47 +541,8 @@ const getOperationColor = (operation: string): string => {
   return colors[operation?.toLowerCase()] || 'grey';
 };
 
-const selectedSchemaId = ref<number | null>(null);
-
-const schemaVersionOptions = computed(() => {
-  return allSchemas.value.map((s) => ({
-    title: `Schema ${s['schema-id']}${s['schema-id'] === props.table.metadata['current-schema-id'] ? ' (current)' : ''} — ${s.fields?.length || 0} fields`,
-    value: s['schema-id'] ?? 0,
-  }));
-});
-
-const selectedSchemaInfo = computed(() => {
-  const id = selectedSchemaId.value;
-  if (id === null) return currentSchemaInfo.value;
-  return allSchemas.value.find((s) => s['schema-id'] === id) || currentSchemaInfo.value;
-});
-
-const schemaFieldsTransformed = computed(() => {
-  if (!selectedSchemaInfo.value?.fields) return [];
-  return transformFields(selectedSchemaInfo.value.fields);
-});
-
-// Schema and Schema evolution both start collapsed.
+// Schema evolution panel starts collapsed.
 const schemaPanels = ref<string[]>([]);
-const fieldSearch = ref('');
-
-// Filter the field tree by name, keeping parents of matching nested fields.
-const filteredSchemaFields = computed(() => {
-  const q = fieldSearch.value?.trim().toLowerCase();
-  if (!q) return schemaFieldsTransformed.value;
-  const filter = (items: any[]): any[] =>
-    items
-      .map((item) => {
-        const children = item.children ? filter(item.children) : undefined;
-        const selfMatch = String(item.title).toLowerCase().includes(q);
-        if (selfMatch || (children && children.length)) {
-          return { ...item, children };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  return filter(schemaFieldsTransformed.value);
-});
 
 // At-a-glance metric tiles
 const statTiles = computed(() => {
