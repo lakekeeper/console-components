@@ -446,40 +446,21 @@
         </div>
       </div>
 
-      <!-- Data files for the current snapshot -->
-      <v-expansion-panels
-        v-if="storageComposition.files.length > 0"
-        class="mt-4"
-        variant="accordion">
-        <v-expansion-panel>
-          <v-expansion-panel-title>
-            <v-icon size="small" class="mr-2">mdi-file-table-outline</v-icon>
-            Data files
-            <span class="text-caption text-medium-emphasis ml-2">
-              showing {{ storageComposition.files.length.toLocaleString() }}
-              <template v-if="storageComposition.dataFiles > storageComposition.files.length">
-                of {{ storageComposition.dataFiles.toLocaleString() }} (largest first)
-              </template>
-            </span>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <v-table density="compact" class="composition-files">
-              <thead>
-                <tr>
-                  <th>File</th>
-                  <th class="text-right">Records</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(f, i) in storageComposition.files" :key="i">
-                  <td class="text-caption font-mono">{{ f.path }}</td>
-                  <td class="text-right text-caption">{{ f.records.toLocaleString() }}</td>
-                </tr>
-              </tbody>
-            </v-table>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+      <!-- Per-file row-count distribution (small-file detector) -->
+      <div v-if="storageComposition.sizeBuckets.some((b) => b.count > 0)" class="mt-4">
+        <div class="text-overline text-medium-emphasis">
+          Data files by row count
+          <span class="ml-1">
+            ({{ storageComposition.totalDataFiles.toLocaleString() }} file{{
+              storageComposition.totalDataFiles !== 1 ? 's' : ''
+            }})
+          </span>
+        </div>
+        <div class="text-caption text-medium-emphasis mb-1">
+          Many files in the low buckets indicate small-file fragmentation — a compaction signal.
+        </div>
+        <div ref="storageChartRef" class="storage-chart-container"></div>
+      </div>
     </div>
   </v-card>
 </template>
@@ -1600,10 +1581,21 @@ interface StorageComposition {
   deleteFiles: number;
   posDeletes: number;
   eqDeletes: number;
-  files: { path: string; records: number }[];
-  fileLimit: number;
+  sizeBuckets: { label: string; count: number }[];
+  totalDataFiles: number;
 }
 const storageComposition = ref<StorageComposition | null>(null);
+const storageChartRef = ref<HTMLDivElement | null>(null);
+
+// Row-count buckets for the per-file distribution (small-file detector).
+const RECORD_BUCKETS: { label: string; max: number }[] = [
+  { label: '<1K', max: 1_000 },
+  { label: '1K–10K', max: 10_000 },
+  { label: '10K–100K', max: 100_000 },
+  { label: '100K–1M', max: 1_000_000 },
+  { label: '1M–10M', max: 10_000_000 },
+  { label: '>10M', max: Infinity },
+];
 
 // We can query table metadata via DuckDB whenever the catalog props are present.
 const canQueryMetadata = computed(
@@ -1741,22 +1733,24 @@ async function loadPartitionData() {
       }
       // Data-file sample for the current snapshot (largest first).
       // iceberg_metadata on this build exposes file_path + record_count (no size).
-      const FILE_LIMIT = 200;
-      const fileRes = await loqe.query(`
-        SELECT file_path, record_count
+      // Per-file record-count distribution (small-file detector). Counts come from
+      // the manifest scan — cheap; cap rows so very wide tables stay responsive.
+      const distRes = await loqe.query(`
+        SELECT record_count
         FROM iceberg_metadata(${tablePath})
         WHERE manifest_content = 'DATA'
-        ORDER BY record_count DESC NULLS LAST
-        LIMIT ${FILE_LIMIT}
+        LIMIT 20000
       `);
-      const fpIdx = fileRes.columns.indexOf('file_path');
-      const rcIdx = fileRes.columns.indexOf('record_count');
-      const files = (fileRes.rows as any[][]).map((r) => ({
-        path:
-          String(r[fpIdx] ?? '')
-            .split('/')
-            .pop() || String(r[fpIdx] ?? ''),
-        records: parseBigInt(r[rcIdx]),
+      const drcIdx = distRes.columns.indexOf('record_count');
+      const bucketCounts = RECORD_BUCKETS.map(() => 0);
+      for (const r of distRes.rows as any[][]) {
+        const rc = parseBigInt(r[drcIdx]);
+        const bi = RECORD_BUCKETS.findIndex((b) => rc < b.max);
+        bucketCounts[bi === -1 ? RECORD_BUCKETS.length - 1 : bi]++;
+      }
+      const sizeBuckets = RECORD_BUCKETS.map((b, i) => ({
+        label: b.label,
+        count: bucketCounts[i],
       }));
 
       storageComposition.value = {
@@ -1766,8 +1760,8 @@ async function loadPartitionData() {
         deleteFiles,
         posDeletes,
         eqDeletes,
-        files,
-        fileLimit: FILE_LIMIT,
+        sizeBuckets,
+        totalDataFiles: (distRes.rows as any[][]).length,
       };
     } catch (compErr) {
       console.debug('[TableHealth] storage composition unavailable:', compErr);
@@ -1973,6 +1967,84 @@ watch(
   { flush: 'post' },
 );
 
+// Bar chart of data files grouped by row-count bucket (small-file detector).
+function renderStorageChart() {
+  const container = storageChartRef.value;
+  const comp = storageComposition.value;
+  if (!container || !comp || comp.sizeBuckets.every((b) => b.count === 0)) return;
+
+  d3.select(container).selectAll('*').remove();
+  const data = comp.sizeBuckets;
+  const margin = { top: 14, right: 12, bottom: 28, left: 40 };
+  const width = container.clientWidth || 520;
+  const height = 180;
+  const chartW = width - margin.left - margin.right;
+  const chartH = height - margin.top - margin.bottom;
+
+  const svg = d3
+    .select(container)
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .style('font-family', "'Roboto Mono', monospace")
+    .style('font-size', '10px')
+    .style('color', 'inherit');
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const x = d3
+    .scaleBand<string>()
+    .domain(data.map((d) => d.label))
+    .range([0, chartW])
+    .padding(0.25);
+  const maxV = d3.max(data, (d) => d.count) ?? 1;
+  const y = d3.scaleLinear().domain([0, maxV]).nice().range([chartH, 0]);
+
+  g.selectAll('rect')
+    .data(data)
+    .join('rect')
+    .attr('x', (d) => x(d.label) ?? 0)
+    .attr('width', x.bandwidth())
+    .attr('y', (d) => y(d.count))
+    .attr('height', (d) => chartH - y(d.count))
+    .attr('rx', 2)
+    .attr('fill', '#42a5f5');
+
+  g.selectAll('text.val')
+    .data(data)
+    .join('text')
+    .attr('class', 'val')
+    .attr('x', (d) => (x(d.label) ?? 0) + x.bandwidth() / 2)
+    .attr('y', (d) => y(d.count) - 4)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'currentColor')
+    .text((d) => (d.count > 0 ? d.count.toLocaleString() : ''));
+
+  g.append('g')
+    .attr('transform', `translate(0,${chartH})`)
+    .call(d3.axisBottom(x).tickSize(0))
+    .call((sel) => sel.select('.domain').remove())
+    .selectAll('text')
+    .attr('fill', 'currentColor');
+
+  g.append('g')
+    .call(d3.axisLeft(y).ticks(3).tickFormat(d3.format('~s')))
+    .call((sel) => sel.select('.domain').remove())
+    .selectAll('text')
+    .attr('fill', 'currentColor');
+}
+
+watch(
+  storageComposition,
+  async () => {
+    if (storageComposition.value) {
+      await nextTick();
+      await nextTick();
+      renderStorageChart();
+    }
+  },
+  { flush: 'post' },
+);
+
 // Auto-load partition + storage-composition data once the catalog is queryable.
 // (Runs for unpartitioned tables too — the partition chart stays gated on
 // partitionChartAvailable, but storage composition applies to every table.)
@@ -2017,5 +2089,13 @@ watch(
   color: rgba(var(--v-theme-on-surface), 1);
   overflow-x: auto;
   overflow-y: hidden;
+}
+.storage-chart-container {
+  width: 100%;
+  height: 180px;
+  border-radius: 6px;
+  background: rgba(var(--v-theme-surface), 1);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+  color: rgba(var(--v-theme-on-surface), 1);
 }
 </style>
