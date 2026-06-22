@@ -31,9 +31,9 @@
         Profiling requires the catalog connection (warehouse, namespace, table, and catalog URL).
       </v-alert>
       <div v-else class="text-caption text-medium-emphasis mb-2">
-        Scans table data ({{
-          rowLimit > 0 ? `${rowLimit.toLocaleString()} sampled rows` : 'full table'
-        }}). Sampled results are approximate.
+        Reads the
+        {{ rowLimit > 0 ? `first ${rowLimit.toLocaleString()} rows` : 'full table' }}. Stats reflect
+        that subset.
       </div>
 
       <v-table density="compact" class="profiler-table">
@@ -139,7 +139,8 @@ const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
 
 interface ProfileData {
-  sampled: boolean;
+  limited: boolean;
+  rows: number;
   metrics: { label: string; value: string }[];
   topValues: { value: string; count: number }[];
 }
@@ -204,9 +205,10 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
   state.loading = true;
   state.error = null;
   try {
-    const sampled = rowLimit.value > 0;
-    const sampleClause = sampled ? ` USING SAMPLE ${rowLimit.value} ROWS` : '';
-    const source = `(SELECT "${col.name}" AS c FROM ${tablePath}${sampleClause})`;
+    // LIMIT (not USING SAMPLE): a sample scans the whole table, LIMIT stops early.
+    const limited = rowLimit.value > 0;
+    const limitClause = limited ? ` LIMIT ${rowLimit.value}` : '';
+    const source = `(SELECT "${col.name}" AS c FROM ${tablePath}${limitClause})`;
     const numeric = isNumeric(col.type);
 
     const aggCols = [
@@ -265,7 +267,7 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
       }));
     }
 
-    state.data = { sampled, metrics, topValues };
+    state.data = { limited, rows: rowLimit.value, metrics, topValues };
   } catch (err: any) {
     const msg = err?.message || String(err);
     state.error =
