@@ -54,71 +54,117 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="col in primitiveColumns" :key="col.name">
-              <!-- Field -->
-              <td class="col-field">
-                <div class="d-flex align-center" style="gap: 8px">
-                  <v-btn
-                    icon
-                    size="x-small"
-                    variant="tonal"
-                    color="primary"
-                    :loading="results[col.name]?.loading"
-                    :disabled="!canQuery || analyzingAll"
-                    @click="analyzeOne(col)">
-                    <v-icon size="small">mdi-play</v-icon>
-                    <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
-                  </v-btn>
-                  <div>
-                    <div class="font-mono font-weight-medium">{{ col.name }}</div>
-                    <span class="text-caption text-medium-emphasis">{{ col.type }}</span>
-                  </div>
-                </div>
-              </td>
-
-              <!-- Stats (when analyzed) -->
-              <template v-if="results[col.name]?.data">
-                <td class="text-right num">{{ results[col.name]!.data!.nullPct }}%</td>
-                <td class="text-right num">{{ results[col.name]!.data!.distinct }}</td>
-                <td class="num">{{ results[col.name]!.data!.min }}</td>
-                <td class="num">{{ results[col.name]!.data!.max }}</td>
-                <td class="text-right num">{{ results[col.name]!.data!.mean ?? '—' }}</td>
-                <td class="text-right num">{{ results[col.name]!.data!.std ?? '—' }}</td>
-                <td class="text-right num">{{ results[col.name]!.data!.p50 ?? '—' }}</td>
-                <td class="text-right num">{{ results[col.name]!.data!.p95 ?? '—' }}</td>
-                <td class="text-right num">{{ results[col.name]!.data!.p99 ?? '—' }}</td>
-                <td class="col-top">
-                  <div
-                    v-if="results[col.name]!.data!.topValues.length > 0"
-                    class="d-flex flex-wrap"
-                    style="gap: 4px">
-                    <v-chip
-                      v-for="(t, i) in results[col.name]!.data!.topValues"
-                      :key="i"
+            <template v-for="col in primitiveColumns" :key="col.name">
+              <tr>
+                <!-- Field -->
+                <td class="col-field">
+                  <div class="d-flex align-center" style="gap: 6px">
+                    <v-btn
+                      icon
                       size="x-small"
-                      variant="tonal">
-                      {{ t.value }}
-                      <span class="text-medium-emphasis ml-1">{{ t.count.toLocaleString() }}</span>
-                    </v-chip>
+                      variant="tonal"
+                      color="primary"
+                      :loading="results[col.name]?.loading"
+                      :disabled="!canQuery || analyzingAll"
+                      @click="analyzeOne(col)">
+                      <v-icon size="small">mdi-play</v-icon>
+                      <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
+                    </v-btn>
+                    <v-btn
+                      v-if="results[col.name]?.data?.histogram"
+                      icon
+                      size="x-small"
+                      variant="text"
+                      @click="expanded[col.name] = !expanded[col.name]">
+                      <v-icon size="small">
+                        {{ expanded[col.name] ? 'mdi-chevron-up' : 'mdi-chart-histogram' }}
+                      </v-icon>
+                      <v-tooltip activator="parent" location="top">Distribution</v-tooltip>
+                    </v-btn>
+                    <div>
+                      <div class="font-mono font-weight-medium">{{ col.name }}</div>
+                      <span class="text-caption text-medium-emphasis">{{ col.type }}</span>
+                    </div>
                   </div>
-                  <span v-else class="text-disabled">—</span>
                 </td>
-              </template>
 
-              <!-- Loading / error / idle -->
-              <td v-else colspan="10">
-                <span
-                  v-if="results[col.name]?.loading"
-                  class="d-inline-flex align-center text-caption text-medium-emphasis">
-                  <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
-                  analyzing…
-                </span>
-                <span v-else-if="results[col.name]?.error" class="text-caption text-error">
-                  {{ results[col.name]?.error }}
-                </span>
-                <span v-else class="text-caption text-disabled">Not analyzed</span>
-              </td>
-            </tr>
+                <!-- Stats (when analyzed) -->
+                <template v-if="results[col.name]?.data">
+                  <td class="text-right num">{{ results[col.name]!.data!.nullPct }}%</td>
+                  <td class="text-right num">{{ results[col.name]!.data!.distinct }}</td>
+                  <td class="num">{{ results[col.name]!.data!.min }}</td>
+                  <td class="num">{{ results[col.name]!.data!.max }}</td>
+                  <td class="text-right num">{{ results[col.name]!.data!.mean ?? '—' }}</td>
+                  <td class="text-right num">{{ results[col.name]!.data!.std ?? '—' }}</td>
+                  <td class="text-right num">{{ results[col.name]!.data!.p50 ?? '—' }}</td>
+                  <td class="text-right num">{{ results[col.name]!.data!.p95 ?? '—' }}</td>
+                  <td class="text-right num">{{ results[col.name]!.data!.p99 ?? '—' }}</td>
+                  <td class="col-top">
+                    <div
+                      v-if="results[col.name]!.data!.topValues.length > 0"
+                      class="d-flex flex-wrap"
+                      style="gap: 4px">
+                      <v-chip
+                        v-for="(t, i) in results[col.name]!.data!.topValues"
+                        :key="i"
+                        size="x-small"
+                        variant="tonal">
+                        {{ t.value }}
+                        <span class="text-medium-emphasis ml-1">
+                          {{ t.count.toLocaleString() }}
+                        </span>
+                      </v-chip>
+                    </div>
+                    <span v-else class="text-disabled">—</span>
+                  </td>
+                </template>
+
+                <!-- Loading / error / idle -->
+                <td v-else colspan="10">
+                  <span
+                    v-if="results[col.name]?.loading"
+                    class="d-inline-flex align-center text-caption text-medium-emphasis">
+                    <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
+                    analyzing…
+                  </span>
+                  <span v-else-if="results[col.name]?.error" class="text-caption text-error">
+                    {{ results[col.name]?.error }}
+                  </span>
+                  <span v-else class="text-caption text-disabled">Not analyzed</span>
+                </td>
+              </tr>
+
+              <!-- Histogram (numeric, on expand) -->
+              <tr v-if="expanded[col.name] && results[col.name]?.data?.histogram">
+                <td colspan="11" class="histogram-cell">
+                  <div class="text-caption text-medium-emphasis mb-1">
+                    Value distribution — {{ col.name }} ({{
+                      results[col.name]!.data!.histogram!.bins.length
+                    }}
+                    bins)
+                  </div>
+                  <svg
+                    class="histogram-svg"
+                    :viewBox="`0 0 ${results[col.name]!.data!.histogram!.bins.length} 100`"
+                    preserveAspectRatio="none">
+                    <rect
+                      v-for="(c, i) in results[col.name]!.data!.histogram!.bins"
+                      :key="i"
+                      :x="i + 0.1"
+                      :width="0.8"
+                      :y="100 - barH(c, results[col.name]!.data!.histogram!.peak)"
+                      :height="barH(c, results[col.name]!.data!.histogram!.peak)"
+                      fill="#42a5f5">
+                      <title>{{ c.toLocaleString() }}</title>
+                    </rect>
+                  </svg>
+                  <div class="d-flex justify-space-between text-caption text-medium-emphasis mt-1">
+                    <span>{{ fmtNum(results[col.name]!.data!.histogram!.min) }}</span>
+                    <span>{{ fmtNum(results[col.name]!.data!.histogram!.max) }}</span>
+                  </div>
+                </td>
+              </tr>
+            </template>
           </tbody>
         </v-table>
       </div>
@@ -156,6 +202,12 @@ const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
 
+interface Histogram {
+  bins: number[];
+  min: number;
+  max: number;
+  peak: number;
+}
 interface ProfileData {
   nullPct: string;
   distinct: string;
@@ -167,6 +219,7 @@ interface ProfileData {
   p95: string | null;
   p99: string | null;
   topValues: { value: string; count: number }[];
+  histogram: Histogram | null;
 }
 interface ColumnState {
   loading: boolean;
@@ -174,7 +227,11 @@ interface ColumnState {
   data: ProfileData | null;
 }
 const results = reactive<Record<string, ColumnState>>({});
+const expanded = reactive<Record<string, boolean>>({});
 const analyzingAll = ref(false);
+
+// Bar height (in the 0–100 viewBox) for a histogram bin.
+const barH = (count: number, peak: number) => (peak > 0 ? (count / peak) * 96 : 0);
 
 const canQuery = computed(
   () => !!props.warehouseId && !!props.namespaceId && !!props.tableName && !!props.catalogUrl,
@@ -271,6 +328,31 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
       }));
     }
 
+    // Histogram for numeric columns — width_bucket over [min, max] on the same scan.
+    let histogram: Histogram | null = null;
+    if (numeric) {
+      const minN = Number(String(get('min_v') ?? '').replace(/"/g, ''));
+      const maxN = Number(String(get('max_v') ?? '').replace(/"/g, ''));
+      if (Number.isFinite(minN) && Number.isFinite(maxN) && maxN > minN) {
+        const NB = 24;
+        const hRes = await loqe.query(
+          `SELECT width_bucket(c, ${minN}, ${maxN}, ${NB}) AS b, count(*) AS cnt
+           FROM ${source} WHERE c IS NOT NULL GROUP BY b ORDER BY b`,
+        );
+        const bIdx = hRes.columns.indexOf('b');
+        const cIdx = hRes.columns.indexOf('cnt');
+        const bins = new Array(NB).fill(0);
+        for (const r of hRes.rows as any[][]) {
+          let b = Number(String(r[bIdx] ?? 0).replace(/"/g, ''));
+          const cnt = Number(String(r[cIdx] ?? 0).replace(/"/g, ''));
+          if (b < 1) b = 1;
+          if (b > NB) b = NB; // fold the max-edge bucket (NB+1) into the last bin
+          bins[b - 1] += cnt;
+        }
+        histogram = { bins, min: minN, max: maxN, peak: Math.max(...bins, 1) };
+      }
+    }
+
     state.data = {
       nullPct,
       distinct: fmtNum(get('ndv')),
@@ -282,6 +364,7 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
       p95: numeric ? fmtNum(get('p95')) : null,
       p99: numeric ? fmtNum(get('p99')) : null,
       topValues,
+      histogram,
     };
   } catch (err: any) {
     const msg = err?.message || String(err);
@@ -349,5 +432,14 @@ async function analyzeAll() {
 .profiler-table :deep(.col-top) {
   white-space: normal;
   min-width: 220px;
+}
+.profiler-table :deep(td.histogram-cell) {
+  white-space: normal;
+  background: rgba(var(--v-theme-on-surface), 0.02);
+}
+.histogram-svg {
+  width: 100%;
+  height: 120px;
+  display: block;
 }
 </style>
