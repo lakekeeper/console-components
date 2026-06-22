@@ -318,6 +318,7 @@ async function analyzeAll() {
 .stat-pill {
   display: inline-flex;
   flex-direction: column;
+  gap: 3px;
   min-width: 76px;
   padding: 6px 12px;
   border-radius: 8px;
