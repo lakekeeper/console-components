@@ -46,8 +46,23 @@
         <tbody>
           <tr v-for="col in primitiveColumns" :key="col.name">
             <td>
-              <div class="font-mono text-body-2">{{ col.name }}</div>
-              <div class="text-caption text-medium-emphasis">{{ col.type }}</div>
+              <div class="d-flex align-center" style="gap: 6px">
+                <v-btn
+                  icon
+                  size="x-small"
+                  variant="text"
+                  color="primary"
+                  :loading="results[col.name]?.loading"
+                  :disabled="!canQuery || analyzingAll"
+                  @click="analyzeOne(col)">
+                  <v-icon size="small">mdi-play</v-icon>
+                  <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
+                </v-btn>
+                <div>
+                  <div class="font-mono text-body-2">{{ col.name }}</div>
+                  <div class="text-caption text-medium-emphasis">{{ col.type }}</div>
+                </div>
+              </div>
             </td>
             <td>
               <div
@@ -252,6 +267,16 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
         : msg;
   } finally {
     state.loading = false;
+  }
+}
+
+async function analyzeOne(col: { name: string; type: string }) {
+  if (!canQuery.value) return;
+  try {
+    const tablePath = await resolveTablePath();
+    await profile(col, tablePath);
+  } catch (err: any) {
+    results[col.name] = { loading: false, error: err?.message || String(err), data: null };
   }
 }
 
