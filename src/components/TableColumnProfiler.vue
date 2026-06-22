@@ -317,9 +317,9 @@ async function analyzeAll() {
 }
 .stat-pill {
   display: inline-flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 76px;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
   padding: 6px 12px;
   border-radius: 8px;
   background: rgba(var(--v-theme-on-surface), 0.04);
