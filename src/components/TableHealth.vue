@@ -482,18 +482,6 @@
       </v-expansion-panels>
     </div>
   </v-card>
-
-  <!-- Configuration & statistics (properties, Puffin column stats, partition stats) -->
-  <TableConfiguration v-if="resolvedTable?.metadata" :metadata="resolvedTable.metadata" />
-
-  <!-- On-demand per-column profiling (scans data) -->
-  <TableColumnProfiler
-    v-if="resolvedTable?.metadata && canQueryMetadata"
-    :metadata="resolvedTable.metadata"
-    :warehouse-id="props.warehouseId"
-    :namespace-id="props.namespaceId"
-    :table-name="props.tableName"
-    :catalog-url="props.catalogUrl" />
 </template>
 
 <script setup lang="ts">
@@ -504,8 +492,6 @@ import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import CorsConfigDialog from './CorsConfigDialog.vue';
 import TableHealthActions from './TableHealthActions.vue';
-import TableConfiguration from './TableConfiguration.vue';
-import TableColumnProfiler from './TableColumnProfiler.vue';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
 // Props

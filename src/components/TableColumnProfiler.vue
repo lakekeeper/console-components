@@ -124,13 +124,14 @@ const props = defineProps<{
 }>();
 
 const ROW_LIMIT_OPTIONS = [
+  { title: '100 rows', value: 100 },
   { title: '1,000 rows', value: 1000 },
   { title: '10,000 rows', value: 10000 },
   { title: '50,000 rows', value: 50000 },
   { title: '100,000 rows', value: 100000 },
   { title: 'Full table', value: 0 },
 ];
-const rowLimit = ref(50000);
+const rowLimit = ref(100);
 
 const functions = useFunctions();
 const config = inject<any>('appConfig', { enabledAuthentication: false });
