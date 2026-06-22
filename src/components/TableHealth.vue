@@ -390,79 +390,6 @@
       </div>
     </div>
   </v-card>
-
-  <!-- Storage composition (file-format mix + status + delete split) -->
-  <v-card v-if="storageComposition" variant="outlined" class="mb-4" elevation="1">
-    <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-      <v-icon class="mr-2" color="primary">mdi-file-multiple-outline</v-icon>
-      Storage Composition
-    </v-card-title>
-    <v-divider></v-divider>
-    <div class="pa-4">
-      <div class="d-flex flex-wrap" style="gap: 24px">
-        <div>
-          <div class="text-overline text-medium-emphasis">Files</div>
-          <div class="d-flex align-center" style="gap: 8px">
-            <v-chip size="small" color="primary" variant="tonal">
-              {{ storageComposition.dataFiles.toLocaleString() }} data
-            </v-chip>
-            <v-chip
-              size="small"
-              :color="storageComposition.deleteFiles > 0 ? 'warning' : 'default'"
-              variant="tonal">
-              {{ storageComposition.deleteFiles.toLocaleString() }} delete
-            </v-chip>
-            <span
-              v-if="storageComposition.deleteFiles > 0"
-              class="text-caption text-medium-emphasis">
-              ({{ storageComposition.posDeletes.toLocaleString() }} positional ·
-              {{ storageComposition.eqDeletes.toLocaleString() }} equality)
-            </span>
-          </div>
-        </div>
-        <div v-if="storageComposition.formats.length > 0">
-          <div class="text-overline text-medium-emphasis">Data file formats</div>
-          <div class="d-flex align-center flex-wrap" style="gap: 8px">
-            <v-chip
-              v-for="f in storageComposition.formats"
-              :key="f.format"
-              size="small"
-              variant="tonal">
-              {{ f.format }}: {{ f.fileCount.toLocaleString() }}
-            </v-chip>
-          </div>
-        </div>
-        <div v-if="storageComposition.statuses.length > 0">
-          <div class="text-overline text-medium-emphasis">Manifest entry status</div>
-          <div class="d-flex align-center flex-wrap" style="gap: 8px">
-            <v-chip
-              v-for="s in storageComposition.statuses"
-              :key="s.status"
-              size="small"
-              variant="tonal">
-              {{ s.status.toLowerCase() }}: {{ s.fileCount.toLocaleString() }}
-            </v-chip>
-          </div>
-        </div>
-      </div>
-
-      <!-- Per-file row-count distribution (small-file detector) -->
-      <div v-if="storageComposition.sizeBuckets.some((b) => b.count > 0)" class="mt-4">
-        <div class="text-overline text-medium-emphasis">
-          Data files by row count
-          <span class="ml-1">
-            ({{ storageComposition.totalDataFiles.toLocaleString() }} file{{
-              storageComposition.totalDataFiles !== 1 ? 's' : ''
-            }})
-          </span>
-        </div>
-        <div class="text-caption text-medium-emphasis mb-1">
-          Many files in the low buckets indicate small-file fragmentation — a compaction signal.
-        </div>
-        <div ref="storageChartRef" class="storage-chart-container"></div>
-      </div>
-    </div>
-  </v-card>
 </template>
 
 <script setup lang="ts">
@@ -1573,35 +1500,6 @@ const partitionLoading = ref(false);
 const partitionError = ref<string | null>(null);
 const partitionMetric = ref<'files' | 'records'>('records');
 
-// Storage composition (file-format mix + status + delete split), from iceberg_metadata.
-interface StorageComposition {
-  formats: { format: string; fileCount: number }[];
-  statuses: { status: string; fileCount: number }[];
-  dataFiles: number;
-  deleteFiles: number;
-  posDeletes: number;
-  eqDeletes: number;
-  sizeBuckets: { label: string; count: number }[];
-  totalDataFiles: number;
-}
-const storageComposition = ref<StorageComposition | null>(null);
-const storageChartRef = ref<HTMLDivElement | null>(null);
-
-// Row-count buckets for the per-file distribution (small-file detector).
-const RECORD_BUCKETS: { label: string; max: number }[] = [
-  { label: '<1K', max: 1_000 },
-  { label: '1K–10K', max: 10_000 },
-  { label: '10K–100K', max: 100_000 },
-  { label: '100K–1M', max: 1_000_000 },
-  { label: '1M–10M', max: 10_000_000 },
-  { label: '>10M', max: Infinity },
-];
-
-// We can query table metadata via DuckDB whenever the catalog props are present.
-const canQueryMetadata = computed(
-  () => !!props.warehouseId && !!props.namespaceId && !!props.tableName && !!props.catalogUrl,
-);
-
 // Whether the table itself is partitioned (from metadata — no DuckDB dependency)
 const isTablePartitioned = computed(() => {
   if (!resolvedTable.value?.metadata) return false;
@@ -1694,79 +1592,6 @@ async function loadPartitionData() {
       fileCount: parseBigInt(row[filesColIdx]),
       totalRecords: parseBigInt(row[recsColIdx]),
     }));
-
-    // Storage composition — best-effort; a missing column must not break the chart.
-    try {
-      const compSql = `
-        SELECT manifest_content, file_format, status, content, COUNT(*) AS file_count
-        FROM iceberg_metadata(${tablePath})
-        GROUP BY manifest_content, file_format, status, content
-      `;
-      const comp = await loqe.query(compSql);
-      const ci = (name: string) => comp.columns.indexOf(name);
-      const mcIdx = ci('manifest_content');
-      const fmtIdx = ci('file_format');
-      const stIdx = ci('status');
-      const ctIdx = ci('content');
-      const fcIdx = ci('file_count');
-      const formats = new Map<string, number>();
-      const statuses = new Map<string, number>();
-      let dataFiles = 0;
-      let deleteFiles = 0;
-      let posDeletes = 0;
-      let eqDeletes = 0;
-      for (const row of comp.rows as any[][]) {
-        const fc = parseBigInt(row[fcIdx]);
-        const manifestContent = String(row[mcIdx] ?? '');
-        const fmt = String(row[fmtIdx] ?? 'unknown').toLowerCase();
-        const status = String(row[stIdx] ?? 'unknown');
-        const content = String(row[ctIdx] ?? '');
-        if (manifestContent === 'DATA') {
-          dataFiles += fc;
-          formats.set(fmt, (formats.get(fmt) ?? 0) + fc);
-        } else {
-          deleteFiles += fc;
-          if (content === 'POSITION_DELETES') posDeletes += fc;
-          else if (content === 'EQUALITY_DELETES') eqDeletes += fc;
-        }
-        statuses.set(status, (statuses.get(status) ?? 0) + fc);
-      }
-      // Data-file sample for the current snapshot (largest first).
-      // iceberg_metadata on this build exposes file_path + record_count (no size).
-      // Per-file record-count distribution (small-file detector). Counts come from
-      // the manifest scan — cheap; cap rows so very wide tables stay responsive.
-      const distRes = await loqe.query(`
-        SELECT record_count
-        FROM iceberg_metadata(${tablePath})
-        WHERE manifest_content = 'DATA'
-        LIMIT 20000
-      `);
-      const drcIdx = distRes.columns.indexOf('record_count');
-      const bucketCounts = RECORD_BUCKETS.map(() => 0);
-      for (const r of distRes.rows as any[][]) {
-        const rc = parseBigInt(r[drcIdx]);
-        const bi = RECORD_BUCKETS.findIndex((b) => rc < b.max);
-        bucketCounts[bi === -1 ? RECORD_BUCKETS.length - 1 : bi]++;
-      }
-      const sizeBuckets = RECORD_BUCKETS.map((b, i) => ({
-        label: b.label,
-        count: bucketCounts[i],
-      }));
-
-      storageComposition.value = {
-        formats: [...formats].map(([format, fileCount]) => ({ format, fileCount })),
-        statuses: [...statuses].map(([status, fileCount]) => ({ status, fileCount })),
-        dataFiles,
-        deleteFiles,
-        posDeletes,
-        eqDeletes,
-        sizeBuckets,
-        totalDataFiles: (distRes.rows as any[][]).length,
-      };
-    } catch (compErr) {
-      console.debug('[TableHealth] storage composition unavailable:', compErr);
-      storageComposition.value = null;
-    }
   } catch (err: any) {
     console.error('Failed to load partition data:', err);
     const msg = err.message || String(err);
@@ -1967,91 +1792,11 @@ watch(
   { flush: 'post' },
 );
 
-// Bar chart of data files grouped by row-count bucket (small-file detector).
-function renderStorageChart() {
-  const container = storageChartRef.value;
-  const comp = storageComposition.value;
-  if (!container || !comp || comp.sizeBuckets.every((b) => b.count === 0)) return;
-
-  d3.select(container).selectAll('*').remove();
-  const data = comp.sizeBuckets;
-  const margin = { top: 14, right: 12, bottom: 28, left: 40 };
-  const width = container.clientWidth || 520;
-  const height = 180;
-  const chartW = width - margin.left - margin.right;
-  const chartH = height - margin.top - margin.bottom;
-
-  const svg = d3
-    .select(container)
-    .append('svg')
-    .attr('width', width)
-    .attr('height', height)
-    .style('font-family', "'Roboto Mono', monospace")
-    .style('font-size', '10px')
-    .style('color', 'inherit');
-  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
-
-  const x = d3
-    .scaleBand<string>()
-    .domain(data.map((d) => d.label))
-    .range([0, chartW])
-    .padding(0.25);
-  const maxV = d3.max(data, (d) => d.count) ?? 1;
-  const y = d3.scaleLinear().domain([0, maxV]).nice().range([chartH, 0]);
-
-  g.selectAll('rect')
-    .data(data)
-    .join('rect')
-    .attr('x', (d) => x(d.label) ?? 0)
-    .attr('width', x.bandwidth())
-    .attr('y', (d) => y(d.count))
-    .attr('height', (d) => chartH - y(d.count))
-    .attr('rx', 2)
-    .attr('fill', '#42a5f5');
-
-  g.selectAll('text.val')
-    .data(data)
-    .join('text')
-    .attr('class', 'val')
-    .attr('x', (d) => (x(d.label) ?? 0) + x.bandwidth() / 2)
-    .attr('y', (d) => y(d.count) - 4)
-    .attr('text-anchor', 'middle')
-    .attr('fill', 'currentColor')
-    .text((d) => (d.count > 0 ? d.count.toLocaleString() : ''));
-
-  g.append('g')
-    .attr('transform', `translate(0,${chartH})`)
-    .call(d3.axisBottom(x).tickSize(0))
-    .call((sel) => sel.select('.domain').remove())
-    .selectAll('text')
-    .attr('fill', 'currentColor');
-
-  g.append('g')
-    .call(d3.axisLeft(y).ticks(3).tickFormat(d3.format('~s')))
-    .call((sel) => sel.select('.domain').remove())
-    .selectAll('text')
-    .attr('fill', 'currentColor');
-}
-
+// Auto-load partition data once the partition chart becomes available.
 watch(
-  storageComposition,
-  async () => {
-    if (storageComposition.value) {
-      await nextTick();
-      await nextTick();
-      renderStorageChart();
-    }
-  },
-  { flush: 'post' },
-);
-
-// Auto-load partition + storage-composition data once the catalog is queryable.
-// (Runs for unpartitioned tables too — the partition chart stays gated on
-// partitionChartAvailable, but storage composition applies to every table.)
-watch(
-  canQueryMetadata,
+  partitionChartAvailable,
   (available) => {
-    if (available && partitionData.value.length === 0 && !storageComposition.value) {
+    if (available && partitionData.value.length === 0) {
       loadPartitionData();
     }
   },
@@ -2089,13 +1834,5 @@ watch(
   color: rgba(var(--v-theme-on-surface), 1);
   overflow-x: auto;
   overflow-y: hidden;
-}
-.storage-chart-container {
-  width: 100%;
-  height: 180px;
-  border-radius: 6px;
-  background: rgba(var(--v-theme-surface), 1);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
-  color: rgba(var(--v-theme-on-surface), 1);
 }
 </style>

@@ -59,11 +59,14 @@
           </v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
-          <v-alert v-if="columnStats.length === 0" type="warning" variant="tonal" density="compact">
-            No column statistics are stored for this table. Without them the query planner cannot
-            estimate cardinality or prune effectively. Generate them with
+          <v-alert v-if="columnStats.length === 0" type="info" variant="tonal" density="compact">
+            No persisted column statistics (Iceberg Puffin / NDV sketches) are stored for this
+            table, so query planners can't read cardinality estimates from metadata. These are
+            written by engines like Spark or Trino (
             <code>ANALYZE</code>
-            / a compute-statistics maintenance run.
+            / Iceberg's compute-statistics) — they can't be generated here in DuckDB-WASM. The
+            <strong>Schema Profiler</strong>
+            (Details tab) computes an on-the-fly cardinality estimate in the meantime.
           </v-alert>
           <template v-else>
             <div class="text-caption text-medium-emphasis mb-2">
