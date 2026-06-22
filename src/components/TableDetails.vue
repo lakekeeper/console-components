@@ -97,7 +97,15 @@
       </v-expansion-panel>
     </v-expansion-panels>
 
-    <!-- Schema -->
+    <!-- Schema (fields + on-demand profiling) -->
+    <TableColumnProfiler
+      :metadata="table.metadata"
+      :warehouse-id="warehouseId"
+      :namespace-id="namespacePath"
+      :table-name="tableName"
+      :catalog-url="catalogUrl" />
+
+    <!-- Schema evolution -->
     <v-expansion-panels v-model="schemaPanels" multiple class="mb-6">
       <!-- Schema evolution -->
       <v-expansion-panel v-if="allSchemas.length > 1" value="evolution">
@@ -296,6 +304,7 @@ import { computed, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
+import TableColumnProfiler from './TableColumnProfiler.vue';
 import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
 
 // Props
@@ -304,6 +313,7 @@ const props = defineProps<{
   warehouseId?: string;
   namespacePath?: string;
   tableName?: string;
+  catalogUrl?: string;
   canEdit?: boolean;
 }>();
 

@@ -48,7 +48,6 @@ import TableDetails from './components/TableDetails.vue';
 import TableHealth from './components/TableHealth.vue';
 import TableHealthActions from './components/TableHealthActions.vue';
 import TableColumnProfiler from './components/TableColumnProfiler.vue';
-import TableStatistics from './components/TableStatistics.vue';
 import TableVersioningVisualization from './components/TableVersioningVisualization.vue';
 import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
 import SnapshotCompare from './components/SnapshotCompare.vue';
@@ -155,7 +154,6 @@ export {
   TableHealth,
   TableHealthActions,
   TableColumnProfiler,
-  TableStatistics,
   TableVersioningVisualization,
   TableSnapshotDetails,
   SnapshotCompare,
@@ -348,7 +346,6 @@ const components = {
   TableHealth,
   TableHealthActions,
   TableColumnProfiler,
-  TableStatistics,
   TableVersioningVisualization,
   TableSnapshotDetails,
   SnapshotCompare,

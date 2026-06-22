@@ -1,142 +1,149 @@
 <template>
   <v-card variant="outlined" class="mb-4" elevation="1">
     <v-card-title class="d-flex align-center flex-wrap text-subtitle-1 py-3" style="gap: 8px">
+      <v-btn icon variant="text" size="small" @click="collapsed = !collapsed">
+        <v-icon>{{ collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
+      </v-btn>
       <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
       Schema
       <v-chip size="x-small" variant="tonal">{{ primitiveColumns.length }} fields</v-chip>
       <v-spacer></v-spacer>
-      <v-select
-        v-model="rowLimit"
-        :items="ROW_LIMIT_OPTIONS"
-        label="Rows to scan"
-        density="compact"
-        variant="outlined"
-        hide-details
-        style="min-width: 160px; max-width: 190px"></v-select>
-      <v-btn
-        color="primary"
-        variant="flat"
-        size="small"
-        prepend-icon="mdi-play"
-        :loading="analyzingAll"
-        :disabled="!canQuery"
-        @click="analyzeAll">
-        Analyze all
-      </v-btn>
+      <template v-if="!collapsed">
+        <v-select
+          v-model="rowLimit"
+          :items="ROW_LIMIT_OPTIONS"
+          label="Rows to scan"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="min-width: 160px; max-width: 190px"></v-select>
+        <v-btn
+          color="primary"
+          variant="flat"
+          size="small"
+          prepend-icon="mdi-play"
+          :loading="analyzingAll"
+          :disabled="!canQuery"
+          @click="analyzeAll">
+          Analyze all
+        </v-btn>
+      </template>
     </v-card-title>
-    <v-divider></v-divider>
 
-    <div class="pa-3">
-      <v-alert v-if="!canQuery" type="info" variant="tonal" density="compact" class="mb-2">
-        Profiling requires the catalog connection (warehouse, namespace, table, and catalog URL).
-      </v-alert>
-      <div v-else class="text-caption text-medium-emphasis mb-3">
-        Reads the
-        {{ rowLimit > 0 ? `first ${rowLimit.toLocaleString()} rows` : 'full table' }}; statistics
-        reflect that subset.
-      </div>
+    <template v-if="!collapsed">
+      <v-divider></v-divider>
+      <div class="pa-3">
+        <v-alert v-if="!canQuery" type="info" variant="tonal" density="compact" class="mb-2">
+          Profiling requires the catalog connection (warehouse, namespace, table, and catalog URL).
+        </v-alert>
+        <div v-else class="text-caption text-medium-emphasis mb-3">
+          Reads the
+          {{ rowLimit > 0 ? `first ${rowLimit.toLocaleString()} rows` : 'full table' }}; statistics
+          reflect that subset.
+        </div>
 
-      <div class="profiler-scroll">
-        <v-table density="comfortable" class="profiler-table">
-          <thead>
-            <tr>
-              <th class="col-field">Field</th>
-              <th class="text-right">Null&nbsp;%</th>
-              <th class="text-right">Distinct</th>
-              <th>Min</th>
-              <th>Max</th>
-              <th class="text-right">Mean</th>
-              <th class="text-right">Std&nbsp;dev</th>
-              <th class="text-right">p50</th>
-              <th class="text-right">p95</th>
-              <th class="text-right">p99</th>
-              <th class="col-top">Top values</th>
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="col in primitiveColumns" :key="col.name">
+        <div class="profiler-scroll" style="max-height: 560px; overflow: auto">
+          <v-table density="comfortable" class="profiler-table">
+            <thead>
               <tr>
-                <!-- Field -->
-                <td class="col-field">
-                  <div class="d-flex align-center" style="gap: 8px">
-                    <v-btn
-                      icon
-                      size="x-small"
-                      variant="tonal"
-                      color="primary"
-                      :loading="results[col.name]?.loading"
-                      :disabled="!canQuery || analyzingAll"
-                      @click="analyzeOne(col)">
-                      <v-icon size="small">mdi-play</v-icon>
-                      <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
-                    </v-btn>
-                    <div class="flex-grow-1" style="min-width: 0">
-                      <div class="font-mono font-weight-medium">{{ col.name }}</div>
-                      <span class="text-caption text-medium-emphasis">{{ col.type }}</span>
-                    </div>
-                    <v-btn
-                      v-if="hasChart(col.name)"
-                      icon
-                      size="small"
-                      variant="flat"
-                      color="teal"
-                      @click="openChart(col.name)">
-                      <v-icon>mdi-chart-bar</v-icon>
-                      <v-tooltip activator="parent" location="top">Show chart</v-tooltip>
-                    </v-btn>
-                  </div>
-                </td>
-
-                <!-- Stats (when analyzed) -->
-                <template v-if="results[col.name]?.data">
-                  <td class="text-right num">{{ results[col.name]!.data!.nullPct }}%</td>
-                  <td class="text-right num">{{ results[col.name]!.data!.distinct }}</td>
-                  <td class="num">{{ results[col.name]!.data!.min }}</td>
-                  <td class="num">{{ results[col.name]!.data!.max }}</td>
-                  <td class="text-right num">{{ results[col.name]!.data!.mean ?? '—' }}</td>
-                  <td class="text-right num">{{ results[col.name]!.data!.std ?? '—' }}</td>
-                  <td class="text-right num">{{ results[col.name]!.data!.p50 ?? '—' }}</td>
-                  <td class="text-right num">{{ results[col.name]!.data!.p95 ?? '—' }}</td>
-                  <td class="text-right num">{{ results[col.name]!.data!.p99 ?? '—' }}</td>
-                  <td class="col-top">
-                    <div
-                      v-if="results[col.name]!.data!.topValues.length > 0"
-                      class="d-flex flex-wrap"
-                      style="gap: 4px">
-                      <v-chip
-                        v-for="(t, i) in results[col.name]!.data!.topValues"
-                        :key="i"
-                        size="x-small"
-                        variant="tonal">
-                        {{ t.value }}
-                        <span class="text-medium-emphasis ml-1">
-                          {{ t.count.toLocaleString() }}
-                        </span>
-                      </v-chip>
-                    </div>
-                    <span v-else class="text-disabled">—</span>
-                  </td>
-                </template>
-
-                <!-- Loading / error / idle -->
-                <td v-else colspan="10">
-                  <span
-                    v-if="results[col.name]?.loading"
-                    class="d-inline-flex align-center text-caption text-medium-emphasis">
-                    <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
-                    analyzing…
-                  </span>
-                  <span v-else-if="results[col.name]?.error" class="text-caption text-error">
-                    {{ results[col.name]?.error }}
-                  </span>
-                  <span v-else class="text-caption text-disabled">Not analyzed</span>
-                </td>
+                <th class="col-field">Field</th>
+                <th class="text-right">Null&nbsp;%</th>
+                <th class="text-right">Distinct</th>
+                <th>Min</th>
+                <th>Max</th>
+                <th class="text-right">Mean</th>
+                <th class="text-right">Std&nbsp;dev</th>
+                <th class="text-right">p50</th>
+                <th class="text-right">p95</th>
+                <th class="text-right">p99</th>
+                <th class="col-top">Top values</th>
               </tr>
-            </template>
-          </tbody>
-        </v-table>
+            </thead>
+            <tbody>
+              <template v-for="col in primitiveColumns" :key="col.name">
+                <tr>
+                  <!-- Field -->
+                  <td class="col-field">
+                    <div class="d-flex align-center" style="gap: 8px">
+                      <v-btn
+                        icon
+                        size="x-small"
+                        variant="tonal"
+                        color="primary"
+                        :loading="results[col.name]?.loading"
+                        :disabled="!canQuery || analyzingAll"
+                        @click="analyzeOne(col)">
+                        <v-icon size="small">mdi-play</v-icon>
+                        <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
+                      </v-btn>
+                      <div class="flex-grow-1" style="min-width: 0">
+                        <div class="font-mono font-weight-medium">{{ col.name }}</div>
+                        <span class="text-caption text-medium-emphasis">{{ col.type }}</span>
+                      </div>
+                      <v-btn
+                        v-if="hasChart(col.name)"
+                        icon
+                        size="small"
+                        variant="flat"
+                        color="teal"
+                        @click="openChart(col.name)">
+                        <v-icon>mdi-chart-bar</v-icon>
+                        <v-tooltip activator="parent" location="top">Show chart</v-tooltip>
+                      </v-btn>
+                    </div>
+                  </td>
+
+                  <!-- Stats (when analyzed) -->
+                  <template v-if="results[col.name]?.data">
+                    <td class="text-right num">{{ results[col.name]!.data!.nullPct }}%</td>
+                    <td class="text-right num">{{ results[col.name]!.data!.distinct }}</td>
+                    <td class="num">{{ results[col.name]!.data!.min }}</td>
+                    <td class="num">{{ results[col.name]!.data!.max }}</td>
+                    <td class="text-right num">{{ results[col.name]!.data!.mean ?? '—' }}</td>
+                    <td class="text-right num">{{ results[col.name]!.data!.std ?? '—' }}</td>
+                    <td class="text-right num">{{ results[col.name]!.data!.p50 ?? '—' }}</td>
+                    <td class="text-right num">{{ results[col.name]!.data!.p95 ?? '—' }}</td>
+                    <td class="text-right num">{{ results[col.name]!.data!.p99 ?? '—' }}</td>
+                    <td class="col-top">
+                      <div
+                        v-if="results[col.name]!.data!.topValues.length > 0"
+                        class="d-flex flex-wrap"
+                        style="gap: 4px">
+                        <v-chip
+                          v-for="(t, i) in results[col.name]!.data!.topValues"
+                          :key="i"
+                          size="x-small"
+                          variant="tonal">
+                          {{ t.value }}
+                          <span class="text-medium-emphasis ml-1">
+                            {{ t.count.toLocaleString() }}
+                          </span>
+                        </v-chip>
+                      </div>
+                      <span v-else class="text-disabled">—</span>
+                    </td>
+                  </template>
+
+                  <!-- Loading / error / idle -->
+                  <td v-else colspan="10">
+                    <span
+                      v-if="results[col.name]?.loading"
+                      class="d-inline-flex align-center text-caption text-medium-emphasis">
+                      <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
+                      analyzing…
+                    </span>
+                    <span v-else-if="results[col.name]?.error" class="text-caption text-error">
+                      {{ results[col.name]?.error }}
+                    </span>
+                    <span v-else class="text-caption text-disabled">Not analyzed</span>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </v-table>
+        </div>
       </div>
-    </div>
+    </template>
 
     <!-- Distribution popup: histogram (numeric) or top-values bar (categorical) -->
     <v-dialog v-model="histDialogOpen" max-width="680">
@@ -225,6 +232,7 @@ interface ColumnState {
 }
 const results = reactive<Record<string, ColumnState>>({});
 const analyzingAll = ref(false);
+const collapsed = ref(false);
 
 // Distribution popup state.
 const histDialogOpen = ref(false);

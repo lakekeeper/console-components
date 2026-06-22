@@ -19,6 +19,7 @@
       :warehouse-id="props.warehouseId"
       :namespace-path="props.namespaceId"
       :table-name="props.tableName"
+      :catalog-url="catalogUrl"
       :can-edit="canCommit"
       @updated="loadTableData" />
 
@@ -53,6 +54,7 @@ const props = defineProps<{
 }>();
 
 const functions = useFunctions();
+const catalogUrl = computed(() => `${functions.icebergCatalogUrl()}catalog`);
 const recursiveDeleteProtection = ref(false);
 const tableId = ref('');
 const confirmDialog = ref(false);
