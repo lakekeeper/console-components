@@ -19,18 +19,6 @@
     @update:options="paginationCheckNamespace($event)">
     <template #top>
       <v-toolbar color="transparent" density="compact" flat>
-        <v-switch
-          v-if="canSetProtection"
-          v-model="recursiveDeleteProtection"
-          class="ml-4 mt-4"
-          color="info"
-          :label="
-            !recursiveDeleteProtection
-              ? 'Recursive Delete Protection disabled'
-              : 'Recursive Delete Protection enabled'
-          "
-          @click.prevent="showConfirmDialog"></v-switch>
-        <v-spacer v-if="canSetProtection"></v-spacer>
         <v-text-field
           v-model="searchNamespace"
           label="Filter results"
@@ -62,18 +50,6 @@
         @delete-with-options="deleteNamespaceWithOptions($event, item)"></DeleteDialog>
     </template>
   </v-data-table>
-
-  <ProtectionConfirmDialog
-    v-model="confirmDialog"
-    :confirm-color="recursiveDeleteProtection ? 'warning' : 'info'"
-    :message="
-      recursiveDeleteProtection
-        ? 'Are you sure you want to disable recursive delete protection? This will allow the warehouse to be deleted.'
-        : 'Are you sure you want to enable recursive delete protection? This will prevent the warehouse from being deleted.'
-    "
-    :title="recursiveDeleteProtection ? 'Disable Delete Protection?' : 'Enable Delete Protection?'"
-    @cancel="cancelProtectionChange"
-    @confirm="confirmProtectionChange"></ProtectionConfirmDialog>
 </template>
 
 <script setup lang="ts">
@@ -85,7 +61,6 @@ import { useWarehousePermissions } from '../composables/useCatalogPermissions';
 import type { Header, Item, Options } from '@/common/interfaces';
 import { StatusIntent } from '@/common/enums';
 import { isForbiddenError, logError } from '@/common/errorUtils';
-import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -101,22 +76,16 @@ const visual = useVisualStore();
 const notify = true;
 
 // Use warehouse permissions composable
-const { canDelete, canCreateNamespace, canSetProtection } = useWarehousePermissions(
-  props.warehouseId,
-);
+const { canDelete, canCreateNamespace } = useWarehousePermissions(props.warehouseId);
 
 const searchNamespace = ref('');
 const forbidden = ref(false);
-const recursiveDeleteProtection = ref(false);
 const createNamespaceStatus = ref<StatusIntent>(StatusIntent.INACTIVE);
 const loadedWarehouseItems: Item[] = reactive([]);
 const paginationTokenNamespace = ref('');
-const confirmDialog = ref(false);
-const pendingProtectionValue = ref(false);
 
-// Load namespaces and warehouse protection status on mount
+// Load namespaces on mount
 onMounted(() => {
-  loadWarehouse();
   loadNamespaces();
 });
 
@@ -124,7 +93,6 @@ onMounted(() => {
 watch(
   () => props.warehouseId,
   () => {
-    loadWarehouse();
     loadNamespaces();
   },
 );
@@ -146,17 +114,6 @@ async function addNamespace(namespace: string[], properties: Record<string, stri
   } catch (error) {
     createNamespaceStatus.value = StatusIntent.FAILURE;
     console.error('Failed to create namespace:', error);
-  }
-}
-
-async function loadWarehouse() {
-  try {
-    const whResponse = await functions.getWarehouse(props.warehouseId);
-    if (whResponse) {
-      recursiveDeleteProtection.value = whResponse.protected;
-    }
-  } catch (error) {
-    logError('WarehouseNamespaces.loadWarehouse', error);
   }
 }
 
@@ -215,36 +172,6 @@ async function paginationCheckNamespace(option: Options) {
 
       loadedWarehouseItems.push(...mappedItems.flat());
     }
-  }
-}
-
-function showConfirmDialog() {
-  pendingProtectionValue.value = !recursiveDeleteProtection.value;
-  confirmDialog.value = true;
-}
-
-function cancelProtectionChange() {
-  confirmDialog.value = false;
-}
-
-async function confirmProtectionChange() {
-  confirmDialog.value = false;
-  recursiveDeleteProtection.value = pendingProtectionValue.value;
-  await setProtection();
-}
-
-async function setProtection() {
-  try {
-    await functions.setWarehouseProtection(
-      props.warehouseId,
-      recursiveDeleteProtection.value,
-      true,
-    );
-    emit('namespace-updated');
-  } catch (error) {
-    console.error(error);
-    // Revert on error
-    recursiveDeleteProtection.value = !recursiveDeleteProtection.value;
   }
 }
 
