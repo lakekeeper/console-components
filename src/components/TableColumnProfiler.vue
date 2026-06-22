@@ -58,7 +58,7 @@
               <tr>
                 <!-- Field -->
                 <td class="col-field">
-                  <div class="d-flex align-center" style="gap: 6px">
+                  <div class="d-flex align-center" style="gap: 8px">
                     <v-btn
                       icon
                       size="x-small"
@@ -70,20 +70,20 @@
                       <v-icon size="small">mdi-play</v-icon>
                       <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
                     </v-btn>
+                    <div class="flex-grow-1" style="min-width: 0">
+                      <div class="font-mono font-weight-medium">{{ col.name }}</div>
+                      <span class="text-caption text-medium-emphasis">{{ col.type }}</span>
+                    </div>
                     <v-btn
-                      v-if="results[col.name]?.data?.histogram"
+                      v-if="hasChart(col.name)"
                       icon
                       size="small"
                       variant="flat"
                       color="teal"
-                      @click="openHistogram(col.name)">
-                      <v-icon>mdi-chart-histogram</v-icon>
-                      <v-tooltip activator="parent" location="top">Show distribution</v-tooltip>
+                      @click="openChart(col.name)">
+                      <v-icon>mdi-chart-bar</v-icon>
+                      <v-tooltip activator="parent" location="top">Show chart</v-tooltip>
                     </v-btn>
-                    <div>
-                      <div class="font-mono font-weight-medium">{{ col.name }}</div>
-                      <span class="text-caption text-medium-emphasis">{{ col.type }}</span>
-                    </div>
                   </div>
                 </td>
 
@@ -138,12 +138,14 @@
       </div>
     </div>
 
-    <!-- Value distribution popup (numeric columns) -->
+    <!-- Distribution popup: histogram (numeric) or top-values bar (categorical) -->
     <v-dialog v-model="histDialogOpen" max-width="680">
-      <v-card v-if="histData">
+      <v-card v-if="chartData">
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-          <v-icon class="mr-2" color="primary">mdi-chart-histogram</v-icon>
-          Value distribution —
+          <v-icon class="mr-2" color="primary">
+            {{ chartData.histogram ? 'mdi-chart-histogram' : 'mdi-chart-bar' }}
+          </v-icon>
+          {{ chartData.histogram ? 'Value distribution' : 'Top values' }} —
           <span class="font-mono ml-1">{{ histColName }}</span>
           <v-spacer></v-spacer>
           <v-btn icon variant="text" size="small" @click="histDialogOpen = false">
@@ -153,10 +155,13 @@
         <v-divider></v-divider>
         <v-card-text>
           <div class="text-caption text-medium-emphasis mb-2">
-            {{ histData.bins.length }} bins · range {{ fmtNum(histData.min) }} –
-            {{ fmtNum(histData.max) }}
+            <template v-if="chartData.histogram">
+              {{ chartData.histogram.bins.length }} bins · range
+              {{ fmtNum(chartData.histogram.min) }} – {{ fmtNum(chartData.histogram.max) }}
+            </template>
+            <template v-else>Top {{ chartData.topValues.length }} values by row count</template>
           </div>
-          <div ref="histChartRef" style="width: 100%; min-height: 240px"></div>
+          <div ref="histChartRef" style="width: 100%; min-height: 260px"></div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -224,32 +229,31 @@ const analyzingAll = ref(false);
 // Distribution popup state.
 const histDialogOpen = ref(false);
 const histColName = ref<string | null>(null);
-const histData = computed(() =>
-  histColName.value ? (results[histColName.value]?.data?.histogram ?? null) : null,
+const chartData = computed(() =>
+  histColName.value ? (results[histColName.value]?.data ?? null) : null,
 );
 const histChartRef = ref<HTMLDivElement | null>(null);
-function openHistogram(name: string) {
+
+// A field can show a chart once analyzed: numeric → histogram, else → top values.
+function hasChart(name: string): boolean {
+  const d = results[name]?.data;
+  return !!d && (!!d.histogram || d.topValues.length > 0);
+}
+function openChart(name: string) {
   histColName.value = name;
   histDialogOpen.value = true;
 }
 
-// Draw the distribution histogram (axes + bars) once the dialog is on screen.
-function renderHistogram() {
-  const el = histChartRef.value;
-  const h = histData.value;
-  if (!el || !h) return;
-  d3.select(el).selectAll('*').remove();
+const colorAxis = (sel: any) =>
+  sel
+    .call((s: any) =>
+      s.selectAll('.domain, .tick line').attr('stroke', 'currentColor').attr('stroke-opacity', 0.2),
+    )
+    .selectAll('text')
+    .attr('fill', 'currentColor');
 
+function newSvgGroup(el: HTMLElement, height: number, margin: any) {
   const width = el.clientWidth || 620;
-  const height = 240;
-  const margin = { top: 16, right: 18, bottom: 46, left: 56 };
-  const cw = width - margin.left - margin.right;
-  const ch = height - margin.top - margin.bottom;
-  const binWidth = (h.max - h.min) / h.bins.length;
-
-  const x = d3.scaleLinear().domain([h.min, h.max]).range([0, cw]);
-  const y = d3.scaleLinear().domain([0, h.peak]).nice().range([ch, 0]);
-
   const svg = d3
     .select(el)
     .append('svg')
@@ -259,8 +263,17 @@ function renderHistogram() {
     .style('font-size', '10px')
     .style('color', 'inherit');
   const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+  return { g, cw: width - margin.left - margin.right, ch: height - margin.top - margin.bottom };
+}
 
+// Numeric value-distribution histogram.
+function renderHistogram(el: HTMLElement, h: NonNullable<ProfileData['histogram']>) {
+  const { g, cw, ch } = newSvgGroup(el, 260, { top: 16, right: 18, bottom: 40, left: 56 });
+  const binWidth = (h.max - h.min) / h.bins.length;
+  const x = d3.scaleLinear().domain([h.min, h.max]).range([0, cw]);
+  const y = d3.scaleLinear().domain([0, h.peak]).nice().range([ch, 0]);
   const bw = Math.max(1, x(h.min + binWidth) - x(h.min) - 2);
+
   g.selectAll('rect')
     .data(h.bins)
     .join('rect')
@@ -269,7 +282,7 @@ function renderHistogram() {
     .attr('y', (d) => y(d))
     .attr('height', (d) => ch - y(d))
     .attr('rx', 1)
-    .attr('fill', '#42a5f5')
+    .attr('fill', '#26a69a')
     .append('title')
     .text(
       (d, i) =>
@@ -284,8 +297,7 @@ function renderHistogram() {
         .ticks(6)
         .tickFormat(d3.format('~s') as any),
     )
-    .selectAll('text')
-    .attr('fill', 'currentColor');
+    .call(colorAxis);
   g.append('g')
     .call(
       d3
@@ -293,34 +305,68 @@ function renderHistogram() {
         .ticks(4)
         .tickFormat(d3.format('~s') as any),
     )
-    .selectAll('text')
-    .attr('fill', 'currentColor');
-  g.selectAll('.domain, .tick line').attr('stroke', 'currentColor').attr('stroke-opacity', 0.2);
+    .call(colorAxis);
+}
 
-  svg
-    .append('text')
-    .attr('x', margin.left + cw / 2)
-    .attr('y', height - 6)
-    .attr('text-anchor', 'middle')
-    .attr('fill', 'currentColor')
-    .attr('opacity', 0.7)
-    .text('value');
-  svg
-    .append('text')
-    .attr('transform', 'rotate(-90)')
-    .attr('x', -(margin.top + ch / 2))
-    .attr('y', 14)
-    .attr('text-anchor', 'middle')
-    .attr('fill', 'currentColor')
-    .attr('opacity', 0.7)
-    .text('rows');
+// Categorical top-values bar chart (same counts as the chips).
+function renderBars(el: HTMLElement, items: { value: string; count: number }[]) {
+  const { g, cw, ch } = newSvgGroup(el, 260, { top: 16, right: 18, bottom: 70, left: 56 });
+  const x = d3
+    .scaleBand<string>()
+    .domain(items.map((d) => d.value))
+    .range([0, cw])
+    .padding(0.3);
+  const peak = Math.max(...items.map((d) => d.count), 1);
+  const y = d3.scaleLinear().domain([0, peak]).nice().range([ch, 0]);
+
+  g.selectAll('rect')
+    .data(items)
+    .join('rect')
+    .attr('x', (d) => x(d.value) ?? 0)
+    .attr('width', x.bandwidth())
+    .attr('y', (d) => y(d.count))
+    .attr('height', (d) => ch - y(d.count))
+    .attr('rx', 2)
+    .attr('fill', '#26a69a')
+    .append('title')
+    .text((d) => `${d.value}: ${d.count.toLocaleString()} rows`);
+
+  g.append('g')
+    .attr('transform', `translate(0,${ch})`)
+    .call(
+      d3
+        .axisBottom(x)
+        .tickSize(0)
+        .tickFormat((d: any) => (String(d).length > 14 ? String(d).slice(0, 13) + '…' : d)),
+    )
+    .call(colorAxis)
+    .selectAll('text')
+    .attr('transform', 'rotate(-25)')
+    .attr('text-anchor', 'end');
+  g.append('g')
+    .call(
+      d3
+        .axisLeft(y)
+        .ticks(4)
+        .tickFormat(d3.format('~s') as any),
+    )
+    .call(colorAxis);
+}
+
+function renderChart() {
+  const el = histChartRef.value;
+  const d = chartData.value;
+  if (!el || !d) return;
+  d3.select(el).selectAll('*').remove();
+  if (d.histogram) renderHistogram(el, d.histogram);
+  else if (d.topValues.length) renderBars(el, d.topValues);
 }
 
 watch([histDialogOpen, histColName], async ([open]) => {
-  if (open && histData.value) {
+  if (open && chartData.value) {
     await nextTick();
     await nextTick();
-    renderHistogram();
+    renderChart();
   }
 });
 
