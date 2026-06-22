@@ -6,25 +6,20 @@
     <div v-else-if="tableLoading" class="d-flex justify-center pa-6">
       <v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
     </div>
-    <template v-else-if="metadata">
-      <!-- Configuration & statistics (properties, Puffin column stats, partition stats) -->
-      <TableConfiguration :metadata="metadata" />
-
-      <!-- On-demand per-column profiling (scans data) -->
-      <TableColumnProfiler
-        :metadata="metadata"
-        :warehouse-id="warehouseId"
-        :namespace-id="namespaceId"
-        :table-name="tableName"
-        :catalog-url="catalogUrl" />
-    </template>
+    <!-- On-demand per-column profiling (scans data) -->
+    <TableColumnProfiler
+      v-else-if="metadata"
+      :metadata="metadata"
+      :warehouse-id="warehouseId"
+      :namespace-id="namespaceId"
+      :table-name="tableName"
+      :catalog-url="catalogUrl" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
-import TableConfiguration from './TableConfiguration.vue';
 import TableColumnProfiler from './TableColumnProfiler.vue';
 import type { LoadTableResult, TableMetadata } from '../gen/iceberg/types.gen';
 

@@ -47,7 +47,6 @@ import GenericTableOverview from './components/GenericTableOverview.vue';
 import TableDetails from './components/TableDetails.vue';
 import TableHealth from './components/TableHealth.vue';
 import TableHealthActions from './components/TableHealthActions.vue';
-import TableConfiguration from './components/TableConfiguration.vue';
 import TableColumnProfiler from './components/TableColumnProfiler.vue';
 import TableStatistics from './components/TableStatistics.vue';
 import TableVersioningVisualization from './components/TableVersioningVisualization.vue';
@@ -155,7 +154,6 @@ export {
   TableDetails,
   TableHealth,
   TableHealthActions,
-  TableConfiguration,
   TableColumnProfiler,
   TableStatistics,
   TableVersioningVisualization,
@@ -349,7 +347,6 @@ const components = {
   TableDetails,
   TableHealth,
   TableHealthActions,
-  TableConfiguration,
   TableColumnProfiler,
   TableStatistics,
   TableVersioningVisualization,
