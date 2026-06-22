@@ -155,9 +155,9 @@
             {{ histData.bins.length }} bins over the scanned rows.
           </div>
           <svg
-            class="histogram-svg"
             :viewBox="`0 0 ${histData.bins.length} 100`"
-            preserveAspectRatio="none">
+            preserveAspectRatio="none"
+            style="width: 100%; height: 180px; display: block">
             <rect
               v-for="(c, i) in histData.bins"
               :key="i"
@@ -452,14 +452,5 @@ async function analyzeAll() {
 .profiler-table :deep(.col-top) {
   white-space: normal;
   min-width: 220px;
-}
-.profiler-table :deep(td.histogram-cell) {
-  white-space: normal;
-  background: rgba(var(--v-theme-on-surface), 0.02);
-}
-.histogram-svg {
-  width: 100%;
-  height: 120px;
-  display: block;
 }
 </style>
