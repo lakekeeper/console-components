@@ -1011,6 +1011,18 @@ onMounted(() => {
   }
 });
 
+// Keep the rename baseline in sync with the parent after a successful rename, so
+// nameChanged doesn't stay true and re-emit renameWarehouse on the next submit.
+watch(
+  () => props.warehouse?.name,
+  (name) => {
+    if (props.objectType !== ObjectType.CATALOG_SETTINGS || name === undefined) return;
+    // Only move the field if the user hasn't diverged from the old baseline.
+    if (warehouseName.value === loadedName.value) warehouseName.value = name ?? '';
+    loadedName.value = name ?? '';
+  },
+);
+
 watch(
   () => props.processStatus,
   (old, newVal) => {

@@ -118,6 +118,9 @@ async function addNamespace(namespace: string[], properties: Record<string, stri
 }
 
 async function loadNamespaces(parent?: string) {
+  // Reset the forbidden flag so switching from an unauthorized warehouse to an
+  // authorized one re-shows the table instead of staying on the 403 alert.
+  forbidden.value = false;
   try {
     const { namespaces, ['next-page-token']: nextPageToken } = await functions.listNamespaces(
       props.warehouseId,
