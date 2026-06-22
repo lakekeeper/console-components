@@ -224,7 +224,7 @@ async function updateCatalogSettings(payload: {
   if (failures.length === 0) {
     visual.setSnackbarMsg({
       function: 'updateCatalogSettings',
-      text: 'Catalog settings updated successfully',
+      text: 'General settings updated successfully',
       ttl: 3000,
       ts: Date.now(),
       type: Type.SUCCESS,

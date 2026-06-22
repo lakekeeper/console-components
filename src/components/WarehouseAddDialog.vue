@@ -30,7 +30,7 @@
         v-bind="activatorProps"
         v-else-if="props.objectType === ObjectType.CATALOG_SETTINGS">
         <v-list-item-title>
-          <span class="text-subtitle-2">Catalog Settings</span>
+          <span class="text-subtitle-2">General Settings</span>
         </v-list-item-title>
       </v-list-item>
     </template>
@@ -270,7 +270,7 @@
                   prepend-icon="mdi-content-save-outline"
                   :disabled="!catalogSettingsDirty"
                   @click="emitCatalogSettings">
-                  Update catalog settings
+                  Update general settings
                 </v-btn>
               </div>
             </div>
