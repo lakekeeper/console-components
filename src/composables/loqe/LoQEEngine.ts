@@ -42,21 +42,26 @@ function describeError(e: any): string {
  *
  * DuckDB reports any failed httpfs download as a generic
  * `"Full download failed … : 404 (might be potentially a CORS error)"` — it
- * doesn't read the real status or the S3 error body. A 404/CORS on a
- * manifest/metadata file is almost always an EXPIRED vended S3 credential that
- * the browser served from a stale cached `loadTable` response (the catalog
- * returns `304` on a metadata-only ETag, so the cached body — with old creds —
- * is reused). Surface that instead of the misleading "CORS" wording.
+ * doesn't read the real status or the S3 error body. Two common causes look
+ * identical at this layer:
+ *   1. The storage bucket has no CORS configuration allowing browser access, so
+ *      the cross-origin request is blocked outright.
+ *   2. The vended S3 credentials expired and the browser reused a stale cached
+ *      `loadTable` response (the catalog returns `304` on a metadata-only ETag,
+ *      replaying the old creds).
+ * We can't tell them apart from DuckDB's message, so surface both.
  */
 function friendlyQueryError(err: unknown, msg: string): unknown {
-  const looksLikeStaleCreds =
+  const looksLikeDownloadBlock =
     /full download failed|might be.*cors|\b404\b/i.test(msg) &&
-    /(\.avro|snap-|manifest|metadata|\.json)/i.test(msg);
-  if (looksLikeStaleCreds) {
+    /(\.avro|snap-|manifest|metadata|\.json|\.parquet)/i.test(msg);
+  if (looksLikeDownloadBlock) {
     return new Error(
-      'Could not read table data — the storage credentials appear to have expired. ' +
-        'Your browser is serving a stale cached catalog response. ' +
-        'Reload the page (or open DevTools → Network → enable “Disable cache”) and retry.',
+      'Could not read the table’s data files from object storage. The browser request was ' +
+        'blocked — usually either the storage bucket is missing a CORS configuration that allows ' +
+        'browser access, or the vended storage credentials expired and a stale cached catalog ' +
+        'response is being reused. Configure CORS on the bucket, or reload with DevTools → ' +
+        'Network → “Disable cache”, then retry.',
     );
   }
   return err;
