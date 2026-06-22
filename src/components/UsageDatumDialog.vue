@@ -86,7 +86,11 @@
                 Usage Statistics Shell Script
               </v-toolbar-title>
               <v-spacer></v-spacer>
-              <v-btn icon="mdi-close" size="small" variant="text" @click="scriptDialog = false"></v-btn>
+              <v-btn
+                icon="mdi-close"
+                size="small"
+                variant="text"
+                @click="scriptDialog = false"></v-btn>
             </v-toolbar>
             <v-divider></v-divider>
             <v-card-text>
@@ -102,9 +106,7 @@
             <v-divider></v-divider>
             <v-card-actions>
               <v-spacer></v-spacer>
-              <v-btn prepend-icon="mdi-content-copy" variant="text" @click="copyScript">
-                Copy
-              </v-btn>
+              <v-btn prepend-icon="mdi-content-copy" variant="text" @click="copyScript">Copy</v-btn>
               <v-btn
                 prepend-icon="mdi-download"
                 color="secondary"
@@ -122,7 +124,9 @@
           {{ loadError }}
         </v-alert>
 
-        <div v-if="!loading && rows.length === 0 && !loadError" class="text-body-2 text-center py-6">
+        <div
+          v-if="!loading && rows.length === 0 && !loadError"
+          class="text-body-2 text-center py-6">
           No warehouses found.
         </div>
 
@@ -220,11 +224,18 @@
             </tbody>
             <tfoot>
               <tr>
-                <td colspan="5" class="text-right text-body-2 text-medium-emphasis pr-2" style="vertical-align: middle">Total</td>
+                <td
+                  colspan="5"
+                  class="text-right text-body-2 text-medium-emphasis pr-2"
+                  style="vertical-align: middle">
+                  Total
+                </td>
                 <td style="vertical-align: middle">
                   <span class="text-subtitle-1 font-weight-bold">{{ totalGb }}</span>
                 </td>
-                <td class="text-caption text-medium-emphasis pl-2" style="vertical-align: middle">{{ totalPb }}</td>
+                <td class="text-caption text-medium-emphasis pl-2" style="vertical-align: middle">
+                  {{ totalPb }}
+                </td>
               </tr>
             </tfoot>
           </v-table>
@@ -300,20 +311,20 @@ const scriptDialog = ref(false);
 
 const datumDate = computed({
   get: () => visual.usageDatumDate,
-  set: (v) => { visual.usageDatumDate = v; },
+  set: (v) => {
+    visual.usageDatumDate = v;
+  },
 });
 
 const creator = computed({
   get: () => visual.usageDatumCreator,
-  set: (v) => { visual.usageDatumCreator = v; },
+  set: (v) => {
+    visual.usageDatumCreator = v;
+  },
 });
 
-const licenseCustomer = computed(
-  () => visual.getServerInfo()['license-status']?.customer ?? '',
-);
-const licenseId = computed(
-  () => visual.getServerInfo()['license-status']?.['license-id'] ?? '',
-);
+const licenseCustomer = computed(() => visual.getServerInfo()['license-status']?.customer ?? '');
+const licenseId = computed(() => visual.getServerInfo()['license-status']?.['license-id'] ?? '');
 
 function short(id: string): string {
   return id.length > 8 ? id.slice(0, 8) + '…' : id;
@@ -334,7 +345,9 @@ async function computeHashes() {
   bucketHashes.value = map;
 }
 
-watch(maskBuckets, (on) => { if (on) computeHashes(); });
+watch(maskBuckets, (on) => {
+  if (on) computeHashes();
+});
 
 function displayBucket(prefix: string): string {
   if (!maskBuckets.value) return prefix;
@@ -504,7 +517,15 @@ function toCsv(): string {
     ['Creator', creator.value, '', '', '', '', ''].map(esc).join(','),
     ['Customer', licenseCustomer.value, '', '', '', '', ''].map(esc).join(','),
     ['License ID', licenseId.value, '', '', '', '', ''].map(esc).join(','),
-    ['Server ID', 'License ID', 'Project IDs', 'Warehouse IDs', 'Bucket / Prefix', 'Volume (GB)', 'Comments']
+    [
+      'Server ID',
+      'License ID',
+      'Project IDs',
+      'Warehouse IDs',
+      'Bucket / Prefix',
+      'Volume (GB)',
+      'Comments',
+    ]
       .map(esc)
       .join(','),
     ...rows.value.map((r) =>

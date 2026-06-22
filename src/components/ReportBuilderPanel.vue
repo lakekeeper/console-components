@@ -23,11 +23,19 @@
         <div class="d-flex align-center px-2 py-1">
           <span class="text-caption text-medium-emphasis">Chart {{ pIdx + 1 }}</span>
           <v-spacer />
-          <v-btn size="x-small" variant="text" :disabled="!canRender(panel)" @click="downloadPng(panel)">
+          <v-btn
+            size="x-small"
+            variant="text"
+            :disabled="!canRender(panel)"
+            @click="downloadPng(panel)">
             <v-icon size="small">mdi-download</v-icon>
             <v-tooltip activator="parent">Download PNG</v-tooltip>
           </v-btn>
-          <v-btn size="x-small" variant="text" :disabled="!canRender(panel)" @click="printPdf(panel)">
+          <v-btn
+            size="x-small"
+            variant="text"
+            :disabled="!canRender(panel)"
+            @click="printPdf(panel)">
             <v-icon size="small">mdi-printer</v-icon>
             <v-tooltip activator="parent">Print / PDF</v-tooltip>
           </v-btn>
@@ -202,7 +210,9 @@
 
           <!-- ── Chart canvas ── -->
           <div class="rbp-canvas-wrap">
-            <div v-if="canRender(panel)" :style="{ height: panel.height + 'px', position: 'relative' }">
+            <div
+              v-if="canRender(panel)"
+              :style="{ height: panel.height + 'px', position: 'relative' }">
               <Bar
                 v-if="panel.chartType === 'bar'"
                 :ref="(el: any) => setRef(panel.id, el)"
@@ -315,8 +325,15 @@ import { useVisualStore } from '../stores/visual';
 import { Type } from '../common/enums';
 
 ChartJS.register(
-  CategoryScale, LinearScale, BarElement, LineElement,
-  PointElement, ArcElement, Tooltip, Legend, Filler,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  LineElement,
+  PointElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler,
 );
 
 const props = defineProps<{
@@ -330,9 +347,16 @@ const visualStore = useVisualStore();
 // ── Constants ─────────────────────────────────────────────────────────
 
 const PALETTE = [
-  '#42A5F5', '#66BB6A', '#FFA726', '#EF5350',
-  '#AB47BC', '#26C6DA', '#D4E157', '#FF7043',
-  '#8D6E63', '#78909C',
+  '#42A5F5',
+  '#66BB6A',
+  '#FFA726',
+  '#EF5350',
+  '#AB47BC',
+  '#26C6DA',
+  '#D4E157',
+  '#FF7043',
+  '#8D6E63',
+  '#78909C',
 ];
 
 const AGG_OPTIONS = [
@@ -472,11 +496,21 @@ function aggregate(
   for (const [key, vals] of groups) {
     labels.push(key);
     switch (agg) {
-      case 'sum': values.push(vals.reduce((a, b) => a + b, 0)); break;
-      case 'avg': values.push(vals.reduce((a, b) => a + b, 0) / vals.length); break;
-      case 'count': values.push(vals.length); break;
-      case 'max': values.push(Math.max(...vals)); break;
-      case 'min': values.push(Math.min(...vals)); break;
+      case 'sum':
+        values.push(vals.reduce((a, b) => a + b, 0));
+        break;
+      case 'avg':
+        values.push(vals.reduce((a, b) => a + b, 0) / vals.length);
+        break;
+      case 'count':
+        values.push(vals.length);
+        break;
+      case 'max':
+        values.push(Math.max(...vals));
+        break;
+      case 'min':
+        values.push(Math.min(...vals));
+        break;
     }
   }
   return [labels, values];
@@ -507,13 +541,15 @@ function buildData(p: ChartPanel): any {
     const s = p.ySeriesList[0];
     const yIdx = cols.indexOf(s?.column ?? '');
     return {
-      datasets: [{
-        label: s?.column ?? 'Y',
-        data: rows.map((r) => ({ x: Number(r[xIdx]) || 0, y: Number(r[yIdx]) || 0 })),
-        backgroundColor: PALETTE[0] + '99',
-        borderColor: PALETTE[0],
-        pointRadius: 4,
-      }],
+      datasets: [
+        {
+          label: s?.column ?? 'Y',
+          data: rows.map((r) => ({ x: Number(r[xIdx]) || 0, y: Number(r[yIdx]) || 0 })),
+          backgroundColor: PALETTE[0] + '99',
+          borderColor: PALETTE[0],
+          pointRadius: 4,
+        },
+      ],
     };
   }
 
@@ -528,12 +564,14 @@ function buildData(p: ChartPanel): any {
     );
     return {
       labels,
-      datasets: [{
-        data: values,
-        backgroundColor: PALETTE.map((c) => c + 'CC'),
-        borderColor: PALETTE,
-        borderWidth: 1,
-      }],
+      datasets: [
+        {
+          data: values,
+          backgroundColor: PALETTE.map((c) => c + 'CC'),
+          borderColor: PALETTE,
+          borderWidth: 1,
+        },
+      ],
     };
   }
 
@@ -630,7 +668,9 @@ function startResize(event: MouseEvent, panel: ChartPanel) {
   window.addEventListener('mouseup', onUp);
 }
 
-onBeforeUnmount(() => { resizingId.value = null; });
+onBeforeUnmount(() => {
+  resizingId.value = null;
+});
 
 // ── Export ────────────────────────────────────────────────────────────
 
@@ -655,10 +695,11 @@ function printPdf(panel: ChartPanel) {
   if (!win) return;
   win.document.write(
     `<!DOCTYPE html><html><head><title>${title}</title>` +
-    `<style>body{margin:24px;font-family:sans-serif}img{max-width:100%;border:1px solid #eee;margin-top:12px}` +
-    `h2{margin:0 0 8px;font-size:16px;font-weight:600}</style></head>` +
-    `<body><h2>${title}</h2><img src="${url}">` +
-    `<script>window.onload=function(){window.print()}<\/script></body></html>`,
+      `<style>body{margin:24px;font-family:sans-serif}img{max-width:100%;border:1px solid #eee;margin-top:12px}` +
+      `h2{margin:0 0 8px;font-size:16px;font-weight:600}</style></head>` +
+      `<body><h2>${title}</h2><img src="${url}">` +
+      `<script>window.onload=function(){window.print()}<` +
+      `/script></body></html>`,
   );
   win.document.close();
 }
@@ -700,20 +741,22 @@ function confirmSave() {
 
 function loadReport(report: SavedReport) {
   const c = report.chartConfig;
-  panels.value = [{
-    id: crypto.randomUUID(),
-    chartType: c.type,
-    xColumn: c.xColumn,
-    ySeriesList: c.ySeriesList ?? [{ column: '', colorIndex: 0 }],
-    aggregation: c.aggregation ?? 'none',
-    stacked: c.stacked ?? false,
-    horizontal: c.horizontal ?? false,
-    smooth: c.smooth ?? false,
-    donut: c.donut ?? false,
-    sortBy: c.sortBy ?? 'none',
-    topN: c.topN ?? 0,
-    height: DEFAULT_HEIGHT,
-  }];
+  panels.value = [
+    {
+      id: crypto.randomUUID(),
+      chartType: c.type,
+      xColumn: c.xColumn,
+      ySeriesList: c.ySeriesList ?? [{ column: '', colorIndex: 0 }],
+      aggregation: c.aggregation ?? 'none',
+      stacked: c.stacked ?? false,
+      horizontal: c.horizontal ?? false,
+      smooth: c.smooth ?? false,
+      donut: c.donut ?? false,
+      sortBy: c.sortBy ?? 'none',
+      topN: c.topN ?? 0,
+      height: DEFAULT_HEIGHT,
+    },
+  ];
 }
 </script>
 
@@ -790,7 +833,9 @@ function loadReport(report: SavedReport) {
   line-height: 6px;
   margin-top: 4px;
   border-radius: 4px;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 .rbp-resize:hover,
 .rbp-resize--active {

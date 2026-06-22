@@ -94,13 +94,17 @@ function clientEnv() {
   const tokens: Record<string, string> = {};
   for (const [, name, ver] of ua.matchAll(/(\w+)\/(\S+)/g)) tokens[name] = ver;
   const os = ua.match(/\(([^)]+)\)/)?.[1] ?? null;
-  const detected =
-    tokens['Edg']    ? `Edge ${tokens['Edg']}` :
-    tokens['OPR']    ? `Opera ${tokens['OPR']}` :
-    tokens['Firefox'] ? `Firefox ${tokens['Firefox']}` :
-    tokens['Chrome'] ? `Chrome ${tokens['Chrome']}` :
-    tokens['Safari'] && !tokens['Chrome'] ? `Safari ${tokens['Safari']}` :
-    'Unknown';
+  const detected = tokens['Edg']
+    ? `Edge ${tokens['Edg']}`
+    : tokens['OPR']
+      ? `Opera ${tokens['OPR']}`
+      : tokens['Firefox']
+        ? `Firefox ${tokens['Firefox']}`
+        : tokens['Chrome']
+          ? `Chrome ${tokens['Chrome']}`
+          : tokens['Safari'] && !tokens['Chrome']
+            ? `Safari ${tokens['Safari']}`
+            : 'Unknown';
   return {
     userAgent: ua,
     detected,
