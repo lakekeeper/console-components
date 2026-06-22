@@ -75,14 +75,14 @@
                 {{ results[col.name]?.error }}
               </div>
               <div v-else-if="results[col.name]?.data" class="py-2">
-                <div class="d-flex flex-wrap" style="gap: 8px">
-                  <div
+                <div class="d-flex flex-wrap" style="gap: 6px 22px">
+                  <span
                     v-for="m in results[col.name]!.data!.metrics"
                     :key="m.label"
-                    class="stat-pill">
-                    <span class="stat-label">{{ m.label }}</span>
-                    <span class="stat-value">{{ m.value }}</span>
-                  </div>
+                    class="text-body-2">
+                    <span class="text-medium-emphasis mr-2">{{ m.label }}</span>
+                    <span class="font-weight-medium font-mono">{{ m.value }}</span>
+                  </span>
                 </div>
                 <div
                   v-if="results[col.name]!.data!.topValues.length > 0"
@@ -314,28 +314,5 @@ async function analyzeAll() {
   vertical-align: top;
   padding-top: 10px;
   padding-bottom: 10px;
-}
-.stat-pill {
-  display: inline-flex;
-  flex-direction: row;
-  align-items: baseline;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 8px;
-  background: rgba(var(--v-theme-on-surface), 0.04);
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
-}
-.stat-label {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: rgba(var(--v-theme-on-surface), 0.6);
-  line-height: 1.4;
-}
-.stat-value {
-  font-family: 'Roboto Mono', monospace;
-  font-size: 0.95rem;
-  font-weight: 600;
-  line-height: 1.4;
 }
 </style>
