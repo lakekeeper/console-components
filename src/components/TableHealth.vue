@@ -8,8 +8,8 @@
     {{ tableError }}
   </v-alert>
   <v-row v-else-if="healthChecks.length > 0" dense class="mb-4">
-    <v-col cols="12" md="6">
-      <v-card variant="outlined" elevation="1" class="h-100">
+    <v-col cols="12">
+      <v-card variant="outlined" elevation="1">
         <v-toolbar color="transparent" density="compact" flat>
           <v-toolbar-title class="text-subtitle-1">
             <v-icon class="mr-2" :color="overallHealthColor">mdi-heart-pulse</v-icon>
@@ -216,7 +216,7 @@
     </v-col>
 
     <!-- Recommended Actions -->
-    <v-col cols="12" md="6">
+    <v-col cols="12">
       <TableHealthActions
         v-if="resolvedTable?.metadata && healthBranchSnapshot?.summary"
         :metadata="resolvedTable.metadata"
@@ -224,8 +224,7 @@
         :partition-data="partitionData"
         :is-partitioned="isTablePartitioned"
         :skew-ratio="partitionSkewRatio"
-        :partition-loading="partitionLoading"
-        class="h-100" />
+        :partition-loading="partitionLoading" />
     </v-col>
   </v-row>
 
@@ -446,6 +445,45 @@
           </div>
         </div>
       </div>
+
+      <!-- Data files for the current snapshot -->
+      <v-expansion-panels
+        v-if="storageComposition.files.length > 0"
+        class="mt-4"
+        variant="accordion">
+        <v-expansion-panel>
+          <v-expansion-panel-title>
+            <v-icon size="small" class="mr-2">mdi-file-table-outline</v-icon>
+            Data files
+            <span class="text-caption text-medium-emphasis ml-2">
+              showing {{ storageComposition.files.length.toLocaleString() }}
+              <template v-if="storageComposition.dataFiles > storageComposition.files.length">
+                of {{ storageComposition.dataFiles.toLocaleString() }} (largest first)
+              </template>
+            </span>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-table density="compact" class="composition-files">
+              <thead>
+                <tr>
+                  <th>File</th>
+                  <th class="text-right">Records</th>
+                  <th v-if="filesHaveSize" class="text-right">Size</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(f, i) in storageComposition.files" :key="i">
+                  <td class="text-caption font-mono">{{ f.path }}</td>
+                  <td class="text-right text-caption">{{ f.records.toLocaleString() }}</td>
+                  <td v-if="filesHaveSize" class="text-right text-caption">
+                    {{ f.size !== null ? formatBytes(f.size) : '—' }}
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
     </div>
   </v-card>
 
@@ -1580,8 +1618,13 @@ interface StorageComposition {
   deleteFiles: number;
   posDeletes: number;
   eqDeletes: number;
+  files: { path: string; records: number; size: number | null }[];
+  fileLimit: number;
 }
 const storageComposition = ref<StorageComposition | null>(null);
+const filesHaveSize = computed(
+  () => storageComposition.value?.files.some((f) => f.size !== null) ?? false,
+);
 
 // We can query table metadata via DuckDB whenever the catalog props are present.
 const canQueryMetadata = computed(
@@ -1717,6 +1760,36 @@ async function loadPartitionData() {
         }
         statuses.set(status, (statuses.get(status) ?? 0) + fc);
       }
+      // Data-file sample for the current snapshot (largest first). file_size_in_bytes
+      // isn't on every iceberg_metadata build, so fall back to path + records only.
+      const FILE_LIMIT = 200;
+      const fileSql = (withSize: boolean) => `
+        SELECT file_path, record_count${withSize ? ', file_size_in_bytes' : ''}
+        FROM iceberg_metadata(${tablePath})
+        WHERE manifest_content = 'DATA'
+        ORDER BY record_count DESC NULLS LAST
+        LIMIT ${FILE_LIMIT}
+      `;
+      let fileRes;
+      let hasSize = true;
+      try {
+        fileRes = await loqe.query(fileSql(true));
+      } catch {
+        hasSize = false;
+        fileRes = await loqe.query(fileSql(false));
+      }
+      const fpIdx = fileRes.columns.indexOf('file_path');
+      const rcIdx = fileRes.columns.indexOf('record_count');
+      const fsIdx = fileRes.columns.indexOf('file_size_in_bytes');
+      const files = (fileRes.rows as any[][]).map((r) => ({
+        path:
+          String(r[fpIdx] ?? '')
+            .split('/')
+            .pop() || String(r[fpIdx] ?? ''),
+        records: parseBigInt(r[rcIdx]),
+        size: hasSize ? parseBigInt(r[fsIdx]) : null,
+      }));
+
       storageComposition.value = {
         formats: [...formats].map(([format, fileCount]) => ({ format, fileCount })),
         statuses: [...statuses].map(([status, fileCount]) => ({ status, fileCount })),
@@ -1724,6 +1797,8 @@ async function loadPartitionData() {
         deleteFiles,
         posDeletes,
         eqDeletes,
+        files,
+        fileLimit: FILE_LIMIT,
       };
     } catch (compErr) {
       console.debug('[TableHealth] storage composition unavailable:', compErr);
