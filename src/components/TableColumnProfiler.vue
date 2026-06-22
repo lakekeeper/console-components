@@ -73,10 +73,11 @@
                     <v-btn
                       v-if="results[col.name]?.data?.histogram"
                       icon
-                      size="x-small"
-                      variant="text"
+                      size="small"
+                      variant="flat"
+                      color="teal"
                       @click="openHistogram(col.name)">
-                      <v-icon size="small">mdi-chart-histogram</v-icon>
+                      <v-icon>mdi-chart-histogram</v-icon>
                       <v-tooltip activator="parent" location="top">Show distribution</v-tooltip>
                     </v-btn>
                     <div>
@@ -152,27 +153,10 @@
         <v-divider></v-divider>
         <v-card-text>
           <div class="text-caption text-medium-emphasis mb-2">
-            {{ histData.bins.length }} bins over the scanned rows.
+            {{ histData.bins.length }} bins · range {{ fmtNum(histData.min) }} –
+            {{ fmtNum(histData.max) }}
           </div>
-          <svg
-            :viewBox="`0 0 ${histData.bins.length} 100`"
-            preserveAspectRatio="none"
-            style="width: 100%; height: 180px; display: block">
-            <rect
-              v-for="(c, i) in histData.bins"
-              :key="i"
-              :x="i + 0.08"
-              :width="0.84"
-              :y="100 - barH(c, histData.peak)"
-              :height="barH(c, histData.peak)"
-              fill="#42a5f5">
-              <title>{{ c.toLocaleString() }}</title>
-            </rect>
-          </svg>
-          <div class="d-flex justify-space-between text-caption text-medium-emphasis mt-1">
-            <span>{{ fmtNum(histData.min) }}</span>
-            <span>{{ fmtNum(histData.max) }}</span>
-          </div>
+          <div ref="histChartRef" style="width: 100%; min-height: 240px"></div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -180,7 +164,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, reactive, ref } from 'vue';
+import { computed, inject, nextTick, reactive, ref, watch } from 'vue';
+import * as d3 from 'd3';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
@@ -242,13 +227,102 @@ const histColName = ref<string | null>(null);
 const histData = computed(() =>
   histColName.value ? (results[histColName.value]?.data?.histogram ?? null) : null,
 );
+const histChartRef = ref<HTMLDivElement | null>(null);
 function openHistogram(name: string) {
   histColName.value = name;
   histDialogOpen.value = true;
 }
 
-// Bar height (in the 0–100 viewBox) for a histogram bin.
-const barH = (count: number, peak: number) => (peak > 0 ? (count / peak) * 96 : 0);
+// Draw the distribution histogram (axes + bars) once the dialog is on screen.
+function renderHistogram() {
+  const el = histChartRef.value;
+  const h = histData.value;
+  if (!el || !h) return;
+  d3.select(el).selectAll('*').remove();
+
+  const width = el.clientWidth || 620;
+  const height = 240;
+  const margin = { top: 16, right: 18, bottom: 46, left: 56 };
+  const cw = width - margin.left - margin.right;
+  const ch = height - margin.top - margin.bottom;
+  const binWidth = (h.max - h.min) / h.bins.length;
+
+  const x = d3.scaleLinear().domain([h.min, h.max]).range([0, cw]);
+  const y = d3.scaleLinear().domain([0, h.peak]).nice().range([ch, 0]);
+
+  const svg = d3
+    .select(el)
+    .append('svg')
+    .attr('width', width)
+    .attr('height', height)
+    .style('font-family', "'Roboto Mono', monospace")
+    .style('font-size', '10px')
+    .style('color', 'inherit');
+  const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+  const bw = Math.max(1, x(h.min + binWidth) - x(h.min) - 2);
+  g.selectAll('rect')
+    .data(h.bins)
+    .join('rect')
+    .attr('x', (_d, i) => x(h.min + i * binWidth) + 1)
+    .attr('width', bw)
+    .attr('y', (d) => y(d))
+    .attr('height', (d) => ch - y(d))
+    .attr('rx', 1)
+    .attr('fill', '#42a5f5')
+    .append('title')
+    .text(
+      (d, i) =>
+        `${fmtNum(h.min + i * binWidth)} – ${fmtNum(h.min + (i + 1) * binWidth)}: ${d.toLocaleString()} rows`,
+    );
+
+  g.append('g')
+    .attr('transform', `translate(0,${ch})`)
+    .call(
+      d3
+        .axisBottom(x)
+        .ticks(6)
+        .tickFormat(d3.format('~s') as any),
+    )
+    .selectAll('text')
+    .attr('fill', 'currentColor');
+  g.append('g')
+    .call(
+      d3
+        .axisLeft(y)
+        .ticks(4)
+        .tickFormat(d3.format('~s') as any),
+    )
+    .selectAll('text')
+    .attr('fill', 'currentColor');
+  g.selectAll('.domain, .tick line').attr('stroke', 'currentColor').attr('stroke-opacity', 0.2);
+
+  svg
+    .append('text')
+    .attr('x', margin.left + cw / 2)
+    .attr('y', height - 6)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'currentColor')
+    .attr('opacity', 0.7)
+    .text('value');
+  svg
+    .append('text')
+    .attr('transform', 'rotate(-90)')
+    .attr('x', -(margin.top + ch / 2))
+    .attr('y', 14)
+    .attr('text-anchor', 'middle')
+    .attr('fill', 'currentColor')
+    .attr('opacity', 0.7)
+    .text('rows');
+}
+
+watch([histDialogOpen, histColName], async ([open]) => {
+  if (open && histData.value) {
+    await nextTick();
+    await nextTick();
+    renderHistogram();
+  }
+});
 
 const canQuery = computed(
   () => !!props.warehouseId && !!props.namespaceId && !!props.tableName && !!props.catalogUrl,
