@@ -13,6 +13,15 @@
       <template v-if="!locked">
         <WarehouseAddDialog
           :intent="Intent.UPDATE"
+          :object-type="ObjectType.CATALOG_SETTINGS"
+          :process-status="processStatus"
+          :warehouse="warehouse"
+          @cancel="menuOpen = false"
+          @rename-warehouse="emitRename"
+          @update-catalog-settings="updateCatalogSettings" />
+
+        <WarehouseAddDialog
+          :intent="Intent.UPDATE"
           :object-type="ObjectType.STORAGE_CREDENTIAL"
           :process-status="processStatus"
           :warehouse="warehouse"
@@ -28,15 +37,6 @@
           @close="$emit('close')"
           @update-profile="updateStorageProfile"
           @cancel="menuOpen = false" />
-
-        <WarehouseAddDialog
-          :intent="Intent.UPDATE"
-          :object-type="ObjectType.CATALOG_SETTINGS"
-          :process-status="processStatus"
-          :warehouse="warehouse"
-          @cancel="menuOpen = false"
-          @rename-warehouse="emitRename"
-          @update-catalog-settings="updateCatalogSettings" />
 
         <v-divider></v-divider>
       </template>
