@@ -196,8 +196,10 @@ async function resolveTablePath(): Promise<string> {
 }
 
 async function profile(col: { name: string; type: string }, tablePath: string) {
-  const state: ColumnState = results[col.name] ?? { loading: false, error: null, data: null };
-  results[col.name] = state;
+  // Read back the reactive proxy after assignment — mutating the raw object
+  // would not trigger re-renders (spinner would never clear).
+  if (!results[col.name]) results[col.name] = { loading: false, error: null, data: null };
+  const state = results[col.name];
   state.loading = true;
   state.error = null;
   try {
