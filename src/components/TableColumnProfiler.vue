@@ -335,8 +335,11 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
       const maxN = Number(String(get('max_v') ?? '').replace(/"/g, ''));
       if (Number.isFinite(minN) && Number.isFinite(maxN) && maxN > minN) {
         const NB = 24;
+        const binWidth = (maxN - minN) / NB;
+        // width_bucket isn't in this DuckDB build — bin with floor() + clamp.
         const hRes = await loqe.query(
-          `SELECT width_bucket(c, ${minN}, ${maxN}, ${NB}) AS b, count(*) AS cnt
+          `SELECT least(${NB - 1}, greatest(0, floor((c - ${minN}) / ${binWidth}))) AS b,
+                  count(*) AS cnt
            FROM ${source} WHERE c IS NOT NULL GROUP BY b ORDER BY b`,
         );
         const bIdx = hRes.columns.indexOf('b');
@@ -345,9 +348,9 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
         for (const r of hRes.rows as any[][]) {
           let b = Number(String(r[bIdx] ?? 0).replace(/"/g, ''));
           const cnt = Number(String(r[cIdx] ?? 0).replace(/"/g, ''));
-          if (b < 1) b = 1;
-          if (b > NB) b = NB; // fold the max-edge bucket (NB+1) into the last bin
-          bins[b - 1] += cnt;
+          if (!Number.isFinite(b) || b < 0) b = 0;
+          if (b > NB - 1) b = NB - 1;
+          bins[b] += cnt;
         }
         histogram = { bins, min: minN, max: maxN, peak: Math.max(...bins, 1) };
       }
