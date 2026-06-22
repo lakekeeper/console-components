@@ -460,55 +460,28 @@ export class LoQEEngine {
     if (!this._isInitialized) throw new Error('[LoQE] Not initialised');
 
     const pooled = await this.pool.acquire();
-    // Run a statement with verbose logging so we can see exactly which SET/INSTALL
-    // /LOAD step fails and capture DuckDB's full error (the `.message` is often
-    // empty, e.g. "Invalid Configuration Error:" — the detail lives elsewhere).
-    const run = async (sql: string) => {
-      console.debug(`[LoQE] installExtension(${name}) exec:`, sql);
-      try {
-        return await pooled.connection.query(sql);
-      } catch (e) {
-        console.error(`[LoQE] installExtension(${name}) FAILED on: ${sql}\n`, describeError(e));
-        throw e;
-      }
-    };
-    // Best-effort variant: some config knobs (e.g. `builtin_httpfs`) were removed
-    // or renamed across DuckDB versions. A rejected SET there must NOT abort the
-    // whole install/attach (which would break EVERY subsequent query with an
-    // opaque "Invalid Configuration Error"). Log and continue instead.
-    const runOptional = async (sql: string) => {
-      console.debug(`[LoQE] installExtension(${name}) exec (optional):`, sql);
-      try {
-        return await pooled.connection.query(sql);
-      } catch (e) {
-        console.warn(
-          `[LoQE] installExtension(${name}) skipped optional: ${sql}\n`,
-          describeError(e),
-        );
-        return null;
-      }
-    };
     try {
-      // Resolve the extension repository: an explicit user override wins; otherwise
-      // use the self-hosted bundled repo so installs work offline / airgapped
-      // (never silently falls back to extensions.duckdb.org).
-      const settingsStore = useDuckDBSettingsStore();
-      const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
-      if (repo) {
-        await runOptional(`SET custom_extension_repository = '${repo}'`);
-      } else {
-        await runOptional(`RESET custom_extension_repository`);
+      // iceberg/httpfs/avro/parquet/json are statically built into the duckdb-wasm
+      // binary (which we self-host at /duckdb/*.wasm), so just LOAD them — no
+      // INSTALL, no `custom_extension_repository`, no network. This is fully
+      // airgapped and avoids extension/core ABI mismatches ("Unknown ABI type").
+      // Only if LOAD fails (the extension isn't builtin in this build) do we fall
+      // back to INSTALL from the configured repo.
+      try {
+        await pooled.connection.query(`LOAD ${name}`);
+      } catch (loadErr) {
+        console.warn(
+          `[LoQE] LOAD ${name} not builtin; falling back to INSTALL from repo\n`,
+          describeError(loadErr),
+        );
+        const settingsStore = useDuckDBSettingsStore();
+        const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
+        if (repo) {
+          await pooled.connection.query(`SET custom_extension_repository = '${repo}'`);
+        }
+        await pooled.connection.query(`INSTALL ${name}`);
+        await pooled.connection.query(`LOAD ${name}`);
       }
-
-      // httpfs must not use the built-in implementation so the custom repo is used.
-      // `builtin_httpfs` no longer exists in newer DuckDB — best-effort so it can't
-      // break the attach on 1.5.x.
-      if (name === 'httpfs') {
-        await runOptional('SET builtin_httpfs = false');
-      }
-
-      await run(`INSTALL ${name}`);
-      await run(`LOAD ${name}`);
       this.installedExtensions.add(name);
     } finally {
       this.pool.release(pooled);
