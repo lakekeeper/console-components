@@ -11,8 +11,6 @@
       </v-list-item>
 
       <template v-if="!locked">
-        <WarehouseRenameDialog :warehouse-name="warehouse.name" @rename-warehouse="emitRename" />
-
         <WarehouseAddDialog
           :intent="Intent.UPDATE"
           :object-type="ObjectType.STORAGE_CREDENTIAL"
@@ -37,6 +35,7 @@
           :process-status="processStatus"
           :warehouse="warehouse"
           @cancel="menuOpen = false"
+          @rename-warehouse="emitRename"
           @update-catalog-settings="updateCatalogSettings" />
 
         <v-divider></v-divider>

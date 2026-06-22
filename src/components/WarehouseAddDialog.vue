@@ -30,7 +30,7 @@
         v-bind="activatorProps"
         v-else-if="props.objectType === ObjectType.CATALOG_SETTINGS">
         <v-list-item-title>
-          <span class="text-subtitle-2">General Settings</span>
+          <span class="text-subtitle-2">Warehouse Settings</span>
         </v-list-item-title>
       </v-list-item>
     </template>
@@ -126,6 +126,15 @@
               :style="
                 isWarehouseNameInvalid ? 'color: rgb(var(--v-theme-error));' : ''
               "></v-text-field>
+            <!-- Rename (warehouse settings): editing the name here renames the warehouse -->
+            <v-text-field
+              v-if="props.objectType === ObjectType.CATALOG_SETTINGS"
+              v-model="warehouseName"
+              label="Warehouse Name"
+              placeholder="my-warehouse"
+              prepend-inner-icon="mdi-rename-outline"
+              :rules="[rules.required, rules.noSlash]"
+              class="mb-4"></v-text-field>
             <!-- General settings + access/protection, grouped into cards -->
             <div
               v-if="
@@ -270,7 +279,7 @@
                   prepend-icon="mdi-content-save-outline"
                   :disabled="!catalogSettingsDirty"
                   @click="emitCatalogSettings">
-                  Update general settings
+                  Update warehouse settings
                 </v-btn>
               </div>
             </div>
@@ -462,6 +471,8 @@ const csManagedBy = ref<ManagedBy>('self-managed');
 const csProtected = ref(false);
 const loadedManagedBy = ref<ManagedBy>('self-managed');
 const loadedProtected = ref(false);
+// Baseline warehouse name (catalog-settings only) to detect a rename.
+const loadedName = ref('');
 
 const delProfileSoftActive = ref(false);
 const isDialogActive = ref(false);
@@ -497,6 +508,7 @@ const emit = defineEmits<{
   (e: 'addedWarehouse'): void;
   (e: 'cancel'): void;
   (e: 'close'): void;
+  (e: 'renameWarehouse', name: string): void;
   (e: 'updateCredentials', credentials: StorageCredential): void;
   (
     e: 'updateProfile',
@@ -802,8 +814,8 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
   }
 }
 
-// Tracks whether any catalog-settings field differs from the loaded warehouse state.
-const catalogSettingsDirty = computed(() => {
+// True when any non-name catalog setting differs from the loaded warehouse state.
+const settingsChanged = computed(() => {
   const deletionChanged =
     slider.value !== loadedDeltionSeconds.value ||
     delProfileSoftActive.value !== loadedDelProfileSoftActive.value;
@@ -826,7 +838,22 @@ const catalogSettingsDirty = computed(() => {
   return deletionChanged || allowedChanged || defaultChanged || accessChanged;
 });
 
+const nameChanged = computed(() => warehouseName.value.trim() !== loadedName.value);
+
+// Tracks whether any catalog-settings field (or the name) differs from loaded.
+const catalogSettingsDirty = computed(() => settingsChanged.value || nameChanged.value);
+
 function emitCatalogSettings() {
+  // Rename first, if the name changed and is valid.
+  const newName = warehouseName.value.trim();
+  if (nameChanged.value && newName.length > 0 && !newName.includes('/')) {
+    emit('renameWarehouse', newName);
+  }
+
+  // Only emit a settings update when a non-name field actually changed, so a
+  // pure rename doesn't trigger a redundant delete-profile / format PATCH.
+  if (!settingsChanged.value) return;
+
   const delProfile: TabularDeleteProfile = delProfileSoftActive.value
     ? { type: 'soft', 'expiration-seconds': Math.round(slider.value * 86400) }
     : { type: 'hard' };
@@ -976,6 +1003,10 @@ onMounted(() => {
       csProtected.value = props.warehouse.protected === true;
       loadedManagedBy.value = csManagedBy.value;
       loadedProtected.value = csProtected.value;
+
+      // Seed the warehouse name so it can be renamed from this dialog.
+      warehouseName.value = props.warehouse.name ?? '';
+      loadedName.value = warehouseName.value;
     }
   }
 });

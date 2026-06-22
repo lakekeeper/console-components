@@ -19,7 +19,8 @@
           {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
         </v-icon>
       </v-btn>
-      <v-icon>mdi-database</v-icon>
+      <component :is="storageIcon" class="mr-1" v-if="storageIcon" />
+      <v-icon v-else>mdi-database</v-icon>
     </template>
     <v-spacer></v-spacer>
 
@@ -39,6 +40,7 @@ import { ref, reactive, watch, onMounted, computed, inject } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { useLoQE } from '@/composables/useLoQE';
+import { storageProviderIcon } from '@/common/storageIcon';
 import type {
   GetWarehouseResponse,
   ManagedBy,
@@ -82,6 +84,9 @@ const warehouse = reactive<GetWarehouseResponse>({
   protected: false,
   'allowed-format-versions': [1, 2, 3],
 });
+
+// Provider icon (AWS / Azure / GCS / OneLake / …) shown next to the name.
+const storageIcon = computed(() => storageProviderIcon(warehouse));
 
 const isNavigationCollapsed = computed({
   get: () => visual.isNavigationCollapsed,
@@ -224,7 +229,7 @@ async function updateCatalogSettings(payload: {
   if (failures.length === 0) {
     visual.setSnackbarMsg({
       function: 'updateCatalogSettings',
-      text: 'General settings updated successfully',
+      text: 'Warehouse settings updated successfully',
       ttl: 3000,
       ts: Date.now(),
       type: Type.SUCCESS,
