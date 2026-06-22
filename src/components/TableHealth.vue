@@ -391,6 +391,75 @@
       </div>
     </div>
   </v-card>
+
+  <!-- Storage composition (file-format mix + status + delete split) -->
+  <v-card v-if="storageComposition" variant="outlined" class="mb-4" elevation="1">
+    <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+      <v-icon class="mr-2" color="primary">mdi-file-multiple-outline</v-icon>
+      Storage Composition
+    </v-card-title>
+    <v-divider></v-divider>
+    <div class="pa-4">
+      <div class="d-flex flex-wrap" style="gap: 24px">
+        <div>
+          <div class="text-overline text-medium-emphasis">Files</div>
+          <div class="d-flex align-center" style="gap: 8px">
+            <v-chip size="small" color="primary" variant="tonal">
+              {{ storageComposition.dataFiles.toLocaleString() }} data
+            </v-chip>
+            <v-chip
+              size="small"
+              :color="storageComposition.deleteFiles > 0 ? 'warning' : 'default'"
+              variant="tonal">
+              {{ storageComposition.deleteFiles.toLocaleString() }} delete
+            </v-chip>
+            <span
+              v-if="storageComposition.deleteFiles > 0"
+              class="text-caption text-medium-emphasis">
+              ({{ storageComposition.posDeletes.toLocaleString() }} positional ·
+              {{ storageComposition.eqDeletes.toLocaleString() }} equality)
+            </span>
+          </div>
+        </div>
+        <div v-if="storageComposition.formats.length > 0">
+          <div class="text-overline text-medium-emphasis">Data file formats</div>
+          <div class="d-flex align-center flex-wrap" style="gap: 8px">
+            <v-chip
+              v-for="f in storageComposition.formats"
+              :key="f.format"
+              size="small"
+              variant="tonal">
+              {{ f.format }}: {{ f.fileCount.toLocaleString() }}
+            </v-chip>
+          </div>
+        </div>
+        <div v-if="storageComposition.statuses.length > 0">
+          <div class="text-overline text-medium-emphasis">Manifest entry status</div>
+          <div class="d-flex align-center flex-wrap" style="gap: 8px">
+            <v-chip
+              v-for="s in storageComposition.statuses"
+              :key="s.status"
+              size="small"
+              variant="tonal">
+              {{ s.status.toLowerCase() }}: {{ s.fileCount.toLocaleString() }}
+            </v-chip>
+          </div>
+        </div>
+      </div>
+    </div>
+  </v-card>
+
+  <!-- Configuration & statistics (properties, Puffin column stats, partition stats) -->
+  <TableConfiguration v-if="resolvedTable?.metadata" :metadata="resolvedTable.metadata" />
+
+  <!-- On-demand per-column profiling (scans data) -->
+  <TableColumnProfiler
+    v-if="resolvedTable?.metadata && canQueryMetadata"
+    :metadata="resolvedTable.metadata"
+    :warehouse-id="props.warehouseId"
+    :namespace-id="props.namespaceId"
+    :table-name="props.tableName"
+    :catalog-url="props.catalogUrl" />
 </template>
 
 <script setup lang="ts">
@@ -401,6 +470,8 @@ import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import CorsConfigDialog from './CorsConfigDialog.vue';
 import TableHealthActions from './TableHealthActions.vue';
+import TableConfiguration from './TableConfiguration.vue';
+import TableColumnProfiler from './TableColumnProfiler.vue';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
 // Props
@@ -522,6 +593,19 @@ const formatBytes = (bytes: number): string => {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
+// Compact human duration for an elapsed milliseconds value (e.g. "3 days", "2 months").
+const formatDuration = (ms: number): string => {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(sec / 86400);
+  if (days >= 365) return `${Math.floor(days / 365)} year${days >= 730 ? 's' : ''}`;
+  if (days >= 30) return `${Math.floor(days / 30)} month${days >= 60 ? 's' : ''}`;
+  if (days >= 1) return `${days} day${days !== 1 ? 's' : ''}`;
+  const hours = Math.floor(sec / 3600);
+  if (hours >= 1) return `${hours} hour${hours !== 1 ? 's' : ''}`;
+  const mins = Math.floor(sec / 60);
+  return `${mins} minute${mins !== 1 ? 's' : ''}`;
 };
 
 // Walk the selected branch by following parent-snapshot-id from branch tip
@@ -1031,6 +1115,97 @@ const healthChecks = computed<HealthCheck[]>(() => {
     ],
   });
 
+  // Freshness — time since the last write (metadata last-updated-ms)
+  const lastUpdatedMs = resolvedTable.value!.metadata['last-updated-ms'];
+  if (lastUpdatedMs) {
+    const ageMs = Date.now() - lastUpdatedMs;
+    const days = Math.floor(ageMs / 86400000);
+    const stale = days > 90;
+    checks.push({
+      label: 'Freshness',
+      detail: `Last written ${formatDuration(ageMs)} ago${
+        stale ? ' — consider whether this table is still maintained.' : '.'
+      }`,
+      severity: stale ? 'Info' : 'Good',
+      color: stale ? 'info' : 'success',
+      icon: 'mdi-clock-outline',
+      reasoning: [
+        { label: 'last-updated-ms', value: new Date(lastUpdatedMs).toISOString() },
+        { label: 'Age', value: `${days} days` },
+        { label: 'Threshold', value: '> 90 days since last write → Info' },
+        { label: 'Result', value: `${days} days → ${stale ? 'Info' : 'Good'}` },
+      ],
+    });
+  }
+
+  // Table age (informational) — first recorded snapshot
+  const allSnaps = resolvedTable.value!.metadata.snapshots ?? [];
+  const firstTs = allSnaps[0]?.['timestamp-ms'];
+  if (firstTs) {
+    checks.push({
+      label: 'Table age',
+      detail: `First snapshot ${formatDuration(Date.now() - firstTs)} ago. ${
+        allSnaps.length
+      } snapshot${allSnaps.length !== 1 ? 's' : ''} recorded.`,
+      severity: 'Good',
+      color: 'success',
+      icon: 'mdi-calendar-clock',
+      reasoning: [
+        { label: 'First snapshot', value: new Date(firstTs).toISOString() },
+        { label: 'Snapshots', value: `${allSnaps.length}` },
+        { label: 'Result', value: 'Informational metric — no threshold applied' },
+      ],
+    });
+  }
+
+  // Metadata-log growth — many previous metadata files slow loads
+  const metadataLog = resolvedTable.value!.metadata['metadata-log'] ?? [];
+  if (metadataLog.length > 0) {
+    const heavy = metadataLog.length > 100;
+    checks.push({
+      label: 'Metadata log size',
+      detail: `${metadataLog.length} previous metadata file${
+        metadataLog.length !== 1 ? 's' : ''
+      } tracked.${
+        heavy
+          ? ' Large logs slow metadata loads — lower write.metadata.previous-versions-max or run metadata cleanup.'
+          : ''
+      }`,
+      severity: heavy ? 'Info' : 'Good',
+      color: heavy ? 'info' : 'success',
+      icon: 'mdi-history',
+      reasoning: [
+        { label: 'metadata-log entries', value: `${metadataLog.length}` },
+        { label: 'Threshold', value: '> 100 entries → Info' },
+        { label: 'Result', value: `${metadataLog.length} → ${heavy ? 'Info' : 'Good'}` },
+      ],
+    });
+  }
+
+  // Column statistics presence (Puffin) — feeds the compute-statistics action
+  const statsFiles = resolvedTable.value!.metadata.statistics ?? [];
+  const statCols = statsFiles.reduce((n: number, f) => n + (f['blob-metadata']?.length ?? 0), 0);
+  checks.push({
+    label: 'Column statistics',
+    detail:
+      statCols > 0
+        ? `${statCols} column statistic${
+            statCols !== 1 ? 's' : ''
+          } stored — the planner can estimate cardinality and prune.`
+        : 'No column statistics stored. The query planner cannot estimate cardinality or prune effectively. Generate them with a compute-statistics maintenance run.',
+    severity: statCols > 0 ? 'Good' : 'Info',
+    color: statCols > 0 ? 'success' : 'info',
+    icon: 'mdi-sigma',
+    reasoning: [
+      { label: 'Statistics files', value: `${statsFiles.length}` },
+      { label: 'Columns with stats', value: `${statCols}` },
+      {
+        label: 'Result',
+        value: statCols > 0 ? 'Statistics present → Good' : 'No statistics → Info',
+      },
+    ],
+  });
+
   return checks;
 });
 
@@ -1397,6 +1572,22 @@ const partitionLoading = ref(false);
 const partitionError = ref<string | null>(null);
 const partitionMetric = ref<'files' | 'records'>('records');
 
+// Storage composition (file-format mix + status + delete split), from iceberg_metadata.
+interface StorageComposition {
+  formats: { format: string; fileCount: number }[];
+  statuses: { status: string; fileCount: number }[];
+  dataFiles: number;
+  deleteFiles: number;
+  posDeletes: number;
+  eqDeletes: number;
+}
+const storageComposition = ref<StorageComposition | null>(null);
+
+// We can query table metadata via DuckDB whenever the catalog props are present.
+const canQueryMetadata = computed(
+  () => !!props.warehouseId && !!props.namespaceId && !!props.tableName && !!props.catalogUrl,
+);
+
 // Whether the table itself is partitioned (from metadata — no DuckDB dependency)
 const isTablePartitioned = computed(() => {
   if (!resolvedTable.value?.metadata) return false;
@@ -1489,6 +1680,55 @@ async function loadPartitionData() {
       fileCount: parseBigInt(row[filesColIdx]),
       totalRecords: parseBigInt(row[recsColIdx]),
     }));
+
+    // Storage composition — best-effort; a missing column must not break the chart.
+    try {
+      const compSql = `
+        SELECT manifest_content, file_format, status, content, COUNT(*) AS file_count
+        FROM iceberg_metadata(${tablePath})
+        GROUP BY manifest_content, file_format, status, content
+      `;
+      const comp = await loqe.query(compSql);
+      const ci = (name: string) => comp.columns.indexOf(name);
+      const mcIdx = ci('manifest_content');
+      const fmtIdx = ci('file_format');
+      const stIdx = ci('status');
+      const ctIdx = ci('content');
+      const fcIdx = ci('file_count');
+      const formats = new Map<string, number>();
+      const statuses = new Map<string, number>();
+      let dataFiles = 0;
+      let deleteFiles = 0;
+      let posDeletes = 0;
+      let eqDeletes = 0;
+      for (const row of comp.rows as any[][]) {
+        const fc = parseBigInt(row[fcIdx]);
+        const manifestContent = String(row[mcIdx] ?? '');
+        const fmt = String(row[fmtIdx] ?? 'unknown').toLowerCase();
+        const status = String(row[stIdx] ?? 'unknown');
+        const content = String(row[ctIdx] ?? '');
+        if (manifestContent === 'DATA') {
+          dataFiles += fc;
+          formats.set(fmt, (formats.get(fmt) ?? 0) + fc);
+        } else {
+          deleteFiles += fc;
+          if (content === 'POSITION_DELETES') posDeletes += fc;
+          else if (content === 'EQUALITY_DELETES') eqDeletes += fc;
+        }
+        statuses.set(status, (statuses.get(status) ?? 0) + fc);
+      }
+      storageComposition.value = {
+        formats: [...formats].map(([format, fileCount]) => ({ format, fileCount })),
+        statuses: [...statuses].map(([status, fileCount]) => ({ status, fileCount })),
+        dataFiles,
+        deleteFiles,
+        posDeletes,
+        eqDeletes,
+      };
+    } catch (compErr) {
+      console.debug('[TableHealth] storage composition unavailable:', compErr);
+      storageComposition.value = null;
+    }
   } catch (err: any) {
     console.error('Failed to load partition data:', err);
     const msg = err.message || String(err);
@@ -1689,11 +1929,13 @@ watch(
   { flush: 'post' },
 );
 
-// Auto-load partition data when chart becomes available
+// Auto-load partition + storage-composition data once the catalog is queryable.
+// (Runs for unpartitioned tables too — the partition chart stays gated on
+// partitionChartAvailable, but storage composition applies to every table.)
 watch(
-  partitionChartAvailable,
+  canQueryMetadata,
   (available) => {
-    if (available && partitionData.value.length === 0) {
+    if (available && partitionData.value.length === 0 && !storageComposition.value) {
       loadPartitionData();
     }
   },
