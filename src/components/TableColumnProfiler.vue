@@ -59,8 +59,8 @@
                   <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
                 </v-btn>
                 <div>
-                  <div class="font-mono text-body-2">{{ col.name }}</div>
-                  <div class="text-caption text-medium-emphasis">{{ col.type }}</div>
+                  <div class="font-mono text-body-1 font-weight-medium">{{ col.name }}</div>
+                  <v-chip size="x-small" variant="tonal" class="mt-1">{{ col.type }}</v-chip>
                 </div>
               </div>
             </td>
@@ -74,25 +74,29 @@
               <div v-else-if="results[col.name]?.error" class="text-caption text-error py-1">
                 {{ results[col.name]?.error }}
               </div>
-              <div v-else-if="results[col.name]?.data" class="py-1">
-                <div class="d-flex flex-wrap" style="gap: 4px 16px">
-                  <span
+              <div v-else-if="results[col.name]?.data" class="py-2">
+                <div class="d-flex flex-wrap" style="gap: 8px">
+                  <div
                     v-for="m in results[col.name]!.data!.metrics"
                     :key="m.label"
-                    class="text-caption">
-                    <span class="text-medium-emphasis">{{ m.label }}:</span>
-                    {{ m.value }}
-                  </span>
+                    class="stat-pill">
+                    <span class="stat-label">{{ m.label }}</span>
+                    <span class="stat-value">{{ m.value }}</span>
+                  </div>
                 </div>
                 <div
                   v-if="results[col.name]!.data!.topValues.length > 0"
-                  class="text-caption text-medium-emphasis mt-1">
-                  top:
-                  {{
-                    results[col.name]!.data!.topValues.map(
-                      (t) => `${t.value} (${t.count.toLocaleString()})`,
-                    ).join(', ')
-                  }}
+                  class="d-flex flex-wrap align-center mt-2"
+                  style="gap: 6px">
+                  <span class="text-caption text-medium-emphasis mr-1">Top values</span>
+                  <v-chip
+                    v-for="(t, i) in results[col.name]!.data!.topValues"
+                    :key="i"
+                    size="small"
+                    variant="tonal">
+                    {{ t.value }}
+                    <span class="text-medium-emphasis ml-1">· {{ t.count.toLocaleString() }}</span>
+                  </v-chip>
                 </div>
               </div>
               <div v-else class="text-caption text-disabled py-1">Not analyzed</div>
@@ -306,5 +310,29 @@ async function analyzeAll() {
 }
 .profiler-table :deep(td) {
   vertical-align: top;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.stat-pill {
+  display: inline-flex;
+  flex-direction: column;
+  min-width: 76px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.06);
+}
+.stat-label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  line-height: 1.4;
+}
+.stat-value {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
 }
 </style>
