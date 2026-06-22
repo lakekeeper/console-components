@@ -13,93 +13,78 @@
         variant="outlined"
         hide-details
         style="min-width: 170px; max-width: 200px"></v-select>
+      <v-btn
+        color="primary"
+        variant="flat"
+        size="small"
+        prepend-icon="mdi-play"
+        :loading="analyzingAll"
+        :disabled="!canQuery"
+        @click="analyzeAll">
+        Analyze all
+      </v-btn>
     </v-card-title>
     <v-divider></v-divider>
 
     <div class="pa-3">
-      <div class="text-caption text-medium-emphasis mb-2">
-        Profiling scans table data. Pick how many rows to read, expand a field, and run Analyze.
-        Sampled results are approximate.
-      </div>
-
       <v-alert v-if="!canQuery" type="info" variant="tonal" density="compact" class="mb-2">
         Profiling requires the catalog connection (warehouse, namespace, table, and catalog URL).
       </v-alert>
+      <div v-else class="text-caption text-medium-emphasis mb-2">
+        Scans table data ({{
+          rowLimit > 0 ? `${rowLimit.toLocaleString()} sampled rows` : 'full table'
+        }}). Sampled results are approximate.
+      </div>
 
-      <v-expansion-panels variant="accordion" multiple>
-        <v-expansion-panel v-for="col in primitiveColumns" :key="col.name">
-          <v-expansion-panel-title>
-            <span class="font-mono text-body-2">{{ col.name }}</span>
-            <v-chip size="x-small" variant="tonal" class="ml-2">{{ col.type }}</v-chip>
-            <v-chip
-              v-if="results[col.name]?.data"
-              size="x-small"
-              color="success"
-              variant="tonal"
-              class="ml-2">
-              analyzed
-            </v-chip>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <div class="d-flex align-center mb-3" style="gap: 12px">
-              <v-btn
-                color="primary"
-                variant="flat"
-                size="small"
-                prepend-icon="mdi-play"
-                :loading="results[col.name]?.loading"
-                :disabled="!canQuery"
-                @click="profile(col)">
-                {{ results[col.name]?.data ? 'Re-analyze' : 'Analyze' }}
-              </v-btn>
-              <span class="text-caption text-medium-emphasis">
-                {{ rowLimit > 0 ? `Sampling ${rowLimit.toLocaleString()} rows` : 'Full scan' }}
-              </span>
-            </div>
-
-            <v-alert v-if="results[col.name]?.error" type="error" variant="tonal" density="compact">
-              {{ results[col.name]?.error }}
-            </v-alert>
-
-            <div v-if="results[col.name]?.data">
-              <v-chip
-                v-if="results[col.name]!.data!.sampled"
-                size="x-small"
-                variant="tonal"
-                class="mb-2">
-                approx · sampled
-              </v-chip>
-              <div class="d-flex flex-wrap" style="gap: 8px">
+      <v-table density="compact" class="profiler-table">
+        <thead>
+          <tr>
+            <th style="width: 28%">Field</th>
+            <th>Statistics</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="col in primitiveColumns" :key="col.name">
+            <td>
+              <div class="font-mono text-body-2">{{ col.name }}</div>
+              <div class="text-caption text-medium-emphasis">{{ col.type }}</div>
+            </td>
+            <td>
+              <div
+                v-if="results[col.name]?.loading"
+                class="d-flex align-center text-caption text-medium-emphasis py-1">
+                <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
+                analyzing…
+              </div>
+              <div v-else-if="results[col.name]?.error" class="text-caption text-error py-1">
+                {{ results[col.name]?.error }}
+              </div>
+              <div v-else-if="results[col.name]?.data" class="py-1">
+                <div class="d-flex flex-wrap" style="gap: 4px 16px">
+                  <span
+                    v-for="m in results[col.name]!.data!.metrics"
+                    :key="m.label"
+                    class="text-caption">
+                    <span class="text-medium-emphasis">{{ m.label }}:</span>
+                    {{ m.value }}
+                  </span>
+                </div>
                 <div
-                  v-for="m in results[col.name]!.data!.metrics"
-                  :key="m.label"
-                  class="profiler-metric">
-                  <div class="text-caption text-medium-emphasis">{{ m.label }}</div>
-                  <div class="text-body-2 font-weight-medium">{{ m.value }}</div>
+                  v-if="results[col.name]!.data!.topValues.length > 0"
+                  class="text-caption text-medium-emphasis mt-1">
+                  top:
+                  {{
+                    results[col.name]!.data!.topValues.map(
+                      (t) => `${t.value} (${t.count.toLocaleString()})`,
+                    ).join(', ')
+                  }}
                 </div>
               </div>
-
-              <template v-if="results[col.name]!.data!.topValues.length > 0">
-                <div class="text-overline text-medium-emphasis mt-4">Top values</div>
-                <v-table density="compact" class="mt-1">
-                  <thead>
-                    <tr>
-                      <th>Value</th>
-                      <th class="text-right">Count</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="(tv, i) in results[col.name]!.data!.topValues" :key="i">
-                      <td class="text-caption">{{ tv.value }}</td>
-                      <td class="text-right text-caption">{{ tv.count.toLocaleString() }}</td>
-                    </tr>
-                  </tbody>
-                </v-table>
-              </template>
-            </div>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
+              <div v-else class="text-caption text-disabled py-1">Not analyzed</div>
+            </td>
+          </tr>
+        </tbody>
+      </v-table>
     </div>
   </v-card>
 </template>
@@ -144,6 +129,7 @@ interface ColumnState {
   data: ProfileData | null;
 }
 const results = reactive<Record<string, ColumnState>>({});
+const analyzingAll = ref(false);
 
 const canQuery = computed(
   () => !!props.warehouseId && !!props.namespaceId && !!props.tableName && !!props.catalogUrl,
@@ -174,26 +160,28 @@ function fmtNum(v: any): string {
   return Number.isInteger(n) ? n.toLocaleString() : n.toFixed(2);
 }
 
-async function profile(col: { name: string; type: string }) {
-  if (!canQuery.value) return;
+// Resolve + attach the catalog once, returning the qualified table path.
+async function resolveTablePath(): Promise<string> {
+  await loqe.initialize();
+  const wh = await functions.getWarehouse(props.warehouseId!);
+  const warehouseName = wh.name;
+  if (!loqe.attachedCatalogs.value.some((c) => c.catalogName === warehouseName)) {
+    await loqe.attachCatalog({
+      catalogName: warehouseName,
+      restUri: props.catalogUrl!,
+      accessToken: userStore.user.access_token,
+      projectId: wh['project-id'],
+    });
+  }
+  return `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
+}
+
+async function profile(col: { name: string; type: string }, tablePath: string) {
   const state: ColumnState = results[col.name] ?? { loading: false, error: null, data: null };
   results[col.name] = state;
   state.loading = true;
   state.error = null;
   try {
-    await loqe.initialize();
-    const wh = await functions.getWarehouse(props.warehouseId!);
-    const warehouseName = wh.name;
-    if (!loqe.attachedCatalogs.value.some((c) => c.catalogName === warehouseName)) {
-      await loqe.attachCatalog({
-        catalogName: warehouseName,
-        restUri: props.catalogUrl!,
-        accessToken: userStore.user.access_token,
-        projectId: wh['project-id'],
-      });
-    }
-
-    const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
     const sampled = rowLimit.value > 0;
     const sampleClause = sampled ? ` USING SAMPLE ${rowLimit.value} ROWS` : '';
     const source = `(SELECT "${col.name}" AS c FROM ${tablePath}${sampleClause})`;
@@ -226,9 +214,9 @@ async function profile(col: { name: string; type: string }) {
     const nullPct = total > 0 ? (((total - nonNull) / total) * 100).toFixed(1) : '0.0';
 
     const metrics: { label: string; value: string }[] = [
-      { label: 'Rows scanned', value: fmtNum(total) },
+      { label: 'Rows', value: fmtNum(total) },
       { label: 'Null %', value: `${nullPct}%` },
-      { label: 'Distinct (approx)', value: fmtNum(get('ndv')) },
+      { label: 'Distinct', value: fmtNum(get('ndv')) },
       { label: 'Min', value: fmtNum(get('min_v')) },
       { label: 'Max', value: fmtNum(get('max_v')) },
     ];
@@ -266,16 +254,32 @@ async function profile(col: { name: string; type: string }) {
     state.loading = false;
   }
 }
+
+async function analyzeAll() {
+  if (!canQuery.value || analyzingAll.value) return;
+  analyzingAll.value = true;
+  try {
+    const tablePath = await resolveTablePath();
+    for (const col of primitiveColumns.value) {
+      await profile(col, tablePath);
+    }
+  } catch (err: any) {
+    // Attach/resolve failure — surface on every column so the user sees it.
+    const msg = err?.message || String(err);
+    for (const col of primitiveColumns.value) {
+      results[col.name] = { loading: false, error: msg, data: null };
+    }
+  } finally {
+    analyzingAll.value = false;
+  }
+}
 </script>
 
 <style scoped>
 .font-mono {
   font-family: 'Roboto Mono', monospace;
 }
-.profiler-metric {
-  min-width: 110px;
-  padding: 8px 12px;
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  border-radius: 6px;
+.profiler-table :deep(td) {
+  vertical-align: top;
 }
 </style>
