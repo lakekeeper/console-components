@@ -468,16 +468,12 @@
                 <tr>
                   <th>File</th>
                   <th class="text-right">Records</th>
-                  <th v-if="filesHaveSize" class="text-right">Size</th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(f, i) in storageComposition.files" :key="i">
                   <td class="text-caption font-mono">{{ f.path }}</td>
                   <td class="text-right text-caption">{{ f.records.toLocaleString() }}</td>
-                  <td v-if="filesHaveSize" class="text-right text-caption">
-                    {{ f.size !== null ? formatBytes(f.size) : '—' }}
-                  </td>
                 </tr>
               </tbody>
             </v-table>
@@ -1618,13 +1614,10 @@ interface StorageComposition {
   deleteFiles: number;
   posDeletes: number;
   eqDeletes: number;
-  files: { path: string; records: number; size: number | null }[];
+  files: { path: string; records: number }[];
   fileLimit: number;
 }
 const storageComposition = ref<StorageComposition | null>(null);
-const filesHaveSize = computed(
-  () => storageComposition.value?.files.some((f) => f.size !== null) ?? false,
-);
 
 // We can query table metadata via DuckDB whenever the catalog props are present.
 const canQueryMetadata = computed(
@@ -1760,34 +1753,24 @@ async function loadPartitionData() {
         }
         statuses.set(status, (statuses.get(status) ?? 0) + fc);
       }
-      // Data-file sample for the current snapshot (largest first). file_size_in_bytes
-      // isn't on every iceberg_metadata build, so fall back to path + records only.
+      // Data-file sample for the current snapshot (largest first).
+      // iceberg_metadata on this build exposes file_path + record_count (no size).
       const FILE_LIMIT = 200;
-      const fileSql = (withSize: boolean) => `
-        SELECT file_path, record_count${withSize ? ', file_size_in_bytes' : ''}
+      const fileRes = await loqe.query(`
+        SELECT file_path, record_count
         FROM iceberg_metadata(${tablePath})
         WHERE manifest_content = 'DATA'
         ORDER BY record_count DESC NULLS LAST
         LIMIT ${FILE_LIMIT}
-      `;
-      let fileRes;
-      let hasSize = true;
-      try {
-        fileRes = await loqe.query(fileSql(true));
-      } catch {
-        hasSize = false;
-        fileRes = await loqe.query(fileSql(false));
-      }
+      `);
       const fpIdx = fileRes.columns.indexOf('file_path');
       const rcIdx = fileRes.columns.indexOf('record_count');
-      const fsIdx = fileRes.columns.indexOf('file_size_in_bytes');
       const files = (fileRes.rows as any[][]).map((r) => ({
         path:
           String(r[fpIdx] ?? '')
             .split('/')
             .pop() || String(r[fpIdx] ?? ''),
         records: parseBigInt(r[rcIdx]),
-        size: hasSize ? parseBigInt(r[fsIdx]) : null,
       }));
 
       storageComposition.value = {

@@ -49,13 +49,13 @@
               <div class="d-flex align-center" style="gap: 6px">
                 <v-btn
                   icon
-                  size="x-small"
-                  variant="text"
+                  size="small"
+                  variant="tonal"
                   color="primary"
                   :loading="results[col.name]?.loading"
                   :disabled="!canQuery || analyzingAll"
                   @click="analyzeOne(col)">
-                  <v-icon size="small">mdi-play</v-icon>
+                  <v-icon>mdi-play</v-icon>
                   <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
                 </v-btn>
                 <div>
