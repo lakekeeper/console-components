@@ -203,8 +203,9 @@
         item-value="id"
         density="compact"
         open-on-click
+        indent-lines="default"
         class="tree-view pa-2"
-        style="background-color: transparent !important">
+        style="background-color: transparent !important; --v-treeview-indent-line-opacity: 0.5">
         <template v-slot:prepend="{ item }">
           <!-- Warehouse: cloud provider icon -->
           <v-icon
@@ -242,14 +243,14 @@
           <v-icon size="small" v-else-if="item.type === 'warehouse'" color="blue-grey">
             mdi-database
           </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'table'">mdi-table</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
           <v-icon
             v-else-if="item.type === 'field' && item.fieldType"
             :icon="getTypeIcon(item.fieldType)"
             :color="getTypeColor(item.fieldType)"
-            size="small" />
+            size="x-small" />
           <v-icon v-else-if="item.type === 'load-more'" size="small" color="grey">
             mdi-dots-horizontal
           </v-icon>
@@ -1303,7 +1304,14 @@ watch(projectId, () => {
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.05);
+  /* Tighter rows so the indent/connector lines read as one continuous tree. */
+  min-height: 22px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+.tree-view :deep(.v-list-item__content) {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 .tree-view :deep(.v-list-item-title) {
