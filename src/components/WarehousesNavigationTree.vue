@@ -179,6 +179,11 @@
             color="info">
             mdi-google-cloud
           </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'onelake'"
+            size="small">
+            <v-img :src="oneLakeIcon" width="18" height="18" />
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon
@@ -298,6 +303,7 @@ import { logError } from '@/common/errorUtils';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
+import oneLakeIcon from '@/assets/onelake.png';
 import icebergIcon from '@/assets/iceberg.svg';
 import deltaIcon from '@/assets/delta.svg';
 import vortexLightIcon from '@/assets/vortex_logo.svg';

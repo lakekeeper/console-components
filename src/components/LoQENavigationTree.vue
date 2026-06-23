@@ -240,6 +240,11 @@
             color="info">
             mdi-google-cloud
           </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'onelake'"
+            size="small">
+            <v-img :src="oneLakeIcon" width="18" height="18" />
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'" color="blue-grey">
             mdi-database
           </v-icon>
@@ -365,6 +370,7 @@ import type { AttachedCatalog } from '../composables/loqe/types';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
+import oneLakeIcon from '@/assets/onelake.png';
 
 // ── Props / Emits ─────────────────────────────────────────────────────
 
