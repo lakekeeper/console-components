@@ -24,8 +24,51 @@
 
       <!-- Premium maintenance actions (schedule / advanced overrides) -->
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
+
+      <template v-if="canDrop">
+        <v-divider class="my-1"></v-divider>
+        <v-list-item
+          base-color="error"
+          prepend-icon="mdi-delete-outline"
+          title="Delete table"
+          @click="openDelete" />
+      </template>
     </v-list>
   </v-menu>
+
+  <!-- Delete confirmation -->
+  <v-dialog v-model="deleteOpen" max-width="480">
+    <v-card>
+      <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+        <v-icon class="mr-2" color="error">mdi-delete-alert-outline</v-icon>
+        Delete table
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text>
+        <p class="mb-3">
+          This permanently deletes the table
+          <strong class="font-mono">{{ tableName }}</strong>
+          from the catalog. This cannot be undone.
+        </p>
+        <v-checkbox
+          v-model="purge"
+          density="compact"
+          hide-details
+          color="error"
+          label="Also purge data files from storage (purge)"></v-checkbox>
+        <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-3">
+          {{ deleteError }}
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn variant="text" :disabled="deleting" @click="deleteOpen = false">Cancel</v-btn>
+        <v-btn color="error" variant="flat" :loading="deleting" @click="confirmDelete">
+          Delete table
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
   <!-- Table settings: rename + recursive delete protection -->
   <v-dialog v-model="settingsOpen" max-width="520">
@@ -128,7 +171,40 @@ const protectedState = ref(false);
 const nameInput = ref(props.tableName);
 const protectedPending = ref(false);
 
-const { canCommit, canSetProtection } = useTablePermissions(tableId, props.warehouseId);
+const { canCommit, canSetProtection, canDrop } = useTablePermissions(tableId, props.warehouseId);
+
+const deleteOpen = ref(false);
+const deleting = ref(false);
+const deleteError = ref<string | null>(null);
+const purge = ref(false);
+
+function openDelete() {
+  menuOpen.value = false;
+  deleteError.value = null;
+  purge.value = false;
+  deleteOpen.value = true;
+}
+
+async function confirmDelete() {
+  deleting.value = true;
+  deleteError.value = null;
+  try {
+    await functions.dropTable(
+      props.warehouseId,
+      props.namespaceId,
+      props.tableName,
+      { purgeRequested: purge.value },
+      true,
+    );
+    deleteOpen.value = false;
+    // Table is gone — leave the table route for its namespace.
+    await router.replace(route.path.replace(/\/table\/[^/]+$/, ''));
+  } catch (e: any) {
+    deleteError.value = e?.error?.message || e?.message || 'Failed to delete table';
+  } finally {
+    deleting.value = false;
+  }
+}
 
 const settingsDirty = computed(
   () =>

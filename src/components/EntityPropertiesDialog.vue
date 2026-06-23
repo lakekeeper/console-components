@@ -84,14 +84,11 @@
               </tr>
             </thead>
             <tbody>
-              <tr
-                v-for="prop in editableProperties"
-                v-show="!hideSystem || !isSystemProp(prop.originalKey || prop.key)"
-                :key="prop.originalKey">
+              <tr v-for="{ prop } in visibleProperties" :key="prop.originalKey || prop.key">
                 <td class="text-body-2">{{ prop.key }}</td>
                 <td class="text-body-2">{{ prop.value }}</td>
               </tr>
-              <tr v-if="editableProperties.length === 0">
+              <tr v-if="visibleProperties.length === 0">
                 <td colspan="2" class="text-center text-medium-emphasis py-4">No properties set</td>
               </tr>
             </tbody>
@@ -101,8 +98,7 @@
           <template v-else>
             <!-- Active properties -->
             <div
-              v-for="(prop, index) in editableProperties"
-              v-show="!hideSystem || !isSystemProp(prop.originalKey || prop.key)"
+              v-for="{ prop, index } in visibleProperties"
               :key="index"
               class="d-flex align-center ga-2 mb-2"
               :class="{ 'opacity-50': prop.markedForRemoval }">
@@ -148,7 +144,7 @@
             </div>
 
             <div
-              v-if="editableProperties.length === 0"
+              v-if="visibleProperties.length === 0"
               class="text-center text-medium-emphasis py-4">
               No properties set. Click "Add Property" to create one.
             </div>
@@ -257,6 +253,12 @@ const isSystemProp = (key: string) => SYSTEM_PROP_PREFIXES.some((p) => key.start
 const hideSystem = ref(true);
 const systemCount = computed(
   () => editableProperties.value.filter((p) => isSystemProp(p.originalKey || p.key)).length,
+);
+// Rows to render, keeping each property's original index (used by remove/undo).
+const visibleProperties = computed(() =>
+  editableProperties.value
+    .map((prop, index) => ({ prop, index }))
+    .filter(({ prop }) => !hideSystem.value || !isSystemProp(prop.originalKey || prop.key)),
 );
 const removalConfirmations = reactive<Record<string, string>>({});
 
