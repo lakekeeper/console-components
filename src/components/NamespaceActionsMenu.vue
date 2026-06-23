@@ -51,23 +51,9 @@
           :prepend-icon="protectedPending ? 'mdi-lock' : 'mdi-lock-open-variant-outline'"
           :label="protectedPending ? 'Deletion protected' : 'Deletion protection off'"
           @update:model-value="protectedPending = $event === true"></v-switch>
-        <div class="text-caption text-medium-emphasis ml-10 mb-2">
+        <div class="text-caption text-medium-emphasis ml-10">
           Prevent this namespace from being deleted.
         </div>
-
-        <template v-if="isInstanceAdmin">
-          <v-switch
-            :model-value="managedPending"
-            color="primary"
-            hide-details
-            density="compact"
-            :prepend-icon="managedPending ? 'mdi-shield-account' : 'mdi-account'"
-            :label="managedPending ? 'Managed by instance admin' : 'Self-managed'"
-            @update:model-value="managedPending = $event === true"></v-switch>
-          <div class="text-caption text-medium-emphasis ml-10">
-            Restrict grant management on this namespace to instance admins.
-          </div>
-        </template>
 
         <v-alert v-if="settingsError" type="error" variant="tonal" density="compact" class="mt-3">
           {{ settingsError }}
@@ -100,7 +86,7 @@
     @updated="$emit('updated')" />
 
   <!-- Delete confirmation -->
-  <v-dialog v-model="deleteOpen" max-width="480">
+  <v-dialog v-model="deleteOpen" max-width="600">
     <v-card>
       <v-card-title class="d-flex align-center text-subtitle-1 py-3">
         <v-icon class="mr-2" color="error">mdi-delete-alert-outline</v-icon>
@@ -145,7 +131,6 @@ import { ref, computed, onMounted, watch, inject } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
-import { useUserStore } from '@/stores/user';
 import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 
@@ -159,7 +144,6 @@ const emit = defineEmits<{ (e: 'updated'): void }>();
 const functions = useFunctions();
 const router = useRouter();
 const route = useRoute();
-const userStore = useUserStore();
 const config = inject<any>('appConfig', {
   enabledAuthentication: false,
   enabledPermissions: false,
@@ -180,10 +164,7 @@ const namespaceId = ref('');
 const namespaceProps = ref<Record<string, string>>({});
 const protectedState = ref(false);
 const protectedPending = ref(false);
-const managedState = ref(false);
-const managedPending = ref(false);
 
-const isInstanceAdmin = computed(() => userStore.isInstanceAdmin === true);
 const { canUpdateProperties, canSetProtection, hasPermission } = useNamespacePermissions(
   namespaceId,
   computed(() => props.warehouseId),
@@ -193,10 +174,7 @@ const canDelete = computed(
 );
 
 const displayName = computed(() => props.namespacePath.split('\x1F').join('.'));
-const settingsDirty = computed(
-  () =>
-    protectedPending.value !== protectedState.value || managedPending.value !== managedState.value,
-);
+const settingsDirty = computed(() => protectedPending.value !== protectedState.value);
 
 async function load() {
   try {
@@ -212,13 +190,6 @@ async function load() {
         await functions.getNamespaceProtection(props.warehouseId, namespaceId.value)
       ).protected;
       protectedPending.value = protectedState.value;
-      try {
-        const auth = await functions.getNamespaceById(namespaceId.value);
-        managedState.value = auth['managed-access'] === true;
-        managedPending.value = managedState.value;
-      } catch {
-        /* managed-access not available — leave default */
-      }
     }
   } catch (e) {
     console.error('[NamespaceActionsMenu] load failed', e);
@@ -231,7 +202,6 @@ watch(() => [props.warehouseId, props.namespacePath], load);
 function openSettings() {
   menuOpen.value = false;
   protectedPending.value = protectedState.value;
-  managedPending.value = managedState.value;
   settingsError.value = null;
   settingsOpen.value = true;
 }
@@ -248,10 +218,6 @@ async function saveSettings() {
         true,
       );
       protectedState.value = protectedPending.value;
-    }
-    if (managedPending.value !== managedState.value) {
-      await functions.setNamespaceManagedAccess(namespaceId.value, managedPending.value, true);
-      managedState.value = managedPending.value;
     }
     settingsOpen.value = false;
     emit('updated');
