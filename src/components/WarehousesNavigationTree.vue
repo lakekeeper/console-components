@@ -1541,7 +1541,14 @@ onBeforeUnmount(() => {
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  /* Tighter rows so the indent/connector lines read as one continuous tree. */
+  min-height: 26px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+.tree-view :deep(.v-list-item__content) {
+  padding-top: 1px !important;
+  padding-bottom: 1px !important;
 }
 
 .tree-view :deep(.v-list-item-title) {
