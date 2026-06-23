@@ -202,6 +202,11 @@
         <template v-slot:title="{ item }">
           <div
             class="tree-item-container"
+            :style="
+              isActiveItem(item)
+                ? 'background: rgba(var(--v-theme-primary), 0.14); border-radius: 4px; padding-left: 4px;'
+                : ''
+            "
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
             <span
@@ -220,8 +225,15 @@
                     ? 'pointer'
                     : 'default',
                 fontStyle: item.type === 'load-more' ? 'italic' : 'normal',
-                fontWeight: item.type === 'namespace' || item.type === 'warehouse' ? 600 : 400,
-                color: item.type === 'load-more' ? 'grey' : undefined,
+                fontWeight:
+                  isActiveItem(item) || item.type === 'namespace' || item.type === 'warehouse'
+                    ? 600
+                    : 400,
+                color: isActiveItem(item)
+                  ? 'rgb(var(--v-theme-primary))'
+                  : item.type === 'load-more'
+                    ? 'grey'
+                    : undefined,
               }">
               {{ item.name }}
             </span>
@@ -278,6 +290,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
+import { useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
@@ -403,6 +416,36 @@ const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
+
+// Highlight the tree node matching the current route so the open object stays
+// visually selected. Namespace ids in the tree are dotted; route nsid uses \x1F.
+const route = useRoute();
+const activeMatch = computed(() => {
+  const p = route.path || '';
+  const prm = route.params as Record<string, string>;
+  const wh = prm.id;
+  if (!wh) return null;
+  const nsDotted = (prm.nsid || '').split('\x1F').join('.');
+  if (prm.tid && p.includes('/generic-table/'))
+    return { type: 'generic-table', warehouseId: wh, namespaceId: nsDotted, name: prm.tid };
+  if (prm.tid) return { type: 'table', warehouseId: wh, namespaceId: nsDotted, name: prm.tid };
+  if (prm.vid) return { type: 'view', warehouseId: wh, namespaceId: nsDotted, name: prm.vid };
+  if (prm.nsid) return { type: 'namespace', warehouseId: wh, namespaceId: nsDotted, name: '' };
+  return { type: 'warehouse', warehouseId: wh, namespaceId: '', name: '' };
+});
+function isActiveItem(item: {
+  type: string;
+  warehouseId: string;
+  namespaceId?: string;
+  name: string;
+}): boolean {
+  const a = activeMatch.value;
+  if (!a || item.warehouseId !== a.warehouseId) return false;
+  if (a.type === 'warehouse') return item.type === 'warehouse';
+  if (a.type === 'namespace')
+    return item.type === 'namespace' && item.namespaceId === a.namespaceId;
+  return item.type === a.type && item.namespaceId === a.namespaceId && item.name === a.name;
+}
 
 // Pagination tokens keyed by parent node id → { namespaces, tables, views, genericTables }
 const pageTokens = ref<
