@@ -119,9 +119,7 @@
         </v-row>
 
         <template v-if="otherEntries.length">
-          <div class="text-caption text-medium-emphasis text-uppercase mt-3 mb-1">
-            Other properties
-          </div>
+          <div class="text-caption text-medium-emphasis text-uppercase mt-3 mb-1">All fields</div>
           <v-table density="compact" class="summary-table">
             <tbody>
               <tr v-for="e in otherEntries" :key="e.key">
@@ -280,36 +278,23 @@ const highlights = computed(() => {
   return out;
 });
 
-const HIGHLIGHT_KEYS = new Set([
-  'total-records',
-  'added-records',
-  'deleted-records',
-  'total-data-files',
-  'added-data-files',
-  'deleted-data-files',
-  'total-delete-files',
-  'added-delete-files',
-  'removed-delete-files',
-  'total-position-deletes',
-  'added-position-deletes',
-  'removed-position-deletes',
-  'total-equality-deletes',
-  'added-equality-deletes',
-  'removed-equality-deletes',
-  'total-files-size',
-  'added-files-size',
-  'removed-files-size',
-]);
-
-// Everything else (engine info, partition counts, etc.) as a key/value table
+// The complete summary as a key/value table (every field, like Snapshot Compare).
 const otherEntries = computed(() => {
   const s = summary.value;
   return Object.keys(s)
-    .filter((key) => key !== 'operation' && !HIGHLIGHT_KEYS.has(key))
-    .map((key) => ({
-      key,
-      display: /size|bytes/.test(key) ? fmtBytes(n(key)) : formatSummaryValue(s[key]),
-    }));
+    .filter((key) => key !== 'operation')
+    .sort((a, b) => a.localeCompare(b))
+    .map((key) => {
+      const raw = s[key];
+      return {
+        key,
+        display: /size|bytes/.test(key)
+          ? fmtBytes(n(key))
+          : /^-?\d+$/.test(String(raw))
+            ? fmtCount(raw)
+            : formatSummaryValue(raw),
+      };
+    });
 });
 
 // Methods
