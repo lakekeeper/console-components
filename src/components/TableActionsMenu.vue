@@ -55,7 +55,13 @@
           density="compact"
           hide-details
           color="error"
-          label="Also purge data files from storage (purge)"></v-checkbox>
+          label="Purge data files from storage"></v-checkbox>
+        <v-checkbox
+          v-model="force"
+          density="compact"
+          hide-details
+          color="error"
+          label="Force delete (ignore protection)"></v-checkbox>
         <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-3">
           {{ deleteError }}
         </v-alert>
@@ -177,11 +183,13 @@ const deleteOpen = ref(false);
 const deleting = ref(false);
 const deleteError = ref<string | null>(null);
 const purge = ref(false);
+const force = ref(false);
 
 function openDelete() {
   menuOpen.value = false;
   deleteError.value = null;
   purge.value = false;
+  force.value = false;
   deleteOpen.value = true;
 }
 
@@ -193,7 +201,7 @@ async function confirmDelete() {
       props.warehouseId,
       props.namespaceId,
       props.tableName,
-      { purgeRequested: purge.value },
+      { purgeRequested: purge.value, force: force.value },
       true,
     );
     deleteOpen.value = false;

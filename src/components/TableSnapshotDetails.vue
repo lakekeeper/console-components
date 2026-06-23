@@ -197,36 +197,35 @@ const highlights = computed(() => {
     added: string;
     deleted: string;
   }> = [];
+  // Show the cumulative total when the writer reports it; otherwise fall back to
+  // the per-commit "added" count (DuckDB writes added-* but not always total-*),
+  // and only "—" when neither exists — never a misleading 0.
   const add = (
     label: string,
     icon: string,
-    total: string,
+    totalKey: string,
     addedKey: string,
     deletedKey: string,
     fmt: (k: string) => string,
   ) => {
+    const hasTotal = has(totalKey);
+    const value = hasTotal ? fmt(totalKey) : has(addedKey) ? fmt(addedKey) : '—';
     out.push({
       label,
       icon,
-      value: total,
-      added: has(addedKey) && n(addedKey) > 0 ? fmt(addedKey) : '',
-      deleted: has(deletedKey) && n(deletedKey) > 0 ? fmt(deletedKey) : '',
+      value,
+      // Only show delta badges alongside a real cumulative total.
+      added: hasTotal && has(addedKey) && n(addedKey) > 0 ? fmt(addedKey) : '',
+      deleted: hasTotal && has(deletedKey) && n(deletedKey) > 0 ? fmt(deletedKey) : '',
     });
   };
   if (has('total-records') || has('added-records') || has('deleted-records'))
-    add(
-      'Records',
-      'mdi-table-row',
-      countFmt('total-records'),
-      'added-records',
-      'deleted-records',
-      countFmt,
-    );
+    add('Records', 'mdi-table-row', 'total-records', 'added-records', 'deleted-records', countFmt);
   if (has('total-data-files') || has('added-data-files') || has('deleted-data-files'))
     add(
       'Data files',
       'mdi-file-multiple-outline',
-      countFmt('total-data-files'),
+      'total-data-files',
       'added-data-files',
       'deleted-data-files',
       countFmt,
@@ -235,7 +234,7 @@ const highlights = computed(() => {
     add(
       'Delete files',
       'mdi-file-remove-outline',
-      countFmt('total-delete-files'),
+      'total-delete-files',
       'added-delete-files',
       'removed-delete-files',
       countFmt,
@@ -248,7 +247,7 @@ const highlights = computed(() => {
     add(
       'Positional deletes',
       'mdi-file-document-minus-outline',
-      countFmt('total-position-deletes'),
+      'total-position-deletes',
       'added-position-deletes',
       'removed-position-deletes',
       countFmt,
@@ -261,20 +260,22 @@ const highlights = computed(() => {
     add(
       'Equality deletes',
       'mdi-equal-box-outline',
-      countFmt('total-equality-deletes'),
+      'total-equality-deletes',
       'added-equality-deletes',
       'removed-equality-deletes',
       countFmt,
     );
-  if (has('total-files-size') || has('added-files-size') || has('removed-files-size'))
+  if (has('total-files-size') || has('added-files-size') || has('removed-files-size')) {
+    const bytes = (k: string) => fmtBytes(n(k));
     add(
       'Total size',
       'mdi-database-outline',
-      fmtBytes(n('total-files-size')),
+      'total-files-size',
       'added-files-size',
       'removed-files-size',
-      (k: string) => fmtBytes(n(k)),
+      bytes,
     );
+  }
   return out;
 });
 
