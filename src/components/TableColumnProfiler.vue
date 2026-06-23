@@ -18,6 +18,14 @@
           hide-details
           style="min-width: 160px; max-width: 190px"></v-select>
         <v-btn
+          v-if="hasResults"
+          variant="text"
+          size="small"
+          prepend-icon="mdi-delete-outline"
+          @click="dropResults">
+          Drop results
+        </v-btn>
+        <v-btn
           color="primary"
           variant="flat"
           size="small"
@@ -181,6 +189,7 @@ import * as d3 from 'd3';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
+import { useLoQEStore } from '../stores/loqe';
 import type { TableMetadata } from '../gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -233,6 +242,28 @@ interface ColumnState {
 const results = reactive<Record<string, ColumnState>>({});
 const analyzingAll = ref(false);
 const collapsed = ref(false);
+
+// Persisted per-table profile cache (survives reloads).
+const loqeStore = useLoQEStore();
+const tableKey = computed(() => `${props.warehouseId}/${props.namespaceId}/${props.tableName}`);
+const hasResults = computed(() => Object.values(results).some((r) => r?.data));
+
+// Hydrate cached results for this table on mount / when the table changes.
+function hydrateFromStore() {
+  for (const k of Object.keys(results)) delete results[k];
+  const cached = loqeStore.getTableProfiles(tableKey.value) as Record<string, ProfileData>;
+  for (const [col, data] of Object.entries(cached)) {
+    results[col] = { loading: false, error: null, data };
+  }
+}
+hydrateFromStore();
+watch(tableKey, hydrateFromStore);
+
+function dropResults() {
+  loqeStore.clearTableProfiles(tableKey.value);
+  for (const k of Object.keys(results)) delete results[k];
+  histDialogOpen.value = false;
+}
 
 // Distribution popup state.
 const histDialogOpen = ref(false);
@@ -514,6 +545,8 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
       topValues,
       histogram,
     };
+    // Persist so results survive a reload.
+    loqeStore.setTableProfile(tableKey.value, col.name, state.data);
   } catch (err: any) {
     const msg = err?.message || String(err);
     state.error =

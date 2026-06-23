@@ -59,16 +59,38 @@ export const useLoQEStore = defineStore(
       queryHistory.value = [];
     }
 
+    // ── Schema Profiler results (per table, survive reloads) ─────────
+
+    /** key = `${warehouseId}/${namespaceId}/${tableName}` → { columnName → ProfileData } */
+    const tableProfiles = ref<Record<string, Record<string, unknown>>>({});
+
+    function setTableProfile(key: string, column: string, data: unknown) {
+      if (!tableProfiles.value[key]) tableProfiles.value[key] = {};
+      tableProfiles.value[key][column] = data;
+    }
+
+    function getTableProfiles(key: string): Record<string, unknown> {
+      return tableProfiles.value[key] ?? {};
+    }
+
+    function clearTableProfiles(key: string) {
+      delete tableProfiles.value[key];
+    }
+
     return {
       installedExtensions,
       attachedCatalogs,
       queryHistory,
+      tableProfiles,
       addExtension,
       removeExtension,
       addCatalog,
       removeCatalog,
       addHistoryEntry,
       clearHistory,
+      setTableProfile,
+      getTableProfiles,
+      clearTableProfiles,
     };
   },
   {

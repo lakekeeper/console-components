@@ -323,16 +323,24 @@ async function loadProperties() {
   confirmingRemovals.value = false;
 
   try {
+    // Always fetch fresh from the server so the dialog never shows a stale
+    // snapshot from when the parent last loaded.
     if (props.entityType === 'namespace') {
-      // For namespaces, fetch from API
       const metadata = await functions.loadNamespaceMetadata(
         props.warehouseId,
         props.namespacePath,
       );
       initFromProperties(metadata.properties || {});
+    } else if (props.entityType === 'view') {
+      const v = await functions.loadView(props.warehouseId, props.namespacePath, props.entityName!);
+      initFromProperties(v?.metadata?.properties || {});
     } else {
-      // For tables and views, use the properties passed via prop
-      initFromProperties(props.properties || {});
+      const t = await functions.loadTable(
+        props.warehouseId,
+        props.namespacePath,
+        props.entityName!,
+      );
+      initFromProperties(t?.metadata?.properties || {});
     }
   } catch (error: any) {
     loadError.value = error?.message || `Failed to load ${props.entityType} properties`;
