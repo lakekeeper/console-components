@@ -101,12 +101,24 @@
           </v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
+          <div class="d-flex mb-2">
+            <v-spacer></v-spacer>
+            <v-btn
+              size="small"
+              variant="tonal"
+              color="primary"
+              prepend-icon="mdi-compare-horizontal"
+              @click="openCompare">
+              Compare schemas
+            </v-btn>
+          </div>
           <v-table density="compact">
             <thead>
               <tr>
                 <th style="width: 100px">Schema ID</th>
                 <th style="width: 80px">Fields</th>
                 <th>Changes</th>
+                <th style="width: 48px"></th>
               </tr>
             </thead>
             <tbody>
@@ -158,12 +170,120 @@
                     </span>
                   </template>
                 </td>
+                <td>
+                  <v-btn icon size="x-small" variant="text" @click="openSchema(schema)">
+                    <v-icon size="small">mdi-eye-outline</v-icon>
+                    <v-tooltip activator="parent" location="top">View schema</v-tooltip>
+                  </v-btn>
+                </td>
               </tr>
             </tbody>
           </v-table>
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>
+
+    <!-- View a single schema's fields -->
+    <v-dialog v-model="schemaViewOpen" max-width="640" scrollable>
+      <v-card v-if="schemaViewData">
+        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+          <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
+          Schema {{ schemaViewData['schema-id'] }}
+          <v-chip size="x-small" variant="tonal" class="ml-2">
+            {{ schemaViewData.fields?.length || 0 }} fields
+          </v-chip>
+          <v-spacer></v-spacer>
+          <v-btn icon variant="text" size="small" @click="schemaViewOpen = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text>
+          <v-table density="compact">
+            <thead>
+              <tr>
+                <th style="width: 56px">ID</th>
+                <th>Field</th>
+                <th>Type</th>
+                <th style="width: 80px">Required</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="f in schemaViewData.fields" :key="f.id">
+                <td class="text-caption text-medium-emphasis">{{ f.id }}</td>
+                <td class="font-mono">{{ f.name }}</td>
+                <td class="font-mono text-caption">{{ typeLabel(f.type) }}</td>
+                <td>
+                  <v-icon v-if="f.required" size="small" color="error">mdi-asterisk</v-icon>
+                  <span v-else class="text-disabled">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
+    <!-- Compare two schemas -->
+    <v-dialog v-model="compareOpen" max-width="760" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+          <v-icon class="mr-2" color="primary">mdi-compare-horizontal</v-icon>
+          Compare schemas
+          <v-spacer></v-spacer>
+          <v-btn icon variant="text" size="small" @click="compareOpen = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text>
+          <div class="d-flex align-center mb-3" style="gap: 12px">
+            <v-select
+              v-model="compareLeft"
+              :items="schemaIdItems"
+              label="Base"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 200px"></v-select>
+            <v-icon>mdi-arrow-right</v-icon>
+            <v-select
+              v-model="compareRight"
+              :items="schemaIdItems"
+              label="Compare"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 200px"></v-select>
+          </div>
+          <v-table density="compact">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Base type</th>
+                <th>Compare type</th>
+                <th style="width: 110px">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in schemaCompareRows" :key="row.name">
+                <td class="font-mono">{{ row.name }}</td>
+                <td class="font-mono text-caption">{{ row.leftType ?? '—' }}</td>
+                <td class="font-mono text-caption">{{ row.rightType ?? '—' }}</td>
+                <td>
+                  <v-chip size="x-small" variant="flat" :color="row.color">{{ row.status }}</v-chip>
+                </td>
+              </tr>
+              <tr v-if="schemaCompareRows.length === 0">
+                <td colspan="4" class="text-center text-medium-emphasis py-4">
+                  Select two schema versions to compare.
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
 
     <!-- Layout & ordering -->
     <v-row class="mb-3">
@@ -218,10 +338,21 @@
 
     <!-- Snapshots -->
     <template v-if="snapshotRows.length">
-      <div class="section-head mt-4">
+      <div class="section-head mt-4 d-flex align-center">
         <v-icon size="18" class="mr-2" color="info">mdi-camera-outline</v-icon>
         Snapshots
         <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
+        <v-spacer></v-spacer>
+        <v-select
+          v-if="branchOptions.length > 1"
+          v-model="selectedBranch"
+          :items="branchOptions"
+          density="compact"
+          variant="outlined"
+          hide-details
+          prepend-inner-icon="mdi-source-branch"
+          label="Branch"
+          style="max-width: 220px"></v-select>
       </div>
       <v-sheet rounded="lg" border class="mb-2">
         <v-data-table
@@ -233,6 +364,19 @@
           hover
           class="snapshot-table"
           @click:row="openSnapshot">
+          <template #item.refs="{ item }">
+            <v-chip
+              v-for="r in item.refs"
+              :key="r"
+              size="x-small"
+              :color="r === 'main' ? 'primary' : 'default'"
+              variant="tonal"
+              class="mr-1">
+              <v-icon start size="x-small">mdi-source-branch</v-icon>
+              {{ r }}
+            </v-chip>
+            <span v-if="item.refs.length === 0" class="text-disabled">—</span>
+          </template>
           <template #item.committed="{ item }">
             <span :title="item.committedAbs" style="white-space: nowrap">
               {{ item.committedAbs }}
@@ -440,6 +584,67 @@ const allSchemas = computed(() => {
   return [...schemas].sort((a, b) => (a['schema-id'] ?? 0) - (b['schema-id'] ?? 0));
 });
 
+// Human label for a field type (primitive string, or struct/list/map).
+function typeLabel(t: any): string {
+  if (typeof t === 'string') return t;
+  if (t && typeof t === 'object') return t.type || 'complex';
+  return String(t ?? '');
+}
+
+// View a single schema's fields.
+const schemaViewOpen = ref(false);
+const schemaViewData = ref<any>(null);
+function openSchema(schema: any) {
+  schemaViewData.value = schema;
+  schemaViewOpen.value = true;
+}
+
+// Compare two schema versions.
+const compareOpen = ref(false);
+const compareLeft = ref<number | null>(null);
+const compareRight = ref<number | null>(null);
+const schemaIdItems = computed(() =>
+  allSchemas.value.map((s) => ({
+    title: `Schema ${s['schema-id']}${s['schema-id'] === props.table.metadata['current-schema-id'] ? ' (current)' : ''}`,
+    value: s['schema-id'] ?? 0,
+  })),
+);
+function openCompare() {
+  const ids = allSchemas.value.map((s) => s['schema-id'] ?? 0);
+  compareRight.value = props.table.metadata['current-schema-id'] ?? ids[ids.length - 1] ?? null;
+  compareLeft.value = ids.filter((id) => id !== compareRight.value).pop() ?? ids[0] ?? null;
+  compareOpen.value = true;
+}
+const schemaCompareRows = computed(() => {
+  if (compareLeft.value === null || compareRight.value === null) return [];
+  const byId = (id: number | null) => allSchemas.value.find((s) => s['schema-id'] === id);
+  const left = byId(compareLeft.value);
+  const right = byId(compareRight.value);
+  if (!left || !right) return [];
+  const leftMap = new Map((left.fields ?? []).map((f: any) => [f.name, typeLabel(f.type)]));
+  const rightMap = new Map((right.fields ?? []).map((f: any) => [f.name, typeLabel(f.type)]));
+  const names = Array.from(new Set([...leftMap.keys(), ...rightMap.keys()]));
+  return names
+    .map((name) => {
+      const leftType = leftMap.get(name) ?? null;
+      const rightType = rightMap.get(name) ?? null;
+      let status = 'same';
+      let color = 'default';
+      if (leftType === null) {
+        status = 'added';
+        color = 'success';
+      } else if (rightType === null) {
+        status = 'removed';
+        color = 'error';
+      } else if (leftType !== rightType) {
+        status = 'changed';
+        color = 'warning';
+      }
+      return { name, leftType, rightType, status, color };
+    })
+    .sort((a, b) => (a.status === 'same' ? 1 : 0) - (b.status === 'same' ? 1 : 0));
+});
+
 const schemaFieldDiffs = computed(() => {
   const schemas = allSchemas.value;
   const diffs: Record<number, { added: string[]; removed: string[] }> = {};
@@ -486,6 +691,7 @@ function openSnapshot(_event: unknown, row: { item: { raw: any } }) {
 }
 const snapshotHeaders = [
   { title: 'Committed', key: 'committed' },
+  { title: 'Refs', key: 'refs', sortable: false },
   { title: 'Operation', key: 'operation' },
   { title: 'Records', key: 'records', align: 'end' as const },
   { title: 'Δ Records', key: 'delta', align: 'end' as const },
@@ -493,6 +699,29 @@ const snapshotHeaders = [
   { title: 'Snapshot ID', key: 'id' },
   { title: '', key: 'actions', align: 'end' as const, sortable: false },
 ];
+
+// Branch/tag refs (name → { snapshot-id, type }).
+const branchRefs = computed(() => {
+  const refs = (props.table.metadata as any)?.refs as Record<string, any> | undefined;
+  return refs && typeof refs === 'object' ? refs : {};
+});
+const branchOptions = computed(() => [
+  { title: 'All snapshots', value: '__all__' },
+  ...Object.keys(branchRefs.value).map((name) => ({
+    title: `${name} · ${branchRefs.value[name]?.type ?? 'branch'}`,
+    value: name,
+  })),
+]);
+const selectedBranch = ref('__all__');
+// snapshot-id → ref names that point at it (tips)
+const refTips = computed(() => {
+  const map: Record<string, string[]> = {};
+  for (const [name, r] of Object.entries(branchRefs.value)) {
+    const sid = String((r as any)?.['snapshot-id']);
+    (map[sid] ??= []).push(name);
+  }
+  return map;
+});
 
 function toNum(v: unknown): number {
   const n = typeof v === 'string' ? Number(v) : (v as number);
@@ -512,16 +741,33 @@ const snapshotRows = computed(() => {
   const snaps = props.table.metadata.snapshots;
   if (!Array.isArray(snaps)) return [];
   const currentId = String(props.table.metadata['current-snapshot-id']);
+
+  // When a branch/tag is selected, keep only its lineage (walk parent links from the tip).
+  let allowed: Set<string> | null = null;
+  if (selectedBranch.value !== '__all__') {
+    const byId = new Map(snaps.map((s: any) => [String(s['snapshot-id']), s]));
+    const tip = String(branchRefs.value[selectedBranch.value]?.['snapshot-id'] ?? '');
+    allowed = new Set();
+    let cur = tip;
+    while (cur && byId.has(cur) && !allowed.has(cur)) {
+      allowed.add(cur);
+      cur = String(byId.get(cur)?.['parent-snapshot-id'] ?? '');
+    }
+  }
+
   return [...snaps]
+    .filter((s: any) => !allowed || allowed.has(String(s['snapshot-id'])))
     .sort((a: any, b: any) => toNum(b['timestamp-ms']) - toNum(a['timestamp-ms']))
     .map((s: any) => {
       const summary = s.summary ?? {};
+      const id = String(s['snapshot-id']);
       return {
-        id: String(s['snapshot-id']),
+        id,
         raw: s,
+        refs: refTips.value[id] ?? [],
         committedAbs: s['timestamp-ms'] ? absoluteTimestamp(s['timestamp-ms']) : '—',
         operation: summary.operation ?? '—',
-        current: String(s['snapshot-id']) === currentId,
+        current: id === currentId,
         totalRecords: summary['total-records'],
         addedRecords: summary['added-records'],
         deletedRecords: summary['deleted-records'],
