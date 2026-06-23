@@ -452,7 +452,7 @@ interface TreeItem {
   parentType?: 'table' | 'view';
   parentName?: string;
   /** Storage profile type — only set on warehouse nodes. */
-  storageType?: 's3' | 'adls' | 'gcs';
+  storageType?: 's3' | 'adls' | 'gcs' | 'onelake';
   storageFlavor?: string;
   storageEndpoint?: string;
   /** Which resource types still have pages to load (only on load-more nodes). */

@@ -387,7 +387,7 @@ interface TreeItem {
   namespaceId?: string; // Full namespace path with dots (e.g., 'finance.sub')
   loaded?: boolean;
   /** Storage profile type — only set on warehouse nodes. */
-  storageType?: 's3' | 'adls' | 'gcs';
+  storageType?: 's3' | 'adls' | 'gcs' | 'onelake';
   storageFlavor?: string;
   storageEndpoint?: string;
   /** Tabular format — 'iceberg' on table nodes, gt.format on generic-table nodes. */
