@@ -54,6 +54,14 @@
             <span class="text-subtitle-2">
               {{ activeProperties.length }} propert{{ activeProperties.length === 1 ? 'y' : 'ies' }}
             </span>
+            <v-switch
+              v-if="systemCount > 0"
+              v-model="hideSystem"
+              color="primary"
+              density="compact"
+              hide-details
+              class="ml-4"
+              :label="`Hide system (${systemCount})`"></v-switch>
             <v-spacer></v-spacer>
             <v-btn
               v-if="canEdit"
@@ -76,7 +84,10 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="prop in editableProperties" :key="prop.originalKey">
+              <tr
+                v-for="prop in editableProperties"
+                v-show="!hideSystem || !isSystemProp(prop.originalKey || prop.key)"
+                :key="prop.originalKey">
                 <td class="text-body-2">{{ prop.key }}</td>
                 <td class="text-body-2">{{ prop.value }}</td>
               </tr>
@@ -91,6 +102,7 @@
             <!-- Active properties -->
             <div
               v-for="(prop, index) in editableProperties"
+              v-show="!hideSystem || !isSystemProp(prop.originalKey || prop.key)"
               :key="index"
               class="d-flex align-center ga-2 mb-2"
               :class="{ 'opacity-50': prop.markedForRemoval }">
@@ -238,6 +250,14 @@ const loadError = ref('');
 const confirmingRemovals = ref(false);
 const originalProperties = ref<Record<string, string>>({});
 const editableProperties = ref<EditableProperty[]>([]);
+
+// System/managed keys (e.g. Lakekeeper maintenance overrides) — hidden by default.
+const SYSTEM_PROP_PREFIXES = ['lakekeeper.'];
+const isSystemProp = (key: string) => SYSTEM_PROP_PREFIXES.some((p) => key.startsWith(p));
+const hideSystem = ref(true);
+const systemCount = computed(
+  () => editableProperties.value.filter((p) => isSystemProp(p.originalKey || p.key)).length,
+);
 const removalConfirmations = reactive<Record<string, string>>({});
 
 const activeProperties = computed(() =>
