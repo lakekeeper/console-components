@@ -1,18 +1,5 @@
 <template>
   <v-card-text>
-    <!-- Action row -->
-    <div class="d-flex align-center mb-4">
-      <v-spacer></v-spacer>
-      <v-btn
-        size="small"
-        variant="tonal"
-        color="primary"
-        prepend-icon="mdi-download"
-        @click="downloadTableJson">
-        Download metadata.json
-      </v-btn>
-    </div>
-
     <!-- At a glance -->
     <v-row dense class="mb-2">
       <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
@@ -67,17 +54,6 @@
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
-          <div v-if="canEdit && warehouseId && namespacePath" class="d-flex mb-2">
-            <v-spacer></v-spacer>
-            <EntityPropertiesDialog
-              entity-type="table"
-              :warehouse-id="warehouseId"
-              :namespace-path="namespacePath"
-              :entity-name="tableName"
-              :properties="table.metadata.properties"
-              :can-edit="canEdit"
-              @updated="$emit('updated')" />
-          </div>
           <v-data-table-virtual
             v-if="propertyItems.length"
             :headers="propertyHeaders"
@@ -303,7 +279,6 @@
 import { computed, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
-import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
 import TableColumnProfiler from './TableColumnProfiler.vue';
 import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
 
@@ -660,24 +635,6 @@ const identityRows = computed(() => {
 
   return rows;
 });
-
-function tableJsonString(): string {
-  // Export table metadata only — the full LoadTableResult may carry
-  // storage-credentials and other load-response fields that must not be
-  // written to disk.
-  return JSON.stringify(props.table.metadata, null, 2);
-}
-function downloadTableJson() {
-  const blob = new Blob([tableJsonString()], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${props.tableName || props.table.metadata['table-uuid'] || 'table'}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
 </script>
 
 <style scoped>

@@ -1,6 +1,6 @@
 <template>
   <v-dialog v-model="isDialogActive" max-width="650" scrollable>
-    <template #activator="{ props: activatorProps }">
+    <template v-if="!hideActivator" #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
         icon="mdi-pencil-outline"
@@ -207,6 +207,8 @@ const props = defineProps<{
   /** Current properties from the already-loaded metadata */
   properties?: Record<string, string>;
   canEdit?: boolean;
+  /** Hide the built-in pencil activator; open programmatically via `open()`. */
+  hideActivator?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -229,6 +231,7 @@ const entityLabel = computed(() => {
 });
 
 const isDialogActive = ref(false);
+defineExpose({ open: () => (isDialogActive.value = true) });
 const loading = ref(false);
 const saving = ref(false);
 const loadError = ref('');
