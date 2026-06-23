@@ -144,7 +144,7 @@
         open-on-click
         indent-lines="default"
         class="tree-view pa-2"
-        style="background-color: transparent !important">
+        style="background-color: transparent !important; --v-treeview-indent-line-opacity: 0.5">
         <template v-slot:prepend="{ item }">
           <!-- Warehouse: cloud provider icon -->
           <v-icon
@@ -180,21 +180,21 @@
             mdi-google-cloud
           </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon
             v-else-if="
               (item.type === 'table' || item.type === 'generic-table') && formatIcon(item.format)
             "
-            size="small">
-            <v-img :src="formatIcon(item.format)!" width="18" height="18" />
+            size="x-small">
+            <v-img :src="formatIcon(item.format)!" width="15" height="15" />
           </v-icon>
           <v-icon
             v-else-if="item.type === 'table' || item.type === 'generic-table'"
-            size="small"
+            size="x-small"
             color="grey">
             mdi-alpha-g
           </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'load-more'" color="grey">
             mdi-dots-horizontal
           </v-icon>
@@ -220,6 +220,7 @@
                     ? 'pointer'
                     : 'default',
                 fontStyle: item.type === 'load-more' ? 'italic' : 'normal',
+                fontWeight: item.type === 'namespace' || item.type === 'warehouse' ? 600 : 400,
                 color: item.type === 'load-more' ? 'grey' : undefined,
               }">
               {{ item.name }}
