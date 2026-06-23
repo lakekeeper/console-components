@@ -242,6 +242,32 @@ const highlights = computed(() => {
       'removed-delete-files',
       countFmt,
     );
+  if (
+    has('total-position-deletes') ||
+    has('added-position-deletes') ||
+    has('removed-position-deletes')
+  )
+    add(
+      'Positional deletes',
+      'mdi-file-document-minus-outline',
+      countFmt('total-position-deletes'),
+      'added-position-deletes',
+      'removed-position-deletes',
+      countFmt,
+    );
+  if (
+    has('total-equality-deletes') ||
+    has('added-equality-deletes') ||
+    has('removed-equality-deletes')
+  )
+    add(
+      'Equality deletes',
+      'mdi-equal-box-outline',
+      countFmt('total-equality-deletes'),
+      'added-equality-deletes',
+      'removed-equality-deletes',
+      countFmt,
+    );
   if (has('total-files-size') || has('added-files-size') || has('removed-files-size'))
     add(
       'Total size',
@@ -264,6 +290,12 @@ const HIGHLIGHT_KEYS = new Set([
   'total-delete-files',
   'added-delete-files',
   'removed-delete-files',
+  'total-position-deletes',
+  'added-position-deletes',
+  'removed-position-deletes',
+  'total-equality-deletes',
+  'added-equality-deletes',
+  'removed-equality-deletes',
   'total-files-size',
   'added-files-size',
   'removed-files-size',
