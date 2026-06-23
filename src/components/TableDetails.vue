@@ -713,6 +713,17 @@ const branchOptions = computed(() => [
   })),
 ]);
 const selectedBranch = ref('__all__');
+// Default to the `main` branch when the table has one (set once refs load).
+let branchInitialized = false;
+watch(
+  branchRefs,
+  (refs) => {
+    if (branchInitialized || !refs || Object.keys(refs).length === 0) return;
+    if (refs['main']) selectedBranch.value = 'main';
+    branchInitialized = true;
+  },
+  { immediate: true },
+);
 // snapshot-id → ref names that point at it (tips)
 const refTips = computed(() => {
   const map: Record<string, string[]> = {};
