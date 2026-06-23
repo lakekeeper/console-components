@@ -40,6 +40,7 @@ import NamespaceGenericTables from './components/NamespaceGenericTables.vue';
 import NamespaceDeleted from './components/NamespaceDeleted.vue';
 import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
+import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import TableHeader from './components/TableHeader.vue';
 import TableActionsMenu from './components/TableActionsMenu.vue';
@@ -147,6 +148,7 @@ export {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespaceActionsMenu,
   NamespacePropertiesDialog,
   TableHeader,
   TableActionsMenu,
@@ -340,6 +342,7 @@ const components = {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespaceActionsMenu,
   NamespacePropertiesDialog,
   TableHeader,
   TableActionsMenu,
