@@ -142,6 +142,7 @@
         item-value="id"
         density="compact"
         open-on-click
+        indent-lines="default"
         class="tree-view pa-2"
         style="background-color: transparent !important">
         <template v-slot:prepend="{ item }">
