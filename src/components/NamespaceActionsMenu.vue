@@ -56,6 +56,12 @@
           color="error"
           label="Recursive (also delete contained tables, views and namespaces)"></v-checkbox>
         <v-checkbox
+          v-model="purge"
+          density="compact"
+          hide-details
+          color="error"
+          label="Purge data files from storage"></v-checkbox>
+        <v-checkbox
           v-model="force"
           density="compact"
           hide-details
@@ -117,6 +123,7 @@ const deleteOpen = ref(false);
 const deleting = ref(false);
 const deleteError = ref<string | null>(null);
 const recursive = ref(false);
+const purge = ref(false);
 const force = ref(false);
 const propsDialog = ref<{ open: () => void } | null>(null);
 
@@ -157,6 +164,7 @@ function openDelete() {
   menuOpen.value = false;
   deleteError.value = null;
   recursive.value = false;
+  purge.value = false;
   force.value = false;
   confirmName.value = '';
   deleteOpen.value = true;
@@ -169,7 +177,7 @@ async function confirmDelete() {
     await functions.dropNamespace(
       props.warehouseId,
       props.namespacePath,
-      { recursive: recursive.value, force: force.value } as any,
+      { recursive: recursive.value, purge: purge.value, force: force.value } as any,
       true,
     );
     deleteOpen.value = false;
