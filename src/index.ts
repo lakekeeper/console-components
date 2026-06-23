@@ -62,6 +62,7 @@ import TableRegister from './components/TableRegister.vue';
 import WarehousesNavigationTree from './components/WarehousesNavigationTree.vue';
 import LoQEExplorer from './components/LoQEExplorer.vue';
 import ViewHeader from './components/ViewHeader.vue';
+import ViewActionsMenu from './components/ViewActionsMenu.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
 import ViewRaw from './components/ViewRaw.vue';
@@ -168,6 +169,7 @@ export {
   TableCreate,
   TableRegister,
   ViewHeader,
+  ViewActionsMenu,
   ViewHistoryTab,
   ViewOverview,
   ViewRaw,
@@ -362,6 +364,7 @@ const components = {
   TableRegister,
   TableVersioning,
   ViewHeader,
+  ViewActionsMenu,
   ViewHistoryTab,
   ViewOverview,
   ViewRaw,

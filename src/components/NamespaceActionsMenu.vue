@@ -61,6 +61,14 @@
           hide-details
           color="error"
           label="Force delete (ignore protection)"></v-checkbox>
+        <v-text-field
+          v-model="confirmName"
+          class="mt-3"
+          density="compact"
+          variant="outlined"
+          autocomplete="off"
+          :label="`Type “${confirmTarget}” to confirm`"
+          :error="confirmName.length > 0 && !deleteConfirmed"></v-text-field>
         <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-3">
           {{ deleteError }}
         </v-alert>
@@ -68,7 +76,12 @@
       <v-card-actions>
         <v-spacer></v-spacer>
         <v-btn variant="text" :disabled="deleting" @click="deleteOpen = false">Cancel</v-btn>
-        <v-btn color="error" variant="flat" :loading="deleting" @click="confirmDelete">
+        <v-btn
+          color="error"
+          variant="flat"
+          :loading="deleting"
+          :disabled="!deleteConfirmed"
+          @click="confirmDelete">
           Delete namespace
         </v-btn>
       </v-card-actions>
@@ -89,7 +102,7 @@ const props = defineProps<{
   namespacePath: string;
 }>();
 
-const emit = defineEmits<{ (e: 'updated'): void }>();
+defineEmits<{ (e: 'updated'): void }>();
 
 const functions = useFunctions();
 const router = useRouter();
@@ -119,6 +132,9 @@ const canDelete = computed(
 );
 
 const displayName = computed(() => props.namespacePath.split('\x1F').join('.'));
+const confirmTarget = computed(() => props.namespacePath.split('\x1F').pop() || displayName.value);
+const confirmName = ref('');
+const deleteConfirmed = computed(() => confirmName.value.trim() === confirmTarget.value);
 
 async function load() {
   try {
@@ -142,6 +158,7 @@ function openDelete() {
   deleteError.value = null;
   recursive.value = false;
   force.value = false;
+  confirmName.value = '';
   deleteOpen.value = true;
 }
 

@@ -20,18 +20,26 @@
       <v-icon>mdi-table</v-icon>
     </template>
     <v-spacer></v-spacer>
+    <ViewActionsMenu
+      :warehouse-id="warehouseId"
+      :namespace-id="namespaceId"
+      :view-name="viewName"
+      @updated="$emit('updated')" />
   </v-toolbar>
 </template>
 
 <script lang="ts" setup>
 import { computed } from 'vue';
 import { useVisualStore } from '@/stores/visual';
+import ViewActionsMenu from './ViewActionsMenu.vue';
 
 const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   viewName: string;
 }>();
+
+defineEmits<{ (e: 'updated'): void }>();
 
 const visual = useVisualStore();
 
