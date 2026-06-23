@@ -46,7 +46,7 @@
     </v-sheet>
 
     <!-- Properties -->
-    <v-expansion-panels v-if="propertyItems.length > 0 || canEdit" class="mb-6">
+    <v-expansion-panels v-if="allPropertyItems.length > 0 || canEdit" class="mb-6">
       <v-expansion-panel>
         <v-expansion-panel-title>
           <v-icon class="mr-2" size="small">mdi-cog-outline</v-icon>
@@ -54,6 +54,14 @@
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
+          <div v-if="systemPropCount > 0" class="d-flex align-center mb-2">
+            <v-switch
+              v-model="hideSystemProps"
+              color="primary"
+              density="compact"
+              hide-details
+              :label="`Hide system properties (${systemPropCount})`"></v-switch>
+          </div>
           <v-data-table-virtual
             v-if="propertyItems.length"
             :headers="propertyHeaders"
@@ -316,11 +324,21 @@ const propertyHeaders = [
   { title: 'Value', key: 'value' },
 ];
 
-const propertyItems = computed(() => {
+// System/managed properties (e.g. Lakekeeper maintenance overrides) — hidden by
+// default behind a toggle so user-set properties aren't buried.
+const SYSTEM_PROP_PREFIXES = ['lakekeeper.'];
+const isSystemProp = (key: string) => SYSTEM_PROP_PREFIXES.some((p) => key.startsWith(p));
+const hideSystemProps = ref(true);
+
+const allPropertyItems = computed(() => {
   const props_ = props.table.metadata.properties;
   if (!props_) return [];
-  return Object.entries(props_).map(([key, value]) => ({ key, value }));
+  return Object.entries(props_).map(([key, value]) => ({ key, value, system: isSystemProp(key) }));
 });
+const systemPropCount = computed(() => allPropertyItems.value.filter((i) => i.system).length);
+const propertyItems = computed(() =>
+  hideSystemProps.value ? allPropertyItems.value.filter((i) => !i.system) : allPropertyItems.value,
+);
 
 const formatTimestamp = (timestampMs: number): string => {
   if (!timestampMs) return '';
