@@ -19,18 +19,6 @@
     @update:options="paginationCheck($event)">
     <template #top>
       <v-toolbar color="transparent" density="compact" flat>
-        <v-switch
-          v-if="canSetProtection"
-          v-model="recursiveDeleteProtection"
-          class="ml-4 mt-4"
-          color="info"
-          :label="
-            recursiveDeleteProtection
-              ? 'Recursive Delete Protection enabled'
-              : 'Recursive Delete Protection disabled'
-          "
-          @click.prevent="showConfirmDialog"></v-switch>
-        <v-spacer v-if="canSetProtection"></v-spacer>
         <v-text-field
           v-model="searchNamespace"
           label="Filter results"
@@ -68,18 +56,6 @@
         @add-namespace="addNamespace" />
     </template>
   </v-data-table>
-
-  <ProtectionConfirmDialog
-    v-model="confirmDialog"
-    :confirm-color="recursiveDeleteProtection ? 'warning' : 'info'"
-    :message="
-      recursiveDeleteProtection
-        ? 'Are you sure you want to disable recursive delete protection? This will allow the namespace to be deleted.'
-        : 'Are you sure you want to enable recursive delete protection? This will prevent the namespace from being deleted.'
-    "
-    :title="recursiveDeleteProtection ? 'Disable Delete Protection?' : 'Enable Delete Protection?'"
-    @cancel="cancelProtectionChange"
-    @confirm="confirmProtectionChange"></ProtectionConfirmDialog>
 </template>
 
 <script setup lang="ts">
@@ -91,7 +67,6 @@ import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
 import type { Header, Item, Options } from '@/common/interfaces';
 import { StatusIntent } from '@/common/enums';
 import { isForbiddenError } from '@/common/errorUtils';
-import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -105,8 +80,6 @@ const notify = true;
 
 const namespaceId = ref('');
 const forbidden = ref(false);
-const confirmDialog = ref(false);
-const pendingProtectionValue = ref(false);
 
 onMounted(loadNamespaceAndData);
 watch(() => props.namespacePath, loadNamespaceAndData);
@@ -120,7 +93,7 @@ async function loadNamespaceAndData() {
       false,
     );
     namespaceId.value = namespace.properties?.namespace_id || '';
-    await Promise.all([loadNamespaces(), getProtection()]);
+    await loadNamespaces();
   } catch (error) {
     if (isForbiddenError(error)) {
       forbidden.value = true;
@@ -130,13 +103,12 @@ async function loadNamespaceAndData() {
 }
 
 // Use namespace permissions composable
-const { canCreateNamespace, canSetProtection } = useNamespacePermissions(
+const { canCreateNamespace } = useNamespacePermissions(
   computed(() => namespaceId.value),
   computed(() => props.warehouseId),
 );
 
 const searchNamespace = ref('');
-const recursiveDeleteProtection = ref(false);
 const addNamespaceStatus = ref<StatusIntent>(StatusIntent.INACTIVE);
 const loadedNamespaces: Item[] = reactive([]);
 const paginationToken = ref('');
@@ -243,47 +215,6 @@ function routeToNamespace(item: Item) {
   router.push(`/warehouse/${props.warehouseId}/namespace/${namespacePath}`);
 }
 
-async function getProtection() {
-  try {
-    if (!namespaceId.value) return;
-    recursiveDeleteProtection.value = (
-      await functions.getNamespaceProtection(props.warehouseId, namespaceId.value)
-    ).protected;
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-function showConfirmDialog() {
-  pendingProtectionValue.value = !recursiveDeleteProtection.value;
-  confirmDialog.value = true;
-}
-
-function cancelProtectionChange() {
-  confirmDialog.value = false;
-}
-
-async function confirmProtectionChange() {
-  confirmDialog.value = false;
-  recursiveDeleteProtection.value = pendingProtectionValue.value;
-  await setProtection();
-}
-async function setProtection() {
-  try {
-    if (!namespaceId.value) return;
-    await functions.setNamespaceProtection(
-      props.warehouseId,
-      namespaceId.value,
-      recursiveDeleteProtection.value,
-      true,
-    );
-    // Value already set in confirmProtectionChange
-  } catch (error) {
-    console.error(error);
-    // Revert on error
-    recursiveDeleteProtection.value = !recursiveDeleteProtection.value;
-  }
-}
 
 // Expose method for parent to trigger reload
 defineExpose({
