@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.14.0](https://github.com/lakekeeper/console-components/compare/v0.13.1...v0.14.0) (2026-06-24)
+
+
+### Features
+
+* **ui:** add Datasets feature with storage explorer enhancements ([0835c10](https://github.com/lakekeeper/console-components/commit/0835c10a0ce0bc12e8b614ce755db5422aca2863))
+
+
+### Bug Fixes
+
+* **ui:** polish datasets file explorer and delete redirect ([0835c10](https://github.com/lakekeeper/console-components/commit/0835c10a0ce0bc12e8b614ce755db5422aca2863))
+
 ## [0.13.1](https://github.com/lakekeeper/console-components/compare/v0.13.0...v0.13.1) (2026-06-24)
 
 
