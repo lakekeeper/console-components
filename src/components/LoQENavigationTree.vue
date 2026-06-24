@@ -203,8 +203,9 @@
         item-value="id"
         density="compact"
         open-on-click
+        indent-lines="default"
         class="tree-view pa-2"
-        style="background-color: transparent !important">
+        style="background-color: transparent !important; --v-treeview-indent-line-opacity: 0.5">
         <template v-slot:prepend="{ item }">
           <!-- Warehouse: cloud provider icon -->
           <v-icon
@@ -239,17 +240,22 @@
             color="info">
             mdi-google-cloud
           </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'onelake'"
+            size="small">
+            <v-img :src="oneLakeIcon" width="18" height="18" />
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'" color="blue-grey">
             mdi-database
           </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'table'">mdi-table</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'table'">mdi-table</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
           <v-icon
             v-else-if="item.type === 'field' && item.fieldType"
             :icon="getTypeIcon(item.fieldType)"
             :color="getTypeColor(item.fieldType)"
-            size="small" />
+            size="x-small" />
           <v-icon v-else-if="item.type === 'load-more'" size="small" color="grey">
             mdi-dots-horizontal
           </v-icon>
@@ -258,7 +264,11 @@
         <template v-slot:title="{ item }">
           <div
             class="tree-item-container"
-            :class="{ 'tree-item-active': item.id === lastFocusedNodeId }"
+            :class="{
+              'tree-item-active': item.id === lastFocusedNodeId,
+              'tree-leaf-row':
+                item.type === 'table' || item.type === 'view' || item.type === 'field',
+            }"
             :data-node-id="item.id"
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
@@ -364,6 +374,7 @@ import type { AttachedCatalog } from '../composables/loqe/types';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
+import oneLakeIcon from '@/assets/onelake.png';
 
 // ── Props / Emits ─────────────────────────────────────────────────────
 
@@ -445,7 +456,7 @@ interface TreeItem {
   parentType?: 'table' | 'view';
   parentName?: string;
   /** Storage profile type — only set on warehouse nodes. */
-  storageType?: 's3' | 'adls' | 'gcs';
+  storageType?: 's3' | 'adls' | 'gcs' | 'onelake';
   storageFlavor?: string;
   storageEndpoint?: string;
   /** Which resource types still have pages to load (only on load-more nodes). */
@@ -1303,7 +1314,18 @@ watch(projectId, () => {
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.05);
+  /* Tighter rows so the indent/connector lines read as one continuous tree. */
+  min-height: 26px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+/* Leaf rows (tables/views/fields) are more compact than container rows. */
+.tree-view :deep(.v-list-item:has(.tree-leaf-row)) {
+  min-height: 20px !important;
+}
+.tree-view :deep(.v-list-item__content) {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
 }
 
 .tree-view :deep(.v-list-item-title) {

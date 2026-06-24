@@ -7,6 +7,67 @@ import { CatalogManager } from './CatalogManager';
 import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
 
 /**
+ * Format an arbitrary thrown value for logging. DuckDB-WASM errors frequently
+ * surface as `Error: Invalid Configuration Error:` with an EMPTY message — the
+ * useful detail lives in other (non-enumerable) properties or the stack. This
+ * dumps name, message, stack, and every own property so we can see the real
+ * cause in the console.
+ */
+function describeError(e: any): string {
+  if (!(e instanceof Object)) return String(e);
+  const out: Record<string, unknown> = {
+    name: e.name,
+    message: e.message,
+    toString: String(e),
+  };
+  for (const k of Object.getOwnPropertyNames(e)) {
+    if (k === 'name' || k === 'message' || k === 'stack') continue;
+    try {
+      out[k] = e[k];
+    } catch {
+      /* ignore getters that throw */
+    }
+  }
+  let dump: string;
+  try {
+    dump = JSON.stringify(out);
+  } catch {
+    dump = String(out);
+  }
+  return `${dump}\nstack: ${e.stack ?? '(none)'}`;
+}
+
+/**
+ * Translate DuckDB-WASM's opaque download error into an actionable message.
+ *
+ * DuckDB reports any failed httpfs download as a generic
+ * `"Full download failed … : 404 (might be potentially a CORS error)"` — it
+ * doesn't read the real status or the S3 error body. Two common causes look
+ * identical at this layer:
+ *   1. The storage bucket has no CORS configuration allowing browser access, so
+ *      the cross-origin request is blocked outright.
+ *   2. The vended S3 credentials expired and the browser reused a stale cached
+ *      `loadTable` response (the catalog returns `304` on a metadata-only ETag,
+ *      replaying the old creds).
+ * We can't tell them apart from DuckDB's message, so surface both.
+ */
+function friendlyQueryError(err: unknown, msg: string): unknown {
+  const looksLikeDownloadBlock =
+    /full download failed|might be.*cors|\b404\b/i.test(msg) &&
+    /(\.avro|snap-|manifest|metadata|\.json|\.parquet)/i.test(msg);
+  if (looksLikeDownloadBlock) {
+    return new Error(
+      'Could not read the table’s data files from object storage. The browser request was ' +
+        'blocked — usually either the storage bucket is missing a CORS configuration that allows ' +
+        'browser access, or the vended storage credentials expired and a stale cached catalog ' +
+        'response is being reused. Configure CORS on the bucket, or reload with DevTools → ' +
+        'Network → “Disable cache”, then retry.',
+    );
+  }
+  return err;
+}
+
+/**
  * LoQEEngine — reference-counted singleton that owns the DuckDB WASM
  * lifecycle including connection pooling, token refresh, and catalog
  * management.
@@ -62,6 +123,8 @@ export class LoQEEngine {
   private initPromise: Promise<void> | null = null;
   private _pool: ConnectionPool | null = null;
   private installedExtensions = new Set<string>();
+  private _activeConnection: any = null;
+  private _cancelRequested = false;
   // Bundled (self-hosted) extension repository, resolved at init from the app
   // origin. Used by default so extensions load offline instead of from the CDN.
   private bundledExtensionRepo = '';
@@ -112,8 +175,13 @@ export class LoQEEngine {
         .slice(0, 2)
         .join('/');
       const baseUrl = basePath ? `${origin}${this.config.baseUrlPrefix}${basePath}` : origin;
-      // Self-hosted extension repo (vendored alongside the wasm bundles).
-      this.bundledExtensionRepo = `${baseUrl}/duckdb/extensions`;
+      // Load extensions from the default CDN (extensions.duckdb.org) rather than
+      // the vendored repo. The extension ABI must match this exact DuckDB build,
+      // and a dev build's version doesn't reliably match a vendored release
+      // version ("Unknown ABI type" on LOAD). The CDN always serves the matching
+      // build. (Airgap via vendored extensions can be restored once we pin the
+      // exact extension version this build requires.)
+      this.bundledExtensionRepo = '';
 
       const bundles: duckdb.DuckDBBundles = {
         mvp: {
@@ -143,8 +211,13 @@ export class LoQEEngine {
       this.db = new duckdb.AsyncDuckDB(logger, this.worker);
       await this.db.instantiate(bundle.mainModule);
 
-      // 4. Open in-memory database
-      await this.db.open({});
+      // 4. Open in-memory database.
+      // allowUnsignedExtensions: we serve our OWN vendored extensions from the
+      // app origin (airgap). A pre-release/dev DuckDB core reports a version that
+      // doesn't match the released signed extensions, so signature validation
+      // fails ("signature is either missing or invalid"). Since we control the
+      // extension binaries, allow unsigned so they load from our repo.
+      await this.db.open({ allowUnsignedExtensions: true });
 
       // 5. Connection pool
       this._pool = new ConnectionPool(this.db, this.config.maxConnections ?? 4);
@@ -156,6 +229,7 @@ export class LoQEEngine {
       this.catalogs.initialize(this.db);
 
       this._isInitialized = true;
+      console.info('%c[LoQE] engine ready', 'color:#1976d2');
     } catch (e) {
       console.error('[LoQE] Initialisation failed:', e);
       throw e;
@@ -189,8 +263,10 @@ export class LoQEEngine {
     const maxRows = settingsStore.maxResultRows;
     const timeoutMs = settingsStore.queryTimeoutMs;
 
+    this._cancelRequested = false;
     const start = performance.now();
     const pooled = await this.pool.acquire();
+    this._activeConnection = pooled.connection;
 
     try {
       // ── Timeout guardrail ─────────────────────────────────────────
@@ -218,13 +294,18 @@ export class LoQEEngine {
       try {
         result = await exec(sql);
       } catch (err: any) {
-        // DuckDB can't serialize VARIANT (and a few other types) to Arrow for
-        // transport to JS. Retry once with a wrapper that casts those columns to
-        // text so the result is at least viewable (value shown as JSON/text).
-        const casted = /unsupported arrow type/i.test(String(err?.message ?? err))
+        // Log the failing statement and the FULL error — DuckDB's `.message` is
+        // often empty (e.g. "Invalid Configuration Error:"), so dump everything.
+        console.error(`[LoQE] query FAILED on SQL:\n${sql}\n`, describeError(err));
+        const msg = String(err?.message ?? err);
+
+        // Retry A: DuckDB can't serialize VARIANT (and a few other types) to Arrow
+        // for transport to JS. Retry once casting those columns to text so the
+        // result is at least viewable (value shown as JSON/text).
+        const casted = /unsupported arrow type/i.test(msg)
           ? await this.buildArrowSafeQuery(pooled.connection, sql)
           : null;
-        if (!casted) throw err;
+        if (!casted) throw friendlyQueryError(err, msg);
         result = await exec(casted);
       }
       const elapsed = performance.now() - start;
@@ -253,6 +334,7 @@ export class LoQEEngine {
 
         if (i > 0 && i % BATCH_SIZE === 0) {
           await new Promise<void>((r) => setTimeout(r, 0));
+          if (this._cancelRequested) throw new Error('Query cancelled.');
         }
       }
 
@@ -265,8 +347,14 @@ export class LoQEEngine {
         executionTimeMs: elapsed,
       };
     } finally {
+      this._activeConnection = null;
       this.pool.release(pooled);
     }
+  }
+
+  cancelCurrentQuery(): void {
+    this._cancelRequested = true;
+    this._activeConnection?.cancelSent().catch(() => {});
   }
 
   /**
@@ -378,24 +466,27 @@ export class LoQEEngine {
 
     const pooled = await this.pool.acquire();
     try {
-      // Resolve the extension repository: an explicit user override wins; otherwise
-      // use the self-hosted bundled repo so installs work offline / airgapped
-      // (never silently falls back to extensions.duckdb.org).
-      const settingsStore = useDuckDBSettingsStore();
-      const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
-      if (repo) {
-        await pooled.connection.query(`SET custom_extension_repository = '${repo}'`);
-      } else {
-        await pooled.connection.query(`RESET custom_extension_repository`);
+      // iceberg/httpfs/avro/parquet/json are statically built into the duckdb-wasm
+      // binary (which we self-host at /duckdb/*.wasm), so just LOAD them — no
+      // INSTALL, no `custom_extension_repository`, no network. This is fully
+      // airgapped and avoids extension/core ABI mismatches ("Unknown ABI type").
+      // Only if LOAD fails (the extension isn't builtin in this build) do we fall
+      // back to INSTALL from the configured repo.
+      try {
+        await pooled.connection.query(`LOAD ${name}`);
+      } catch (loadErr) {
+        console.warn(
+          `[LoQE] LOAD ${name} not builtin; falling back to INSTALL from repo\n`,
+          describeError(loadErr),
+        );
+        const settingsStore = useDuckDBSettingsStore();
+        const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
+        if (repo) {
+          await pooled.connection.query(`SET custom_extension_repository = '${repo}'`);
+        }
+        await pooled.connection.query(`INSTALL ${name}`);
+        await pooled.connection.query(`LOAD ${name}`);
       }
-
-      // httpfs must not use the built-in implementation so the custom repo is used
-      if (name === 'httpfs') {
-        await pooled.connection.query('SET builtin_httpfs = false');
-      }
-
-      await pooled.connection.query(`INSTALL ${name}`);
-      await pooled.connection.query(`LOAD ${name}`);
       this.installedExtensions.add(name);
     } finally {
       this.pool.release(pooled);
@@ -467,6 +558,17 @@ export class LoQEEngine {
 
   async detachCatalog(catalogName: string): Promise<void> {
     await this.catalogs.detachCatalog(catalogName);
+  }
+
+  /**
+   * Drop DuckDB's cached iceberg metadata by DETACHing + re-ATTACHing all
+   * catalogs, so the next query re-reads the current snapshot. Use when a read
+   * 404s on a `snap-*.avro` that still exists (DuckDB is on a stale, now-expired
+   * snapshot while the table itself is healthy).
+   */
+  async refreshMetadata(): Promise<void> {
+    if (!this._isInitialized) return;
+    await this.catalogs.reattachAll();
   }
 
   // ── Internals ───────────────────────────────────────────────────────

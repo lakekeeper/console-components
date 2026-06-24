@@ -8,8 +8,8 @@
     {{ tableError }}
   </v-alert>
   <v-row v-else-if="healthChecks.length > 0" dense class="mb-4">
-    <v-col cols="12" md="6">
-      <v-card variant="outlined" elevation="1" class="h-100">
+    <v-col cols="12">
+      <v-card variant="outlined" elevation="1">
         <v-toolbar color="transparent" density="compact" flat>
           <v-toolbar-title class="text-subtitle-1">
             <v-icon class="mr-2" :color="overallHealthColor">mdi-heart-pulse</v-icon>
@@ -216,7 +216,7 @@
     </v-col>
 
     <!-- Recommended Actions -->
-    <v-col cols="12" md="6">
+    <v-col cols="12">
       <TableHealthActions
         v-if="resolvedTable?.metadata && healthBranchSnapshot?.summary"
         :metadata="resolvedTable.metadata"
@@ -224,8 +224,7 @@
         :partition-data="partitionData"
         :is-partitioned="isTablePartitioned"
         :skew-ratio="partitionSkewRatio"
-        :partition-loading="partitionLoading"
-        class="h-100" />
+        :partition-loading="partitionLoading" />
     </v-col>
   </v-row>
 
@@ -522,6 +521,19 @@ const formatBytes = (bytes: number): string => {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+};
+
+// Compact human duration for an elapsed milliseconds value (e.g. "3 days", "2 months").
+const formatDuration = (ms: number): string => {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  const days = Math.floor(sec / 86400);
+  if (days >= 365) return `${Math.floor(days / 365)} year${days >= 730 ? 's' : ''}`;
+  if (days >= 30) return `${Math.floor(days / 30)} month${days >= 60 ? 's' : ''}`;
+  if (days >= 1) return `${days} day${days !== 1 ? 's' : ''}`;
+  const hours = Math.floor(sec / 3600);
+  if (hours >= 1) return `${hours} hour${hours !== 1 ? 's' : ''}`;
+  const mins = Math.floor(sec / 60);
+  return `${mins} minute${mins !== 1 ? 's' : ''}`;
 };
 
 // Walk the selected branch by following parent-snapshot-id from branch tip
@@ -1028,6 +1040,97 @@ const healthChecks = computed<HealthCheck[]>(() => {
           totalSize !== null ? `${totalSize.toLocaleString()} (${formatBytes(totalSize)})` : 'N/A',
       },
       { label: 'Result', value: 'Informational metric — no threshold applied' },
+    ],
+  });
+
+  // Freshness — time since the last write (metadata last-updated-ms)
+  const lastUpdatedMs = resolvedTable.value!.metadata['last-updated-ms'];
+  if (lastUpdatedMs) {
+    const ageMs = Date.now() - lastUpdatedMs;
+    const days = Math.floor(ageMs / 86400000);
+    const stale = days > 90;
+    checks.push({
+      label: 'Freshness',
+      detail: `Last written ${formatDuration(ageMs)} ago${
+        stale ? ' — consider whether this table is still maintained.' : '.'
+      }`,
+      severity: stale ? 'Info' : 'Good',
+      color: stale ? 'info' : 'success',
+      icon: 'mdi-clock-outline',
+      reasoning: [
+        { label: 'last-updated-ms', value: new Date(lastUpdatedMs).toISOString() },
+        { label: 'Age', value: `${days} days` },
+        { label: 'Threshold', value: '> 90 days since last write → Info' },
+        { label: 'Result', value: `${days} days → ${stale ? 'Info' : 'Good'}` },
+      ],
+    });
+  }
+
+  // Table age (informational) — first recorded snapshot
+  const allSnaps = resolvedTable.value!.metadata.snapshots ?? [];
+  const firstTs = allSnaps[0]?.['timestamp-ms'];
+  if (firstTs) {
+    checks.push({
+      label: 'Table age',
+      detail: `First snapshot ${formatDuration(Date.now() - firstTs)} ago. ${
+        allSnaps.length
+      } snapshot${allSnaps.length !== 1 ? 's' : ''} recorded.`,
+      severity: 'Good',
+      color: 'success',
+      icon: 'mdi-calendar-clock',
+      reasoning: [
+        { label: 'First snapshot', value: new Date(firstTs).toISOString() },
+        { label: 'Snapshots', value: `${allSnaps.length}` },
+        { label: 'Result', value: 'Informational metric — no threshold applied' },
+      ],
+    });
+  }
+
+  // Metadata-log growth — many previous metadata files slow loads
+  const metadataLog = resolvedTable.value!.metadata['metadata-log'] ?? [];
+  if (metadataLog.length > 0) {
+    const heavy = metadataLog.length > 100;
+    checks.push({
+      label: 'Metadata log size',
+      detail: `${metadataLog.length} previous metadata file${
+        metadataLog.length !== 1 ? 's' : ''
+      } tracked.${
+        heavy
+          ? ' Large logs slow metadata loads — lower write.metadata.previous-versions-max or run metadata cleanup.'
+          : ''
+      }`,
+      severity: heavy ? 'Info' : 'Good',
+      color: heavy ? 'info' : 'success',
+      icon: 'mdi-history',
+      reasoning: [
+        { label: 'metadata-log entries', value: `${metadataLog.length}` },
+        { label: 'Threshold', value: '> 100 entries → Info' },
+        { label: 'Result', value: `${metadataLog.length} → ${heavy ? 'Info' : 'Good'}` },
+      ],
+    });
+  }
+
+  // Column statistics presence (Puffin) — feeds the compute-statistics action
+  const statsFiles = resolvedTable.value!.metadata.statistics ?? [];
+  const statCols = statsFiles.reduce((n: number, f) => n + (f['blob-metadata']?.length ?? 0), 0);
+  checks.push({
+    label: 'Column statistics',
+    detail:
+      statCols > 0
+        ? `${statCols} column statistic${
+            statCols !== 1 ? 's' : ''
+          } stored — the planner can estimate cardinality and prune.`
+        : 'No column statistics stored. The query planner cannot estimate cardinality or prune effectively. Generate them with a compute-statistics maintenance run.',
+    severity: statCols > 0 ? 'Good' : 'Info',
+    color: statCols > 0 ? 'success' : 'info',
+    icon: 'mdi-sigma',
+    reasoning: [
+      { label: 'Statistics files', value: `${statsFiles.length}` },
+      { label: 'Columns with stats', value: `${statCols}` },
+      {
+        label: 'Result',
+        value: statCols > 0 ? 'Statistics present → Good' : 'No statistics → Info',
+      },
     ],
   });
 
@@ -1689,7 +1792,7 @@ watch(
   { flush: 'post' },
 );
 
-// Auto-load partition data when chart becomes available
+// Auto-load partition data once the partition chart becomes available.
 watch(
   partitionChartAvailable,
   (available) => {

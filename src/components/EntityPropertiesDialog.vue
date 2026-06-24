@@ -1,6 +1,6 @@
 <template>
   <v-dialog v-model="isDialogActive" max-width="650" scrollable>
-    <template #activator="{ props: activatorProps }">
+    <template v-if="!hideActivator" #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
         icon="mdi-pencil-outline"
@@ -54,6 +54,14 @@
             <span class="text-subtitle-2">
               {{ activeProperties.length }} propert{{ activeProperties.length === 1 ? 'y' : 'ies' }}
             </span>
+            <v-switch
+              v-if="systemCount > 0"
+              v-model="hideSystem"
+              color="primary"
+              density="compact"
+              hide-details
+              class="ml-4"
+              :label="`Hide system (${systemCount})`"></v-switch>
             <v-spacer></v-spacer>
             <v-btn
               v-if="canEdit"
@@ -76,11 +84,11 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="prop in editableProperties" :key="prop.originalKey">
+              <tr v-for="{ prop } in visibleProperties" :key="prop.originalKey || prop.key">
                 <td class="text-body-2">{{ prop.key }}</td>
                 <td class="text-body-2">{{ prop.value }}</td>
               </tr>
-              <tr v-if="editableProperties.length === 0">
+              <tr v-if="visibleProperties.length === 0">
                 <td colspan="2" class="text-center text-medium-emphasis py-4">No properties set</td>
               </tr>
             </tbody>
@@ -90,7 +98,7 @@
           <template v-else>
             <!-- Active properties -->
             <div
-              v-for="(prop, index) in editableProperties"
+              v-for="{ prop, index } in visibleProperties"
               :key="index"
               class="d-flex align-center ga-2 mb-2"
               :class="{ 'opacity-50': prop.markedForRemoval }">
@@ -136,7 +144,7 @@
             </div>
 
             <div
-              v-if="editableProperties.length === 0"
+              v-if="visibleProperties.length === 0"
               class="text-center text-medium-emphasis py-4">
               No properties set. Click "Add Property" to create one.
             </div>
@@ -207,6 +215,8 @@ const props = defineProps<{
   /** Current properties from the already-loaded metadata */
   properties?: Record<string, string>;
   canEdit?: boolean;
+  /** Hide the built-in pencil activator; open programmatically via `open()`. */
+  hideActivator?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -229,12 +239,27 @@ const entityLabel = computed(() => {
 });
 
 const isDialogActive = ref(false);
+defineExpose({ open: () => (isDialogActive.value = true) });
 const loading = ref(false);
 const saving = ref(false);
 const loadError = ref('');
 const confirmingRemovals = ref(false);
 const originalProperties = ref<Record<string, string>>({});
 const editableProperties = ref<EditableProperty[]>([]);
+
+// System/managed keys (e.g. Lakekeeper maintenance overrides) — hidden by default.
+const SYSTEM_PROP_PREFIXES = ['lakekeeper.'];
+const isSystemProp = (key: string) => SYSTEM_PROP_PREFIXES.some((p) => key.startsWith(p));
+const hideSystem = ref(true);
+const systemCount = computed(
+  () => editableProperties.value.filter((p) => isSystemProp(p.originalKey || p.key)).length,
+);
+// Rows to render, keeping each property's original index (used by remove/undo).
+const visibleProperties = computed(() =>
+  editableProperties.value
+    .map((prop, index) => ({ prop, index }))
+    .filter(({ prop }) => !hideSystem.value || !isSystemProp(prop.originalKey || prop.key)),
+);
 const removalConfirmations = reactive<Record<string, string>>({});
 
 const activeProperties = computed(() =>
@@ -320,16 +345,24 @@ async function loadProperties() {
   confirmingRemovals.value = false;
 
   try {
+    // Always fetch fresh from the server so the dialog never shows a stale
+    // snapshot from when the parent last loaded.
     if (props.entityType === 'namespace') {
-      // For namespaces, fetch from API
       const metadata = await functions.loadNamespaceMetadata(
         props.warehouseId,
         props.namespacePath,
       );
       initFromProperties(metadata.properties || {});
+    } else if (props.entityType === 'view') {
+      const v = await functions.loadView(props.warehouseId, props.namespacePath, props.entityName!);
+      initFromProperties(v?.metadata?.properties || {});
     } else {
-      // For tables and views, use the properties passed via prop
-      initFromProperties(props.properties || {});
+      const t = await functions.loadTable(
+        props.warehouseId,
+        props.namespacePath,
+        props.entityName!,
+      );
+      initFromProperties(t?.metadata?.properties || {});
     }
   } catch (error: any) {
     loadError.value = error?.message || `Failed to load ${props.entityType} properties`;

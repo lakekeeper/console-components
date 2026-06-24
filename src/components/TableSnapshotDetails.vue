@@ -119,9 +119,7 @@
         </v-row>
 
         <template v-if="otherEntries.length">
-          <div class="text-caption text-medium-emphasis text-uppercase mt-3 mb-1">
-            Other properties
-          </div>
+          <div class="text-caption text-medium-emphasis text-uppercase mt-3 mb-1">All fields</div>
           <v-table density="compact" class="summary-table">
             <tbody>
               <tr v-for="e in otherEntries" :key="e.key">
@@ -199,36 +197,35 @@ const highlights = computed(() => {
     added: string;
     deleted: string;
   }> = [];
+  // Show the cumulative total when the writer reports it; otherwise fall back to
+  // the per-commit "added" count (DuckDB writes added-* but not always total-*),
+  // and only "—" when neither exists — never a misleading 0.
   const add = (
     label: string,
     icon: string,
-    total: string,
+    totalKey: string,
     addedKey: string,
     deletedKey: string,
     fmt: (k: string) => string,
   ) => {
+    const hasTotal = has(totalKey);
+    const value = hasTotal ? fmt(totalKey) : has(addedKey) ? fmt(addedKey) : '—';
     out.push({
       label,
       icon,
-      value: total,
-      added: has(addedKey) && n(addedKey) > 0 ? fmt(addedKey) : '',
-      deleted: has(deletedKey) && n(deletedKey) > 0 ? fmt(deletedKey) : '',
+      value,
+      // Only show delta badges alongside a real cumulative total.
+      added: hasTotal && has(addedKey) && n(addedKey) > 0 ? fmt(addedKey) : '',
+      deleted: hasTotal && has(deletedKey) && n(deletedKey) > 0 ? fmt(deletedKey) : '',
     });
   };
   if (has('total-records') || has('added-records') || has('deleted-records'))
-    add(
-      'Records',
-      'mdi-table-row',
-      countFmt('total-records'),
-      'added-records',
-      'deleted-records',
-      countFmt,
-    );
+    add('Records', 'mdi-table-row', 'total-records', 'added-records', 'deleted-records', countFmt);
   if (has('total-data-files') || has('added-data-files') || has('deleted-data-files'))
     add(
       'Data files',
       'mdi-file-multiple-outline',
-      countFmt('total-data-files'),
+      'total-data-files',
       'added-data-files',
       'deleted-data-files',
       countFmt,
@@ -237,47 +234,68 @@ const highlights = computed(() => {
     add(
       'Delete files',
       'mdi-file-remove-outline',
-      countFmt('total-delete-files'),
+      'total-delete-files',
       'added-delete-files',
       'removed-delete-files',
       countFmt,
     );
-  if (has('total-files-size') || has('added-files-size') || has('removed-files-size'))
+  if (
+    has('total-position-deletes') ||
+    has('added-position-deletes') ||
+    has('removed-position-deletes')
+  )
+    add(
+      'Positional deletes',
+      'mdi-file-document-minus-outline',
+      'total-position-deletes',
+      'added-position-deletes',
+      'removed-position-deletes',
+      countFmt,
+    );
+  if (
+    has('total-equality-deletes') ||
+    has('added-equality-deletes') ||
+    has('removed-equality-deletes')
+  )
+    add(
+      'Equality deletes',
+      'mdi-equal-box-outline',
+      'total-equality-deletes',
+      'added-equality-deletes',
+      'removed-equality-deletes',
+      countFmt,
+    );
+  if (has('total-files-size') || has('added-files-size') || has('removed-files-size')) {
+    const bytes = (k: string) => fmtBytes(n(k));
     add(
       'Total size',
       'mdi-database-outline',
-      fmtBytes(n('total-files-size')),
+      'total-files-size',
       'added-files-size',
       'removed-files-size',
-      (k: string) => fmtBytes(n(k)),
+      bytes,
     );
+  }
   return out;
 });
 
-const HIGHLIGHT_KEYS = new Set([
-  'total-records',
-  'added-records',
-  'deleted-records',
-  'total-data-files',
-  'added-data-files',
-  'deleted-data-files',
-  'total-delete-files',
-  'added-delete-files',
-  'removed-delete-files',
-  'total-files-size',
-  'added-files-size',
-  'removed-files-size',
-]);
-
-// Everything else (engine info, partition counts, etc.) as a key/value table
+// The complete summary as a key/value table (every field, like Snapshot Compare).
 const otherEntries = computed(() => {
   const s = summary.value;
   return Object.keys(s)
-    .filter((key) => key !== 'operation' && !HIGHLIGHT_KEYS.has(key))
-    .map((key) => ({
-      key,
-      display: /size|bytes/.test(key) ? fmtBytes(n(key)) : formatSummaryValue(s[key]),
-    }));
+    .filter((key) => key !== 'operation')
+    .sort((a, b) => a.localeCompare(b))
+    .map((key) => {
+      const raw = s[key];
+      return {
+        key,
+        display: /size|bytes/.test(key)
+          ? fmtBytes(n(key))
+          : /^-?\d+$/.test(String(raw))
+            ? fmtCount(raw)
+            : formatSummaryValue(raw),
+      };
+    });
 });
 
 // Methods

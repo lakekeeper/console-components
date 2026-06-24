@@ -40,13 +40,16 @@ import NamespaceGenericTables from './components/NamespaceGenericTables.vue';
 import NamespaceDeleted from './components/NamespaceDeleted.vue';
 import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
+import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import TableHeader from './components/TableHeader.vue';
+import TableActionsMenu from './components/TableActionsMenu.vue';
 import GenericTableHeader from './components/GenericTableHeader.vue';
 import GenericTableOverview from './components/GenericTableOverview.vue';
 import TableDetails from './components/TableDetails.vue';
 import TableHealth from './components/TableHealth.vue';
 import TableHealthActions from './components/TableHealthActions.vue';
+import TableColumnProfiler from './components/TableColumnProfiler.vue';
 import TableVersioningVisualization from './components/TableVersioningVisualization.vue';
 import TableSnapshotDetails from './components/TableSnapshotDetails.vue';
 import SnapshotCompare from './components/SnapshotCompare.vue';
@@ -59,6 +62,9 @@ import TableRegister from './components/TableRegister.vue';
 import WarehousesNavigationTree from './components/WarehousesNavigationTree.vue';
 import LoQEExplorer from './components/LoQEExplorer.vue';
 import ViewHeader from './components/ViewHeader.vue';
+import ViewActionsMenu from './components/ViewActionsMenu.vue';
+import GenericTableActionsMenu from './components/GenericTableActionsMenu.vue';
+import StorageExplorer from './components/StorageExplorer.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
 import ViewRaw from './components/ViewRaw.vue';
@@ -77,6 +83,7 @@ import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
 import ServerOverview from './components/ServerOverview.vue';
 import SupportBundleDialog from './components/SupportBundleDialog.vue';
+import UsageDatumDialog from './components/UsageDatumDialog.vue';
 import FeedbackDialog from './components/FeedbackDialog.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
@@ -85,6 +92,7 @@ import StackedAreaChart from './components/StackedAreaChart.vue';
 import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
 import NotificationButton from './components/NotificationButton.vue';
 import NotificationPanel from './components/NotificationPanel.vue';
+import ReportBuilderPanel from './components/ReportBuilderPanel.vue';
 
 // Export individual components
 export {
@@ -109,6 +117,7 @@ export {
   TaskConfigDialog,
   ServerOverview,
   SupportBundleDialog,
+  UsageDatumDialog,
   FeedbackDialog,
   UserManager,
   ProjectNameAddOrEditDialog,
@@ -142,13 +151,16 @@ export {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespaceActionsMenu,
   NamespacePropertiesDialog,
   TableHeader,
+  TableActionsMenu,
   GenericTableHeader,
   GenericTableOverview,
   TableDetails,
   TableHealth,
   TableHealthActions,
+  TableColumnProfiler,
   TableVersioningVisualization,
   TableSnapshotDetails,
   SnapshotCompare,
@@ -159,6 +171,9 @@ export {
   TableCreate,
   TableRegister,
   ViewHeader,
+  ViewActionsMenu,
+  GenericTableActionsMenu,
+  StorageExplorer,
   ViewHistoryTab,
   ViewOverview,
   ViewRaw,
@@ -168,6 +183,7 @@ export {
   NotificationPanel,
   WarehousesNavigationTree,
   LoQEExplorer,
+  ReportBuilderPanel,
 };
 
 // Export composables
@@ -205,6 +221,8 @@ export { useUserStore } from './stores/user';
 export { useNotificationStore } from './stores/notifications';
 export { useNavigationStore } from './stores/navigation';
 export type { NavigationState } from './stores/navigation';
+export { useReportsStore } from './stores/reports';
+export type { SavedReport, ChartConfig, ChartType } from './stores/reports';
 
 // Export common types and enums
 export * from './common/interfaces';
@@ -296,6 +314,7 @@ const components = {
   TaskConfigDialog,
   ServerOverview,
   SupportBundleDialog,
+  UsageDatumDialog,
   FeedbackDialog,
   UserManager,
   AuthenticationDisabledWarningBanner,
@@ -329,13 +348,16 @@ const components = {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespaceActionsMenu,
   NamespacePropertiesDialog,
   TableHeader,
+  TableActionsMenu,
   GenericTableHeader,
   GenericTableOverview,
   TableDetails,
   TableHealth,
   TableHealthActions,
+  TableColumnProfiler,
   TableVersioningVisualization,
   TableSnapshotDetails,
   SnapshotCompare,
@@ -346,6 +368,9 @@ const components = {
   TableRegister,
   TableVersioning,
   ViewHeader,
+  ViewActionsMenu,
+  GenericTableActionsMenu,
+  StorageExplorer,
   ViewHistoryTab,
   ViewOverview,
   ViewRaw,
@@ -354,6 +379,7 @@ const components = {
   NotificationButton,
   NotificationPanel,
   LoQEExplorer,
+  ReportBuilderPanel,
 };
 
 // Create the plugin

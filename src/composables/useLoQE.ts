@@ -286,6 +286,28 @@ export function useLoQE(config: LoQEConfig) {
     return engine.getInstalledExtensions();
   }
 
+  /**
+   * Register an in-memory file buffer with DuckDB and run a query against it,
+   * then drop the file. Used by the storage explorer to preview a downloaded
+   * object (parquet/csv) without DuckDB needing its own storage/CORS access —
+   * we supply the bytes ourselves.
+   */
+  async function queryBuffer(fileName: string, bytes: Uint8Array, sql: string) {
+    if (!isInitialized.value) await initialize();
+    const db = engine.getDB();
+    if (!db) throw new Error('DuckDB is not available');
+    await db.registerFileBuffer(fileName, bytes);
+    try {
+      return await engine.query(sql);
+    } finally {
+      try {
+        await db.dropFile(fileName);
+      } catch {
+        /* best-effort cleanup */
+      }
+    }
+  }
+
   async function attachCatalog(catalogConfig: LoQECatalogConfig): Promise<void> {
     if (!isInitialized.value) await initialize();
     await engine.attachCatalog(catalogConfig);
@@ -299,6 +321,16 @@ export function useLoQE(config: LoQEConfig) {
   async function detachCatalog(catalogName: string): Promise<void> {
     await engine.detachCatalog(catalogName);
     store.removeCatalog(catalogName);
+  }
+
+  /**
+   * Force DuckDB to re-read fresh iceberg metadata (detach + reattach all
+   * catalogs). Use after a read 404s on a `snap-*.avro` that still exists —
+   * DuckDB is on a stale, expired snapshot while the table is healthy.
+   */
+  async function refreshMetadata(): Promise<void> {
+    if (!isInitialized.value) return;
+    await engine.refreshMetadata();
   }
 
   /**
@@ -485,11 +517,14 @@ export function useLoQE(config: LoQEConfig) {
     // Actions
     initialize,
     query,
+    queryBuffer,
+    cancelQuery: () => engine.cancelCurrentQuery(),
     installExtension,
     removeExtension,
     getExtensions,
     attachCatalog,
     detachCatalog,
+    refreshMetadata,
     freeMemory,
     resetDatabase,
     fetchCompletions,

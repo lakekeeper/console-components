@@ -2,9 +2,7 @@
   <v-dialog v-model="isDialogActive" max-width="900">
     <template #activator="{ props: activatorProps }">
       <v-list-item prepend-icon="mdi-connection" v-bind="activatorProps">
-        <v-list-item-title>
-          <span class="text-subtitle-2">Connect Compute</span>
-        </v-list-item-title>
+        <v-list-item-title>Connect Compute</v-list-item-title>
       </v-list-item>
     </template>
 

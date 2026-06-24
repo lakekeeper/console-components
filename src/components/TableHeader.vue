@@ -22,18 +22,31 @@
       <v-icon>mdi-table</v-icon>
     </template>
     <v-spacer></v-spacer>
+
+    <TableActionsMenu
+      :warehouse-id="warehouseId"
+      :namespace-id="namespaceId"
+      :table-name="tableName"
+      @updated="$emit('updated')">
+      <template #maintenance="slotProps">
+        <slot name="maintenance" v-bind="slotProps"></slot>
+      </template>
+    </TableActionsMenu>
   </v-toolbar>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useVisualStore } from '@/stores/visual';
+import TableActionsMenu from './TableActionsMenu.vue';
 
 const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   tableName: string;
 }>();
+
+defineEmits<{ (e: 'updated'): void }>();
 
 const visual = useVisualStore();
 

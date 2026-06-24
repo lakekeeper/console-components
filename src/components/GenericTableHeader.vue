@@ -21,18 +21,27 @@
       <v-icon>mdi-table-multiple</v-icon>
     </template>
     <v-spacer></v-spacer>
+
+    <GenericTableActionsMenu
+      :warehouse-id="warehouseId"
+      :namespace-id="namespaceId"
+      :table-name="tableName"
+      @updated="$emit('updated')" />
   </v-toolbar>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
 import { useVisualStore } from '@/stores/visual';
+import GenericTableActionsMenu from './GenericTableActionsMenu.vue';
 
 const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   tableName: string;
 }>();
+
+defineEmits<{ (e: 'updated'): void }>();
 
 const visual = useVisualStore();
 

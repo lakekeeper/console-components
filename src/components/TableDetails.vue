@@ -1,18 +1,5 @@
 <template>
   <v-card-text>
-    <!-- Action row -->
-    <div class="d-flex align-center mb-4">
-      <v-spacer></v-spacer>
-      <v-btn
-        size="small"
-        variant="tonal"
-        color="primary"
-        prepend-icon="mdi-download"
-        @click="downloadTableJson">
-        Download metadata.json
-      </v-btn>
-    </div>
-
     <!-- At a glance -->
     <v-row dense class="mb-2">
       <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
@@ -59,7 +46,7 @@
     </v-sheet>
 
     <!-- Properties -->
-    <v-expansion-panels v-if="propertyItems.length > 0 || canEdit" class="mb-6">
+    <v-expansion-panels v-if="allPropertyItems.length > 0 || canEdit" class="mb-6">
       <v-expansion-panel>
         <v-expansion-panel-title>
           <v-icon class="mr-2" size="small">mdi-cog-outline</v-icon>
@@ -67,16 +54,13 @@
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
-          <div v-if="canEdit && warehouseId && namespacePath" class="d-flex mb-2">
-            <v-spacer></v-spacer>
-            <EntityPropertiesDialog
-              entity-type="table"
-              :warehouse-id="warehouseId"
-              :namespace-path="namespacePath"
-              :entity-name="tableName"
-              :properties="table.metadata.properties"
-              :can-edit="canEdit"
-              @updated="$emit('updated')" />
+          <div v-if="systemPropCount > 0" class="d-flex align-center mb-2">
+            <v-switch
+              v-model="hideSystemProps"
+              color="primary"
+              density="compact"
+              hide-details
+              :label="`Hide system properties (${systemPropCount})`"></v-switch>
           </div>
           <v-data-table-virtual
             v-if="propertyItems.length"
@@ -97,80 +81,16 @@
       </v-expansion-panel>
     </v-expansion-panels>
 
-    <!-- Schema -->
-    <v-expansion-panels v-model="schemaPanels" multiple class="mb-6">
-      <v-expansion-panel value="fields">
-        <v-expansion-panel-title>
-          <v-icon class="mr-2" size="small" color="primary">mdi-file-tree</v-icon>
-          Schema
-          <v-chip size="x-small" variant="tonal" class="ml-2">
-            {{ selectedSchemaInfo?.fields?.length || 0 }} fields
-          </v-chip>
-          <v-chip
-            v-if="
-              selectedSchemaId !== null && selectedSchemaId !== table.metadata['current-schema-id']
-            "
-            size="x-small"
-            color="warning"
-            variant="flat"
-            class="ml-2">
-            schema {{ selectedSchemaId }}
-          </v-chip>
-        </v-expansion-panel-title>
-        <v-expansion-panel-text>
-          <v-text-field
-            v-model="fieldSearch"
-            density="compact"
-            variant="outlined"
-            placeholder="Filter fields…"
-            prepend-inner-icon="mdi-magnify"
-            hide-details
-            clearable
-            class="mb-2"
-            style="max-width: 320px"></v-text-field>
-          <v-select
-            v-if="allSchemas.length > 1"
-            v-model="selectedSchemaId"
-            :items="schemaVersionOptions"
-            density="compact"
-            variant="outlined"
-            label="Schema version"
-            class="mb-2"
-            style="max-width: 360px"
-            hide-details></v-select>
-          <div style="max-height: 420px; overflow-y: auto">
-            <v-treeview
-              v-if="filteredSchemaFields.length"
-              :items="filteredSchemaFields"
-              open-on-click
-              density="compact">
-              <template #prepend="{ item }">
-                <v-icon v-if="item.datatype == 'string'" size="small">mdi-alphabetical</v-icon>
-                <v-icon v-else-if="item.datatype == 'int'" size="small">mdi-numeric</v-icon>
-                <v-icon
-                  v-else-if="item.datatype == 'long' || item.datatype == 'double'"
-                  size="small">
-                  mdi-decimal
-                </v-icon>
-                <v-icon v-else-if="item.datatype == 'array'" size="small">
-                  mdi-format-list-group
-                </v-icon>
-                <v-icon v-else size="small">mdi-pound-box-outline</v-icon>
-              </template>
-              <template #append="{ item }">
-                <span v-if="item.required" class="text-error" style="font-size: 0.65rem">
-                  required
-                  <v-icon color="error" size="x-small">mdi-asterisk</v-icon>
-                </span>
-              </template>
-            </v-treeview>
-            <div v-else class="text-medium-emphasis pa-3">
-              {{ fieldSearch ? 'No matching fields' : 'No schema information' }}
-            </div>
-          </div>
-        </v-expansion-panel-text>
-      </v-expansion-panel>
+    <!-- Schema (fields + on-demand profiling) -->
+    <TableColumnProfiler
+      :metadata="table.metadata"
+      :warehouse-id="warehouseId"
+      :namespace-id="namespacePath"
+      :table-name="tableName"
+      :catalog-url="catalogUrl" />
 
+    <!-- Schema evolution -->
+    <v-expansion-panels v-model="schemaPanels" multiple class="mb-6">
       <!-- Schema evolution -->
       <v-expansion-panel v-if="allSchemas.length > 1" value="evolution">
         <v-expansion-panel-title>
@@ -181,12 +101,24 @@
           </v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
+          <div class="d-flex mb-2">
+            <v-spacer></v-spacer>
+            <v-btn
+              size="small"
+              variant="tonal"
+              color="primary"
+              prepend-icon="mdi-compare-horizontal"
+              @click="openCompare">
+              Compare schemas
+            </v-btn>
+          </div>
           <v-table density="compact">
             <thead>
               <tr>
                 <th style="width: 100px">Schema ID</th>
                 <th style="width: 80px">Fields</th>
                 <th>Changes</th>
+                <th style="width: 48px"></th>
               </tr>
             </thead>
             <tbody>
@@ -238,12 +170,120 @@
                     </span>
                   </template>
                 </td>
+                <td>
+                  <v-btn icon size="x-small" variant="text" @click="openSchema(schema)">
+                    <v-icon size="small">mdi-eye-outline</v-icon>
+                    <v-tooltip activator="parent" location="top">View schema</v-tooltip>
+                  </v-btn>
+                </td>
               </tr>
             </tbody>
           </v-table>
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>
+
+    <!-- View a single schema's fields -->
+    <v-dialog v-model="schemaViewOpen" max-width="640" scrollable>
+      <v-card v-if="schemaViewData">
+        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+          <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
+          Schema {{ schemaViewData['schema-id'] }}
+          <v-chip size="x-small" variant="tonal" class="ml-2">
+            {{ schemaViewData.fields?.length || 0 }} fields
+          </v-chip>
+          <v-spacer></v-spacer>
+          <v-btn icon variant="text" size="small" @click="schemaViewOpen = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text>
+          <v-table density="compact">
+            <thead>
+              <tr>
+                <th style="width: 56px">ID</th>
+                <th>Field</th>
+                <th>Type</th>
+                <th style="width: 80px">Required</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="f in schemaViewData.fields" :key="f.id">
+                <td class="text-caption text-medium-emphasis">{{ f.id }}</td>
+                <td class="font-mono">{{ f.name }}</td>
+                <td class="font-mono text-caption">{{ typeLabel(f.type) }}</td>
+                <td>
+                  <v-icon v-if="f.required" size="small" color="error">mdi-asterisk</v-icon>
+                  <span v-else class="text-disabled">—</span>
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
+    <!-- Compare two schemas -->
+    <v-dialog v-model="compareOpen" max-width="760" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+          <v-icon class="mr-2" color="primary">mdi-compare-horizontal</v-icon>
+          Compare schemas
+          <v-spacer></v-spacer>
+          <v-btn icon variant="text" size="small" @click="compareOpen = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text>
+          <div class="d-flex align-center mb-3" style="gap: 12px">
+            <v-select
+              v-model="compareLeft"
+              :items="schemaIdItems"
+              label="Base"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 200px"></v-select>
+            <v-icon>mdi-arrow-right</v-icon>
+            <v-select
+              v-model="compareRight"
+              :items="schemaIdItems"
+              label="Compare"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 200px"></v-select>
+          </div>
+          <v-table density="compact">
+            <thead>
+              <tr>
+                <th>Field</th>
+                <th>Base type</th>
+                <th>Compare type</th>
+                <th style="width: 110px">Change</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="row in schemaCompareRows" :key="row.name">
+                <td class="font-mono">{{ row.name }}</td>
+                <td class="font-mono text-caption">{{ row.leftType ?? '—' }}</td>
+                <td class="font-mono text-caption">{{ row.rightType ?? '—' }}</td>
+                <td>
+                  <v-chip size="x-small" variant="flat" :color="row.color">{{ row.status }}</v-chip>
+                </td>
+              </tr>
+              <tr v-if="schemaCompareRows.length === 0">
+                <td colspan="4" class="text-center text-medium-emphasis py-4">
+                  Select two schema versions to compare.
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
 
     <!-- Layout & ordering -->
     <v-row class="mb-3">
@@ -298,10 +338,21 @@
 
     <!-- Snapshots -->
     <template v-if="snapshotRows.length">
-      <div class="section-head mt-4">
+      <div class="section-head mt-4 d-flex align-center">
         <v-icon size="18" class="mr-2" color="info">mdi-camera-outline</v-icon>
         Snapshots
         <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
+        <v-spacer></v-spacer>
+        <v-select
+          v-if="branchOptions.length > 1"
+          v-model="selectedBranch"
+          :items="branchOptions"
+          density="compact"
+          variant="outlined"
+          hide-details
+          prepend-inner-icon="mdi-source-branch"
+          label="Branch"
+          style="max-width: 220px"></v-select>
       </div>
       <v-sheet rounded="lg" border class="mb-2">
         <v-data-table
@@ -313,6 +364,19 @@
           hover
           class="snapshot-table"
           @click:row="openSnapshot">
+          <template #item.refs="{ item }">
+            <v-chip
+              v-for="r in item.refs"
+              :key="r"
+              size="x-small"
+              :color="r === 'main' ? 'primary' : 'default'"
+              variant="tonal"
+              class="mr-1">
+              <v-icon start size="x-small">mdi-source-branch</v-icon>
+              {{ r }}
+            </v-chip>
+            <span v-if="item.refs.length === 0" class="text-disabled">—</span>
+          </template>
           <template #item.committed="{ item }">
             <span :title="item.committedAbs" style="white-space: nowrap">
               {{ item.committedAbs }}
@@ -364,11 +428,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
-import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
-import { transformFields } from '../common/schemaUtils';
+import TableColumnProfiler from './TableColumnProfiler.vue';
 import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
 
 // Props
@@ -377,6 +440,7 @@ const props = defineProps<{
   warehouseId?: string;
   namespacePath?: string;
   tableName?: string;
+  catalogUrl?: string;
   canEdit?: boolean;
 }>();
 
@@ -404,11 +468,21 @@ const propertyHeaders = [
   { title: 'Value', key: 'value' },
 ];
 
-const propertyItems = computed(() => {
+// System/managed properties (e.g. Lakekeeper maintenance overrides) — hidden by
+// default behind a toggle so user-set properties aren't buried.
+const SYSTEM_PROP_PREFIXES = ['lakekeeper.'];
+const isSystemProp = (key: string) => SYSTEM_PROP_PREFIXES.some((p) => key.startsWith(p));
+const hideSystemProps = ref(true);
+
+const allPropertyItems = computed(() => {
   const props_ = props.table.metadata.properties;
   if (!props_) return [];
-  return Object.entries(props_).map(([key, value]) => ({ key, value }));
+  return Object.entries(props_).map(([key, value]) => ({ key, value, system: isSystemProp(key) }));
 });
+const systemPropCount = computed(() => allPropertyItems.value.filter((i) => i.system).length);
+const propertyItems = computed(() =>
+  hideSystemProps.value ? allPropertyItems.value.filter((i) => !i.system) : allPropertyItems.value,
+);
 
 const formatTimestamp = (timestampMs: number): string => {
   if (!timestampMs) return '';
@@ -510,6 +584,67 @@ const allSchemas = computed(() => {
   return [...schemas].sort((a, b) => (a['schema-id'] ?? 0) - (b['schema-id'] ?? 0));
 });
 
+// Human label for a field type (primitive string, or struct/list/map).
+function typeLabel(t: any): string {
+  if (typeof t === 'string') return t;
+  if (t && typeof t === 'object') return t.type || 'complex';
+  return String(t ?? '');
+}
+
+// View a single schema's fields.
+const schemaViewOpen = ref(false);
+const schemaViewData = ref<any>(null);
+function openSchema(schema: any) {
+  schemaViewData.value = schema;
+  schemaViewOpen.value = true;
+}
+
+// Compare two schema versions.
+const compareOpen = ref(false);
+const compareLeft = ref<number | null>(null);
+const compareRight = ref<number | null>(null);
+const schemaIdItems = computed(() =>
+  allSchemas.value.map((s) => ({
+    title: `Schema ${s['schema-id']}${s['schema-id'] === props.table.metadata['current-schema-id'] ? ' (current)' : ''}`,
+    value: s['schema-id'] ?? 0,
+  })),
+);
+function openCompare() {
+  const ids = allSchemas.value.map((s) => s['schema-id'] ?? 0);
+  compareRight.value = props.table.metadata['current-schema-id'] ?? ids[ids.length - 1] ?? null;
+  compareLeft.value = ids.filter((id) => id !== compareRight.value).pop() ?? ids[0] ?? null;
+  compareOpen.value = true;
+}
+const schemaCompareRows = computed(() => {
+  if (compareLeft.value === null || compareRight.value === null) return [];
+  const byId = (id: number | null) => allSchemas.value.find((s) => s['schema-id'] === id);
+  const left = byId(compareLeft.value);
+  const right = byId(compareRight.value);
+  if (!left || !right) return [];
+  const leftMap = new Map((left.fields ?? []).map((f: any) => [f.name, typeLabel(f.type)]));
+  const rightMap = new Map((right.fields ?? []).map((f: any) => [f.name, typeLabel(f.type)]));
+  const names = Array.from(new Set([...leftMap.keys(), ...rightMap.keys()]));
+  return names
+    .map((name) => {
+      const leftType = leftMap.get(name) ?? null;
+      const rightType = rightMap.get(name) ?? null;
+      let status = 'same';
+      let color = 'default';
+      if (leftType === null) {
+        status = 'added';
+        color = 'success';
+      } else if (rightType === null) {
+        status = 'removed';
+        color = 'error';
+      } else if (leftType !== rightType) {
+        status = 'changed';
+        color = 'warning';
+      }
+      return { name, leftType, rightType, status, color };
+    })
+    .sort((a, b) => (a.status === 'same' ? 1 : 0) - (b.status === 'same' ? 1 : 0));
+});
+
 const schemaFieldDiffs = computed(() => {
   const schemas = allSchemas.value;
   const diffs: Record<number, { added: string[]; removed: string[] }> = {};
@@ -556,6 +691,7 @@ function openSnapshot(_event: unknown, row: { item: { raw: any } }) {
 }
 const snapshotHeaders = [
   { title: 'Committed', key: 'committed' },
+  { title: 'Refs', key: 'refs', sortable: false },
   { title: 'Operation', key: 'operation' },
   { title: 'Records', key: 'records', align: 'end' as const },
   { title: 'Δ Records', key: 'delta', align: 'end' as const },
@@ -563,6 +699,40 @@ const snapshotHeaders = [
   { title: 'Snapshot ID', key: 'id' },
   { title: '', key: 'actions', align: 'end' as const, sortable: false },
 ];
+
+// Branch/tag refs (name → { snapshot-id, type }).
+const branchRefs = computed(() => {
+  const refs = (props.table.metadata as any)?.refs as Record<string, any> | undefined;
+  return refs && typeof refs === 'object' ? refs : {};
+});
+const branchOptions = computed(() => [
+  { title: 'All snapshots', value: '__all__' },
+  ...Object.keys(branchRefs.value).map((name) => ({
+    title: `${name} · ${branchRefs.value[name]?.type ?? 'branch'}`,
+    value: name,
+  })),
+]);
+const selectedBranch = ref('__all__');
+// Default to the `main` branch when the table has one (set once refs load).
+let branchInitialized = false;
+watch(
+  branchRefs,
+  (refs) => {
+    if (branchInitialized || !refs || Object.keys(refs).length === 0) return;
+    if (refs['main']) selectedBranch.value = 'main';
+    branchInitialized = true;
+  },
+  { immediate: true },
+);
+// snapshot-id → ref names that point at it (tips)
+const refTips = computed(() => {
+  const map: Record<string, string[]> = {};
+  for (const [name, r] of Object.entries(branchRefs.value)) {
+    const sid = String((r as any)?.['snapshot-id']);
+    (map[sid] ??= []).push(name);
+  }
+  return map;
+});
 
 function toNum(v: unknown): number {
   const n = typeof v === 'string' ? Number(v) : (v as number);
@@ -582,16 +752,33 @@ const snapshotRows = computed(() => {
   const snaps = props.table.metadata.snapshots;
   if (!Array.isArray(snaps)) return [];
   const currentId = String(props.table.metadata['current-snapshot-id']);
+
+  // When a branch/tag is selected, keep only its lineage (walk parent links from the tip).
+  let allowed: Set<string> | null = null;
+  if (selectedBranch.value !== '__all__') {
+    const byId = new Map(snaps.map((s: any) => [String(s['snapshot-id']), s]));
+    const tip = String(branchRefs.value[selectedBranch.value]?.['snapshot-id'] ?? '');
+    allowed = new Set();
+    let cur = tip;
+    while (cur && byId.has(cur) && !allowed.has(cur)) {
+      allowed.add(cur);
+      cur = String(byId.get(cur)?.['parent-snapshot-id'] ?? '');
+    }
+  }
+
   return [...snaps]
+    .filter((s: any) => !allowed || allowed.has(String(s['snapshot-id'])))
     .sort((a: any, b: any) => toNum(b['timestamp-ms']) - toNum(a['timestamp-ms']))
     .map((s: any) => {
       const summary = s.summary ?? {};
+      const id = String(s['snapshot-id']);
       return {
-        id: String(s['snapshot-id']),
+        id,
         raw: s,
+        refs: refTips.value[id] ?? [],
         committedAbs: s['timestamp-ms'] ? absoluteTimestamp(s['timestamp-ms']) : '—',
         operation: summary.operation ?? '—',
-        current: String(s['snapshot-id']) === currentId,
+        current: id === currentId,
         totalRecords: summary['total-records'],
         addedRecords: summary['added-records'],
         deletedRecords: summary['deleted-records'],
@@ -614,47 +801,8 @@ const getOperationColor = (operation: string): string => {
   return colors[operation?.toLowerCase()] || 'grey';
 };
 
-const selectedSchemaId = ref<number | null>(null);
-
-const schemaVersionOptions = computed(() => {
-  return allSchemas.value.map((s) => ({
-    title: `Schema ${s['schema-id']}${s['schema-id'] === props.table.metadata['current-schema-id'] ? ' (current)' : ''} — ${s.fields?.length || 0} fields`,
-    value: s['schema-id'] ?? 0,
-  }));
-});
-
-const selectedSchemaInfo = computed(() => {
-  const id = selectedSchemaId.value;
-  if (id === null) return currentSchemaInfo.value;
-  return allSchemas.value.find((s) => s['schema-id'] === id) || currentSchemaInfo.value;
-});
-
-const schemaFieldsTransformed = computed(() => {
-  if (!selectedSchemaInfo.value?.fields) return [];
-  return transformFields(selectedSchemaInfo.value.fields);
-});
-
-// Schema and Schema evolution both start collapsed.
+// Schema evolution panel starts collapsed.
 const schemaPanels = ref<string[]>([]);
-const fieldSearch = ref('');
-
-// Filter the field tree by name, keeping parents of matching nested fields.
-const filteredSchemaFields = computed(() => {
-  const q = fieldSearch.value?.trim().toLowerCase();
-  if (!q) return schemaFieldsTransformed.value;
-  const filter = (items: any[]): any[] =>
-    items
-      .map((item) => {
-        const children = item.children ? filter(item.children) : undefined;
-        const selfMatch = String(item.title).toLowerCase().includes(q);
-        if (selfMatch || (children && children.length)) {
-          return { ...item, children };
-        }
-        return null;
-      })
-      .filter(Boolean);
-  return filter(schemaFieldsTransformed.value);
-});
 
 // At-a-glance metric tiles
 const statTiles = computed(() => {
@@ -762,24 +910,6 @@ const identityRows = computed(() => {
 
   return rows;
 });
-
-function tableJsonString(): string {
-  // Export table metadata only — the full LoadTableResult may carry
-  // storage-credentials and other load-response fields that must not be
-  // written to disk.
-  return JSON.stringify(props.table.metadata, null, 2);
-}
-function downloadTableJson() {
-  const blob = new Blob([tableJsonString()], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${props.tableName || props.table.metadata['table-uuid'] || 'table'}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
 </script>
 
 <style scoped>

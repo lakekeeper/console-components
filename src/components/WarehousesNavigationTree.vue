@@ -142,8 +142,9 @@
         item-value="id"
         density="compact"
         open-on-click
+        indent-lines="default"
         class="tree-view pa-2"
-        style="background-color: transparent !important">
+        style="background-color: transparent !important; --v-treeview-indent-line-opacity: 0.5">
         <template v-slot:prepend="{ item }">
           <!-- Warehouse: cloud provider icon -->
           <v-icon
@@ -178,22 +179,27 @@
             color="info">
             mdi-google-cloud
           </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'onelake'"
+            size="small">
+            <v-img :src="oneLakeIcon" width="18" height="18" />
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon
             v-else-if="
               (item.type === 'table' || item.type === 'generic-table') && formatIcon(item.format)
             "
-            size="small">
-            <v-img :src="formatIcon(item.format)!" width="18" height="18" />
+            size="x-small">
+            <v-img :src="formatIcon(item.format)!" width="15" height="15" />
           </v-icon>
           <v-icon
             v-else-if="item.type === 'table' || item.type === 'generic-table'"
-            size="small"
+            size="x-small"
             color="grey">
             mdi-alpha-g
           </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
+          <v-icon size="x-small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
           <v-icon size="small" v-else-if="item.type === 'load-more'" color="grey">
             mdi-dots-horizontal
           </v-icon>
@@ -201,6 +207,15 @@
         <template v-slot:title="{ item }">
           <div
             class="tree-item-container"
+            :class="{
+              'tree-leaf-row':
+                item.type === 'table' || item.type === 'view' || item.type === 'generic-table',
+            }"
+            :style="
+              isActiveItem(item)
+                ? 'background: rgba(var(--v-theme-primary), 0.14); border-radius: 4px; padding-left: 4px;'
+                : ''
+            "
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
             <span
@@ -219,7 +234,15 @@
                     ? 'pointer'
                     : 'default',
                 fontStyle: item.type === 'load-more' ? 'italic' : 'normal',
-                color: item.type === 'load-more' ? 'grey' : undefined,
+                fontWeight:
+                  isActiveItem(item) || item.type === 'namespace' || item.type === 'warehouse'
+                    ? 600
+                    : 400,
+                color: isActiveItem(item)
+                  ? 'rgb(var(--v-theme-primary))'
+                  : item.type === 'load-more'
+                    ? 'grey'
+                    : undefined,
               }">
               {{ item.name }}
             </span>
@@ -276,6 +299,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
+import { useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
@@ -283,6 +307,7 @@ import { logError } from '@/common/errorUtils';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
+import oneLakeIcon from '@/assets/onelake.png';
 import icebergIcon from '@/assets/iceberg.svg';
 import deltaIcon from '@/assets/delta.svg';
 import vortexLightIcon from '@/assets/vortex_logo.svg';
@@ -366,7 +391,7 @@ interface TreeItem {
   namespaceId?: string; // Full namespace path with dots (e.g., 'finance.sub')
   loaded?: boolean;
   /** Storage profile type — only set on warehouse nodes. */
-  storageType?: 's3' | 'adls' | 'gcs';
+  storageType?: 's3' | 'adls' | 'gcs' | 'onelake';
   storageFlavor?: string;
   storageEndpoint?: string;
   /** Tabular format — 'iceberg' on table nodes, gt.format on generic-table nodes. */
@@ -401,6 +426,36 @@ const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
 const hoveredItem = ref<string | null>(null);
+
+// Highlight the tree node matching the current route so the open object stays
+// visually selected. Namespace ids in the tree are dotted; route nsid uses \x1F.
+const route = useRoute();
+const activeMatch = computed(() => {
+  const p = route.path || '';
+  const prm = route.params as Record<string, string>;
+  const wh = prm.id;
+  if (!wh) return null;
+  const nsDotted = (prm.nsid || '').split('\x1F').join('.');
+  if (prm.tid && p.includes('/generic-table/'))
+    return { type: 'generic-table', warehouseId: wh, namespaceId: nsDotted, name: prm.tid };
+  if (prm.tid) return { type: 'table', warehouseId: wh, namespaceId: nsDotted, name: prm.tid };
+  if (prm.vid) return { type: 'view', warehouseId: wh, namespaceId: nsDotted, name: prm.vid };
+  if (prm.nsid) return { type: 'namespace', warehouseId: wh, namespaceId: nsDotted, name: '' };
+  return { type: 'warehouse', warehouseId: wh, namespaceId: '', name: '' };
+});
+function isActiveItem(item: {
+  type: string;
+  warehouseId: string;
+  namespaceId?: string;
+  name: string;
+}): boolean {
+  const a = activeMatch.value;
+  if (!a || item.warehouseId !== a.warehouseId) return false;
+  if (a.type === 'warehouse') return item.type === 'warehouse';
+  if (a.type === 'namespace')
+    return item.type === 'namespace' && item.namespaceId === a.namespaceId;
+  return item.type === a.type && item.namespaceId === a.namespaceId && item.name === a.name;
+}
 
 // Pagination tokens keyed by parent node id → { namespaces, tables, views, genericTables }
 const pageTokens = ref<
@@ -1540,7 +1595,22 @@ onBeforeUnmount(() => {
 .tree-view :deep(.v-list-item) {
   overflow-x: auto !important;
   min-width: max-content;
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  /* Tighter rows so the indent/connector lines read as one continuous tree. */
+  min-height: 26px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+/* Leaf rows (tables/views) are more compact than container rows (warehouse/namespace). */
+.tree-view :deep(.v-list-item:has(.tree-leaf-row)) {
+  min-height: 20px !important;
+}
+.tree-view :deep(.v-list-item__content) {
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+.tree-view :deep(.v-treeview-item__content),
+.tree-view :deep(.v-list-item-title) {
+  line-height: 1.2 !important;
 }
 
 .tree-view :deep(.v-list-item-title) {

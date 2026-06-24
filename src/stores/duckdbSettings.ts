@@ -49,7 +49,7 @@ export const DUCKDB_DEFAULTS = {
   /** Max rows to materialize into JS from an Arrow result. */
   maxResultRows: 10_000,
   /** Query execution timeout in seconds (0 = no timeout). */
-  queryTimeoutSeconds: 120,
+  queryTimeoutSeconds: 600,
   /** Memory threshold in MB — warn before executing if usage is above this. */
   memoryWarningThresholdMB: _memDefaults.memoryWarningThresholdMB,
   /** Hard memory limit in MB — refuse to execute if usage is above this. */
@@ -83,6 +83,7 @@ export const TIMEOUT_OPTIONS = [
   { title: '60 seconds', value: 60 },
   { title: '2 minutes', value: 120 },
   { title: '5 minutes', value: 300 },
+  { title: '10 minutes', value: 600 },
   { title: 'No timeout', value: 0 },
 ] as const;
 

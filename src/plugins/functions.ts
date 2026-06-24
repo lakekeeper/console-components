@@ -633,6 +633,32 @@ async function listWarehouses(notify?: boolean): Promise<ListWarehousesResponse>
   }
 }
 
+async function listWarehousesByProject(
+  projectId: string,
+  notify?: boolean,
+): Promise<ListWarehousesResponse> {
+  try {
+    const client = mngClient.client;
+    const { data, error } = await mng.listWarehouses({
+      client,
+      query: { projectId },
+    });
+    if (error) throw error;
+    const wh = data as ListWarehousesResponse;
+    if (notify) {
+      handleSuccess(
+        'listWarehousesByProject',
+        `${wh.warehouses?.length || 0} warehouses loaded`,
+        notify,
+      );
+    }
+    return wh;
+  } catch (error: any) {
+    handleError(error, 'listWarehousesByProject', notify);
+    throw error;
+  }
+}
+
 async function getWarehouse(id: string, notify?: boolean): Promise<GetWarehouseResponse> {
   try {
     const client = mngClient.client;
@@ -2184,6 +2210,9 @@ async function loadTableCustomized(
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
         },
+        // Never serve a 304-revalidated response: the vended storage credentials
+        // in the body expire (~1h), and a cached body returns stale/expired creds.
+        cache: 'no-store',
       },
     );
 
@@ -5142,6 +5171,7 @@ export function useFunctions(config?: any) {
     getServerInfo,
     loadProjectList,
     listWarehouses,
+    listWarehousesByProject,
     getWarehouse,
     listNamespaces,
     createNamespace,
