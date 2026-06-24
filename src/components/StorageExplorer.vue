@@ -275,6 +275,33 @@ function reload() {
   load();
 }
 
+// Vended STS creds expire (~1h). When an op fails on an expired/denied error,
+// re-load the entity (fresh creds, cache:'no-store') and retry once.
+function looksExpired(e: any): boolean {
+  const m = String(e?.message || '').toLowerCase();
+  const st = e?.status;
+  return (
+    st === 400 ||
+    st === 403 ||
+    m.includes('expired') ||
+    m.includes('token') ||
+    m.includes('accessdenied') ||
+    m.includes('invalidaccesskeyid')
+  );
+}
+
+async function withRenew<T>(op: () => Promise<T>): Promise<T> {
+  try {
+    return await op();
+  } catch (e) {
+    if (looksExpired(e)) {
+      storageRes.value = await loadEntity(); // refresh vended credentials
+      return await op();
+    }
+    throw e;
+  }
+}
+
 async function toggle(node: TreeNode) {
   if (!node.isFolder) return;
   node.expanded = !node.expanded;
@@ -282,7 +309,7 @@ async function toggle(node: TreeNode) {
     node.loading = true;
     node.error = undefined;
     try {
-      const entries = await explorer.listPrefix(storageRes.value, node.path);
+      const entries = await withRenew(() => explorer.listPrefix(storageRes.value!, node.path));
       node.children = entries.map((e) => toNode(e, node.depth + 1));
       node.loaded = true;
     } catch (e: any) {
@@ -353,7 +380,7 @@ async function openPreview(node: TreeNode) {
       return;
     }
     if (ext === 'json' || ext === 'txt' || ext === 'log' || ext === 'yaml' || ext === 'yml') {
-      const raw = await explorer.getObject(storageRes.value, node.path);
+      const raw = await withRenew(() => explorer.getObject(storageRes.value!, node.path));
       const text = new TextDecoder().decode(await maybeGunzip(raw));
       if (ext === 'json') {
         try {
@@ -367,7 +394,7 @@ async function openPreview(node: TreeNode) {
         previewKind.value = 'text';
       }
     } else if (tabular) {
-      const raw = await explorer.getObject(storageRes.value, node.path);
+      const raw = await withRenew(() => explorer.getObject(storageRes.value!, node.path));
       const bytes = await maybeGunzip(raw); // some files (e.g. .json.gz) are gzipped
       const seq = ++previewSeq;
       let fname: string;
@@ -411,7 +438,7 @@ async function openPreview(node: TreeNode) {
 async function download(node: TreeNode) {
   if (!storageRes.value) return;
   try {
-    const bytes = await explorer.getObject(storageRes.value, node.path);
+    const bytes = await withRenew(() => explorer.getObject(storageRes.value!, node.path));
     const url = URL.createObjectURL(new Blob([bytes]));
     const a = document.createElement('a');
     a.href = url;

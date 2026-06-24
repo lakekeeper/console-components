@@ -215,7 +215,6 @@ function routeToNamespace(item: Item) {
   router.push(`/warehouse/${props.warehouseId}/namespace/${namespacePath}`);
 }
 
-
 // Expose method for parent to trigger reload
 defineExpose({
   loadNamespaces,

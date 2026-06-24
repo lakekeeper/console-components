@@ -2210,6 +2210,9 @@ async function loadTableCustomized(
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
         },
+        // Never serve a 304-revalidated response: the vended storage credentials
+        // in the body expire (~1h), and a cached body returns stale/expired creds.
+        cache: 'no-store',
       },
     );
 
