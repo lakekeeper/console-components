@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.13.1](https://github.com/lakekeeper/console-components/compare/v0.13.0...v0.13.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* **ui:** detach report-builder resize listeners on unmount ([addcd8e](https://github.com/lakekeeper/console-components/commit/addcd8e2d14bb4ce130983f607e33a0c3e5c5c7e))
+* **ui:** escape user report name in report builder print/PDF output ([addcd8e](https://github.com/lakekeeper/console-components/commit/addcd8e2d14bb4ce130983f607e33a0c3e5c5c7e))
+* **ui:** hide aggregation control for pie charts in the report builder ([addcd8e](https://github.com/lakekeeper/console-components/commit/addcd8e2d14bb4ce130983f607e33a0c3e5c5c7e))
+* **ui:** log non-permission warehouse-list errors in the usage dialog ([addcd8e](https://github.com/lakekeeper/console-components/commit/addcd8e2d14bb4ce130983f607e33a0c3e5c5c7e))
+* **ui:** never export plaintext bucket prefix while masking in the usage dialog ([addcd8e](https://github.com/lakekeeper/console-components/commit/addcd8e2d14bb4ce130983f607e33a0c3e5c5c7e))
+* **ui:** shell-quote storage endpoint in the generated usage script ([addcd8e](https://github.com/lakekeeper/console-components/commit/addcd8e2d14bb4ce130983f607e33a0c3e5c5c7e))
+* **ui:** snapshot saved report chartConfig so it does not alias live UI state ([addcd8e](https://github.com/lakekeeper/console-components/commit/addcd8e2d14bb4ce130983f607e33a0c3e5c5c7e))
+
 ## [0.13.0](https://github.com/lakekeeper/console-components/compare/v0.12.0...v0.13.0) (2026-06-24)
 
 
