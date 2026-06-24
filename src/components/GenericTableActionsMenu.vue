@@ -7,7 +7,7 @@
     <v-list density="compact" min-width="248">
       <v-list-item
         prepend-icon="mdi-cog-outline"
-        title="Table settings"
+        :title="`${label[0].toUpperCase()}${label.slice(1)} settings`"
         subtitle="Rename · delete protection"
         @click="openSettings" />
       <v-list-item
@@ -20,7 +20,7 @@
         <v-list-item
           base-color="error"
           prepend-icon="mdi-delete-outline"
-          title="Delete table"
+          :title="`Delete ${label}`"
           @click="openDelete" />
       </template>
     </v-list>
@@ -31,7 +31,7 @@
     <v-card>
       <v-card-title class="d-flex align-center text-subtitle-1 py-3">
         <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
-        Table Settings
+        {{ label[0].toUpperCase() + label.slice(1) }} Settings
         <v-spacer></v-spacer>
         <v-btn icon variant="text" size="small" @click="settingsOpen = false">
           <v-icon>mdi-close</v-icon>
@@ -41,7 +41,7 @@
       <v-card-text>
         <v-text-field
           v-model="nameInput"
-          label="Table name"
+          :label="`${label[0].toUpperCase()}${label.slice(1)} name`"
           prepend-inner-icon="mdi-rename-outline"
           :rules="[
             (v) => !!v?.trim() || 'Required',
@@ -60,7 +60,7 @@
           :label="protectedPending ? 'Deletion protected' : 'Deletion protection off'"
           @update:model-value="protectedPending = $event === true"></v-switch>
         <div class="text-caption text-medium-emphasis ml-10">
-          Prevent this table from being deleted.
+          Prevent this {{ label }} from being deleted.
         </div>
 
         <v-alert v-if="settingsError" type="error" variant="tonal" density="compact" class="mt-3">
@@ -87,12 +87,12 @@
     <v-card>
       <v-card-title class="d-flex align-center text-subtitle-1 py-3">
         <v-icon class="mr-2" color="error">mdi-delete-alert-outline</v-icon>
-        Delete table
+        Delete {{ label }}
       </v-card-title>
       <v-divider></v-divider>
       <v-card-text>
         <p class="mb-3">
-          This permanently deletes the table
+          This permanently deletes the {{ label }}
           <strong class="font-mono">{{ tableName }}</strong>
           from the catalog.
           <span class="text-error font-weight-bold">This cannot be undone.</span>
@@ -118,7 +118,7 @@
           :loading="deleting"
           :disabled="!deleteConfirmed"
           @click="confirmDelete">
-          Delete table
+          Delete {{ label }}
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -135,7 +135,10 @@ const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   tableName: string;
+  entityLabel?: string;
 }>();
+
+const label = computed(() => props.entityLabel ?? 'table');
 
 const emit = defineEmits<{ (e: 'updated'): void }>();
 
@@ -278,7 +281,7 @@ async function confirmDelete() {
     deleteOpen.value = false;
     // Table is gone — leave the table route for its namespace.
     await router.replace({
-      path: route.path.replace(/\/generic-table\/[^/]+$/, ''),
+      path: route.path.replace(/\/(generic-table|dataset)\/[^/]+$/, ''),
       query: { tab: 'tables' },
     });
   } catch (e: any) {

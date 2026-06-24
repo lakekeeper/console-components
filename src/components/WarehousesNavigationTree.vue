@@ -187,6 +187,12 @@
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon
+            v-else-if="item.type === 'generic-table' && item.format === 'dataset'"
+            size="x-small"
+            color="amber-darken-2">
+            mdi-folder-multiple-outline
+          </v-icon>
+          <v-icon
             v-else-if="
               (item.type === 'table' || item.type === 'generic-table') && formatIcon(item.format)
             "
@@ -286,6 +292,12 @@
                   <v-list-item-title class="text-caption">
                     <v-icon size="x-small" class="mr-1">mdi-eye-outline</v-icon>
                     Views
+                  </v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="navigateToTab(item, 'datasets')" density="compact">
+                  <v-list-item-title class="text-caption">
+                    <v-icon size="x-small" class="mr-1" color="amber-darken-2">mdi-folder-multiple-outline</v-icon>
+                    Datasets
                   </v-list-item-title>
                 </v-list-item>
               </v-list>
@@ -972,17 +984,18 @@ async function loadChildrenForNamespace(item: TreeItem) {
   if (genericTablesResult.status === 'fulfilled') {
     const gtResponse = genericTablesResult.value;
     if (gtResponse && gtResponse.identifiers) {
-      gtResponse.identifiers.forEach((gt: any) => {
-        children.push({
-          id: `generic-table-${item.warehouseId}-${item.namespaceId}-${gt.name}`,
-          name: gt.name,
-          type: 'generic-table',
-          warehouseId: item.warehouseId,
-          namespaceId: item.namespaceId,
-          format: gt.format || 'generic',
-          loaded: true,
+      gtResponse.identifiers
+        .forEach((gt: any) => {
+          children.push({
+            id: `generic-table-${item.warehouseId}-${item.namespaceId}-${gt.name}`,
+            name: gt.name,
+            type: 'generic-table',
+            warehouseId: item.warehouseId,
+            namespaceId: item.namespaceId,
+            format: gt.format || 'generic',
+            loaded: true,
+          });
         });
-      });
     }
   }
 
@@ -1237,17 +1250,18 @@ async function handleLoadMore(loadMoreItem: TreeItem) {
         }
 
         if (type === 'genericTables' && data?.identifiers) {
-          data.identifiers.forEach((gt: any) => {
-            parent.children!.push({
-              id: `generic-table-${parent.warehouseId}-${parent.namespaceId}-${gt.name}`,
-              name: gt.name,
-              type: 'generic-table',
-              warehouseId: parent.warehouseId,
-              namespaceId: parent.namespaceId,
-              format: gt.format || 'generic',
-              loaded: true,
+          data.identifiers
+            .forEach((gt: any) => {
+              parent.children!.push({
+                id: `generic-table-${parent.warehouseId}-${parent.namespaceId}-${gt.name}`,
+                name: gt.name,
+                type: 'generic-table',
+                warehouseId: parent.warehouseId,
+                namespaceId: parent.namespaceId,
+                format: gt.format || 'generic',
+                loaded: true,
+              });
             });
-          });
           if (data['next-page-token'] && (data.identifiers?.length ?? 0) >= TREE_PAGE_SIZE) {
             newTokens.genericTables = data['next-page-token'];
           }

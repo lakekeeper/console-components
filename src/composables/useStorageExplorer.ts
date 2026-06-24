@@ -193,6 +193,9 @@ async function listAdls(
   }
   const text = await resp.text();
   if (!resp.ok) {
+    // ADLS returns 404 PathNotFound for prefixes that have no files yet
+    // (no directory concept) — treat as empty rather than an error.
+    if (resp.status === 404) return [];
     throw new StorageListError(
       `ADLS ${resp.status}: ${text.slice(0, 300)}`,
       resp.status === 403 ? 'forbidden' : 'http',
@@ -326,6 +329,280 @@ async function getObjectBytes(res: StorageLoadResult, absPath: string): Promise<
   return new Uint8Array(await resp.arrayBuffer());
 }
 
+// ---- Shared XHR PUT (supports upload progress) ------------------------------
+function xhrPut(
+  url: string,
+  method: 'PUT' | 'POST' | 'PATCH',
+  file: File,
+  headers: Record<string, string>,
+  onProgress?: (fraction: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    // Browsers control these headers; setting them throws.
+    const skip = new Set(['host', 'content-length', 'transfer-encoding']);
+    for (const [k, v] of Object.entries(headers)) {
+      if (!skip.has(k.toLowerCase())) xhr.setRequestHeader(k, v);
+    }
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress(e.loaded / e.total);
+      };
+    }
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        reject(
+          new StorageListError(
+            `Upload ${xhr.status}: ${xhr.responseText.slice(0, 200)}`,
+            xhr.status === 403 ? 'forbidden' : 'http',
+            xhr.status,
+          ),
+        );
+      }
+    };
+    xhr.onerror = () =>
+      reject(
+        new StorageListError(
+          'Network error during upload — likely a CORS misconfiguration on the bucket.',
+          'cors',
+        ),
+      );
+    xhr.send(file);
+  });
+}
+
+// ---- S3 PUT -----------------------------------------------------------------
+async function putS3(
+  cfg: Record<string, string>,
+  parsed: Extract<Parsed, { kind: 's3' }>,
+  absPath: string,
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<void> {
+  const accessKeyId = cfg['s3.access-key-id'];
+  const secretAccessKey = cfg['s3.secret-access-key'];
+  if (!accessKeyId || !secretAccessKey)
+    throw new StorageListError('No S3 access key in vended credentials', 'config');
+  const sessionToken = cfg['s3.session-token'];
+  const region = cfg['s3.region'] || cfg['client.region'] || 'us-east-1';
+  const endpoint = cfg['s3.endpoint'];
+  const pathStyle = String(cfg['s3.path-style-access'] ?? 'true') === 'true';
+  const client = new AwsClient({
+    accessKeyId,
+    secretAccessKey,
+    sessionToken,
+    region,
+    service: 's3',
+  });
+  const base = endpoint ? endpoint.replace(/\/+$/, '') : `https://s3.${region}.amazonaws.com`;
+  const root = pathStyle ? `${base}/${parsed.bucket}` : base.replace('://', `://${parsed.bucket}.`);
+  const url = `${root}/${encodeKey(absPath)}`;
+  const contentType = file.type || 'application/octet-stream';
+  // Sign without body hash so we can stream the body separately via XHR.
+  const signed = await client.sign(
+    new Request(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': contentType, 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' },
+    }),
+  );
+  const headers: Record<string, string> = {};
+  signed.headers.forEach((v, k) => {
+    headers[k] = v;
+  });
+  await xhrPut(url, 'PUT', file, headers, onProgress);
+}
+
+// ---- S3 DELETE --------------------------------------------------------------
+async function deleteS3(
+  cfg: Record<string, string>,
+  parsed: Extract<Parsed, { kind: 's3' }>,
+  absPath: string,
+): Promise<void> {
+  const accessKeyId = cfg['s3.access-key-id'];
+  const secretAccessKey = cfg['s3.secret-access-key'];
+  if (!accessKeyId || !secretAccessKey)
+    throw new StorageListError('No S3 access key in vended credentials', 'config');
+  const sessionToken = cfg['s3.session-token'];
+  const region = cfg['s3.region'] || cfg['client.region'] || 'us-east-1';
+  const endpoint = cfg['s3.endpoint'];
+  const pathStyle = String(cfg['s3.path-style-access'] ?? 'true') === 'true';
+  const client = new AwsClient({
+    accessKeyId,
+    secretAccessKey,
+    sessionToken,
+    region,
+    service: 's3',
+  });
+  const base = endpoint ? endpoint.replace(/\/+$/, '') : `https://s3.${region}.amazonaws.com`;
+  const root = pathStyle ? `${base}/${parsed.bucket}` : base.replace('://', `://${parsed.bucket}.`);
+  const url = `${root}/${encodeKey(absPath)}`;
+  let resp: Response;
+  try {
+    resp = await client.fetch(url, { method: 'DELETE' });
+  } catch (e) {
+    asCors(e);
+  }
+  if (!resp.ok && resp.status !== 204) {
+    const t = await resp.text().catch(() => '');
+    throw new StorageListError(
+      `S3 DELETE ${resp.status}: ${t.slice(0, 200)}`,
+      resp.status === 403 ? 'forbidden' : 'http',
+      resp.status,
+    );
+  }
+}
+
+// ---- ADLS Gen2 PUT (create → append → flush) --------------------------------
+async function putAdls(
+  cfg: Record<string, string>,
+  parsed: Extract<Parsed, { kind: 'adls' }>,
+  absPath: string,
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<void> {
+  const sasKey = Object.keys(cfg).find((k) => k.startsWith('adls.sas-token.'));
+  const sas = sasKey ? cfg[sasKey] : undefined;
+  if (!sas) throw new StorageListError('No ADLS SAS token in vended credentials', 'config');
+  const host = parsed.host || `${parsed.account}.dfs.core.windows.net`;
+  const base = `https://${host}/${parsed.filesystem}/${encodeKey(absPath)}`;
+  const sasQ = sas.replace(/^\?/, '');
+
+  // Step 1: create / overwrite the file node
+  let resp: Response;
+  try {
+    resp = await fetch(`${base}?resource=file&overwrite=true&${sasQ}`, { method: 'PUT' });
+  } catch (e) {
+    asCors(e);
+  }
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => '');
+    throw new StorageListError(
+      `ADLS create ${resp.status}: ${t.slice(0, 200)}`,
+      resp.status === 403 ? 'forbidden' : 'http',
+      resp.status,
+    );
+  }
+
+  // Step 2: stream the body with progress (scaled to 0–0.9; flush takes the last 10%)
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PATCH', `${base}?action=append&position=0&${sasQ}`);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    if (onProgress) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) onProgress((e.loaded / e.total) * 0.9);
+      };
+    }
+    xhr.onload = () => {
+      if (xhr.status === 202) resolve();
+      else
+        reject(
+          new StorageListError(
+            `ADLS append ${xhr.status}: ${xhr.responseText.slice(0, 200)}`,
+            xhr.status === 403 ? 'forbidden' : 'http',
+            xhr.status,
+          ),
+        );
+    };
+    xhr.onerror = () => reject(new StorageListError('Network error during ADLS upload', 'cors'));
+    xhr.send(file);
+  });
+
+  // Step 3: flush / commit
+  try {
+    resp = await fetch(`${base}?action=flush&position=${file.size}&${sasQ}`, { method: 'PATCH' });
+  } catch (e) {
+    asCors(e);
+  }
+  if (!resp.ok) {
+    const t = await resp.text().catch(() => '');
+    throw new StorageListError(
+      `ADLS flush ${resp.status}: ${t.slice(0, 200)}`,
+      resp.status === 403 ? 'forbidden' : 'http',
+      resp.status,
+    );
+  }
+  onProgress?.(1);
+}
+
+// ---- ADLS Gen2 DELETE -------------------------------------------------------
+async function deleteAdls(
+  cfg: Record<string, string>,
+  parsed: Extract<Parsed, { kind: 'adls' }>,
+  absPath: string,
+): Promise<void> {
+  const sasKey = Object.keys(cfg).find((k) => k.startsWith('adls.sas-token.'));
+  const sas = sasKey ? cfg[sasKey] : undefined;
+  if (!sas) throw new StorageListError('No ADLS SAS token in vended credentials', 'config');
+  const host = parsed.host || `${parsed.account}.dfs.core.windows.net`;
+  const url = `https://${host}/${parsed.filesystem}/${encodeKey(absPath)}?${sas.replace(/^\?/, '')}`;
+  let resp: Response;
+  try {
+    resp = await fetch(url, { method: 'DELETE' });
+  } catch (e) {
+    asCors(e);
+  }
+  // 404 is idempotent — file already gone
+  if (!resp.ok && resp.status !== 404) {
+    const t = await resp.text().catch(() => '');
+    throw new StorageListError(
+      `ADLS DELETE ${resp.status}: ${t.slice(0, 200)}`,
+      resp.status === 403 ? 'forbidden' : 'http',
+      resp.status,
+    );
+  }
+}
+
+// ---- GCS simple media upload ------------------------------------------------
+async function putGcs(
+  cfg: Record<string, string>,
+  parsed: Extract<Parsed, { kind: 'gcs' }>,
+  absPath: string,
+  file: File,
+  onProgress?: (fraction: number) => void,
+): Promise<void> {
+  const token = cfg['gcs.oauth2.token'];
+  if (!token) throw new StorageListError('No GCS OAuth token in vended credentials', 'config');
+  const url = `https://storage.googleapis.com/upload/storage/v1/b/${encodeURIComponent(parsed.bucket)}/o?uploadType=media&name=${encodeURIComponent(absPath)}`;
+  const contentType = file.type || 'application/octet-stream';
+  await xhrPut(
+    url,
+    'POST',
+    file,
+    { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
+    onProgress,
+  );
+}
+
+// ---- GCS DELETE -------------------------------------------------------------
+async function deleteGcs(
+  cfg: Record<string, string>,
+  parsed: Extract<Parsed, { kind: 'gcs' }>,
+  absPath: string,
+): Promise<void> {
+  const token = cfg['gcs.oauth2.token'];
+  if (!token) throw new StorageListError('No GCS OAuth token in vended credentials', 'config');
+  const url = `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(parsed.bucket)}/o/${encodeURIComponent(absPath)}`;
+  let resp: Response;
+  try {
+    resp = await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+  } catch (e) {
+    asCors(e);
+  }
+  // 204 and 404 are both acceptable — object is gone either way
+  if (!resp.ok && resp.status !== 204 && resp.status !== 404) {
+    const t = await resp.text().catch(() => '');
+    throw new StorageListError(
+      `GCS DELETE ${resp.status}: ${t.slice(0, 200)}`,
+      resp.status === 403 ? 'forbidden' : 'http',
+      resp.status,
+    );
+  }
+}
+
 export function useStorageExplorer() {
   /** List the immediate children of `absPrefix` (an absolute key within the bucket/filesystem). */
   async function listPrefix(res: StorageLoadResult, absPrefix: string): Promise<StorageEntry[]> {
@@ -361,5 +638,36 @@ export function useStorageExplorer() {
     return getObjectBytes(res, absPath);
   }
 
-  return { listPrefix, getObject, rootPrefix, toUri, parseLocation };
+  /** Upload a file to `absPath`. `onProgress` receives a fraction 0–1 during transfer. */
+  async function putObject(
+    res: StorageLoadResult,
+    absPath: string,
+    file: File,
+    onProgress?: (fraction: number) => void,
+  ): Promise<void> {
+    const parsed = parseLocation(res.location);
+    const cfg = resolveConfig(res);
+    if (parsed.kind === 's3') return putS3(cfg, parsed, absPath, file, onProgress);
+    if (parsed.kind === 'adls') return putAdls(cfg, parsed, absPath, file, onProgress);
+    if (parsed.kind === 'gcs') return putGcs(cfg, parsed, absPath, file, onProgress);
+    throw new StorageListError(
+      `Storage scheme "${parsed.scheme}" is not supported for upload`,
+      'unsupported',
+    );
+  }
+
+  /** Delete the object at `absPath` (signed, per cloud). */
+  async function deleteObject(res: StorageLoadResult, absPath: string): Promise<void> {
+    const parsed = parseLocation(res.location);
+    const cfg = resolveConfig(res);
+    if (parsed.kind === 's3') return deleteS3(cfg, parsed, absPath);
+    if (parsed.kind === 'adls') return deleteAdls(cfg, parsed, absPath);
+    if (parsed.kind === 'gcs') return deleteGcs(cfg, parsed, absPath);
+    throw new StorageListError(
+      `Storage scheme "${parsed.scheme}" is not supported for delete`,
+      'unsupported',
+    );
+  }
+
+  return { listPrefix, getObject, putObject, deleteObject, rootPrefix, toUri, parseLocation };
 }

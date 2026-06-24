@@ -1,19 +1,5 @@
 <template>
   <div>
-    <v-toolbar color="transparent" density="compact" flat>
-      <v-switch
-        v-if="canSetProtection"
-        v-model="recursiveDeleteProtection"
-        class="ml-4 mt-4"
-        color="info"
-        :label="
-          recursiveDeleteProtection
-            ? 'Recursive Delete Protection enabled'
-            : 'Recursive Delete Protection disabled'
-        "
-        @click.prevent="showConfirmDialog"></v-switch>
-    </v-toolbar>
-
     <v-card flat class="mx-4 mb-4">
       <v-card-text>
         <v-row dense>
@@ -49,62 +35,74 @@
               </tbody>
             </v-table>
           </v-col>
+
+          <!-- Storage Stats -->
+          <v-col cols="12">
+            <div class="text-caption text-medium-emphasis mb-1">Storage Stats</div>
+            <div class="d-flex align-center flex-wrap" style="gap: 8px">
+              <template v-if="stats">
+                <v-chip size="small" variant="tonal" color="primary" prepend-icon="mdi-file-outline">
+                  {{ stats.fileCount }} file{{ stats.fileCount === 1 ? '' : 's' }}
+                </v-chip>
+                <v-chip
+                  size="small"
+                  variant="tonal"
+                  color="secondary"
+                  prepend-icon="mdi-database-outline">
+                  {{ formatBytes(stats.totalBytes) }}
+                </v-chip>
+              </template>
+              <v-btn
+                size="small"
+                variant="text"
+                :loading="statsLoading"
+                :prepend-icon="stats ? 'mdi-refresh' : 'mdi-calculator-variant-outline'"
+                @click="calculateStats">
+                {{ stats ? 'Refresh' : 'Calculate' }}
+              </v-btn>
+              <span v-if="statsError" class="text-caption text-error">{{ statsError }}</span>
+            </div>
+          </v-col>
         </v-row>
       </v-card-text>
     </v-card>
-
-    <ProtectionConfirmDialog
-      v-model="confirmDialog"
-      :confirm-color="recursiveDeleteProtection ? 'warning' : 'info'"
-      :message="
-        recursiveDeleteProtection
-          ? 'Are you sure you want to disable recursive delete protection? This will allow the generic table to be deleted.'
-          : 'Are you sure you want to enable recursive delete protection? This will prevent the generic table from being deleted.'
-      "
-      :title="
-        recursiveDeleteProtection ? 'Disable Delete Protection?' : 'Enable Delete Protection?'
-      "
-      @cancel="cancelProtectionChange"
-      @confirm="confirmProtectionChange"></ProtectionConfirmDialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
-import { useGenericTablePermissions } from '@/composables/useCatalogPermissions';
-import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
+import { useStorageExplorer, type StorageLoadResult } from '@/composables/useStorageExplorer';
+import { useVisualStore } from '@/stores/visual';
 import type { GenericTableData } from '@/gen/generic-table/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   tableName: string;
+  entityLabel?: string;
 }>();
 
 const functions = useFunctions();
-const recursiveDeleteProtection = ref(false);
-const genericTableId = ref('');
-const confirmDialog = ref(false);
-const pendingProtectionValue = ref(false);
-
-const { canSetProtection } = useGenericTablePermissions(
-  computed(() => genericTableId.value),
-  computed(() => props.warehouseId),
-);
-
+const explorer = useStorageExplorer();
+const visual = useVisualStore();
 const table = reactive<Partial<GenericTableData>>({});
+const storageRes = ref<StorageLoadResult | null>(null);
 
 const hasProperties = computed(() => table.properties && Object.keys(table.properties).length > 0);
+
+// Storage stats
+const stats = ref<{ fileCount: number; totalBytes: number } | null>(null);
+const statsLoading = ref(false);
+const statsError = ref<string | null>(null);
 
 onMounted(loadTableData);
 watch(() => [props.warehouseId, props.namespaceId, props.tableName], loadTableData);
 
 async function loadTableData() {
-  // Clear stale fields before fetching so a partial failure or a misnamed lookup
-  // can never leave the previous table's data or id visible.
   for (const key of Object.keys(table)) delete (table as Record<string, unknown>)[key];
-  genericTableId.value = '';
+  stats.value = visual.getDatasetStats(props.warehouseId, props.namespaceId, props.tableName);
+  statsError.value = null;
   try {
     const response = await functions.loadGenericTable(
       props.warehouseId,
@@ -112,55 +110,58 @@ async function loadTableData() {
       props.tableName,
     );
     Object.assign(table, response.table);
-    recursiveDeleteProtection.value = response.table.protected;
-    // loadGenericTable does not return id; resolve via listGenericTables for
-    // permission/protection lookups which are keyed by generic_table_id.
-    const data = await functions.listGenericTables(
-      props.warehouseId,
-      props.namespaceId,
-      undefined,
-      false,
-    );
-    const match = (data.identifiers ?? []).find(
-      (g: { name: string }) => g.name === props.tableName,
-    );
-    if (match?.id) genericTableId.value = match.id;
+    storageRes.value = {
+      location: (response.table as any)?.['base-location'] || '',
+      config: (response as any)?.config,
+      'storage-credentials': (response as any)?.['storage-credentials'],
+    };
   } catch (error) {
     functions.handleError(error, 'loading generic table data', true);
   }
 }
 
-async function setProtection() {
-  if (!genericTableId.value) return;
-  const previous = recursiveDeleteProtection.value;
+async function collectStats(prefix: string): Promise<{ fileCount: number; totalBytes: number }> {
+  const entries = await explorer.listPrefix(storageRes.value!, prefix);
+  let fileCount = 0;
+  let totalBytes = 0;
+  for (const entry of entries) {
+    if (entry.name === '.keep') continue;
+    if (entry.isFolder) {
+      const sub = await collectStats(entry.path);
+      fileCount += sub.fileCount;
+      totalBytes += sub.totalBytes;
+    } else {
+      fileCount++;
+      totalBytes += entry.size ?? 0;
+    }
+  }
+  return { fileCount, totalBytes };
+}
+
+async function calculateStats() {
+  if (!storageRes.value?.location) {
+    statsError.value = 'No storage location available.';
+    return;
+  }
+  statsLoading.value = true;
+  statsError.value = null;
   try {
-    await functions.setGenericTableProtection(
-      props.warehouseId,
-      genericTableId.value,
-      pendingProtectionValue.value,
-      true,
-    );
-    recursiveDeleteProtection.value = pendingProtectionValue.value;
-  } catch (error) {
-    // Restore the actual prior state rather than toggling, so the switch always
-    // reflects what the server still has.
-    recursiveDeleteProtection.value = previous;
-    functions.handleError(error, 'updating generic table protection', true);
+    const rootPrefix = explorer.rootPrefix(storageRes.value.location);
+    const result = await collectStats(rootPrefix);
+    stats.value = result;
+    visual.setDatasetStats(props.warehouseId, props.namespaceId, props.tableName, result);
+  } catch (e: any) {
+    statsError.value = e?.message || 'Failed to compute stats';
+  } finally {
+    statsLoading.value = false;
   }
 }
 
-function showConfirmDialog() {
-  pendingProtectionValue.value = !recursiveDeleteProtection.value;
-  confirmDialog.value = true;
-}
-
-function cancelProtectionChange() {
-  confirmDialog.value = false;
-}
-
-async function confirmProtectionChange() {
-  confirmDialog.value = false;
-  await setProtection();
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
 defineExpose({

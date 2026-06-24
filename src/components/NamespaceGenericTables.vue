@@ -157,13 +157,13 @@ async function loadGenericTables() {
       undefined,
       false,
     );
-    const tmp: GenericTableIdentifierExtended[] = (data.identifiers ?? []).map(
-      (g: GenericTableIdentifier) => ({
+    const tmp: GenericTableIdentifierExtended[] = (data.identifiers ?? [])
+      .filter((g: GenericTableIdentifier) => g.format !== 'dataset')
+      .map((g: GenericTableIdentifier) => ({
         ...g,
         actions: ['delete'],
         type: 'generic-table',
-      }),
-    );
+      }));
     paginationToken.value = data['next-page-token'] || '';
     loadedTables.splice(0, loadedTables.length);
     Object.assign(loadedTables, tmp);
@@ -186,13 +186,13 @@ async function paginationCheck(option: Options) {
         props.namespacePath,
         paginationToken.value,
       );
-      const tmp: GenericTableIdentifierExtended[] = (data.identifiers ?? []).map(
-        (g: GenericTableIdentifier) => ({
+      const tmp: GenericTableIdentifierExtended[] = (data.identifiers ?? [])
+        .filter((g: GenericTableIdentifier) => g.format !== 'dataset')
+        .map((g: GenericTableIdentifier) => ({
           ...g,
           actions: ['delete'],
           type: 'generic-table',
-        }),
-      );
+        }));
       paginationToken.value = data['next-page-token'] || '';
       loadedTables.push(...tmp);
     } catch (error) {

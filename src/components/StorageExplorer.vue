@@ -1,12 +1,28 @@
 <template>
   <v-card-text>
-    <div class="d-flex align-center mb-3" style="gap: 8px">
+    <div class="d-flex align-center mb-2" style="gap: 8px">
       <v-icon color="primary">mdi-folder-search-outline</v-icon>
       <div class="text-subtitle-1">Files explorer</div>
-      <v-chip v-if="rootUri" size="x-small" variant="outlined" class="font-mono">
-        {{ rootUri }}
-      </v-chip>
       <v-spacer />
+      <template v-if="selectedPaths.length > 0">
+        <v-btn
+          size="small"
+          variant="tonal"
+          color="primary"
+          prepend-icon="mdi-download-outline"
+          @click="bulkDownload">
+          Download ({{ selectedPaths.length }})
+        </v-btn>
+        <v-btn
+          v-if="canWrite"
+          size="small"
+          variant="tonal"
+          color="error"
+          prepend-icon="mdi-delete-outline"
+          @click="bulkDeleteOpen = true">
+          Delete ({{ selectedPaths.length }})
+        </v-btn>
+      </template>
       <v-btn
         size="small"
         variant="text"
@@ -14,6 +30,62 @@
         :loading="loading"
         title="Reload (refresh credentials)"
         @click="reload"></v-btn>
+    </div>
+
+    <!-- Root URI row -->
+    <div class="d-flex align-center mb-3" style="gap: 6px; min-height: 28px">
+      <template v-if="rootUri">
+        <span class="text-caption text-medium-emphasis" style="flex-shrink: 0">Root</span>
+        <code class="text-caption font-mono text-truncate" style="flex: 1; min-width: 0">{{ rootUri }}</code>
+        <v-btn
+          icon="mdi-content-copy"
+          size="x-small"
+          variant="text"
+          title="Copy root URI"
+          @click="functions.copyToClipboard(rootUri)"></v-btn>
+      </template>
+      <template v-else style="flex: 1"></template>
+      <template v-if="canWrite">
+        <v-btn
+          size="x-small"
+          variant="text"
+          icon="mdi-folder-plus-outline"
+          title="Create new folder"
+          @click="triggerCreateFolder(null)"></v-btn>
+        <v-btn
+          size="x-small"
+          variant="text"
+          icon="mdi-upload"
+          title="Upload files to root"
+          @click="triggerUpload(null)"></v-btn>
+        <input
+          ref="fileInputRef"
+          type="file"
+          multiple
+          style="display: none"
+          @change="onFilesPicked" />
+      </template>
+    </div>
+
+    <!-- Upload progress -->
+    <div v-if="uploads.length" class="mb-2">
+      <div v-for="u in uploads" :key="u.id" class="d-flex align-center mb-1 px-1">
+        <v-icon size="x-small" class="mr-1" :color="u.error ? 'error' : 'primary'">
+          {{ u.error ? 'mdi-alert-circle-outline' : fileIcon(u.name) }}
+        </v-icon>
+        <span class="text-caption font-mono text-truncate" style="max-width: 180px">
+          {{ u.name }}
+        </span>
+        <v-progress-linear
+          :model-value="u.fraction * 100"
+          :color="u.error ? 'error' : 'primary'"
+          height="4"
+          class="mx-2 flex-grow-1"
+          :indeterminate="!u.done && u.fraction === 0 && !u.error" />
+        <span class="text-caption text-medium-emphasis" style="min-width: 36px; text-align: right">
+          {{ u.error ? 'Error' : u.done ? 'Done' : Math.round(u.fraction * 100) + '%' }}
+        </span>
+      </div>
     </div>
 
     <v-alert v-if="topError" type="warning" variant="tonal" density="compact" class="mb-3">
@@ -25,7 +97,14 @@
       <v-progress-circular indeterminate color="primary" />
     </div>
 
-    <v-sheet v-else-if="!topError" rounded="lg" border>
+    <v-sheet
+      v-else-if="!topError"
+      rounded="lg"
+      border
+      :class="{ 'drag-over': isDraggingOver && canWrite }"
+      @dragover.prevent="canWrite && onDragOver()"
+      @dragleave="onDragLeave"
+      @drop.prevent="canWrite && onDrop($event)">
       <div v-if="!rootNodes.length" class="text-medium-emphasis pa-4 text-caption">
         No objects under this prefix.
       </div>
@@ -42,8 +121,16 @@
           variant="text"
           @click="toggle(row.node)"></v-btn>
         <span v-else style="width: 28px; display: inline-block"></span>
+        <!-- checkbox for files only -->
+        <input
+          v-if="!row.node.isFolder"
+          type="checkbox"
+          :checked="isSelected(row.node.path)"
+          style="width:16px;height:16px;flex-shrink:0;margin-right:20px;cursor:pointer"
+          @change.stop="toggleSelect(row.node.path)"
+          @click.stop />
 
-        <v-icon size="x-small" class="mr-1" :color="row.node.isFolder ? 'amber-darken-2' : 'grey'">
+        <v-icon size="x-small" class="mr-2" :color="row.node.isFolder ? 'amber-darken-2' : 'grey'">
           {{ row.node.isFolder ? 'mdi-folder-outline' : fileIcon(row.node.name) }}
         </v-icon>
         <span
@@ -58,10 +145,29 @@
           <v-progress-circular indeterminate size="14" width="2" color="primary" />
         </span>
         <span
+          v-if="!row.node.isFolder && row.node.lastModified"
+          class="text-caption text-medium-emphasis mr-3">
+          {{ formatDate(row.node.lastModified) }}
+        </span>
+        <span
           v-if="!row.node.isFolder && row.node.size != null"
           class="text-caption text-medium-emphasis mr-2">
           {{ formatBytes(row.node.size) }}
         </span>
+        <v-btn
+          v-if="canWrite && row.node.isFolder"
+          icon="mdi-folder-plus-outline"
+          size="x-small"
+          variant="text"
+          title="Create subfolder here"
+          @click.stop="triggerCreateFolder(row.node)"></v-btn>
+        <v-btn
+          v-if="canWrite && row.node.isFolder"
+          icon="mdi-upload"
+          size="x-small"
+          variant="text"
+          title="Upload files here"
+          @click.stop="triggerUpload(row.node)"></v-btn>
         <v-btn
           v-if="!row.node.isFolder"
           icon="mdi-eye-outline"
@@ -82,6 +188,22 @@
           variant="text"
           title="Copy path"
           @click="copyPath(row.node)"></v-btn>
+        <v-btn
+          v-if="canWrite && row.node.isFolder"
+          icon="mdi-delete-outline"
+          size="x-small"
+          variant="text"
+          color="error"
+          title="Delete folder"
+          @click.stop="confirmDeleteFolder(row.node)"></v-btn>
+        <v-btn
+          v-if="canWrite && !row.node.isFolder"
+          icon="mdi-delete-outline"
+          size="x-small"
+          variant="text"
+          color="error"
+          title="Delete file"
+          @click="confirmDelete(row.node)"></v-btn>
 
         <!-- per-folder error -->
         <span v-if="row.node.error" class="text-caption text-error ml-2" :title="row.node.error">
@@ -129,12 +251,12 @@
               <v-table density="compact" class="preview-table">
                 <thead>
                   <tr>
-                    <th v-for="c in previewColumns" :key="c" class="font-mono">{{ c }}</th>
+                    <th v-for="col in previewColumns" :key="col" class="font-mono">{{ col }}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr v-for="(r, ri) in previewRows" :key="ri">
-                    <td v-for="(c, ci) in previewColumns" :key="ci" class="font-mono text-caption">
+                    <td v-for="(_, ci) in previewColumns" :key="ci" class="font-mono text-caption">
                       {{ r[ci] }}
                     </td>
                   </tr>
@@ -143,12 +265,38 @@
             </div>
           </div>
 
-          <!-- json / text -->
+          <!-- json: vue-json-pretty if parsed, fallback to pre -->
+          <div v-else-if="previewKind === 'json'" style="overflow: auto; max-height: 65vh">
+            <vue-json-pretty
+              v-if="previewJson !== null"
+              :data="previewJson"
+              :deep="3"
+              show-length
+              show-line />
+            <pre v-else class="preview-pre text-caption">{{ previewText }}</pre>
+          </div>
+
+          <!-- text -->
           <pre
-            v-else-if="previewKind === 'json' || previewKind === 'text'"
+            v-else-if="previewKind === 'text'"
             class="preview-pre text-caption"
             >{{ previewText }}</pre
           >
+
+          <!-- image inline -->
+          <div v-else-if="previewKind === 'image'" class="d-flex justify-center pa-2">
+            <img
+              :src="previewBlobUrl || ''"
+              style="max-width: 100%; max-height: 70vh; object-fit: contain" />
+          </div>
+
+          <!-- PDF inline -->
+          <div v-else-if="previewKind === 'pdf'" style="height: 70vh">
+            <embed
+              :src="previewBlobUrl || ''"
+              type="application/pdf"
+              style="width: 100%; height: 100%" />
+          </div>
 
           <!-- too large / unsupported -->
           <div v-else class="text-medium-emphasis pa-4 text-caption">
@@ -164,11 +312,92 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- Create folder dialog -->
+    <v-dialog v-model="createFolderOpen" max-width="400" persistent>
+      <v-card>
+        <v-card-title class="text-subtitle-1">New folder</v-card-title>
+        <v-card-text>
+          <v-text-field
+            v-model="newFolderName"
+            label="Folder name"
+            density="compact"
+            variant="outlined"
+            hide-details="auto"
+            autofocus
+            :rules="[
+              (v: string) => !!v.trim() || 'Required',
+              (v: string) => !v.includes('/') || 'Cannot contain \'/\'',
+            ]"
+            @keyup.enter="executeCreateFolder" />
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="createFolderLoading" @click="createFolderOpen = false">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            :loading="createFolderLoading"
+            :disabled="!newFolderName.trim() || newFolderName.includes('/')"
+            @click="executeCreateFolder">
+            Create
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete folder confirm -->
+    <v-dialog v-model="deleteFolderOpen" max-width="400">
+      <v-card>
+        <v-card-title class="text-subtitle-1">Delete folder?</v-card-title>
+        <v-card-text>
+          <span class="font-mono text-caption">{{ deleteFolderNode?.name }}</span>
+          <div class="text-caption text-error mt-1">All files inside will be permanently deleted.</div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="deleteFolderLoading" @click="deleteFolderOpen = false">Cancel</v-btn>
+          <v-btn color="error" variant="tonal" :loading="deleteFolderLoading" @click="executeDeleteFolder">Delete</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Bulk delete confirm -->
+    <v-dialog v-model="bulkDeleteOpen" max-width="400">
+      <v-card>
+        <v-card-title class="text-subtitle-1">Delete {{ selectedPaths.length }} files?</v-card-title>
+        <v-card-text class="text-error font-weight-bold">This cannot be undone.</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" :disabled="bulkDeleting" @click="bulkDeleteOpen = false">Cancel</v-btn>
+          <v-btn color="error" variant="tonal" :loading="bulkDeleting" @click="executeBulkDelete">Delete all</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Delete confirm -->
+    <v-dialog v-model="deleteOpen" max-width="400">
+      <v-card>
+        <v-card-title class="text-subtitle-1">Delete file?</v-card-title>
+        <v-card-text>
+          <span class="font-mono text-caption">{{ deleteNode?.name }}</span>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="deleteOpen = false">Cancel</v-btn>
+          <v-btn color="error" variant="tonal" :loading="deleteLoading" @click="doDelete">
+            Delete
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card-text>
 </template>
 
 <script setup lang="ts">
 import { ref, shallowRef, computed, onMounted, watch, inject } from 'vue';
+import VueJsonPretty from 'vue-json-pretty';
+import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import {
@@ -183,6 +412,7 @@ const props = defineProps<{
   namespaceId: string;
   entityName: string;
   entityType?: 'table' | 'generic-table';
+  canWrite?: boolean;
 }>();
 
 const functions = useFunctions();
@@ -214,6 +444,7 @@ const visibleRows = computed(() => {
   const rows: { node: TreeNode; depth: number }[] = [];
   const walk = (nodes: TreeNode[]) => {
     for (const node of nodes) {
+      if (node.name === '.keep') continue;
       rows.push({ node, depth: node.depth });
       if (node.isFolder && node.expanded) walk(node.children);
     }
@@ -336,11 +567,35 @@ const previewOpen = ref(false);
 const previewLoading = ref(false);
 const previewError = ref('');
 const previewNode = ref<TreeNode | null>(null);
-const previewKind = ref<'json' | 'text' | 'table' | 'avro' | 'toolarge' | 'binary' | ''>('');
+const previewKind = ref<
+  'json' | 'text' | 'table' | 'avro' | 'toolarge' | 'binary' | 'image' | 'pdf' | ''
+>('');
 const previewText = ref('');
+const previewJson = ref<any>(null);
 const previewColumns = shallowRef<string[]>([]);
 const previewRows = shallowRef<string[][]>([]);
 let previewSeq = 0;
+// Blob URL for image/PDF inline preview — revoked on dialog close.
+const previewBlobUrl = ref<string | null>(null);
+
+// Upload state
+interface UploadItem {
+  id: number;
+  name: string;
+  fraction: number;
+  done: boolean;
+  error?: string;
+}
+let uploadSeq = 0;
+const uploads = ref<UploadItem[]>([]);
+const fileInputRef = ref<HTMLInputElement | null>(null);
+const uploadTarget = ref<string | null>(null);
+const isDraggingOver = ref(false);
+
+// Delete state
+const deleteOpen = ref(false);
+const deleteNode = ref<TreeNode | null>(null);
+const deleteLoading = ref(false);
 
 function extOf(name: string): string {
   return name.split('.').pop()?.toLowerCase() || '';
@@ -355,7 +610,7 @@ async function maybeGunzip(bytes: Uint8Array): Promise<Uint8Array> {
     throw new Error('This file is gzip-compressed and your browser cannot inflate it.');
   }
   const ds = new (globalThis as any).DecompressionStream('gzip');
-  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  const stream = new Blob([bytes.buffer as ArrayBuffer]).stream().pipeThrough(ds);
   return new Uint8Array(await new Response(stream).arrayBuffer());
 }
 
@@ -371,21 +626,30 @@ async function openPreview(node: TreeNode) {
   previewRows.value = [];
   try {
     const ext = extOf(node.name);
-    const isAvro = ext === 'avro' || /\.avro$/i.test(node.name);
+    // Paimon files have no extension — detect by name pattern
+    const paimonAvro = /^manifest(-list)?-[0-9a-f-]+-\d+$/i.test(node.name);
+    const paimonJson = /^(schema|snapshot)-\d+$/i.test(node.name);
+    const paimonText = node.name === 'LATEST';
+    const isAvro = ext === 'avro' || /\.avro$/i.test(node.name) || paimonAvro;
     const isParquet = ext === 'parquet';
     const isCsv = ext === 'csv' || ext === 'tsv';
+    const isJson = ext === 'json' || paimonJson;
+    const isText = ['txt', 'log', 'yaml', 'yml'].includes(ext) || paimonText;
     const tabular = isParquet || isCsv || isAvro;
+    const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
+    const isPdf = ext === 'pdf';
     if (tabular && node.size != null && node.size > PREVIEW_SIZE_CAP) {
       previewKind.value = 'toolarge';
       return;
     }
-    if (ext === 'json' || ext === 'txt' || ext === 'log' || ext === 'yaml' || ext === 'yml') {
+    if (isJson || isText) {
       const raw = await withRenew(() => explorer.getObject(storageRes.value!, node.path));
       const text = new TextDecoder().decode(await maybeGunzip(raw));
-      if (ext === 'json') {
+      if (isJson) {
         try {
-          previewText.value = JSON.stringify(JSON.parse(text), null, 2);
+          previewJson.value = JSON.parse(text);
         } catch {
+          previewJson.value = null;
           previewText.value = text;
         }
         previewKind.value = 'json';
@@ -425,6 +689,18 @@ async function openPreview(node: TreeNode) {
       previewColumns.value = result.columns || [];
       previewRows.value = (result.rows || []).map((r: any[]) => r.map(cellText));
       previewKind.value = 'table';
+    } else if (isImage || isPdf) {
+      const raw = await withRenew(() => explorer.getObject(storageRes.value!, node.path));
+      const mime = isPdf
+        ? 'application/pdf'
+        : ext === 'svg'
+          ? 'image/svg+xml'
+          : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+      if (previewBlobUrl.value) URL.revokeObjectURL(previewBlobUrl.value);
+      previewBlobUrl.value = URL.createObjectURL(
+        new Blob([raw.buffer as ArrayBuffer], { type: mime }),
+      );
+      previewKind.value = isPdf ? 'pdf' : 'image';
     } else {
       previewKind.value = 'binary';
     }
@@ -439,7 +715,7 @@ async function download(node: TreeNode) {
   if (!storageRes.value) return;
   try {
     const bytes = await withRenew(() => explorer.getObject(storageRes.value!, node.path));
-    const url = URL.createObjectURL(new Blob([bytes]));
+    const url = URL.createObjectURL(new Blob([bytes.buffer as ArrayBuffer]));
     const a = document.createElement('a');
     a.href = url;
     a.download = node.name;
@@ -467,6 +743,12 @@ function cellText(v: unknown): string {
   return String(v);
 }
 
+function formatDate(iso?: string): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
 function formatBytes(n?: number): string {
   if (n == null) return '';
   if (n < 1024) return `${n} B`;
@@ -484,13 +766,248 @@ function fileIcon(name: string): string {
   const ext = name.split('.').pop()?.toLowerCase();
   if (ext === 'parquet') return 'mdi-file-table-outline';
   if (ext === 'avro') return 'mdi-file-cog-outline';
-  if (ext === 'json' || ext === 'metadata.json') return 'mdi-code-json';
+  if (ext === 'json') return 'mdi-code-json';
   if (ext === 'crc') return 'mdi-file-check-outline';
+  if (ext === 'pdf') return 'mdi-file-pdf-box';
+  if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '')) return 'mdi-image-outline';
+  if (['csv', 'tsv'].includes(ext || '')) return 'mdi-file-delimited-outline';
   return 'mdi-file-outline';
+}
+
+// ---- Create folder ----------------------------------------------------------
+const createFolderOpen = ref(false);
+const createFolderLoading = ref(false);
+const newFolderName = ref('');
+const createFolderTarget = ref<string | null>(null);
+
+function triggerCreateFolder(node: TreeNode | null) {
+  createFolderTarget.value = node ? node.path : null;
+  newFolderName.value = '';
+  createFolderOpen.value = true;
+}
+
+async function executeCreateFolder() {
+  if (!storageRes.value || !newFolderName.value.trim() || newFolderName.value.includes('/')) return;
+  createFolderLoading.value = true;
+  try {
+    const base = createFolderTarget.value ?? explorer.rootPrefix(storageRes.value.location);
+    const keepPath = base + newFolderName.value.trim() + '/.keep';
+    const emptyFile = new File([''], '.keep', { type: 'application/octet-stream' });
+    await withRenew(() => explorer.putObject(storageRes.value!, keepPath, emptyFile, () => {}));
+    createFolderOpen.value = false;
+    await refreshFolder(createFolderTarget.value);
+    if (createFolderTarget.value) {
+      const parent = findNode(rootNodes.value, createFolderTarget.value);
+      if (parent && !parent.expanded) await toggle(parent);
+    }
+  } catch (e: any) {
+    functions.handleError(e, 'Create folder');
+  } finally {
+    createFolderLoading.value = false;
+  }
+}
+
+// ---- Upload -----------------------------------------------------------------
+function triggerUpload(node: TreeNode | null) {
+  uploadTarget.value = node ? node.path : null;
+  fileInputRef.value?.click();
+}
+
+function onFilesPicked(e: Event) {
+  const files = Array.from((e.target as HTMLInputElement).files || []);
+  (e.target as HTMLInputElement).value = '';
+  if (files.length) void uploadFiles(files, uploadTarget.value);
+}
+
+async function uploadFiles(files: File[], targetPrefix: string | null) {
+  if (!storageRes.value) return;
+  const prefix = targetPrefix ?? explorer.rootPrefix(storageRes.value.location);
+  const tasks = files.map((file) => {
+    const id = ++uploadSeq;
+    const item: UploadItem = { id, name: file.name, fraction: 0, done: false };
+    uploads.value.push(item);
+    return { file, item, absPath: prefix + file.name };
+  });
+  await Promise.all(
+    tasks.map(async ({ file, item, absPath }) => {
+      try {
+        await withRenew(() =>
+          explorer.putObject(storageRes.value!, absPath, file, (f) => {
+            item.fraction = f;
+          }),
+        );
+        item.fraction = 1;
+        item.done = true;
+      } catch (e: any) {
+        item.error = e instanceof StorageListError ? e.message : e?.message || String(e);
+      }
+    }),
+  );
+  await refreshFolder(targetPrefix);
+  setTimeout(() => {
+    uploads.value = uploads.value.filter((u) => !u.done);
+  }, 2000);
+}
+
+async function refreshFolder(path: string | null) {
+  if (!storageRes.value) return;
+  if (!path) {
+    const entries = await withRenew(() =>
+      explorer.listPrefix(storageRes.value!, explorer.rootPrefix(storageRes.value!.location)),
+    );
+    rootNodes.value = entries.map((e) => toNode(e, 0));
+    return;
+  }
+  const node = findNode(rootNodes.value, path);
+  if (node?.isFolder) {
+    const entries = await withRenew(() => explorer.listPrefix(storageRes.value!, path));
+    node.children = entries.map((e) => toNode(e, node.depth + 1));
+  }
+}
+
+function findNode(nodes: TreeNode[], path: string): TreeNode | null {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    if (node.isFolder) {
+      const found = findNode(node.children, path);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function onDragOver() {
+  isDraggingOver.value = true;
+}
+function onDragLeave() {
+  isDraggingOver.value = false;
+}
+async function onDrop(e: DragEvent) {
+  isDraggingOver.value = false;
+  const files = Array.from(e.dataTransfer?.files || []);
+  if (files.length) await uploadFiles(files, null);
+}
+
+// ---- Multi-select -----------------------------------------------------------
+const selectedPaths = ref<string[]>([]);
+
+function toggleSelect(path: string) {
+  const idx = selectedPaths.value.indexOf(path);
+  if (idx >= 0) selectedPaths.value.splice(idx, 1);
+  else selectedPaths.value.push(path);
+}
+
+function isSelected(path: string) {
+  return selectedPaths.value.includes(path);
+}
+
+async function bulkDownload() {
+  for (const path of selectedPaths.value) {
+    const node = findNode(rootNodes.value, path);
+    if (node) await download(node);
+  }
+}
+
+const bulkDeleteOpen = ref(false);
+const bulkDeleting = ref(false);
+
+async function executeBulkDelete() {
+  if (!storageRes.value) return;
+  bulkDeleting.value = true;
+  try {
+    const paths = [...selectedPaths.value];
+    await Promise.all(
+      paths.map((path) => withRenew(() => explorer.deleteObject(storageRes.value!, path))),
+    );
+    for (const path of paths) pruneNode(rootNodes.value, path);
+    selectedPaths.value = [];
+    bulkDeleteOpen.value = false;
+  } catch (e: any) {
+    functions.handleError(e, 'Delete files');
+  } finally {
+    bulkDeleting.value = false;
+  }
+}
+
+// ---- Delete folder ----------------------------------------------------------
+const deleteFolderOpen = ref(false);
+const deleteFolderLoading = ref(false);
+const deleteFolderNode = ref<TreeNode | null>(null);
+
+function confirmDeleteFolder(node: TreeNode) {
+  deleteFolderNode.value = node;
+  deleteFolderOpen.value = true;
+}
+
+async function collectAllFilePaths(prefix: string): Promise<string[]> {
+  const entries = await withRenew(() => explorer.listPrefix(storageRes.value!, prefix));
+  const paths: string[] = [];
+  for (const entry of entries) {
+    if (entry.isFolder) {
+      paths.push(...(await collectAllFilePaths(entry.path)));
+    } else {
+      paths.push(entry.path);
+    }
+  }
+  return paths;
+}
+
+async function executeDeleteFolder() {
+  if (!storageRes.value || !deleteFolderNode.value) return;
+  deleteFolderLoading.value = true;
+  try {
+    const paths = await collectAllFilePaths(deleteFolderNode.value.path);
+    await Promise.all(
+      paths.map((path) => withRenew(() => explorer.deleteObject(storageRes.value!, path))),
+    );
+    pruneNode(rootNodes.value, deleteFolderNode.value.path);
+    deleteFolderOpen.value = false;
+  } catch (e: any) {
+    functions.handleError(e, 'Delete folder');
+  } finally {
+    deleteFolderLoading.value = false;
+  }
+}
+
+// ---- Delete -----------------------------------------------------------------
+function confirmDelete(node: TreeNode) {
+  deleteNode.value = node;
+  deleteOpen.value = true;
+}
+
+async function doDelete() {
+  if (!storageRes.value || !deleteNode.value) return;
+  deleteLoading.value = true;
+  try {
+    await withRenew(() => explorer.deleteObject(storageRes.value!, deleteNode.value!.path));
+    pruneNode(rootNodes.value, deleteNode.value.path);
+    deleteOpen.value = false;
+  } catch (e: any) {
+    functions.handleError(e, 'Delete file');
+  } finally {
+    deleteLoading.value = false;
+  }
+}
+
+function pruneNode(nodes: TreeNode[], path: string): boolean {
+  for (let i = 0; i < nodes.length; i++) {
+    if (nodes[i].path === path) {
+      nodes.splice(i, 1);
+      return true;
+    }
+    if (nodes[i].isFolder && pruneNode(nodes[i].children, path)) return true;
+  }
+  return false;
 }
 
 onMounted(load);
 watch(() => [props.warehouseId, props.namespaceId, props.entityName, props.entityType], load);
+watch(previewOpen, (open) => {
+  if (!open && previewBlobUrl.value) {
+    URL.revokeObjectURL(previewBlobUrl.value);
+    previewBlobUrl.value = null;
+  }
+});
 </script>
 
 <style scoped>
@@ -513,6 +1030,13 @@ watch(() => [props.warehouseId, props.namespaceId, props.entityName, props.entit
 .cursor-pointer {
   cursor: pointer;
 }
+.storage-checkbox {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-right: 20px;
+  cursor: pointer;
+}
 .preview-pre {
   white-space: pre;
   overflow: auto;
@@ -525,5 +1049,9 @@ watch(() => [props.warehouseId, props.namespaceId, props.entityName, props.entit
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.drag-over {
+  outline: 2px dashed rgba(var(--v-theme-primary), 0.5);
+  background: rgba(var(--v-theme-primary), 0.04);
 }
 </style>
