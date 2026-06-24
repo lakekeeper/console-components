@@ -270,6 +270,7 @@ import { ref, computed, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { useUserStore } from '@/stores/user';
+import { isForbiddenError } from '@/common/errorUtils';
 import type { StorageProfile } from '@/gen/management/types.gen';
 
 const props = defineProps<{
@@ -330,6 +331,11 @@ function short(id: string): string {
   return id.length > 8 ? id.slice(0, 8) + '…' : id;
 }
 
+// Single-quote a value for safe interpolation into the generated shell script.
+function shSingleQuote(s: string): string {
+  return `'${String(s).replace(/'/g, `'\\''`)}'`;
+}
+
 const maskBuckets = ref(false);
 const bucketHashes = ref<Record<string, string>>({});
 
@@ -356,7 +362,8 @@ function displayBucket(prefix: string): string {
 
 function exportBucket(prefix: string): string {
   if (!maskBuckets.value) return prefix;
-  return bucketHashes.value[prefix] ?? prefix;
+  // Never fall back to the plaintext prefix while masking (e.g. hash not yet computed).
+  return bucketHashes.value[prefix] ?? 'masked';
 }
 
 const scriptContent = computed(() => toShellScript());
@@ -493,8 +500,14 @@ async function loadData() {
               endpoint: endpointFromProfile(profile),
             });
           }
-        } catch {
-          // skip projects where we lack permission
+        } catch (e) {
+          // Silently skip projects we lack permission for; log other (backend/transient) errors.
+          if (!isForbiddenError(e)) {
+            console.error(
+              `[UsageDatum] listWarehousesByProject ${project['project-id']} failed`,
+              e,
+            );
+          }
         }
       }),
     );
@@ -628,7 +641,7 @@ function toShellScript(): string {
     if (row.storageType === 's3') {
       const s3Path = row.bucketPrefix.endsWith('/') ? row.bucketPrefix : `${row.bucketPrefix}/`;
       const endpointFlag = row.endpoint
-        ? ` --endpoint-url ${row.endpoint}`
+        ? ` --endpoint-url ${shSingleQuote(row.endpoint)}`
         : ' ${S3_HOST:+--endpoint-url "https://$S3_HOST"}';
       lines.push(
         `_bytes=$(aws s3 ls "${s3Path}" --recursive --summarize${endpointFlag} 2>/dev/null \\`,
