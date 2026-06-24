@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.13.0](https://github.com/lakekeeper/console-components/compare/v0.12.0...v0.13.0) (2026-06-24)
+
+
+### Features
+
+* **ui:** add branch-aware snapshots table and schema view/compare dialogs ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** add entity action cog menus to tables, views, generic tables and namespaces (rename, delete protection, change properties, delete) ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** add storage Files explorer with DuckDB-powered preview (parquet/avro/csv/json), download and credential renewal for S3/ADLS/GCS ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** add usage report builder (configurable charts, PNG/PDF export) and usage datum dialog ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** expand Table Health with configuration, column statistics, storage composition and an on-demand column profiler ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** fold warehouse rename into the Warehouse Settings dialog and show the storage-provider icon in the header ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** move warehouse and table maintenance into the header cog with General/Security/Maintenance grouping ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** redesign view details with at-a-glance tiles, identity, SQL definition with version picker and schema evolution ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** refine navigation trees with indent lines, compact leaf rows, active-route highlight and OneLake icon ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+
+
+### Bug Fixes
+
+* **ui:** pin DuckDB to 1.4.x with builtin extensions to restore LoQE create/insert/delete ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** remove duplicate warehouse delete-protection toggle from namespaces view ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+* **ui:** renew expired vended storage credentials and remove the redundant raw tab ([47ecd93](https://github.com/lakekeeper/console-components/commit/47ecd931114ad65a5d5c735eaf5474c655efd4c8))
+
 ## [0.12.0](https://github.com/lakekeeper/console-components/compare/v0.11.0...v0.12.0) (2026-06-19)
 
 
