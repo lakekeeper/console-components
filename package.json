@@ -81,6 +81,7 @@
     "@duckdb/duckdb-wasm": "^1.32.1-dev1.0",
     "@wdns/vue-code-block": "^2.3.5",
     "apache-arrow": "^21.1.0",
+    "aws4fetch": "^1.0.20",
     "chart.js": "^4.4.9",
     "codemirror": "^6.0.2",
     "d3": "^7.9.0",

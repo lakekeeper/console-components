@@ -64,6 +64,7 @@ import LoQEExplorer from './components/LoQEExplorer.vue';
 import ViewHeader from './components/ViewHeader.vue';
 import ViewActionsMenu from './components/ViewActionsMenu.vue';
 import GenericTableActionsMenu from './components/GenericTableActionsMenu.vue';
+import StorageExplorer from './components/StorageExplorer.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
 import ViewRaw from './components/ViewRaw.vue';
@@ -172,6 +173,7 @@ export {
   ViewHeader,
   ViewActionsMenu,
   GenericTableActionsMenu,
+  StorageExplorer,
   ViewHistoryTab,
   ViewOverview,
   ViewRaw,
@@ -368,6 +370,7 @@ const components = {
   ViewHeader,
   ViewActionsMenu,
   GenericTableActionsMenu,
+  StorageExplorer,
   ViewHistoryTab,
   ViewOverview,
   ViewRaw,
