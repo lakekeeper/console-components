@@ -31,7 +31,11 @@
       @rename-warehouse="renameWarehouse"
       @update-credentials="updateCredentials"
       @update-catalog-settings="updateCatalogSettings"
-      @update-profile="updateProfile" />
+      @update-profile="updateProfile">
+      <template #maintenance="slotProps">
+        <slot name="maintenance" v-bind="slotProps"></slot>
+      </template>
+    </WarehouseActionsMenu>
   </v-toolbar>
 </template>
 

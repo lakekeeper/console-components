@@ -292,7 +292,10 @@ async function confirmDelete() {
       true,
     );
     deleteOpen.value = false;
-    await router.replace(route.path.replace(/\/view\/[^/]+$/, ''));
+    await router.replace({
+      path: route.path.replace(/\/view\/[^/]+$/, ''),
+      query: { tab: 'views' },
+    });
   } catch (e: any) {
     deleteError.value = e?.error?.message || e?.message || 'Failed to delete view';
   } finally {

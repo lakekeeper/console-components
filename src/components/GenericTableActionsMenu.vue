@@ -11,19 +11,9 @@
         subtitle="Rename · delete protection"
         @click="openSettings" />
       <v-list-item
-        prepend-icon="mdi-text-box-edit-outline"
-        title="Change properties"
-        @click="
-          menuOpen = false;
-          propsDialog?.open();
-        " />
-      <v-list-item
         prepend-icon="mdi-download-outline"
         title="Download metadata.json"
         @click="downloadJson" />
-
-      <!-- Premium maintenance actions (schedule / advanced overrides) -->
-      <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
 
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
@@ -36,61 +26,7 @@
     </v-list>
   </v-menu>
 
-  <!-- Delete confirmation -->
-  <v-dialog v-model="deleteOpen" max-width="480">
-    <v-card>
-      <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-        <v-icon class="mr-2" color="error">mdi-delete-alert-outline</v-icon>
-        Delete table
-      </v-card-title>
-      <v-divider></v-divider>
-      <v-card-text>
-        <p class="mb-3">
-          This permanently deletes the table
-          <strong class="font-mono">{{ tableName }}</strong>
-          from the catalog.
-          <span class="text-error font-weight-bold">This cannot be undone.</span>
-        </p>
-        <v-checkbox
-          v-model="purge"
-          density="compact"
-          hide-details
-          color="error"
-          label="Purge data files from storage"></v-checkbox>
-        <v-checkbox
-          v-model="force"
-          density="compact"
-          hide-details
-          color="error"
-          label="Force delete (ignore protection)"></v-checkbox>
-        <v-text-field
-          v-model="confirmName"
-          class="mt-3"
-          density="compact"
-          variant="outlined"
-          autocomplete="off"
-          :label="`Type “${tableName}” to confirm`"
-          :error="confirmName.length > 0 && !deleteConfirmed"></v-text-field>
-        <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-3">
-          {{ deleteError }}
-        </v-alert>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn variant="text" :disabled="deleting" @click="deleteOpen = false">Cancel</v-btn>
-        <v-btn
-          color="error"
-          variant="flat"
-          :loading="deleting"
-          :disabled="!deleteConfirmed"
-          @click="confirmDelete">
-          Delete table
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-
-  <!-- Table settings: rename + recursive delete protection -->
+  <!-- Table settings: rename + deletion protection -->
   <v-dialog v-model="settingsOpen" max-width="520">
     <v-card>
       <v-card-title class="d-flex align-center text-subtitle-1 py-3">
@@ -111,7 +47,7 @@
             (v) => !!v?.trim() || 'Required',
             (v) => !v.includes('/') || 'Cannot contain “/”',
           ]"
-          :disabled="!canCommit"
+          :disabled="!canRename"
           class="mb-2"></v-text-field>
 
         <v-switch
@@ -146,26 +82,54 @@
     </v-card>
   </v-dialog>
 
-  <!-- Headless properties editor, opened from the menu -->
-  <EntityPropertiesDialog
-    ref="propsDialog"
-    hide-activator
-    entity-type="table"
-    :warehouse-id="warehouseId"
-    :namespace-path="namespaceId"
-    :entity-name="tableName"
-    :properties="table?.metadata?.properties"
-    :can-edit="canCommit"
-    @updated="$emit('updated')" />
+  <!-- Delete confirmation -->
+  <v-dialog v-model="deleteOpen" max-width="520">
+    <v-card>
+      <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+        <v-icon class="mr-2" color="error">mdi-delete-alert-outline</v-icon>
+        Delete table
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text>
+        <p class="mb-3">
+          This permanently deletes the table
+          <strong class="font-mono">{{ tableName }}</strong>
+          from the catalog.
+          <span class="text-error font-weight-bold">This cannot be undone.</span>
+        </p>
+        <v-text-field
+          v-model="confirmName"
+          class="mt-1"
+          density="compact"
+          variant="outlined"
+          autocomplete="off"
+          :label="`Type “${tableName}” to confirm`"
+          :error="confirmName.length > 0 && !deleteConfirmed"></v-text-field>
+        <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-3">
+          {{ deleteError }}
+        </v-alert>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn variant="text" :disabled="deleting" @click="deleteOpen = false">Cancel</v-btn>
+        <v-btn
+          color="error"
+          variant="flat"
+          :loading="deleting"
+          :disabled="!deleteConfirmed"
+          @click="confirmDelete">
+          Delete table
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
-import { useTablePermissions } from '@/composables/useCatalogPermissions';
-import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
-import type { LoadTableResult } from '@/gen/iceberg/types.gen';
+import { useGenericTablePermissions, useConfig } from '@/composables/useCatalogPermissions';
 
 const props = defineProps<{
   warehouseId: string;
@@ -178,61 +142,29 @@ const emit = defineEmits<{ (e: 'updated'): void }>();
 const functions = useFunctions();
 const router = useRouter();
 const route = useRoute();
+const config = useConfig();
 
 const menuOpen = ref(false);
 const settingsOpen = ref(false);
 const saving = ref(false);
 const settingsError = ref<string | null>(null);
-const propsDialog = ref<{ open: () => void } | null>(null);
 
-const table = ref<LoadTableResult | null>(null);
+const genericTable = ref<Record<string, any> | null>(null);
 const tableId = ref('');
 const protectedState = ref(false);
 const nameInput = ref(props.tableName);
 const protectedPending = ref(false);
 
-const { canCommit, canSetProtection, canDrop } = useTablePermissions(tableId, props.warehouseId);
-
-const deleteOpen = ref(false);
-const deleting = ref(false);
-const deleteError = ref<string | null>(null);
-const purge = ref(false);
-const force = ref(false);
-const confirmName = ref('');
-const deleteConfirmed = computed(() => confirmName.value.trim() === props.tableName);
-
-function openDelete() {
-  menuOpen.value = false;
-  deleteError.value = null;
-  purge.value = false;
-  force.value = false;
-  confirmName.value = '';
-  deleteOpen.value = true;
-}
-
-async function confirmDelete() {
-  deleting.value = true;
-  deleteError.value = null;
-  try {
-    await functions.dropTable(
-      props.warehouseId,
-      props.namespaceId,
-      props.tableName,
-      { purgeRequested: purge.value, force: force.value },
-      true,
-    );
-    deleteOpen.value = false;
-    // Table is gone — leave the table route for its namespace.
-    await router.replace({
-      path: route.path.replace(/\/table\/[^/]+$/, ''),
-      query: { tab: 'tables' },
-    });
-  } catch (e: any) {
-    deleteError.value = e?.error?.message || e?.message || 'Failed to delete table';
-  } finally {
-    deleting.value = false;
-  }
-}
+const { canSetProtection, canDrop, hasPermission } = useGenericTablePermissions(
+  tableId,
+  props.warehouseId,
+);
+const canRename = computed(
+  () =>
+    hasPermission('rename') ||
+    !config.enabledAuthentication.value ||
+    !config.enabledPermissions.value,
+);
 
 const settingsDirty = computed(
   () =>
@@ -240,22 +172,37 @@ const settingsDirty = computed(
     protectedPending.value !== protectedState.value,
 );
 
+const deleteOpen = ref(false);
+const deleting = ref(false);
+const deleteError = ref<string | null>(null);
+const confirmName = ref('');
+const deleteConfirmed = computed(() => confirmName.value.trim() === props.tableName);
+
 async function load() {
   try {
-    table.value = (await functions.loadTableCustomized(
+    const response = await functions.loadGenericTable(
       props.warehouseId,
       props.namespaceId,
       props.tableName,
-    )) as LoadTableResult;
-    tableId.value = table.value.metadata['table-uuid'] ?? '';
-    if (tableId.value) {
-      protectedState.value = (
-        await functions.getTableProtection(props.warehouseId, tableId.value)
-      ).protected;
-      protectedPending.value = protectedState.value;
-    }
+      false,
+    );
+    genericTable.value = response.table ?? null;
+    protectedState.value = !!response.table?.protected;
+    protectedPending.value = protectedState.value;
+    // loadGenericTable does not return the id; resolve it via listGenericTables
+    // for the permission/protection lookups which are keyed by generic_table_id.
+    const list = await functions.listGenericTables(
+      props.warehouseId,
+      props.namespaceId,
+      undefined,
+      false,
+    );
+    const match = (list.identifiers ?? []).find(
+      (g: { name: string }) => g.name === props.tableName,
+    );
+    tableId.value = match?.id ?? '';
   } catch (e) {
-    console.error('[TableActionsMenu] load failed', e);
+    console.error('[GenericTableActionsMenu] load failed', e);
   }
 }
 
@@ -281,7 +228,7 @@ async function saveSettings() {
   settingsError.value = null;
   try {
     if (protectedPending.value !== protectedState.value) {
-      await functions.setTableProtection(
+      await functions.setGenericTableProtection(
         props.warehouseId,
         tableId.value,
         protectedPending.value,
@@ -291,15 +238,15 @@ async function saveSettings() {
     }
     const newName = nameInput.value.trim();
     if (newName && newName !== props.tableName && !newName.includes('/')) {
-      await functions.renameTable(
+      await functions.renameGenericTable(
         props.warehouseId,
         props.namespaceId,
         props.tableName,
+        props.namespaceId,
         newName,
         true,
       );
       settingsOpen.value = false;
-      // Route carries the table name in `tid`; move to the renamed table.
       await router.replace({
         name: route.name as any,
         params: { ...route.params, tid: newName },
@@ -316,16 +263,41 @@ async function saveSettings() {
   }
 }
 
+function openDelete() {
+  menuOpen.value = false;
+  deleteError.value = null;
+  confirmName.value = '';
+  deleteOpen.value = true;
+}
+
+async function confirmDelete() {
+  deleting.value = true;
+  deleteError.value = null;
+  try {
+    await functions.dropGenericTable(props.warehouseId, props.namespaceId, props.tableName, true);
+    deleteOpen.value = false;
+    // Table is gone — leave the table route for its namespace.
+    await router.replace({
+      path: route.path.replace(/\/generic-table\/[^/]+$/, ''),
+      query: { tab: 'tables' },
+    });
+  } catch (e: any) {
+    deleteError.value = e?.error?.message || e?.message || 'Failed to delete table';
+  } finally {
+    deleting.value = false;
+  }
+}
+
 function downloadJson() {
   menuOpen.value = false;
-  if (!table.value?.metadata) return;
-  const blob = new Blob([JSON.stringify(table.value.metadata, null, 2)], {
+  if (!genericTable.value) return;
+  const blob = new Blob([JSON.stringify(genericTable.value, null, 2)], {
     type: 'application/json',
   });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${props.tableName || table.value.metadata['table-uuid'] || 'table'}.json`;
+  a.download = `${props.tableName || 'generic-table'}.json`;
   document.body.appendChild(a);
   a.click();
   a.remove();

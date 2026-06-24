@@ -207,6 +207,10 @@
         <template v-slot:title="{ item }">
           <div
             class="tree-item-container"
+            :class="{
+              'tree-leaf-row':
+                item.type === 'table' || item.type === 'view' || item.type === 'generic-table',
+            }"
             :style="
               isActiveItem(item)
                 ? 'background: rgba(var(--v-theme-primary), 0.14); border-radius: 4px; padding-left: 4px;'
@@ -1592,9 +1596,13 @@ onBeforeUnmount(() => {
   overflow-x: auto !important;
   min-width: max-content;
   /* Tighter rows so the indent/connector lines read as one continuous tree. */
-  min-height: 22px !important;
+  min-height: 26px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+}
+/* Leaf rows (tables/views) are more compact than container rows (warehouse/namespace). */
+.tree-view :deep(.v-list-item:has(.tree-leaf-row)) {
+  min-height: 20px !important;
 }
 .tree-view :deep(.v-list-item__content) {
   padding-top: 0 !important;

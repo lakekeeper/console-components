@@ -264,7 +264,11 @@
         <template v-slot:title="{ item }">
           <div
             class="tree-item-container"
-            :class="{ 'tree-item-active': item.id === lastFocusedNodeId }"
+            :class="{
+              'tree-item-active': item.id === lastFocusedNodeId,
+              'tree-leaf-row':
+                item.type === 'table' || item.type === 'view' || item.type === 'field',
+            }"
             :data-node-id="item.id"
             @mouseenter="hoveredItem = item.id"
             @mouseleave="hoveredItem = null">
@@ -1311,9 +1315,13 @@ watch(projectId, () => {
   overflow-x: auto !important;
   min-width: max-content;
   /* Tighter rows so the indent/connector lines read as one continuous tree. */
-  min-height: 22px !important;
+  min-height: 26px !important;
   padding-top: 0 !important;
   padding-bottom: 0 !important;
+}
+/* Leaf rows (tables/views/fields) are more compact than container rows. */
+.tree-view :deep(.v-list-item:has(.tree-leaf-row)) {
+  min-height: 20px !important;
 }
 .tree-view :deep(.v-list-item__content) {
   padding-top: 0 !important;

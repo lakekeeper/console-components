@@ -4,22 +4,26 @@
       <v-btn icon="mdi-cog" variant="text" v-bind="props"></v-btn>
     </template>
 
-    <v-list activatable>
+    <v-list activatable density="compact">
       <v-list-item v-if="locked" disabled prepend-icon="mdi-shield-lock">
         <v-list-item-title>Managed by instance admin</v-list-item-title>
         <v-list-item-subtitle>Spec changes are restricted</v-list-item-subtitle>
       </v-list-item>
 
-      <template v-if="!locked">
-        <WarehouseAddDialog
-          :intent="Intent.UPDATE"
-          :object-type="ObjectType.CATALOG_SETTINGS"
-          :process-status="processStatus"
-          :warehouse="warehouse"
-          @cancel="menuOpen = false"
-          @rename-warehouse="emitRename"
-          @update-catalog-settings="updateCatalogSettings" />
+      <v-list-subheader class="text-uppercase">General</v-list-subheader>
+      <WarehouseAddDialog
+        v-if="!locked"
+        :intent="Intent.UPDATE"
+        :object-type="ObjectType.CATALOG_SETTINGS"
+        :process-status="processStatus"
+        :warehouse="warehouse"
+        @cancel="menuOpen = false"
+        @rename-warehouse="emitRename"
+        @update-catalog-settings="updateCatalogSettings" />
+      <ComputeConnectDialog :warehouse="warehouse" />
 
+      <template v-if="!locked">
+        <v-list-subheader class="text-uppercase">Security</v-list-subheader>
         <WarehouseAddDialog
           :intent="Intent.UPDATE"
           :object-type="ObjectType.STORAGE_CREDENTIAL"
@@ -37,11 +41,10 @@
           @close="$emit('close')"
           @update-profile="updateStorageProfile"
           @cancel="menuOpen = false" />
-
-        <v-divider></v-divider>
       </template>
 
-      <ComputeConnectDialog :warehouse="warehouse" />
+      <!-- Premium maintenance actions (schedule / configure) injected by the app. -->
+      <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
     </v-list>
   </v-menu>
 </template>

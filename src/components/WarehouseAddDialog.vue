@@ -12,26 +12,20 @@
         prepend-icon="mdi-key-change"
         v-bind="activatorProps"
         v-else-if="props.objectType === ObjectType.STORAGE_CREDENTIAL">
-        <v-list-item-title>
-          <span class="text-subtitle-2" v-bind="activatorProps">Update Credentials</span>
-        </v-list-item-title>
+        <v-list-item-title>Update Credentials</v-list-item-title>
       </v-list-item>
       <v-list-item
         prepend-icon="mdi-playlist-edit"
         v-bind="activatorProps"
         v-else-if="props.objectType === ObjectType.STORAGE_PROFILE">
-        <v-list-item-title>
-          <span class="text-subtitle-2">Update Profile</span>
-        </v-list-item-title>
+        <v-list-item-title>Update Profile</v-list-item-title>
       </v-list-item>
 
       <v-list-item
         prepend-icon="mdi-update"
         v-bind="activatorProps"
         v-else-if="props.objectType === ObjectType.CATALOG_SETTINGS">
-        <v-list-item-title>
-          <span class="text-subtitle-2">Warehouse Settings</span>
-        </v-list-item-title>
+        <v-list-item-title>Warehouse Settings</v-list-item-title>
       </v-list-item>
     </template>
     <v-card style="max-height: 90vh; overflow-y: auto; min-width: 850px; width: 100%">

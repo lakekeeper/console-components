@@ -1,18 +1,5 @@
 <template>
   <div>
-    <v-toolbar color="transparent" density="compact" flat>
-      <v-switch
-        v-if="canSetProtection"
-        v-model="recursiveDeleteProtection"
-        class="ml-4 mt-4"
-        color="info"
-        :label="
-          recursiveDeleteProtection
-            ? 'Recursive Delete Protection enabled'
-            : 'Recursive Delete Protection disabled'
-        "
-        @click.prevent="showConfirmDialog"></v-switch>
-    </v-toolbar>
     <ViewDetails
       v-if="loaded"
       :view="view"
@@ -20,21 +7,8 @@
       :namespace-path="props.namespaceId"
       :view-name="props.viewName"
       :can-edit="canCommit"
+      :protected-state="protectedState"
       @updated="loadViewData" />
-
-    <ProtectionConfirmDialog
-      v-model="confirmDialog"
-      :confirm-color="recursiveDeleteProtection ? 'warning' : 'info'"
-      :message="
-        recursiveDeleteProtection
-          ? 'Are you sure you want to disable recursive delete protection? This will allow the view to be deleted.'
-          : 'Are you sure you want to enable recursive delete protection? This will prevent the view from being deleted.'
-      "
-      :title="
-        recursiveDeleteProtection ? 'Disable Delete Protection?' : 'Enable Delete Protection?'
-      "
-      @cancel="cancelProtectionChange"
-      @confirm="confirmProtectionChange"></ProtectionConfirmDialog>
   </div>
 </template>
 
@@ -43,7 +17,6 @@ import { onMounted, ref, reactive, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useViewPermissions } from '@/composables/useCatalogPermissions';
 import ViewDetails from './ViewDetails.vue';
-import ProtectionConfirmDialog from './ProtectionConfirmDialog.vue';
 import type { LoadViewResultWritable } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -54,13 +27,11 @@ const props = defineProps<{
 
 const functions = useFunctions();
 const loaded = ref(false);
-const recursiveDeleteProtection = ref(false);
 const viewId = ref('');
-const confirmDialog = ref(false);
-const pendingProtectionValue = ref(false);
+const protectedState = ref<boolean | null>(null);
 
-// Use view permissions composable
-const { canSetProtection, canCommit } = useViewPermissions(
+// Use view permissions composable (rename/edit gating; protection lives in the cog menu)
+const { canCommit } = useViewPermissions(
   computed(() => viewId.value),
   computed(() => props.warehouseId),
 );
@@ -88,7 +59,13 @@ async function loadViewData() {
     viewId.value = view.metadata['view-uuid'];
 
     if (viewId.value) {
-      await getProtection();
+      try {
+        protectedState.value = (
+          await functions.getViewProtection(props.warehouseId, viewId.value)
+        ).protected;
+      } catch {
+        protectedState.value = null;
+      }
     }
 
     loaded.value = true;
@@ -96,51 +73,6 @@ async function loadViewData() {
     console.error('Failed to load view data:', error);
     loaded.value = true;
   }
-}
-
-async function getProtection() {
-  try {
-    recursiveDeleteProtection.value = (
-      await functions.getViewProtection(props.warehouseId, viewId.value)
-    ).protected;
-  } catch (error) {
-    console.error('Failed to get protection status:', error);
-  }
-}
-
-async function setProtection() {
-  try {
-    await functions.setViewProtection(
-      props.warehouseId,
-      viewId.value,
-      pendingProtectionValue.value,
-      true,
-    );
-    await getProtection();
-  } catch (error) {
-    console.error('Failed to set protection:', error);
-    // Revert the switch if API call failed
-    recursiveDeleteProtection.value = !recursiveDeleteProtection.value;
-  }
-}
-
-function showConfirmDialog() {
-  // Store the desired value (opposite of current)
-  pendingProtectionValue.value = !recursiveDeleteProtection.value;
-  confirmDialog.value = true;
-}
-
-function cancelProtectionChange() {
-  // Do nothing - switch will stay at current value
-  confirmDialog.value = false;
-}
-
-async function confirmProtectionChange() {
-  confirmDialog.value = false;
-  // Toggle the switch
-  recursiveDeleteProtection.value = pendingProtectionValue.value;
-  // Make the API call
-  await setProtection();
 }
 
 // Watch for prop changes
