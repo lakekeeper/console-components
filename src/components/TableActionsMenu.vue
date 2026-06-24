@@ -48,7 +48,8 @@
         <p class="mb-3">
           This permanently deletes the table
           <strong class="font-mono">{{ tableName }}</strong>
-          from the catalog. This cannot be undone.
+          from the catalog.
+          <span class="text-error font-weight-bold">This cannot be undone.</span>
         </p>
         <v-checkbox
           v-model="purge"

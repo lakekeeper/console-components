@@ -113,7 +113,8 @@
         <p class="mb-3">
           This permanently deletes the view
           <strong class="font-mono">{{ viewName }}</strong>
-          from the catalog. This cannot be undone.
+          from the catalog.
+          <span class="text-error font-weight-bold">This cannot be undone.</span>
         </p>
         <v-checkbox
           v-model="force"

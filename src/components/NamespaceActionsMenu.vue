@@ -46,8 +46,9 @@
       <v-card-text>
         <p class="mb-3">
           This deletes the namespace
-          <strong class="font-mono">{{ displayName }}</strong>
-          from the catalog. This cannot be undone.
+          <strong class="font-mono">{{ confirmTarget }}</strong>
+          from the catalog.
+          <span class="text-error font-weight-bold">This cannot be undone.</span>
         </p>
         <v-checkbox
           v-model="recursive"
