@@ -23,6 +23,14 @@
           Delete ({{ selectedPaths.length }})
         </v-btn>
       </template>
+      <v-progress-circular
+        v-if="moveLoading"
+        indeterminate
+        size="18"
+        width="2"
+        color="primary"
+        class="mr-1"
+        title="Moving files…" />
       <v-btn
         size="small"
         variant="text"
@@ -32,40 +40,7 @@
         @click="reload"></v-btn>
     </div>
 
-    <!-- Root URI row -->
-    <div class="d-flex align-center mb-3" style="gap: 6px; min-height: 28px">
-      <template v-if="rootUri">
-        <span class="text-caption text-medium-emphasis" style="flex-shrink: 0">Root</span>
-        <code class="text-caption font-mono text-truncate" style="flex: 1; min-width: 0">{{ rootUri }}</code>
-        <v-btn
-          icon="mdi-content-copy"
-          size="x-small"
-          variant="text"
-          title="Copy root URI"
-          @click="functions.copyToClipboard(rootUri)"></v-btn>
-      </template>
-      <template v-else style="flex: 1"></template>
-      <template v-if="canWrite">
-        <v-btn
-          size="x-small"
-          variant="text"
-          icon="mdi-folder-plus-outline"
-          title="Create new folder"
-          @click="triggerCreateFolder(null)"></v-btn>
-        <v-btn
-          size="x-small"
-          variant="text"
-          icon="mdi-upload"
-          title="Upload files to root"
-          @click="triggerUpload(null)"></v-btn>
-        <input
-          ref="fileInputRef"
-          type="file"
-          multiple
-          style="display: none"
-          @change="onFilesPicked" />
-      </template>
-    </div>
+    <input ref="fileInputRef" type="file" multiple style="display: none" @change="onFilesPicked" />
 
     <!-- Upload progress -->
     <div v-if="uploads.length" class="mb-2">
@@ -105,6 +80,57 @@
       @dragover.prevent="canWrite && onDragOver()"
       @dragleave="onDragLeave"
       @drop.prevent="canWrite && onDrop($event)">
+      <!-- Permanent root row -->
+      <div
+        class="storage-row d-flex align-center"
+        :class="{ 'drop-target': canWrite && dragOverFolder === '__root__' }"
+        style="padding-left: 8px; border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08)"
+        @dragover.prevent="canWrite && dragPaths.length && (dragOverFolder = '__root__')"
+        @dragleave.self="dragOverFolder === '__root__' && (dragOverFolder = null)"
+        @drop.prevent="canWrite && dragPaths.length && onRootDrop()">
+        <!-- select-all checkbox sits where the expand toggle would be -->
+        <input
+          type="checkbox"
+          :checked="selectAllState === 'all'"
+          :indeterminate="selectAllState === 'some'"
+          style="width: 16px; height: 16px; flex-shrink: 0; margin-right: 12px; cursor: pointer"
+          title="Select all"
+          @change.stop="toggleSelectAll"
+          @click.stop />
+        <v-icon size="x-small" class="mr-2" color="amber-darken-2">
+          {{ dragOverFolder === '__root__' ? 'mdi-folder-open' : 'mdi-folder-multiple-outline' }}
+        </v-icon>
+        <span class="text-caption font-weight-medium mr-2">Root</span>
+        <code
+          v-if="rootUri"
+          class="text-caption text-truncate text-medium-emphasis"
+          style="flex: 1; min-width: 0; font-size: 10px">
+          {{ rootUri }}
+        </code>
+        <v-btn
+          v-if="rootUri"
+          icon="mdi-content-copy"
+          size="x-small"
+          variant="text"
+          title="Copy root URI"
+          @click.stop="functions.copyToClipboard(rootUri)" />
+        <v-spacer v-else />
+        <template v-if="canWrite">
+          <v-btn
+            size="x-small"
+            variant="text"
+            icon="mdi-folder-plus-outline"
+            title="Create new folder"
+            @click.stop="triggerCreateFolder(null)" />
+          <v-btn
+            size="x-small"
+            variant="text"
+            icon="mdi-upload"
+            title="Upload files to root"
+            @click.stop="triggerUpload(null)" />
+        </template>
+      </div>
+
       <div v-if="!rootNodes.length" class="text-medium-emphasis pa-4 text-caption">
         No objects under this prefix.
       </div>
@@ -112,7 +138,16 @@
         v-for="row in visibleRows"
         :key="row.node.path"
         class="storage-row d-flex align-center"
-        :style="{ paddingLeft: 8 + row.depth * 18 + 'px' }">
+        :class="{
+          'drop-target': canWrite && row.node.isFolder && dragOverFolder === row.node.path,
+        }"
+        :style="{ paddingLeft: 8 + row.depth * 18 + 'px' }"
+        :draggable="canWrite && !row.node.isFolder ? 'true' : 'false'"
+        @dragstart="canWrite && !row.node.isFolder && onFileDragStart($event, row.node)"
+        @dragend="onFileDragEnd"
+        @dragover.prevent="canWrite && row.node.isFolder && onFolderDragOver($event, row.node)"
+        @dragleave.self="canWrite && row.node.isFolder && onFolderDragLeave($event, row.node)"
+        @drop.prevent="canWrite && row.node.isFolder && onFolderDrop($event, row.node)">
         <!-- folder toggle / file spacer -->
         <v-btn
           v-if="row.node.isFolder"
@@ -121,17 +156,31 @@
           variant="text"
           @click="toggle(row.node)"></v-btn>
         <span v-else style="width: 28px; display: inline-block"></span>
-        <!-- checkbox for files only -->
+        <!-- checkbox: files → simple toggle; folders → toggle folder + visible children -->
         <input
-          v-if="!row.node.isFolder"
+          v-if="row.node.isFolder"
+          type="checkbox"
+          :checked="folderCheckState(row.node) === true"
+          :indeterminate="folderCheckState(row.node) === 'indeterminate'"
+          style="width: 16px; height: 16px; flex-shrink: 0; margin-right: 20px; cursor: pointer"
+          @change.stop="toggleSelectFolder(row.node)"
+          @click.stop />
+        <input
+          v-else
           type="checkbox"
           :checked="isSelected(row.node.path)"
-          style="width:16px;height:16px;flex-shrink:0;margin-right:20px;cursor:pointer"
+          style="width: 16px; height: 16px; flex-shrink: 0; margin-right: 20px; cursor: pointer"
           @change.stop="toggleSelect(row.node.path)"
           @click.stop />
 
         <v-icon size="x-small" class="mr-2" :color="row.node.isFolder ? 'amber-darken-2' : 'grey'">
-          {{ row.node.isFolder ? 'mdi-folder-outline' : fileIcon(row.node.name) }}
+          {{
+            row.node.isFolder
+              ? dragOverFolder === row.node.path
+                ? 'mdi-folder-open'
+                : 'mdi-folder-outline'
+              : fileIcon(row.node.name)
+          }}
         </v-icon>
         <span
           class="text-caption font-mono storage-name cursor-pointer"
@@ -277,11 +326,9 @@
           </div>
 
           <!-- text -->
-          <pre
-            v-else-if="previewKind === 'text'"
-            class="preview-pre text-caption"
-            >{{ previewText }}</pre
-          >
+          <pre v-else-if="previewKind === 'text'" class="preview-pre text-caption">{{
+            previewText
+          }}</pre>
 
           <!-- image inline -->
           <div v-else-if="previewKind === 'image'" class="d-flex justify-center pa-2">
@@ -333,7 +380,9 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" :disabled="createFolderLoading" @click="createFolderOpen = false">Cancel</v-btn>
+          <v-btn variant="text" :disabled="createFolderLoading" @click="createFolderOpen = false">
+            Cancel
+          </v-btn>
           <v-btn
             color="primary"
             variant="flat"
@@ -352,12 +401,22 @@
         <v-card-title class="text-subtitle-1">Delete folder?</v-card-title>
         <v-card-text>
           <span class="font-mono text-caption">{{ deleteFolderNode?.name }}</span>
-          <div class="text-caption text-error mt-1">All files inside will be permanently deleted.</div>
+          <div class="text-caption text-error mt-1">
+            All files inside will be permanently deleted.
+          </div>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" :disabled="deleteFolderLoading" @click="deleteFolderOpen = false">Cancel</v-btn>
-          <v-btn color="error" variant="tonal" :loading="deleteFolderLoading" @click="executeDeleteFolder">Delete</v-btn>
+          <v-btn variant="text" :disabled="deleteFolderLoading" @click="deleteFolderOpen = false">
+            Cancel
+          </v-btn>
+          <v-btn
+            color="error"
+            variant="tonal"
+            :loading="deleteFolderLoading"
+            @click="executeDeleteFolder">
+            Delete
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -365,12 +424,18 @@
     <!-- Bulk delete confirm -->
     <v-dialog v-model="bulkDeleteOpen" max-width="400">
       <v-card>
-        <v-card-title class="text-subtitle-1">Delete {{ selectedPaths.length }} files?</v-card-title>
+        <v-card-title class="text-subtitle-1">
+          Delete {{ selectedPaths.length }} files?
+        </v-card-title>
         <v-card-text class="text-error font-weight-bold">This cannot be undone.</v-card-text>
         <v-card-actions>
           <v-spacer />
-          <v-btn variant="text" :disabled="bulkDeleting" @click="bulkDeleteOpen = false">Cancel</v-btn>
-          <v-btn color="error" variant="tonal" :loading="bulkDeleting" @click="executeBulkDelete">Delete all</v-btn>
+          <v-btn variant="text" :disabled="bulkDeleting" @click="bulkDeleteOpen = false">
+            Cancel
+          </v-btn>
+          <v-btn color="error" variant="tonal" :loading="bulkDeleting" @click="executeBulkDelete">
+            Delete all
+          </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -622,13 +687,14 @@ async function openPreview(node: TreeNode) {
   previewError.value = '';
   previewKind.value = '';
   previewText.value = '';
+  previewJson.value = null;
   previewColumns.value = [];
   previewRows.value = [];
   try {
     const ext = extOf(node.name);
     // Paimon files have no extension — detect by name pattern
-    const paimonAvro = /^manifest(-list)?-[0-9a-f-]+-\d+$/i.test(node.name);
-    const paimonJson = /^(schema|snapshot)-\d+$/i.test(node.name);
+    const paimonAvro = node.name.startsWith('manifest-');
+    const paimonJson = node.name.startsWith('schema-') || node.name.startsWith('snapshot-');
     const paimonText = node.name === 'LATEST';
     const isAvro = ext === 'avro' || /\.avro$/i.test(node.name) || paimonAvro;
     const isParquet = ext === 'parquet';
@@ -746,7 +812,13 @@ function cellText(v: unknown): string {
 function formatDate(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
-  return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function formatBytes(n?: number): string {
@@ -884,12 +956,135 @@ function onDragLeave() {
 }
 async function onDrop(e: DragEvent) {
   isDraggingOver.value = false;
+  // Ignore intra-explorer drags (no OS files)
+  if (dragPaths.value.length) return;
   const files = Array.from(e.dataTransfer?.files || []);
   if (files.length) await uploadFiles(files, null);
 }
 
+// ---- Intra-explorer drag-to-move -------------------------------------------
+const dragPaths = ref<string[]>([]);
+const dragOverFolder = ref<string | null>(null);
+const moveLoading = ref(false);
+
+function onFileDragStart(e: DragEvent, node: TreeNode) {
+  // Drag the multi-selection if this file is part of it, otherwise just this file.
+  const paths = selectedPaths.value.includes(node.path) ? [...selectedPaths.value] : [node.path];
+  dragPaths.value = paths;
+  e.dataTransfer!.effectAllowed = 'move';
+  e.dataTransfer!.setData('text/plain', paths.join('\n'));
+  // Custom drag ghost: show count badge when dragging multiple items
+  if (paths.length > 1) {
+    const ghost = document.createElement('div');
+    ghost.textContent = `${paths.length} items`;
+    ghost.style.cssText =
+      'position:fixed;top:-999px;left:-999px;padding:4px 10px;background:#1976d2;color:#fff;border-radius:12px;font:12px sans-serif;white-space:nowrap;pointer-events:none';
+    document.body.appendChild(ghost);
+    e.dataTransfer!.setDragImage(ghost, ghost.offsetWidth / 2, 14);
+    requestAnimationFrame(() => document.body.removeChild(ghost));
+  }
+}
+
+function onFileDragEnd() {
+  dragPaths.value = [];
+  dragOverFolder.value = null;
+  if (autoExpandTimer) {
+    clearTimeout(autoExpandTimer);
+    autoExpandTimer = null;
+  }
+}
+
+function onFolderDragOver(e: DragEvent, node: TreeNode) {
+  if (!dragPaths.value.length) return;
+  e.dataTransfer!.dropEffect = 'move';
+  if (dragOverFolder.value !== node.path) {
+    dragOverFolder.value = node.path;
+    // Auto-expand collapsed folder after 700ms hover
+    if (!node.expanded) {
+      if (autoExpandTimer) clearTimeout(autoExpandTimer);
+      autoExpandTimer = setTimeout(() => {
+        if (dragOverFolder.value === node.path) toggle(node);
+        autoExpandTimer = null;
+      }, 700);
+    }
+  }
+}
+
+let autoExpandTimer: ReturnType<typeof setTimeout> | null = null;
+
+function onFolderDragLeave(e: DragEvent, node: TreeNode) {
+  // Only clear when the pointer truly leaves the row element (not a child)
+  const rel = e.relatedTarget as Element | null;
+  if (rel && (e.currentTarget as Element).contains(rel)) return;
+  if (dragOverFolder.value === node.path) dragOverFolder.value = null;
+  if (autoExpandTimer) {
+    clearTimeout(autoExpandTimer);
+    autoExpandTimer = null;
+  }
+}
+
+async function onRootDrop() {
+  if (!storageRes.value) return;
+  const rootPrefix = explorer.rootPrefix(storageRes.value.location);
+  const fakeRoot = { path: rootPrefix, name: '', isFolder: true } as TreeNode;
+  await onFolderDrop(new DragEvent('drop'), fakeRoot);
+  await refreshFolder(null);
+}
+
+async function onFolderDrop(_e: DragEvent, targetFolder: TreeNode) {
+  dragOverFolder.value = null;
+  const paths = [...dragPaths.value];
+  dragPaths.value = [];
+  if (!paths.length || !storageRes.value) return;
+  // Filter out files already in this folder
+  const toMove = paths.filter((p) => {
+    const parentPrefix = p.substring(0, p.lastIndexOf('/') + 1);
+    return parentPrefix !== targetFolder.path;
+  });
+  if (!toMove.length) return;
+  moveLoading.value = true;
+  try {
+    for (const srcPath of toMove) {
+      const fileName = srcPath.replace(/\/$/, '').split('/').pop()!;
+      const destPath = targetFolder.path + fileName;
+      const bytes = await withRenew(() => explorer.getObject(storageRes.value!, srcPath));
+      const file = new File([bytes.buffer as ArrayBuffer], fileName);
+      await withRenew(() => explorer.putObject(storageRes.value!, destPath, file, () => {}));
+      await withRenew(() => explorer.deleteObject(storageRes.value!, srcPath));
+      pruneNode(rootNodes.value, srcPath);
+    }
+    // Expand target folder and refresh its children
+    targetFolder.expanded = true;
+    await refreshFolder(targetFolder.path);
+    selectedPaths.value = selectedPaths.value.filter((p) => !toMove.includes(p));
+  } catch (e: any) {
+    functions.handleError(e, 'Move files');
+  } finally {
+    moveLoading.value = false;
+  }
+}
+
 // ---- Multi-select -----------------------------------------------------------
 const selectedPaths = ref<string[]>([]);
+
+const allVisiblePaths = computed(() => visibleRows.value.map((r) => r.node.path));
+
+const selectAllState = computed<'all' | 'some' | 'none'>(() => {
+  if (!allVisiblePaths.value.length) return 'none';
+  const sel = selectedPaths.value;
+  const count = allVisiblePaths.value.filter((p) => sel.includes(p)).length;
+  if (count === 0) return 'none';
+  if (count === allVisiblePaths.value.length) return 'all';
+  return 'some';
+});
+
+function toggleSelectAll() {
+  if (selectAllState.value === 'all') {
+    selectedPaths.value = [];
+  } else {
+    selectedPaths.value = [...allVisiblePaths.value];
+  }
+}
 
 function toggleSelect(path: string) {
   const idx = selectedPaths.value.indexOf(path);
@@ -901,10 +1096,38 @@ function isSelected(path: string) {
   return selectedPaths.value.includes(path);
 }
 
+function collectVisiblePaths(node: TreeNode): string[] {
+  const paths: string[] = [node.path];
+  if (node.isFolder && node.expanded) {
+    for (const child of node.children) paths.push(...collectVisiblePaths(child));
+  }
+  return paths;
+}
+
+function toggleSelectFolder(node: TreeNode) {
+  const paths = collectVisiblePaths(node);
+  const allSelected = paths.every((p) => selectedPaths.value.includes(p));
+  if (allSelected) {
+    selectedPaths.value = selectedPaths.value.filter((p) => !paths.includes(p));
+  } else {
+    for (const p of paths) {
+      if (!selectedPaths.value.includes(p)) selectedPaths.value.push(p);
+    }
+  }
+}
+
+function folderCheckState(node: TreeNode): boolean | 'indeterminate' {
+  const paths = collectVisiblePaths(node);
+  const count = paths.filter((p) => selectedPaths.value.includes(p)).length;
+  if (count === 0) return false;
+  if (count === paths.length) return true;
+  return 'indeterminate';
+}
+
 async function bulkDownload() {
   for (const path of selectedPaths.value) {
     const node = findNode(rootNodes.value, path);
-    if (node) await download(node);
+    if (node && !node.isFolder) await download(node);
   }
 }
 
@@ -916,8 +1139,26 @@ async function executeBulkDelete() {
   bulkDeleting.value = true;
   try {
     const paths = [...selectedPaths.value];
+    // Expand folders to their contained file paths, skip folders that are
+    // children of another selected folder (already covered).
+    const filePaths: string[] = [];
+    for (const path of paths) {
+      const node = findNode(rootNodes.value, path);
+      if (!node) continue;
+      if (node.isFolder) {
+        // Skip if a parent folder is also selected (will be deleted as part of it)
+        const parentSelected = paths.some(
+          (p) => p !== path && path.startsWith(p) && p.endsWith('/'),
+        );
+        if (!parentSelected) {
+          filePaths.push(...(await collectAllFilePaths(path)));
+        }
+      } else {
+        filePaths.push(path);
+      }
+    }
     await Promise.all(
-      paths.map((path) => withRenew(() => explorer.deleteObject(storageRes.value!, path))),
+      filePaths.map((path) => withRenew(() => explorer.deleteObject(storageRes.value!, path))),
     );
     for (const path of paths) pruneNode(rootNodes.value, path);
     selectedPaths.value = [];
@@ -1053,5 +1294,10 @@ watch(previewOpen, (open) => {
 .drag-over {
   outline: 2px dashed rgba(var(--v-theme-primary), 0.5);
   background: rgba(var(--v-theme-primary), 0.04);
+}
+.drop-target {
+  outline: 2px solid rgba(var(--v-theme-primary), 0.7);
+  background: rgba(var(--v-theme-primary), 0.08);
+  border-radius: 4px;
 }
 </style>

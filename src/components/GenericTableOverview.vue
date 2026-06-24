@@ -41,7 +41,11 @@
             <div class="text-caption text-medium-emphasis mb-1">Storage Stats</div>
             <div class="d-flex align-center flex-wrap" style="gap: 8px">
               <template v-if="stats">
-                <v-chip size="small" variant="tonal" color="primary" prepend-icon="mdi-file-outline">
+                <v-chip
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  prepend-icon="mdi-file-outline">
                   {{ stats.fileCount }} file{{ stats.fileCount === 1 ? '' : 's' }}
                 </v-chip>
                 <v-chip

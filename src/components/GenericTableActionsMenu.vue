@@ -282,7 +282,7 @@ async function confirmDelete() {
     // Table is gone — leave the table route for its namespace.
     await router.replace({
       path: route.path.replace(/\/(generic-table|dataset)\/[^/]+$/, ''),
-      query: { tab: 'tables' },
+      query: { tab: label.value === 'dataset' ? 'datasets' : 'tables' },
     });
   } catch (e: any) {
     deleteError.value = e?.error?.message || e?.message || 'Failed to delete table';
