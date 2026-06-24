@@ -65,6 +65,10 @@ import ViewHeader from './components/ViewHeader.vue';
 import ViewActionsMenu from './components/ViewActionsMenu.vue';
 import GenericTableActionsMenu from './components/GenericTableActionsMenu.vue';
 import StorageExplorer from './components/StorageExplorer.vue';
+import StorageNavigationTree from './components/StorageNavigationTree.vue';
+import DatasetCreate from './components/DatasetCreate.vue';
+import DatasetsList from './components/DatasetsList.vue';
+import DatasetDetail from './components/DatasetDetail.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
 import ViewRaw from './components/ViewRaw.vue';
@@ -182,6 +186,10 @@ export {
   NotificationButton,
   NotificationPanel,
   WarehousesNavigationTree,
+  StorageNavigationTree,
+  DatasetCreate,
+  DatasetsList,
+  DatasetDetail,
   LoQEExplorer,
   ReportBuilderPanel,
 };
@@ -380,6 +388,10 @@ const components = {
   NotificationPanel,
   LoQEExplorer,
   ReportBuilderPanel,
+  StorageNavigationTree,
+  DatasetCreate,
+  DatasetsList,
+  DatasetDetail,
 };
 
 // Create the plugin

@@ -26,6 +26,7 @@
       :warehouse-id="warehouseId"
       :namespace-id="namespaceId"
       :table-name="tableName"
+      :entity-label="entityLabel"
       @updated="$emit('updated')" />
   </v-toolbar>
 </template>
@@ -39,6 +40,7 @@ const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
   tableName: string;
+  entityLabel?: string;
 }>();
 
 defineEmits<{ (e: 'updated'): void }>();

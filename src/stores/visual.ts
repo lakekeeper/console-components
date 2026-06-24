@@ -121,6 +121,10 @@ export const useVisualStore = defineStore(
     // Key: warehouseId, Value: { activeTabId, tabs[] }
     const warehouseSqlData = ref<Record<string, WarehouseSqlData>>({});
 
+    // Storage stats cache for datasets
+    // Key: `${warehouseId}::${namespaceId}::${tableName}`
+    const datasetStats = ref<Record<string, { fileCount: number; totalBytes: number }>>({});
+
     const serverInfo = reactive<ServerInfo>({
       version: '0.0.0',
       'lakekeeper-version': '0.0.0',
@@ -330,6 +334,23 @@ export const useVisualStore = defineStore(
       return usageDatumRowData.value[bucketPrefix] ?? null;
     }
 
+    function setDatasetStats(
+      warehouseId: string,
+      namespaceId: string,
+      tableName: string,
+      stats: { fileCount: number; totalBytes: number },
+    ) {
+      datasetStats.value[`${warehouseId}::${namespaceId}::${tableName}`] = stats;
+    }
+
+    function getDatasetStats(
+      warehouseId: string,
+      namespaceId: string,
+      tableName: string,
+    ): { fileCount: number; totalBytes: number } | null {
+      return datasetStats.value[`${warehouseId}::${namespaceId}::${tableName}`] ?? null;
+    }
+
     // Cedar Policy Builder actions
     function setPolicyBuilderDraft(draft: PolicyBuilderState) {
       policyBuilderDraft.value = { ...draft };
@@ -411,6 +432,9 @@ export const useVisualStore = defineStore(
       setProjectSelected,
       setSavedSqlQuery,
       getSavedSqlQuery,
+      // Dataset storage stats cache
+      setDatasetStats,
+      getDatasetStats,
       // Usage Datum
       usageDatumDate,
       usageDatumCreator,

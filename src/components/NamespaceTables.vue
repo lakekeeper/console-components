@@ -411,13 +411,15 @@ async function loadGeneric(): Promise<TableRow[]> {
       undefined,
       false,
     );
-    return (data.identifiers ?? []).map((g: GenericTableIdentifier) => ({
-      name: g.name,
-      namespace: g.namespace,
-      id: g.id ?? undefined,
-      source: 'generic' as const,
-      format: g.format || 'generic',
-    }));
+    return (data.identifiers ?? [])
+      .filter((g: GenericTableIdentifier) => g.format !== 'dataset')
+      .map((g: GenericTableIdentifier) => ({
+        name: g.name,
+        namespace: g.namespace,
+        id: g.id ?? undefined,
+        source: 'generic' as const,
+        format: g.format || 'generic',
+      }));
   } catch (error) {
     if (isForbiddenError(error)) return [];
     functions.handleError(error, 'listGenericTables');

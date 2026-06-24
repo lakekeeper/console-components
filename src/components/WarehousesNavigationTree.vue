@@ -187,6 +187,12 @@
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon
+            v-else-if="item.type === 'generic-table' && item.format === 'dataset'"
+            size="x-small"
+            color="amber-darken-2">
+            mdi-folder-multiple-outline
+          </v-icon>
+          <v-icon
             v-else-if="
               (item.type === 'table' || item.type === 'generic-table') && formatIcon(item.format)
             "
@@ -286,6 +292,14 @@
                   <v-list-item-title class="text-caption">
                     <v-icon size="x-small" class="mr-1">mdi-eye-outline</v-icon>
                     Views
+                  </v-list-item-title>
+                </v-list-item>
+                <v-list-item @click="navigateToTab(item, 'datasets')" density="compact">
+                  <v-list-item-title class="text-caption">
+                    <v-icon size="x-small" class="mr-1" color="amber-darken-2">
+                      mdi-folder-multiple-outline
+                    </v-icon>
+                    Datasets
                   </v-list-item-title>
                 </v-list-item>
               </v-list>
