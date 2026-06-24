@@ -42,7 +42,8 @@ export const useReportsStore = defineStore(
         id: crypto.randomUUID(),
         name: name.trim(),
         sql,
-        chartConfig,
+        // Snapshot so later UI mutations to the live chartConfig don't alter the saved report.
+        chartConfig: structuredClone(chartConfig),
         createdAt: new Date().toISOString(),
       };
       reports.value.push(report);
@@ -56,7 +57,11 @@ export const useReportsStore = defineStore(
 
     function updateReport(id: string, updates: Partial<Pick<SavedReport, 'name' | 'chartConfig'>>) {
       const report = reports.value.find((r) => r.id === id);
-      if (report) Object.assign(report, updates);
+      if (report) {
+        Object.assign(report, updates);
+        // Snapshot the chartConfig so it stays isolated from later UI mutations.
+        if (updates.chartConfig) report.chartConfig = structuredClone(updates.chartConfig);
+      }
     }
 
     return { reports, saveReport, deleteReport, updateReport };

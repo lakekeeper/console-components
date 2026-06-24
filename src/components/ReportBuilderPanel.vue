@@ -133,8 +133,8 @@
               </v-btn>
             </div>
 
-            <!-- Aggregation (not for scatter) -->
-            <template v-if="panel.chartType !== 'scatter'">
+            <!-- Aggregation (not for scatter; pie uses raw values) -->
+            <template v-if="panel.chartType !== 'scatter' && panel.chartType !== 'pie'">
               <div class="rbp-section-label mt-3">Aggregation</div>
               <v-select
                 v-model="panel.aggregation"
@@ -651,6 +651,9 @@ function buildOptions(p: ChartPanel): any {
 // ── Resize ────────────────────────────────────────────────────────────
 
 const resizingId = ref<string | null>(null);
+// Track active drag listeners so we can detach them if the component unmounts mid-resize.
+let activeMove: ((e: MouseEvent) => void) | null = null;
+let activeUp: (() => void) | null = null;
 
 function startResize(event: MouseEvent, panel: ChartPanel) {
   resizingId.value = panel.id;
@@ -663,12 +666,20 @@ function startResize(event: MouseEvent, panel: ChartPanel) {
     resizingId.value = null;
     window.removeEventListener('mousemove', onMove);
     window.removeEventListener('mouseup', onUp);
+    activeMove = null;
+    activeUp = null;
   }
+  activeMove = onMove;
+  activeUp = onUp;
   window.addEventListener('mousemove', onMove);
   window.addEventListener('mouseup', onUp);
 }
 
 onBeforeUnmount(() => {
+  if (activeMove) window.removeEventListener('mousemove', activeMove);
+  if (activeUp) window.removeEventListener('mouseup', activeUp);
+  activeMove = null;
+  activeUp = null;
   resizingId.value = null;
 });
 
@@ -687,10 +698,18 @@ function downloadPng(panel: ChartPanel) {
   a.click();
 }
 
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
+  );
+}
+
 function printPdf(panel: ChartPanel) {
   const url = getDataUrl(panel);
   if (!url) return;
-  const title = saveName.value || 'Report';
+  // Escape: the report name is user-supplied and is injected into the print document.
+  const title = escapeHtml(saveName.value || 'Report');
   const win = window.open('', '_blank', 'width=820,height=620');
   if (!win) return;
   win.document.write(
