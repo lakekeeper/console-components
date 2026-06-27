@@ -52,16 +52,27 @@ function describeError(e: any): string {
  * We can't tell them apart from DuckDB's message, so surface both.
  */
 function friendlyQueryError(err: unknown, msg: string): unknown {
+  // DuckDB reports a *recognised* httpfs failure with a download/404/CORS message
+  // naming the object it couldn't fetch.
   const looksLikeDownloadBlock =
     /full download failed|might be.*cors|\b404\b/i.test(msg) &&
     /(\.avro|snap-|manifest|metadata|\.json|\.parquet)/i.test(msg);
-  if (looksLikeDownloadBlock) {
+  // …but when the cross-origin fetch is *blocked* (e.g. a preflight 403 with no
+  // `Access-Control-Allow-Origin`), the WASM worker doesn't surface the status at
+  // all — it corrupts internally and throws an opaque symptom instead
+  // (`items is null` / `Symbol.iterator` / `too much recursion` / `Aborted()`).
+  // The real 403 shows up only as a separate network line in the console. These
+  // signatures don't occur for pure local-compute queries, so a query that
+  // touches object storage and dies this way almost certainly hit a blocked fetch.
+  const looksLikeAbortedFetch =
+    /items is null|symbol\.iterator|too much recursion|\baborted\b/i.test(msg);
+  if (looksLikeDownloadBlock || looksLikeAbortedFetch) {
     return new Error(
-      'Could not read the table’s data files from object storage. The browser request was ' +
+      'Could not access the table’s data files in object storage. The browser request was ' +
         'blocked — usually either the storage bucket is missing a CORS configuration that allows ' +
-        'browser access, or the vended storage credentials expired and a stale cached catalog ' +
-        'response is being reused. Configure CORS on the bucket, or reload with DevTools → ' +
-        'Network → “Disable cache”, then retry.',
+        'browser access (Firefox preflights range/write requests and fails first here, while ' +
+        'Chrome/Safari may not), or the vended storage credentials expired and a stale cached ' +
+        'catalog response is being reused. Configure CORS on the bucket.',
     );
   }
   return err;
