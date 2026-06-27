@@ -232,8 +232,12 @@ export function handleError(error: any, functionError: Error | string, notify?: 
     const errorMsg =
       typeof error === 'string' ? error : error?.error?.message || error?.message || '';
     if (
-      error === 'invalid HTTP header (authorization)' ||
-      errorMsg.includes('invalid HTTP header (authorization)')
+      (error === 'invalid HTTP header (authorization)' ||
+        errorMsg.includes('invalid HTTP header (authorization)')) &&
+      // With authentication disabled there is no login flow, so skip the redirect
+      // (it would cause a /login ↔ /bootstrap loop) and fall through to the snackbar
+      // feedback path below instead of returning early.
+      appConfig?.enabledAuthentication !== false
     ) {
       // Prevent redirect loop: don't redirect if already on login/logout/callback pages
       const currentPath = window.location.pathname;
@@ -334,7 +338,11 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       code = code || statusCode;
     }
 
-    if (code === 401) {
+    // When authentication is disabled there is no login to perform, so a 401
+    // (e.g. from whoami, which has no principal without auth) must NOT redirect
+    // to /login — doing so creates a /login ↔ /bootstrap loop. Skip the redirect
+    // and fall through to the snackbar below so the user still gets feedback.
+    if (code === 401 && appConfig?.enabledAuthentication !== false) {
       console.warn('Authentication failed (401), redirecting to login...');
       const currentPath = window.location.pathname;
       if (
