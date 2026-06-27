@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.1](https://github.com/lakekeeper/console-components/compare/v0.14.0...v0.14.1) (2026-06-27)
+
+
+### Bug Fixes
+
+* **ui:** don't call whoami or redirect to login when authentication is disabled ([0ec9148](https://github.com/lakekeeper/console-components/commit/0ec9148d0232cd40fcf61de02b1c03807485c4fe))
+* **ui:** keep snackbar feedback on auth errors when authentication is disabled ([0ec9148](https://github.com/lakekeeper/console-components/commit/0ec9148d0232cd40fcf61de02b1c03807485c4fe))
+
 ## [0.14.0](https://github.com/lakekeeper/console-components/compare/v0.13.1...v0.14.0) (2026-06-24)
 
 
