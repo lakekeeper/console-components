@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.2](https://github.com/lakekeeper/console-components/compare/v0.14.1...v0.14.2) (2026-06-27)
+
+
+### Bug Fixes
+
+* **ui:** surface blocked object-storage fetch as a clear CORS/credentials error in LoQE ([5b65078](https://github.com/lakekeeper/console-components/commit/5b65078e7b8d72146de10c85079475337afe8ea2))
+
 ## [0.14.1](https://github.com/lakekeeper/console-components/compare/v0.14.0...v0.14.1) (2026-06-27)
 
 
