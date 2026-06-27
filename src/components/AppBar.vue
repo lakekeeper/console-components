@@ -206,7 +206,9 @@ onMounted(async () => {
   fetchGitHubStars();
   // Resolve instance-admin status centrally so managed-by controls gate correctly
   // regardless of which route the user lands on first (lakekeeper#1828).
-  if (userStorage.isAuthenticated || !config.enabledAuthentication.value) {
+  // Only when authentication is enabled: with auth disabled, whoami has no
+  // principal and returns 401, which would trigger a redirect loop to /login.
+  if (config.enabledAuthentication.value && userStorage.isAuthenticated) {
     functions.whoAmI().catch(() => {
       /* surfaced by the functions plugin; gating falls back to non-admin */
     });
