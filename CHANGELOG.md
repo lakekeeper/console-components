@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.3](https://github.com/lakekeeper/console-components/compare/v0.14.2...v0.14.3) (2026-06-28)
+
+
+### Bug Fixes
+
+* added CORS message for Firefox and fix for access token race condition ([#221](https://github.com/lakekeeper/console-components/issues/221)) ([38812d5](https://github.com/lakekeeper/console-components/commit/38812d52242edecfa4795cb884e9d88c005b6ec3))
+
 ## [0.14.2](https://github.com/lakekeeper/console-components/compare/v0.14.1...v0.14.2) (2026-06-27)
 
 
