@@ -24,7 +24,10 @@ describe('currentAccessToken', () => {
 
   it('falls back to the oidc sessionStorage token when the store is cold', () => {
     // This is the bug: on reload the store is empty but oidc has the token.
-    sessionStorage.setItem(OIDC_KEY, JSON.stringify({ access_token: 'oidc-jwt', expires_at: future }));
+    sessionStorage.setItem(
+      OIDC_KEY,
+      JSON.stringify({ access_token: 'oidc-jwt', expires_at: future }),
+    );
     expect(currentAccessToken()).toBe('oidc-jwt');
   });
 
@@ -39,7 +42,10 @@ describe('currentAccessToken', () => {
 
   it('prefers the store token over the oidc fallback', () => {
     storeToken = 'store-jwt';
-    sessionStorage.setItem(OIDC_KEY, JSON.stringify({ access_token: 'oidc-jwt', expires_at: future }));
+    sessionStorage.setItem(
+      OIDC_KEY,
+      JSON.stringify({ access_token: 'oidc-jwt', expires_at: future }),
+    );
     expect(currentAccessToken()).toBe('store-jwt');
   });
 });
