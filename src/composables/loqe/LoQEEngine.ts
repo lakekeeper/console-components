@@ -60,12 +60,15 @@ function friendlyQueryError(err: unknown, msg: string): unknown {
   // …but when the cross-origin fetch is *blocked* (e.g. a preflight 403 with no
   // `Access-Control-Allow-Origin`), the WASM worker doesn't surface the status at
   // all — it corrupts internally and throws an opaque symptom instead
-  // (`items is null` / `Symbol.iterator` / `too much recursion` / `Aborted()`).
+  // (`items is null` / `Symbol.iterator` / `too much recursion` / `Aborted()` /
+  // `Cannot read N bytes from memory buffer` — a truncated/empty response body).
   // The real 403 shows up only as a separate network line in the console. These
   // signatures don't occur for pure local-compute queries, so a query that
   // touches object storage and dies this way almost certainly hit a blocked fetch.
   const looksLikeAbortedFetch =
-    /items is null|symbol\.iterator|too much recursion|\baborted\b/i.test(msg);
+    /items is null|symbol\.iterator|too much recursion|\baborted\b|cannot read \d+ bytes from memory buffer/i.test(
+      msg,
+    );
   if (looksLikeDownloadBlock || looksLikeAbortedFetch) {
     return new Error(
       'Could not access the table’s data files in object storage. The browser request was ' +

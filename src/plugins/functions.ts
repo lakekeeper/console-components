@@ -20,6 +20,7 @@ import {
   SetTaskLogCleanupConfig,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
+import { currentAccessToken } from '@/plugins/authToken';
 import * as ice from '@/gen/iceberg/sdk.gen';
 import * as iceClient from '@/gen/iceberg/client.gen';
 import {
@@ -132,8 +133,8 @@ function init() {
 
   mngClient.client.interceptors.request.use((request) => {
     // Get the token dynamically on each request
-    const accessToken = useUserStore().user.access_token;
-    request.headers.set('Authorization', `Bearer ${accessToken}`);
+    const accessToken = currentAccessToken();
+    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
     return request;
   });
 
@@ -143,8 +144,8 @@ function init() {
 
   iceClient.client.interceptors.request.use((request) => {
     // Get the token dynamically on each request
-    const accessToken = useUserStore().user.access_token;
-    request.headers.set('Authorization', `Bearer ${accessToken}`);
+    const accessToken = currentAccessToken();
+    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
     return request;
   });
 
@@ -154,8 +155,8 @@ function init() {
   });
 
   gtClient.client.interceptors.request.use((request) => {
-    const accessToken = useUserStore().user.access_token;
-    request.headers.set('Authorization', `Bearer ${accessToken}`);
+    const accessToken = currentAccessToken();
+    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
     return request;
   });
 }

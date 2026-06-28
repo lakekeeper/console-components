@@ -197,6 +197,18 @@
         </v-card>
       </div>
 
+      <!-- Message (current attempt) -->
+      <div v-if="task.message" class="pa-4">
+        <v-card-subtitle class="px-0 pb-2">
+          <v-icon class="mr-2" size="small">mdi-message-text-outline</v-icon>
+          Message
+        </v-card-subtitle>
+
+        <v-card variant="outlined" density="compact">
+          <v-card-text class="text-caption">{{ task.message }}</v-card-text>
+        </v-card>
+      </div>
+
       <!-- Execution Details -->
       <div v-if="task['execution-details']" class="pa-4">
         <v-card-subtitle class="px-0 pb-2">

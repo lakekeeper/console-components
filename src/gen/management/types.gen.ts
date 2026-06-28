@@ -787,6 +787,12 @@ export type GetProjectTaskDetailsResponse = ProjectTaskInfo & {
         [key: string]: unknown;
     } | null;
     /**
+     * Message for the current attempt: success result details if it
+     * succeeded, or the failure reason if it failed. `null` while the
+     * attempt is still running or scheduled.
+     */
+    message?: string | null;
+    /**
      * Task-specific data
      */
     'task-data': {
@@ -839,6 +845,12 @@ export type GetTaskDetailsResponse = WarehouseTaskInfo & {
     'execution-details'?: {
         [key: string]: unknown;
     } | null;
+    /**
+     * Message for the current attempt: success result details if it
+     * succeeded, or the failure reason if it failed. `null` while the
+     * attempt is still running or scheduled.
+     */
+    message?: string | null;
     /**
      * Task-specific data
      */
