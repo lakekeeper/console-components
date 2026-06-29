@@ -176,7 +176,11 @@ onUnmounted(() => {
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--v-theme-primary)) 0%,
+    rgb(var(--v-theme-secondary)) 100%
+  );
   z-index: 0;
 }
 
@@ -191,7 +195,11 @@ onUnmounted(() => {
 .orb-1 {
   width: 400px;
   height: 400px;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--v-theme-secondary)) 0%,
+    rgb(var(--v-theme-primary)) 100%
+  );
   top: -100px;
   left: -100px;
   animation-delay: 0s;
@@ -200,7 +208,11 @@ onUnmounted(() => {
 .orb-2 {
   width: 350px;
   height: 350px;
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--v-theme-primary)) 0%,
+    rgb(var(--v-theme-primary-darken-1)) 100%
+  );
   bottom: -100px;
   right: -100px;
   animation-delay: 5s;
@@ -209,7 +221,11 @@ onUnmounted(() => {
 .orb-3 {
   width: 300px;
   height: 300px;
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--v-theme-secondary)) 0%,
+    rgb(var(--v-theme-primary)) 100%
+  );
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);

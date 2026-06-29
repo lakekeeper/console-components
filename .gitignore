@@ -72,3 +72,4 @@ public/duckdb/
 # Vite timestamp cache
 vite.config.ts.timestamp-*
 vite.config.mts.timestamp-*
+coverage/

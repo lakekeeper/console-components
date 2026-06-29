@@ -14,7 +14,7 @@ import 'vuetify/styles';
 import { createVuetify } from 'vuetify';
 import { VStepperVertical, VStepperVerticalItem } from 'vuetify/labs/VStepperVertical';
 import * as components from 'vuetify/components';
-import { myCustomLightTheme } from '../theme';
+import { lakekeeperLightTheme, lakekeeperDarkTheme } from '../theme';
 
 // https://vuetifyjs.com/en/introduction/why-vuetify/#feature-guides
 export default createVuetify({
@@ -24,9 +24,10 @@ export default createVuetify({
     VStepperVerticalItem,
   },
   theme: {
-    defaultTheme: 'myCustomLightTheme',
+    defaultTheme: 'light',
     themes: {
-      myCustomLightTheme,
+      light: lakekeeperLightTheme,
+      dark: lakekeeperDarkTheme,
     },
   },
   // icons: {
