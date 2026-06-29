@@ -3,7 +3,7 @@
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
-        color="info"
+        color="primary"
         size="small"
         class="me-5"
         :text="props.actionType == 'add' ? 'Add Project' : 'Rename'"

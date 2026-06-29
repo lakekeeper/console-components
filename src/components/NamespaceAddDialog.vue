@@ -4,7 +4,7 @@
       <slot name="activator" :props="activatorProps">
         <v-btn
           v-bind="activatorProps"
-          color="info"
+          color="primary"
           size="small"
           text="Add Namespace"
           variant="flat"></v-btn>
@@ -24,7 +24,7 @@
         <div class="d-flex align-center mb-2">
           <span class="text-subtitle-2">Properties</span>
           <v-spacer></v-spacer>
-          <v-btn color="info" density="compact" size="small" variant="text" @click="addProperty">
+          <v-btn color="primary" density="compact" size="small" variant="text" @click="addProperty">
             <v-icon start>mdi-plus</v-icon>
             Add Property
           </v-btn>

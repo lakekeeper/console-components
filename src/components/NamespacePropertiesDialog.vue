@@ -3,7 +3,7 @@
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
-        color="info"
+        color="primary"
         size="small"
         variant="text"
         prepend-icon="mdi-cog">
@@ -56,7 +56,7 @@
             <v-spacer></v-spacer>
             <v-btn
               v-if="canEdit"
-              color="info"
+              color="primary"
               density="compact"
               size="small"
               variant="text"
@@ -128,7 +128,7 @@
               </v-btn>
               <v-btn
                 v-else
-                color="info"
+                color="primary"
                 density="compact"
                 icon="mdi-undo"
                 size="small"
