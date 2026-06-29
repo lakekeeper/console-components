@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/lakekeeper/console-components/compare/v0.14.3...v0.15.0) (2026-06-29)
+
+
+### Features
+
+* **ui:** export shared lakekeeperLightTheme and lakekeeperDarkTheme (light + dark) ([529775e](https://github.com/lakekeeper/console-components/commit/529775e96ead2cb25f50d04639bbe77c0a7761ba))
+* **ui:** friendlier DuckDB query error handling ([529775e](https://github.com/lakekeeper/console-components/commit/529775e96ead2cb25f50d04639bbe77c0a7761ba))
+
+
+### Bug Fixes
+
+* **ui:** theme-align PermissionMatrixDialog, LoQEExplorer dividers, and LoginPage background ([529775e](https://github.com/lakekeeper/console-components/commit/529775e96ead2cb25f50d04639bbe77c0a7761ba))
+* **ui:** use mdi-bucket-outline for S3-compatible storage in warehouse and LoQE nav trees ([529775e](https://github.com/lakekeeper/console-components/commit/529775e96ead2cb25f50d04639bbe77c0a7761ba))
+
 ## [0.14.3](https://github.com/lakekeeper/console-components/compare/v0.14.2...v0.14.3) (2026-06-28)
 
 
