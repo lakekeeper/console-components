@@ -210,7 +210,12 @@
           flex-shrink: 0;
           transition: background 0.2s;
         "
-        :style="{ background: dividerHover || isResizing ? 'rgb(var(--v-theme-primary))' : 'rgba(var(--v-theme-on-surface), 0.12)' }"
+        :style="{
+          background:
+            dividerHover || isResizing
+              ? 'rgb(var(--v-theme-primary))'
+              : 'rgba(var(--v-theme-on-surface), 0.12)',
+        }"
         @mouseenter="dividerHover = true"
         @mouseleave="dividerHover = false" />
 
@@ -382,7 +387,10 @@
                       transition: background 0.2s;
                     "
                     :style="{
-                      background: editorResizeHover || isResizingEditor ? 'rgb(var(--v-theme-primary))' : 'transparent',
+                      background:
+                        editorResizeHover || isResizingEditor
+                          ? 'rgb(var(--v-theme-primary))'
+                          : 'transparent',
                     }"
                     @mouseenter="editorResizeHover = true"
                     @mouseleave="editorResizeHover = false">
@@ -546,7 +554,10 @@
                         border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
                       "
                       :style="{
-                        background: tableResizeHover || isResizingTable ? 'rgb(var(--v-theme-primary))' : 'transparent',
+                        background:
+                          tableResizeHover || isResizingTable
+                            ? 'rgb(var(--v-theme-primary))'
+                            : 'transparent',
                       }"
                       @mouseenter="tableResizeHover = true"
                       @mouseleave="tableResizeHover = false">
