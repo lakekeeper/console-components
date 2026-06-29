@@ -876,19 +876,19 @@ watch(dialog, async (isOpen) => {
 .permission-matrix-table {
   width: 100%;
   border-collapse: collapse;
-  background: white;
+  background: rgb(var(--v-theme-surface));
 }
 
 .permission-matrix-table th,
 .permission-matrix-table td {
-  border: 1px solid #e0e0e0;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   padding: 8px;
   text-align: left;
   vertical-align: top;
 }
 
 .permission-matrix-table thead th {
-  background-color: #f5f5f5;
+  background-color: rgb(var(--v-theme-surface-light));
   font-weight: 600;
   position: sticky;
   top: 0;
@@ -898,7 +898,7 @@ watch(dialog, async (isOpen) => {
 .sticky-col {
   position: sticky;
   left: 0;
-  background-color: #fafafa;
+  background-color: rgb(var(--v-theme-surface-bright));
   z-index: 1;
   min-width: 200px;
   font-weight: 500;
@@ -906,7 +906,7 @@ watch(dialog, async (isOpen) => {
 
 .permission-matrix-table thead .sticky-col {
   z-index: 3;
-  background-color: #f5f5f5;
+  background-color: rgb(var(--v-theme-surface-light));
 }
 
 .header-cell {
@@ -920,7 +920,7 @@ watch(dialog, async (isOpen) => {
 }
 
 .identity-cell {
-  background-color: #fafafa;
+  background-color: rgb(var(--v-theme-surface-bright));
 }
 
 .permission-cell {

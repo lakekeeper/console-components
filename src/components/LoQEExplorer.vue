@@ -91,7 +91,7 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            border-right: 1px solid #e0e0e0;
+            border-right: 1px solid rgba(var(--v-theme-on-surface), 0.12);
           ">
           <!-- Object Browser Tree (primary content — takes remaining space) -->
           <div style="flex: 1; min-height: 0; overflow: hidden">
@@ -210,7 +210,7 @@
           flex-shrink: 0;
           transition: background 0.2s;
         "
-        :style="{ background: dividerHover || isResizing ? '#2196F3' : '#e0e0e0' }"
+        :style="{ background: dividerHover || isResizing ? 'rgb(var(--v-theme-primary))' : 'rgba(var(--v-theme-on-surface), 0.12)' }"
         @mouseenter="dividerHover = true"
         @mouseleave="dividerHover = false" />
 
@@ -355,7 +355,7 @@
                     v-if="loqe.isInitializing.value"
                     class="loqe-skeleton-editor d-flex flex-column align-center justify-center"
                     :style="{ minHeight: editorHeight + 'vh', overflow: 'hidden' }">
-                    <l-helix size="45" speed="2.5" color="#2196F3"></l-helix>
+                    <l-helix size="45" speed="2.5" color="#0097FB"></l-helix>
                     <span class="text-caption text-medium-emphasis mt-4">
                       Initialising DuckDB engine…
                     </span>
@@ -382,7 +382,7 @@
                       transition: background 0.2s;
                     "
                     :style="{
-                      background: editorResizeHover || isResizingEditor ? '#2196F3' : 'transparent',
+                      background: editorResizeHover || isResizingEditor ? 'rgb(var(--v-theme-primary))' : 'transparent',
                     }"
                     @mouseenter="editorResizeHover = true"
                     @mouseleave="editorResizeHover = false">
@@ -543,10 +543,10 @@
                         cursor: row-resize;
                         user-select: none;
                         transition: background 0.2s;
-                        border-top: 1px solid #e0e0e0;
+                        border-top: 1px solid rgba(var(--v-theme-on-surface), 0.12);
                       "
                       :style="{
-                        background: tableResizeHover || isResizingTable ? '#2196F3' : 'transparent',
+                        background: tableResizeHover || isResizingTable ? 'rgb(var(--v-theme-primary))' : 'transparent',
                       }"
                       @mouseenter="tableResizeHover = true"
                       @mouseleave="tableResizeHover = false">
@@ -575,7 +575,7 @@
                     v-if="loqe.isQuerying.value"
                     variant="outlined"
                     class="d-flex flex-column align-center justify-center pa-8">
-                    <l-hourglass size="40" speed="1.75" color="#2196F3"></l-hourglass>
+                    <l-hourglass size="40" speed="1.75" color="#0097FB"></l-hourglass>
                     <span class="text-caption text-medium-emphasis mt-4">Running query…</span>
                   </v-card>
 

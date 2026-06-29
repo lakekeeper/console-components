@@ -417,8 +417,9 @@ export { useFunctions } from './plugins/functions';
 // Export auth factory and types
 export { createAuth, type AuthConfig } from './plugins/auth';
 
-// Export vuetify theme
-export { myCustomLightTheme } from './theme';
+// Export vuetify themes (light + dark). myCustomLightTheme kept as a
+// backward-compatible alias of lakekeeperLightTheme.
+export { lakekeeperLightTheme, lakekeeperDarkTheme, myCustomLightTheme } from './theme';
 
 // Export auth-related page components
 export { default as LoginPage } from './components/LoginPage.vue';

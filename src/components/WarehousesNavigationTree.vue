@@ -164,8 +164,11 @@
             size="small">
             <v-img :src="cfIcon" width="18" height="18" />
           </v-icon>
-          <v-icon v-else-if="item.type === 'warehouse' && item.storageType === 's3'" size="small">
-            <v-img :src="s3Icon" width="18" height="18" />
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 's3'"
+            size="small"
+            color="primary">
+            mdi-bucket-outline
           </v-icon>
           <v-icon
             v-else-if="item.type === 'warehouse' && item.storageType === 'adls'"
@@ -319,7 +322,6 @@ import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
 import { logError } from '@/common/errorUtils';
 import type { SearchTabular } from '@/gen/management/types.gen';
-import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import icebergIcon from '@/assets/iceberg.svg';
