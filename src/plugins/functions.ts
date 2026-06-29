@@ -133,7 +133,7 @@ function init() {
 
   mngClient.client.interceptors.request.use((request) => {
     // Get the token dynamically on each request
-    const accessToken = currentAccessToken();
+    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
     if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
     return request;
   });
@@ -144,7 +144,7 @@ function init() {
 
   iceClient.client.interceptors.request.use((request) => {
     // Get the token dynamically on each request
-    const accessToken = currentAccessToken();
+    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
     if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
     return request;
   });
@@ -155,7 +155,7 @@ function init() {
   });
 
   gtClient.client.interceptors.request.use((request) => {
-    const accessToken = currentAccessToken();
+    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
     if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
     return request;
   });

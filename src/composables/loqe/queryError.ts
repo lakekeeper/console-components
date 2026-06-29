@@ -39,7 +39,9 @@ export function friendlyQueryError(err: unknown, msg: string): unknown {
         'blocked — usually either the storage bucket is missing a CORS configuration that allows ' +
         'browser access (Firefox preflights range/write requests and fails first here, while ' +
         'Chrome/Safari may not), or the vended storage credentials expired and a stale cached ' +
-        'catalog response is being reused. Configure CORS on the bucket.',
+        'catalog response is being reused. Configure CORS on the bucket; if CORS is already set, ' +
+        'reload the page (or re-open the table) to invalidate the cached catalog response and ' +
+        'obtain freshly vended storage credentials.',
     );
   }
   return err;
