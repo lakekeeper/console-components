@@ -38,7 +38,6 @@ function describeError(e: any): string {
   return `${dump}\nstack: ${e.stack ?? '(none)'}`;
 }
 
-
 /**
  * LoQEEngine — reference-counted singleton that owns the DuckDB WASM
  * lifecycle including connection pooling, token refresh, and catalog
