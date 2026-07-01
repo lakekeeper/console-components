@@ -5,7 +5,7 @@
         v-bind="activatorProps"
         v-if="creatingWarehouse || props.objectType === ObjectType.WAREHOUSE">
         <v-list-item-title>
-          <v-btn color="info" size="small" text="Add Warehouse" variant="flat"></v-btn>
+          <v-btn color="primary" size="small" text="Add Warehouse" variant="flat"></v-btn>
         </v-list-item-title>
       </v-list-item>
       <v-list-item
@@ -40,7 +40,7 @@
               style="display: none"
               @change="handleFileImport" />
             <v-btn
-              color="info"
+              color="primary"
               prepend-icon="mdi-upload"
               size="small"
               variant="outlined"

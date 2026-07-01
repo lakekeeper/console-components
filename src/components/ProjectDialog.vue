@@ -4,7 +4,7 @@
       <slot name="activator" :props="activatorProps">
         <v-btn
           v-bind="activatorProps"
-          color="info"
+          color="primary"
           size="small"
           text="Add Project"
           variant="flat"></v-btn>
