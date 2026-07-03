@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.1](https://github.com/lakekeeper/console-components/compare/v0.15.0...v0.15.1) (2026-07-03)
+
+
+### Bug Fixes
+
+* **ui:** airgap LoQE by pinning DuckDB extension repository to self-hosted mirror ([7fa3fe3](https://github.com/lakekeeper/console-components/commit/7fa3fe3f88d832945584d98e1f0704f5431ed7bd))
+
 ## [0.15.0](https://github.com/lakekeeper/console-components/compare/v0.14.3...v0.15.0) (2026-06-29)
 
 
