@@ -16,9 +16,9 @@
     </v-list-item>
     <v-spacer></v-spacer>
 
-    <!-- GitHub Stars -->
+    <!-- GitHub link — always a clickable icon; the star count only shows when the
+         count could be fetched (e.g. no count in air-gapped/offline deployments). -->
     <v-btn
-      v-if="starCount > 0"
       href="https://github.com/lakekeeper/lakekeeper"
       target="_blank"
       rel="noopener noreferrer"
@@ -26,9 +26,11 @@
       size="small"
       class="text-none mr-1"
       rounded="lg">
-      <v-icon start size="18">mdi-github</v-icon>
-      <v-icon size="14" class="mr-1" color="amber">mdi-star</v-icon>
-      {{ formatStarCount(starCount) }}
+      <v-icon :start="starCount > 0" size="18">mdi-github</v-icon>
+      <template v-if="starCount > 0">
+        <v-icon size="14" class="mr-1" color="amber">mdi-star</v-icon>
+        {{ formatStarCount(starCount) }}
+      </template>
     </v-btn>
 
     <slot name="support-menu">
