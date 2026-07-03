@@ -207,14 +207,23 @@ export class LoQEEngine {
         if (repo) {
           const conn = await this._pool.acquire();
           try {
-            await conn.connection.query(`SET custom_extension_repository = '${repo}'`);
+            // Escape single quotes to keep a user-supplied repo URL from breaking
+            // the statement (SQL string-literal escaping is doubling the quote).
+            const escapedRepo = repo.replace(/'/g, "''");
+            await conn.connection.query(`SET custom_extension_repository = '${escapedRepo}'`);
             // Newer DuckDB uses a dedicated setting for autoload; best-effort so an
             // older core that lacks it doesn't fail init.
             try {
-              await conn.connection.query(`SET autoinstall_extension_repository = '${repo}'`);
+              await conn.connection.query(
+                `SET autoinstall_extension_repository = '${escapedRepo}'`,
+              );
             } catch (e) {
               console.debug('[LoQE] autoinstall_extension_repository not supported', e);
             }
+          } catch (e) {
+            // A malformed/unsupported repo setting must not fail the whole engine;
+            // extensions would just fall back to their default resolution.
+            console.warn('[LoQE] Failed to pin extension repository', e);
           } finally {
             this._pool.release(conn);
           }
