@@ -73,3 +73,6 @@ public/duckdb/
 vite.config.ts.timestamp-*
 vite.config.mts.timestamp-*
 coverage/
+
+# DuckDB extensions vendored at build time (downloaded by scripts/download-duckdb-extensions.mjs)
+duckdb-extensions/

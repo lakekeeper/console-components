@@ -18,6 +18,9 @@
     "dist"
   ],
   "scripts": {
+    "download-duckdb-extensions": "node scripts/download-duckdb-extensions.mjs",
+    "prebuild": "npm run download-duckdb-extensions",
+    "predev": "npm run download-duckdb-extensions",
     "build": "vite build",
     "dev": "vite",
     "lint": "eslint . --fix",
