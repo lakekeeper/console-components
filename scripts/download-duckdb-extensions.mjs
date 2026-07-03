@@ -16,9 +16,19 @@
  * pinned `@duckdb/duckdb-wasm`. Update EXTENSION_VERSIONS when bumping that dep,
  * or INSTALL will 404 / hit an ABI mismatch. Current pin: DuckDB 1.4.x → v1.4.3.
  */
-import { existsSync, mkdirSync, writeFileSync, statSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  writeFileSync,
+  statSync,
+  openSync,
+  readSync,
+  closeSync,
+} from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Buffer } from 'node:buffer';
+import process from 'node:process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = resolve(__dirname, '..', 'duckdb-extensions');
@@ -32,8 +42,23 @@ const EXTENSIONS = ['httpfs', 'iceberg', 'avro', 'parquet', 'json'];
 // WASM magic bytes: `\0asm`. Guards against saving a 404 HTML page as a binary.
 const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d]);
 
+// A cached file counts as valid only if it starts with the WASM magic bytes — a
+// truncated/corrupt cache (non-zero size, wrong content) must be re-downloaded,
+// not trusted forever.
+function isValidCachedFile(dest) {
+  if (statSync(dest).size === 0) return false;
+  const fd = openSync(dest, 'r');
+  try {
+    const head = Buffer.alloc(4);
+    readSync(fd, head, 0, 4, 0);
+    return head.equals(WASM_MAGIC);
+  } finally {
+    closeSync(fd);
+  }
+}
+
 async function download(url, dest) {
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(30_000) });
   if (!res.ok) throw new Error(`HTTP ${res.status} fetching ${url}`);
   const buf = Buffer.from(await res.arrayBuffer());
   if (!buf.subarray(0, 4).equals(WASM_MAGIC)) {
@@ -56,7 +81,7 @@ async function main() {
       for (const ext of EXTENSIONS) {
         const rel = `${version}/${platform}/${ext}.duckdb_extension.wasm`;
         const dest = resolve(OUT_DIR, rel);
-        if (existsSync(dest) && statSync(dest).size > 0) continue; // cached
+        if (existsSync(dest) && isValidCachedFile(dest)) continue; // valid cache
         jobs.push({ url: `${BASE_URL}/${rel}`, dest, rel });
       }
     }
