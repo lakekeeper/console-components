@@ -146,13 +146,15 @@ export class LoQEEngine {
         .slice(0, 2)
         .join('/');
       const baseUrl = basePath ? `${origin}${this.config.baseUrlPrefix}${basePath}` : origin;
-      // Load extensions from the default CDN (extensions.duckdb.org) rather than
-      // the vendored repo. The extension ABI must match this exact DuckDB build,
-      // and a dev build's version doesn't reliably match a vendored release
-      // version ("Unknown ABI type" on LOAD). The CDN always serves the matching
-      // build. (Airgap via vendored extensions can be restored once we pin the
-      // exact extension version this build requires.)
-      this.bundledExtensionRepo = '';
+      // Airgap: install extensions from our own origin, never extensions.duckdb.org.
+      // DuckDB appends `/v<version>/wasm_<platform>/<name>.duckdb_extension.wasm`
+      // to this repo base, which matches the vendored layout under
+      // public/duckdb/extensions/ (see vite.config copyDuckDBFiles). The core
+      // build reports v1.4.3, and we vendor v1.4.3 extensions, so the ABI matches;
+      // allowUnsignedExtensions (below) covers signature validation.
+      // NOTE: keep the vendored extension versions in sync with the DuckDB core
+      // version whenever @duckdb/duckdb-wasm is bumped, or INSTALL will 404.
+      this.bundledExtensionRepo = `${baseUrl}/duckdb/extensions`;
 
       const bundles: duckdb.DuckDBBundles = {
         mvp: {
@@ -192,6 +194,32 @@ export class LoQEEngine {
 
       // 5. Connection pool
       this._pool = new ConnectionPool(this.db, this.config.maxConnections ?? 4);
+
+      // 5b. Airgap: pin the extension repository GLOBALLY (database-wide) so every
+      // resolution path uses our self-hosted mirror instead of extensions.duckdb.org
+      // — not just manual INSTALL, but also DuckDB's on-demand AUTOLOAD/autoinstall
+      // of an extension a query references (e.g. `json` when a preview SELECT touches
+      // a JSON/varchar column). Setting the repo only inside installExtension's
+      // fallback missed those autoloaded extensions, which still hit the CDN.
+      {
+        const settingsStore = useDuckDBSettingsStore();
+        const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
+        if (repo) {
+          const conn = await this._pool.acquire();
+          try {
+            await conn.connection.query(`SET custom_extension_repository = '${repo}'`);
+            // Newer DuckDB uses a dedicated setting for autoload; best-effort so an
+            // older core that lacks it doesn't fail init.
+            try {
+              await conn.connection.query(`SET autoinstall_extension_repository = '${repo}'`);
+            } catch (e) {
+              console.debug('[LoQE] autoinstall_extension_repository not supported', e);
+            }
+          } finally {
+            this._pool.release(conn);
+          }
+        }
+      }
 
       // 6. Token manager
       this.tokens.initialize(this.db, initialToken ?? '');
