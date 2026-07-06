@@ -183,8 +183,8 @@
       </v-expansion-panel>
     </v-expansion-panels>
 
-    <!-- View a single schema's fields -->
-    <v-dialog v-model="schemaViewOpen" max-width="640" scrollable>
+    <!-- View a single schema as a fields table or its raw JSON (toggle) -->
+    <v-dialog v-model="schemaViewOpen" max-width="720" scrollable>
       <v-card v-if="schemaViewData">
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
@@ -193,13 +193,32 @@
             {{ schemaViewData.fields?.length || 0 }} fields
           </v-chip>
           <v-spacer></v-spacer>
+          <v-btn-toggle
+            v-model="schemaViewMode"
+            mandatory
+            density="compact"
+            variant="outlined"
+            divided
+            class="mr-2">
+            <v-btn value="table" size="small" prepend-icon="mdi-table">Table</v-btn>
+            <v-btn value="json" size="small" prepend-icon="mdi-code-json">JSON</v-btn>
+          </v-btn-toggle>
+          <v-btn
+            v-if="schemaViewMode === 'json'"
+            variant="text"
+            size="small"
+            prepend-icon="mdi-content-copy"
+            @click="copyToClipboard(JSON.stringify(schemaViewData, null, 2))">
+            Copy
+          </v-btn>
           <v-btn icon variant="text" size="small" @click="schemaViewOpen = false">
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text>
-          <v-table density="compact">
+          <!-- Fields table -->
+          <v-table v-if="schemaViewMode === 'table'" density="compact">
             <thead>
               <tr>
                 <th style="width: 56px">ID</th>
@@ -220,6 +239,16 @@
               </tr>
             </tbody>
           </v-table>
+
+          <!-- Raw JSON -->
+          <div v-else class="schema-json">
+            <vue-json-pretty
+              :data="schemaViewData"
+              :deep="4"
+              :theme="visual.themeLight ? 'light' : 'dark'"
+              :show-line-number="true"
+              :virtual="false" />
+          </div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -429,7 +458,10 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import VueJsonPretty from 'vue-json-pretty';
+import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '../plugins/functions';
+import { useVisualStore } from '../stores/visual';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import TableColumnProfiler from './TableColumnProfiler.vue';
 import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
@@ -451,6 +483,7 @@ defineEmits<{
 
 // Composables
 const functions = useFunctions();
+const visual = useVisualStore();
 
 // Methods
 const truncatePath = (path: string, maxLen = 10): string => {
@@ -586,14 +619,24 @@ const allSchemas = computed(() => {
 
 // Human label for a field type (primitive string, or struct/list/map).
 function typeLabel(t: any): string {
+  if (t == null) return '';
   if (typeof t === 'string') return t;
-  if (t && typeof t === 'object') return t.type || 'complex';
-  return String(t ?? '');
+  if (typeof t === 'object') {
+    if (t.type === 'struct') {
+      const inner = (t.fields ?? []).map((f: any) => `${f.name}: ${typeLabel(f.type)}`).join(', ');
+      return `struct<${inner}>`;
+    }
+    if (t.type === 'list') return `array<${typeLabel(t.element)}>`;
+    if (t.type === 'map') return `map<${typeLabel(t.key)}, ${typeLabel(t.value)}>`;
+    return t.type || 'complex';
+  }
+  return String(t);
 }
 
 // View a single schema's fields.
 const schemaViewOpen = ref(false);
 const schemaViewData = ref<any>(null);
+const schemaViewMode = ref<'table' | 'json'>('table');
 function openSchema(schema: any) {
   schemaViewData.value = schema;
   schemaViewOpen.value = true;
@@ -916,6 +959,14 @@ const identityRows = computed(() => {
 .font-mono {
   font-family: 'Roboto Mono', monospace;
   font-size: 0.875rem;
+}
+
+.schema-json {
+  max-height: 60vh;
+  overflow: auto;
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 6px;
+  padding: 4px 8px;
 }
 
 .text-wrap {
