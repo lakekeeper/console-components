@@ -464,7 +464,13 @@ import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import TableColumnProfiler from './TableColumnProfiler.vue';
-import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
+import type {
+  LoadTableResult,
+  PartitionField,
+  SortField,
+  Type,
+  Schema,
+} from '../gen/iceberg/types.gen';
 
 // Props
 const props = defineProps<{
@@ -618,26 +624,22 @@ const allSchemas = computed(() => {
 });
 
 // Human label for a field type (primitive string, or struct/list/map).
-function typeLabel(t: any): string {
-  if (t == null) return '';
+function typeLabel(t: Type): string {
   if (typeof t === 'string') return t;
-  if (typeof t === 'object') {
-    if (t.type === 'struct') {
-      const inner = (t.fields ?? []).map((f: any) => `${f.name}: ${typeLabel(f.type)}`).join(', ');
-      return `struct<${inner}>`;
-    }
-    if (t.type === 'list') return `array<${typeLabel(t.element)}>`;
-    if (t.type === 'map') return `map<${typeLabel(t.key)}, ${typeLabel(t.value)}>`;
-    return t.type || 'complex';
+  if (t.type === 'struct') {
+    const inner = t.fields.map((f) => `${f.name}: ${typeLabel(f.type)}`).join(', ');
+    return `struct<${inner}>`;
   }
-  return String(t);
+  if (t.type === 'list') return `array<${typeLabel(t.element)}>`;
+  if (t.type === 'map') return `map<${typeLabel(t.key)}, ${typeLabel(t.value)}>`;
+  return 'complex';
 }
 
 // View a single schema's fields.
 const schemaViewOpen = ref(false);
-const schemaViewData = ref<any>(null);
+const schemaViewData = ref<Schema | null>(null);
 const schemaViewMode = ref<'table' | 'json'>('table');
-function openSchema(schema: any) {
+function openSchema(schema: Schema) {
   schemaViewData.value = schema;
   schemaViewOpen.value = true;
 }

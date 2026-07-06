@@ -590,12 +590,9 @@ function makeNode(name: string, type: any, parentKey: string, parentDepth: numbe
   };
 }
 
-// Top-level schema columns as tree nodes.
+// Top-level schema columns as tree nodes (from the same resolved schema as the JSON view).
 const schemaTree = computed<SchemaNode[]>(() => {
-  const schemas = props.metadata?.schemas ?? [];
-  const currentId = props.metadata?.['current-schema-id'];
-  const schema = schemas.find((s) => s['schema-id'] === currentId) ?? schemas[0];
-  return (schema?.fields ?? []).map((f) => {
+  return (currentSchema.value?.fields ?? []).map((f) => {
     const children = childrenOf(f.type, f.name, 0);
     return {
       key: f.name,
