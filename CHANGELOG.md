@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.0](https://github.com/lakekeeper/console-components/compare/v0.15.2...v0.16.0) (2026-07-06)
+
+
+### Features
+
+* **ui:** add schema JSON view + Table/JSON toggle to schema popup ([87728f3](https://github.com/lakekeeper/console-components/commit/87728f373324dccde6fdcfa67912e217afc3cf16))
+
+
+### Bug Fixes
+
+* **ui:** render nested struct/list/map columns in table Schema panel ([87728f3](https://github.com/lakekeeper/console-components/commit/87728f373324dccde6fdcfa67912e217afc3cf16))
+
 ## [0.15.2](https://github.com/lakekeeper/console-components/compare/v0.15.1...v0.15.2) (2026-07-03)
 
 
