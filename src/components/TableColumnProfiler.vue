@@ -6,7 +6,14 @@
       </v-btn>
       <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
       Schema
-      <v-chip size="x-small" variant="tonal">{{ primitiveColumns.length }} fields</v-chip>
+      <v-chip size="x-small" variant="tonal">{{ schemaTree.length }} fields</v-chip>
+      <v-btn
+        variant="text"
+        size="small"
+        prepend-icon="mdi-code-json"
+        @click="schemaJsonOpen = true">
+        View JSON
+      </v-btn>
       <v-spacer></v-spacer>
       <template v-if="!collapsed">
         <v-select
@@ -68,83 +75,144 @@
               </tr>
             </thead>
             <tbody>
-              <template v-for="col in primitiveColumns" :key="col.name">
-                <tr>
+              <template v-for="row in visibleRows" :key="row.key">
+                <tr :class="{ 'nested-row': row.depth > 0 }">
                   <!-- Field -->
                   <td class="col-field">
-                    <div class="d-flex align-center" style="gap: 8px">
-                      <v-btn
-                        icon
-                        size="x-small"
-                        variant="tonal"
-                        color="primary"
-                        :loading="results[col.name]?.loading"
-                        :disabled="!canQuery || analyzingAll"
-                        @click="analyzeOne(col)">
-                        <v-icon size="small">mdi-play</v-icon>
-                        <v-tooltip activator="parent" location="top">Analyze this field</v-tooltip>
-                      </v-btn>
-                      <div class="flex-grow-1" style="min-width: 0">
-                        <div class="font-mono font-weight-medium">{{ col.name }}</div>
-                        <span class="text-caption text-medium-emphasis">{{ col.type }}</span>
+                    <div class="d-flex tree-row" style="align-items: stretch; min-height: 42px">
+                      <!-- Indent guide lines (one vertical line per ancestor level,
+                           centered under that ancestor's expand arrow) -->
+                      <span
+                        v-for="d in row.depth"
+                        :key="d"
+                        style="position: relative; flex: 0 0 32px; align-self: stretch">
+                        <!-- Vertical line, centered in the 32px block (under the parent chevron) -->
+                        <span
+                          style="
+                            position: absolute;
+                            top: 0;
+                            bottom: 0;
+                            left: 16px;
+                            border-left: 1px solid rgba(127, 127, 127, 0.45);
+                          "></span>
+                        <!-- Elbow: horizontal connector into this node -->
+                        <span
+                          v-if="d === row.depth"
+                          style="
+                            position: absolute;
+                            top: 50%;
+                            left: 16px;
+                            width: 32px;
+                            border-top: 1px solid rgba(127, 127, 127, 0.45);
+                          "></span>
+                      </span>
+
+                      <div class="d-flex align-center flex-grow-1" style="min-width: 0">
+                        <!-- Fixed-width gutter so toggles, analyze buttons and leaf
+                             rows all align at the same x (independent of scoped CSS) -->
+                        <span
+                          style="
+                            flex: 0 0 28px;
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                          ">
+                          <!-- Expand toggle for nested (struct/list/map) nodes -->
+                          <v-btn
+                            v-if="row.expandable"
+                            icon
+                            size="x-small"
+                            variant="text"
+                            @click="toggleExpand(row.key)">
+                            <v-icon size="small">
+                              {{ expanded.has(row.key) ? 'mdi-chevron-down' : 'mdi-chevron-right' }}
+                            </v-icon>
+                          </v-btn>
+                          <!-- Analyze button for top-level primitive columns -->
+                          <v-btn
+                            v-else-if="row.profilable"
+                            icon
+                            size="x-small"
+                            variant="tonal"
+                            color="primary"
+                            :loading="results[row.name]?.loading"
+                            :disabled="!canQuery || analyzingAll"
+                            @click="analyzeOne(row)">
+                            <v-icon size="small">mdi-play</v-icon>
+                            <v-tooltip activator="parent" location="top">
+                              Analyze this field
+                            </v-tooltip>
+                          </v-btn>
+                        </span>
+
+                        <div class="flex-grow-1 ml-2" style="min-width: 0">
+                          <div class="font-mono font-weight-medium">{{ row.name }}</div>
+                          <span class="text-caption text-medium-emphasis">{{ row.type }}</span>
+                        </div>
+                        <v-btn
+                          v-if="row.profilable && hasChart(row.name)"
+                          icon
+                          size="small"
+                          variant="flat"
+                          color="teal"
+                          @click="openChart(row.name)">
+                          <v-icon>mdi-chart-bar</v-icon>
+                          <v-tooltip activator="parent" location="top">Show chart</v-tooltip>
+                        </v-btn>
                       </div>
-                      <v-btn
-                        v-if="hasChart(col.name)"
-                        icon
-                        size="small"
-                        variant="flat"
-                        color="teal"
-                        @click="openChart(col.name)">
-                        <v-icon>mdi-chart-bar</v-icon>
-                        <v-tooltip activator="parent" location="top">Show chart</v-tooltip>
-                      </v-btn>
                     </div>
                   </td>
 
-                  <!-- Stats (when analyzed) -->
-                  <template v-if="results[col.name]?.data">
-                    <td class="text-right num">{{ results[col.name]!.data!.nullPct }}%</td>
-                    <td class="text-right num">{{ results[col.name]!.data!.distinct }}</td>
-                    <td class="num">{{ results[col.name]!.data!.min }}</td>
-                    <td class="num">{{ results[col.name]!.data!.max }}</td>
-                    <td class="text-right num">{{ results[col.name]!.data!.mean ?? '—' }}</td>
-                    <td class="text-right num">{{ results[col.name]!.data!.std ?? '—' }}</td>
-                    <td class="text-right num">{{ results[col.name]!.data!.p50 ?? '—' }}</td>
-                    <td class="text-right num">{{ results[col.name]!.data!.p95 ?? '—' }}</td>
-                    <td class="text-right num">{{ results[col.name]!.data!.p99 ?? '—' }}</td>
-                    <td class="col-top">
-                      <div
-                        v-if="results[col.name]!.data!.topValues.length > 0"
-                        class="d-flex flex-wrap"
-                        style="gap: 4px">
-                        <v-chip
-                          v-for="(t, i) in results[col.name]!.data!.topValues"
-                          :key="i"
-                          size="x-small"
-                          variant="tonal">
-                          {{ t.value }}
-                          <span class="text-medium-emphasis ml-1">
-                            {{ t.count.toLocaleString() }}
-                          </span>
-                        </v-chip>
-                      </div>
-                      <span v-else class="text-disabled">—</span>
+                  <!-- Stats only apply to top-level primitive columns -->
+                  <template v-if="row.profilable">
+                    <!-- Stats (when analyzed) -->
+                    <template v-if="results[row.name]?.data">
+                      <td class="text-right num">{{ results[row.name]!.data!.nullPct }}%</td>
+                      <td class="text-right num">{{ results[row.name]!.data!.distinct }}</td>
+                      <td class="num">{{ results[row.name]!.data!.min }}</td>
+                      <td class="num">{{ results[row.name]!.data!.max }}</td>
+                      <td class="text-right num">{{ results[row.name]!.data!.mean ?? '—' }}</td>
+                      <td class="text-right num">{{ results[row.name]!.data!.std ?? '—' }}</td>
+                      <td class="text-right num">{{ results[row.name]!.data!.p50 ?? '—' }}</td>
+                      <td class="text-right num">{{ results[row.name]!.data!.p95 ?? '—' }}</td>
+                      <td class="text-right num">{{ results[row.name]!.data!.p99 ?? '—' }}</td>
+                      <td class="col-top">
+                        <div
+                          v-if="results[row.name]!.data!.topValues.length > 0"
+                          class="d-flex flex-wrap"
+                          style="gap: 4px">
+                          <v-chip
+                            v-for="(t, i) in results[row.name]!.data!.topValues"
+                            :key="i"
+                            size="x-small"
+                            variant="tonal">
+                            {{ t.value }}
+                            <span class="text-medium-emphasis ml-1">
+                              {{ t.count.toLocaleString() }}
+                            </span>
+                          </v-chip>
+                        </div>
+                        <span v-else class="text-disabled">—</span>
+                      </td>
+                    </template>
+
+                    <!-- Loading / error / idle -->
+                    <td v-else colspan="10">
+                      <span
+                        v-if="results[row.name]?.loading"
+                        class="d-inline-flex align-center text-caption text-medium-emphasis">
+                        <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
+                        analyzing…
+                      </span>
+                      <span v-else-if="results[row.name]?.error" class="text-caption text-error">
+                        {{ results[row.name]?.error }}
+                      </span>
+                      <span v-else class="text-caption text-disabled">Not analyzed</span>
                     </td>
                   </template>
 
-                  <!-- Loading / error / idle -->
-                  <td v-else colspan="10">
-                    <span
-                      v-if="results[col.name]?.loading"
-                      class="d-inline-flex align-center text-caption text-medium-emphasis">
-                      <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
-                      analyzing…
-                    </span>
-                    <span v-else-if="results[col.name]?.error" class="text-caption text-error">
-                      {{ results[col.name]?.error }}
-                    </span>
-                    <span v-else class="text-caption text-disabled">Not analyzed</span>
-                  </td>
+                  <!-- Nested / structural rows: no scalar stats -->
+                  <td v-else colspan="10"></td>
                 </tr>
               </template>
             </tbody>
@@ -180,15 +248,53 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- Raw schema JSON -->
+    <v-dialog v-model="schemaJsonOpen" max-width="760" scrollable>
+      <v-card>
+        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+          <v-icon class="mr-2" color="primary">mdi-code-json</v-icon>
+          Schema JSON
+          <v-chip v-if="currentSchema" size="x-small" variant="tonal" class="ml-2">
+            schema-id {{ currentSchema['schema-id'] ?? 0 }}
+          </v-chip>
+          <v-spacer></v-spacer>
+          <v-btn
+            variant="text"
+            size="small"
+            prepend-icon="mdi-content-copy"
+            @click="copySchemaJson">
+            Copy
+          </v-btn>
+          <v-btn icon variant="text" size="small" @click="schemaJsonOpen = false">
+            <v-icon>mdi-close</v-icon>
+          </v-btn>
+        </v-card-title>
+        <v-divider></v-divider>
+        <v-card-text style="max-height: 70vh">
+          <vue-json-pretty
+            v-if="currentSchema"
+            :data="currentSchema"
+            :deep="4"
+            :theme="visual.themeLight ? 'light' : 'dark'"
+            :show-line-number="true"
+            :virtual="false" />
+          <div v-else class="text-medium-emphasis pa-3">No schema available</div>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
 <script setup lang="ts">
 import { computed, inject, nextTick, reactive, ref, watch } from 'vue';
 import * as d3 from 'd3';
+import VueJsonPretty from 'vue-json-pretty';
+import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
+import { useVisualStore } from '../stores/visual';
 import { useLoQEStore } from '../stores/loqe';
 import type { TableMetadata } from '../gen/iceberg/types.gen';
 
@@ -214,6 +320,18 @@ const functions = useFunctions();
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
+const visual = useVisualStore();
+
+// Raw schema JSON popup.
+const schemaJsonOpen = ref(false);
+const currentSchema = computed(() => {
+  const schemas = props.metadata?.schemas ?? [];
+  const currentId = props.metadata?.['current-schema-id'];
+  return schemas.find((s) => s['schema-id'] === currentId) ?? schemas[0] ?? null;
+});
+function copySchemaJson() {
+  if (currentSchema.value) functions.copyToClipboard(JSON.stringify(currentSchema.value, null, 2));
+}
 
 interface Histogram {
   bins: number[];
@@ -413,15 +531,105 @@ const canQuery = computed(
   () => !!props.warehouseId && !!props.namespaceId && !!props.tableName && !!props.catalogUrl,
 );
 
-// Primitive (profile-able) columns from the current schema.
-const primitiveColumns = computed(() => {
-  const schemas = props.metadata?.schemas ?? [];
-  const currentId = props.metadata?.['current-schema-id'];
-  const schema = schemas.find((s) => s['schema-id'] === currentId) ?? schemas[0];
-  return (schema?.fields ?? [])
-    .filter((f) => typeof f.type === 'string')
-    .map((f) => ({ name: f.name, type: f.type as string }));
+// Compact type label for a single tree node (does not expand struct fields —
+// those become child rows). e.g. `array<struct>`, `map<string, array<struct>>`.
+function shortType(t: any): string {
+  if (t == null) return '';
+  if (typeof t === 'string') return t;
+  if (t.type === 'struct') return 'struct';
+  if (t.type === 'list') return `array<${shortType(t.element)}>`;
+  if (t.type === 'map') return `map<${shortType(t.key)}, ${shortType(t.value)}>`;
+  return t.type || 'complex';
+}
+
+interface SchemaNode {
+  key: string;
+  name: string;
+  type: string;
+  depth: number;
+  children: SchemaNode[];
+  expandable: boolean;
+  profilable: boolean;
+}
+
+// Child rows for a nested type. Struct → its fields; a list of structs flattens
+// its element's fields directly; a list of list/map gets a single `element` row;
+// map → `key` and `value` rows.
+function childrenOf(t: any, parentKey: string, depth: number): SchemaNode[] {
+  if (!t || typeof t !== 'object') return [];
+  if (t.type === 'struct') {
+    return (t.fields ?? []).map((f: any) => makeNode(f.name, f.type, parentKey, depth));
+  }
+  if (t.type === 'list') {
+    const el = t.element;
+    if (el && typeof el === 'object') {
+      if (el.type === 'struct') return childrenOf(el, parentKey, depth);
+      return [makeNode('element', el, parentKey, depth)];
+    }
+    return [];
+  }
+  if (t.type === 'map') {
+    return [makeNode('key', t.key, parentKey, depth), makeNode('value', t.value, parentKey, depth)];
+  }
+  return [];
+}
+
+function makeNode(name: string, type: any, parentKey: string, parentDepth: number): SchemaNode {
+  const depth = parentDepth + 1;
+  const key = `${parentKey}.${name}`;
+  const children = childrenOf(type, key, depth);
+  return {
+    key,
+    name,
+    type: shortType(type),
+    depth,
+    children,
+    expandable: children.length > 0,
+    // Only top-level primitives can be profiled with column-reference aggregates.
+    profilable: false,
+  };
+}
+
+// Top-level schema columns as tree nodes (from the same resolved schema as the JSON view).
+const schemaTree = computed<SchemaNode[]>(() => {
+  return (currentSchema.value?.fields ?? []).map((f) => {
+    const children = childrenOf(f.type, f.name, 0);
+    return {
+      key: f.name,
+      name: f.name,
+      type: shortType(f.type),
+      depth: 0,
+      children,
+      expandable: children.length > 0,
+      profilable: typeof f.type === 'string',
+    };
+  });
 });
+
+// Expand/collapse state for complex nodes.
+const expanded = reactive(new Set<string>());
+function toggleExpand(key: string) {
+  if (expanded.has(key)) expanded.delete(key);
+  else expanded.add(key);
+}
+
+// Flatten the tree to the rows currently visible (respecting expansion).
+const visibleRows = computed<SchemaNode[]>(() => {
+  const out: SchemaNode[] = [];
+  const walk = (nodes: SchemaNode[]) => {
+    for (const n of nodes) {
+      out.push(n);
+      if (n.expandable && expanded.has(n.key)) walk(n.children);
+    }
+  };
+  walk(schemaTree.value);
+  return out;
+});
+
+// Profile-able (top-level primitive) columns — used for "Analyze all".
+const primitiveColumns = computed(() =>
+  schemaTree.value.filter((n) => n.profilable).map((n) => ({ name: n.name, type: n.type })),
+);
 
 const isNumeric = (type: string) => /^(int|long|float|double|decimal)/i.test(type);
 
@@ -607,8 +815,11 @@ async function analyzeAll() {
   font-size: 0.8rem;
 }
 .profiler-table :deep(.col-field) {
-  min-width: 180px;
+  min-width: 220px;
   white-space: normal;
+}
+.profiler-table :deep(.nested-row) td {
+  border-bottom: none;
 }
 .profiler-table :deep(.col-top) {
   white-space: normal;
