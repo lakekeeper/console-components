@@ -241,7 +241,10 @@ export function createAuth(config: AuthConfig) {
         ? {
             extraQueryParams: {
               client_id: config.idpClientId,
-              logout_uri: oidcSettings.post_logout_redirect_uri || window.location.origin,
+              // Honor idpDisablePostLogoutRedirect: when the redirect is disabled
+              // `postLogoutRedirectUri` is undefined, so omit `logout_uri` entirely
+              // rather than falling back to the app origin.
+              ...(postLogoutRedirectUri ? { logout_uri: postLogoutRedirectUri } : {}),
             },
           }
         : undefined;
