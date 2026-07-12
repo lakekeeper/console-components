@@ -17,6 +17,14 @@ export interface AuthConfig {
   idpScope: string;
   idpResource: string;
   idpLogoutRedirectPath: string;
+  // Absolute URL to send as `post_logout_redirect_uri` on logout, overriding the
+  // value derived from `idpLogoutRedirectPath`. Use for IdPs whose allowed
+  // post-logout URLs are fixed (e.g. a cloud portal login page).
+  idpPostLogoutRedirectUrl?: string;
+  // When true, omit `post_logout_redirect_uri` from the logout request entirely.
+  // The parameter is optional per the OIDC RFC; use for IdPs that reject any
+  // non-registered post-logout URL.
+  idpDisablePostLogoutRedirect?: boolean;
   idpTokenType: TokenType;
   baseUrlPrefix: string;
   enabledAuthentication: boolean;
@@ -24,6 +32,15 @@ export interface AuthConfig {
 
 // Factory function to create auth with config
 export function createAuth(config: AuthConfig) {
+  // Resolve the post-logout redirect URI with precedence:
+  //   1. disabled     → omit the parameter entirely (undefined)
+  //   2. absolute URL → use the operator-supplied override verbatim
+  //   3. default      → derive from the app's own logout path
+  const postLogoutRedirectUri = config.idpDisablePostLogoutRedirect
+    ? undefined
+    : config.idpPostLogoutRedirectUrl?.trim() ||
+      `${window.location.origin}${config.baseUrlPrefix}/ui${config.idpLogoutRedirectPath}`;
+
   // OIDC Configuration
   const oidcSettings: UserManagerSettings = {
     authority: config.idpAuthority,
@@ -32,7 +49,7 @@ export function createAuth(config: AuthConfig) {
     response_type: 'code',
     scope: config.idpScope,
     resource: config.idpResource !== '' ? config.idpResource : undefined,
-    post_logout_redirect_uri: `${window.location.origin}${config.baseUrlPrefix}/ui${config.idpLogoutRedirectPath}`,
+    post_logout_redirect_uri: postLogoutRedirectUri,
     userStore: new WebStorageStateStore({ store: window.sessionStorage }),
     // Enable automatic silent renew - OIDC library handles this efficiently
     automaticSilentRenew: true,
@@ -224,7 +241,10 @@ export function createAuth(config: AuthConfig) {
         ? {
             extraQueryParams: {
               client_id: config.idpClientId,
-              logout_uri: oidcSettings.post_logout_redirect_uri || window.location.origin,
+              // Honor idpDisablePostLogoutRedirect: when the redirect is disabled
+              // `postLogoutRedirectUri` is undefined, so omit `logout_uri` entirely
+              // rather than falling back to the app origin.
+              ...(postLogoutRedirectUri ? { logout_uri: postLogoutRedirectUri } : {}),
             },
           }
         : undefined;

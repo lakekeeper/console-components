@@ -45,8 +45,11 @@ function describeError(e: any): string {
  *
  * Consumers call `LoQEEngine.acquire(config)` to obtain the shared
  * instance (creating it on the first call) and `LoQEEngine.release()`
- * when they no longer need it. The engine is destroyed only when the
- * last consumer releases.
+ * when they no longer need it. When the last consumer releases, teardown
+ * is deferred by a short grace period (see `IDLE_GRACE_MS`) so the engine
+ * stays warm across preview open/close and table-to-table navigation — the
+ * WASM isn't re-fetched/re-instantiated and extensions aren't reloaded. It
+ * is destroyed only if nothing re-acquires within that window.
  *
  * This class has **no Vue dependency** so it can be unit-tested outside
  * of a component tree. The Vue-specific wiring (watchers, lifecycle
@@ -57,8 +60,23 @@ export class LoQEEngine {
 
   private static instance: LoQEEngine | null = null;
   private static refCount = 0;
+  /** Pending deferred-teardown timer armed by `release`; see `IDLE_GRACE_MS`. */
+  private static idleTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * Grace period before an idle (refCount 0) engine is torn down. Keeps DuckDB
+   * warm across preview open/close and navigation so the WASM isn't re-fetched
+   * or re-instantiated and extensions aren't reloaded on every preview; still
+   * frees memory once the user leaves LoQE for longer than this.
+   */
+  private static readonly IDLE_GRACE_MS = 60_000;
 
   static acquire(config: LoQEConfig): LoQEEngine {
+    // A consumer reappeared before the grace period elapsed — cancel teardown
+    // and reuse the warm instance as-is.
+    if (LoQEEngine.idleTimer !== null) {
+      clearTimeout(LoQEEngine.idleTimer);
+      LoQEEngine.idleTimer = null;
+    }
     if (!LoQEEngine.instance) {
       LoQEEngine.instance = new LoQEEngine(config);
     }
@@ -68,15 +86,28 @@ export class LoQEEngine {
 
   static release(): void {
     LoQEEngine.refCount--;
-    if (LoQEEngine.refCount <= 0 && LoQEEngine.instance) {
-      LoQEEngine.instance.destroy();
-      LoQEEngine.instance = null;
-      LoQEEngine.refCount = 0;
+    if (LoQEEngine.refCount > 0) return;
+    LoQEEngine.refCount = 0;
+    // Defer teardown: if another consumer acquires within the grace window
+    // (e.g. opening the next preview), `acquire` cancels this and reuses the
+    // already-initialized engine, so `initialize()` short-circuits.
+    if (LoQEEngine.instance && LoQEEngine.idleTimer === null) {
+      LoQEEngine.idleTimer = setTimeout(() => {
+        LoQEEngine.idleTimer = null;
+        if (LoQEEngine.refCount <= 0 && LoQEEngine.instance) {
+          LoQEEngine.instance.destroy();
+          LoQEEngine.instance = null;
+        }
+      }, LoQEEngine.IDLE_GRACE_MS);
     }
   }
 
   /** Immediately destroy regardless of outstanding references. */
   static forceDestroy(): void {
+    if (LoQEEngine.idleTimer !== null) {
+      clearTimeout(LoQEEngine.idleTimer);
+      LoQEEngine.idleTimer = null;
+    }
     if (LoQEEngine.instance) {
       LoQEEngine.instance.destroy();
       LoQEEngine.instance = null;
