@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/lakekeeper/console-components/compare/v0.16.0...v0.17.0) (2026-07-12)
+
+
+### Features
+
+* **ui:** add post-logout redirect override and disable options to auth config ([4750067](https://github.com/lakekeeper/console-components/commit/4750067499d27d71be9ebc0f90c28e3904729b3d))
+
+
+### Bug Fixes
+
+* **ui:** keep LoQE DuckDB engine warm across previews with grace-period teardown ([4750067](https://github.com/lakekeeper/console-components/commit/4750067499d27d71be9ebc0f90c28e3904729b3d))
+
 ## [0.16.0](https://github.com/lakekeeper/console-components/compare/v0.15.2...v0.16.0) (2026-07-06)
 
 
