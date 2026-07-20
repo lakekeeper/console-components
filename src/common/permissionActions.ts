@@ -39,6 +39,8 @@ const catalogProjectActions: LakekeeperProjectAction[] = [
   { action: 'list_roles' },
   { action: 'search_roles' },
   { action: 'get_endpoint_statistics' },
+  { action: 'get_project_tasks' },
+  { action: 'control_project_tasks' },
 ];
 
 const catalogWarehouseActions: LakekeeperWarehouseAction[] = [
