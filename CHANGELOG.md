@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.1](https://github.com/lakekeeper/console-components/compare/v0.17.0...v0.17.1) (2026-07-20)
+
+
+### Bug Fixes
+
+* **ui:** grant project-task actions in authn-off permission fallback ([730df09](https://github.com/lakekeeper/console-components/commit/730df094ebbbb7054b05510d7e1496578589c0b4))
+* **ui:** suppress error snackbar on best-effort project-task probe ([730df09](https://github.com/lakekeeper/console-components/commit/730df094ebbbb7054b05510d7e1496578589c0b4))
+
 ## [0.17.0](https://github.com/lakekeeper/console-components/compare/v0.16.0...v0.17.0) (2026-07-12)
 
 
