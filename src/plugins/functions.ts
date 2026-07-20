@@ -4184,6 +4184,7 @@ async function listTasks(
 // Project Task Functions
 async function listProjectTasks(
   request: ListProjectTasksRequest,
+  notify?: boolean,
 ): Promise<ListProjectTasksResponse> {
   try {
     init();
@@ -4196,7 +4197,7 @@ async function listProjectTasks(
     if (error) throw error;
     return data as ListProjectTasksResponse;
   } catch (error: any) {
-    handleError(error, 'listProjectTasks');
+    handleError(error, 'listProjectTasks', notify);
     throw error;
   }
 }
