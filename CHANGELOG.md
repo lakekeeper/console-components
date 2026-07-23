@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/lakekeeper/console-components/compare/v0.17.1...v0.18.0) (2026-07-23)
+
+
+### Features
+
+* reserve 0.17.x patch range for the rel-0-13 line (bump main to 0.18.0) ([fea4f5c](https://github.com/lakekeeper/console-components/commit/fea4f5c07b928e0360cf3002e2cd84a8af5dfbd5))
+
 ## [0.17.1](https://github.com/lakekeeper/console-components/compare/v0.17.0...v0.17.1) (2026-07-20)
 
 
