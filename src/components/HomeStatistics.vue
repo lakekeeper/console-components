@@ -54,7 +54,7 @@
       <v-card-text class="pa-3">
         <div class="d-flex align-center mb-2">
           <v-icon size="18" class="mr-2" color="primary">mdi-chart-line</v-icon>
-          <span class="text-body-2 font-weight-bold">API Calls (Last 7 Days)</span>
+          <span class="text-body-2 font-weight-bold">{{ chartTitle }}</span>
         </div>
         <div
           v-if="noChartData && !chartLoading"
@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import * as d3 from 'd3';
 import type { EndpointStatisticsResponse, WarehouseStatistics } from '../gen/management/types.gen';
 import { useFunctions } from '../plugins/functions';
@@ -99,6 +99,23 @@ interface DayRow {
 }
 
 const chartData = ref<DayRow[]>([]);
+
+// The chart queries a 7-day window, but the server may only have data for the
+// last day or two (e.g. a freshly-started server). Label the card with the span
+// actually retrieved rather than a misleading "Last 7 Days".
+const WINDOW_DAYS = 7;
+const chartTitle = computed(() => {
+  const rows = chartData.value;
+  if (rows.length === 0) return `API Calls (Last ${WINDOW_DAYS} Days)`;
+  const firstDay = rows[0].date.getTime();
+  const lastDay = rows[rows.length - 1].date.getTime();
+  // Inclusive day span of the data (both endpoints counted).
+  const span = Math.round((lastDay - firstDay) / 86_400_000) + 1;
+  const days = Math.min(WINDOW_DAYS, Math.max(1, span));
+  if (days >= WINDOW_DAYS) return `API Calls (Last ${WINDOW_DAYS} Days)`;
+  if (days === 1) return 'API Calls (Last 24 Hours)';
+  return `API Calls (Last ${days} Days)`;
+});
 
 // ─── Status helpers ──────────────────────────────────────────────────────────
 const STATUS_COLORS = {

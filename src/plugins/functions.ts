@@ -4160,6 +4160,7 @@ async function controlTasks(
 async function listTasks(
   warehouseId: string,
   request: ListTasksRequest,
+  notify?: boolean,
 ): Promise<ListTasksResponse> {
   try {
     init();
@@ -4175,8 +4176,10 @@ async function listTasks(
   } catch (error: any) {
     // Handle CORS preflight failures and 404 errors gracefully without redirecting to server-offline
 
-    // For other errors, use the standard error handling
-    handleError(error, 'listTasks');
+    // For other errors, use the standard error handling. Callers doing best-effort
+    // background polling (e.g. the maintenance dashboard) pass notify=false so a
+    // repeated 403 for users without task permission doesn't spam snackbars.
+    handleError(error, 'listTasks', notify);
     throw error;
   }
 }
