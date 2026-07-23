@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.2](https://github.com/lakekeeper/console-components/compare/v0.17.1...v0.17.2) (2026-07-23)
+
+
+### Bug Fixes
+
+* **ui:** add notify param to listTasks to suppress background 403 snackbars for Lakekeeper 0.13 ([e03b648](https://github.com/lakekeeper/console-components/commit/e03b648c347ae8acf7faef0d70e06c50c0c89349))
+* **ui:** show actual data span in Home API-calls chart title for Lakekeeper 0.13 ([e03b648](https://github.com/lakekeeper/console-components/commit/e03b648c347ae8acf7faef0d70e06c50c0c89349))
+
 ## [0.17.1](https://github.com/lakekeeper/console-components/compare/v0.17.0...v0.17.1) (2026-07-20)
 
 
