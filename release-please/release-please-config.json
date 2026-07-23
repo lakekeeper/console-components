@@ -2,7 +2,8 @@
   "packages": {
     ".": {
       "release-type": "node",
-      "package-name": "@lakekeeper/console-components"
+      "package-name": "@lakekeeper/console-components",
+      "versioning": "always-bump-patch"
     }
   },
   "bump-minor-pre-major": true,
