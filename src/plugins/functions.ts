@@ -1,6 +1,6 @@
 import { inject } from 'vue';
 import { permissionActions } from '@/common/permissionActions';
-import { logError, isClientError, isNotFoundError } from '@/common/errorUtils';
+import { logError, isClientError, isNotFoundError, isForbiddenError } from '@/common/errorUtils';
 import {
   NamespaceResponse,
   SearchTabularRequest,
@@ -361,6 +361,14 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       const baseUrl = appConfig?.baseUrlPrefix || '';
       window.location.href = `${baseUrl}/ui/login`;
       return; // Exit early to prevent snackbar from showing
+    }
+
+    // Instance-level access denial: the user has no access to this instance at all
+    // (any authenticated call returns "not permitted to access this instance"). This
+    // is surfaced by the No-Access page redirect, so never nag with a snackbar for it.
+    // Per-resource 403s (e.g. "not permitted to delete warehouse X") still notify.
+    if (code === 403 && message.toLowerCase().includes('access this instance')) {
+      return;
     }
 
     // Show snackbar for immediate user feedback unless notify is explicitly false
@@ -3399,7 +3407,10 @@ async function createUser(notify?: boolean) {
     }
     return data;
   } catch (error: any) {
-    handleError(error, 'createUser');
+    // A 403 here means the user has no access to this instance — that case is handled
+    // by routing to the No-Access page, so don't show a snackbar for it. Still surface
+    // other (e.g. 5xx) failures.
+    handleError(error, 'createUser', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }

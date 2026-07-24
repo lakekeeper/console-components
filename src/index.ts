@@ -425,6 +425,7 @@ export { lakekeeperLightTheme, lakekeeperDarkTheme, myCustomLightTheme } from '.
 export { default as LoginPage } from './components/LoginPage.vue';
 export { default as LogoutPage } from './components/LogoutPage.vue';
 export { default as CallbackPage } from './components/CallbackPage.vue';
+export { default as NoAccessPage } from './components/NoAccessPage.vue';
 
 // Export  settings store
 export {

@@ -2,7 +2,14 @@
  * Extract HTTP error code from various error shapes returned by the API client.
  */
 export function getErrorCode(error: any): number {
-  return error?.error?.code || error?.status || error?.response?.status || 0;
+  return (
+    error?.error?.code ||
+    error?.status ||
+    error?.response?.status ||
+    error?.statusCode ||
+    error?.code ||
+    0
+  );
 }
 
 /**
