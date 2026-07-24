@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.17.3](https://github.com/lakekeeper/console-components/compare/v0.17.2...v0.17.3) (2026-07-24)
+
+
+### Features
+
+* **ui:** add No-Access page for instance-level 403 (login-style, server URL for admin, logout + Tetris) ([cf726cd](https://github.com/lakekeeper/console-components/commit/cf726cdb2109b3e3a5937f1118ff2fa420c436b4))
+
+
+### Bug Fixes
+
+* **ui:** harden getErrorCode to read statusCode/code so 403 detection is not shape-fragile ([cf726cd](https://github.com/lakekeeper/console-components/commit/cf726cdb2109b3e3a5937f1118ff2fa420c436b4))
+* **ui:** stop createUser from snackbar-ing on a 403 ([cf726cd](https://github.com/lakekeeper/console-components/commit/cf726cdb2109b3e3a5937f1118ff2fa420c436b4))
+* **ui:** suppress the instance-access-denied 403 snackbar in setError; per-resource 403s still notify ([cf726cd](https://github.com/lakekeeper/console-components/commit/cf726cdb2109b3e3a5937f1118ff2fa420c436b4))
+
 ## [0.17.2](https://github.com/lakekeeper/console-components/compare/v0.17.1...v0.17.2) (2026-07-23)
 
 
