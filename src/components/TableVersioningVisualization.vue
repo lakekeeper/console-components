@@ -1052,8 +1052,7 @@ const tags = computed<TagMeta[]>(() => {
 // committed on other branches and later merged/fast-forwarded into main.
 const mainSnapshotLogIds = computed<Set<number>>(() => {
   const snapshotLog = (props.table.metadata as any)?.['snapshot-log'] as
-    | Array<{ 'snapshot-id': number }>
-    | undefined;
+    Array<{ 'snapshot-id': number }> | undefined;
   if (!snapshotLog || snapshotLog.length === 0) return new Set();
   const mainBranch = branches.value.find((b) => b.name === 'main' || b.name === 'master');
   if (!mainBranch) return new Set();

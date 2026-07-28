@@ -84,10 +84,7 @@ export interface Breadcrumb {
 }
 
 type CustomStringType =
-  | (string & {})
-  | 'data-table-group'
-  | 'data-table-select'
-  | 'data-table-expand';
+  (string & {}) | 'data-table-group' | 'data-table-select' | 'data-table-expand';
 
 export interface Header {
   readonly key?: CustomStringType;

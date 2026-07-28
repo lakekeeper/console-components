@@ -170,8 +170,7 @@ export const useDuckDBSettingsStore = defineStore(
     }
 
     type MemoryCheckResult =
-      | { ok: true }
-      | { ok: false; reason: 'warning' | 'blocked'; usageMB: number; message: string };
+      { ok: true } | { ok: false; reason: 'warning' | 'blocked'; usageMB: number; message: string };
 
     /**
      * Check memory status before executing a query.
