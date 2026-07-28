@@ -120,23 +120,23 @@
           </v-row>
         </v-radio-group>
 
-        <!-- Access Key Fields -->
+        <!-- Access Key Fields (shared by `access-key` and `aliyun-oss` credential types) -->
         <v-text-field
-          v-if="warehouseObjectData['storage-credential']['credential-type'] === 'access-key'"
-          v-model="warehouseObjectData['storage-credential']['access-key-id']"
+          v-if="isAccessKeyCredential"
+          v-model="(warehouseObjectData['storage-credential'] as any)['access-key-id']"
           autocomplete="username"
-          :label="getFieldLabel('AWS Access Key ID', areAccessKeysRequired)"
+          :label="getFieldLabel('Access Key ID', areAccessKeysRequired)"
           placeholder="AKIAIOSFODNN7EXAMPLE"
           :rules="[rules.requiredForAccessKey]"
           :error="isAccessKeyIdInvalid"
           :color="isAccessKeyIdInvalid ? 'error' : 'primary'"
           :style="isAccessKeyIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-text-field>
         <v-text-field
-          v-if="warehouseObjectData['storage-credential']['credential-type'] === 'access-key'"
-          v-model="warehouseObjectData['storage-credential']['secret-access-key']"
+          v-if="isAccessKeyCredential"
+          v-model="(warehouseObjectData['storage-credential'] as any)['secret-access-key']"
           :append-inner-icon="showPassword ? 'mdi-eye-outline' : 'mdi-eye-off-outline'"
           autocomplete="current-password"
-          :label="getFieldLabel('AWS Secret Access Key', areAccessKeysRequired)"
+          :label="getFieldLabel('Secret Access Key', areAccessKeysRequired)"
           placeholder="your-secret-access-key"
           :rules="[rules.requiredForAccessKey]"
           :type="showPassword ? 'text' : 'password'"
@@ -708,20 +708,10 @@
             color="success"
             type="submit"
             :disabled="
-              (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-                (!warehouseObjectData['storage-credential']['access-key-id'] ||
-                  !warehouseObjectData['storage-credential']['secret-access-key'])) ||
+              isAccessKeyMissing ||
               !warehouseObjectData['storage-profile'].bucket ||
-              (warehouseObjectData['storage-profile'].flavor === 'aws' &&
-                !warehouseObjectData['storage-profile'].region) ||
-              (warehouseObjectData['storage-profile']['sts-enabled'] &&
-                warehouseObjectData['storage-profile'].flavor !== 's3-compat' &&
-                !warehouseObjectData['storage-profile']['sts-role-arn'] &&
-                !(
-                  warehouseObjectData['storage-profile'].flavor === 'aws' &&
-                  warehouseObjectData['storage-profile']['assume-role-arn'] &&
-                  warehouseObjectData['storage-profile']['sts-enabled']
-                ))
+              isRegionInvalid ||
+              isStsArnMissing
             ">
             Create
           </v-btn>
@@ -733,20 +723,10 @@
                 icon="mdi-menu-down"
                 size="small"
                 :disabled="
-                  (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-                    (!warehouseObjectData['storage-credential']['access-key-id'] ||
-                      !warehouseObjectData['storage-credential']['secret-access-key'])) ||
+                  isAccessKeyMissing ||
                   !warehouseObjectData['storage-profile'].bucket ||
-                  (warehouseObjectData['storage-profile'].flavor === 'aws' &&
-                    !warehouseObjectData['storage-profile'].region) ||
-                  (warehouseObjectData['storage-profile']['sts-enabled'] &&
-                    warehouseObjectData['storage-profile'].flavor !== 's3-compat' &&
-                    !warehouseObjectData['storage-profile']['sts-role-arn'] &&
-                    !(
-                      warehouseObjectData['storage-profile'].flavor === 'aws' &&
-                      warehouseObjectData['storage-profile']['assume-role-arn'] &&
-                      warehouseObjectData['storage-profile']['sts-enabled']
-                    ))
+                  isRegionInvalid ||
+                  isStsArnMissing
                 "></v-btn>
             </template>
             <v-list>
@@ -769,20 +749,10 @@
           v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
           color="success"
           :disabled="
-            (warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-              (!warehouseObjectData['storage-credential']['access-key-id'] ||
-                !warehouseObjectData['storage-credential']['secret-access-key'])) ||
+            isAccessKeyMissing ||
             !warehouseObjectData['storage-profile'].bucket ||
-            (warehouseObjectData['storage-profile'].flavor === 'aws' &&
-              !warehouseObjectData['storage-profile'].region) ||
-            (warehouseObjectData['storage-profile']['sts-enabled'] &&
-              warehouseObjectData['storage-profile'].flavor !== 's3-compat' &&
-              !warehouseObjectData['storage-profile']['sts-role-arn'] &&
-              !(
-                warehouseObjectData['storage-profile'].flavor === 'aws' &&
-                warehouseObjectData['storage-profile']['assume-role-arn'] &&
-                warehouseObjectData['storage-profile']['sts-enabled']
-              ))
+            isRegionInvalid ||
+            isStsArnMissing
           "
           @click="emitNewProfile">
           Update Profile
@@ -818,7 +788,7 @@ const s3UrlDetectionModes = [
 
 const showPasswordExternalId = ref(false);
 
-export type S3Variant = 'aws' | 'cloudflare-r2' | 's3-compat';
+export type S3Variant = 'aws' | 'cloudflare-r2' | 's3-compat' | 'aliyun-oss';
 
 const props = defineProps<{
   credentialsOnly: boolean;
@@ -1007,7 +977,8 @@ const rules = {
   noSlash: (value: string) => !value.includes('/') || 'Cannot contain "/"',
   // Dynamic rules based on credential type
   requiredForAccessKey: (value: any) => {
-    if (warehouseObjectData['storage-credential']['credential-type'] === 'access-key') {
+    const credentialType = warehouseObjectData['storage-credential']['credential-type'];
+    if (credentialType === 'access-key' || credentialType === 'aliyun-oss') {
       return !!value || 'Required for Access Key credentials.';
     }
     return true;
@@ -1019,6 +990,10 @@ const rules = {
     if (props.s3Variant === 'cloudflare-r2') {
       return !!value || 'Required for Cloudflare R2.';
     }
+    if (props.s3Variant === 'aliyun-oss') {
+      // The region determines the Alibaba Cloud STS endpoint (sts.<region>.aliyuncs.com).
+      return !!value || 'Required for Alibaba Cloud OSS.';
+    }
     return true;
   },
   // Optional field helper (for visual indication)
@@ -1028,18 +1003,27 @@ const rules = {
 // Computed properties for field requirements
 const isRegionRequired = computed(
   () =>
-    warehouseObjectData['storage-profile'].flavor === 'aws' || props.s3Variant === 'cloudflare-r2',
+    warehouseObjectData['storage-profile'].flavor === 'aws' ||
+    props.s3Variant === 'cloudflare-r2' ||
+    props.s3Variant === 'aliyun-oss',
 );
 
+// Both `access-key` and `aliyun-oss` authenticate with an access-key ID / secret pair and share
+// the same input fields.
+const isAccessKeyCredential = computed(() => {
+  const credentialType = warehouseObjectData['storage-credential']['credential-type'];
+  return credentialType === 'access-key' || credentialType === 'aliyun-oss';
+});
+
 const areAccessKeysRequired = computed(() => {
-  return warehouseObjectData['storage-credential']['credential-type'] === 'access-key';
+  return isAccessKeyCredential.value;
 });
 
 // Computed properties for field validation states (show red border when required but empty)
 const isAccessKeyIdInvalid = computed(() => {
   return (
     areAccessKeysRequired.value &&
-    warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
+    isAccessKeyCredential.value &&
     !(warehouseObjectData['storage-credential'] as any)['access-key-id']
   );
 });
@@ -1047,7 +1031,7 @@ const isAccessKeyIdInvalid = computed(() => {
 const isSecretKeyInvalid = computed(() => {
   return (
     areAccessKeysRequired.value &&
-    warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
+    isAccessKeyCredential.value &&
     !(warehouseObjectData['storage-credential'] as any)['secret-access-key']
   );
 });
@@ -1093,6 +1077,30 @@ const isR2AccountIdInvalid = computed(() => {
   );
 });
 
+// True when an access-key-based credential (`access-key` or `aliyun-oss`) is selected but the
+// access-key ID or secret is still missing. Used to disable the submit/update actions.
+const isAccessKeyMissing = computed(() => {
+  return (
+    isAccessKeyCredential.value &&
+    (!(warehouseObjectData['storage-credential'] as any)['access-key-id'] ||
+      !(warehouseObjectData['storage-credential'] as any)['secret-access-key'])
+  );
+});
+
+// True when STS is enabled but the required role ARN is missing. When STS is on, the backend
+// requires either `sts-role-arn` or `assume-role-arn`, except for generic `s3-compat` storage
+// (e.g. MinIO) which can vend credentials without one. Aliyun OSS vends via the Alibaba Cloud STS
+// AssumeRole API and therefore always needs a role ARN, even though it uses `flavor: 's3-compat'`.
+const isStsArnMissing = computed(() => {
+  const profile = warehouseObjectData['storage-profile'];
+  if (!profile['sts-enabled']) return false;
+  const hasArn = !!profile['sts-role-arn'] || !!profile['assume-role-arn'];
+  if (hasArn) return false;
+  // Aliyun OSS always needs an ARN; other `s3-compat` storage does not.
+  if (props.s3Variant === 'aliyun-oss') return true;
+  return profile.flavor !== 's3-compat';
+});
+
 const getFieldLabel = (baseLabel: string, isRequired: boolean) => {
   return isRequired ? `${baseLabel} *` : `${baseLabel} (optional)`;
 };
@@ -1117,6 +1125,14 @@ const buildCleanCredential = (): S3Credential & { type: 's3' } => {
     return {
       type: 's3' as const,
       'credential-type': 'aws-system-identity',
+      'external-id': warehouseObjectData['storage-credential']['external-id'] || null,
+    } as S3Credential & { type: 's3' };
+  } else if (credentialType === 'aliyun-oss') {
+    return {
+      type: 's3' as const,
+      'credential-type': 'aliyun-oss',
+      'access-key-id': warehouseObjectData['storage-credential']['access-key-id'],
+      'secret-access-key': warehouseObjectData['storage-credential']['secret-access-key'],
       'external-id': warehouseObjectData['storage-credential']['external-id'] || null,
     } as S3Credential & { type: 's3' };
   }
@@ -1199,6 +1215,12 @@ onMounted(() => {
     } else if (props.s3Variant === 's3-compat') {
       warehouseObjectData['storage-credential']['credential-type'] = 'access-key';
       warehouseObjectData['storage-profile'].flavor = 's3-compat';
+    } else if (props.s3Variant === 'aliyun-oss') {
+      warehouseObjectData['storage-credential']['credential-type'] = 'aliyun-oss';
+      warehouseObjectData['storage-profile'].flavor = 's3-compat';
+      // Aliyun OSS vends temporary credentials via the Alibaba Cloud STS AssumeRole API,
+      // which requires an STS role ARN, so STS is enabled by default.
+      warehouseObjectData['storage-profile']['sts-enabled'] = true;
     }
   }
 });

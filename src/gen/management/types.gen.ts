@@ -1832,12 +1832,14 @@ export type S3Credential = (S3AccessKeyCredential & {
     'credential-type': 'aws-system-identity';
 }) | (S3CloudflareR2Credential & {
     'credential-type': 'cloudflare-r2';
+}) | (S3AccessKeyCredential & {
+    'credential-type': 'aliyun-oss';
 });
 
 /**
  * The type of S3 credential.
  */
-export type S3CredentialType = 'access-key' | 'aws-system-identity' | 'cloudflare-r2';
+export type S3CredentialType = 'access-key' | 'aws-system-identity' | 'cloudflare-r2' | 'aliyun-oss';
 
 export type S3Flavor = 'aws' | 's3-compat';
 

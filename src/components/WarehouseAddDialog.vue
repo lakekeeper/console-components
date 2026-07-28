@@ -321,6 +321,10 @@
                   <v-img :src="cfIcon" width="20" height="20" class="mr-2" />
                   R2
                 </v-tab>
+                <v-tab value="ALIYUN_OSS">
+                  <v-img :src="aliyunIcon" width="20" height="20" class="mr-2" />
+                  Aliyun OSS
+                </v-tab>
                 <v-tab value="S3_COMPAT">
                   <v-icon start color="primary">mdi-bucket-outline</v-icon>
                   S3 Compatible
@@ -390,6 +394,19 @@
                     @update-profile="newProfile"></WarehouseStorageS3>
                 </v-tabs-window-item>
 
+                <v-tabs-window-item value="ALIYUN_OSS">
+                  <WarehouseStorageS3
+                    :key="importKey"
+                    :credentials-only="emptyWarehouse"
+                    :intent="intent"
+                    :object-type="objectType"
+                    s3-variant="aliyun-oss"
+                    :warehouse-object="warehouseObjectAliyun"
+                    @submit="createWarehouse"
+                    @update-credentials="newCredentials"
+                    @update-profile="newProfile"></WarehouseStorageS3>
+                </v-tabs-window-item>
+
                 <v-tabs-window-item value="S3_COMPAT">
                   <WarehouseStorageS3
                     :key="importKey"
@@ -430,6 +447,7 @@ import WarehouseStorageAzure from './WarehouseStorageAzure.vue';
 import WarehouseStorageGCS from './WarehouseStorageGCS.vue';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
+import aliyunIcon from '@/assets/aliyun.svg';
 import WarehouseStorageOneLake from './WarehouseStorageOneLake.vue';
 
 import {
@@ -621,6 +639,25 @@ const warehouseObjectS3Compat = reactive<WarehousObject>({
   },
 });
 
+const warehouseObjectAliyun = reactive<WarehousObject>({
+  'storage-profile': {
+    type: 's3',
+    bucket: '',
+    region: '',
+    'remote-signing-enabled': true,
+    // Aliyun OSS vends temporary credentials via the Alibaba Cloud STS AssumeRole API,
+    // which requires an STS role ARN, so STS is enabled by default.
+    'sts-enabled': true,
+    flavor: 's3-compat',
+  },
+  'storage-credential': {
+    type: 's3',
+    'access-key-id': '',
+    'secret-access-key': '',
+    'credential-type': 'aliyun-oss',
+  },
+});
+
 const key = reactive<GcsServiceKey>({
   auth_provider_x509_cert_url: '',
   auth_uri: '',
@@ -764,6 +801,8 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
       const flavor = wh['storage-profile']?.flavor;
       if (credType === 'cloudflare-r2') {
         storageCredentialType.value = 'R2';
+      } else if (credType === 'aliyun-oss') {
+        storageCredentialType.value = 'ALIYUN_OSS';
       } else if (flavor === 's3-compat') {
         storageCredentialType.value = 'S3_COMPAT';
       } else {
@@ -786,6 +825,8 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
       };
       if (credType === 'cloudflare-r2') {
         Object.assign(warehouseObjectR2, data);
+      } else if (credType === 'aliyun-oss') {
+        Object.assign(warehouseObjectAliyun, data);
       } else if (flavor === 's3-compat') {
         Object.assign(warehouseObjectS3Compat, data);
       } else {
@@ -933,6 +974,10 @@ onMounted(() => {
         storageCredentialType.value = 'R2';
         Object.assign(warehouseObjectR2, props.warehouse);
         warehouseObjectR2['storage-credential']['credential-type'] = 'cloudflare-r2';
+      } else if (s3CredType === 'aliyun-oss') {
+        storageCredentialType.value = 'ALIYUN_OSS';
+        Object.assign(warehouseObjectAliyun, props.warehouse);
+        warehouseObjectAliyun['storage-credential']['credential-type'] = 'aliyun-oss';
       } else if (
         s3CredType === 'access-key' &&
         props.warehouse['storage-profile'].flavor === 's3-compat'
