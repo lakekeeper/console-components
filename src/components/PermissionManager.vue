@@ -1,5 +1,10 @@
 <template>
+  <div v-if="forbidden" class="pa-8 text-medium-emphasis d-flex align-center ga-2">
+    <v-icon>mdi-lock-outline</v-icon>
+    You don't have access to the permissions of this {{ objectLabel }}.
+  </div>
   <v-data-table
+    v-else
     fixed-header
     :headers="headers"
     hover
@@ -136,7 +141,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, reactive, computed, ref, inject } from 'vue';
+import { onMounted, reactive, computed, ref, inject, watch } from 'vue';
 
 import {
   useServerAuthorizerPermissions,
@@ -302,6 +307,45 @@ if (props.relationType === RelationType.Server) {
 // Computed property to check if user can manage grants
 const canManageGrants = computed(() => authzPerms?.canManageGrants.value ?? false);
 
+// Whether the user may read this object's assignments. When false we must NOT
+// call the assignments endpoint: some scopes (e.g. server for a project admin)
+// return 401, which the global error handler turns into a login redirect.
+const canReadAssignments = computed(() => (authzPerms as any)?.canReadAssignments?.value ?? false);
+const authzLoading = computed(() => (authzPerms as any)?.loading?.value ?? false);
+// Show an inline "no permission" message once authorizer perms have resolved
+// and the user cannot read assignments here.
+const forbidden = computed(() => !!authzPerms && !authzLoading.value && !canReadAssignments.value);
+
+// Human-readable noun for the current object, for the "no access" message.
+const objectLabel = computed(() => {
+  switch (props.relationType) {
+    case RelationType.Server:
+      return 'server';
+    case RelationType.Project:
+      return 'project';
+    case RelationType.Warehouse:
+      return 'warehouse';
+    case RelationType.Namespace:
+      return 'namespace';
+    case RelationType.Table:
+      return 'table';
+    case RelationType.View:
+      return 'view';
+    case RelationType.GenericTable:
+      return 'generic table';
+    case RelationType.Role:
+      return 'role';
+    default:
+      return 'object';
+  }
+});
+
+// Authorizer permissions resolve asynchronously; once read access is confirmed,
+// (re)load the assignments. The `:key` remount handles object switches.
+watch(canReadAssignments, (canRead) => {
+  if (canRead) init();
+});
+
 async function loadObjectData() {
   try {
     let objData: any = null;
@@ -347,6 +391,9 @@ async function loadObjectData() {
 }
 
 async function fetchAssignments() {
+  // Never hit the assignments endpoint without read permission — it can 401
+  // (e.g. server scope for a project admin) and trigger a login redirect.
+  if (!canReadAssignments.value) return [];
   try {
     let assignments: any[] = [];
 

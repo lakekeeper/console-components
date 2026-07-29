@@ -51,7 +51,7 @@
       </template>
       <template #item.actions="{ item }">
         <TagAttachmentsDialog :tag-definition-id="item.id" :name="item.name" />
-        <template v-if="!isSystem(item)">
+        <template v-if="!isSystem(item) && canCreateTag">
           <TagDefinitionDialog
             action-type="edit"
             :definition="item"
