@@ -11,6 +11,11 @@ import ProjectStatistics from './components/ProjectStatistics.vue';
 import NamespaceAddDialog from './components/NamespaceAddDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
 import RoleManager from './components/RoleManager.vue';
+import TagDefinitionManager from './components/TagDefinitionManager.vue';
+import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
+import TagAttachmentsDialog from './components/TagAttachmentsDialog.vue';
+import EntityTags from './components/EntityTags.vue';
+import ColumnTags from './components/ColumnTags.vue';
 import RoleMembers from './components/RoleMembers.vue';
 import RoleOwners from './components/RoleOwners.vue';
 import RoleDetail from './components/RoleDetail.vue';
@@ -108,6 +113,11 @@ export {
   NamespaceAddDialog,
   RoleDialog,
   RoleManager,
+  TagDefinitionManager,
+  TagDefinitionDialog,
+  TagAttachmentsDialog,
+  EntityTags,
+  ColumnTags,
   RoleMembers,
   RoleOwners,
   RoleDetail,
@@ -247,7 +257,7 @@ export type {
   LakekeeperTableAction,
   LakekeeperViewAction,
   LakekeeperGenericTableAction,
-  LakekeeperRoleAction,
+  LakekeeperRoleActionKind,
   LakekeeperUserAction,
   // Authorizer/Delegation Action Types (OpenFGA)
   OpenFgaServerAction,
@@ -285,6 +295,22 @@ export type {
   WarehouseTaskInfo,
   ProjectTaskInfo,
   TaskStatus,
+  // Governance Tags
+  TagDefinition,
+  TagScope,
+  TagValueKind,
+  TagSource,
+  TargetTag,
+  AppliedTag,
+  TagAttachment,
+  TagAttachmentTarget,
+  TagInheritanceSource,
+  CreateTagDefinitionRequest,
+  UpdateTagDefinitionRequest,
+  SetTagRequest,
+  ListTagDefinitionsResponse,
+  ListTagAttachmentsResponse,
+  ListTagsResponse,
 } from './gen/management/types.gen';
 
 // Export generic-table data plane types
@@ -309,6 +335,11 @@ const components = {
   ProjectNameAddOrEditDialog,
   RoleDialog,
   RoleManager,
+  TagDefinitionManager,
+  TagDefinitionDialog,
+  TagAttachmentsDialog,
+  EntityTags,
+  ColumnTags,
   RoleMembers,
   RoleOwners,
   RoleDetail,

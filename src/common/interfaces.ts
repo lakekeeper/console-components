@@ -132,6 +132,6 @@ export interface QueueOption {
   value: string;
 }
 
-export interface TabularExpirationQueueConfig {
+export interface SoftDeletionQueueConfig {
   [key: string]: any;
 }

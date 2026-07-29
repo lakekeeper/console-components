@@ -6,7 +6,7 @@ import {
   LakekeeperTableAction,
   LakekeeperViewAction,
   LakekeeperGenericTableAction,
-  LakekeeperRoleAction,
+  LakekeeperRoleActionKind,
   LakekeeperUserAction,
   OpenFgaServerAction,
   OpenFgaProjectAction,
@@ -125,7 +125,7 @@ const catalogGenericTableActions: LakekeeperGenericTableAction[] = [
   { action: 'set_protection' },
 ];
 
-const catalogRoleActions: LakekeeperRoleAction[] = [
+const catalogRoleActions: LakekeeperRoleActionKind[] = [
   { action: 'read' },
   { action: 'delete' },
   { action: 'update' },

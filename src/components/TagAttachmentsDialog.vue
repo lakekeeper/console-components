@@ -1,0 +1,291 @@
+<template>
+  <v-dialog v-model="isActive" max-width="960">
+    <template #activator="{ props: activatorProps }">
+      <v-btn
+        v-bind="activatorProps"
+        icon="mdi-link-variant"
+        size="x-small"
+        variant="text"
+        title="Show attachments"></v-btn>
+    </template>
+
+    <v-card :title="`Attachments — ${name}`">
+      <v-card-text>
+        <v-text-field
+          v-model="valueFilter"
+          class="mb-2"
+          label="Filter by value"
+          placeholder="exact value (case-sensitive)"
+          prepend-inner-icon="mdi-filter-variant"
+          clearable
+          hide-details
+          @update:model-value="reload"></v-text-field>
+
+        <v-data-table
+          :headers="headers"
+          :items="attachments"
+          :loading="loading"
+          density="comfortable">
+          <template #item.target="{ item }">
+            <div class="d-flex align-center flex-nowrap ga-1" style="white-space: nowrap">
+              <v-chip color="info" size="x-small" variant="tonal">{{ item.target.type }}</v-chip>
+
+              <v-icon size="x-small" icon="mdi-database" class="ml-1"></v-icon>
+              <span class="text-caption">{{ warehouseLabel(item.target) }}</span>
+
+              <template v-if="item.target.type !== 'warehouse'">
+                <span class="text-disabled">/</span>
+                <span
+                  class="text-caption"
+                  :style="entityName(item.target) ? '' : 'font-family: monospace'">
+                  {{ entityName(item.target) || entityId(item.target) }}
+                </span>
+                <v-chip v-if="item.target.type === 'column'" size="x-small" variant="outlined">
+                  field {{ item.target['field-id'] }}
+                </v-chip>
+                <v-btn
+                  v-if="!entityName(item.target)"
+                  icon="mdi-content-copy"
+                  size="x-small"
+                  variant="text"
+                  title="Copy id"
+                  @click="copy(entityId(item.target))"></v-btn>
+              </template>
+
+              <!-- Open icon → navigate to the object (its Tags tab). -->
+              <v-btn
+                icon="mdi-open-in-new"
+                size="x-small"
+                variant="text"
+                :title="openTitle(item.target)"
+                @click="openTarget(item.target)"></v-btn>
+            </div>
+          </template>
+          <template #item.value="{ item }">
+            <span v-if="item.value !== null && item.value !== undefined">{{ item.value }}</span>
+            <span v-else class="text-disabled">—</span>
+          </template>
+          <template #item.created-at="{ item }">
+            {{ new Date(item['created-at']).toLocaleString() }}
+          </template>
+          <template #no-data>
+            <span class="text-disabled">No attachments.</span>
+          </template>
+        </v-data-table>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn text="Close" @click="isActive = false"></v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+</template>
+
+<script lang="ts" setup>
+import { reactive, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import { useFunctions } from '../plugins/functions';
+import { Header } from '../common/interfaces';
+import { TagAttachment, TagAttachmentTarget } from '../gen/management/types.gen';
+
+// Namespace path segments in app routes are joined with the unit separator.
+const NS_SEPARATOR = '\x1F';
+
+// The reverse-lookup currently returns ids only. Once PR 1914 enriches the target
+// with `warehouse-name` / `namespace` (path) / `name`, this component upgrades
+// automatically: it renders names and builds exact entity deep links. Until then
+// it falls back to ids + the warehouse link. These optional fields are read
+// defensively so no type regen is required to start consuming them.
+type EnrichedTarget = TagAttachmentTarget & {
+  'warehouse-name'?: string;
+  namespace?: string[];
+  name?: string;
+};
+
+const props = defineProps<{ tagDefinitionId: string; name: string }>();
+
+const functions = useFunctions();
+const router = useRouter();
+const isActive = ref(false);
+const loading = ref(false);
+const attachments = ref<TagAttachment[]>([]);
+const valueFilter = ref<string>('');
+
+// Fallback warehouse-id -> name cache, used only when the target has no warehouse-name.
+const warehouseNames = reactive<Record<string, string>>({});
+
+// tabular-id -> { namespace path segments, name }, resolved via searchTabular
+// (one browse-search per warehouse) when the API doesn't already return names.
+// Covers tables and views (and columns, via their table-id).
+const tabularInfo = reactive<Record<string, { namespace: string[]; name: string }>>({});
+
+// The tabular id a target resolves against (columns resolve against their table).
+function tabularKey(target: TagAttachmentTarget): string {
+  switch (target.type) {
+    case 'table':
+    case 'column':
+      return target['table-id'];
+    case 'view':
+      return target['view-id'];
+    case 'generic-table':
+      return target['generic-table-id'];
+    default:
+      return '';
+  }
+}
+
+const headers: readonly Header[] = Object.freeze([
+  { title: 'Target', key: 'target', align: 'start', sortable: false },
+  { title: 'Value', key: 'value', align: 'start' },
+  { title: 'Applied', key: 'created-at', align: 'start' },
+]);
+
+function warehouseLabel(target: TagAttachmentTarget): string {
+  const t = target as EnrichedTarget;
+  const id = t['warehouse-id'];
+  return t['warehouse-name'] ?? warehouseNames[id] ?? id;
+}
+
+function entityName(target: TagAttachmentTarget): string | undefined {
+  return (target as EnrichedTarget).name ?? tabularInfo[tabularKey(target)]?.name;
+}
+
+// The entity's own id for non-warehouse targets.
+function entityId(target: TagAttachmentTarget): string {
+  switch (target.type) {
+    case 'namespace':
+      return target['namespace-id'];
+    case 'table':
+    case 'column':
+      return target['table-id'];
+    case 'view':
+      return target['view-id'];
+    case 'generic-table':
+      return target['generic-table-id'];
+    default:
+      return '';
+  }
+}
+
+// Build the deep link to a target's Tags tab. Returns the warehouse Tags tab when
+// the entity's namespace/name aren't available yet (only warehouse is id-routable).
+function targetPath(target: TagAttachmentTarget): string {
+  const t = target as EnrichedTarget;
+  const wh = t['warehouse-id'];
+  const base = `/warehouse/${wh}`;
+  if (t.type === 'warehouse') return base;
+
+  // Prefer enriched fields from the API; else the searchTabular-resolved info.
+  const info = tabularInfo[tabularKey(target)];
+  const nsSegs = t.namespace ?? info?.namespace;
+  const name = t.name ?? info?.name;
+
+  if (!nsSegs?.length) return base; // can't reach the entity without its namespace path
+  const ns = `${base}/namespace/${nsSegs.join(NS_SEPARATOR)}`;
+  if (t.type === 'namespace') return ns;
+  if (!name) return ns;
+  switch (t.type) {
+    case 'table':
+    case 'column':
+      return `${ns}/table/${name}`;
+    case 'view':
+      return `${ns}/view/${name}`;
+    case 'generic-table':
+      return `${ns}/generic-table/${name}`;
+    default:
+      return ns;
+  }
+}
+
+function openTitle(target: TagAttachmentTarget): string {
+  return targetPath(target) === `/warehouse/${target['warehouse-id']}` &&
+    target.type !== 'warehouse'
+    ? 'Open warehouse (entity deep-link pending API name support)'
+    : `Open ${target.type}`;
+}
+
+function openTarget(target: TagAttachmentTarget) {
+  isActive.value = false;
+  router.push({ path: targetPath(target), query: { tab: 'tags' } });
+}
+
+function copy(text: string) {
+  functions.copyToClipboard(text);
+}
+
+async function resolveWarehouseNames() {
+  const ids = Array.from(
+    new Set(
+      attachments.value
+        .filter((a) => !(a.target as EnrichedTarget)['warehouse-name'])
+        .map((a) => a.target['warehouse-id']),
+    ),
+  );
+  await Promise.all(
+    ids
+      .filter((id) => !(id in warehouseNames))
+      .map(async (id) => {
+        try {
+          const wh = await functions.getWarehouse(id, false);
+          warehouseNames[id] = wh.name;
+        } catch {
+          // leave the id as the fallback label
+        }
+      }),
+  );
+}
+
+// Resolve table/view names + namespace paths via searchTabular, querying by the
+// entity's own id and matching it exactly in the results. searchTabular returns
+// tabular-id + namespace-name + tabular-name (same call the nav-tree search uses).
+async function resolveTabulars() {
+  const targets = attachments.value
+    .map((a) => a.target)
+    .filter((t) => ['table', 'view', 'column'].includes(t.type) && !(t as EnrichedTarget).name);
+  // De-duplicate by the tabular id we need to resolve.
+  const seen = new Set<string>();
+  const jobs = targets.filter((t) => {
+    const id = tabularKey(t);
+    if (!id || seen.has(id) || tabularInfo[id]) return false;
+    seen.add(id);
+    return true;
+  });
+  await Promise.all(
+    jobs.map(async (t) => {
+      const id = tabularKey(t);
+      try {
+        const res = await functions.searchTabular(t['warehouse-id'], { search: id }, false);
+        const match = (res.tabulars ?? []).find((r) => r['tabular-id'].id === id);
+        if (match) {
+          tabularInfo[id] = { namespace: match['namespace-name'], name: match['tabular-name'] };
+        }
+      } catch {
+        // fall back to id + warehouse link
+      }
+    }),
+  );
+}
+
+async function reload() {
+  loading.value = true;
+  try {
+    const res = await functions.listTagAttachments(
+      props.tagDefinitionId,
+      valueFilter.value || undefined,
+      1000,
+      undefined,
+      false,
+    );
+    attachments.value = res.attachments ?? [];
+    await Promise.all([resolveWarehouseNames(), resolveTabulars()]);
+  } catch {
+    // handled by functions.handleError
+  } finally {
+    loading.value = false;
+  }
+}
+
+watch(isActive, (open) => {
+  if (open) reload();
+});
+</script>

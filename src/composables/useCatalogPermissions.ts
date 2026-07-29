@@ -4,7 +4,7 @@ import type {
   LakekeeperWarehouseAction,
   LakekeeperNamespaceAction,
   LakekeeperServerAction,
-  LakekeeperRoleAction,
+  LakekeeperRoleActionKind,
   LakekeeperTableAction,
   LakekeeperViewAction,
   LakekeeperGenericTableAction,
@@ -22,7 +22,7 @@ import { usePermissionStore } from '@/stores/permissions';
 //     | LakekeeperNamespaceAction
 //     | LakekeeperTableAction
 //     | LakekeeperViewAction
-//     | LakekeeperRoleAction,
+//     | LakekeeperRoleActionKind,
 // ): string {
 //   return action.action;
 // }
@@ -152,7 +152,7 @@ export function useServerPermissions(serverId: Ref<string> | string) {
 export function useRolePermissions(roleId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
   const loading = ref(false);
-  const permissions = ref<LakekeeperRoleAction[]>([]);
+  const permissions = ref<LakekeeperRoleActionKind[]>([]);
 
   const roleIdRef = computed(() => (typeof roleId === 'string' ? roleId : roleId.value));
 
@@ -165,15 +165,15 @@ export function useRolePermissions(roleId: Ref<string> | string) {
     }
   }
 
-  function hasPermission(action: LakekeeperRoleAction | string): boolean {
+  function hasPermission(action: LakekeeperRoleActionKind | string): boolean {
     return hasAction(permissions.value, action);
   }
 
-  function hasAnyPermission(...actions: (LakekeeperRoleAction | string)[]): boolean {
+  function hasAnyPermission(...actions: (LakekeeperRoleActionKind | string)[]): boolean {
     return actions.some((action) => hasAction(permissions.value, action));
   }
 
-  function hasAllPermissions(...actions: (LakekeeperRoleAction | string)[]): boolean {
+  function hasAllPermissions(...actions: (LakekeeperRoleActionKind | string)[]): boolean {
     return actions.every((action) => hasAction(permissions.value, action));
   }
 
@@ -258,6 +258,8 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
   const canGetEndpointStatistics = computed(() => hasPermission('get_endpoint_statistics'));
   const canGetProjectTasks = computed(() => hasPermission('get_project_tasks'));
   const canControlProjectTasks = computed(() => hasPermission('control_project_tasks'));
+  const canCreateTag = computed(() => hasPermission('create_tag'));
+  const canListTags = computed(() => hasPermission('list_tags'));
 
   // UI visibility helpers
   const showStatisticsTab = computed(() => canGetEndpointStatistics.value);
@@ -296,6 +298,8 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
     canGetEndpointStatistics,
     canGetProjectTasks,
     canControlProjectTasks,
+    canCreateTag,
+    canListTags,
     showStatisticsTab,
     showTasksTab,
     refresh: loadPermissions,
@@ -350,6 +354,12 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const canSetProtection = computed(
     () =>
       hasPermission('set_protection') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
+  const canManageTags = computed(
+    () =>
+      hasPermission('manage_tags') ||
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
@@ -417,6 +427,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canControlAllTasks,
     canRename,
     canSetProtection,
+    canManageTags,
     canSetFormatVersionPolicy,
     canGetEndpointStatistics,
     showTasksTab,
@@ -491,6 +502,12 @@ export function useNamespacePermissions(
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const canManageTags = computed(
+    () =>
+      hasPermission('manage_tags') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
 
   // Auto-load on mount
   onMounted(() => {
@@ -522,6 +539,7 @@ export function useNamespacePermissions(
     canGetMetadata,
     canUpdateProperties,
     canSetProtection,
+    canManageTags,
     refresh: loadPermissions,
   };
 }
@@ -581,6 +599,12 @@ export function useTablePermissions(
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const canManageTags = computed(
+    () =>
+      hasPermission('manage_tags') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
   const canDrop = computed(() => hasPermission('drop'));
   const canCommit = computed(
     () =>
@@ -620,6 +644,7 @@ export function useTablePermissions(
     canGetTasks,
     canControlTasks,
     canSetProtection,
+    canManageTags,
     canDrop,
     canCommit,
     canWriteData,
@@ -684,6 +709,12 @@ export function useViewPermissions(
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const canManageTags = computed(
+    () =>
+      hasPermission('manage_tags') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
   const canDrop = computed(() => hasPermission('drop'));
   const canCommit = computed(
     () =>
@@ -721,6 +752,7 @@ export function useViewPermissions(
     canGetTasks,
     canControlTasks,
     canSetProtection,
+    canManageTags,
     canDrop,
     canCommit,
     showTasksTab,
@@ -785,6 +817,12 @@ export function useGenericTablePermissions(
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
+  const canManageTags = computed(
+    () =>
+      hasPermission('manage_tags') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
   const canDrop = computed(() => hasPermission('drop'));
   const canWriteData = computed(() => hasPermission('write_data'));
   const canReadData = computed(() => hasPermission('read_data'));
@@ -815,6 +853,7 @@ export function useGenericTablePermissions(
     canGetTasks,
     canControlTasks,
     canSetProtection,
+    canManageTags,
     canDrop,
     canWriteData,
     canReadData,
