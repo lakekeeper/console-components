@@ -229,7 +229,7 @@
             v-else-if="
               item.type === 'warehouse' &&
               item.storageType === 's3' &&
-              item.storageEndpoint?.includes('aliyuncs')
+              isAliyunOssEndpoint(item.storageEndpoint)
             "
             size="small">
             <v-img :src="aliyunIcon" width="18" height="18" />
@@ -387,6 +387,7 @@ import type { SearchTabular } from '@/gen/management/types.gen';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import aliyunIcon from '@/assets/aliyun.svg';
+import { isAliyunOssEndpoint } from '@/common/storageIcon';
 
 // ── Props / Emits ─────────────────────────────────────────────────────
 

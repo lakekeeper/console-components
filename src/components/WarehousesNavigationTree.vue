@@ -168,7 +168,7 @@
             v-else-if="
               item.type === 'warehouse' &&
               item.storageType === 's3' &&
-              item.storageEndpoint?.includes('aliyuncs')
+              isAliyunOssEndpoint(item.storageEndpoint)
             "
             size="small">
             <v-img :src="aliyunIcon" width="18" height="18" />
@@ -335,6 +335,7 @@ import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import aliyunIcon from '@/assets/aliyun.svg';
 import icebergIcon from '@/assets/iceberg.svg';
+import { isAliyunOssEndpoint } from '@/common/storageIcon';
 import deltaIcon from '@/assets/delta.svg';
 import vortexLightIcon from '@/assets/vortex_logo.svg';
 import vortexDarkIcon from '@/assets/vortex_logo_dark_theme.svg';
