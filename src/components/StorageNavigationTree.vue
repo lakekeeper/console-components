@@ -47,6 +47,15 @@
             size="small">
             <v-img :src="cfIcon" width="18" height="18" />
           </v-icon>
+          <v-icon
+            v-else-if="
+              item.type === 'warehouse' &&
+              item.storageType === 's3' &&
+              item.storageEndpoint?.includes('aliyuncs')
+            "
+            size="small">
+            <v-img :src="aliyunIcon" width="18" height="18" />
+          </v-icon>
           <v-icon v-else-if="item.type === 'warehouse' && item.storageType === 's3'" size="small">
             <v-img :src="s3Icon" width="18" height="18" />
           </v-icon>
@@ -129,6 +138,7 @@ import { logError } from '@/common/errorUtils';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
+import aliyunIcon from '@/assets/aliyun.svg';
 
 const props = defineProps<{
   warehouseId?: string;
