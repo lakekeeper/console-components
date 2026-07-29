@@ -12,6 +12,7 @@ import NamespaceAddDialog from './components/NamespaceAddDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
 import RoleManager from './components/RoleManager.vue';
 import TagDefinitionManager from './components/TagDefinitionManager.vue';
+import PermissionExplorer from './components/PermissionExplorer.vue';
 import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsDialog from './components/TagAttachmentsDialog.vue';
 import EntityTags from './components/EntityTags.vue';
@@ -114,6 +115,7 @@ export {
   RoleDialog,
   RoleManager,
   TagDefinitionManager,
+  PermissionExplorer,
   TagDefinitionDialog,
   TagAttachmentsDialog,
   EntityTags,
@@ -336,6 +338,7 @@ const components = {
   RoleDialog,
   RoleManager,
   TagDefinitionManager,
+  PermissionExplorer,
   TagDefinitionDialog,
   TagAttachmentsDialog,
   EntityTags,

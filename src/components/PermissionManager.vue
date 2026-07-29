@@ -9,8 +9,9 @@
       <v-toolbar color="transparent" density="compact" flat>
         <v-switch
           v-if="
-            props.relationType === RelationType.Warehouse ||
-            props.relationType === RelationType.Namespace
+            !props.hideManagedAccess &&
+            (props.relationType === RelationType.Warehouse ||
+              props.relationType === RelationType.Namespace)
           "
           v-model="isManagedAccess"
           class="ml-4 mt-4"
@@ -237,9 +238,14 @@ const props = withDefaults(
     relationType: RelationType;
     warehouseId?: string; // Required for table and view assignments
     status?: StatusIntent;
+    // Hide the managed-access toggle. It's an object setting, not a permission
+    // assignment; callers that surface it elsewhere (e.g. the permission explorer)
+    // can opt out. Defaults to showing it, preserving existing pages' behavior.
+    hideManagedAccess?: boolean;
   }>(),
   {
     status: StatusIntent.INACTIVE,
+    hideManagedAccess: false,
   },
 );
 

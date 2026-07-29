@@ -1,15 +1,15 @@
 <template>
   <v-container fluid class="pa-0" style="height: 100%; overflow: hidden">
     <!-- ── Top Status Bar ────────────────────────────────────────── -->
-    <v-toolbar density="compact" flat color="transparent" class="border-b">
-      <v-toolbar-title class="text-subtitle-1 font-weight-bold">
-        <v-icon class="mr-1" size="small">mdi-database-cog-outline</v-icon>
+    <v-toolbar flat color="transparent" class="border-b px-2">
+      <div class="text-h6 d-flex align-center ga-2">
+        <v-icon>mdi-database-cog-outline</v-icon>
         LoQE
-        <span class="text-caption text-grey ml-1">Local Query Engine</span>
+        <span class="text-caption text-grey">Local Query Engine</span>
         <v-chip color="primary" size="x-small" variant="tonal" class="ml-2" label>
           DuckDB WASM
         </v-chip>
-      </v-toolbar-title>
+      </div>
 
       <v-spacer />
 
