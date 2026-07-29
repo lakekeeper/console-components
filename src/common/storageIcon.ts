@@ -3,11 +3,12 @@ import { VIcon, VImg } from 'vuetify/components';
 import type { GetWarehouseResponse } from '@/gen/management/types.gen';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
+import aliyunIcon from '@/assets/aliyun.svg';
 
 /**
  * Render the storage-provider icon (AWS / Azure / GCS / OneLake / Cloudflare R2
- * / generic S3) for a warehouse, based on its storage profile. Returns `null`
- * when the provider can't be determined so callers can fall back.
+ * / Aliyun OSS / generic S3) for a warehouse, based on its storage profile.
+ * Returns `null` when the provider can't be determined so callers can fall back.
  */
 export function storageProviderIcon(
   warehouse: Pick<GetWarehouseResponse, 'storage-profile'> | null | undefined,
@@ -21,6 +22,10 @@ export function storageProviderIcon(
     }
     if (profile.endpoint?.includes('cloudflarestorage')) {
       return h(VImg, { src: cfIcon, width: 24 });
+    }
+    // Aliyun OSS uses flavor 's3-compat' with an oss-<region>.aliyuncs.com endpoint.
+    if (profile.endpoint?.includes('aliyuncs')) {
+      return h(VImg, { src: aliyunIcon, width: 24 });
     }
     return h(VIcon, { color: 'primary' }, () => 'mdi-bucket-outline');
   }

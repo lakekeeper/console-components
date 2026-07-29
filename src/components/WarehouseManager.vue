@@ -116,6 +116,7 @@ import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 // Import SVG assets
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
+import aliyunIcon from '@/assets/aliyun.svg';
 
 const router = useRouter();
 const functions = useFunctions();
@@ -192,6 +193,15 @@ function getStorageIcon(item: GetWarehouseResponseExtended) {
       return h(VImg, {
         class: 'mb-2 mr-2',
         src: cfIcon,
+        width: 24,
+      });
+    }
+
+    // Aliyun OSS uses flavor 's3-compat' with an oss-<region>.aliyuncs.com endpoint.
+    if (profile.endpoint?.includes('aliyuncs')) {
+      return h(VImg, {
+        class: 'mb-2 mr-2',
+        src: aliyunIcon,
         width: 24,
       });
     }
