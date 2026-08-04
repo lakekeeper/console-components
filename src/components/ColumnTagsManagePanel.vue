@@ -12,19 +12,21 @@
         <span v-else class="text-disabled">—</span>
       </template>
       <template #item.actions="{ item }">
-        <v-btn
-          v-if="item.value !== null && item.value !== undefined"
-          icon="mdi-pencil"
-          size="x-small"
-          variant="text"
-          title="Edit value"
-          @click="openEdit(item)"></v-btn>
-        <v-btn
-          color="error"
-          icon="mdi-delete-outline"
-          size="x-small"
-          variant="text"
-          @click="requestRemove(item.column, item.tag)"></v-btn>
+        <div class="d-flex flex-nowrap justify-end">
+          <v-btn
+            v-if="item.value !== null && item.value !== undefined"
+            icon="mdi-pencil"
+            size="x-small"
+            variant="text"
+            title="Edit value"
+            @click="openEdit(item)"></v-btn>
+          <v-btn
+            color="error"
+            icon="mdi-delete-outline"
+            size="x-small"
+            variant="text"
+            @click="requestRemove(item.column, item.tag)"></v-btn>
+        </div>
       </template>
       <template #no-data>
         <span class="text-disabled">No column tags applied yet.</span>
@@ -152,7 +154,7 @@ const headers: readonly Header[] = Object.freeze([
   { title: 'Column', key: 'column', align: 'start' },
   { title: 'Tag', key: 'name', align: 'start' },
   { title: 'Value', key: 'value', align: 'start' },
-  { title: '', key: 'actions', align: 'end', sortable: false },
+  { title: '', key: 'actions', align: 'end', sortable: false, width: '96px' },
 ]);
 
 const applicableDefinitions = computed(() =>
