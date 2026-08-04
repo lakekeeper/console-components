@@ -2,7 +2,7 @@
   <v-card-text class="pa-4">
     <!-- Overview -->
     <section id="tdx-overview" class="tdx-section">
-      <v-row dense>
+      <v-row dense class="mb-6">
         <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
           <v-sheet rounded="lg" border class="pa-3 stat-tile h-100">
             <v-icon :color="s.color" size="20" class="mb-1">{{ s.icon }}</v-icon>
@@ -15,7 +15,7 @@
 
     <!-- Identity & location -->
     <section id="tdx-identity" class="tdx-section">
-      <v-card variant="outlined">
+      <v-card variant="outlined" class="mb-6">
         <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
           <v-icon icon="mdi-information-outline" class="mr-2" color="primary"></v-icon>
           Identity &amp; location
@@ -60,7 +60,7 @@
         :table-id="tableId" />
 
       <!-- Schema evolution -->
-      <v-expansion-panels v-model="schemaPanels" multiple>
+      <v-expansion-panels v-model="schemaPanels" multiple class="mb-6">
         <v-expansion-panel v-if="allSchemas.length > 1" value="evolution">
           <v-expansion-panel-title>
             <v-icon class="mr-2" size="small">mdi-history</v-icon>
@@ -156,7 +156,7 @@
 
     <!-- Properties -->
     <section v-if="allPropertyItems.length > 0 || canEdit" id="tdx-properties" class="tdx-section">
-      <v-card variant="outlined">
+      <v-card variant="outlined" class="mb-6">
         <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
           <v-icon icon="mdi-cog-outline" class="mr-2" color="primary"></v-icon>
           Properties
@@ -325,7 +325,7 @@
 
     <!-- Layout & ordering -->
     <section id="tdx-layout" class="tdx-section">
-      <v-card variant="outlined">
+      <v-card variant="outlined" class="mb-6">
         <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
           <v-icon icon="mdi-view-grid-outline" class="mr-2" color="primary"></v-icon>
           Layout &amp; ordering
@@ -386,7 +386,7 @@
 
     <!-- Snapshots -->
     <section v-if="snapshotRows.length" id="tdx-snapshots" class="tdx-section">
-      <v-card variant="outlined">
+      <v-card variant="outlined" class="mb-6">
         <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
           <v-icon icon="mdi-camera-outline" class="mr-2" color="info"></v-icon>
           Snapshots
@@ -1013,9 +1013,6 @@ const identityRows = computed(() => {
 }
 
 .tdx-section {
-  margin-bottom: 32px;
-}
-.tdx-section:last-child {
   margin-bottom: 0;
 }
 

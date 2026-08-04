@@ -1,5 +1,5 @@
 <template>
-  <v-card variant="outlined" class="mb-4" elevation="1">
+  <v-card variant="outlined" class="mb-6" elevation="1">
     <v-card-title
       class="bg-surface-light d-flex align-center flex-wrap text-subtitle-1 py-3"
       style="gap: 8px">
@@ -94,6 +94,7 @@
             <thead>
               <tr>
                 <th class="col-field">Field</th>
+                <th class="col-type">Type</th>
                 <template v-if="schemaView === 'stats'">
                   <th class="text-right">Null&nbsp;%</th>
                   <th class="text-right">Distinct</th>
@@ -186,7 +187,6 @@
 
                         <div class="flex-grow-1 ml-2" style="min-width: 0">
                           <div class="font-mono font-weight-medium">{{ row.name }}</div>
-                          <span class="text-caption text-medium-emphasis">{{ row.type }}</span>
                         </div>
                         <v-btn
                           v-if="row.profilable && hasChart(row.name)"
@@ -200,6 +200,11 @@
                         </v-btn>
                       </div>
                     </div>
+                  </td>
+
+                  <!-- Type (own column) -->
+                  <td class="col-type font-mono text-caption text-medium-emphasis">
+                    {{ row.type }}
                   </td>
 
                   <!-- Statistics view: stats only apply to top-level primitive columns -->
@@ -952,5 +957,10 @@ watch(
 .profiler-table :deep(.col-tags) {
   white-space: normal;
   min-width: 320px;
+}
+.profiler-table :deep(.col-type) {
+  white-space: nowrap;
+  min-width: 120px;
+  vertical-align: middle;
 }
 </style>
