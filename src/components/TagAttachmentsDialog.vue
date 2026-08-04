@@ -63,8 +63,13 @@
                   :style="entityName(item.target) ? '' : 'font-family: monospace'">
                   {{ entityName(item.target) || entityId(item.target) }}
                 </span>
-                <v-chip v-if="item.target.type === 'column'" size="x-small" variant="outlined">
-                  field {{ item.target['field-id'] }}
+                <v-chip
+                  v-if="item.target.type === 'column'"
+                  size="x-small"
+                  variant="outlined"
+                  prepend-icon="mdi-table-column"
+                  :title="`field-id ${item.target['field-id']}`">
+                  {{ columnName(item.target) || `field ${item.target['field-id']}` }}
                 </v-chip>
                 <v-btn
                   v-if="!entityName(item.target)"
@@ -173,6 +178,14 @@ const tabularInfo = reactive<Record<string, { namespace: string[]; name: string 
 // (listNamespaces returns namespace-uuids alongside paths). Used to show a readable
 // namespace path instead of a bare UUID for namespace targets.
 const namespaceInfo = reactive<Record<string, string[]>>({});
+
+// table-id -> { field-id -> column name }, resolved by loading the table schema.
+// Used to show a column name instead of a bare field-id for column targets.
+const columnNames = reactive<Record<string, Record<number, string>>>({});
+function columnName(target: TagAttachmentTarget): string | undefined {
+  if (target.type !== 'column') return undefined;
+  return columnNames[target['table-id']]?.[target['field-id']];
+}
 
 // The tabular id a target resolves against (columns resolve against their table).
 function tabularKey(target: TagAttachmentTarget): string {
@@ -377,6 +390,39 @@ async function resolveNamespaces() {
   );
 }
 
+// Resolve field-id -> column name by loading the schema of each table that has a
+// column target. Runs after resolveTabulars, which provides the table's namespace/name.
+async function resolveColumns() {
+  const jobs = new Map<string, TagAttachmentTarget>();
+  for (const a of attachments.value) {
+    const t = a.target;
+    if (t.type !== 'column') continue;
+    const tableId = t['table-id'];
+    if (columnNames[tableId] || !tabularInfo[tableId]) continue;
+    if (!jobs.has(tableId)) jobs.set(tableId, t);
+  }
+  await Promise.all(
+    [...jobs.entries()].map(async ([tableId, t]) => {
+      const info = tabularInfo[tableId];
+      try {
+        const table: any = await functions.loadTableCustomized(
+          t['warehouse-id'],
+          info.namespace.join('.'),
+          info.name,
+          false,
+        );
+        const map: Record<number, string> = {};
+        for (const schema of table?.metadata?.schemas ?? []) {
+          for (const field of schema.fields ?? []) map[field.id] = field.name;
+        }
+        columnNames[tableId] = map;
+      } catch {
+        // leave the field-id as the fallback
+      }
+    }),
+  );
+}
+
 async function reload() {
   loading.value = true;
   try {
@@ -392,6 +438,7 @@ async function reload() {
     );
     attachments.value = res.attachments ?? [];
     await Promise.all([resolveWarehouseNames(), resolveTabulars(), resolveNamespaces()]);
+    await resolveColumns();
   } catch {
     // handled by functions.handleError
   } finally {
