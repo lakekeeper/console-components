@@ -108,7 +108,8 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
-import { Header } from '../common/interfaces';
+import { Header, NamespaceResponse } from '../common/interfaces';
+import { PageToken } from '../gen/iceberg/types.gen';
 import { TagAttachment, TagAttachmentTarget, TagScope } from '../gen/management/types.gen';
 
 // Namespace path segments in app routes are joined with the unit separator.
@@ -168,6 +169,11 @@ const warehouseNames = reactive<Record<string, string>>({});
 // Covers tables and views (and columns, via their table-id).
 const tabularInfo = reactive<Record<string, { namespace: string[]; name: string }>>({});
 
+// namespace-id -> path segments, resolved by walking the warehouse namespace tree
+// (listNamespaces returns namespace-uuids alongside paths). Used to show a readable
+// namespace path instead of a bare UUID for namespace targets.
+const namespaceInfo = reactive<Record<string, string[]>>({});
+
 // The tabular id a target resolves against (columns resolve against their table).
 function tabularKey(target: TagAttachmentTarget): string {
   switch (target.type) {
@@ -196,6 +202,10 @@ function warehouseLabel(target: TagAttachmentTarget): string {
 }
 
 function entityName(target: TagAttachmentTarget): string | undefined {
+  if (target.type === 'namespace') {
+    const segs = (target as EnrichedTarget).namespace ?? namespaceInfo[target['namespace-id']];
+    return segs?.length ? segs.join('.') : undefined;
+  }
   return (target as EnrichedTarget).name ?? tabularInfo[tabularKey(target)]?.name;
 }
 
@@ -226,7 +236,10 @@ function targetPath(target: TagAttachmentTarget): string {
 
   // Prefer enriched fields from the API; else the searchTabular-resolved info.
   const info = tabularInfo[tabularKey(target)];
-  const nsSegs = t.namespace ?? info?.namespace;
+  const nsSegs =
+    t.type === 'namespace'
+      ? (t.namespace ?? namespaceInfo[t['namespace-id']])
+      : (t.namespace ?? info?.namespace);
   const name = t.name ?? info?.name;
 
   if (!nsSegs?.length) return base; // can't reach the entity without its namespace path
@@ -315,6 +328,55 @@ async function resolveTabulars() {
   );
 }
 
+// Resolve namespace-id -> path by walking the warehouse namespace tree, matching the
+// UUIDs the list endpoint returns. Stops per warehouse once all needed ids are found.
+async function resolveNamespaces() {
+  const byWh = new Map<string, Set<string>>();
+  for (const a of attachments.value) {
+    const t = a.target as EnrichedTarget;
+    if (t.type !== 'namespace' || t.namespace) continue;
+    const id = t['namespace-id'];
+    if (namespaceInfo[id]) continue;
+    let set = byWh.get(t['warehouse-id']);
+    if (!set) {
+      set = new Set();
+      byWh.set(t['warehouse-id'], set);
+    }
+    set.add(id);
+  }
+
+  await Promise.all(
+    [...byWh.entries()].map(async ([wh, needed]) => {
+      const queue: (string | undefined)[] = [undefined];
+      let guard = 0;
+      while (queue.length && needed.size && guard < 300) {
+        const parent = queue.shift();
+        guard++;
+        let pageToken: PageToken | undefined = undefined;
+        do {
+          let res: NamespaceResponse;
+          try {
+            res = await functions.listNamespaces(wh, parent, pageToken, false);
+          } catch {
+            break;
+          }
+          const names = (res.namespaces ?? []) as string[][];
+          const map = (res.namespaceMap ?? {}) as Record<string, string>;
+          for (const segs of names) {
+            const uuid = map[segs.join('.')];
+            if (uuid && needed.has(uuid)) {
+              namespaceInfo[uuid] = segs;
+              needed.delete(uuid);
+            }
+            queue.push(segs.join(NS_SEPARATOR));
+          }
+          pageToken = res['next-page-token'] as PageToken | undefined;
+        } while (pageToken && needed.size);
+      }
+    }),
+  );
+}
+
 async function reload() {
   loading.value = true;
   try {
@@ -329,7 +391,7 @@ async function reload() {
       false,
     );
     attachments.value = res.attachments ?? [];
-    await Promise.all([resolveWarehouseNames(), resolveTabulars()]);
+    await Promise.all([resolveWarehouseNames(), resolveTabulars(), resolveNamespaces()]);
   } catch {
     // handled by functions.handleError
   } finally {
