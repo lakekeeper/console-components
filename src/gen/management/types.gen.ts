@@ -879,6 +879,10 @@ export type GetTableAssignmentsResponse = {
     assignments: Array<TableAssignment>;
 };
 
+export type GetTagAssignmentsResponse = {
+    assignments: Array<TagAssignment>;
+};
+
 export type GetTaskDetailsResponse = WarehouseTaskInfo & {
     /**
      * History of past attempts
@@ -2649,6 +2653,12 @@ export type TabularIdentUuid = {
  */
 export type TabularType = 'table' | 'view' | 'generic-table';
 
+export type TagAssignment = (UserOrRole & {
+    type: 'ownership';
+}) | (UserOrRole & {
+    type: 'apply';
+});
+
 /**
  * One target a tag definition is attached to (reverse lookup).
  */
@@ -2756,6 +2766,12 @@ export type TagInheritanceSource = {
     type: 'namespace';
     'warehouse-id': string;
 };
+
+/**
+ * The directly-assignable relations of a tag definition: the per-tag delegation
+ * points a grantor can hand out or revoke.
+ */
+export type TagRelation = 'ownership' | 'apply';
 
 /**
  * Target types a tag definition may be applied to.
@@ -2954,6 +2970,11 @@ export type UpdateServerAssignmentsRequest = {
 export type UpdateTableAssignmentsRequest = {
     deletes?: Array<TableAssignment>;
     writes?: Array<TableAssignment>;
+};
+
+export type UpdateTagAssignmentsRequest = {
+    deletes?: Array<TagAssignment>;
+    writes?: Array<TagAssignment>;
 };
 
 export type UpdateTagDefinitionRequest = {
@@ -3897,6 +3918,50 @@ export type GetAuthorizerServerActionsResponses = {
 };
 
 export type GetAuthorizerServerActionsResponse = GetAuthorizerServerActionsResponses[keyof GetAuthorizerServerActionsResponses];
+
+export type GetTagAssignmentsByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: {
+        /**
+         * Relations to be loaded. If not specified, all relations are returned.
+         */
+        relations?: Array<TagRelation>;
+    };
+    url: '/management/v1/permissions/tag/{tag_definition_id}/assignments';
+};
+
+export type GetTagAssignmentsByIdResponses = {
+    200: GetTagAssignmentsResponse;
+};
+
+export type GetTagAssignmentsByIdResponse = GetTagAssignmentsByIdResponses[keyof GetTagAssignmentsByIdResponses];
+
+export type UpdateTagAssignmentsByIdData = {
+    body: UpdateTagAssignmentsRequest;
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: never;
+    url: '/management/v1/permissions/tag/{tag_definition_id}/assignments';
+};
+
+export type UpdateTagAssignmentsByIdResponses = {
+    /**
+     * Permissions updated successfully
+     */
+    204: void;
+};
+
+export type UpdateTagAssignmentsByIdResponse = UpdateTagAssignmentsByIdResponses[keyof UpdateTagAssignmentsByIdResponses];
 
 export type GetWarehouseByIdData = {
     body?: never;
@@ -5548,6 +5613,22 @@ export type ListTagAttachmentsData = {
          * return all. Marker tags carry no value, so a value filter excludes them.
          */
         value?: string | null;
+        /**
+         * Restrict to a single target object type.
+         */
+        targetType?: null | TagScope;
+        /**
+         * Only attachments created at or after this instant (RFC 3339, inclusive).
+         */
+        createdAfter?: string | null;
+        /**
+         * Only attachments created at or before this instant (RFC 3339, inclusive).
+         */
+        createdBefore?: string | null;
+        /**
+         * Restrict to attachments within a single warehouse.
+         */
+        warehouseId?: string | null;
     };
     url: '/management/v1/tag-definition/{tag_definition_id}/attachments';
 };

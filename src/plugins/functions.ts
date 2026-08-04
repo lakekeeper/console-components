@@ -111,10 +111,14 @@ import {
   CreateTagDefinitionRequest,
   UpdateTagDefinitionRequest,
   TagDefinition,
+  TagScope,
   ListTagDefinitionsResponse,
   ListTagAttachmentsResponse,
   ListTagsResponse,
   AppliedTag,
+  TagAssignment,
+  TagRelation,
+  GetTagAssignmentsResponse,
 } from '@/gen/management/types.gen';
 
 import { useUserStore } from '@/stores/user';
@@ -1131,9 +1135,15 @@ async function deleteTagDefinition(tagDefinitionId: string, notify?: boolean): P
 
 async function listTagAttachments(
   tagDefinitionId: string,
-  value?: string,
-  pageSize?: number,
-  pageToken?: string,
+  filters?: {
+    value?: string;
+    targetType?: TagScope;
+    createdAfter?: string;
+    createdBefore?: string;
+    warehouseId?: string;
+    pageSize?: number;
+    pageToken?: string;
+  },
   notify?: boolean,
 ): Promise<ListTagAttachmentsResponse> {
   try {
@@ -1142,13 +1152,73 @@ async function listTagAttachments(
     const { data, error } = await mng.listTagAttachments({
       client,
       path: { tag_definition_id: tagDefinitionId },
-      query: { value, pageSize, pageToken },
+      query: {
+        value: filters?.value,
+        targetType: filters?.targetType,
+        createdAfter: filters?.createdAfter,
+        createdBefore: filters?.createdBefore,
+        warehouseId: filters?.warehouseId,
+        pageSize: filters?.pageSize,
+        pageToken: filters?.pageToken,
+      },
     });
     if (error) throw error;
     return data;
   } catch (error) {
     handleError(error, 'listTagAttachments', notify);
     throw error;
+  }
+}
+
+// Tag permissions (OpenFGA): who owns a tag definition and who may apply it.
+async function getTagAssignmentsById(
+  tagDefinitionId: string,
+  relations?: TagRelation[],
+): Promise<GetTagAssignmentsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTagAssignmentsById({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      query: { relations },
+    });
+    if (error) throw error;
+    return data as GetTagAssignmentsResponse;
+  } catch (error) {
+    handleError(error, 'getTagAssignmentsById');
+    throw error;
+  }
+}
+
+async function updateTagAssignmentsById(
+  tagDefinitionId: string,
+  deletes: TagAssignment[],
+  writes: TagAssignment[],
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update tag assignments: OpenFGA backend is required');
+      return false;
+    }
+
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.updateTagAssignmentsById({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      body: { deletes, writes },
+    });
+    if (error) throw error;
+    handleSuccess('updateTagAssignmentsById', 'Tag permissions updated', notify);
+    return true;
+  } catch (error) {
+    handleError(error, 'updateTagAssignmentsById', notify);
+    return false;
   }
 }
 
@@ -5879,6 +5949,8 @@ export function useFunctions(config?: any) {
     updateTagDefinition,
     deleteTagDefinition,
     listTagAttachments,
+    getTagAssignmentsById,
+    updateTagAssignmentsById,
     listWarehouseTags,
     setWarehouseTag,
     deleteWarehouseTag,

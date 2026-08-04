@@ -11,15 +11,38 @@
 
     <v-card :title="`Attachments — ${name}`">
       <v-card-text>
-        <v-text-field
-          v-model="valueFilter"
-          class="mb-2"
-          label="Filter by value"
-          placeholder="exact value (case-sensitive)"
-          prepend-inner-icon="mdi-filter-variant"
-          clearable
-          hide-details
-          @update:model-value="reload"></v-text-field>
+        <div class="d-flex flex-wrap ga-2 mb-3">
+          <v-text-field
+            v-model="valueFilter"
+            label="Filter by value"
+            placeholder="exact value (case-sensitive)"
+            prepend-inner-icon="mdi-filter-variant"
+            density="compact"
+            clearable
+            hide-details
+            style="min-width: 220px"
+            @update:model-value="reload"></v-text-field>
+          <v-select
+            v-model="targetTypeFilter"
+            label="Target type"
+            :items="TARGET_TYPES"
+            density="compact"
+            clearable
+            hide-details
+            style="min-width: 180px"
+            @update:model-value="reload"></v-select>
+          <v-select
+            v-model="warehouseFilter"
+            label="Warehouse"
+            :items="warehouseOptions"
+            item-title="title"
+            item-value="value"
+            density="compact"
+            clearable
+            hide-details
+            style="min-width: 200px"
+            @update:model-value="reload"></v-select>
+        </div>
 
         <v-data-table
           :headers="headers"
@@ -82,11 +105,11 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref, watch } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { Header } from '../common/interfaces';
-import { TagAttachment, TagAttachmentTarget } from '../gen/management/types.gen';
+import { TagAttachment, TagAttachmentTarget, TagScope } from '../gen/management/types.gen';
 
 // Namespace path segments in app routes are joined with the unit separator.
 const NS_SEPARATOR = '\x1F';
@@ -110,6 +133,32 @@ const isActive = ref(false);
 const loading = ref(false);
 const attachments = ref<TagAttachment[]>([]);
 const valueFilter = ref<string>('');
+const targetTypeFilter = ref<TagScope | null>(null);
+const warehouseFilter = ref<string | null>(null);
+
+const TARGET_TYPES: TagScope[] = [
+  'warehouse',
+  'namespace',
+  'table',
+  'view',
+  'generic-table',
+  'column',
+];
+
+// Warehouses for the filter dropdown (loaded once when the dialog opens).
+const warehouses = ref<{ id: string; name: string }[]>([]);
+const warehouseOptions = computed(() =>
+  warehouses.value.map((w) => ({ title: w.name, value: w.id })),
+);
+async function loadWarehouses() {
+  if (warehouses.value.length) return;
+  try {
+    const res = await functions.listWarehouses(false);
+    warehouses.value = (res.warehouses ?? []).map((w: any) => ({ id: w.id, name: w.name }));
+  } catch {
+    // non-fatal: warehouse filter just stays empty
+  }
+}
 
 // Fallback warehouse-id -> name cache, used only when the target has no warehouse-name.
 const warehouseNames = reactive<Record<string, string>>({});
@@ -271,9 +320,12 @@ async function reload() {
   try {
     const res = await functions.listTagAttachments(
       props.tagDefinitionId,
-      valueFilter.value || undefined,
-      1000,
-      undefined,
+      {
+        value: valueFilter.value || undefined,
+        targetType: targetTypeFilter.value || undefined,
+        warehouseId: warehouseFilter.value || undefined,
+        pageSize: 1000,
+      },
       false,
     );
     attachments.value = res.attachments ?? [];
@@ -286,6 +338,9 @@ async function reload() {
 }
 
 watch(isActive, (open) => {
-  if (open) reload();
+  if (open) {
+    loadWarehouses();
+    reload();
+  }
 });
 </script>

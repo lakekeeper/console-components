@@ -8,14 +8,31 @@
       Schema
       <v-chip size="x-small" variant="tonal">{{ schemaTree.length }} fields</v-chip>
       <v-btn
-        variant="text"
+        variant="tonal"
         size="small"
         prepend-icon="mdi-code-json"
         @click="schemaJsonOpen = true">
         View JSON
       </v-btn>
+      <!-- Switch the right-hand columns between tags and statistics (Field stays fixed) -->
+      <v-btn-toggle
+        v-if="tableId && !collapsed"
+        v-model="schemaView"
+        mandatory
+        density="compact"
+        variant="outlined"
+        divided
+        class="ml-2">
+        <v-btn value="tags" size="small" prepend-icon="mdi-tag-multiple-outline">Tags</v-btn>
+        <v-btn value="stats" size="small" prepend-icon="mdi-chart-box-outline">Statistics</v-btn>
+      </v-btn-toggle>
       <v-spacer></v-spacer>
-      <template v-if="!collapsed">
+      <template v-if="!collapsed && schemaView === 'stats'">
+        <span v-if="canQuery" class="text-caption text-medium-emphasis mr-3">
+          Reads the
+          {{ rowLimit > 0 ? `first ${rowLimit.toLocaleString()} rows` : 'full table' }}; statistics
+          reflect that subset.
+        </span>
         <v-select
           v-model="rowLimit"
           :items="ROW_LIMIT_OPTIONS"
@@ -48,30 +65,46 @@
     <template v-if="!collapsed">
       <v-divider></v-divider>
       <div class="pa-3">
-        <v-alert v-if="!canQuery" type="info" variant="tonal" density="compact" class="mb-2">
+        <v-alert
+          v-if="schemaView === 'stats' && !canQuery"
+          type="info"
+          variant="tonal"
+          density="compact"
+          class="mb-2">
           Profiling requires the catalog connection (warehouse, namespace, table, and catalog URL).
         </v-alert>
-        <div v-else class="text-caption text-medium-emphasis mb-3">
-          Reads the
-          {{ rowLimit > 0 ? `first ${rowLimit.toLocaleString()} rows` : 'full table' }}; statistics
-          reflect that subset.
+
+        <!-- Table-level tags live with the schema (managed from the table cog menu) -->
+        <div
+          v-if="schemaView === 'tags' && tableId"
+          class="d-flex align-center flex-wrap ga-2 mb-3">
+          <span class="text-caption text-medium-emphasis">Table tags:</span>
+          <EntityTagsChips
+            scope="table"
+            :warehouse-id="warehouseId || ''"
+            :entity-id="tableId"
+            effective />
         </div>
+        <v-divider v-if="schemaView === 'tags' && tableId" class="mb-3"></v-divider>
 
         <div class="profiler-scroll" style="max-height: 560px; overflow: auto">
           <v-table density="comfortable" class="profiler-table">
             <thead>
               <tr>
                 <th class="col-field">Field</th>
-                <th class="text-right">Null&nbsp;%</th>
-                <th class="text-right">Distinct</th>
-                <th>Min</th>
-                <th>Max</th>
-                <th class="text-right">Mean</th>
-                <th class="text-right">Std&nbsp;dev</th>
-                <th class="text-right">p50</th>
-                <th class="text-right">p95</th>
-                <th class="text-right">p99</th>
-                <th class="col-top">Top values</th>
+                <template v-if="schemaView === 'stats'">
+                  <th class="text-right">Null&nbsp;%</th>
+                  <th class="text-right">Distinct</th>
+                  <th>Min</th>
+                  <th>Max</th>
+                  <th class="text-right">Mean</th>
+                  <th class="text-right">Std&nbsp;dev</th>
+                  <th class="text-right">p50</th>
+                  <th class="text-right">p95</th>
+                  <th class="text-right">p99</th>
+                  <th class="col-top">Top values</th>
+                </template>
+                <th v-else class="col-tags">Tags</th>
               </tr>
             </thead>
             <tbody>
@@ -163,56 +196,89 @@
                     </div>
                   </td>
 
-                  <!-- Stats only apply to top-level primitive columns -->
-                  <template v-if="row.profilable">
-                    <!-- Stats (when analyzed) -->
-                    <template v-if="results[row.name]?.data">
-                      <td class="text-right num">{{ results[row.name]!.data!.nullPct }}%</td>
-                      <td class="text-right num">{{ results[row.name]!.data!.distinct }}</td>
-                      <td class="num">{{ results[row.name]!.data!.min }}</td>
-                      <td class="num">{{ results[row.name]!.data!.max }}</td>
-                      <td class="text-right num">{{ results[row.name]!.data!.mean ?? '—' }}</td>
-                      <td class="text-right num">{{ results[row.name]!.data!.std ?? '—' }}</td>
-                      <td class="text-right num">{{ results[row.name]!.data!.p50 ?? '—' }}</td>
-                      <td class="text-right num">{{ results[row.name]!.data!.p95 ?? '—' }}</td>
-                      <td class="text-right num">{{ results[row.name]!.data!.p99 ?? '—' }}</td>
-                      <td class="col-top">
-                        <div
-                          v-if="results[row.name]!.data!.topValues.length > 0"
-                          class="d-flex flex-wrap"
-                          style="gap: 4px">
-                          <v-chip
-                            v-for="(t, i) in results[row.name]!.data!.topValues"
-                            :key="i"
-                            size="x-small"
-                            variant="tonal">
-                            {{ t.value }}
-                            <span class="text-medium-emphasis ml-1">
-                              {{ t.count.toLocaleString() }}
-                            </span>
-                          </v-chip>
-                        </div>
-                        <span v-else class="text-disabled">—</span>
+                  <!-- Statistics view: stats only apply to top-level primitive columns -->
+                  <template v-if="schemaView === 'stats'">
+                    <template v-if="row.profilable">
+                      <!-- Stats (when analyzed) -->
+                      <template v-if="results[row.name]?.data">
+                        <td class="text-right num">{{ results[row.name]!.data!.nullPct }}%</td>
+                        <td class="text-right num">{{ results[row.name]!.data!.distinct }}</td>
+                        <td class="num">{{ results[row.name]!.data!.min }}</td>
+                        <td class="num">{{ results[row.name]!.data!.max }}</td>
+                        <td class="text-right num">{{ results[row.name]!.data!.mean ?? '—' }}</td>
+                        <td class="text-right num">{{ results[row.name]!.data!.std ?? '—' }}</td>
+                        <td class="text-right num">{{ results[row.name]!.data!.p50 ?? '—' }}</td>
+                        <td class="text-right num">{{ results[row.name]!.data!.p95 ?? '—' }}</td>
+                        <td class="text-right num">{{ results[row.name]!.data!.p99 ?? '—' }}</td>
+                        <td class="col-top">
+                          <div
+                            v-if="results[row.name]!.data!.topValues.length > 0"
+                            class="d-flex flex-wrap"
+                            style="gap: 4px">
+                            <v-chip
+                              v-for="(t, i) in results[row.name]!.data!.topValues"
+                              :key="i"
+                              size="x-small"
+                              variant="tonal">
+                              {{ t.value }}
+                              <span class="text-medium-emphasis ml-1">
+                                {{ t.count.toLocaleString() }}
+                              </span>
+                            </v-chip>
+                          </div>
+                          <span v-else class="text-disabled">—</span>
+                        </td>
+                      </template>
+
+                      <!-- Loading / error / idle -->
+                      <td v-else colspan="10">
+                        <span
+                          v-if="results[row.name]?.loading"
+                          class="d-inline-flex align-center text-caption text-medium-emphasis">
+                          <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
+                          analyzing…
+                        </span>
+                        <span v-else-if="results[row.name]?.error" class="text-caption text-error">
+                          {{ results[row.name]?.error }}
+                        </span>
+                        <span v-else class="text-caption text-disabled">Not analyzed</span>
                       </td>
                     </template>
 
-                    <!-- Loading / error / idle -->
-                    <td v-else colspan="10">
-                      <span
-                        v-if="results[row.name]?.loading"
-                        class="d-inline-flex align-center text-caption text-medium-emphasis">
-                        <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
-                        analyzing…
-                      </span>
-                      <span v-else-if="results[row.name]?.error" class="text-caption text-error">
-                        {{ results[row.name]?.error }}
-                      </span>
-                      <span v-else class="text-caption text-disabled">Not analyzed</span>
-                    </td>
+                    <!-- Nested / structural rows: no scalar stats -->
+                    <td v-else colspan="10"></td>
                   </template>
 
-                  <!-- Nested / structural rows: no scalar stats -->
-                  <td v-else colspan="10"></td>
+                  <!-- Tags view: per-column tag chips + manage (top-level columns) -->
+                  <template v-else>
+                    <td class="col-tags">
+                      <div v-if="row.depth === 0" class="d-flex align-center flex-wrap ga-1">
+                        <v-tooltip
+                          v-for="tag in colTags(row.name)"
+                          :key="tag['tag-definition-id']"
+                          location="top"
+                          max-width="500">
+                          <template #activator="{ props: tp }">
+                            <v-chip
+                              v-bind="tp"
+                              size="small"
+                              variant="tonal"
+                              color="info"
+                              prepend-icon="mdi-tag-outline">
+                              {{ tag.name }}
+                              <span v-if="tag.value">: {{ truncate(tag.value, 32) }}</span>
+                            </v-chip>
+                          </template>
+                          <div style="white-space: pre-wrap; word-break: break-word">
+                            <div class="font-weight-medium">{{ tag.name }}</div>
+                            <div v-if="tag.value">{{ tag.value }}</div>
+                          </div>
+                        </v-tooltip>
+                        <span v-if="!colTags(row.name).length" class="text-disabled">—</span>
+                      </div>
+                      <span v-else class="text-disabled">—</span>
+                    </td>
+                  </template>
                 </tr>
               </template>
             </tbody>
@@ -296,7 +362,9 @@ import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
 import { useLoQEStore } from '../stores/loqe';
+import EntityTagsChips from './EntityTagsChips.vue';
 import type { TableMetadata } from '../gen/iceberg/types.gen';
+import type { TargetTag } from '../gen/management/types.gen';
 
 const props = defineProps<{
   metadata: TableMetadata;
@@ -304,6 +372,7 @@ const props = defineProps<{
   namespaceId?: string;
   tableName?: string;
   catalogUrl?: string;
+  tableId?: string;
 }>();
 
 const ROW_LIMIT_OPTIONS = [
@@ -315,6 +384,8 @@ const ROW_LIMIT_OPTIONS = [
   { title: 'Full table', value: 0 },
 ];
 const rowLimit = ref(100);
+// Right-hand columns: tags (default) vs statistics (Field column stays fixed).
+const schemaView = ref<'stats' | 'tags'>('tags');
 
 const functions = useFunctions();
 const config = inject<any>('appConfig', { enabledAuthentication: false });
@@ -793,6 +864,53 @@ async function analyzeAll() {
     analyzingAll.value = false;
   }
 }
+
+// --- Column tags: read-only chips shown per column in the Tags view.
+// Management lives in the table cog menu (Manage tags dialog); this component
+// just displays current tags and refreshes when the shared signal changes.
+function truncate(v: string | null | undefined, n = 20): string {
+  if (v == null) return '';
+  return v.length > n ? `${v.slice(0, n)}…` : v;
+}
+
+const columnTags = reactive<Record<string, TargetTag[]>>({});
+function colTags(name: string): TargetTag[] {
+  return columnTags[name] ?? [];
+}
+
+async function refreshColumnTags(name: string) {
+  if (!props.warehouseId || !props.tableId) return;
+  try {
+    const res = await functions.listTableColumnTags(
+      props.warehouseId,
+      props.tableId,
+      name,
+      false,
+      false,
+    );
+    columnTags[name] = res.tags ?? [];
+  } catch {
+    // handled
+  }
+}
+
+async function loadAllColumnTags() {
+  if (!props.warehouseId || !props.tableId) return;
+  const cols = currentSchema.value?.fields ?? [];
+  await Promise.all(cols.map((f) => refreshColumnTags(f.name)));
+}
+
+watch(
+  () => [props.warehouseId, props.tableId, currentSchema.value],
+  () => {
+    if (props.tableId) loadAllColumnTags();
+  },
+  { immediate: true },
+);
+watch(
+  () => visual.tagsRefresh,
+  () => loadAllColumnTags(),
+);
 </script>
 
 <style scoped>
@@ -824,5 +942,9 @@ async function analyzeAll() {
 .profiler-table :deep(.col-top) {
   white-space: normal;
   min-width: 220px;
+}
+.profiler-table :deep(.col-tags) {
+  white-space: normal;
+  min-width: 320px;
 }
 </style>

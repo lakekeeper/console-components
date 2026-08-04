@@ -18,6 +18,9 @@ import TagAttachmentsDialog from './components/TagAttachmentsDialog.vue';
 import EntityTags from './components/EntityTags.vue';
 import EntityTagsChips from './components/EntityTagsChips.vue';
 import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
+import TableTagsManageDialog from './components/TableTagsManageDialog.vue';
+import EntityTagsManagePanel from './components/EntityTagsManagePanel.vue';
+import ColumnTagsManagePanel from './components/ColumnTagsManagePanel.vue';
 import ColumnTags from './components/ColumnTags.vue';
 import RoleMembers from './components/RoleMembers.vue';
 import RoleOwners from './components/RoleOwners.vue';
@@ -124,6 +127,9 @@ export {
   EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,
+  TableTagsManageDialog,
+  EntityTagsManagePanel,
+  ColumnTagsManagePanel,
   ColumnTags,
   RoleMembers,
   RoleOwners,
@@ -350,6 +356,9 @@ const components = {
   EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,
+  TableTagsManageDialog,
+  EntityTagsManagePanel,
+  ColumnTagsManagePanel,
   ColumnTags,
   RoleMembers,
   RoleOwners,

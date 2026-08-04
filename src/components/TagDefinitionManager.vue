@@ -370,7 +370,7 @@ async function requestDelete(item: TagDefinition) {
   checkingId.value = item.id;
   let attachments: TagAttachment[] = [];
   try {
-    const res = await functions.listTagAttachments(item.id, undefined, 100, undefined, false);
+    const res = await functions.listTagAttachments(item.id, { pageSize: 100 }, false);
     attachments = res.attachments ?? [];
   } catch {
     // Can't read attachments (e.g. not the tag owner) — fall through and let the
@@ -400,7 +400,7 @@ async function doDelete() {
     // Became attached since the check — re-read to show where.
     let attachments: TagAttachment[] = [];
     try {
-      const res = await functions.listTagAttachments(item.id, undefined, 100, undefined, false);
+      const res = await functions.listTagAttachments(item.id, { pageSize: 100 }, false);
       attachments = res.attachments ?? [];
     } catch {
       // ignore — show the generic message

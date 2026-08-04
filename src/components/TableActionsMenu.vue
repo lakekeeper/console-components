@@ -28,14 +28,18 @@
       <template v-if="canManageTags && tableId">
         <v-divider class="my-1"></v-divider>
         <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
-        <EntityTagsManageDialog scope="table" :warehouse-id="warehouseId" :entity-id="tableId">
+        <TableTagsManageDialog
+          :warehouse-id="warehouseId"
+          :table-id="tableId"
+          :columns="tableColumns">
           <template #activator="{ props: aProps }">
             <v-list-item
               v-bind="aProps"
               prepend-icon="mdi-tag-multiple-outline"
-              title="Manage tags" />
+              title="Manage tags"
+              subtitle="Table & column tags" />
           </template>
-        </EntityTagsManageDialog>
+        </TableTagsManageDialog>
       </template>
 
       <template v-if="canDrop">
@@ -178,7 +182,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
-import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
+import TableTagsManageDialog from './TableTagsManageDialog.vue';
 import type { LoadTableResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -209,6 +213,16 @@ const { canCommit, canSetProtection, canDrop, canManageTags } = useTablePermissi
   tableId,
   props.warehouseId,
 );
+
+// Current-schema column names for the column-tag manage dialog.
+const tableColumns = computed(() => {
+  const meta = table.value?.metadata;
+  if (!meta) return [];
+  const schemas = meta.schemas ?? [];
+  const current =
+    schemas.find((s: any) => s['schema-id'] === meta['current-schema-id']) ?? schemas[0];
+  return (current?.fields ?? []).map((f: any) => f.name as string);
+});
 
 const deleteOpen = ref(false);
 const deleting = ref(false);
