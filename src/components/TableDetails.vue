@@ -331,16 +331,16 @@
           Layout &amp; ordering
         </v-card-title>
         <v-card-text>
-          <v-row>
+          <v-row dense>
             <v-col cols="12" md="6">
-              <div class="section-head">
-                <v-icon size="18" class="mr-2" color="warning">mdi-view-grid-outline</v-icon>
+              <div class="text-overline text-medium-emphasis d-flex align-center">
+                <v-icon size="16" class="mr-1" color="warning">mdi-view-grid-outline</v-icon>
                 Partitioning
                 <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal" class="ml-2">
                   spec {{ activePartitionSpec['spec-id'] }}
                 </v-chip>
               </div>
-              <v-sheet rounded="lg" border class="pa-3 fill-height">
+              <div class="mt-2">
                 <template v-if="activePartitionSpec && activePartitionSpec.fields.length">
                   <v-chip
                     v-for="field in activePartitionSpec.fields"
@@ -352,19 +352,19 @@
                     {{ formatPartitionField(field) }}
                   </v-chip>
                 </template>
-                <v-chip v-else size="small" color="grey" variant="tonal">Unpartitioned</v-chip>
-              </v-sheet>
+                <span v-else class="text-medium-emphasis">Unpartitioned</span>
+              </div>
             </v-col>
 
             <v-col cols="12" md="6">
-              <div class="section-head">
-                <v-icon size="18" class="mr-2" color="success">mdi-sort-ascending</v-icon>
+              <div class="text-overline text-medium-emphasis d-flex align-center">
+                <v-icon size="16" class="mr-1" color="success">mdi-sort-ascending</v-icon>
                 Sort order
                 <v-chip v-if="activeSortOrder" size="x-small" variant="tonal" class="ml-2">
                   order {{ activeSortOrder['order-id'] }}
                 </v-chip>
               </div>
-              <v-sheet rounded="lg" border class="pa-3 fill-height">
+              <div class="mt-2">
                 <template v-if="activeSortOrder && activeSortOrder.fields.length">
                   <v-chip
                     v-for="(field, idx) in activeSortOrder.fields"
@@ -376,8 +376,8 @@
                     {{ formatSortField(field) }}
                   </v-chip>
                 </template>
-                <v-chip v-else size="small" color="grey" variant="tonal">Unsorted</v-chip>
-              </v-sheet>
+                <span v-else class="text-medium-emphasis">Unsorted</span>
+              </div>
             </v-col>
           </v-row>
         </v-card-text>
