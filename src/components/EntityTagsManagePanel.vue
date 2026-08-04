@@ -61,6 +61,16 @@
         </v-chip>
         <v-chip v-else color="info" size="x-small" variant="tonal">direct</v-chip>
       </template>
+      <template #item.created-at="{ item }">
+        <span class="text-caption" style="white-space: nowrap">
+          {{ fmtDate(item['created-at']) }}
+        </span>
+      </template>
+      <template #item.updated-at="{ item }">
+        <span class="text-caption" style="white-space: nowrap">
+          {{ fmtDate(item['updated-at']) }}
+        </span>
+      </template>
       <template #item.actions="{ item }">
         <template v-if="!item['inherited-from']">
           <v-btn
@@ -207,8 +217,14 @@ const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Value', key: 'value', align: 'start' },
   { title: 'Origin', key: 'origin', align: 'start', sortable: false },
+  { title: 'Created', key: 'created-at', align: 'start' },
+  { title: 'Updated', key: 'updated-at', align: 'start' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
+
+function fmtDate(v?: string | null): string {
+  return v ? new Date(v).toLocaleString() : '—';
+}
 
 type SetFn = (tagName: string, value?: string | null, notify?: boolean) => Promise<unknown>;
 type DelFn = (tagName: string, notify?: boolean) => Promise<unknown>;

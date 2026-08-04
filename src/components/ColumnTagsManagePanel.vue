@@ -11,6 +11,12 @@
         <span v-if="item.value !== null && item.value !== undefined">{{ item.value }}</span>
         <span v-else class="text-disabled">—</span>
       </template>
+      <template #item.created="{ item }">
+        <span class="text-caption" style="white-space: nowrap">{{ fmtDate(item.created) }}</span>
+      </template>
+      <template #item.updated="{ item }">
+        <span class="text-caption" style="white-space: nowrap">{{ fmtDate(item.updated) }}</span>
+      </template>
       <template #item.actions="{ item }">
         <div class="d-flex flex-nowrap justify-end">
           <v-btn
@@ -154,19 +160,38 @@ const headers: readonly Header[] = Object.freeze([
   { title: 'Column', key: 'column', align: 'start' },
   { title: 'Tag', key: 'name', align: 'start' },
   { title: 'Value', key: 'value', align: 'start' },
+  { title: 'Created', key: 'created', align: 'start' },
+  { title: 'Updated', key: 'updated', align: 'start' },
   { title: '', key: 'actions', align: 'end', sortable: false, width: '96px' },
 ]);
+
+function fmtDate(v?: string | null): string {
+  return v ? new Date(v).toLocaleString() : '—';
+}
 
 const applicableDefinitions = computed(() =>
   definitions.value.filter((d) => d.scope.includes('column')),
 );
 
 const allColumnTagRows = computed(() => {
-  const rows: { column: string; name: string; value: string | null | undefined; tag: TargetTag }[] =
-    [];
+  const rows: {
+    column: string;
+    name: string;
+    value: string | null | undefined;
+    created: string | null | undefined;
+    updated: string | null | undefined;
+    tag: TargetTag;
+  }[] = [];
   for (const col of props.columns) {
     for (const tag of columnTags[col] ?? []) {
-      rows.push({ column: col, name: tag.name, value: tag.value, tag });
+      rows.push({
+        column: col,
+        name: tag.name,
+        value: tag.value,
+        created: tag['created-at'],
+        updated: tag['updated-at'],
+        tag,
+      });
     }
   }
   return rows;
