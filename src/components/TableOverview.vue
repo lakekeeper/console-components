@@ -7,6 +7,7 @@
       :table-name="props.tableName"
       :catalog-url="catalogUrl"
       :can-edit="canCommit"
+      :can-manage-tags="canManageTags"
       @updated="loadTableData" />
   </div>
 </template>
@@ -29,7 +30,7 @@ const catalogUrl = computed(() => `${functions.icebergCatalogUrl()}catalog`);
 const tableId = ref('');
 
 // Table permissions (rename / properties edit are gated on commit)
-const { canCommit } = useTablePermissions(
+const { canCommit, canManageTags } = useTablePermissions(
   computed(() => tableId.value),
   computed(() => props.warehouseId),
 );

@@ -1,6 +1,6 @@
 <template>
   <v-card flat>
-    <v-toolbar class="mb-2" color="transparent" density="compact" flat>
+    <v-toolbar class="mb-1" color="transparent" density="compact" flat>
       <template #prepend>
         <v-icon>mdi-tag-multiple-outline</v-icon>
       </template>
@@ -22,75 +22,168 @@
         color="info"
         size="small"
         variant="flat"
-        prepend-icon="mdi-plus"
-        text="Apply tag"
-        @click="openApplyDialog"></v-btn>
+        prepend-icon="mdi-tag-edit-outline"
+        text="Manage tags"
+        @click="manageDialog = true"></v-btn>
     </v-toolbar>
 
-    <v-data-table
-      :headers="headers"
-      :items="tags"
-      :loading="loading"
-      density="comfortable"
-      item-value="tag-definition-id"
-      :sort-by="[{ key: 'name', order: 'asc' }]">
-      <template #item.name="{ item }">
-        <span style="display: flex; align-items: center">
-          <v-icon class="mr-2" color="info" size="small">mdi-tag-outline</v-icon>
-          {{ item.name }}
-        </span>
+    <!-- Compact read-only chip summary. -->
+    <div class="px-2 pb-3 d-flex flex-wrap align-center ga-2">
+      <v-progress-circular
+        v-if="loading"
+        indeterminate
+        color="info"
+        size="20"></v-progress-circular>
+      <template v-else-if="tags.length">
+        <v-tooltip v-for="t in tags" :key="t['tag-definition-id']" location="top" max-width="500">
+          <template #activator="{ props: tp }">
+            <v-chip
+              v-bind="tp"
+              size="small"
+              :color="t['inherited-from'] ? undefined : 'info'"
+              :variant="t['inherited-from'] ? 'outlined' : 'tonal'">
+              <v-icon start size="x-small">mdi-tag-outline</v-icon>
+              {{ t.name }}
+              <span v-if="t.value !== null && t.value !== undefined">
+                :&nbsp;{{ truncate(t.value, 40) }}
+              </span>
+              <v-icon v-if="t['inherited-from']" end size="x-small">mdi-arrow-top-left</v-icon>
+            </v-chip>
+          </template>
+          <div style="white-space: pre-wrap; word-break: break-word">
+            <div class="font-weight-medium">{{ t.name }}</div>
+            <div v-if="t.value !== null && t.value !== undefined">{{ t.value }}</div>
+            <div v-if="t['inherited-from']" class="text-caption">
+              inherited from {{ inheritedFromLabel(t['inherited-from']) }}
+            </div>
+          </div>
+        </v-tooltip>
       </template>
-      <template #item.value="{ item }">
-        <span v-if="item.value !== null && item.value !== undefined">{{ item.value }}</span>
-        <span v-else class="text-disabled">—</span>
-      </template>
-      <template #item.origin="{ item }">
-        <v-chip v-if="item['inherited-from']" color="grey" size="x-small" variant="tonal">
-          <v-icon start size="x-small">mdi-arrow-top-left</v-icon>
-          inherited from {{ inheritedFromLabel(item['inherited-from']) }}
-        </v-chip>
-        <v-chip v-else color="info" size="x-small" variant="tonal">direct</v-chip>
-      </template>
-      <template #item.actions="{ item }">
-        <template v-if="canManage && !item['inherited-from']">
+      <span v-else class="text-disabled text-caption">No tags applied.</span>
+    </div>
+
+    <!-- Manage dialog: full apply / edit / remove table. -->
+    <v-dialog v-model="manageDialog" max-width="860">
+      <v-card>
+        <v-toolbar color="transparent" density="compact" flat class="pl-4">
+          <v-icon class="mr-2">mdi-tag-multiple-outline</v-icon>
+          <v-toolbar-title><span class="text-subtitle-1">Manage tags</span></v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-switch
+            v-if="scope !== 'warehouse'"
+            v-model="effective"
+            class="mr-4"
+            color="info"
+            density="compact"
+            hide-details
+            label="Show inherited"
+            @update:model-value="loadTags"></v-switch>
           <v-btn
-            v-if="tagKind(item) !== 'marker'"
-            icon="mdi-pencil"
-            size="x-small"
-            variant="text"
-            @click="openEditDialog(item)"></v-btn>
-          <v-btn
-            color="error"
-            icon="mdi-delete-outline"
-            size="x-small"
-            variant="text"
-            @click="removeTag(item)"></v-btn>
-        </template>
-      </template>
-      <template #no-data>
-        <span class="text-disabled">No tags applied.</span>
-      </template>
-    </v-data-table>
+            color="info"
+            size="small"
+            variant="flat"
+            prepend-icon="mdi-plus"
+            text="Apply tag"
+            @click="openApplyDialog"></v-btn>
+        </v-toolbar>
+        <v-data-table
+          :headers="headers"
+          :items="tags"
+          :loading="loading"
+          density="comfortable"
+          item-value="tag-definition-id"
+          :sort-by="[{ key: 'name', order: 'asc' }]">
+          <template #item.name="{ item }">
+            <span style="display: flex; align-items: center">
+              <v-icon class="mr-2" color="info" size="small">mdi-tag-outline</v-icon>
+              {{ item.name }}
+            </span>
+          </template>
+          <template #item.value="{ item }">
+            <v-tooltip
+              v-if="item.value !== null && item.value !== undefined"
+              location="top"
+              max-width="500">
+              <template #activator="{ props: tp }">
+                <span
+                  v-bind="tp"
+                  class="d-inline-block text-truncate"
+                  style="max-width: 320px; vertical-align: bottom">
+                  {{ item.value }}
+                </span>
+              </template>
+              <span style="white-space: pre-wrap; word-break: break-word">{{ item.value }}</span>
+            </v-tooltip>
+            <span v-else class="text-disabled">—</span>
+          </template>
+          <template #item.origin="{ item }">
+            <v-chip v-if="item['inherited-from']" color="grey" size="x-small" variant="tonal">
+              <v-icon start size="x-small">mdi-arrow-top-left</v-icon>
+              inherited from {{ inheritedFromLabel(item['inherited-from']) }}
+            </v-chip>
+            <v-chip v-else color="info" size="x-small" variant="tonal">direct</v-chip>
+          </template>
+          <template #item.actions="{ item }">
+            <template v-if="canManage && !item['inherited-from']">
+              <v-btn
+                v-if="tagKind(item) !== 'marker'"
+                icon="mdi-pencil"
+                size="x-small"
+                variant="text"
+                @click="openEditDialog(item)"></v-btn>
+              <v-btn
+                color="error"
+                icon="mdi-delete-outline"
+                size="x-small"
+                variant="text"
+                @click="requestRemove(item)"></v-btn>
+            </template>
+          </template>
+          <template #no-data>
+            <span class="text-disabled">No tags applied.</span>
+          </template>
+        </v-data-table>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text="Close" @click="manageDialog = false"></v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Apply / edit dialog -->
     <v-dialog v-model="dialog" max-width="500">
       <v-card :title="editing ? `Edit tag '${form.name}'` : 'Apply tag'">
         <v-card-text>
-          <v-select
+          <v-autocomplete
             v-if="!editing"
             v-model="form.tagDefinitionId"
-            label="Tag definition"
+            label="Tag"
+            placeholder="Type to find a tag"
             :items="applicableDefinitions"
             item-title="name"
             item-value="id"
-            :rules="[(v) => !!v || 'Select a tag definition']"
-            @update:model-value="onDefinitionSelected"></v-select>
+            auto-select-first
+            :rules="[(v) => !!v || 'Select a tag']"
+            @update:model-value="onDefinitionSelected"></v-autocomplete>
 
           <template v-if="selectedKind === 'free-text'">
             <v-text-field
               v-model="form.value"
               label="Value"
-              :rules="[(v) => (v !== null && v !== '') || 'Value is required']"></v-text-field>
+              maxlength="256"
+              counter="256"
+              :rules="[
+                (v) => (v !== null && v !== '') || 'Value is required',
+                (v) => (v?.length ?? 0) <= 256 || 'Max 256 characters',
+              ]">
+              <template #counter="{ value, max }">
+                <span
+                  class="text-caption mr-3"
+                  :class="Number(value) >= Number(max) ? 'text-warning' : 'text-medium-emphasis'">
+                  {{ value }} / {{ max }}
+                </span>
+              </template>
+            </v-text-field>
           </template>
           <template v-else-if="selectedKind === 'enumerated'">
             <v-select
@@ -108,6 +201,26 @@
           <v-spacer></v-spacer>
           <v-btn color="success" :disabled="!canSubmit" @click="submit">save</v-btn>
           <v-btn color="error" text="Cancel" @click="dialog = false"></v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Remove confirmation -->
+    <v-dialog v-model="confirmRemoveOpen" max-width="440">
+      <v-card>
+        <v-card-title class="d-flex align-center ga-2">
+          <v-icon color="error">mdi-delete-outline</v-icon>
+          Remove tag
+        </v-card-title>
+        <v-card-text>
+          Remove
+          <strong>{{ pendingRemove?.name }}</strong>
+          from this {{ scope }}?
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
+          <v-btn color="error" variant="flat" text="Remove" @click="doRemove"></v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -139,6 +252,12 @@ const notify = true;
 const tags = ref<TargetTag[]>([]);
 const loading = ref(false);
 const effective = ref(false);
+const manageDialog = ref(false);
+
+function truncate(v: string | null | undefined, n = 40): string {
+  if (v == null) return '';
+  return v.length > n ? `${v.slice(0, n)}…` : v;
+}
 
 const definitions = ref<TagDefinition[]>([]);
 const definitionByName = computed(() => {
@@ -246,7 +365,9 @@ const form = reactive<{
 const canSubmit = computed(() => {
   if (!editing.value && !form.tagDefinitionId) return false;
   if (selectedKind.value === 'marker') return true;
-  return form.value !== null && form.value !== '';
+  if (form.value === null || form.value === '') return false;
+  if (selectedKind.value === 'free-text' && form.value.length > 256) return false;
+  return true;
 });
 
 async function openApplyDialog() {
@@ -305,7 +426,18 @@ async function submit() {
   }
 }
 
-async function removeTag(tag: TargetTag) {
+const confirmRemoveOpen = ref(false);
+const pendingRemove = ref<TargetTag | null>(null);
+
+function requestRemove(tag: TargetTag) {
+  pendingRemove.value = tag;
+  confirmRemoveOpen.value = true;
+}
+
+async function doRemove() {
+  const tag = pendingRemove.value;
+  if (!tag) return;
+  confirmRemoveOpen.value = false;
   try {
     await api.value.del(tag.name, notify);
     await loadTags();

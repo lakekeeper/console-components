@@ -16,6 +16,8 @@ import PermissionExplorer from './components/PermissionExplorer.vue';
 import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsDialog from './components/TagAttachmentsDialog.vue';
 import EntityTags from './components/EntityTags.vue';
+import EntityTagsChips from './components/EntityTagsChips.vue';
+import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
 import ColumnTags from './components/ColumnTags.vue';
 import RoleMembers from './components/RoleMembers.vue';
 import RoleOwners from './components/RoleOwners.vue';
@@ -46,6 +48,7 @@ import NamespaceGenericTables from './components/NamespaceGenericTables.vue';
 import NamespaceDeleted from './components/NamespaceDeleted.vue';
 import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
+import NamespaceDetails from './components/NamespaceDetails.vue';
 import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import TableHeader from './components/TableHeader.vue';
@@ -119,6 +122,8 @@ export {
   TagDefinitionDialog,
   TagAttachmentsDialog,
   EntityTags,
+  EntityTagsChips,
+  EntityTagsManageDialog,
   ColumnTags,
   RoleMembers,
   RoleOwners,
@@ -167,6 +172,7 @@ export {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespaceDetails,
   NamespaceActionsMenu,
   NamespacePropertiesDialog,
   TableHeader,
@@ -342,6 +348,8 @@ const components = {
   TagDefinitionDialog,
   TagAttachmentsDialog,
   EntityTags,
+  EntityTagsChips,
+  EntityTagsManageDialog,
   ColumnTags,
   RoleMembers,
   RoleOwners,
@@ -390,6 +398,7 @@ const components = {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespaceDetails,
   NamespaceActionsMenu,
   NamespacePropertiesDialog,
   TableHeader,

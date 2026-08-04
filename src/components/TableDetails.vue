@@ -89,6 +89,32 @@
       :table-name="tableName"
       :catalog-url="catalogUrl" />
 
+    <!-- Governance (table + column tags), sitting with the schema. -->
+    <template v-if="tableId">
+      <div class="section-head mt-6">
+        <v-icon size="18" class="mr-2" color="primary">mdi-tag-multiple-outline</v-icon>
+        Governance
+      </div>
+      <v-sheet rounded="lg" border class="mb-6 pa-3">
+        <div class="text-caption text-medium-emphasis mb-1">Table tags</div>
+        <EntityTagsChips
+          scope="table"
+          :warehouse-id="warehouseId || ''"
+          :entity-id="tableId"
+          effective />
+
+        <v-divider class="my-3"></v-divider>
+
+        <div class="text-caption text-medium-emphasis mb-1">Column tags</div>
+        <ColumnTags
+          :warehouse-id="warehouseId || ''"
+          :table-id="tableId"
+          :columns="tableColumns"
+          :can-manage="canManageTags"
+          hide-header />
+      </v-sheet>
+    </template>
+
     <!-- Schema evolution -->
     <v-expansion-panels v-model="schemaPanels" multiple class="mb-6">
       <!-- Schema evolution -->
@@ -464,6 +490,8 @@ import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import TableColumnProfiler from './TableColumnProfiler.vue';
+import EntityTagsChips from './EntityTagsChips.vue';
+import ColumnTags from './ColumnTags.vue';
 import type {
   LoadTableResult,
   PartitionField,
@@ -480,12 +508,22 @@ const props = defineProps<{
   tableName?: string;
   catalogUrl?: string;
   canEdit?: boolean;
+  canManageTags?: boolean;
 }>();
 
 // Emits
 defineEmits<{
   updated: [];
 }>();
+
+// Governance tags: bind against the table UUID + its current-schema columns.
+const tableId = computed(() => props.table.metadata?.['table-uuid'] || '');
+const tableColumns = computed(() => {
+  const schemas = props.table.metadata?.schemas ?? [];
+  const currentId = props.table.metadata?.['current-schema-id'];
+  const current = schemas.find((s: any) => s['schema-id'] === currentId) ?? schemas[0];
+  return (current?.fields ?? []).map((f: any) => ({ name: f.name, fieldId: f.id }));
+});
 
 // Composables
 const functions = useFunctions();

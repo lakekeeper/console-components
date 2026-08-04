@@ -1,6 +1,6 @@
 <template>
   <v-card flat>
-    <v-toolbar class="mb-2" color="transparent" density="compact" flat>
+    <v-toolbar v-if="!hideHeader" class="mb-1" color="transparent" density="compact" flat>
       <template #prepend>
         <v-icon>mdi-table-column</v-icon>
       </template>
@@ -17,66 +17,145 @@
       item-value="name">
       <template #item.tags="{ item }">
         <template v-if="tagsByColumn[item.name]?.length">
-          <v-chip
+          <v-tooltip
             v-for="tag in tagsByColumn[item.name]"
             :key="tag['tag-definition-id']"
-            class="mr-1 mb-1"
-            size="small"
-            variant="tonal"
-            :closable="canManage"
-            @click:close="removeTag(item, tag)">
-            {{ tag.name }}
-            <span v-if="tag.value">: {{ tag.value }}</span>
-          </v-chip>
+            location="top"
+            max-width="500">
+            <template #activator="{ props: tp }">
+              <v-chip v-bind="tp" class="mr-1 mb-1" size="small" variant="tonal">
+                {{ tag.name }}
+                <span v-if="tag.value">: {{ truncate(tag.value, 30) }}</span>
+              </v-chip>
+            </template>
+            <div style="white-space: pre-wrap; word-break: break-word">
+              <div class="font-weight-medium">{{ tag.name }}</div>
+              <div v-if="tag.value">{{ tag.value }}</div>
+            </div>
+          </v-tooltip>
         </template>
         <span v-else class="text-disabled">—</span>
       </template>
       <template #item.actions="{ item }">
         <v-btn
           v-if="canManage"
-          icon="mdi-tag-plus-outline"
+          icon="mdi-tag-edit-outline"
           size="x-small"
           variant="text"
-          title="Apply tag"
-          @click="openApplyDialog(item)"></v-btn>
+          title="Manage tags"
+          @click="openManage(item)"></v-btn>
       </template>
       <template #no-data>
         <span class="text-disabled">No columns.</span>
       </template>
     </v-data-table>
 
-    <v-dialog v-model="dialog" max-width="500">
-      <v-card :title="`Apply tag to column '${activeColumn?.name}'`">
+    <!-- Per-column manage dialog. -->
+    <v-dialog v-model="manageDialog" max-width="560">
+      <v-card :title="`Manage tags — column '${activeColumn?.name}'`">
         <v-card-text>
-          <v-select
+          <div v-if="activeTags.length" class="mb-3 d-flex flex-wrap ga-1">
+            <v-chip
+              v-for="tag in activeTags"
+              :key="tag['tag-definition-id']"
+              size="small"
+              variant="tonal"
+              closable
+              @click:close="requestRemove(tag)">
+              {{ tag.name }}
+              <span v-if="tag.value">: {{ truncate(tag.value, 40) }}</span>
+            </v-chip>
+          </div>
+          <div v-else class="text-caption text-disabled mb-3">No tags on this column.</div>
+
+          <v-divider class="mb-3"></v-divider>
+          <div class="text-overline mb-1">Apply a tag</div>
+          <v-autocomplete
             v-model="form.tagDefinitionId"
-            label="Tag definition"
+            label="Tag"
+            placeholder="Type to find a tag"
             :items="applicableDefinitions"
             item-title="name"
             item-value="id"
-            :rules="[(v) => !!v || 'Select a tag definition']"
-            @update:model-value="onDefinitionSelected"></v-select>
+            auto-select-first
+            density="compact"
+            @update:model-value="onDefinitionSelected"></v-autocomplete>
 
           <v-text-field
             v-if="selectedKind === 'free-text'"
             v-model="form.value"
             label="Value"
-            :rules="[(v) => (v !== null && v !== '') || 'Value is required']"></v-text-field>
+            density="compact"
+            maxlength="256"
+            counter="256"
+            :rules="[
+              (v) => (v !== null && v !== '') || 'Value is required',
+              (v) => (v?.length ?? 0) <= 256 || 'Max 256 characters',
+            ]">
+            <template #counter="{ value, max }">
+              <span
+                class="text-caption mr-3"
+                :class="Number(value) >= Number(max) ? 'text-warning' : 'text-medium-emphasis'">
+                {{ value }} / {{ max }}
+              </span>
+            </template>
+          </v-text-field>
           <v-select
             v-else-if="selectedKind === 'enumerated'"
             v-model="form.value"
             label="Value"
+            density="compact"
             :items="allowedValues"
             :loading="loadingDefinition"
             :rules="[(v) => (v !== null && v !== '') || 'Value is required']"></v-select>
           <div v-else-if="selectedKind === 'marker'" class="text-caption text-disabled">
             Marker tag — no value.
           </div>
+
+          <div class="d-flex justify-end">
+            <v-btn color="success" size="small" :disabled="!canSubmit" @click="submit">apply</v-btn>
+          </div>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="success" :disabled="!canSubmit" @click="submit">save</v-btn>
-          <v-btn color="error" text="Cancel" @click="dialog = false"></v-btn>
+          <v-btn text="Close" @click="manageDialog = false"></v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Remove confirmation -->
+    <v-dialog v-model="confirmRemoveOpen" max-width="440">
+      <v-card>
+        <v-card-title class="d-flex align-center ga-2">
+          <v-icon color="error">mdi-delete-outline</v-icon>
+          Remove tag
+        </v-card-title>
+        <v-card-text>
+          <p class="mb-3">
+            Remove
+            <strong>{{ pendingRemove?.name }}</strong>
+            from column
+            <strong>{{ activeColumn?.name }}</strong>
+            ?
+          </p>
+          <v-text-field
+            v-model="confirmRemoveName"
+            density="compact"
+            variant="outlined"
+            autocomplete="off"
+            :label="`Type “${pendingRemove?.name}” to confirm`"
+            :error="confirmRemoveName.length > 0 && !removeConfirmed"
+            @keyup.enter="removeConfirmed && doRemove()"></v-text-field>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
+          <v-btn
+            color="error"
+            variant="flat"
+            text="Remove"
+            :disabled="!removeConfirmed"
+            @click="doRemove"></v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -99,10 +178,17 @@ const props = defineProps<{
   tableId: string;
   columns: ColumnRef[];
   canManage?: boolean;
+  // Suppress the internal toolbar title when the caller supplies its own heading.
+  hideHeader?: boolean;
 }>();
 
 const functions = useFunctions();
 const notify = true;
+
+function truncate(v: string | null | undefined, n = 30): string {
+  if (v == null) return '';
+  return v.length > n ? `${v.slice(0, n)}…` : v;
+}
 
 const loading = ref(false);
 const tagsByColumn = reactive<Record<string, TargetTag[]>>({});
@@ -149,9 +235,13 @@ async function loadAllColumnTags() {
   }
 }
 
-// ---- apply dialog ----
-const dialog = ref(false);
+// ---- per-column manage dialog ----
+const manageDialog = ref(false);
 const activeColumn = ref<ColumnRef | null>(null);
+const activeTags = computed(() =>
+  activeColumn.value ? (tagsByColumn[activeColumn.value.name] ?? []) : [],
+);
+
 const loadingDefinition = ref(false);
 const allowedValues = ref<string[]>([]);
 const selectedKind = ref<TagValueKind | undefined>(undefined);
@@ -164,17 +254,23 @@ const form = reactive<{ tagDefinitionId: string | null; name: string; value: str
 const canSubmit = computed(() => {
   if (!form.tagDefinitionId) return false;
   if (selectedKind.value === 'marker') return true;
-  return form.value !== null && form.value !== '';
+  if (form.value === null || form.value === '') return false;
+  if (selectedKind.value === 'free-text' && form.value.length > 256) return false;
+  return true;
 });
 
-function openApplyDialog(col: ColumnRef) {
-  activeColumn.value = col;
+function resetForm() {
   form.tagDefinitionId = null;
   form.name = '';
   form.value = null;
   selectedKind.value = undefined;
   allowedValues.value = [];
-  dialog.value = true;
+}
+
+function openManage(col: ColumnRef) {
+  activeColumn.value = col;
+  resetForm();
+  manageDialog.value = true;
 }
 
 async function onDefinitionSelected(id: string | null) {
@@ -207,14 +303,31 @@ async function submit() {
       value,
       notify,
     );
-    dialog.value = false;
+    resetForm();
     await refreshColumn(col);
   } catch {
     // handled
   }
 }
 
-async function removeTag(col: ColumnRef, tag: TargetTag) {
+const confirmRemoveOpen = ref(false);
+const pendingRemove = ref<TargetTag | null>(null);
+const confirmRemoveName = ref('');
+const removeConfirmed = computed(
+  () => !!pendingRemove.value && confirmRemoveName.value.trim() === pendingRemove.value.name,
+);
+
+function requestRemove(tag: TargetTag) {
+  pendingRemove.value = tag;
+  confirmRemoveName.value = '';
+  confirmRemoveOpen.value = true;
+}
+
+async function doRemove() {
+  const tag = pendingRemove.value;
+  const col = activeColumn.value;
+  if (!tag || !col) return;
+  confirmRemoveOpen.value = false;
   try {
     await functions.deleteTableColumnTag(
       props.warehouseId,

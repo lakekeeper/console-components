@@ -25,6 +25,19 @@
       <!-- Premium maintenance actions (schedule / advanced overrides) -->
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
 
+      <template v-if="canManageTags && tableId">
+        <v-divider class="my-1"></v-divider>
+        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
+        <EntityTagsManageDialog scope="table" :warehouse-id="warehouseId" :entity-id="tableId">
+          <template #activator="{ props: aProps }">
+            <v-list-item
+              v-bind="aProps"
+              prepend-icon="mdi-tag-multiple-outline"
+              title="Manage tags" />
+          </template>
+        </EntityTagsManageDialog>
+      </template>
+
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
         <v-list-item
@@ -165,6 +178,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
+import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 import type { LoadTableResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -191,7 +205,10 @@ const protectedState = ref(false);
 const nameInput = ref(props.tableName);
 const protectedPending = ref(false);
 
-const { canCommit, canSetProtection, canDrop } = useTablePermissions(tableId, props.warehouseId);
+const { canCommit, canSetProtection, canDrop, canManageTags } = useTablePermissions(
+  tableId,
+  props.warehouseId,
+);
 
 const deleteOpen = ref(false);
 const deleting = ref(false);
