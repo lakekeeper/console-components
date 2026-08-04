@@ -15,6 +15,7 @@ import TagDefinitionManager from './components/TagDefinitionManager.vue';
 import PermissionExplorer from './components/PermissionExplorer.vue';
 import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsDialog from './components/TagAttachmentsDialog.vue';
+import TagPermissionsDialog from './components/TagPermissionsDialog.vue';
 import EntityTags from './components/EntityTags.vue';
 import EntityTagsChips from './components/EntityTagsChips.vue';
 import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
@@ -124,6 +125,7 @@ export {
   PermissionExplorer,
   TagDefinitionDialog,
   TagAttachmentsDialog,
+  TagPermissionsDialog,
   EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,
@@ -353,6 +355,7 @@ const components = {
   PermissionExplorer,
   TagDefinitionDialog,
   TagAttachmentsDialog,
+  TagPermissionsDialog,
   EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,

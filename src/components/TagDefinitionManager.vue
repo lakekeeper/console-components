@@ -128,6 +128,19 @@
         </template>
         <template #item.actions="{ item }">
           <TagAttachmentsDialog :tag-definition-id="item.id" :name="item.name" />
+          <TagPermissionsDialog
+            v-if="isOpenFga && !isSystem(item)"
+            :tag-definition-id="item.id"
+            :tag-name="item.name">
+            <template #activator="{ props: aProps }">
+              <v-btn
+                v-bind="aProps"
+                icon="mdi-shield-key-outline"
+                size="x-small"
+                variant="text"
+                title="Permissions"></v-btn>
+            </template>
+          </TagPermissionsDialog>
           <template v-if="!isSystem(item) && canCreateTag">
             <TagDefinitionDialog
               action-type="edit"
@@ -233,6 +246,9 @@ import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.v
 const functions = useFunctions();
 const visual = useVisualStore();
 const notify = true;
+
+// Per-tag permission management (owners / can-apply) is OpenFGA-only.
+const isOpenFga = computed(() => visual.getServerInfo()?.['authz-backend'] === 'openfga');
 
 const definitions = ref<TagDefinition[]>([]);
 const loading = ref(false);
