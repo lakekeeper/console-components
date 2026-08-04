@@ -13,6 +13,13 @@
       </template>
       <template #item.actions="{ item }">
         <v-btn
+          v-if="item.value !== null && item.value !== undefined"
+          icon="mdi-pencil"
+          size="x-small"
+          variant="text"
+          title="Edit value"
+          @click="openEdit(item)"></v-btn>
+        <v-btn
           color="error"
           icon="mdi-delete-outline"
           size="x-small"
@@ -27,14 +34,14 @@
     <v-divider></v-divider>
     <div class="pa-4">
       <div class="text-overline mb-2">Apply a tag</div>
-      <div class="d-flex flex-wrap align-start ga-2">
+      <div class="d-flex flex-wrap align-start ga-2 mb-2">
         <v-select
           v-model="form.column"
           label="Column"
           :items="columns"
           density="compact"
           hide-details
-          style="min-width: 180px"></v-select>
+          style="min-width: 200px"></v-select>
         <v-autocomplete
           v-model="form.tagDefinitionId"
           label="Tag"
@@ -47,14 +54,25 @@
           hide-details
           style="min-width: 200px"
           @update:model-value="onDefinitionSelected"></v-autocomplete>
+      </div>
+
+      <div class="d-flex flex-wrap align-start ga-2">
         <v-text-field
           v-if="selectedKind === 'free-text'"
           v-model="form.value"
           label="Value"
           density="compact"
           maxlength="256"
-          hide-details
-          style="min-width: 200px"></v-text-field>
+          counter="256"
+          style="min-width: 320px">
+          <template #counter="{ value, max }">
+            <span
+              class="text-caption mr-3"
+              :class="Number(value) >= Number(max) ? 'text-warning' : 'text-medium-emphasis'">
+              {{ value }} / {{ max }}
+            </span>
+          </template>
+        </v-text-field>
         <v-select
           v-else-if="selectedKind === 'enumerated'"
           v-model="form.value"
@@ -63,11 +81,9 @@
           :items="allowedValues"
           :loading="loadingDefinition"
           hide-details
-          style="min-width: 200px"></v-select>
-        <span
-          v-else-if="selectedKind === 'marker'"
-          class="text-caption text-disabled align-self-center">
-          Marker — no value
+          style="min-width: 320px"></v-select>
+        <span v-else class="text-caption text-disabled align-self-center">
+          {{ selectedKind === 'marker' ? 'Marker — no value' : 'Select a tag to set its value' }}
         </span>
         <v-btn color="success" :disabled="!canSubmit" @click="submit">apply</v-btn>
       </div>
@@ -223,6 +239,15 @@ function resetForm() {
   form.value = null;
   selectedKind.value = undefined;
   allowedValues.value = [];
+}
+
+// Load an existing column tag into the apply form so its value can be edited
+// (re-applying the same tag with a new value overwrites it — idempotent PUT).
+async function openEdit(row: { column: string; tag: TargetTag }) {
+  await onDefinitionSelected(row.tag['tag-definition-id']);
+  form.column = row.column;
+  form.tagDefinitionId = row.tag['tag-definition-id'];
+  form.value = row.tag.value ?? null;
 }
 
 async function onDefinitionSelected(id: string | null) {
