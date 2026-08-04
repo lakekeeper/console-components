@@ -1,10 +1,11 @@
 <template>
-  <v-card-text>
-    <div class="section-head">
-      <v-icon size="18" class="mr-2" color="primary">mdi-information-outline</v-icon>
-      Identity
-    </div>
-    <v-sheet rounded="lg" border class="mb-6">
+  <v-card-text class="pa-4">
+    <!-- Identity -->
+    <v-card variant="outlined" class="mb-6">
+      <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+        <v-icon icon="mdi-information-outline" class="mr-2" color="primary"></v-icon>
+        Identity
+      </v-card-title>
       <v-table density="compact">
         <tbody>
           <tr>
@@ -42,29 +43,35 @@
           </tr>
         </tbody>
       </v-table>
-    </v-sheet>
+    </v-card>
 
-    <div class="section-head">
-      <v-icon size="18" class="mr-2" color="primary">mdi-tag-multiple-outline</v-icon>
-      Governance
-    </div>
-    <v-sheet rounded="lg" border class="mb-6 pa-3">
-      <div class="text-caption text-medium-emphasis mb-1">Tags</div>
-      <EntityTagsChips
-        v-if="namespaceId"
-        scope="namespace"
-        :warehouse-id="warehouseId"
-        :entity-id="namespaceId"
-        effective />
-      <span v-else class="text-disabled">—</span>
-    </v-sheet>
+    <!-- Governance -->
+    <v-card variant="outlined" class="mb-6">
+      <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+        <v-icon icon="mdi-tag-multiple-outline" class="mr-2" color="primary"></v-icon>
+        Governance
+      </v-card-title>
+      <v-card-text>
+        <div class="text-overline text-medium-emphasis">Tags</div>
+        <div class="mt-2">
+          <EntityTagsChips
+            v-if="namespaceId"
+            scope="namespace"
+            :warehouse-id="warehouseId"
+            :entity-id="namespaceId"
+            effective />
+          <span v-else class="text-disabled">—</span>
+        </div>
+      </v-card-text>
+    </v-card>
 
-    <div class="section-head">
-      <v-icon size="18" class="mr-2" color="primary">mdi-cog-outline</v-icon>
-      Properties
-      <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
-    </div>
-    <v-sheet rounded="lg" border>
+    <!-- Properties -->
+    <v-card variant="outlined" class="mb-6">
+      <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+        <v-icon icon="mdi-cog-outline" class="mr-2" color="primary"></v-icon>
+        Properties
+        <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
+      </v-card-title>
       <v-table v-if="propertyItems.length" density="compact">
         <tbody>
           <tr v-for="p in propertyItems" :key="p.key">
@@ -74,7 +81,7 @@
         </tbody>
       </v-table>
       <div v-else class="text-medium-emphasis pa-3">No properties set</div>
-    </v-sheet>
+    </v-card>
   </v-card-text>
 </template>
 
@@ -122,10 +129,8 @@ watch(() => [props.warehouseId, props.namespacePath], load);
 </script>
 
 <style scoped>
-.section-head {
-  display: flex;
-  align-items: center;
-  font-weight: 600;
-  margin-bottom: 8px;
+.text-wrap {
+  word-break: break-word;
+  white-space: pre-wrap;
 }
 </style>
