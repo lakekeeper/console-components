@@ -6,8 +6,8 @@
       <v-btn icon variant="text" size="small" @click="collapsed = !collapsed">
         <v-icon>{{ collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
       </v-btn>
-      <v-icon class="mr-2" color="primary">mdi-table-column</v-icon>
-      Columns
+      <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
+      Structure &amp; governance
       <v-chip size="x-small" variant="tonal">{{ schemaTree.length }} fields</v-chip>
       <v-btn
         variant="tonal"

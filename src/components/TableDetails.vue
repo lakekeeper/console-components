@@ -49,12 +49,8 @@
       </v-card>
     </section>
 
-    <!-- Schema (fields + on-demand profiling + evolution) -->
+    <!-- Structure & governance (fields + tags/stats + evolution) -->
     <section id="tdx-schema" class="tdx-section">
-      <div class="section-head">
-        <v-icon size="18" class="mr-2" color="primary">mdi-file-tree</v-icon>
-        Structure &amp; governance
-      </div>
       <TableColumnProfiler
         :metadata="table.metadata"
         :warehouse-id="warehouseId"
