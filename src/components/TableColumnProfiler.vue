@@ -203,11 +203,7 @@
                   </td>
 
                   <!-- Type (own column) -->
-                  <td class="col-type">
-                    <v-chip size="small" variant="tonal" color="primary" label>
-                      {{ row.type }}
-                    </v-chip>
-                  </td>
+                  <td class="col-type font-mono">{{ row.type }}</td>
 
                   <!-- Statistics view: stats only apply to top-level primitive columns -->
                   <template v-if="schemaView === 'stats'">
@@ -275,8 +271,8 @@
                             <v-chip
                               v-bind="tp"
                               size="small"
-                              variant="tonal"
-                              color="info"
+                              variant="flat"
+                              color="teal"
                               prepend-icon="mdi-tag-outline">
                               {{ tag.name }}
                               <span v-if="tag.value">: {{ truncate(tag.value, 32) }}</span>
@@ -964,9 +960,6 @@ watch(
   white-space: nowrap;
   min-width: 120px;
   vertical-align: middle;
-}
-.profiler-table :deep(.col-type .v-chip) {
-  font-family: 'Roboto Mono', monospace;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 </style>

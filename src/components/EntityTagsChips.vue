@@ -7,8 +7,8 @@
           <v-chip
             v-bind="tp"
             size="small"
-            :color="t['inherited-from'] ? 'deep-purple' : 'info'"
-            variant="tonal"
+            :color="t['inherited-from'] ? 'deep-purple' : 'teal'"
+            :variant="t['inherited-from'] ? 'tonal' : 'flat'"
             :prepend-icon="
               t['inherited-from'] ? 'mdi-arrow-top-left-bold-outline' : 'mdi-tag-outline'
             ">

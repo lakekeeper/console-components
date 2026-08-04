@@ -59,9 +59,9 @@
         :catalog-url="catalogUrl"
         :table-id="tableId" />
 
-      <!-- Schema evolution -->
-      <v-expansion-panels v-model="schemaPanels" multiple class="mb-6">
-        <v-expansion-panel v-if="allSchemas.length > 1" value="evolution">
+      <!-- Schema evolution (only when there is more than one schema) -->
+      <v-expansion-panels v-if="allSchemas.length > 1" v-model="schemaPanels" multiple class="mb-6">
+        <v-expansion-panel value="evolution">
           <v-expansion-panel-title>
             <v-icon class="mr-2" size="small">mdi-history</v-icon>
             Schema evolution
