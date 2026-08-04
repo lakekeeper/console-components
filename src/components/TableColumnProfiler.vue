@@ -203,8 +203,10 @@
                   </td>
 
                   <!-- Type (own column) -->
-                  <td class="col-type font-mono text-caption text-medium-emphasis">
-                    {{ row.type }}
+                  <td class="col-type">
+                    <v-chip size="small" variant="tonal" color="primary" label>
+                      {{ row.type }}
+                    </v-chip>
                   </td>
 
                   <!-- Statistics view: stats only apply to top-level primitive columns -->
@@ -962,5 +964,9 @@ watch(
   white-space: nowrap;
   min-width: 120px;
   vertical-align: middle;
+}
+.profiler-table :deep(.col-type .v-chip) {
+  font-family: 'Roboto Mono', monospace;
+  font-size: 0.8rem;
 }
 </style>

@@ -4,11 +4,11 @@
     <section id="tdx-overview" class="tdx-section">
       <v-row dense class="mb-6">
         <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
-          <v-sheet rounded="lg" border class="pa-3 stat-tile h-100">
+          <v-card variant="outlined" class="pa-3 stat-tile h-100">
             <v-icon :color="s.color" size="20" class="mb-1">{{ s.icon }}</v-icon>
             <div class="stat-value" :title="String(s.value)">{{ s.value }}</div>
             <div class="stat-label">{{ s.label }}</div>
-          </v-sheet>
+          </v-card>
         </v-col>
       </v-row>
     </section>

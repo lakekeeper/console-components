@@ -194,7 +194,8 @@ const notify = true;
 
 const tags = ref<TargetTag[]>([]);
 const loading = ref(false);
-const effective = ref(false);
+// Show inherited (effective) tags by default so the full picture is visible.
+const effective = ref(true);
 const definitions = ref<TagDefinition[]>([]);
 const definitionByName = computed(() => {
   const map = new Map<string, TagDefinition>();
