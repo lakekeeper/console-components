@@ -1,11 +1,13 @@
 <template>
   <v-card variant="outlined" class="mb-4" elevation="1">
-    <v-card-title class="d-flex align-center flex-wrap text-subtitle-1 py-3" style="gap: 8px">
+    <v-card-title
+      class="bg-surface-light d-flex align-center flex-wrap text-subtitle-1 py-3"
+      style="gap: 8px">
       <v-btn icon variant="text" size="small" @click="collapsed = !collapsed">
         <v-icon>{{ collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
       </v-btn>
-      <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
-      Schema
+      <v-icon class="mr-2" color="primary">mdi-table-column</v-icon>
+      Columns
       <v-chip size="x-small" variant="tonal">{{ schemaTree.length }} fields</v-chip>
       <v-btn
         variant="tonal"
@@ -169,11 +171,15 @@
                             variant="tonal"
                             color="primary"
                             :loading="results[row.name]?.loading"
-                            :disabled="!canQuery || analyzingAll"
+                            :disabled="schemaView === 'tags' || !canQuery || analyzingAll"
                             @click="analyzeOne(row)">
                             <v-icon size="small">mdi-play</v-icon>
                             <v-tooltip activator="parent" location="top">
-                              Analyze this field
+                              {{
+                                schemaView === 'tags'
+                                  ? 'Switch to Statistics to analyze this field'
+                                  : 'Analyze this field'
+                              }}
                             </v-tooltip>
                           </v-btn>
                         </span>

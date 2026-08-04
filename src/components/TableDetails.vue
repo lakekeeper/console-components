@@ -15,11 +15,11 @@
 
     <!-- Identity & location -->
     <section id="tdx-identity" class="tdx-section">
-      <div class="section-head">
-        <v-icon size="18" class="mr-2" color="primary">mdi-information-outline</v-icon>
-        Identity &amp; location
-      </div>
-      <v-sheet rounded="lg" border>
+      <v-card variant="outlined">
+        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+          <v-icon icon="mdi-information-outline" class="mr-2" color="primary"></v-icon>
+          Identity &amp; location
+        </v-card-title>
         <v-table density="compact" class="identity-table">
           <tbody>
             <tr v-for="row in identityRows" :key="row.label">
@@ -46,14 +46,14 @@
             </tr>
           </tbody>
         </v-table>
-      </v-sheet>
+      </v-card>
     </section>
 
     <!-- Schema (fields + on-demand profiling + evolution) -->
     <section id="tdx-schema" class="tdx-section">
       <div class="section-head">
         <v-icon size="18" class="mr-2" color="primary">mdi-file-tree</v-icon>
-        Schema
+        Structure &amp; governance
       </div>
       <TableColumnProfiler
         :metadata="table.metadata"
@@ -160,36 +160,38 @@
 
     <!-- Properties -->
     <section v-if="allPropertyItems.length > 0 || canEdit" id="tdx-properties" class="tdx-section">
-      <div class="section-head">
-        <v-icon size="18" class="mr-2" color="primary">mdi-cog-outline</v-icon>
-        Properties
-        <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
-      </div>
-      <v-sheet rounded="lg" border class="pa-3">
-        <div v-if="systemPropCount > 0" class="d-flex align-center mb-2">
-          <v-switch
-            v-model="hideSystemProps"
-            color="primary"
+      <v-card variant="outlined">
+        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+          <v-icon icon="mdi-cog-outline" class="mr-2" color="primary"></v-icon>
+          Properties
+          <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
+        </v-card-title>
+        <v-card-text>
+          <div v-if="systemPropCount > 0" class="d-flex align-center mb-2">
+            <v-switch
+              v-model="hideSystemProps"
+              color="primary"
+              density="compact"
+              hide-details
+              :label="`Hide system properties (${systemPropCount})`"></v-switch>
+          </div>
+          <v-data-table-virtual
+            v-if="propertyItems.length"
+            :headers="propertyHeaders"
+            :items="propertyItems"
             density="compact"
-            hide-details
-            :label="`Hide system properties (${systemPropCount})`"></v-switch>
-        </div>
-        <v-data-table-virtual
-          v-if="propertyItems.length"
-          :headers="propertyHeaders"
-          :items="propertyItems"
-          density="compact"
-          fixed-header
-          height="220px"
-          item-value="key"
-          hide-default-footer
-          :items-per-page="-1">
-          <template #item.value="{ item }">
-            <span class="font-mono text-wrap">{{ item.value }}</span>
-          </template>
-        </v-data-table-virtual>
-        <div v-else class="text-medium-emphasis pa-3">No properties set</div>
-      </v-sheet>
+            fixed-header
+            height="220px"
+            item-value="key"
+            hide-default-footer
+            :items-per-page="-1">
+            <template #item.value="{ item }">
+              <span class="font-mono text-wrap">{{ item.value }}</span>
+            </template>
+          </v-data-table-virtual>
+          <div v-else class="text-medium-emphasis pa-3">No properties set</div>
+        </v-card-text>
+      </v-card>
     </section>
 
     <!-- View a single schema as a fields table or its raw JSON (toggle) -->
@@ -327,80 +329,84 @@
 
     <!-- Layout & ordering -->
     <section id="tdx-layout" class="tdx-section">
-      <div class="section-head">
-        <v-icon size="18" class="mr-2" color="primary">mdi-view-grid-outline</v-icon>
-        Layout &amp; ordering
-      </div>
-      <v-row>
-        <v-col cols="12" md="6">
-          <div class="section-head">
-            <v-icon size="18" class="mr-2" color="warning">mdi-view-grid-outline</v-icon>
-            Partitioning
-            <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal" class="ml-2">
-              spec {{ activePartitionSpec['spec-id'] }}
-            </v-chip>
-          </div>
-          <v-sheet rounded="lg" border class="pa-3 fill-height">
-            <template v-if="activePartitionSpec && activePartitionSpec.fields.length">
-              <v-chip
-                v-for="field in activePartitionSpec.fields"
-                :key="field.name"
-                size="small"
-                color="primary"
-                variant="tonal"
-                class="mr-1 mb-1">
-                {{ formatPartitionField(field) }}
-              </v-chip>
-            </template>
-            <v-chip v-else size="small" color="grey" variant="tonal">Unpartitioned</v-chip>
-          </v-sheet>
-        </v-col>
+      <v-card variant="outlined">
+        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+          <v-icon icon="mdi-view-grid-outline" class="mr-2" color="primary"></v-icon>
+          Layout &amp; ordering
+        </v-card-title>
+        <v-card-text>
+          <v-row>
+            <v-col cols="12" md="6">
+              <div class="section-head">
+                <v-icon size="18" class="mr-2" color="warning">mdi-view-grid-outline</v-icon>
+                Partitioning
+                <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal" class="ml-2">
+                  spec {{ activePartitionSpec['spec-id'] }}
+                </v-chip>
+              </div>
+              <v-sheet rounded="lg" border class="pa-3 fill-height">
+                <template v-if="activePartitionSpec && activePartitionSpec.fields.length">
+                  <v-chip
+                    v-for="field in activePartitionSpec.fields"
+                    :key="field.name"
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    class="mr-1 mb-1">
+                    {{ formatPartitionField(field) }}
+                  </v-chip>
+                </template>
+                <v-chip v-else size="small" color="grey" variant="tonal">Unpartitioned</v-chip>
+              </v-sheet>
+            </v-col>
 
-        <v-col cols="12" md="6">
-          <div class="section-head">
-            <v-icon size="18" class="mr-2" color="success">mdi-sort-ascending</v-icon>
-            Sort order
-            <v-chip v-if="activeSortOrder" size="x-small" variant="tonal" class="ml-2">
-              order {{ activeSortOrder['order-id'] }}
-            </v-chip>
-          </div>
-          <v-sheet rounded="lg" border class="pa-3 fill-height">
-            <template v-if="activeSortOrder && activeSortOrder.fields.length">
-              <v-chip
-                v-for="(field, idx) in activeSortOrder.fields"
-                :key="idx"
-                size="small"
-                color="info"
-                variant="tonal"
-                class="mr-1 mb-1">
-                {{ formatSortField(field) }}
-              </v-chip>
-            </template>
-            <v-chip v-else size="small" color="grey" variant="tonal">Unsorted</v-chip>
-          </v-sheet>
-        </v-col>
-      </v-row>
+            <v-col cols="12" md="6">
+              <div class="section-head">
+                <v-icon size="18" class="mr-2" color="success">mdi-sort-ascending</v-icon>
+                Sort order
+                <v-chip v-if="activeSortOrder" size="x-small" variant="tonal" class="ml-2">
+                  order {{ activeSortOrder['order-id'] }}
+                </v-chip>
+              </div>
+              <v-sheet rounded="lg" border class="pa-3 fill-height">
+                <template v-if="activeSortOrder && activeSortOrder.fields.length">
+                  <v-chip
+                    v-for="(field, idx) in activeSortOrder.fields"
+                    :key="idx"
+                    size="small"
+                    color="info"
+                    variant="tonal"
+                    class="mr-1 mb-1">
+                    {{ formatSortField(field) }}
+                  </v-chip>
+                </template>
+                <v-chip v-else size="small" color="grey" variant="tonal">Unsorted</v-chip>
+              </v-sheet>
+            </v-col>
+          </v-row>
+        </v-card-text>
+      </v-card>
     </section>
 
     <!-- Snapshots -->
     <section v-if="snapshotRows.length" id="tdx-snapshots" class="tdx-section">
-      <div class="section-head d-flex align-center">
-        <v-icon size="18" class="mr-2" color="info">mdi-camera-outline</v-icon>
-        Snapshots
-        <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
-        <v-spacer></v-spacer>
-        <v-select
-          v-if="branchOptions.length > 1"
-          v-model="selectedBranch"
-          :items="branchOptions"
-          density="compact"
-          variant="outlined"
-          hide-details
-          prepend-inner-icon="mdi-source-branch"
-          label="Branch"
-          style="max-width: 220px"></v-select>
-      </div>
-      <v-sheet rounded="lg" border class="mb-2">
+      <v-card variant="outlined">
+        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+          <v-icon icon="mdi-camera-outline" class="mr-2" color="info"></v-icon>
+          Snapshots
+          <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
+          <v-spacer></v-spacer>
+          <v-select
+            v-if="branchOptions.length > 1"
+            v-model="selectedBranch"
+            :items="branchOptions"
+            density="compact"
+            variant="outlined"
+            hide-details
+            prepend-inner-icon="mdi-source-branch"
+            label="Branch"
+            style="max-width: 220px"></v-select>
+        </v-card-title>
         <v-data-table
           :headers="snapshotHeaders"
           :items="snapshotRows"
@@ -456,7 +462,7 @@
             <v-icon size="small" class="text-medium-emphasis">mdi-open-in-new</v-icon>
           </template>
         </v-data-table>
-      </v-sheet>
+      </v-card>
     </section>
 
     <!-- Snapshot detail popup -->
