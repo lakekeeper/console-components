@@ -1,24 +1,42 @@
 <template>
-  <TableVersioningVisualization
-    :table="table"
-    :snapshot-history="snapshotHistory"
-    :can-rollback="canCommit"
-    :warehouse-id="props.warehouseId"
-    :namespace-path="props.namespaceId"
-    :table-name="props.tableName"
-    @rollback="loadTableData"
-    @fast-forward="loadTableData"
-    @create-branch="loadTableData"
-    @rename-branch="loadTableData"
-    @delete-branch="loadTableData"
-    @create-tag="loadTableData"
-    @rename-tag="loadTableData"
-    @delete-tag="loadTableData"
-    @refresh="loadTableData" />
+  <div>
+    <!-- Thin bar on refreshes so the graph stays visible while reloading -->
+    <v-progress-linear v-if="loading && loaded" indeterminate color="primary"></v-progress-linear>
+
+    <!-- Full spinner on the first load (metadata can be large for long histories) -->
+    <div
+      v-if="loading && !loaded"
+      class="d-flex flex-column align-center justify-center text-medium-emphasis py-12">
+      <v-progress-circular
+        indeterminate
+        color="primary"
+        size="40"
+        class="mb-3"></v-progress-circular>
+      Loading version history…
+    </div>
+
+    <TableVersioningVisualization
+      v-else
+      :table="table"
+      :snapshot-history="snapshotHistory"
+      :can-rollback="canCommit"
+      :warehouse-id="props.warehouseId"
+      :namespace-path="props.namespaceId"
+      :table-name="props.tableName"
+      @rollback="loadTableData"
+      @fast-forward="loadTableData"
+      @create-branch="loadTableData"
+      @rename-branch="loadTableData"
+      @delete-branch="loadTableData"
+      @create-tag="loadTableData"
+      @rename-tag="loadTableData"
+      @delete-tag="loadTableData"
+      @refresh="loadTableData" />
+  </div>
 </template>
 
 <script setup lang="ts">
-import { reactive, onMounted, watch, computed } from 'vue';
+import { reactive, onMounted, watch, computed, ref } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import TableVersioningVisualization from './TableVersioningVisualization.vue';
@@ -47,10 +65,15 @@ const { canCommit } = useTablePermissions(
 
 const snapshotHistory = reactive<Snapshot[]>([]);
 
+const loading = ref(false);
+// Whether the table metadata has been loaded at least once.
+const loaded = computed(() => !!table.metadata['table-uuid']);
+
 onMounted(loadTableData);
 watch(() => [props.warehouseId, props.namespaceId, props.tableName], loadTableData);
 
 async function loadTableData() {
+  loading.value = true;
   try {
     Object.assign(
       table,
@@ -67,6 +90,8 @@ async function loadTableData() {
     }
   } catch (error) {
     console.error('Failed to load table data:', error);
+  } finally {
+    loading.value = false;
   }
 }
 
