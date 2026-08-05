@@ -22,7 +22,7 @@
     </v-toolbar>
 
     <v-tabs v-model="tab" color="primary">
-      <v-tab value="general">General</v-tab>
+      <v-tab value="details">Details</v-tab>
       <v-tab v-if="isOpenFga && !isSystem" value="permissions">Permissions</v-tab>
       <v-tab value="attachments">Attachments</v-tab>
     </v-tabs>
@@ -30,7 +30,7 @@
 
     <v-tabs-window v-model="tab">
       <!-- General -->
-      <v-tabs-window-item value="general">
+      <v-tabs-window-item value="details">
         <div class="pa-4">
           <v-sheet rounded="lg" border>
             <v-table density="compact">
@@ -217,7 +217,7 @@ const full = ref<TagDefinition>({ id: '', name: '' } as TagDefinition);
 const isSystem = computed(() => (full.value.name ?? '').startsWith('system.'));
 const nameSegments = computed(() => (full.value.name ?? '').split('.').filter(Boolean));
 
-const tab = ref((route.query.tab as string) || 'general');
+const tab = ref((route.query.tab as string) || 'details');
 watch(tab, (t) => router.replace({ query: { ...route.query, tab: t } }));
 
 function fmtDate(v?: string | null): string {
