@@ -1,90 +1,127 @@
 <template>
-  <div class="pa-4">
-    <div class="d-flex flex-wrap ga-2 mb-3">
-      <v-text-field
-        v-model="valueFilter"
-        label="Filter by value"
-        placeholder="exact value (case-sensitive)"
-        prepend-inner-icon="mdi-filter-variant"
-        density="compact"
-        clearable
-        hide-details
-        style="min-width: 220px"
-        @update:model-value="reload"></v-text-field>
-      <v-select
-        v-model="targetTypeFilter"
-        label="Target type"
-        :items="TARGET_TYPES"
-        density="compact"
-        clearable
-        hide-details
-        style="min-width: 180px"
-        @update:model-value="reload"></v-select>
-      <v-select
-        v-model="warehouseFilter"
-        label="Warehouse"
-        :items="warehouseOptions"
-        item-title="title"
-        item-value="value"
-        density="compact"
-        clearable
-        hide-details
-        style="min-width: 200px"
-        @update:model-value="reload"></v-select>
-    </div>
+  <div>
+    <v-toolbar color="transparent" density="compact" flat class="px-2">
+      <v-btn
+        size="small"
+        variant="tonal"
+        color="primary"
+        :prepend-icon="filtersCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
+        :text="filtersCollapsed ? 'Show filters' : 'Hide filters'"
+        @click="filtersCollapsed = !filtersCollapsed"></v-btn>
+      <v-chip v-if="activeFilterCount" class="ml-2" size="small" color="primary" variant="tonal">
+        {{ activeFilterCount }} active
+      </v-chip>
+    </v-toolbar>
 
-    <v-data-table :headers="headers" :items="attachments" :loading="loading" density="comfortable">
-      <template #item.target="{ item }">
-        <div class="d-flex align-center flex-nowrap ga-1" style="white-space: nowrap">
-          <v-chip color="info" size="x-small" variant="tonal">{{ item.target.type }}</v-chip>
+    <div class="d-flex" style="min-height: 320px">
+      <!-- Collapsible filter rail -->
+      <v-expand-x-transition>
+        <div
+          v-show="!filtersCollapsed"
+          class="pa-3 flex-shrink-0"
+          style="width: 260px; border-right: 1px solid rgba(var(--v-theme-on-surface), 0.12)">
+          <v-text-field
+            v-model="valueFilter"
+            label="Filter by value"
+            placeholder="exact value (case-sensitive)"
+            prepend-inner-icon="mdi-filter-variant"
+            variant="outlined"
+            density="compact"
+            clearable
+            hide-details
+            @update:model-value="reload"></v-text-field>
+          <v-select
+            v-model="targetTypeFilter"
+            class="mt-4"
+            label="Target type"
+            :items="TARGET_TYPES"
+            variant="outlined"
+            density="compact"
+            clearable
+            hide-details
+            @update:model-value="reload"></v-select>
+          <v-select
+            v-model="warehouseFilter"
+            class="mt-4"
+            label="Warehouse"
+            :items="warehouseOptions"
+            item-title="title"
+            item-value="value"
+            variant="outlined"
+            density="compact"
+            clearable
+            hide-details
+            @update:model-value="reload"></v-select>
+          <v-btn
+            v-if="activeFilterCount"
+            class="mt-4"
+            size="small"
+            variant="text"
+            prepend-icon="mdi-filter-remove-outline"
+            text="Clear filters"
+            @click="clearFilters"></v-btn>
+        </div>
+      </v-expand-x-transition>
 
-          <v-icon size="x-small" icon="mdi-database" class="ml-1"></v-icon>
-          <span class="text-caption">{{ warehouseLabel(item.target) }}</span>
+      <v-data-table
+        class="flex-grow-1"
+        style="min-width: 0"
+        :headers="headers"
+        :items="attachments"
+        :loading="loading"
+        density="comfortable">
+        <template #item.target="{ item }">
+          <div class="d-flex align-center flex-nowrap ga-1" style="white-space: nowrap">
+            <v-chip color="info" size="x-small" variant="tonal">{{ item.target.type }}</v-chip>
 
-          <template v-if="item.target.type !== 'warehouse'">
-            <span class="text-disabled">/</span>
-            <span
-              class="text-caption"
-              :style="entityName(item.target) ? '' : 'font-family: monospace'">
-              {{ entityName(item.target) || entityId(item.target) }}
-            </span>
-            <v-chip
-              v-if="item.target.type === 'column'"
-              size="x-small"
-              variant="outlined"
-              prepend-icon="mdi-table-column"
-              :title="`field-id ${item.target['field-id']}`">
-              {{ columnName(item.target) || `field ${item.target['field-id']}` }}
-            </v-chip>
+            <v-icon size="x-small" icon="mdi-database" class="ml-1"></v-icon>
+            <span class="text-caption">{{ warehouseLabel(item.target) }}</span>
+
+            <template v-if="item.target.type !== 'warehouse'">
+              <span class="text-disabled">/</span>
+              <span
+                class="text-caption"
+                :style="entityName(item.target) ? '' : 'font-family: monospace'">
+                {{ entityName(item.target) || entityId(item.target) }}
+              </span>
+              <v-chip
+                v-if="item.target.type === 'column'"
+                size="x-small"
+                variant="outlined"
+                prepend-icon="mdi-table-column"
+                :title="`field-id ${item.target['field-id']}`">
+                {{ columnName(item.target) || `field ${item.target['field-id']}` }}
+              </v-chip>
+              <v-btn
+                v-if="!entityName(item.target)"
+                icon="mdi-content-copy"
+                size="x-small"
+                variant="text"
+                title="Copy id"
+                @click="copy(entityId(item.target))"></v-btn>
+            </template>
+
+            <!-- Open icon → navigate to the object (its Tags tab). -->
             <v-btn
-              v-if="!entityName(item.target)"
-              icon="mdi-content-copy"
+              icon="mdi-open-in-new"
               size="x-small"
               variant="text"
-              title="Copy id"
-              @click="copy(entityId(item.target))"></v-btn>
-          </template>
-
-          <!-- Open icon → navigate to the object (its Tags tab). -->
-          <v-btn
-            icon="mdi-open-in-new"
-            size="x-small"
-            variant="text"
-            :title="openTitle(item.target)"
-            @click="openTarget(item.target)"></v-btn>
-        </div>
-      </template>
-      <template #item.value="{ item }">
-        <span v-if="item.value !== null && item.value !== undefined">{{ item.value }}</span>
-        <span v-else class="text-disabled">—</span>
-      </template>
-      <template #item.created-at="{ item }">
-        {{ new Date(item['created-at']).toLocaleString() }}
-      </template>
-      <template #no-data>
-        <span class="text-disabled">No attachments.</span>
-      </template>
-    </v-data-table>
+              :title="openTitle(item.target)"
+              @click="openTarget(item.target)"></v-btn>
+          </div>
+        </template>
+        <template #item.value="{ item }">
+          <span v-if="item.value !== null && item.value !== undefined">{{ item.value }}</span>
+          <span v-else class="text-disabled">—</span>
+        </template>
+        <template #item.created-at="{ item }">
+          {{ new Date(item['created-at']).toLocaleString() }}
+        </template>
+        <template #no-data>
+          <span class="text-disabled">No attachments.</span>
+        </template>
+      </v-data-table>
+    </div>
   </div>
 </template>
 
@@ -120,6 +157,19 @@ const attachments = ref<TagAttachment[]>([]);
 const valueFilter = ref<string>('');
 const targetTypeFilter = ref<TagScope | null>(null);
 const warehouseFilter = ref<string | null>(null);
+const filtersCollapsed = ref(false);
+const activeFilterCount = computed(
+  () =>
+    (valueFilter.value ? 1 : 0) +
+    (targetTypeFilter.value ? 1 : 0) +
+    (warehouseFilter.value ? 1 : 0),
+);
+function clearFilters() {
+  valueFilter.value = '';
+  targetTypeFilter.value = null;
+  warehouseFilter.value = null;
+  reload();
+}
 
 const TARGET_TYPES: TagScope[] = [
   'warehouse',
