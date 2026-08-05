@@ -49,21 +49,28 @@
         size="small"
         :color="relColor(rel)"
         variant="tonal"
-        :prepend-icon="relIcon(rel)"
-        closable
-        @click:close="removeRelation(item, rel)">
+        :prepend-icon="relIcon(rel)">
         {{ relLabel(rel) }}
       </v-chip>
     </template>
 
     <template #item.actions="{ item }">
-      <v-btn
-        color="error"
-        size="small"
-        text="Revoke all"
-        variant="outlined"
-        :disabled="saving"
-        @click="requestRevokeAll(item)"></v-btn>
+      <span style="display: flex; align-items: center; gap: 8px; justify-content: flex-end">
+        <v-btn
+          color="primary"
+          size="small"
+          text="Edit"
+          variant="outlined"
+          :disabled="saving"
+          @click="openEdit(item)"></v-btn>
+        <v-btn
+          color="error"
+          size="small"
+          text="Revoke all"
+          variant="outlined"
+          :disabled="saving"
+          @click="requestRevokeAll(item)"></v-btn>
+      </span>
     </template>
 
     <template #no-data>
@@ -93,46 +100,48 @@
     </v-card>
   </v-dialog>
 
-  <!-- Grant access dialog (mirrors PermissionAssignDialog) -->
+  <!-- Grant / edit access dialog (mirrors PermissionAssignDialog) -->
   <v-dialog v-model="grantDialog" max-width="720">
-    <v-card title="Grant access">
+    <v-card :title="editMode ? `Edit assignment — ${selectedItem.name}` : 'Create assignment'">
       <v-card-text>
-        <v-tabs
-          v-model="searchForType"
-          color="primary"
-          class="mb-4"
-          @update:model-value="clearSelected">
-          <v-tab value="user">
-            <v-icon start>mdi-account-circle-outline</v-icon>
-            Users
-          </v-tab>
-          <v-tab value="role">
-            <v-icon start>mdi-account-box-multiple-outline</v-icon>
-            Roles
-          </v-tab>
-        </v-tabs>
+        <template v-if="!editMode">
+          <v-tabs
+            v-model="searchForType"
+            color="primary"
+            class="mb-4"
+            @update:model-value="clearSelected">
+            <v-tab value="user">
+              <v-icon start>mdi-account-circle-outline</v-icon>
+              Users
+            </v-tab>
+            <v-tab value="role">
+              <v-icon start>mdi-account-box-multiple-outline</v-icon>
+              Roles
+            </v-tab>
+          </v-tabs>
 
-        <v-autocomplete
-          v-model="searchFor"
-          clear-on-select
-          density="comfortable"
-          item-title="name"
-          item-value="id"
-          :items="items"
-          variant="solo"
-          :loading="searching"
-          :label="`Search for a ${searchForType}`"
-          @update:focused="items = []"
-          @update:search="onSearch"
-          @update:model-value="onSelect">
-          <template #item="{ props: ip, item }">
-            <v-list-item
-              v-bind="ip"
-              :prepend-icon="searchForType === 'user' ? 'mdi-account' : 'mdi-account-group'"
-              :subtitle="item.raw.subtitle"
-              :title="item.raw.name"></v-list-item>
-          </template>
-        </v-autocomplete>
+          <v-autocomplete
+            v-model="searchFor"
+            clear-on-select
+            density="comfortable"
+            item-title="name"
+            item-value="id"
+            :items="items"
+            variant="solo"
+            :loading="searching"
+            :label="`Search for a ${searchForType}`"
+            @update:focused="items = []"
+            @update:search="onSearch"
+            @update:model-value="onSelect">
+            <template #item="{ props: ip, item }">
+              <v-list-item
+                v-bind="ip"
+                :prepend-icon="searchForType === 'user' ? 'mdi-account' : 'mdi-account-group'"
+                :subtitle="item.raw.subtitle"
+                :title="item.raw.name"></v-list-item>
+            </template>
+          </v-autocomplete>
+        </template>
 
         <template v-if="selectedItem.id">
           <v-card-title class="px-0">{{ selectedItem.name }}</v-card-title>
@@ -290,6 +299,7 @@ interface SearchItem {
   subtitle?: string;
 }
 const grantDialog = ref(false);
+const editMode = ref(false);
 const searching = ref(false);
 const searchForType = ref<'user' | 'role'>('user');
 const items = ref<SearchItem[]>([]);
@@ -298,8 +308,20 @@ const selectedItem = ref<{ id: string; name: string }>({ id: '', name: '' });
 const selectedRelations = ref<TagRelation[]>([]);
 
 function openGrant() {
+  editMode.value = false;
   searchForType.value = 'user';
   clearSelected();
+  grantDialog.value = true;
+}
+
+// Edit an existing principal's relations (no search — principal is fixed).
+function openEdit(row: PrincipalRow) {
+  editMode.value = true;
+  searchForType.value = row.kind;
+  items.value = [];
+  searchFor.value = '';
+  selectedItem.value = { id: row.id, name: row.name };
+  selectedRelations.value = [...row.relations];
   grantDialog.value = true;
 }
 
@@ -392,11 +414,6 @@ async function saveGrant() {
   if (!writes.length && !deletes.length) return;
   await updateAssignments(deletes, writes);
   grantDialog.value = false;
-}
-
-async function removeRelation(row: PrincipalRow, rel: TagRelation) {
-  const target = row.assignments.find((a) => a.type === rel);
-  if (target) await updateAssignments([target], []);
 }
 
 const confirmRevokeOpen = ref(false);
