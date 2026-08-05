@@ -72,6 +72,14 @@
                     <td>{{ full.description || '—' }}</td>
                   </tr>
                   <tr>
+                    <td class="text-medium-emphasis">Created</td>
+                    <td>{{ fmtDate(full['created-at']) }}</td>
+                  </tr>
+                  <tr>
+                    <td class="text-medium-emphasis">Updated</td>
+                    <td>{{ fmtDate(full['updated-at']) }}</td>
+                  </tr>
+                  <tr>
                     <td class="text-medium-emphasis">Tag ID</td>
                     <td>
                       <div class="d-flex align-center">
@@ -112,7 +120,10 @@
 
         <!-- Permissions -->
         <v-tabs-window-item v-if="isOpenFga && !isSystem" value="permissions">
-          <TagPermissionsPanel v-if="tab === 'permissions'" :tag-definition-id="definition.id" />
+          <TagPermissionsPanel
+            v-if="tab === 'permissions'"
+            :tag-definition-id="definition.id"
+            :tag-name="definition.name" />
         </v-tabs-window-item>
 
         <!-- Attachments -->
@@ -150,6 +161,10 @@ const emit = defineEmits<{
 
 const functions = useFunctions();
 const tab = ref('general');
+
+function fmtDate(v?: string | null): string {
+  return v ? new Date(v).toLocaleString() : '—';
+}
 
 const model = computed({
   get: () => props.modelValue,

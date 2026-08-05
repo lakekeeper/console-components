@@ -57,6 +57,7 @@ export enum RelationType {
   View = 'view',
   Table = 'table',
   GenericTable = 'generic-table',
+  Tag = 'tag',
 }
 
 export type AssignmentCollection =

@@ -19,14 +19,14 @@
           clearable
           class="mr-4"
           style="max-width: 300px"></v-text-field>
-        <v-btn
-          color="primary"
-          variant="outlined"
-          size="small"
-          slim
-          class="me-5"
-          text="grant"
-          @click="openGrant"></v-btn>
+        <PermissionAssignDialog
+          :status="assignStatus"
+          action-type="grant"
+          assignee=""
+          :assignments="assignmentCollection"
+          :obj="assignableObj"
+          :relation="RelationType.Tag"
+          @assignments="onAssign" />
       </v-toolbar>
     </template>
 
@@ -56,13 +56,14 @@
 
     <template #item.actions="{ item }">
       <span style="display: flex; align-items: center; gap: 8px; justify-content: flex-end">
-        <v-btn
-          color="primary"
-          size="small"
-          text="Edit"
-          variant="outlined"
-          :disabled="saving"
-          @click="openEdit(item)"></v-btn>
+        <PermissionAssignDialog
+          :status="assignStatus"
+          action-type="edit"
+          :assignee="item.id"
+          :assignments="assignmentCollection"
+          :obj="assignableObj"
+          :relation="RelationType.Tag"
+          @assignments="onAssign" />
         <v-btn
           color="error"
           size="small"
@@ -99,87 +100,17 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
-
-  <!-- Grant / edit access dialog (mirrors PermissionAssignDialog) -->
-  <v-dialog v-model="grantDialog" max-width="720">
-    <v-card :title="editMode ? `Edit assignment — ${selectedItem.name}` : 'Create assignment'">
-      <v-card-text>
-        <template v-if="!editMode">
-          <v-tabs
-            v-model="searchForType"
-            color="primary"
-            class="mb-4"
-            @update:model-value="clearSelected">
-            <v-tab value="user">
-              <v-icon start>mdi-account-circle-outline</v-icon>
-              Users
-            </v-tab>
-            <v-tab value="role">
-              <v-icon start>mdi-account-box-multiple-outline</v-icon>
-              Roles
-            </v-tab>
-          </v-tabs>
-
-          <v-autocomplete
-            v-model="searchFor"
-            clear-on-select
-            density="comfortable"
-            item-title="name"
-            item-value="id"
-            :items="items"
-            variant="solo"
-            :loading="searching"
-            :label="`Search for a ${searchForType}`"
-            @update:focused="items = []"
-            @update:search="onSearch"
-            @update:model-value="onSelect">
-            <template #item="{ props: ip, item }">
-              <v-list-item
-                v-bind="ip"
-                :prepend-icon="searchForType === 'user' ? 'mdi-account' : 'mdi-account-group'"
-                :subtitle="item.raw.subtitle"
-                :title="item.raw.name"></v-list-item>
-            </template>
-          </v-autocomplete>
-        </template>
-
-        <template v-if="selectedItem.id">
-          <v-card-title class="px-0">{{ selectedItem.name }}</v-card-title>
-          <v-card-subtitle class="px-0">
-            ID: {{ selectedItem.id }}
-            <v-btn
-              icon="mdi-content-copy"
-              size="small"
-              variant="flat"
-              @click="functions.copyToClipboard(selectedItem.id)"></v-btn>
-          </v-card-subtitle>
-          <v-row no-gutters class="mt-2">
-            <v-col v-for="rel in relationItems" :key="rel.value" cols="6">
-              <v-checkbox
-                v-model="selectedRelations"
-                :label="rel.title"
-                :value="rel.value"
-                hide-details></v-checkbox>
-            </v-col>
-          </v-row>
-        </template>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn color="success" :disabled="!grantDirty || saving" @click="saveGrant">save</v-btn>
-        <v-btn color="error" text="Cancel" @click="grantDialog = false"></v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 </template>
 
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
-import { Header } from '../common/interfaces';
+import { AssignmentCollection, Header, RelationType } from '../common/interfaces';
+import { StatusIntent } from '../common/enums';
+import PermissionAssignDialog from './PermissionAssignDialog.vue';
 import { TagAssignment, TagRelation } from '../gen/management/types.gen';
 
-const props = defineProps<{ tagDefinitionId: string }>();
+const props = defineProps<{ tagDefinitionId: string; tagName?: string }>();
 
 const functions = useFunctions();
 
@@ -188,6 +119,14 @@ const saving = ref(false);
 const assignments = ref<TagAssignment[]>([]);
 const nameCache = ref<Record<string, string>>({});
 const searchQuery = ref('');
+const assignStatus = ref(StatusIntent.INACTIVE);
+
+const assignableObj = computed(() => ({
+  id: props.tagDefinitionId,
+  name: props.tagName || props.tagDefinitionId,
+}));
+// The dialog reads/filters plain { user|role, type } objects — TagAssignment matches.
+const assignmentCollection = computed(() => assignments.value as unknown as AssignmentCollection);
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
@@ -195,10 +134,6 @@ const headers: readonly Header[] = Object.freeze([
   { title: '', key: 'actions', align: 'end', sortable: false },
 ]);
 
-const relationItems = [
-  { title: 'Owner', value: 'ownership' },
-  { title: 'Can apply', value: 'apply' },
-];
 function relLabel(rel: TagRelation): string {
   return rel === 'ownership' ? 'Owner' : 'Can apply';
 }
@@ -292,128 +227,19 @@ watch(
   },
 );
 
-// ---- grant dialog (Users/Roles tabs + relation checkboxes, like PermissionAssignDialog) ----
-interface SearchItem {
-  id: string;
-  name: string;
-  subtitle?: string;
-}
-const grantDialog = ref(false);
-const editMode = ref(false);
-const searching = ref(false);
-const searchForType = ref<'user' | 'role'>('user');
-const items = ref<SearchItem[]>([]);
-const searchFor = ref('');
-const selectedItem = ref<{ id: string; name: string }>({ id: '', name: '' });
-const selectedRelations = ref<TagRelation[]>([]);
-
-function openGrant() {
-  editMode.value = false;
-  searchForType.value = 'user';
-  clearSelected();
-  grantDialog.value = true;
-}
-
-// Edit an existing principal's relations (no search — principal is fixed).
-function openEdit(row: PrincipalRow) {
-  editMode.value = true;
-  searchForType.value = row.kind;
-  items.value = [];
-  searchFor.value = '';
-  selectedItem.value = { id: row.id, name: row.name };
-  selectedRelations.value = [...row.relations];
-  grantDialog.value = true;
-}
-
-function clearSelected() {
-  items.value = [];
-  searchFor.value = '';
-  selectedItem.value = { id: '', name: '' };
-  selectedRelations.value = [];
-}
-
-let searchToken = 0;
-async function onSearch(q: string) {
-  const query = (q ?? '').trim();
-  if (!query) {
-    items.value = [];
-    return;
-  }
-  const token = ++searchToken;
-  searching.value = true;
-  try {
-    if (searchForType.value === 'user') {
-      const users = await functions.searchUser(query).catch(() => []);
-      if (token !== searchToken) return;
-      items.value = users.map((u: any) => ({
-        id: u.id,
-        name: u.name || u.email || u.id,
-        subtitle: u.email || 'User',
-      }));
-    } else {
-      const roles = await functions.searchRole(query).catch(() => []);
-      if (token !== searchToken) return;
-      items.value = roles.map((r: any) => ({ id: r.id, name: r.name || r.id, subtitle: 'Role' }));
-    }
-  } finally {
-    if (token === searchToken) searching.value = false;
-  }
-}
-
-// When a principal is selected, pre-seed the checkboxes with its current relations.
-function onSelect(id: string | null) {
-  const found = items.value.find((i) => i.id === id);
-  selectedItem.value = found ? { id: found.id, name: found.name } : { id: '', name: '' };
-  selectedRelations.value = id
-    ? assignments.value.filter((a) => principalId(a) === id).map((a) => a.type)
-    : [];
-}
-
-function buildAssignment(kind: 'user' | 'role', id: string, relation: TagRelation): TagAssignment {
-  return (
-    kind === 'user' ? { user: id, type: relation } : { role: id, type: relation }
-  ) as TagAssignment;
-}
-
-async function updateAssignments(deletes: TagAssignment[], writes: TagAssignment[]) {
+// PermissionAssignDialog emits the diff as { del, writes } of { user|role, type } —
+// exactly TagAssignment, so we can hand them straight to the tag endpoint.
+async function onAssign(payload: { del: AssignmentCollection; writes: AssignmentCollection }) {
+  const del = payload.del as unknown as TagAssignment[];
+  const writes = payload.writes as unknown as TagAssignment[];
+  if (!del.length && !writes.length) return;
   saving.value = true;
   try {
-    const ok = await functions.updateTagAssignmentsById(
-      props.tagDefinitionId,
-      deletes,
-      writes,
-      true,
-    );
+    const ok = await functions.updateTagAssignmentsById(props.tagDefinitionId, del, writes, true);
     if (ok) await load();
   } finally {
     saving.value = false;
   }
-}
-
-// Current relations the selected principal already has.
-const existingRelations = computed<TagRelation[]>(() =>
-  selectedItem.value.id
-    ? assignments.value.filter((a) => principalId(a) === selectedItem.value.id).map((a) => a.type)
-    : [],
-);
-const grantDirty = computed(() => {
-  if (!selectedItem.value.id) return false;
-  const cur = new Set(selectedRelations.value);
-  const old = new Set(existingRelations.value);
-  return cur.size !== old.size || [...cur].some((r) => !old.has(r));
-});
-
-async function saveGrant() {
-  const id = selectedItem.value.id;
-  if (!id) return;
-  const kind = searchForType.value;
-  const cur = new Set(selectedRelations.value);
-  const old = new Set(existingRelations.value);
-  const writes = [...cur].filter((r) => !old.has(r)).map((r) => buildAssignment(kind, id, r));
-  const deletes = [...old].filter((r) => !cur.has(r)).map((r) => buildAssignment(kind, id, r));
-  if (!writes.length && !deletes.length) return;
-  await updateAssignments(deletes, writes);
-  grantDialog.value = false;
 }
 
 const confirmRevokeOpen = ref(false);
@@ -427,6 +253,18 @@ function requestRevokeAll(row: PrincipalRow) {
 async function doRevokeAll() {
   const row = pendingRevoke.value;
   confirmRevokeOpen.value = false;
-  if (row) await updateAssignments(row.assignments, []);
+  if (!row) return;
+  saving.value = true;
+  try {
+    const ok = await functions.updateTagAssignmentsById(
+      props.tagDefinitionId,
+      row.assignments,
+      [],
+      true,
+    );
+    if (ok) await load();
+  } finally {
+    saving.value = false;
+  }
 }
 </script>

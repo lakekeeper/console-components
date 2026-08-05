@@ -1,8 +1,9 @@
 <template>
   <v-card flat>
     <v-row no-gutters style="height: calc(100vh - 240px); min-height: 360px">
-      <!-- LEFT: scope toggle + info/picker. -->
+      <!-- LEFT: scope toggle + info/picker (collapsible). -->
       <v-col
+        v-show="!leftCollapsed"
         cols="12"
         md="4"
         class="pa-2"
@@ -187,13 +188,27 @@
       </v-col>
 
       <!-- RIGHT: permissions for the current selection. -->
-      <v-col cols="12" md="8" style="overflow: auto; height: 100%">
+      <v-col :cols="12" :md="leftCollapsed ? 12 : 8" style="overflow: auto; height: 100%">
+        <div class="d-flex align-center pa-1">
+          <v-btn
+            :icon="leftCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
+            size="small"
+            variant="text"
+            :title="leftCollapsed ? 'Show selector' : 'Hide selector'"
+            @click="leftCollapsed = !leftCollapsed"></v-btn>
+          <span class="text-caption text-medium-emphasis ml-1">
+            {{ leftCollapsed ? 'Show selector' : 'Hide selector' }}
+          </span>
+        </div>
+        <v-divider></v-divider>
+
         <!-- Tags: per-tag owners / can-apply -->
         <template v-if="scope === 'tags'">
           <TagPermissionsPanel
             v-if="selectedTagId"
             :key="selectedTagId"
-            :tag-definition-id="selectedTagId" />
+            :tag-definition-id="selectedTagId"
+            :tag-name="selectedTagName" />
           <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
             <v-icon icon="mdi-arrow-left"></v-icon>
             Pick a tag to view and manage who owns it and who can apply it.
@@ -248,6 +263,7 @@ const functions = useFunctions();
 const visual = useVisualStore();
 
 const scope = ref<'server' | 'project' | 'warehouses' | 'tags'>('server');
+const leftCollapsed = ref(false);
 const serverId = ref('');
 const serverInfo = computed(() => visual.getServerInfo() as Record<string, any>);
 const selectedProjectName = computed(
@@ -295,6 +311,9 @@ const tags = ref<TagDefinition[]>([]);
 const tagsLoading = ref(false);
 const tagSearch = ref('');
 const selectedTagId = ref('');
+const selectedTagName = computed(
+  () => tags.value.find((t) => t.id === selectedTagId.value)?.name || '',
+);
 const filteredTags = computed(() => {
   const q = tagSearch.value.trim().toLowerCase();
   const list = q ? tags.value.filter((t) => t.name.toLowerCase().includes(q)) : tags.value;
