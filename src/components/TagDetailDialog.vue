@@ -115,7 +115,18 @@
               <TagDefinitionDialog
                 action-type="edit"
                 :definition="full"
-                @submit="(input) => $emit('edit', { id: full.id, input })" />
+                @submit="(input) => $emit('edit', { id: full.id, input })">
+                <template #activator="{ props: aProps }">
+                  <v-btn
+                    v-bind="aProps"
+                    color="primary"
+                    variant="tonal"
+                    size="small"
+                    prepend-icon="mdi-pencil">
+                    Edit tag
+                  </v-btn>
+                </template>
+              </TagDefinitionDialog>
               <v-btn
                 color="error"
                 variant="tonal"

@@ -1,15 +1,22 @@
 <template>
   <v-dialog v-model="isDialogActive" max-width="560">
     <template #activator="{ props: activatorProps }">
-      <v-btn
-        v-if="actionType === 'add'"
-        class="me-2"
-        v-bind="activatorProps"
-        color="info"
-        size="small"
-        text="New Tag"
-        variant="flat"></v-btn>
-      <v-btn v-else v-bind="activatorProps" icon="mdi-pencil" size="x-small" variant="text"></v-btn>
+      <slot name="activator" :props="activatorProps">
+        <v-btn
+          v-if="actionType === 'add'"
+          class="me-2"
+          v-bind="activatorProps"
+          color="info"
+          size="small"
+          text="New Tag"
+          variant="flat"></v-btn>
+        <v-btn
+          v-else
+          v-bind="activatorProps"
+          icon="mdi-pencil"
+          size="x-small"
+          variant="text"></v-btn>
+      </slot>
     </template>
 
     <v-card :title="actionType === 'add' ? 'New Tag Definition' : 'Edit Tag Definition'">
