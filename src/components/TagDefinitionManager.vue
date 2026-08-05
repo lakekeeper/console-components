@@ -127,11 +127,8 @@
           </v-tooltip>
           <span v-else>{{ item.description }}</span>
         </template>
-        <template #item.open="{ item }">
-          <v-icon
-            size="small"
-            class="text-medium-emphasis"
-            :icon="checkingId === item.id ? 'mdi-loading mdi-spin' : 'mdi-chevron-right'"></v-icon>
+        <template #item.open>
+          <v-icon size="small" class="text-medium-emphasis">mdi-chevron-right</v-icon>
         </template>
         <template #no-data>
           <span class="text-disabled">No tag definitions yet.</span>
@@ -139,103 +136,23 @@
       </v-data-table>
     </div>
     <div v-else class="pa-4">You don't have permission to list tag definitions</div>
-
-    <!-- Type-to-confirm, only opened once the tag is confirmed deletable. -->
-    <v-dialog v-model="confirmDialog" max-width="500">
-      <v-card title="Confirm deletion of tag definition">
-        <v-card-text>
-          <div class="ma-2">
-            Please enter the name "{{ pendingDelete?.name }}" to confirm the deletion
-          </div>
-          <v-text-field
-            v-model="confirmName"
-            label="Tag definition name"
-            maxlength="500"
-            :placeholder="pendingDelete?.name"></v-text-field>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn
-            color="success"
-            :disabled="confirmName !== pendingDelete?.name"
-            text="Confirm"
-            @click="doDelete"></v-btn>
-          <v-btn color="error" text="Cancel" @click="confirmDialog = false"></v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Shown when the tag is still applied somewhere (checked up front). -->
-    <v-dialog v-model="inUseDialog" max-width="480">
-      <v-card>
-        <v-card-title class="d-flex align-center ga-2">
-          <v-icon color="warning">mdi-alert-circle-outline</v-icon>
-          Can't delete tag
-        </v-card-title>
-        <v-card-text>
-          <strong>{{ inUseName }}</strong>
-          is still applied to
-          {{ inUseAttachments.length ? inUseAttachments.length : 'one or more' }}
-          resource{{ inUseAttachments.length === 1 ? '' : 's' }}. Remove it from all targets, then
-          try again.
-          <v-list
-            v-if="inUseAttachments.length"
-            density="compact"
-            class="mt-2"
-            style="max-height: 240px; overflow-y: auto">
-            <v-list-item v-for="(a, i) in inUseAttachments" :key="i">
-              <template #prepend>
-                <v-chip class="mr-2" size="x-small" variant="tonal">{{ a.target.type }}</v-chip>
-              </template>
-              <span class="text-caption" style="font-family: monospace">
-                {{ targetLabel(a.target) }}
-              </span>
-              <span v-if="a.value" class="text-caption text-medium-emphasis ml-1">
-                = {{ a.value }}
-              </span>
-            </v-list-item>
-          </v-list>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn text="Close" @click="inUseDialog = false"></v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Tag detail: General / Permissions / Attachments -->
-    <TagDetailDialog
-      v-model="detailOpen"
-      :definition="detailItem"
-      :is-open-fga="isOpenFga"
-      :can-edit="canCreateTag"
-      @edit="({ id, input }) => updateDefinition(id, input as TagDefinitionInput)"
-      @delete="(def) => requestDelete(def)" />
   </v-card>
 </template>
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
 import { useProjectPermissions } from '../composables/useCatalogPermissions';
-import {
-  CreateTagDefinitionRequest,
-  UpdateTagDefinitionRequest,
-  TagDefinition,
-  TagAttachment,
-  TagAttachmentTarget,
-} from '../gen/management/types.gen';
+import { CreateTagDefinitionRequest, TagDefinition } from '../gen/management/types.gen';
 import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.vue';
-import TagDetailDialog from './TagDetailDialog.vue';
 
 const functions = useFunctions();
 const visual = useVisualStore();
+const router = useRouter();
 const notify = true;
-
-// Per-tag permission management (owners / can-apply) is OpenFGA-only.
-const isOpenFga = computed(() => visual.getServerInfo()?.['authz-backend'] === 'openfga');
 
 const definitions = ref<TagDefinition[]>([]);
 const loading = ref(false);
@@ -251,14 +168,6 @@ const filtersCollapsed = computed({
     visual.tagFilterPanelOpen = !v;
   },
 });
-const inUseDialog = ref(false);
-const inUseName = ref('');
-const inUseAttachments = ref<TagAttachment[]>([]);
-const confirmDialog = ref(false);
-const confirmName = ref('');
-const pendingDelete = ref<TagDefinition | null>(null);
-const checkingId = ref<string | null>(null);
-
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Value kind', key: 'value-kind', align: 'start' },
@@ -267,12 +176,9 @@ const headers: readonly Header[] = Object.freeze([
   { title: '', key: 'open', align: 'end', sortable: false, width: '48px' },
 ]);
 
-// Row-detail dialog (General / Permissions / Attachments).
-const detailOpen = ref(false);
-const detailItem = ref<TagDefinition | null>(null);
+// Row click → tag detail page (General / Permissions / Attachments).
 function openDetail(item: TagDefinition) {
-  detailItem.value = item;
-  detailOpen.value = true;
+  router.push(`/governance/tags/${item.id}`);
 }
 
 const projectId = computed(() => visual.projectSelected['project-id']);
@@ -351,94 +257,6 @@ async function createDefinition(input: TagDefinitionInput) {
     await loadDefinitions();
   } catch {
     // handled
-  }
-}
-
-async function updateDefinition(id: string, input: TagDefinitionInput) {
-  const body: UpdateTagDefinitionRequest = {
-    name: input.name,
-    description: input.description,
-    scope: input.scope,
-    'add-allowed-values': input.addAllowedValues ?? null,
-  };
-  try {
-    await functions.updateTagDefinition(id, body, notify);
-    await loadDefinitions();
-  } catch {
-    // handled
-  }
-}
-
-// Check up front whether the tag is still applied. If so, show the "in use"
-// dialog; otherwise open the type-to-confirm dialog.
-function showInUse(name: string, attachments: TagAttachment[]) {
-  inUseName.value = name;
-  inUseAttachments.value = attachments;
-  inUseDialog.value = true;
-}
-
-async function requestDelete(item: TagDefinition) {
-  checkingId.value = item.id;
-  let attachments: TagAttachment[] = [];
-  try {
-    const res = await functions.listTagAttachments(item.id, { pageSize: 100 }, false);
-    attachments = res.attachments ?? [];
-  } catch {
-    // Can't read attachments (e.g. not the tag owner) — fall through and let the
-    // delete attempt decide; it surfaces the in-use dialog on failure.
-  } finally {
-    checkingId.value = null;
-  }
-  if (attachments.length) {
-    showInUse(item.name, attachments);
-    return;
-  }
-  pendingDelete.value = item;
-  confirmName.value = '';
-  confirmDialog.value = true;
-}
-
-async function doDelete() {
-  const item = pendingDelete.value;
-  if (!item) return;
-  confirmDialog.value = false;
-  try {
-    // notify=false: suppress the generic error snackbar so we can show a
-    // friendly "still in use" dialog if it became attached since the check.
-    await functions.deleteTagDefinition(item.id, false);
-    definitions.value = definitions.value.filter((d) => d.id !== item.id);
-    // Close the tag detail dialog if the deleted tag was open in it.
-    if (detailItem.value?.id === item.id) detailOpen.value = false;
-  } catch {
-    // Became attached since the check — re-read to show where.
-    let attachments: TagAttachment[] = [];
-    try {
-      const res = await functions.listTagAttachments(item.id, { pageSize: 100 }, false);
-      attachments = res.attachments ?? [];
-    } catch {
-      // ignore — show the generic message
-    }
-    showInUse(item.name, attachments);
-  }
-}
-
-// Compact label for an attachment target (ids; columns show field-id).
-function targetLabel(target: TagAttachmentTarget): string {
-  switch (target.type) {
-    case 'warehouse':
-      return target['warehouse-id'];
-    case 'namespace':
-      return target['namespace-id'];
-    case 'table':
-      return target['table-id'];
-    case 'view':
-      return target['view-id'];
-    case 'generic-table':
-      return target['generic-table-id'];
-    case 'column':
-      return `${target['table-id']} · field ${target['field-id']}`;
-    default:
-      return '';
   }
 }
 </script>
