@@ -21,6 +21,7 @@
           <v-btn value="server" size="small">Server</v-btn>
           <v-btn value="project" size="small">Project</v-btn>
           <v-btn value="warehouses" size="small">Warehouses</v-btn>
+          <v-btn value="tags" size="small">Tags</v-btn>
         </v-btn-toggle>
         <v-divider class="mb-2"></v-divider>
 
@@ -152,40 +153,83 @@
 
         <!-- Warehouse object tree -->
         <WarehousesNavigationTree
-          v-else
+          v-else-if="scope === 'warehouses'"
           pickable
           :pickable-types="['warehouse', 'namespace', 'table', 'view', 'generic-table']"
           @pick="onPick" />
+
+        <!-- Tag definitions -->
+        <div v-else-if="scope === 'tags'">
+          <v-text-field
+            v-model="tagSearch"
+            label="Filter tags"
+            prepend-inner-icon="mdi-magnify"
+            variant="outlined"
+            density="compact"
+            hide-details
+            clearable
+            class="mb-2"></v-text-field>
+          <v-progress-linear v-if="tagsLoading" indeterminate color="primary"></v-progress-linear>
+          <v-list density="compact" bg-color="transparent" nav>
+            <v-list-item
+              v-for="t in filteredTags"
+              :key="t.id"
+              :active="selectedTagId === t.id"
+              color="primary"
+              prepend-icon="mdi-tag-outline"
+              :title="t.name"
+              @click="selectedTagId = t.id"></v-list-item>
+            <v-list-item v-if="!tagsLoading && !filteredTags.length">
+              <span class="text-caption text-disabled">No tags.</span>
+            </v-list-item>
+          </v-list>
+        </div>
       </v-col>
 
       <!-- RIGHT: permissions for the current selection. -->
       <v-col cols="12" md="8" style="overflow: auto; height: 100%">
-        <div v-if="resolving" class="pa-8 text-center">
-          <v-progress-circular color="primary" indeterminate></v-progress-circular>
-        </div>
-        <PermissionManager
-          v-else-if="activeSelection"
-          :key="activeSelection.relationType + activeSelection.objectId"
-          :object-id="activeSelection.objectId"
-          :relation-type="activeSelection.relationType"
-          :warehouse-id="activeSelection.warehouseId"
-          hide-managed-access />
-        <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
-          <v-icon icon="mdi-arrow-left"></v-icon>
-          Pick an object to view and manage its permissions.
-        </div>
+        <!-- Tags: per-tag owners / can-apply -->
+        <template v-if="scope === 'tags'">
+          <TagPermissionsPanel
+            v-if="selectedTagId"
+            :key="selectedTagId"
+            :tag-definition-id="selectedTagId" />
+          <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
+            <v-icon icon="mdi-arrow-left"></v-icon>
+            Pick a tag to view and manage who owns it and who can apply it.
+          </div>
+        </template>
+
+        <template v-else>
+          <div v-if="resolving" class="pa-8 text-center">
+            <v-progress-circular color="primary" indeterminate></v-progress-circular>
+          </div>
+          <PermissionManager
+            v-else-if="activeSelection"
+            :key="activeSelection.relationType + activeSelection.objectId"
+            :object-id="activeSelection.objectId"
+            :relation-type="activeSelection.relationType"
+            :warehouse-id="activeSelection.warehouseId"
+            hide-managed-access />
+          <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
+            <v-icon icon="mdi-arrow-left"></v-icon>
+            Pick an object to view and manage its permissions.
+          </div>
+        </template>
       </v-col>
     </v-row>
   </v-card>
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import { RelationType } from '../common/interfaces';
 import WarehousesNavigationTree from './WarehousesNavigationTree.vue';
 import PermissionManager from './PermissionManager.vue';
+import TagPermissionsPanel from './TagPermissionsPanel.vue';
+import type { TagDefinition } from '../gen/management/types.gen';
 
 interface PickItem {
   type: string;
@@ -203,7 +247,7 @@ interface Selection {
 const functions = useFunctions();
 const visual = useVisualStore();
 
-const scope = ref<'server' | 'project' | 'warehouses'>('server');
+const scope = ref<'server' | 'project' | 'warehouses' | 'tags'>('server');
 const serverId = ref('');
 const serverInfo = computed(() => visual.getServerInfo() as Record<string, any>);
 const selectedProjectName = computed(
@@ -245,6 +289,32 @@ const projectOptionsLoading = ref(false);
 // Warehouse-tree pick (resolved to a UUID selection).
 const resolving = ref(false);
 const pickedNode = ref<Selection | null>(null);
+
+// Tags scope: list of tag definitions + the selected one.
+const tags = ref<TagDefinition[]>([]);
+const tagsLoading = ref(false);
+const tagSearch = ref('');
+const selectedTagId = ref('');
+const filteredTags = computed(() => {
+  const q = tagSearch.value.trim().toLowerCase();
+  const list = q ? tags.value.filter((t) => t.name.toLowerCase().includes(q)) : tags.value;
+  return [...list].sort((a, b) => a.name.localeCompare(b.name));
+});
+async function loadTags() {
+  if (tags.value.length || tagsLoading.value) return;
+  tagsLoading.value = true;
+  try {
+    const res = await functions.listTagDefinitions(1000, undefined, undefined, false);
+    tags.value = res['tag-definitions'] ?? [];
+  } catch {
+    // handled
+  } finally {
+    tagsLoading.value = false;
+  }
+}
+watch(scope, (s) => {
+  if (s === 'tags') loadTags();
+});
 
 // The object the right pane shows, derived from the active scope.
 const activeSelection = computed<Selection | null>(() => {

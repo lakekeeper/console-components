@@ -14,8 +14,9 @@ import RoleManager from './components/RoleManager.vue';
 import TagDefinitionManager from './components/TagDefinitionManager.vue';
 import PermissionExplorer from './components/PermissionExplorer.vue';
 import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
-import TagAttachmentsDialog from './components/TagAttachmentsDialog.vue';
-import TagPermissionsDialog from './components/TagPermissionsDialog.vue';
+import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
+import TagPermissionsPanel from './components/TagPermissionsPanel.vue';
+import TagDetailDialog from './components/TagDetailDialog.vue';
 import EntityTags from './components/EntityTags.vue';
 import EntityTagsChips from './components/EntityTagsChips.vue';
 import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
@@ -124,8 +125,9 @@ export {
   TagDefinitionManager,
   PermissionExplorer,
   TagDefinitionDialog,
-  TagAttachmentsDialog,
-  TagPermissionsDialog,
+  TagAttachmentsPanel,
+  TagPermissionsPanel,
+  TagDetailDialog,
   EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,
@@ -354,8 +356,9 @@ const components = {
   TagDefinitionManager,
   PermissionExplorer,
   TagDefinitionDialog,
-  TagAttachmentsDialog,
-  TagPermissionsDialog,
+  TagAttachmentsPanel,
+  TagPermissionsPanel,
+  TagDetailDialog,
   EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,

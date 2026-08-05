@@ -1,104 +1,80 @@
 <template>
-  <v-dialog v-model="dialogOpen" max-width="620" scrollable>
-    <template #activator="activator">
-      <slot name="activator" v-bind="activator"></slot>
-    </template>
-
-    <v-card>
-      <v-toolbar color="transparent" density="compact" flat class="pl-4">
-        <v-icon class="mr-2">mdi-shield-key-outline</v-icon>
-        <v-toolbar-title>
-          <span class="text-subtitle-1">Permissions — {{ tagName }}</span>
-        </v-toolbar-title>
-        <v-spacer></v-spacer>
-        <v-btn icon variant="text" size="small" @click="dialogOpen = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
-      </v-toolbar>
-      <v-divider></v-divider>
-
-      <v-card-text>
-        <div v-for="group in groups" :key="group.relation" class="mb-4">
-          <div class="d-flex align-center mb-1">
-            <v-icon size="16" class="mr-2" :color="group.color">{{ group.icon }}</v-icon>
-            <span class="text-subtitle-2">{{ group.label }}</span>
-            <span class="text-caption text-medium-emphasis ml-2">{{ group.hint }}</span>
-          </div>
-          <v-sheet rounded="lg" border class="pa-2">
-            <div v-if="loading" class="d-flex justify-center py-2">
-              <v-progress-circular indeterminate size="20" color="primary" />
-            </div>
-            <template v-else-if="rowsFor(group.relation).length">
-              <v-chip
-                v-for="row in rowsFor(group.relation)"
-                :key="row.key"
-                class="mr-1 mb-1"
-                size="small"
-                variant="tonal"
-                :prepend-icon="row.kind === 'user' ? 'mdi-account' : 'mdi-account-group'"
-                closable
-                @click:close="remove(row)">
-                {{ row.label }}
-              </v-chip>
-            </template>
-            <span v-else class="text-caption text-disabled">None</span>
-          </v-sheet>
+  <div class="pa-4">
+    <div v-for="group in groups" :key="group.relation" class="mb-4">
+      <div class="d-flex align-center mb-1">
+        <v-icon size="16" class="mr-2" :color="group.color">{{ group.icon }}</v-icon>
+        <span class="text-subtitle-2">{{ group.label }}</span>
+        <span class="text-caption text-medium-emphasis ml-2">{{ group.hint }}</span>
+      </div>
+      <v-sheet rounded="lg" border class="pa-2">
+        <div v-if="loading" class="d-flex justify-center py-2">
+          <v-progress-circular indeterminate size="20" color="primary" />
         </div>
+        <template v-else-if="rowsFor(group.relation).length">
+          <v-chip
+            v-for="row in rowsFor(group.relation)"
+            :key="row.key"
+            class="mr-1 mb-1"
+            size="small"
+            variant="tonal"
+            :prepend-icon="row.kind === 'user' ? 'mdi-account' : 'mdi-account-group'"
+            closable
+            @click:close="remove(row)">
+            {{ row.label }}
+          </v-chip>
+        </template>
+        <span v-else class="text-caption text-disabled">None</span>
+      </v-sheet>
+    </div>
 
-        <v-divider class="my-3"></v-divider>
-        <div class="text-overline mb-2">Grant access</div>
-        <div class="d-flex flex-wrap align-start ga-2">
-          <v-autocomplete
-            v-model="selectedPrincipal"
-            label="User or role"
-            placeholder="Type to search"
-            :items="principalItems"
-            :loading="searching"
-            item-title="title"
-            item-value="value"
-            return-object
-            no-filter
-            density="compact"
-            hide-details
-            style="min-width: 240px"
-            @update:search="onSearch">
-            <template #item="{ props: ip, item }">
-              <v-list-item
-                v-bind="ip"
-                :prepend-icon="item.raw.kind === 'user' ? 'mdi-account' : 'mdi-account-group'"
-                :subtitle="item.raw.subtitle"></v-list-item>
-            </template>
-          </v-autocomplete>
-          <v-select
-            v-model="selectedRelation"
-            label="Access"
-            :items="relationItems"
-            density="compact"
-            hide-details
-            style="min-width: 160px"></v-select>
-          <v-btn color="primary" :disabled="!selectedPrincipal || saving" @click="grant">
-            Grant
-          </v-btn>
-        </div>
-      </v-card-text>
-    </v-card>
-  </v-dialog>
+    <v-divider class="my-3"></v-divider>
+    <div class="text-overline mb-2">Grant access</div>
+    <div class="d-flex flex-wrap align-start ga-2">
+      <v-autocomplete
+        v-model="selectedPrincipal"
+        label="User or role"
+        placeholder="Type to search"
+        :items="principalItems"
+        :loading="searching"
+        item-title="title"
+        item-value="value"
+        return-object
+        no-filter
+        density="compact"
+        hide-details
+        style="min-width: 240px"
+        @update:search="onSearch">
+        <template #item="{ props: ip, item }">
+          <v-list-item
+            v-bind="ip"
+            :prepend-icon="item.raw.kind === 'user' ? 'mdi-account' : 'mdi-account-group'"
+            :subtitle="item.raw.subtitle"></v-list-item>
+        </template>
+      </v-autocomplete>
+      <v-select
+        v-model="selectedRelation"
+        label="Access"
+        :items="relationItems"
+        density="compact"
+        hide-details
+        style="min-width: 160px"></v-select>
+      <v-btn color="primary" :disabled="!selectedPrincipal || saving" @click="grant">Grant</v-btn>
+    </div>
+  </div>
 </template>
 
 <script lang="ts" setup>
-import { ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { TagAssignment, TagRelation } from '../gen/management/types.gen';
 
-const props = defineProps<{ tagDefinitionId: string; tagName: string }>();
+const props = defineProps<{ tagDefinitionId: string }>();
 
 const functions = useFunctions();
 
-const dialogOpen = ref(false);
 const loading = ref(false);
 const saving = ref(false);
 const assignments = ref<TagAssignment[]>([]);
-// principal id -> display label cache
 const nameCache = ref<Record<string, string>>({});
 
 const groups = [
@@ -178,6 +154,7 @@ async function resolveNames() {
 }
 
 async function load() {
+  if (!props.tagDefinitionId) return;
   loading.value = true;
   try {
     const res = await functions.getTagAssignmentsById(props.tagDefinitionId);
@@ -190,12 +167,14 @@ async function load() {
   }
 }
 
-watch(dialogOpen, (open) => {
-  if (open) {
+onMounted(load);
+watch(
+  () => props.tagDefinitionId,
+  () => {
     assignments.value = [];
     load();
-  }
-});
+  },
+);
 
 // ---- grant form ----
 interface PrincipalItem {

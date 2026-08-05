@@ -96,7 +96,8 @@
         hover
         :items="displayedDefinitions"
         :sort-by="[{ key: 'name', order: 'asc' }]"
-        :loading="loading">
+        :loading="loading"
+        @click:row="(_e: unknown, ctx: { item: TagDefinition }) => openDetail(ctx.item)">
         <template #item.name="{ item }">
           <span style="display: flex; align-items: center">
             <v-icon class="mr-2" color="info">mdi-tag-outline</v-icon>
@@ -126,35 +127,11 @@
           </v-tooltip>
           <span v-else>{{ item.description }}</span>
         </template>
-        <template #item.actions="{ item }">
-          <TagAttachmentsDialog :tag-definition-id="item.id" :name="item.name" />
-          <TagPermissionsDialog
-            v-if="isOpenFga && !isSystem(item)"
-            :tag-definition-id="item.id"
-            :tag-name="item.name">
-            <template #activator="{ props: aProps }">
-              <v-btn
-                v-bind="aProps"
-                icon="mdi-shield-key-outline"
-                size="x-small"
-                variant="text"
-                title="Permissions"></v-btn>
-            </template>
-          </TagPermissionsDialog>
-          <template v-if="!isSystem(item) && canCreateTag">
-            <TagDefinitionDialog
-              action-type="edit"
-              :definition="item"
-              @submit="(input) => updateDefinition(item.id, input)" />
-            <v-btn
-              icon="mdi-delete-outline"
-              color="error"
-              size="x-small"
-              variant="text"
-              title="Delete"
-              :loading="checkingId === item.id"
-              @click="requestDelete(item)"></v-btn>
-          </template>
+        <template #item.open="{ item }">
+          <v-icon
+            size="small"
+            class="text-medium-emphasis"
+            :icon="checkingId === item.id ? 'mdi-loading mdi-spin' : 'mdi-chevron-right'"></v-icon>
         </template>
         <template #no-data>
           <span class="text-disabled">No tag definitions yet.</span>
@@ -225,6 +202,15 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Tag detail: General / Permissions / Attachments -->
+    <TagDetailDialog
+      v-model="detailOpen"
+      :definition="detailItem"
+      :is-open-fga="isOpenFga"
+      :can-edit="canCreateTag"
+      @edit="({ id, input }) => updateDefinition(id, input as TagDefinitionInput)"
+      @delete="(def) => requestDelete(def)" />
   </v-card>
 </template>
 
@@ -242,6 +228,7 @@ import {
   TagAttachmentTarget,
 } from '../gen/management/types.gen';
 import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.vue';
+import TagDetailDialog from './TagDetailDialog.vue';
 
 const functions = useFunctions();
 const visual = useVisualStore();
@@ -277,8 +264,16 @@ const headers: readonly Header[] = Object.freeze([
   { title: 'Value kind', key: 'value-kind', align: 'start' },
   { title: 'Scope', key: 'scope', align: 'start', sortable: false },
   { title: 'Description', key: 'description', align: 'start' },
-  { title: 'Actions', key: 'actions', align: 'end', sortable: false },
+  { title: '', key: 'open', align: 'end', sortable: false, width: '48px' },
 ]);
+
+// Row-detail dialog (General / Permissions / Attachments).
+const detailOpen = ref(false);
+const detailItem = ref<TagDefinition | null>(null);
+function openDetail(item: TagDefinition) {
+  detailItem.value = item;
+  detailOpen.value = true;
+}
 
 const projectId = computed(() => visual.projectSelected['project-id']);
 const { canListTags, canCreateTag } = useProjectPermissions(projectId);

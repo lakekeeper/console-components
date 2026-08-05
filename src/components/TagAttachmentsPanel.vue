@@ -1,116 +1,95 @@
 <template>
-  <v-dialog v-model="isActive" max-width="960">
-    <template #activator="{ props: activatorProps }">
-      <v-btn
-        v-bind="activatorProps"
-        icon="mdi-link-variant"
-        size="x-small"
-        variant="text"
-        title="Show attachments"></v-btn>
-    </template>
+  <div class="pa-4">
+    <div class="d-flex flex-wrap ga-2 mb-3">
+      <v-text-field
+        v-model="valueFilter"
+        label="Filter by value"
+        placeholder="exact value (case-sensitive)"
+        prepend-inner-icon="mdi-filter-variant"
+        density="compact"
+        clearable
+        hide-details
+        style="min-width: 220px"
+        @update:model-value="reload"></v-text-field>
+      <v-select
+        v-model="targetTypeFilter"
+        label="Target type"
+        :items="TARGET_TYPES"
+        density="compact"
+        clearable
+        hide-details
+        style="min-width: 180px"
+        @update:model-value="reload"></v-select>
+      <v-select
+        v-model="warehouseFilter"
+        label="Warehouse"
+        :items="warehouseOptions"
+        item-title="title"
+        item-value="value"
+        density="compact"
+        clearable
+        hide-details
+        style="min-width: 200px"
+        @update:model-value="reload"></v-select>
+    </div>
 
-    <v-card :title="`Attachments — ${name}`">
-      <v-card-text>
-        <div class="d-flex flex-wrap ga-2 mb-3">
-          <v-text-field
-            v-model="valueFilter"
-            label="Filter by value"
-            placeholder="exact value (case-sensitive)"
-            prepend-inner-icon="mdi-filter-variant"
-            density="compact"
-            clearable
-            hide-details
-            style="min-width: 220px"
-            @update:model-value="reload"></v-text-field>
-          <v-select
-            v-model="targetTypeFilter"
-            label="Target type"
-            :items="TARGET_TYPES"
-            density="compact"
-            clearable
-            hide-details
-            style="min-width: 180px"
-            @update:model-value="reload"></v-select>
-          <v-select
-            v-model="warehouseFilter"
-            label="Warehouse"
-            :items="warehouseOptions"
-            item-title="title"
-            item-value="value"
-            density="compact"
-            clearable
-            hide-details
-            style="min-width: 200px"
-            @update:model-value="reload"></v-select>
+    <v-data-table :headers="headers" :items="attachments" :loading="loading" density="comfortable">
+      <template #item.target="{ item }">
+        <div class="d-flex align-center flex-nowrap ga-1" style="white-space: nowrap">
+          <v-chip color="info" size="x-small" variant="tonal">{{ item.target.type }}</v-chip>
+
+          <v-icon size="x-small" icon="mdi-database" class="ml-1"></v-icon>
+          <span class="text-caption">{{ warehouseLabel(item.target) }}</span>
+
+          <template v-if="item.target.type !== 'warehouse'">
+            <span class="text-disabled">/</span>
+            <span
+              class="text-caption"
+              :style="entityName(item.target) ? '' : 'font-family: monospace'">
+              {{ entityName(item.target) || entityId(item.target) }}
+            </span>
+            <v-chip
+              v-if="item.target.type === 'column'"
+              size="x-small"
+              variant="outlined"
+              prepend-icon="mdi-table-column"
+              :title="`field-id ${item.target['field-id']}`">
+              {{ columnName(item.target) || `field ${item.target['field-id']}` }}
+            </v-chip>
+            <v-btn
+              v-if="!entityName(item.target)"
+              icon="mdi-content-copy"
+              size="x-small"
+              variant="text"
+              title="Copy id"
+              @click="copy(entityId(item.target))"></v-btn>
+          </template>
+
+          <!-- Open icon → navigate to the object (its Tags tab). -->
+          <v-btn
+            icon="mdi-open-in-new"
+            size="x-small"
+            variant="text"
+            :title="openTitle(item.target)"
+            @click="openTarget(item.target)"></v-btn>
         </div>
-
-        <v-data-table
-          :headers="headers"
-          :items="attachments"
-          :loading="loading"
-          density="comfortable">
-          <template #item.target="{ item }">
-            <div class="d-flex align-center flex-nowrap ga-1" style="white-space: nowrap">
-              <v-chip color="info" size="x-small" variant="tonal">{{ item.target.type }}</v-chip>
-
-              <v-icon size="x-small" icon="mdi-database" class="ml-1"></v-icon>
-              <span class="text-caption">{{ warehouseLabel(item.target) }}</span>
-
-              <template v-if="item.target.type !== 'warehouse'">
-                <span class="text-disabled">/</span>
-                <span
-                  class="text-caption"
-                  :style="entityName(item.target) ? '' : 'font-family: monospace'">
-                  {{ entityName(item.target) || entityId(item.target) }}
-                </span>
-                <v-chip
-                  v-if="item.target.type === 'column'"
-                  size="x-small"
-                  variant="outlined"
-                  prepend-icon="mdi-table-column"
-                  :title="`field-id ${item.target['field-id']}`">
-                  {{ columnName(item.target) || `field ${item.target['field-id']}` }}
-                </v-chip>
-                <v-btn
-                  v-if="!entityName(item.target)"
-                  icon="mdi-content-copy"
-                  size="x-small"
-                  variant="text"
-                  title="Copy id"
-                  @click="copy(entityId(item.target))"></v-btn>
-              </template>
-
-              <!-- Open icon → navigate to the object (its Tags tab). -->
-              <v-btn
-                icon="mdi-open-in-new"
-                size="x-small"
-                variant="text"
-                :title="openTitle(item.target)"
-                @click="openTarget(item.target)"></v-btn>
-            </div>
-          </template>
-          <template #item.value="{ item }">
-            <span v-if="item.value !== null && item.value !== undefined">{{ item.value }}</span>
-            <span v-else class="text-disabled">—</span>
-          </template>
-          <template #item.created-at="{ item }">
-            {{ new Date(item['created-at']).toLocaleString() }}
-          </template>
-          <template #no-data>
-            <span class="text-disabled">No attachments.</span>
-          </template>
-        </v-data-table>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn text="Close" @click="isActive = false"></v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+      </template>
+      <template #item.value="{ item }">
+        <span v-if="item.value !== null && item.value !== undefined">{{ item.value }}</span>
+        <span v-else class="text-disabled">—</span>
+      </template>
+      <template #item.created-at="{ item }">
+        {{ new Date(item['created-at']).toLocaleString() }}
+      </template>
+      <template #no-data>
+        <span class="text-disabled">No attachments.</span>
+      </template>
+    </v-data-table>
+  </div>
 </template>
 
 <script lang="ts" setup>
-import { computed, reactive, ref, watch } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { Header, NamespaceResponse } from '../common/interfaces';
@@ -131,11 +110,11 @@ type EnrichedTarget = TagAttachmentTarget & {
   name?: string;
 };
 
-const props = defineProps<{ tagDefinitionId: string; name: string }>();
+const props = defineProps<{ tagDefinitionId: string }>();
+const emit = defineEmits<{ (e: 'navigate'): void }>();
 
 const functions = useFunctions();
 const router = useRouter();
-const isActive = ref(false);
 const loading = ref(false);
 const attachments = ref<TagAttachment[]>([]);
 const valueFilter = ref<string>('');
@@ -280,7 +259,7 @@ function openTitle(target: TagAttachmentTarget): string {
 }
 
 function openTarget(target: TagAttachmentTarget) {
-  isActive.value = false;
+  emit('navigate');
   router.push({ path: targetPath(target), query: { tab: 'tags' } });
 }
 
@@ -446,10 +425,12 @@ async function reload() {
   }
 }
 
-watch(isActive, (open) => {
-  if (open) {
-    loadWarehouses();
-    reload();
-  }
+onMounted(() => {
+  loadWarehouses();
+  reload();
 });
+watch(
+  () => props.tagDefinitionId,
+  () => reload(),
+);
 </script>
