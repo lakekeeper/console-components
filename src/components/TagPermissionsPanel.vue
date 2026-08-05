@@ -232,11 +232,23 @@ watch(
 async function onAssign(payload: { del: AssignmentCollection; writes: AssignmentCollection }) {
   const del = payload.del as unknown as TagAssignment[];
   const writes = payload.writes as unknown as TagAssignment[];
-  if (!del.length && !writes.length) return;
+  // Drive the status prop the dialog watches so it closes on success.
+  assignStatus.value = StatusIntent.STARTING;
+  if (!del.length && !writes.length) {
+    assignStatus.value = StatusIntent.SUCCESS;
+    return;
+  }
   saving.value = true;
   try {
     const ok = await functions.updateTagAssignmentsById(props.tagDefinitionId, del, writes, true);
-    if (ok) await load();
+    if (ok) {
+      assignStatus.value = StatusIntent.SUCCESS;
+      await load();
+    } else {
+      assignStatus.value = StatusIntent.FAILURE;
+    }
+  } catch {
+    assignStatus.value = StatusIntent.FAILURE;
   } finally {
     saving.value = false;
   }

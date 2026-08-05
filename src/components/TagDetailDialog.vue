@@ -1,6 +1,6 @@
 <template>
-  <v-dialog v-model="model" max-width="940" scrollable>
-    <v-card v-if="definition">
+  <v-dialog v-model="model" max-width="1120" scrollable>
+    <v-card v-if="definition" style="min-height: 78vh">
       <v-toolbar color="transparent" density="compact" flat class="pl-4">
         <v-icon class="mr-2" color="info">mdi-tag-outline</v-icon>
         <v-toolbar-title>
@@ -29,7 +29,21 @@
                 <tbody>
                   <tr>
                     <td class="text-medium-emphasis" style="width: 200px">Name</td>
-                    <td class="font-mono">{{ full.name }}</td>
+                    <td>
+                      <span class="d-inline-flex align-center flex-wrap">
+                        <template v-for="(seg, i) in nameSegments" :key="i">
+                          <v-icon v-if="i > 0" size="x-small" class="mx-1 text-disabled">
+                            mdi-chevron-right
+                          </v-icon>
+                          <v-chip
+                            size="small"
+                            variant="tonal"
+                            :color="i === nameSegments.length - 1 ? 'info' : undefined">
+                            {{ seg }}
+                          </v-chip>
+                        </template>
+                      </span>
+                    </td>
                   </tr>
                   <tr>
                     <td class="text-medium-emphasis">Value kind</td>
@@ -97,15 +111,11 @@
               </v-table>
             </v-sheet>
 
-            <div v-if="canEdit && !isSystem" class="d-flex ga-2 mt-4">
+            <div v-if="canEdit && !isSystem" class="d-flex ga-2 mt-4 align-center justify-end">
               <TagDefinitionDialog
                 action-type="edit"
                 :definition="full"
                 @submit="(input) => $emit('edit', { id: full.id, input })" />
-              <span class="text-caption text-medium-emphasis align-self-center">
-                Edit definition
-              </span>
-              <v-spacer></v-spacer>
               <v-btn
                 color="error"
                 variant="tonal"
@@ -172,6 +182,7 @@ const model = computed({
 });
 
 const isSystem = computed(() => (props.definition?.name ?? '').startsWith('system.'));
+const nameSegments = computed(() => (full.value.name ?? '').split('.').filter(Boolean));
 
 // Full definition (list rows omit allowed-values). Fall back to the passed one.
 const full = ref<TagDefinition>({} as TagDefinition);

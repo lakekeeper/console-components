@@ -407,6 +407,8 @@ async function doDelete() {
     // friendly "still in use" dialog if it became attached since the check.
     await functions.deleteTagDefinition(item.id, false);
     definitions.value = definitions.value.filter((d) => d.id !== item.id);
+    // Close the tag detail dialog if the deleted tag was open in it.
+    if (detailItem.value?.id === item.id) detailOpen.value = false;
   } catch {
     // Became attached since the check — re-read to show where.
     let attachments: TagAttachment[] = [];
