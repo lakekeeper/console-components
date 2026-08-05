@@ -101,7 +101,7 @@
                 @click="copy(entityId(item.target))"></v-btn>
             </template>
 
-            <!-- Open icon → navigate to the object (its Tags tab). -->
+            <!-- Open icon → navigate to the object (its Details tab, where tags live). -->
             <v-btn
               icon="mdi-open-in-new"
               size="x-small"
@@ -268,7 +268,7 @@ function entityId(target: TagAttachmentTarget): string {
   }
 }
 
-// Build the deep link to a target's Tags tab. Returns the warehouse Tags tab when
+// Build the deep link to a target's Details tab (tags live there now). Returns the warehouse Tags tab when
 // the entity's namespace/name aren't available yet (only warehouse is id-routable).
 function targetPath(target: TagAttachmentTarget): string {
   const t = target as EnrichedTarget;
@@ -310,7 +310,7 @@ function openTitle(target: TagAttachmentTarget): string {
 
 function openTarget(target: TagAttachmentTarget) {
   emit('navigate');
-  router.push({ path: targetPath(target), query: { tab: 'tags' } });
+  router.push({ path: targetPath(target), query: { tab: 'details' } });
 }
 
 function copy(text: string) {

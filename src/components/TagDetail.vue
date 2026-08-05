@@ -29,7 +29,7 @@
     <v-divider></v-divider>
 
     <v-tabs-window v-model="tab">
-      <!-- General -->
+      <!-- Details -->
       <v-tabs-window-item value="details">
         <div class="pa-4">
           <v-sheet rounded="lg" border>
