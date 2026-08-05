@@ -63,7 +63,7 @@
         text="Revoke all"
         variant="outlined"
         :disabled="saving"
-        @click="revokeAll(item)"></v-btn>
+        @click="requestRevokeAll(item)"></v-btn>
     </template>
 
     <template #no-data>
@@ -71,47 +71,94 @@
     </template>
   </v-data-table>
 
-  <!-- Grant access dialog -->
-  <v-dialog v-model="grantDialog" max-width="520">
-    <v-card title="Grant access">
+  <!-- Revoke-all confirmation -->
+  <v-dialog v-model="confirmRevokeOpen" max-width="460">
+    <v-card>
+      <v-card-title class="d-flex align-center ga-2">
+        <v-icon color="error">mdi-account-remove-outline</v-icon>
+        Revoke all access
+      </v-card-title>
       <v-card-text>
-        <v-autocomplete
-          v-model="selectedPrincipal"
-          label="User or role"
-          placeholder="Type to search"
-          :items="principalItems"
-          :loading="searching"
-          item-title="title"
-          item-value="value"
-          return-object
-          no-filter
-          density="compact"
-          class="mb-2"
-          @update:search="onSearch">
-          <template #item="{ props: ip, item }">
-            <v-list-item
-              v-bind="ip"
-              :prepend-icon="item.raw.kind === 'user' ? 'mdi-account' : 'mdi-account-group'"
-              :subtitle="item.raw.subtitle"></v-list-item>
-          </template>
-        </v-autocomplete>
-        <v-select
-          v-model="selectedRelation"
-          label="Access"
-          :items="relationItems"
-          density="compact"
-          hide-details></v-select>
+        Revoke
+        <strong>all access</strong>
+        for
+        <strong>{{ pendingRevoke?.name }}</strong>
+        on this tag?
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn text="Cancel" @click="grantDialog = false"></v-btn>
-        <v-btn
+        <v-btn text="Cancel" @click="confirmRevokeOpen = false"></v-btn>
+        <v-btn color="error" variant="flat" text="Revoke all" @click="doRevokeAll"></v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <!-- Grant access dialog (mirrors PermissionAssignDialog) -->
+  <v-dialog v-model="grantDialog" max-width="720">
+    <v-card title="Grant access">
+      <v-card-text>
+        <v-tabs
+          v-model="searchForType"
           color="primary"
-          variant="flat"
-          :disabled="!selectedPrincipal || saving"
-          @click="grant">
-          Grant
-        </v-btn>
+          class="mb-4"
+          @update:model-value="clearSelected">
+          <v-tab value="user">
+            <v-icon start>mdi-account-circle-outline</v-icon>
+            Users
+          </v-tab>
+          <v-tab value="role">
+            <v-icon start>mdi-account-box-multiple-outline</v-icon>
+            Roles
+          </v-tab>
+        </v-tabs>
+
+        <v-autocomplete
+          v-model="searchFor"
+          clear-on-select
+          density="comfortable"
+          item-title="name"
+          item-value="id"
+          :items="items"
+          variant="solo"
+          :loading="searching"
+          :label="`Search for a ${searchForType}`"
+          @update:focused="items = []"
+          @update:search="onSearch"
+          @update:model-value="onSelect">
+          <template #item="{ props: ip, item }">
+            <v-list-item
+              v-bind="ip"
+              :prepend-icon="searchForType === 'user' ? 'mdi-account' : 'mdi-account-group'"
+              :subtitle="item.raw.subtitle"
+              :title="item.raw.name"></v-list-item>
+          </template>
+        </v-autocomplete>
+
+        <template v-if="selectedItem.id">
+          <v-card-title class="px-0">{{ selectedItem.name }}</v-card-title>
+          <v-card-subtitle class="px-0">
+            ID: {{ selectedItem.id }}
+            <v-btn
+              icon="mdi-content-copy"
+              size="small"
+              variant="flat"
+              @click="functions.copyToClipboard(selectedItem.id)"></v-btn>
+          </v-card-subtitle>
+          <v-row no-gutters class="mt-2">
+            <v-col v-for="rel in relationItems" :key="rel.value" cols="6">
+              <v-checkbox
+                v-model="selectedRelations"
+                :label="rel.title"
+                :value="rel.value"
+                hide-details></v-checkbox>
+            </v-col>
+          </v-row>
+        </template>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn color="success" :disabled="!grantDirty || saving" @click="saveGrant">save</v-btn>
+        <v-btn color="error" text="Cancel" @click="grantDialog = false"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -236,58 +283,68 @@ watch(
   },
 );
 
-// ---- grant dialog ----
-interface PrincipalItem {
-  title: string;
+// ---- grant dialog (Users/Roles tabs + relation checkboxes, like PermissionAssignDialog) ----
+interface SearchItem {
+  id: string;
+  name: string;
   subtitle?: string;
-  kind: 'user' | 'role';
-  value: { kind: 'user' | 'role'; id: string };
 }
 const grantDialog = ref(false);
-const principalItems = ref<PrincipalItem[]>([]);
 const searching = ref(false);
-const selectedPrincipal = ref<PrincipalItem | null>(null);
-const selectedRelation = ref<TagRelation>('apply');
+const searchForType = ref<'user' | 'role'>('user');
+const items = ref<SearchItem[]>([]);
+const searchFor = ref('');
+const selectedItem = ref<{ id: string; name: string }>({ id: '', name: '' });
+const selectedRelations = ref<TagRelation[]>([]);
 
 function openGrant() {
-  selectedPrincipal.value = null;
-  principalItems.value = [];
-  selectedRelation.value = 'apply';
+  searchForType.value = 'user';
+  clearSelected();
   grantDialog.value = true;
+}
+
+function clearSelected() {
+  items.value = [];
+  searchFor.value = '';
+  selectedItem.value = { id: '', name: '' };
+  selectedRelations.value = [];
 }
 
 let searchToken = 0;
 async function onSearch(q: string) {
   const query = (q ?? '').trim();
   if (!query) {
-    principalItems.value = [];
+    items.value = [];
     return;
   }
   const token = ++searchToken;
   searching.value = true;
   try {
-    const [users, roles] = await Promise.all([
-      functions.searchUser(query).catch(() => []),
-      functions.searchRole(query).catch(() => []),
-    ]);
-    if (token !== searchToken) return;
-    principalItems.value = [
-      ...users.map((u: any) => ({
-        title: u.name || u.email || u.id,
+    if (searchForType.value === 'user') {
+      const users = await functions.searchUser(query).catch(() => []);
+      if (token !== searchToken) return;
+      items.value = users.map((u: any) => ({
+        id: u.id,
+        name: u.name || u.email || u.id,
         subtitle: u.email || 'User',
-        kind: 'user' as const,
-        value: { kind: 'user' as const, id: u.id },
-      })),
-      ...roles.map((r: any) => ({
-        title: r.name || r.id,
-        subtitle: 'Role',
-        kind: 'role' as const,
-        value: { kind: 'role' as const, id: r.id },
-      })),
-    ];
+      }));
+    } else {
+      const roles = await functions.searchRole(query).catch(() => []);
+      if (token !== searchToken) return;
+      items.value = roles.map((r: any) => ({ id: r.id, name: r.name || r.id, subtitle: 'Role' }));
+    }
   } finally {
     if (token === searchToken) searching.value = false;
   }
+}
+
+// When a principal is selected, pre-seed the checkboxes with its current relations.
+function onSelect(id: string | null) {
+  const found = items.value.find((i) => i.id === id);
+  selectedItem.value = found ? { id: found.id, name: found.name } : { id: '', name: '' };
+  selectedRelations.value = id
+    ? assignments.value.filter((a) => principalId(a) === id).map((a) => a.type)
+    : [];
 }
 
 function buildAssignment(kind: 'user' | 'role', id: string, relation: TagRelation): TagAssignment {
@@ -311,10 +368,29 @@ async function updateAssignments(deletes: TagAssignment[], writes: TagAssignment
   }
 }
 
-async function grant() {
-  const p = selectedPrincipal.value;
-  if (!p) return;
-  await updateAssignments([], [buildAssignment(p.value.kind, p.value.id, selectedRelation.value)]);
+// Current relations the selected principal already has.
+const existingRelations = computed<TagRelation[]>(() =>
+  selectedItem.value.id
+    ? assignments.value.filter((a) => principalId(a) === selectedItem.value.id).map((a) => a.type)
+    : [],
+);
+const grantDirty = computed(() => {
+  if (!selectedItem.value.id) return false;
+  const cur = new Set(selectedRelations.value);
+  const old = new Set(existingRelations.value);
+  return cur.size !== old.size || [...cur].some((r) => !old.has(r));
+});
+
+async function saveGrant() {
+  const id = selectedItem.value.id;
+  if (!id) return;
+  const kind = searchForType.value;
+  const cur = new Set(selectedRelations.value);
+  const old = new Set(existingRelations.value);
+  const writes = [...cur].filter((r) => !old.has(r)).map((r) => buildAssignment(kind, id, r));
+  const deletes = [...old].filter((r) => !cur.has(r)).map((r) => buildAssignment(kind, id, r));
+  if (!writes.length && !deletes.length) return;
+  await updateAssignments(deletes, writes);
   grantDialog.value = false;
 }
 
@@ -323,7 +399,17 @@ async function removeRelation(row: PrincipalRow, rel: TagRelation) {
   if (target) await updateAssignments([target], []);
 }
 
-async function revokeAll(row: PrincipalRow) {
-  await updateAssignments(row.assignments, []);
+const confirmRevokeOpen = ref(false);
+const pendingRevoke = ref<PrincipalRow | null>(null);
+
+function requestRevokeAll(row: PrincipalRow) {
+  pendingRevoke.value = row;
+  confirmRevokeOpen.value = true;
+}
+
+async function doRevokeAll() {
+  const row = pendingRevoke.value;
+  confirmRevokeOpen.value = false;
+  if (row) await updateAssignments(row.assignments, []);
 }
 </script>
