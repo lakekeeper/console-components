@@ -21,12 +21,12 @@
           style="max-width: 300px"></v-text-field>
         <v-btn
           color="primary"
-          variant="flat"
+          variant="outlined"
           size="small"
-          prepend-icon="mdi-account-plus-outline"
-          @click="openGrant">
-          Grant access
-        </v-btn>
+          slim
+          class="me-5"
+          text="grant"
+          @click="openGrant"></v-btn>
       </v-toolbar>
     </template>
 
