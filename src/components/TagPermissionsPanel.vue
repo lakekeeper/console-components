@@ -1,71 +1,126 @@
 <template>
-  <div class="pa-4">
-    <div v-for="group in groups" :key="group.relation" class="mb-4">
-      <div class="d-flex align-center mb-1">
-        <v-icon size="16" class="mr-2" :color="group.color">{{ group.icon }}</v-icon>
-        <span class="text-subtitle-2">{{ group.label }}</span>
-        <span class="text-caption text-medium-emphasis ml-2">{{ group.hint }}</span>
-      </div>
-      <v-sheet rounded="lg" border class="pa-2">
-        <div v-if="loading" class="d-flex justify-center py-2">
-          <v-progress-circular indeterminate size="20" color="primary" />
-        </div>
-        <template v-else-if="rowsFor(group.relation).length">
-          <v-chip
-            v-for="row in rowsFor(group.relation)"
-            :key="row.key"
-            class="mr-1 mb-1"
-            size="small"
-            variant="tonal"
-            :prepend-icon="row.kind === 'user' ? 'mdi-account' : 'mdi-account-group'"
-            closable
-            @click:close="remove(row)">
-            {{ row.label }}
-          </v-chip>
-        </template>
-        <span v-else class="text-caption text-disabled">None</span>
-      </v-sheet>
-    </div>
+  <v-data-table
+    fixed-header
+    hover
+    :headers="headers"
+    :items="principalRows"
+    :loading="loading"
+    :sort-by="[{ key: 'name', order: 'asc' }]">
+    <template #top>
+      <v-toolbar color="transparent" density="compact" flat>
+        <v-spacer></v-spacer>
+        <v-text-field
+          v-model="searchQuery"
+          label="Filter assignments"
+          prepend-inner-icon="mdi-filter"
+          placeholder="Type to filter assignments"
+          variant="underlined"
+          hide-details
+          clearable
+          class="mr-4"
+          style="max-width: 300px"></v-text-field>
+        <v-btn
+          color="primary"
+          variant="flat"
+          size="small"
+          prepend-icon="mdi-account-plus-outline"
+          @click="openGrant">
+          Grant access
+        </v-btn>
+      </v-toolbar>
+    </template>
 
-    <v-divider class="my-3"></v-divider>
-    <div class="text-overline mb-2">Grant access</div>
-    <div class="d-flex flex-wrap align-start ga-2">
-      <v-autocomplete
-        v-model="selectedPrincipal"
-        label="User or role"
-        placeholder="Type to search"
-        :items="principalItems"
-        :loading="searching"
-        item-title="title"
-        item-value="value"
-        return-object
-        no-filter
-        density="compact"
-        hide-details
-        style="min-width: 240px"
-        @update:search="onSearch">
-        <template #item="{ props: ip, item }">
-          <v-list-item
-            v-bind="ip"
-            :prepend-icon="item.raw.kind === 'user' ? 'mdi-account' : 'mdi-account-group'"
-            :subtitle="item.raw.subtitle"></v-list-item>
-        </template>
-      </v-autocomplete>
-      <v-select
-        v-model="selectedRelation"
-        label="Access"
-        :items="relationItems"
-        density="compact"
-        hide-details
-        style="min-width: 160px"></v-select>
-      <v-btn color="primary" :disabled="!selectedPrincipal || saving" @click="grant">Grant</v-btn>
-    </div>
-  </div>
+    <template #item.name="{ item }">
+      <span style="display: flex; align-items: center">
+        <v-icon class="mr-2">
+          {{
+            item.kind === 'user' ? 'mdi-account-circle-outline' : 'mdi-account-box-multiple-outline'
+          }}
+        </v-icon>
+        {{ item.name }}
+      </span>
+    </template>
+
+    <template #item.access="{ item }">
+      <v-chip
+        v-for="rel in item.relations"
+        :key="rel"
+        class="mr-1"
+        size="small"
+        :color="relColor(rel)"
+        variant="tonal"
+        :prepend-icon="relIcon(rel)"
+        closable
+        @click:close="removeRelation(item, rel)">
+        {{ relLabel(rel) }}
+      </v-chip>
+    </template>
+
+    <template #item.actions="{ item }">
+      <v-btn
+        color="error"
+        size="small"
+        text="Revoke all"
+        variant="outlined"
+        :disabled="saving"
+        @click="revokeAll(item)"></v-btn>
+    </template>
+
+    <template #no-data>
+      <span class="text-disabled">No permissions assigned.</span>
+    </template>
+  </v-data-table>
+
+  <!-- Grant access dialog -->
+  <v-dialog v-model="grantDialog" max-width="520">
+    <v-card title="Grant access">
+      <v-card-text>
+        <v-autocomplete
+          v-model="selectedPrincipal"
+          label="User or role"
+          placeholder="Type to search"
+          :items="principalItems"
+          :loading="searching"
+          item-title="title"
+          item-value="value"
+          return-object
+          no-filter
+          density="compact"
+          class="mb-2"
+          @update:search="onSearch">
+          <template #item="{ props: ip, item }">
+            <v-list-item
+              v-bind="ip"
+              :prepend-icon="item.raw.kind === 'user' ? 'mdi-account' : 'mdi-account-group'"
+              :subtitle="item.raw.subtitle"></v-list-item>
+          </template>
+        </v-autocomplete>
+        <v-select
+          v-model="selectedRelation"
+          label="Access"
+          :items="relationItems"
+          density="compact"
+          hide-details></v-select>
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer></v-spacer>
+        <v-btn text="Cancel" @click="grantDialog = false"></v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          :disabled="!selectedPrincipal || saving"
+          @click="grant">
+          Grant
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
+import { Header } from '../common/interfaces';
 import { TagAssignment, TagRelation } from '../gen/management/types.gen';
 
 const props = defineProps<{ tagDefinitionId: string }>();
@@ -76,28 +131,27 @@ const loading = ref(false);
 const saving = ref(false);
 const assignments = ref<TagAssignment[]>([]);
 const nameCache = ref<Record<string, string>>({});
+const searchQuery = ref('');
 
-const groups = [
-  {
-    relation: 'ownership' as TagRelation,
-    label: 'Owners',
-    hint: 'full control — edit, delete, grant',
-    icon: 'mdi-crown-outline',
-    color: 'warning',
-  },
-  {
-    relation: 'apply' as TagRelation,
-    label: 'Can apply',
-    hint: 'may attach this tag to objects',
-    icon: 'mdi-tag-plus-outline',
-    color: 'info',
-  },
-];
+const headers: readonly Header[] = Object.freeze([
+  { title: 'Name', key: 'name', align: 'start' },
+  { title: 'Access', key: 'access', align: 'start', sortable: false },
+  { title: '', key: 'actions', align: 'end', sortable: false },
+]);
 
 const relationItems = [
   { title: 'Owner', value: 'ownership' },
   { title: 'Can apply', value: 'apply' },
 ];
+function relLabel(rel: TagRelation): string {
+  return rel === 'ownership' ? 'Owner' : 'Can apply';
+}
+function relColor(rel: TagRelation): string {
+  return rel === 'ownership' ? 'warning' : 'info';
+}
+function relIcon(rel: TagRelation): string {
+  return rel === 'ownership' ? 'mdi-crown-outline' : 'mdi-tag-plus-outline';
+}
 
 function principalId(a: TagAssignment): string {
   return 'user' in a ? a.user : a.role;
@@ -106,29 +160,35 @@ function principalKind(a: TagAssignment): 'user' | 'role' {
   return 'user' in a ? 'user' : 'role';
 }
 
-interface Row {
-  key: string;
-  kind: 'user' | 'role';
+interface PrincipalRow {
   id: string;
-  label: string;
-  assignment: TagAssignment;
+  kind: 'user' | 'role';
+  name: string;
+  relations: TagRelation[];
+  assignments: TagAssignment[];
 }
 
-function rowsFor(relation: TagRelation): Row[] {
-  return assignments.value
-    .filter((a) => a.type === relation)
-    .map((a) => {
-      const id = principalId(a);
-      const kind = principalKind(a);
-      return {
-        key: `${kind}:${id}:${relation}`,
-        kind,
+const principalRows = computed<PrincipalRow[]>(() => {
+  const byId = new Map<string, PrincipalRow>();
+  for (const a of assignments.value) {
+    const id = principalId(a);
+    let row = byId.get(id);
+    if (!row) {
+      row = {
         id,
-        label: nameCache.value[id] ?? id,
-        assignment: a,
+        kind: principalKind(a),
+        name: nameCache.value[id] ?? id,
+        relations: [],
+        assignments: [],
       };
-    });
-}
+      byId.set(id, row);
+    }
+    row.relations.push(a.type);
+    row.assignments.push(a);
+  }
+  const q = searchQuery.value.trim().toLowerCase();
+  return [...byId.values()].filter((r) => !q || r.name.toLowerCase().includes(q));
+});
 
 async function resolveNames() {
   const ids = new Set<string>();
@@ -176,17 +236,25 @@ watch(
   },
 );
 
-// ---- grant form ----
+// ---- grant dialog ----
 interface PrincipalItem {
   title: string;
   subtitle?: string;
   kind: 'user' | 'role';
   value: { kind: 'user' | 'role'; id: string };
 }
+const grantDialog = ref(false);
 const principalItems = ref<PrincipalItem[]>([]);
 const searching = ref(false);
 const selectedPrincipal = ref<PrincipalItem | null>(null);
 const selectedRelation = ref<TagRelation>('apply');
+
+function openGrant() {
+  selectedPrincipal.value = null;
+  principalItems.value = [];
+  selectedRelation.value = 'apply';
+  grantDialog.value = true;
+}
 
 let searchToken = 0;
 async function onSearch(q: string) {
@@ -228,39 +296,34 @@ function buildAssignment(kind: 'user' | 'role', id: string, relation: TagRelatio
   ) as TagAssignment;
 }
 
-async function grant() {
-  const p = selectedPrincipal.value;
-  if (!p) return;
+async function updateAssignments(deletes: TagAssignment[], writes: TagAssignment[]) {
   saving.value = true;
   try {
     const ok = await functions.updateTagAssignmentsById(
       props.tagDefinitionId,
-      [],
-      [buildAssignment(p.value.kind, p.value.id, selectedRelation.value)],
-      true,
-    );
-    if (ok) {
-      selectedPrincipal.value = null;
-      principalItems.value = [];
-      await load();
-    }
-  } finally {
-    saving.value = false;
-  }
-}
-
-async function remove(row: Row) {
-  saving.value = true;
-  try {
-    const ok = await functions.updateTagAssignmentsById(
-      props.tagDefinitionId,
-      [row.assignment],
-      [],
+      deletes,
+      writes,
       true,
     );
     if (ok) await load();
   } finally {
     saving.value = false;
   }
+}
+
+async function grant() {
+  const p = selectedPrincipal.value;
+  if (!p) return;
+  await updateAssignments([], [buildAssignment(p.value.kind, p.value.id, selectedRelation.value)]);
+  grantDialog.value = false;
+}
+
+async function removeRelation(row: PrincipalRow, rel: TagRelation) {
+  const target = row.assignments.find((a) => a.type === rel);
+  if (target) await updateAssignments([target], []);
+}
+
+async function revokeAll(row: PrincipalRow) {
+  await updateAssignments(row.assignments, []);
 }
 </script>
