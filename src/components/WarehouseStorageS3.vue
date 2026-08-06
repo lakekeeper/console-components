@@ -263,6 +263,17 @@
           </v-col>
           <v-col>
             <v-combobox
+              v-model="warehouseObjectData['storage-profile']['partition']"
+              :items="s3Partitions"
+              label="Bucket Partition *"
+              placeholder="aws"
+              :rules="[rules.required]"
+              :error="isPartitionInvalid"
+              :color="isPartitionInvalid ? 'error' : 'primary'"
+              :style="isPartitionInvalid ? 'color: rgb(var(--v-theme-error));' : ''"></v-combobox>
+          </v-col>
+          <v-col>
+            <v-combobox
               v-model="warehouseObjectData['storage-profile'].region"
               :items="regions"
               :label="getFieldLabel('Bucket Region', isRegionRequired)"
@@ -714,6 +725,7 @@
             type="submit"
             :disabled="
               isAccessKeyMissing ||
+              isPartitionInvalid ||
               !warehouseObjectData['storage-profile'].bucket ||
               isRegionInvalid ||
               isStsArnMissing
@@ -730,6 +742,7 @@
                 size="small"
                 :disabled="
                   isAccessKeyMissing ||
+                  isPartitionInvalid ||
                   !warehouseObjectData['storage-profile'].bucket ||
                   isRegionInvalid ||
                   isStsArnMissing
@@ -757,6 +770,7 @@
           variant="flat"
           :disabled="
             isAccessKeyMissing ||
+            isPartitionInvalid ||
             !warehouseObjectData['storage-profile'].bucket ||
             isRegionInvalid ||
             isStsArnMissing
@@ -786,6 +800,16 @@ import { WarehousObject } from '@/common/interfaces';
 import cfIcon from '@/assets/cf.svg';
 
 const showPassword = ref(false);
+
+const s3Partitions = [
+  'aws',
+  'aws-cn',
+  'aws-us-gov',
+  'aws-iso',
+  'aws-iso-b',
+  'aws-iso-e',
+  'aws-iso-f',
+];
 
 const s3UrlDetectionModes = [
   { name: 'Path', code: 'path' },
@@ -823,6 +847,7 @@ const warehouseObjectData = reactive<{
   'storage-profile': {
     type: 's3',
     bucket: '',
+    partition: 'aws',
     region: '',
     'remote-signing-enabled': true,
     'sts-enabled': false,
@@ -1047,6 +1072,10 @@ const isBucketInvalid = computed(() => {
   return !warehouseObjectData['storage-profile'].bucket;
 });
 
+const isPartitionInvalid = computed(() => {
+  return !warehouseObjectData['storage-profile']['partition'];
+});
+
 const isRegionInvalid = computed(
   () => isRegionRequired.value && !warehouseObjectData['storage-profile'].region,
 );
@@ -1184,7 +1213,14 @@ const emitNewProfile = () => {
 
 onMounted(() => {
   if (props.warehouseObject) {
-    Object.assign(warehouseObjectData, props.warehouseObject);
+    // Clone the nested objects so local edits (and the partition default below)
+    // never write back into the parent-owned prop.
+    Object.assign(warehouseObjectData, {
+      ...props.warehouseObject,
+      'storage-profile': { ...props.warehouseObject['storage-profile'] },
+      'storage-credential': { ...props.warehouseObject['storage-credential'] },
+    });
+    warehouseObjectData['storage-profile']['partition'] ??= 'aws';
 
     // Initialize storage layout from existing data
     const existingLayout = warehouseObjectData['storage-profile']['storage-layout'];
