@@ -1864,6 +1864,10 @@ export type S3Profile = {
      */
     bucket: string;
     /**
+     * AWS partition used when constructing S3 ARNs for vended-credential policies.
+     */
+    partition?: string;
+    /**
      * Optional endpoint to use for S3 requests, if not provided
      * the region will be used to determine the endpoint.
      * If both region and endpoint are provided, the endpoint will be used.
