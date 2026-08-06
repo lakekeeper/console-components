@@ -35,7 +35,10 @@
           Statistics
         </v-tab>
       </v-tabs>
-      <v-tabs-window v-model="tab" style="max-height: calc(100vh - 140px); overflow-y: auto">
+      <v-tabs-window
+        v-model="tab"
+        crossfade
+        style="max-height: calc(100vh - 140px); overflow-y: auto">
         <v-tabs-window-item value="overview" v-if="userStorage.isAuthenticated">
           <v-list lines="two" subheader>
             <v-list-subheader>Selected Project</v-list-subheader>

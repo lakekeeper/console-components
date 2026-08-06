@@ -26,7 +26,7 @@
       </v-tabs>
       <v-divider></v-divider>
 
-      <v-tabs-window v-model="formatTab">
+      <v-tabs-window v-model="formatTab" crossfade>
         <v-tabs-window-item value="iceberg">
           <v-card-text>
             <!-- Table Name -->

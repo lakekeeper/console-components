@@ -20,7 +20,7 @@
       </v-tabs>
       <v-divider></v-divider>
 
-      <v-tabs-window v-if="dialogOpen" v-model="tab">
+      <v-tabs-window v-if="dialogOpen" v-model="tab" crossfade>
         <v-tabs-window-item value="table">
           <!-- keyed on the active tab so switching back remounts and reloads state -->
           <EntityTagsManagePanel
