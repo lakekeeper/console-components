@@ -230,6 +230,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
+import { useVisualStore } from '../stores/visual';
 import { Header } from '../common/interfaces';
 import {
   TagScope,
@@ -247,6 +248,7 @@ const props = defineProps<{
 }>();
 
 const functions = useFunctions();
+const visual = useVisualStore();
 const notify = true;
 
 const tags = ref<TargetTag[]>([]);
@@ -330,8 +332,7 @@ async function loadTags() {
 
 async function loadDefinitions() {
   try {
-    const res = await functions.listTagDefinitions(1000, undefined, undefined, false);
-    definitions.value = res['tag-definitions'] ?? [];
+    definitions.value = await functions.listAllTagDefinitions(undefined, false);
   } catch {
     // handled
   }
@@ -421,6 +422,7 @@ async function submit() {
     await api.value.set(form.name, value, notify);
     dialog.value = false;
     await loadTags();
+    visual.bumpTagsRefresh();
   } catch {
     // handled
   }
@@ -441,6 +443,7 @@ async function doRemove() {
   try {
     await api.value.del(tag.name, notify);
     await loadTags();
+    visual.bumpTagsRefresh();
   } catch {
     // handled
   }

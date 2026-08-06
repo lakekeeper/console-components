@@ -887,26 +887,33 @@ function colTags(name: string): TargetTag[] {
   return columnTags[name] ?? [];
 }
 
-async function refreshColumnTags(name: string) {
+async function refreshColumnTags(name: string, token: number) {
   if (!props.warehouseId || !props.tableId) return;
   try {
     const res = await functions.listTableColumnTags(
       props.warehouseId,
       props.tableId,
       name,
-      false,
+      true, // effective — include inherited tags, matching the other tag views
       false,
     );
+    if (token !== columnTagsToken) return; // a newer table/schema load is in flight
     columnTags[name] = res.tags ?? [];
   } catch {
     // handled
   }
 }
 
+// Guards against a slower, now-stale request (from the previous table) writing
+// into columnTags after the user has switched tables — column names commonly
+// recur across tables, so a stale write would silently show the wrong tags.
+let columnTagsToken = 0;
 async function loadAllColumnTags() {
   if (!props.warehouseId || !props.tableId) return;
+  const token = ++columnTagsToken;
+  for (const key of Object.keys(columnTags)) delete columnTags[key];
   const cols = currentSchema.value?.fields ?? [];
-  await Promise.all(cols.map((f) => refreshColumnTags(f.name)));
+  await Promise.all(cols.map((f) => refreshColumnTags(f.name, token)));
 }
 
 watch(

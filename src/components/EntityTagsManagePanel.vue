@@ -282,8 +282,7 @@ async function loadTags() {
 
 async function loadDefinitions() {
   try {
-    const res = await functions.listTagDefinitions(1000, undefined, undefined, false);
-    definitions.value = res['tag-definitions'] ?? [];
+    definitions.value = await functions.listAllTagDefinitions(undefined, false);
   } catch {
     // handled
   }

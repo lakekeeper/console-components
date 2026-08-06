@@ -115,6 +115,7 @@ import {
   ListTagDefinitionsResponse,
   ListTagAttachmentsResponse,
   ListTagsResponse,
+  TagAttachment,
   AppliedTag,
   TagAssignment,
   TagRelation,
@@ -1061,6 +1062,21 @@ async function listTagDefinitions(
   }
 }
 
+// Definition pickers across the UI (apply-tag forms, filter rails, the
+// vocabulary manager) all want "every" definition, not one page of it — follow
+// next-page-token until exhausted rather than relying on a single large
+// pageSize, which silently truncates once a project has more tags than that.
+async function listAllTagDefinitions(name?: string, notify?: boolean): Promise<TagDefinition[]> {
+  const all: TagDefinition[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await listTagDefinitions(100, pageToken, name, notify);
+    all.push(...(res['tag-definitions'] ?? []));
+    pageToken = res['next-page-token'] ?? undefined;
+  } while (pageToken);
+  return all;
+}
+
 async function createTagDefinition(
   body: CreateTagDefinitionRequest,
   notify?: boolean,
@@ -1168,6 +1184,27 @@ async function listTagAttachments(
     handleError(error, 'listTagAttachments', notify);
     throw error;
   }
+}
+
+// The reverse-lookup viewer wants every attachment matching its filters, not
+// one page — same next-page-token follow-through as listAllTagDefinitions.
+async function listAllTagAttachments(
+  tagDefinitionId: string,
+  filters?: Omit<NonNullable<Parameters<typeof listTagAttachments>[1]>, 'pageSize' | 'pageToken'>,
+  notify?: boolean,
+): Promise<TagAttachment[]> {
+  const all: TagAttachment[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await listTagAttachments(
+      tagDefinitionId,
+      { ...filters, pageSize: 100, pageToken },
+      notify,
+    );
+    all.push(...(res.attachments ?? []));
+    pageToken = res['next-page-token'] ?? undefined;
+  } while (pageToken);
+  return all;
 }
 
 // Tag permissions (OpenFGA): who owns a tag definition and who may apply it.
@@ -5944,11 +5981,13 @@ export function useFunctions(config?: any) {
     setWarehouseProtection,
     // Governance tags
     listTagDefinitions,
+    listAllTagDefinitions,
     createTagDefinition,
     getTagDefinition,
     updateTagDefinition,
     deleteTagDefinition,
     listTagAttachments,
+    listAllTagAttachments,
     getTagAssignmentsById,
     updateTagAssignmentsById,
     listWarehouseTags,

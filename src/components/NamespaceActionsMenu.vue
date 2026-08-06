@@ -217,26 +217,33 @@ const confirmTarget = computed(() => props.namespacePath.split('\x1F').pop() || 
 const confirmName = ref('');
 const deleteConfirmed = computed(() => confirmName.value.trim() === confirmTarget.value);
 
+// Guards against a stale response overwriting a newer one when warehouseId/
+// namespacePath change again before an in-flight load() resolves.
+let loadToken = 0;
 async function load() {
+  const token = ++loadToken;
+  namespaceId.value = ''; // don't act on the previous namespace while reloading
   try {
     const meta = (await functions.loadNamespaceMetadata(
       props.warehouseId,
       props.namespacePath,
       false,
     )) as GetNamespaceResponse;
+    if (token !== loadToken) return;
     namespaceProps.value = (meta.properties ?? {}) as Record<string, string>;
     namespaceId.value = meta.properties?.namespace_id || (meta as any)['namespace-uuid'] || '';
     if (namespaceId.value) {
       try {
-        protectedState.value = (
-          await functions.getNamespaceProtection(props.warehouseId, namespaceId.value)
-        ).protected;
+        const prot = await functions.getNamespaceProtection(props.warehouseId, namespaceId.value);
+        if (token !== loadToken) return;
+        protectedState.value = prot.protected;
         protectedPending.value = protectedState.value;
       } catch {
         /* protection not visible to this role */
       }
     }
   } catch (e) {
+    if (token !== loadToken) return;
     console.error('[NamespaceActionsMenu] load failed', e);
   }
 }

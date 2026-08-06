@@ -261,6 +261,10 @@ const emit = defineEmits<{
 
 // Internal state management
 const loaded = ref(false);
+// onMounted and the canReadAssignments watcher can both fire init() around the
+// same time (authorizer permissions resolving shortly after mount) — guard
+// against running two loads concurrently.
+let initializing = false;
 const assignStatus = ref(StatusIntent.INACTIVE);
 const existingAssignments = reactive<any[]>([]);
 const assignableObj = reactive<{ id: string; name: string }>({
@@ -458,6 +462,16 @@ async function loadManagedAccess() {
 }
 
 async function init() {
+  if (initializing) return;
+  initializing = true;
+  try {
+    await doInit();
+  } finally {
+    initializing = false;
+  }
+}
+
+async function doInit() {
   loaded.value = false;
   permissionRows.splice(0, permissionRows.length);
 

@@ -323,8 +323,7 @@ async function loadTags() {
   if (tags.value.length || tagsLoading.value) return;
   tagsLoading.value = true;
   try {
-    const res = await functions.listTagDefinitions(1000, undefined, undefined, false);
-    tags.value = res['tag-definitions'] ?? [];
+    tags.value = await functions.listAllTagDefinitions(undefined, false);
   } catch {
     // handled
   } finally {

@@ -16,7 +16,7 @@
     </div>
 
     <TableVersioningVisualization
-      v-else
+      v-if="loaded"
       :table="table"
       :snapshot-history="snapshotHistory"
       :can-rollback="canCommit"
@@ -89,7 +89,7 @@ async function loadTableData() {
       snapshotHistory.push(...sortedSnapshots);
     }
   } catch (error) {
-    console.error('Failed to load table data:', error);
+    functions.handleError(error, 'loadTableData', true);
   } finally {
     loading.value = false;
   }

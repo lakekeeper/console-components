@@ -206,6 +206,7 @@ import {
   RoleRelation,
   ServerRelation,
   TableRelation,
+  TagRelation,
   User,
   ViewRelation,
   GenericTableRelation,
@@ -266,7 +267,7 @@ const objRelation = computed(() => {
   }
   throw new Error('Invalid relation type');
 });
-const tagRelation: string[] = ['ownership', 'apply'];
+const tagRelation: TagRelation[] = ['ownership', 'apply'];
 // 'assignee' (role membership) is managed in the role's Members tab, so the
 // Permissions tab only grants 'ownership' (who can administer the role).
 const roleRelations: RoleRelation[] = ['ownership'];

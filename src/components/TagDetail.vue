@@ -285,7 +285,7 @@ async function doDelete() {
   try {
     await functions.deleteTagDefinition(full.value.id, false);
     goBack();
-  } catch {
+  } catch (error) {
     let attachments: TagAttachment[] = [];
     try {
       const res = await functions.listTagAttachments(full.value.id, { pageSize: 100 }, false);
@@ -293,8 +293,14 @@ async function doDelete() {
     } catch {
       // ignore
     }
-    inUseAttachments.value = attachments;
-    inUseDialog.value = true;
+    if (attachments.length) {
+      inUseAttachments.value = attachments;
+      inUseDialog.value = true;
+    } else {
+      // Deletion failed for a reason other than being in use (permission,
+      // validation, network...) — report it instead of mislabeling it as in-use.
+      functions.handleError(error, 'deleteTagDefinition', true);
+    }
   }
 }
 </script>

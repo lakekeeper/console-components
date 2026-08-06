@@ -199,8 +199,7 @@ const allColumnTagRows = computed(() => {
 
 async function loadDefinitions() {
   try {
-    const res = await functions.listTagDefinitions(1000, undefined, undefined, false);
-    definitions.value = res['tag-definitions'] ?? [];
+    definitions.value = await functions.listAllTagDefinitions(undefined, false);
   } catch {
     // handled
   }
@@ -288,6 +287,8 @@ async function onDefinitionSelected(id: string | null) {
     try {
       const full = await functions.getTagDefinition(id, false);
       allowedValues.value = full['allowed-values'] ?? [];
+    } catch {
+      // handled by functions.handleError
     } finally {
       loadingDefinition.value = false;
     }

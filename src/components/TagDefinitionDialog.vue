@@ -167,13 +167,14 @@ const isValid = computed(() => {
   return true;
 });
 
-// Prevent removing locked scopes.
+// Prevent removing locked scopes. Collect every missing locked scope before
+// assigning once — reassigning per-scope inside the loop would each time
+// rebuild from the same stale `next`, dropping all but the last one added back.
 watch(
   () => data.scope,
   (next) => {
-    for (const s of lockedScopes.value) {
-      if (!next.includes(s)) data.scope = [...next, s];
-    }
+    const missing = lockedScopes.value.filter((s) => !next.includes(s));
+    if (missing.length) data.scope = [...next, ...missing];
   },
   { deep: true },
 );
@@ -188,8 +189,12 @@ async function hydrateForEdit() {
   data.newAllowedValues = [];
   // List entries omit allowed-values — fetch the full definition.
   if (data.valueKind === 'enumerated') {
-    const full = await functions.getTagDefinition(props.definition.id, false);
-    existingAllowedValues.value = full['allowed-values'] ?? [];
+    try {
+      const full = await functions.getTagDefinition(props.definition.id, false);
+      existingAllowedValues.value = full['allowed-values'] ?? [];
+    } catch {
+      // handled by functions.handleError
+    }
   }
 }
 

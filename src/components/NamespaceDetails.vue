@@ -89,6 +89,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import EntityTagsChips from './EntityTagsChips.vue';
+import type { GetNamespaceResponse } from '../gen/iceberg/types.gen';
 
 const props = defineProps<{
   warehouseId: string;
@@ -112,11 +113,11 @@ async function load() {
   properties.value = {};
   if (!props.warehouseId || !props.namespacePath) return;
   try {
-    const meta: any = await functions.loadNamespaceMetadata(
+    const meta = (await functions.loadNamespaceMetadata(
       props.warehouseId,
       props.namespacePath,
       false,
-    );
+    )) as GetNamespaceResponse;
     properties.value = meta?.properties ?? {};
     namespaceId.value = meta?.properties?.namespace_id || meta?.['namespace-uuid'] || '';
   } catch {

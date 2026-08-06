@@ -165,6 +165,7 @@
 <script lang="ts" setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useFunctions } from '../plugins/functions';
+import { useVisualStore } from '../stores/visual';
 import { Header } from '../common/interfaces';
 import { TagValueKind, TargetTag, TagDefinition } from '../gen/management/types.gen';
 
@@ -183,6 +184,7 @@ const props = defineProps<{
 }>();
 
 const functions = useFunctions();
+const visual = useVisualStore();
 const notify = true;
 
 function truncate(v: string | null | undefined, n = 30): string {
@@ -206,8 +208,7 @@ const applicableDefinitions = computed(() =>
 
 async function loadDefinitions() {
   try {
-    const res = await functions.listTagDefinitions(1000, undefined, undefined, false);
-    definitions.value = res['tag-definitions'] ?? [];
+    definitions.value = await functions.listAllTagDefinitions(undefined, false);
   } catch {
     // handled
   }
@@ -284,6 +285,8 @@ async function onDefinitionSelected(id: string | null) {
     try {
       const full = await functions.getTagDefinition(id, false);
       allowedValues.value = full['allowed-values'] ?? [];
+    } catch {
+      // handled by functions.handleError
     } finally {
       loadingDefinition.value = false;
     }
@@ -305,6 +308,7 @@ async function submit() {
     );
     resetForm();
     await refreshColumn(col);
+    visual.bumpTagsRefresh();
   } catch {
     // handled
   }
@@ -337,6 +341,7 @@ async function doRemove() {
       notify,
     );
     await refreshColumn(col);
+    visual.bumpTagsRefresh();
   } catch {
     // handled
   }

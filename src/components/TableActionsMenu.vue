@@ -271,21 +271,29 @@ const settingsDirty = computed(
     protectedPending.value !== protectedState.value,
 );
 
+// Guards against a stale response overwriting a newer one when warehouseId/
+// namespaceId/tableName change again before an in-flight load() resolves.
+let loadToken = 0;
 async function load() {
+  const token = ++loadToken;
+  tableId.value = ''; // don't act on the previous table while reloading
   try {
-    table.value = (await functions.loadTableCustomized(
+    const loaded = (await functions.loadTableCustomized(
       props.warehouseId,
       props.namespaceId,
       props.tableName,
     )) as LoadTableResult;
+    if (token !== loadToken) return;
+    table.value = loaded;
     tableId.value = table.value.metadata['table-uuid'] ?? '';
     if (tableId.value) {
-      protectedState.value = (
-        await functions.getTableProtection(props.warehouseId, tableId.value)
-      ).protected;
+      const prot = await functions.getTableProtection(props.warehouseId, tableId.value);
+      if (token !== loadToken) return;
+      protectedState.value = prot.protected;
       protectedPending.value = protectedState.value;
     }
   } catch (e) {
+    if (token !== loadToken) return;
     console.error('[TableActionsMenu] load failed', e);
   }
 }

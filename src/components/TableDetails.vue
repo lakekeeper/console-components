@@ -499,7 +499,6 @@ const props = defineProps<{
   tableName?: string;
   catalogUrl?: string;
   canEdit?: boolean;
-  canManageTags?: boolean;
 }>();
 
 // Emits

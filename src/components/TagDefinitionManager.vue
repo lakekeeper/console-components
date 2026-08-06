@@ -146,7 +146,12 @@ import { useFunctions } from '../plugins/functions';
 import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
 import { useProjectPermissions } from '../composables/useCatalogPermissions';
-import { CreateTagDefinitionRequest, TagDefinition } from '../gen/management/types.gen';
+import {
+  CreateTagDefinitionRequest,
+  TagDefinition,
+  TagScope,
+  TagValueKind,
+} from '../gen/management/types.gen';
 import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.vue';
 
 const functions = useFunctions();
@@ -157,10 +162,17 @@ const notify = true;
 const definitions = ref<TagDefinition[]>([]);
 const loading = ref(false);
 const search = ref('');
-const kindFilter = ref<string[]>([]);
-const scopeFilter = ref<string[]>([]);
-const kindOptions = ['marker', 'free-text', 'enumerated'];
-const scopeOptions = ['warehouse', 'namespace', 'table', 'view', 'generic-table', 'column'];
+const kindFilter = ref<TagValueKind[]>([]);
+const scopeFilter = ref<TagScope[]>([]);
+const kindOptions: TagValueKind[] = ['marker', 'free-text', 'enumerated'];
+const scopeOptions: TagScope[] = [
+  'warehouse',
+  'namespace',
+  'table',
+  'view',
+  'generic-table',
+  'column',
+];
 // Filter rail closed by default; the open state is remembered per user (persisted in visual store).
 const filtersCollapsed = computed({
   get: () => !visual.tagFilterPanelOpen,
@@ -194,7 +206,7 @@ const displayedDefinitions = computed(() => {
   const q = search.value?.trim().toLowerCase();
   return definitions.value.filter((d) => {
     if (kindFilter.value.length && !kindFilter.value.includes(d['value-kind'])) return false;
-    if (scopeFilter.value.length && !scopeFilter.value.some((s) => d.scope.includes(s as any)))
+    if (scopeFilter.value.length && !scopeFilter.value.some((s) => d.scope.includes(s)))
       return false;
     if (q) {
       const hit =
@@ -227,8 +239,7 @@ function isSystem(item: TagDefinition): boolean {
 async function loadDefinitions() {
   loading.value = true;
   try {
-    const res = await functions.listTagDefinitions(1000, undefined, undefined, false);
-    definitions.value = res['tag-definitions'] ?? [];
+    definitions.value = await functions.listAllTagDefinitions(undefined, false);
   } catch {
     // handled
   } finally {

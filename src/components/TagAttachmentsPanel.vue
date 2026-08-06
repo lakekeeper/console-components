@@ -29,7 +29,7 @@
             density="compact"
             clearable
             hide-details
-            @update:model-value="reload"></v-text-field>
+            @update:model-value="reloadDebounced"></v-text-field>
           <v-select
             v-model="targetTypeFilter"
             class="mt-4"
@@ -126,12 +126,17 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { Header, NamespaceResponse } from '../common/interfaces';
 import { PageToken } from '../gen/iceberg/types.gen';
-import { TagAttachment, TagAttachmentTarget, TagScope } from '../gen/management/types.gen';
+import {
+  GetWarehouseResponse,
+  TagAttachment,
+  TagAttachmentTarget,
+  TagScope,
+} from '../gen/management/types.gen';
 
 // Namespace path segments in app routes are joined with the unit separator.
 const NS_SEPARATOR = '\x1F';
@@ -189,7 +194,10 @@ async function loadWarehouses() {
   if (warehouses.value.length) return;
   try {
     const res = await functions.listWarehouses(false);
-    warehouses.value = (res.warehouses ?? []).map((w: any) => ({ id: w.id, name: w.name }));
+    warehouses.value = (res.warehouses ?? []).map((w: GetWarehouseResponse) => ({
+      id: w.id,
+      name: w.name,
+    }));
   } catch {
     // non-fatal: warehouse filter just stays empty
   }
@@ -455,17 +463,15 @@ async function resolveColumns() {
 async function reload() {
   loading.value = true;
   try {
-    const res = await functions.listTagAttachments(
+    attachments.value = await functions.listAllTagAttachments(
       props.tagDefinitionId,
       {
         value: valueFilter.value || undefined,
         targetType: targetTypeFilter.value || undefined,
         warehouseId: warehouseFilter.value || undefined,
-        pageSize: 1000,
       },
       false,
     );
-    attachments.value = res.attachments ?? [];
     await Promise.all([resolveWarehouseNames(), resolveTabulars(), resolveNamespaces()]);
     await resolveColumns();
   } catch {
@@ -474,6 +480,15 @@ async function reload() {
     loading.value = false;
   }
 }
+
+// The value filter is free text — debounce it so typing doesn't fire a reload
+// per keystroke. The select filters (discrete choices) reload immediately.
+let reloadTimer: ReturnType<typeof setTimeout> | undefined;
+function reloadDebounced() {
+  clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(reload, 300);
+}
+onUnmounted(() => clearTimeout(reloadTimer));
 
 onMounted(() => {
   loadWarehouses();
