@@ -97,7 +97,7 @@
         :items="displayedDefinitions"
         :sort-by="[{ key: 'name', order: 'asc' }]"
         :loading="loading"
-        @click:row="(_e: unknown, ctx: { item: TagDefinition }) => openDetail(ctx.item)">
+        @click:row="onRowClick">
         <template #item.name="{ item }">
           <span style="display: flex; align-items: center">
             <v-icon class="mr-2" color="info">mdi-tag-outline</v-icon>
@@ -179,6 +179,10 @@ const headers: readonly Header[] = Object.freeze([
 // Row click → tag detail page (General / Permissions / Attachments).
 function openDetail(item: TagDefinition) {
   router.push(`/governance/tags/${item.id}`);
+}
+
+function onRowClick(_e: unknown, ctx: { item: TagDefinition }) {
+  openDetail(ctx.item);
 }
 
 const projectId = computed(() => visual.projectSelected['project-id']);
