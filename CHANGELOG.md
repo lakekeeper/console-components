@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.19.0](https://github.com/lakekeeper/console-components/compare/v0.18.0...v0.19.0) (2026-08-07)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ui:** rename LakekeeperRoleAction export to LakekeeperRoleActionKind
+
+### Features
+
+* **ui:** add Alibaba Cloud OSS storage support ([#242](https://github.com/lakekeeper/console-components/issues/242)) ([48097b5](https://github.com/lakekeeper/console-components/commit/48097b50acddf5cf82c61d536c348ea157bcba50))
+* **ui:** add No-Access page for instance-level 403 (login-style, server URL for admin, logout + Tetris) ([1c9693f](https://github.com/lakekeeper/console-components/commit/1c9693f85ae101c54cad5687f32f30d677a777a7))
+* **ui:** governance tags — project-scoped tag definitions, entity/column attachments, reverse-lookup viewer ([c711070](https://github.com/lakekeeper/console-components/commit/c711070c63e08e39b0b71ecc7a0f85dd42062822))
+* **ui:** per-tag permissions via the shared PermissionAssignDialog (ownership/apply relations) ([c711070](https://github.com/lakekeeper/console-components/commit/c711070c63e08e39b0b71ecc7a0f85dd42062822))
+* **ui:** permission explorer gains a Tags scope ([c711070](https://github.com/lakekeeper/console-components/commit/c711070c63e08e39b0b71ecc7a0f85dd42062822))
+* **ui:** tag detail routed page with Details/Permissions/Attachments tabs ([c711070](https://github.com/lakekeeper/console-components/commit/c711070c63e08e39b0b71ecc7a0f85dd42062822))
+
+
+### Bug Fixes
+
+* **ui:** facet-style tab groups use crossfade instead of a directional slide ([c711070](https://github.com/lakekeeper/console-components/commit/c711070c63e08e39b0b71ecc7a0f85dd42062822))
+* **ui:** harden getErrorCode to read statusCode/code so 403 detection is not shape-fragile ([1c9693f](https://github.com/lakekeeper/console-components/commit/1c9693f85ae101c54cad5687f32f30d677a777a7))
+* **ui:** match Aliyun OSS endpoints by exact hostname via shared predicate ([7a330cd](https://github.com/lakekeeper/console-components/commit/7a330cd3ed2504ee4c36b77b8e99d0a4be901e5e))
+* **ui:** pagination, stale-response races, and other CodeRabbit findings on the tag components ([c711070](https://github.com/lakekeeper/console-components/commit/c711070c63e08e39b0b71ecc7a0f85dd42062822))
+* **ui:** rename LakekeeperRoleAction export to LakekeeperRoleActionKind ([c711070](https://github.com/lakekeeper/console-components/commit/c711070c63e08e39b0b71ecc7a0f85dd42062822))
+* **ui:** show Aliyun OSS icon in nav trees and warehouse overview ([e4cbafc](https://github.com/lakekeeper/console-components/commit/e4cbafc7ee361f10e5d3db05c13bd3da0b8e4438))
+* **ui:** stop createUser from snackbar-ing on a 403 ([1c9693f](https://github.com/lakekeeper/console-components/commit/1c9693f85ae101c54cad5687f32f30d677a777a7))
+* **ui:** suppress the instance-access-denied 403 snackbar in setError; per-resource 403s still notify ([1c9693f](https://github.com/lakekeeper/console-components/commit/1c9693f85ae101c54cad5687f32f30d677a777a7))
+* **ui:** tab-switch animation stalled by router.replace's navigation-guard pipeline; use history.replaceState ([c711070](https://github.com/lakekeeper/console-components/commit/c711070c63e08e39b0b71ecc7a0f85dd42062822))
+
 ## [0.18.0](https://github.com/lakekeeper/console-components/compare/v0.17.1...v0.18.0) (2026-07-23)
 
 
