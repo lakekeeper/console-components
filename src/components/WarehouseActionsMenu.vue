@@ -43,6 +43,21 @@
           @cancel="menuOpen = false" />
       </template>
 
+      <template v-if="canManageTags">
+        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
+        <EntityTagsManageDialog
+          scope="warehouse"
+          :warehouse-id="warehouse.id"
+          :entity-id="warehouse.id">
+          <template #activator="{ props: aProps }">
+            <v-list-item
+              v-bind="aProps"
+              prepend-icon="mdi-tag-multiple-outline"
+              title="Manage tags"></v-list-item>
+          </template>
+        </EntityTagsManageDialog>
+      </template>
+
       <!-- Premium maintenance actions (schedule / configure) injected by the app. -->
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
     </v-list>
@@ -59,6 +74,8 @@ import {
 import { ref, computed, onMounted } from 'vue';
 import { Intent, ObjectType } from '../common/enums';
 import { useUserStore } from '../stores/user';
+import { useWarehousePermissions } from '../composables/useCatalogPermissions';
+import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 
 const menuOpen = ref(false);
 const userStore = useUserStore();
@@ -90,6 +107,8 @@ const { warehouse, processStatus } = defineProps<{
   warehouse: GetWarehouseResponse;
   processStatus: string;
 }>();
+
+const { canManageTags } = useWarehousePermissions(computed(() => warehouse.id));
 
 onMounted(async () => {});
 

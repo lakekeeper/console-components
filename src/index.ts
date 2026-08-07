@@ -11,6 +11,19 @@ import ProjectStatistics from './components/ProjectStatistics.vue';
 import NamespaceAddDialog from './components/NamespaceAddDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
 import RoleManager from './components/RoleManager.vue';
+import TagDefinitionManager from './components/TagDefinitionManager.vue';
+import PermissionExplorer from './components/PermissionExplorer.vue';
+import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
+import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
+import TagPermissionsPanel from './components/TagPermissionsPanel.vue';
+import TagDetail from './components/TagDetail.vue';
+import EntityTags from './components/EntityTags.vue';
+import EntityTagsChips from './components/EntityTagsChips.vue';
+import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
+import TableTagsManageDialog from './components/TableTagsManageDialog.vue';
+import EntityTagsManagePanel from './components/EntityTagsManagePanel.vue';
+import ColumnTagsManagePanel from './components/ColumnTagsManagePanel.vue';
+import ColumnTags from './components/ColumnTags.vue';
 import RoleMembers from './components/RoleMembers.vue';
 import RoleOwners from './components/RoleOwners.vue';
 import RoleDetail from './components/RoleDetail.vue';
@@ -40,6 +53,7 @@ import NamespaceGenericTables from './components/NamespaceGenericTables.vue';
 import NamespaceDeleted from './components/NamespaceDeleted.vue';
 import NamespaceViews from './components/NamespaceViews.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
+import NamespaceDetails from './components/NamespaceDetails.vue';
 import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import TableHeader from './components/TableHeader.vue';
@@ -108,6 +122,19 @@ export {
   NamespaceAddDialog,
   RoleDialog,
   RoleManager,
+  TagDefinitionManager,
+  PermissionExplorer,
+  TagDefinitionDialog,
+  TagAttachmentsPanel,
+  TagPermissionsPanel,
+  TagDetail,
+  EntityTags,
+  EntityTagsChips,
+  EntityTagsManageDialog,
+  TableTagsManageDialog,
+  EntityTagsManagePanel,
+  ColumnTagsManagePanel,
+  ColumnTags,
   RoleMembers,
   RoleOwners,
   RoleDetail,
@@ -155,6 +182,7 @@ export {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespaceDetails,
   NamespaceActionsMenu,
   NamespacePropertiesDialog,
   TableHeader,
@@ -247,7 +275,7 @@ export type {
   LakekeeperTableAction,
   LakekeeperViewAction,
   LakekeeperGenericTableAction,
-  LakekeeperRoleAction,
+  LakekeeperRoleActionKind,
   LakekeeperUserAction,
   // Authorizer/Delegation Action Types (OpenFGA)
   OpenFgaServerAction,
@@ -285,6 +313,22 @@ export type {
   WarehouseTaskInfo,
   ProjectTaskInfo,
   TaskStatus,
+  // Governance Tags
+  TagDefinition,
+  TagScope,
+  TagValueKind,
+  TagSource,
+  TargetTag,
+  AppliedTag,
+  TagAttachment,
+  TagAttachmentTarget,
+  TagInheritanceSource,
+  CreateTagDefinitionRequest,
+  UpdateTagDefinitionRequest,
+  SetTagRequest,
+  ListTagDefinitionsResponse,
+  ListTagAttachmentsResponse,
+  ListTagsResponse,
 } from './gen/management/types.gen';
 
 // Export generic-table data plane types
@@ -309,6 +353,19 @@ const components = {
   ProjectNameAddOrEditDialog,
   RoleDialog,
   RoleManager,
+  TagDefinitionManager,
+  PermissionExplorer,
+  TagDefinitionDialog,
+  TagAttachmentsPanel,
+  TagPermissionsPanel,
+  TagDetail,
+  EntityTags,
+  EntityTagsChips,
+  EntityTagsManageDialog,
+  TableTagsManageDialog,
+  EntityTagsManagePanel,
+  ColumnTagsManagePanel,
+  ColumnTags,
   RoleMembers,
   RoleOwners,
   RoleDetail,
@@ -356,6 +413,7 @@ const components = {
   NamespaceDeleted,
   NamespaceViews,
   NamespaceHeader,
+  NamespaceDetails,
   NamespaceActionsMenu,
   NamespacePropertiesDialog,
   TableHeader,

@@ -1,59 +1,168 @@
 <template>
-  <v-card-text>
-    <!-- At a glance -->
-    <v-row dense class="mb-2">
-      <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
-        <v-sheet rounded="lg" border class="pa-3 stat-tile h-100">
-          <v-icon :color="s.color" size="20" class="mb-1">{{ s.icon }}</v-icon>
-          <div class="stat-value" :title="String(s.value)">{{ s.value }}</div>
-          <div class="stat-label">{{ s.label }}</div>
-        </v-sheet>
-      </v-col>
-    </v-row>
+  <v-card-text class="pa-4">
+    <!-- Overview -->
+    <section id="tdx-overview" class="tdx-section">
+      <v-row dense class="mb-6">
+        <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
+          <v-card variant="outlined" class="pa-3 stat-tile h-100">
+            <v-icon :color="s.color" size="20" class="mb-1">{{ s.icon }}</v-icon>
+            <div class="stat-value" :title="String(s.value)">{{ s.value }}</div>
+            <div class="stat-label">{{ s.label }}</div>
+          </v-card>
+        </v-col>
+      </v-row>
+    </section>
 
     <!-- Identity & location -->
-    <div class="section-head">
-      <v-icon size="18" class="mr-2" color="primary">mdi-information-outline</v-icon>
-      Identity &amp; location
-    </div>
-    <v-sheet rounded="lg" border class="mb-6">
-      <v-table density="compact" class="identity-table">
-        <tbody>
-          <tr v-for="row in identityRows" :key="row.label">
-            <td class="identity-key">{{ row.label }}</td>
-            <td class="identity-val">
-              <div class="d-flex align-center">
-                <v-tooltip v-if="row.tip" location="bottom" :text="row.full">
-                  <template #activator="{ props: tp }">
-                    <span v-bind="tp" class="font-mono text-truncate" style="cursor: help">
-                      {{ row.value }}
-                    </span>
-                  </template>
-                </v-tooltip>
-                <span v-else :class="{ 'font-mono': row.mono }">{{ row.value }}</span>
-                <v-btn
-                  v-if="row.copy"
-                  icon="mdi-content-copy"
-                  size="x-small"
-                  variant="text"
-                  class="ml-1"
-                  @click="copyToClipboard(row.full ?? String(row.value))"></v-btn>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </v-table>
-    </v-sheet>
+    <section id="tdx-identity" class="tdx-section">
+      <v-card variant="outlined" class="mb-6">
+        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+          <v-icon icon="mdi-information-outline" class="mr-2" color="primary"></v-icon>
+          Identity &amp; location
+        </v-card-title>
+        <v-table density="compact" class="identity-table">
+          <tbody>
+            <tr v-for="row in identityRows" :key="row.label">
+              <td class="identity-key">{{ row.label }}</td>
+              <td class="identity-val">
+                <div class="d-flex align-center">
+                  <v-tooltip v-if="row.tip" location="bottom" :text="row.full">
+                    <template #activator="{ props: tp }">
+                      <span v-bind="tp" class="font-mono text-truncate" style="cursor: help">
+                        {{ row.value }}
+                      </span>
+                    </template>
+                  </v-tooltip>
+                  <span v-else :class="{ 'font-mono': row.mono }">{{ row.value }}</span>
+                  <v-btn
+                    v-if="row.copy"
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    class="ml-1"
+                    @click="copyToClipboard(row.full ?? String(row.value))"></v-btn>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </v-table>
+      </v-card>
+    </section>
+
+    <!-- Structure & governance (fields + tags/stats + evolution) -->
+    <section id="tdx-schema" class="tdx-section">
+      <TableColumnProfiler
+        :metadata="table.metadata"
+        :warehouse-id="warehouseId"
+        :namespace-id="namespacePath"
+        :table-name="tableName"
+        :catalog-url="catalogUrl"
+        :table-id="tableId" />
+
+      <!-- Schema evolution (only when there is more than one schema) -->
+      <v-expansion-panels v-if="allSchemas.length > 1" v-model="schemaPanels" multiple class="mb-6">
+        <v-expansion-panel value="evolution">
+          <v-expansion-panel-title>
+            <v-icon class="mr-2" size="small">mdi-history</v-icon>
+            Schema evolution
+            <v-chip size="x-small" color="primary" variant="tonal" class="ml-2">
+              {{ allSchemas.length }} versions
+            </v-chip>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <div class="d-flex mb-2">
+              <v-spacer></v-spacer>
+              <v-btn
+                size="small"
+                variant="tonal"
+                color="primary"
+                prepend-icon="mdi-compare-horizontal"
+                @click="openCompare">
+                Compare schemas
+              </v-btn>
+            </div>
+            <v-table density="compact">
+              <thead>
+                <tr>
+                  <th style="width: 100px">Schema ID</th>
+                  <th style="width: 80px">Fields</th>
+                  <th>Changes</th>
+                  <th style="width: 48px"></th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="schema in allSchemas"
+                  :key="schema['schema-id']"
+                  :class="{
+                    'font-weight-medium':
+                      schema['schema-id'] === table.metadata['current-schema-id'],
+                  }">
+                  <td>
+                    {{ schema['schema-id'] }}
+                    <v-chip
+                      v-if="schema['schema-id'] === table.metadata['current-schema-id']"
+                      size="x-small"
+                      color="success"
+                      variant="flat"
+                      class="ml-1">
+                      current
+                    </v-chip>
+                  </td>
+                  <td>{{ schema.fields?.length || 0 }}</td>
+                  <td>
+                    <template v-if="schemaFieldDiffs[schema['schema-id'] ?? 0]">
+                      <v-chip
+                        v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].added"
+                        :key="'add-' + name"
+                        size="x-small"
+                        color="success"
+                        variant="flat"
+                        class="mr-1 mb-1">
+                        + {{ name }}
+                      </v-chip>
+                      <v-chip
+                        v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].removed"
+                        :key="'rm-' + name"
+                        size="x-small"
+                        color="error"
+                        variant="flat"
+                        class="mr-1 mb-1">
+                        - {{ name }}
+                      </v-chip>
+                      <span
+                        v-if="
+                          schemaFieldDiffs[schema['schema-id'] ?? 0].added.length === 0 &&
+                          schemaFieldDiffs[schema['schema-id'] ?? 0].removed.length === 0
+                        "
+                        class="text-grey">
+                        {{ schema['schema-id'] === 0 ? 'Initial schema' : 'No field changes' }}
+                      </span>
+                    </template>
+                  </td>
+                  <td>
+                    <v-btn icon size="x-small" variant="text" @click="openSchema(schema)">
+                      <v-icon size="small">mdi-eye-outline</v-icon>
+                      <v-tooltip activator="parent" location="top">View schema</v-tooltip>
+                    </v-btn>
+                  </td>
+                </tr>
+              </tbody>
+            </v-table>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
+    </section>
 
     <!-- Properties -->
-    <v-expansion-panels v-if="allPropertyItems.length > 0 || canEdit" class="mb-6">
-      <v-expansion-panel>
-        <v-expansion-panel-title>
-          <v-icon class="mr-2" size="small">mdi-cog-outline</v-icon>
+    <section v-if="allPropertyItems.length > 0 || canEdit" id="tdx-properties" class="tdx-section">
+      <v-card variant="outlined" class="mb-6">
+        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+          <v-icon icon="mdi-cog-outline" class="mr-2" color="primary"></v-icon>
           Properties
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
-        </v-expansion-panel-title>
-        <v-expansion-panel-text>
+        </v-card-title>
+        <v-card-text>
           <div v-if="systemPropCount > 0" class="d-flex align-center mb-2">
             <v-switch
               v-model="hideSystemProps"
@@ -77,111 +186,9 @@
             </template>
           </v-data-table-virtual>
           <div v-else class="text-medium-emphasis pa-3">No properties set</div>
-        </v-expansion-panel-text>
-      </v-expansion-panel>
-    </v-expansion-panels>
-
-    <!-- Schema (fields + on-demand profiling) -->
-    <TableColumnProfiler
-      :metadata="table.metadata"
-      :warehouse-id="warehouseId"
-      :namespace-id="namespacePath"
-      :table-name="tableName"
-      :catalog-url="catalogUrl" />
-
-    <!-- Schema evolution -->
-    <v-expansion-panels v-model="schemaPanels" multiple class="mb-6">
-      <!-- Schema evolution -->
-      <v-expansion-panel v-if="allSchemas.length > 1" value="evolution">
-        <v-expansion-panel-title>
-          <v-icon class="mr-2" size="small">mdi-history</v-icon>
-          Schema evolution
-          <v-chip size="x-small" color="primary" variant="tonal" class="ml-2">
-            {{ allSchemas.length }} versions
-          </v-chip>
-        </v-expansion-panel-title>
-        <v-expansion-panel-text>
-          <div class="d-flex mb-2">
-            <v-spacer></v-spacer>
-            <v-btn
-              size="small"
-              variant="tonal"
-              color="primary"
-              prepend-icon="mdi-compare-horizontal"
-              @click="openCompare">
-              Compare schemas
-            </v-btn>
-          </div>
-          <v-table density="compact">
-            <thead>
-              <tr>
-                <th style="width: 100px">Schema ID</th>
-                <th style="width: 80px">Fields</th>
-                <th>Changes</th>
-                <th style="width: 48px"></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="schema in allSchemas"
-                :key="schema['schema-id']"
-                :class="{
-                  'font-weight-medium': schema['schema-id'] === table.metadata['current-schema-id'],
-                }">
-                <td>
-                  {{ schema['schema-id'] }}
-                  <v-chip
-                    v-if="schema['schema-id'] === table.metadata['current-schema-id']"
-                    size="x-small"
-                    color="success"
-                    variant="flat"
-                    class="ml-1">
-                    current
-                  </v-chip>
-                </td>
-                <td>{{ schema.fields?.length || 0 }}</td>
-                <td>
-                  <template v-if="schemaFieldDiffs[schema['schema-id'] ?? 0]">
-                    <v-chip
-                      v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].added"
-                      :key="'add-' + name"
-                      size="x-small"
-                      color="success"
-                      variant="flat"
-                      class="mr-1 mb-1">
-                      + {{ name }}
-                    </v-chip>
-                    <v-chip
-                      v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].removed"
-                      :key="'rm-' + name"
-                      size="x-small"
-                      color="error"
-                      variant="flat"
-                      class="mr-1 mb-1">
-                      - {{ name }}
-                    </v-chip>
-                    <span
-                      v-if="
-                        schemaFieldDiffs[schema['schema-id'] ?? 0].added.length === 0 &&
-                        schemaFieldDiffs[schema['schema-id'] ?? 0].removed.length === 0
-                      "
-                      class="text-grey">
-                      {{ schema['schema-id'] === 0 ? 'Initial schema' : 'No field changes' }}
-                    </span>
-                  </template>
-                </td>
-                <td>
-                  <v-btn icon size="x-small" variant="text" @click="openSchema(schema)">
-                    <v-icon size="small">mdi-eye-outline</v-icon>
-                    <v-tooltip activator="parent" location="top">View schema</v-tooltip>
-                  </v-btn>
-                </td>
-              </tr>
-            </tbody>
-          </v-table>
-        </v-expansion-panel-text>
-      </v-expansion-panel>
-    </v-expansion-panels>
+        </v-card-text>
+      </v-card>
+    </section>
 
     <!-- View a single schema as a fields table or its raw JSON (toggle) -->
     <v-dialog v-model="schemaViewOpen" max-width="720" scrollable>
@@ -300,7 +307,9 @@
                 <td class="font-mono text-caption">{{ row.leftType ?? '—' }}</td>
                 <td class="font-mono text-caption">{{ row.rightType ?? '—' }}</td>
                 <td>
-                  <v-chip size="x-small" variant="flat" :color="row.color">{{ row.status }}</v-chip>
+                  <v-chip size="x-small" variant="flat" :color="row.color">
+                    {{ row.status }}
+                  </v-chip>
                 </td>
               </tr>
               <tr v-if="schemaCompareRows.length === 0">
@@ -315,75 +324,85 @@
     </v-dialog>
 
     <!-- Layout & ordering -->
-    <v-row class="mb-3">
-      <v-col cols="12" md="6">
-        <div class="section-head">
-          <v-icon size="18" class="mr-2" color="warning">mdi-view-grid-outline</v-icon>
-          Partitioning
-          <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal" class="ml-2">
-            spec {{ activePartitionSpec['spec-id'] }}
-          </v-chip>
-        </div>
-        <v-sheet rounded="lg" border class="pa-3 fill-height">
-          <template v-if="activePartitionSpec && activePartitionSpec.fields.length">
-            <v-chip
-              v-for="field in activePartitionSpec.fields"
-              :key="field.name"
-              size="small"
-              color="primary"
-              variant="tonal"
-              class="mr-1 mb-1">
-              {{ formatPartitionField(field) }}
-            </v-chip>
-          </template>
-          <v-chip v-else size="small" color="grey" variant="tonal">Unpartitioned</v-chip>
-        </v-sheet>
-      </v-col>
+    <section id="tdx-layout" class="tdx-section">
+      <v-card variant="outlined" class="mb-6">
+        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+          <v-icon icon="mdi-view-grid-outline" class="mr-2" color="primary"></v-icon>
+          Layout &amp; ordering
+        </v-card-title>
+        <v-card-text>
+          <v-row dense>
+            <v-col cols="12" md="6">
+              <div class="text-overline text-medium-emphasis d-flex align-center">
+                <v-icon size="16" class="mr-1" color="warning">mdi-view-grid-outline</v-icon>
+                Partitioning
+                <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal" class="ml-2">
+                  spec {{ activePartitionSpec['spec-id'] }}
+                </v-chip>
+              </div>
+              <div class="mt-2">
+                <template v-if="activePartitionSpec && activePartitionSpec.fields.length">
+                  <v-chip
+                    v-for="field in activePartitionSpec.fields"
+                    :key="field.name"
+                    size="small"
+                    color="primary"
+                    variant="tonal"
+                    class="mr-1 mb-1">
+                    {{ formatPartitionField(field) }}
+                  </v-chip>
+                </template>
+                <span v-else class="text-medium-emphasis">Unpartitioned</span>
+              </div>
+            </v-col>
 
-      <v-col cols="12" md="6">
-        <div class="section-head">
-          <v-icon size="18" class="mr-2" color="success">mdi-sort-ascending</v-icon>
-          Sort order
-          <v-chip v-if="activeSortOrder" size="x-small" variant="tonal" class="ml-2">
-            order {{ activeSortOrder['order-id'] }}
-          </v-chip>
-        </div>
-        <v-sheet rounded="lg" border class="pa-3 fill-height">
-          <template v-if="activeSortOrder && activeSortOrder.fields.length">
-            <v-chip
-              v-for="(field, idx) in activeSortOrder.fields"
-              :key="idx"
-              size="small"
-              color="info"
-              variant="tonal"
-              class="mr-1 mb-1">
-              {{ formatSortField(field) }}
-            </v-chip>
-          </template>
-          <v-chip v-else size="small" color="grey" variant="tonal">Unsorted</v-chip>
-        </v-sheet>
-      </v-col>
-    </v-row>
+            <v-col cols="12" md="6">
+              <div class="text-overline text-medium-emphasis d-flex align-center">
+                <v-icon size="16" class="mr-1" color="success">mdi-sort-ascending</v-icon>
+                Sort order
+                <v-chip v-if="activeSortOrder" size="x-small" variant="tonal" class="ml-2">
+                  order {{ activeSortOrder['order-id'] }}
+                </v-chip>
+              </div>
+              <div class="mt-2">
+                <template v-if="activeSortOrder && activeSortOrder.fields.length">
+                  <v-chip
+                    v-for="(field, idx) in activeSortOrder.fields"
+                    :key="idx"
+                    size="small"
+                    color="info"
+                    variant="tonal"
+                    class="mr-1 mb-1">
+                    {{ formatSortField(field) }}
+                  </v-chip>
+                </template>
+                <span v-else class="text-medium-emphasis">Unsorted</span>
+              </div>
+            </v-col>
+          </v-row>
+        </v-card-text>
+      </v-card>
+    </section>
 
     <!-- Snapshots -->
-    <template v-if="snapshotRows.length">
-      <div class="section-head mt-4 d-flex align-center">
-        <v-icon size="18" class="mr-2" color="info">mdi-camera-outline</v-icon>
-        Snapshots
-        <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
-        <v-spacer></v-spacer>
-        <v-select
-          v-if="branchOptions.length > 1"
-          v-model="selectedBranch"
-          :items="branchOptions"
-          density="compact"
-          variant="outlined"
-          hide-details
-          prepend-inner-icon="mdi-source-branch"
-          label="Branch"
-          style="max-width: 220px"></v-select>
-      </div>
-      <v-sheet rounded="lg" border class="mb-2">
+    <section v-if="snapshotRows.length" id="tdx-snapshots" class="tdx-section">
+      <v-card variant="outlined" class="mb-6">
+        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
+          <v-icon icon="mdi-camera-outline" class="mr-2" color="info"></v-icon>
+          Snapshots
+          <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
+          <v-spacer></v-spacer>
+          <v-select
+            v-if="branchOptions.length > 1"
+            v-model="selectedBranch"
+            :items="branchOptions"
+            density="compact"
+            variant="outlined"
+            hide-details
+            prepend-inner-icon="mdi-source-branch"
+            label="Branch"
+            style="max-width: 220px"></v-select>
+        </v-card-title>
         <v-data-table
           :headers="snapshotHeaders"
           :items="snapshotRows"
@@ -439,8 +458,8 @@
             <v-icon size="small" class="text-medium-emphasis">mdi-open-in-new</v-icon>
           </template>
         </v-data-table>
-      </v-sheet>
-    </template>
+      </v-card>
+    </section>
 
     <!-- Snapshot detail popup -->
     <v-dialog v-model="snapshotDialog" max-width="900" scrollable>
@@ -486,6 +505,9 @@ const props = defineProps<{
 defineEmits<{
   updated: [];
 }>();
+
+// Governance tags: bind against the table UUID.
+const tableId = computed(() => props.table.metadata?.['table-uuid'] || '');
 
 // Composables
 const functions = useFunctions();
@@ -987,6 +1009,10 @@ const identityRows = computed(() => {
   color: rgba(var(--v-theme-on-surface), 0.7);
   margin-bottom: 8px;
   min-height: 32px;
+}
+
+.tdx-section {
+  margin-bottom: 0;
 }
 
 .stat-tile {

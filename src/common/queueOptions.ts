@@ -6,8 +6,8 @@ import { QueueOption } from './interfaces';
 
 export const DEFAULT_QUEUE_OPTIONS: QueueOption[] = [
   {
-    title: 'Tabular Expiration',
-    value: 'tabular_expiration',
+    title: 'Soft Deletion',
+    value: 'soft_deletion',
   },
   {
     title: 'Tabular Purge',

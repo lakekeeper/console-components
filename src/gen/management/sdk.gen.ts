@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, AddRoleMembersData, AddRoleMembersErrors, AddRoleMembersResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, GetAuthorizerGenericTableActionsData, GetAuthorizerGenericTableActionsResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetGenericTableActionsData, GetGenericTableActionsErrors, GetGenericTableActionsResponses, GetGenericTableAssignmentsByIdData, GetGenericTableAssignmentsByIdResponses, GetGenericTableProtectionData, GetGenericTableProtectionErrors, GetGenericTableProtectionResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigTabularExpirationData, GetTaskQueueConfigTabularExpirationErrors, GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRoleMemberOfData, ListRoleMemberOfErrors, ListRoleMemberOfResponses, ListRoleMembersData, ListRoleMembersErrors, ListRoleMembersResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListRoleTransitiveMemberOfData, ListRoleTransitiveMemberOfErrors, ListRoleTransitiveMemberOfResponses, ListRoleTransitiveMembersData, ListRoleTransitiveMembersErrors, ListRoleTransitiveMembersResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListUserRolesData, ListUserRolesErrors, ListUserRolesResponses, ListUserTransitiveRolesData, ListUserTransitiveRolesErrors, ListUserTransitiveRolesResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, RemoveRoleMemberData, RemoveRoleMemberErrors, RemoveRoleMemberResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetGenericTableProtectionData, SetGenericTableProtectionErrors, SetGenericTableProtectionResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTaskQueueConfigTabularExpirationData, SetTaskQueueConfigTabularExpirationErrors, SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseManagedByData, SetWarehouseManagedByErrors, SetWarehouseManagedByResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateGenericTableAssignmentsByIdData, UpdateGenericTableAssignmentsByIdResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, UpdateWarehouseFormatVersionPolicyData, UpdateWarehouseFormatVersionPolicyErrors, UpdateWarehouseFormatVersionPolicyResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, AddRoleMembersData, AddRoleMembersErrors, AddRoleMembersResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateTagDefinitionData, CreateTagDefinitionErrors, CreateTagDefinitionResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteGenericTableTagData, DeleteGenericTableTagErrors, DeleteGenericTableTagResponses, DeleteNamespaceTagData, DeleteNamespaceTagErrors, DeleteNamespaceTagResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteTableColumnTagData, DeleteTableColumnTagErrors, DeleteTableColumnTagResponses, DeleteTableTagData, DeleteTableTagErrors, DeleteTableTagResponses, DeleteTagDefinitionData, DeleteTagDefinitionErrors, DeleteTagDefinitionResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteViewTagData, DeleteViewTagErrors, DeleteViewTagResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, DeleteWarehouseTagData, DeleteWarehouseTagErrors, DeleteWarehouseTagResponses, GetAuthorizerGenericTableActionsData, GetAuthorizerGenericTableActionsResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetGenericTableActionsData, GetGenericTableActionsErrors, GetGenericTableActionsResponses, GetGenericTableAssignmentsByIdData, GetGenericTableAssignmentsByIdResponses, GetGenericTableProtectionData, GetGenericTableProtectionErrors, GetGenericTableProtectionResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTagAssignmentsByIdData, GetTagAssignmentsByIdResponses, GetTagDefinitionData, GetTagDefinitionErrors, GetTagDefinitionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigSoftDeletionData, GetTaskQueueConfigSoftDeletionErrors, GetTaskQueueConfigSoftDeletionResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListGenericTableTagsData, ListGenericTableTagsErrors, ListGenericTableTagsResponses, ListNamespaceTagsData, ListNamespaceTagsErrors, ListNamespaceTagsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRoleMemberOfData, ListRoleMemberOfErrors, ListRoleMemberOfResponses, ListRoleMembersData, ListRoleMembersErrors, ListRoleMembersResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListRoleTransitiveMemberOfData, ListRoleTransitiveMemberOfErrors, ListRoleTransitiveMemberOfResponses, ListRoleTransitiveMembersData, ListRoleTransitiveMembersErrors, ListRoleTransitiveMembersResponses, ListTableColumnTagsData, ListTableColumnTagsErrors, ListTableColumnTagsResponses, ListTableTagsData, ListTableTagsErrors, ListTableTagsResponses, ListTagAttachmentsData, ListTagAttachmentsErrors, ListTagAttachmentsResponses, ListTagDefinitionsData, ListTagDefinitionsErrors, ListTagDefinitionsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListUserRolesData, ListUserRolesErrors, ListUserRolesResponses, ListUserTransitiveRolesData, ListUserTransitiveRolesErrors, ListUserTransitiveRolesResponses, ListViewTagsData, ListViewTagsErrors, ListViewTagsResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, ListWarehouseTagsData, ListWarehouseTagsErrors, ListWarehouseTagsResponses, RemoveRoleMemberData, RemoveRoleMemberErrors, RemoveRoleMemberResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetGenericTableProtectionData, SetGenericTableProtectionErrors, SetGenericTableProtectionResponses, SetGenericTableTagData, SetGenericTableTagErrors, SetGenericTableTagResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetNamespaceTagData, SetNamespaceTagErrors, SetNamespaceTagResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableColumnTagData, SetTableColumnTagErrors, SetTableColumnTagResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTableTagData, SetTableTagErrors, SetTableTagResponses, SetTaskQueueConfigSoftDeletionData, SetTaskQueueConfigSoftDeletionErrors, SetTaskQueueConfigSoftDeletionResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetViewTagData, SetViewTagErrors, SetViewTagResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseManagedByData, SetWarehouseManagedByErrors, SetWarehouseManagedByResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, SetWarehouseTagData, SetWarehouseTagErrors, SetWarehouseTagResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateGenericTableAssignmentsByIdData, UpdateGenericTableAssignmentsByIdResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateTagAssignmentsByIdData, UpdateTagAssignmentsByIdResponses, UpdateTagDefinitionData, UpdateTagDefinitionErrors, UpdateTagDefinitionResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, UpdateWarehouseFormatVersionPolicyData, UpdateWarehouseFormatVersionPolicyErrors, UpdateWarehouseFormatVersionPolicyResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -382,6 +382,28 @@ export const getAuthorizerServerActions = <ThrowOnError extends boolean = false>
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/permissions/server/authorizer-actions',
     ...options
+});
+
+/**
+ * Get user and role assignments of a tag definition (who may apply it / owns it)
+ */
+export const getTagAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<GetTagAssignmentsByIdData, ThrowOnError>): RequestResult<GetTagAssignmentsByIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetTagAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/tag/{tag_definition_id}/assignments',
+    ...options
+});
+
+/**
+ * Update user and role assignments of a tag definition (grant/revoke apply, transfer ownership)
+ */
+export const updateTagAssignmentsById = <ThrowOnError extends boolean = false>(options: Options<UpdateTagAssignmentsByIdData, ThrowOnError>): RequestResult<UpdateTagAssignmentsByIdResponses, unknown, ThrowOnError> => (options.client ?? client).post<UpdateTagAssignmentsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/permissions/tag/{tag_definition_id}/assignments',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -980,6 +1002,84 @@ export const getServerActions = <ThrowOnError extends boolean = false>(options?:
 });
 
 /**
+ * List Tag Definitions
+ *
+ * Returns the tag definitions of the project.
+ */
+export const listTagDefinitions = <ThrowOnError extends boolean = false>(options?: Options<ListTagDefinitionsData, ThrowOnError>): RequestResult<ListTagDefinitionsResponses, ListTagDefinitionsErrors, ThrowOnError> => (options?.client ?? client).get<ListTagDefinitionsResponses, ListTagDefinitionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition',
+    ...options
+});
+
+/**
+ * Create Tag Definition
+ *
+ * Registers a tag definition in the project's vocabulary.
+ */
+export const createTagDefinition = <ThrowOnError extends boolean = false>(options: Options<CreateTagDefinitionData, ThrowOnError>): RequestResult<CreateTagDefinitionResponses, CreateTagDefinitionErrors, ThrowOnError> => (options.client ?? client).post<CreateTagDefinitionResponses, CreateTagDefinitionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Delete Tag Definition
+ *
+ * Removes a tag definition that is no longer applied to any target.
+ */
+export const deleteTagDefinition = <ThrowOnError extends boolean = false>(options: Options<DeleteTagDefinitionData, ThrowOnError>): RequestResult<DeleteTagDefinitionResponses, DeleteTagDefinitionErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTagDefinitionResponses, DeleteTagDefinitionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition/{tag_definition_id}',
+    ...options
+});
+
+/**
+ * Get Tag Definition
+ *
+ * Retrieves a tag definition, including the allowed values of an
+ * enumerated definition.
+ */
+export const getTagDefinition = <ThrowOnError extends boolean = false>(options: Options<GetTagDefinitionData, ThrowOnError>): RequestResult<GetTagDefinitionResponses, GetTagDefinitionErrors, ThrowOnError> => (options.client ?? client).get<GetTagDefinitionResponses, GetTagDefinitionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition/{tag_definition_id}',
+    ...options
+});
+
+/**
+ * Update Tag Definition
+ *
+ * Replaces name, description and scope, and adds allowed values. Scope can
+ * only be widened; the value kind is immutable.
+ */
+export const updateTagDefinition = <ThrowOnError extends boolean = false>(options: Options<UpdateTagDefinitionData, ThrowOnError>): RequestResult<UpdateTagDefinitionResponses, UpdateTagDefinitionErrors, ThrowOnError> => (options.client ?? client).post<UpdateTagDefinitionResponses, UpdateTagDefinitionErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition/{tag_definition_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Tag Attachments
+ *
+ * Lists the targets a tag definition is attached to (reverse lookup).
+ * Direct attachments only — no hierarchy expansion. Restricted to tag owners
+ * and project security admins.
+ */
+export const listTagAttachments = <ThrowOnError extends boolean = false>(options: Options<ListTagAttachmentsData, ThrowOnError>): RequestResult<ListTagAttachmentsResponses, ListTagAttachmentsErrors, ThrowOnError> => (options.client ?? client).get<ListTagAttachmentsResponses, ListTagAttachmentsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition/{tag_definition_id}/attachments',
+    ...options
+});
+
+/**
  * List Users
  *
  * Returns a paginated list of users based on the provided query parameters.
@@ -1257,6 +1357,45 @@ export const setGenericTableProtection = <ThrowOnError extends boolean = false>(
 });
 
 /**
+ * List Generic Table Tags
+ *
+ * Returns the tags applied to the generic table.
+ */
+export const listGenericTableTags = <ThrowOnError extends boolean = false>(options: Options<ListGenericTableTagsData, ThrowOnError>): RequestResult<ListGenericTableTagsResponses, ListGenericTableTagsErrors, ThrowOnError> => (options.client ?? client).get<ListGenericTableTagsResponses, ListGenericTableTagsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/tags',
+    ...options
+});
+
+/**
+ * Delete Generic Table Tag
+ *
+ * Removes a tag from the generic table. Succeeds without change if the
+ * tag is not applied.
+ */
+export const deleteGenericTableTag = <ThrowOnError extends boolean = false>(options: Options<DeleteGenericTableTagData, ThrowOnError>): RequestResult<DeleteGenericTableTagResponses, DeleteGenericTableTagErrors, ThrowOnError> => (options.client ?? client).delete<DeleteGenericTableTagResponses, DeleteGenericTableTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/tags/{tag_name}',
+    ...options
+});
+
+/**
+ * Set Generic Table Tag
+ *
+ * Applies a tag to the generic table, or updates its value if already
+ * applied.
+ */
+export const setGenericTableTag = <ThrowOnError extends boolean = false>(options: Options<SetGenericTableTagData, ThrowOnError>): RequestResult<SetGenericTableTagResponses, SetGenericTableTagErrors, ThrowOnError> => (options.client ?? client).put<SetGenericTableTagResponses, SetGenericTableTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/tags/{tag_name}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Set Warehouse Managed-By
  *
  * Sets (or clears) the managed-by marker on a warehouse. When set, the
@@ -1301,6 +1440,44 @@ export const getNamespaceProtection = <ThrowOnError extends boolean = false>(opt
 export const setNamespaceProtection = <ThrowOnError extends boolean = false>(options: Options<SetNamespaceProtectionData, ThrowOnError>): RequestResult<SetNamespaceProtectionResponses, SetNamespaceProtectionErrors, ThrowOnError> => (options.client ?? client).post<SetNamespaceProtectionResponses, SetNamespaceProtectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/protection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Namespace Tags
+ *
+ * Returns the tags applied to the namespace.
+ */
+export const listNamespaceTags = <ThrowOnError extends boolean = false>(options: Options<ListNamespaceTagsData, ThrowOnError>): RequestResult<ListNamespaceTagsResponses, ListNamespaceTagsErrors, ThrowOnError> => (options.client ?? client).get<ListNamespaceTagsResponses, ListNamespaceTagsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/tags',
+    ...options
+});
+
+/**
+ * Delete Namespace Tag
+ *
+ * Removes a tag from the namespace. Succeeds without change if the tag
+ * is not applied.
+ */
+export const deleteNamespaceTag = <ThrowOnError extends boolean = false>(options: Options<DeleteNamespaceTagData, ThrowOnError>): RequestResult<DeleteNamespaceTagResponses, DeleteNamespaceTagErrors, ThrowOnError> => (options.client ?? client).delete<DeleteNamespaceTagResponses, DeleteNamespaceTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/tags/{tag_name}',
+    ...options
+});
+
+/**
+ * Set Namespace Tag
+ *
+ * Applies a tag to the namespace, or updates its value if already applied.
+ */
+export const setNamespaceTag = <ThrowOnError extends boolean = false>(options: Options<SetNamespaceTagData, ThrowOnError>): RequestResult<SetNamespaceTagResponses, SetNamespaceTagErrors, ThrowOnError> => (options.client ?? client).put<SetNamespaceTagResponses, SetNamespaceTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/tags/{tag_name}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1424,6 +1601,46 @@ export const getTableActions = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * List Table Column Tags
+ *
+ * Returns the tags applied to a column of the table's current schema.
+ */
+export const listTableColumnTags = <ThrowOnError extends boolean = false>(options: Options<ListTableColumnTagsData, ThrowOnError>): RequestResult<ListTableColumnTagsResponses, ListTableColumnTagsErrors, ThrowOnError> => (options.client ?? client).get<ListTableColumnTagsResponses, ListTableColumnTagsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/column/{column_name}/tags',
+    ...options
+});
+
+/**
+ * Delete Table Column Tag
+ *
+ * Removes a tag from a column of the table's current schema. Succeeds
+ * without change if the tag is not applied.
+ */
+export const deleteTableColumnTag = <ThrowOnError extends boolean = false>(options: Options<DeleteTableColumnTagData, ThrowOnError>): RequestResult<DeleteTableColumnTagResponses, DeleteTableColumnTagErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTableColumnTagResponses, DeleteTableColumnTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/column/{column_name}/tags/{tag_name}',
+    ...options
+});
+
+/**
+ * Set Table Column Tag
+ *
+ * Applies a tag to a column of the table's current schema, or updates
+ * its value if already applied. Nested columns are addressed with `.`
+ * as separator (e.g. `address.zip`).
+ */
+export const setTableColumnTag = <ThrowOnError extends boolean = false>(options: Options<SetTableColumnTagData, ThrowOnError>): RequestResult<SetTableColumnTagResponses, SetTableColumnTagErrors, ThrowOnError> => (options.client ?? client).put<SetTableColumnTagResponses, SetTableColumnTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/column/{column_name}/tags/{tag_name}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Get Table Protection
  *
  * Retrieves whether a table is protected from deletion.
@@ -1450,13 +1667,89 @@ export const setTableProtection = <ThrowOnError extends boolean = false>(options
 });
 
 /**
+ * List Table Tags
+ *
+ * Returns the tags applied to the table.
+ */
+export const listTableTags = <ThrowOnError extends boolean = false>(options: Options<ListTableTagsData, ThrowOnError>): RequestResult<ListTableTagsResponses, ListTableTagsErrors, ThrowOnError> => (options.client ?? client).get<ListTableTagsResponses, ListTableTagsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/tags',
+    ...options
+});
+
+/**
+ * Delete Table Tag
+ *
+ * Removes a tag from the table. Succeeds without change if the tag is
+ * not applied.
+ */
+export const deleteTableTag = <ThrowOnError extends boolean = false>(options: Options<DeleteTableTagData, ThrowOnError>): RequestResult<DeleteTableTagResponses, DeleteTableTagErrors, ThrowOnError> => (options.client ?? client).delete<DeleteTableTagResponses, DeleteTableTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/tags/{tag_name}',
+    ...options
+});
+
+/**
+ * Set Table Tag
+ *
+ * Applies a tag to the table, or updates its value if already applied.
+ */
+export const setTableTag = <ThrowOnError extends boolean = false>(options: Options<SetTableTagData, ThrowOnError>): RequestResult<SetTableTagResponses, SetTableTagErrors, ThrowOnError> => (options.client ?? client).put<SetTableTagResponses, SetTableTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/tags/{tag_name}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Warehouse Tags
+ *
+ * Returns the tags applied to the warehouse.
+ */
+export const listWarehouseTags = <ThrowOnError extends boolean = false>(options: Options<ListWarehouseTagsData, ThrowOnError>): RequestResult<ListWarehouseTagsResponses, ListWarehouseTagsErrors, ThrowOnError> => (options.client ?? client).get<ListWarehouseTagsResponses, ListWarehouseTagsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/tags',
+    ...options
+});
+
+/**
+ * Delete Warehouse Tag
+ *
+ * Removes a tag from the warehouse. Succeeds without change if the tag
+ * is not applied.
+ */
+export const deleteWarehouseTag = <ThrowOnError extends boolean = false>(options: Options<DeleteWarehouseTagData, ThrowOnError>): RequestResult<DeleteWarehouseTagResponses, DeleteWarehouseTagErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWarehouseTagResponses, DeleteWarehouseTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/tags/{tag_name}',
+    ...options
+});
+
+/**
+ * Set Warehouse Tag
+ *
+ * Applies a tag to the warehouse, or updates its value if already applied.
+ */
+export const setWarehouseTag = <ThrowOnError extends boolean = false>(options: Options<SetWarehouseTagData, ThrowOnError>): RequestResult<SetWarehouseTagResponses, SetWarehouseTagErrors, ThrowOnError> => (options.client ?? client).put<SetWarehouseTagResponses, SetWarehouseTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/tags/{tag_name}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Get the configuration for a Task Queue.
  *
  * These configurations are global per warehouse and shared across all instances of this kind of task.
  */
-export const getTaskQueueConfigTabularExpiration = <ThrowOnError extends boolean = false>(options: Options<GetTaskQueueConfigTabularExpirationData, ThrowOnError>): RequestResult<GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularExpirationErrors, ThrowOnError> => (options.client ?? client).get<GetTaskQueueConfigTabularExpirationResponses, GetTaskQueueConfigTabularExpirationErrors, ThrowOnError>({
+export const getTaskQueueConfigSoftDeletion = <ThrowOnError extends boolean = false>(options: Options<GetTaskQueueConfigSoftDeletionData, ThrowOnError>): RequestResult<GetTaskQueueConfigSoftDeletionResponses, GetTaskQueueConfigSoftDeletionErrors, ThrowOnError> => (options.client ?? client).get<GetTaskQueueConfigSoftDeletionResponses, GetTaskQueueConfigSoftDeletionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_expiration/config',
+    url: '/management/v1/warehouse/{warehouse_id}/task-queue/soft_deletion/config',
     ...options
 });
 
@@ -1465,9 +1758,9 @@ export const getTaskQueueConfigTabularExpiration = <ThrowOnError extends boolean
  *
  * These configurations are global per warehouse and shared across all instances of this kind of task.
  */
-export const setTaskQueueConfigTabularExpiration = <ThrowOnError extends boolean = false>(options: Options<SetTaskQueueConfigTabularExpirationData, ThrowOnError>): RequestResult<SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularExpirationErrors, ThrowOnError> => (options.client ?? client).post<SetTaskQueueConfigTabularExpirationResponses, SetTaskQueueConfigTabularExpirationErrors, ThrowOnError>({
+export const setTaskQueueConfigSoftDeletion = <ThrowOnError extends boolean = false>(options: Options<SetTaskQueueConfigSoftDeletionData, ThrowOnError>): RequestResult<SetTaskQueueConfigSoftDeletionResponses, SetTaskQueueConfigSoftDeletionErrors, ThrowOnError> => (options.client ?? client).post<SetTaskQueueConfigSoftDeletionResponses, SetTaskQueueConfigSoftDeletionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_expiration/config',
+    url: '/management/v1/warehouse/{warehouse_id}/task-queue/soft_deletion/config',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -1566,6 +1859,44 @@ export const getViewProtection = <ThrowOnError extends boolean = false>(options:
 export const setViewProtection = <ThrowOnError extends boolean = false>(options: Options<SetViewProtectionData, ThrowOnError>): RequestResult<SetViewProtectionResponses, SetViewProtectionErrors, ThrowOnError> => (options.client ?? client).post<SetViewProtectionResponses, SetViewProtectionErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/protection',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List View Tags
+ *
+ * Returns the tags applied to the view.
+ */
+export const listViewTags = <ThrowOnError extends boolean = false>(options: Options<ListViewTagsData, ThrowOnError>): RequestResult<ListViewTagsResponses, ListViewTagsErrors, ThrowOnError> => (options.client ?? client).get<ListViewTagsResponses, ListViewTagsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/tags',
+    ...options
+});
+
+/**
+ * Delete View Tag
+ *
+ * Removes a tag from the view. Succeeds without change if the tag is
+ * not applied.
+ */
+export const deleteViewTag = <ThrowOnError extends boolean = false>(options: Options<DeleteViewTagData, ThrowOnError>): RequestResult<DeleteViewTagResponses, DeleteViewTagErrors, ThrowOnError> => (options.client ?? client).delete<DeleteViewTagResponses, DeleteViewTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/tags/{tag_name}',
+    ...options
+});
+
+/**
+ * Set View Tag
+ *
+ * Applies a tag to the view, or updates its value if already applied.
+ */
+export const setViewTag = <ThrowOnError extends boolean = false>(options: Options<SetViewTagData, ThrowOnError>): RequestResult<SetViewTagResponses, SetViewTagErrors, ThrowOnError> => (options.client ?? client).put<SetViewTagResponses, SetViewTagErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/tags/{tag_name}',
     ...options,
     headers: {
         'Content-Type': 'application/json',

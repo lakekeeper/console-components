@@ -65,6 +65,11 @@ export const useVisualStore = defineStore(
     const savedSqlQuery = ref(''); // Store last SQL query (deprecated - use warehouseSqlData)
     const isNavigationCollapsed = ref(false); // Navigation tree collapsed state
     const dismissSearchOnClick = ref(false); // LoQE tree: auto-dismiss search results on click
+    const tagFilterPanelOpen = ref(false); // Governance tags: filter rail open (persisted, closed by default)
+    const tagsRefresh = ref(0); // Governance tags: bumped after a tag change so read-only chip displays reload
+    function bumpTagsRefresh() {
+      tagsRefresh.value++;
+    }
 
     // Requested tab for namespace detail page (set by navigation tree context menu)
     const requestedNamespaceTab = ref<string | null>(null);
@@ -407,6 +412,9 @@ export const useVisualStore = defineStore(
       warehouseSqlData,
       isNavigationCollapsed,
       dismissSearchOnClick,
+      tagFilterPanelOpen,
+      tagsRefresh,
+      bumpTagsRefresh,
       requestedNamespaceTab,
       warehouseTreeState,
       navTreeRefreshSignal,

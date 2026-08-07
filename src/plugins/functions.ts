@@ -5,7 +5,7 @@ import {
   NamespaceResponse,
   SearchTabularRequest,
   SearchTabularResponse,
-  TabularExpirationQueueConfig,
+  SoftDeletionQueueConfig,
 } from '@/common/interfaces';
 import {
   ListTasksRequest,
@@ -85,7 +85,7 @@ import {
   LakekeeperTableAction,
   LakekeeperViewAction,
   LakekeeperGenericTableAction,
-  LakekeeperRoleAction,
+  LakekeeperRoleActionKind,
   LakekeeperUserAction,
   PurgeQueueConfig,
   RenameProjectRequest,
@@ -107,6 +107,19 @@ import {
   ViewAssignment,
   WarehouseAssignment,
   WarehouseFilter,
+  // Governance tags
+  CreateTagDefinitionRequest,
+  UpdateTagDefinitionRequest,
+  TagDefinition,
+  TagScope,
+  ListTagDefinitionsResponse,
+  ListTagAttachmentsResponse,
+  ListTagsResponse,
+  TagAttachment,
+  AppliedTag,
+  TagAssignment,
+  TagRelation,
+  GetTagAssignmentsResponse,
 } from '@/gen/management/types.gen';
 
 import { useUserStore } from '@/stores/user';
@@ -1012,6 +1025,666 @@ async function setWarehouseProtection(
     return data;
   } catch (error) {
     handleError(error, 'setWarehouseProtection');
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Governance tags
+//
+// NOTE: these are unrelated to the Iceberg version tags handled by the
+// createTag / renameTag / deleteTag functions below (those are git-like table
+// refs). Governance tags are a project-scoped vocabulary (tag definitions)
+// applied to catalog entities (warehouse / namespace / table / view /
+// generic-table / column).
+// ---------------------------------------------------------------------------
+
+// Tag definitions (project vocabulary)
+
+async function listTagDefinitions(
+  pageSize?: number,
+  pageToken?: string,
+  name?: string,
+  notify?: boolean,
+): Promise<ListTagDefinitionsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listTagDefinitions({
+      client,
+      query: { pageSize, pageToken, name },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listTagDefinitions', notify);
+    throw error;
+  }
+}
+
+// Definition pickers across the UI (apply-tag forms, filter rails, the
+// vocabulary manager) all want "every" definition, not one page of it — follow
+// next-page-token until exhausted rather than relying on a single large
+// pageSize, which silently truncates once a project has more tags than that.
+async function listAllTagDefinitions(name?: string, notify?: boolean): Promise<TagDefinition[]> {
+  const all: TagDefinition[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await listTagDefinitions(100, pageToken, name, notify);
+    all.push(...(res['tag-definitions'] ?? []));
+    pageToken = res['next-page-token'] ?? undefined;
+  } while (pageToken);
+  return all;
+}
+
+async function createTagDefinition(
+  body: CreateTagDefinitionRequest,
+  notify?: boolean,
+): Promise<TagDefinition> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.createTagDefinition({ client, body });
+    if (error) throw error;
+    handleSuccess('createTagDefinition', `Tag '${body.name}' created successfully`, notify);
+    return data;
+  } catch (error) {
+    handleError(error, 'createTagDefinition', notify);
+    throw error;
+  }
+}
+
+async function getTagDefinition(tagDefinitionId: string, notify?: boolean): Promise<TagDefinition> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTagDefinition({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getTagDefinition', notify);
+    throw error;
+  }
+}
+
+async function updateTagDefinition(
+  tagDefinitionId: string,
+  body: UpdateTagDefinitionRequest,
+  notify?: boolean,
+): Promise<TagDefinition> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.updateTagDefinition({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      body,
+    });
+    if (error) throw error;
+    handleSuccess('updateTagDefinition', `Tag '${body.name}' updated successfully`, notify);
+    return data;
+  } catch (error) {
+    handleError(error, 'updateTagDefinition', notify);
+    throw error;
+  }
+}
+
+async function deleteTagDefinition(tagDefinitionId: string, notify?: boolean): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteTagDefinition({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+    });
+    if (error) throw error;
+    handleSuccess('deleteTagDefinition', 'Tag definition deleted successfully', notify);
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteTagDefinition', notify);
+    throw error;
+  }
+}
+
+async function listTagAttachments(
+  tagDefinitionId: string,
+  filters?: {
+    value?: string;
+    targetType?: TagScope;
+    createdAfter?: string;
+    createdBefore?: string;
+    warehouseId?: string;
+    pageSize?: number;
+    pageToken?: string;
+  },
+  notify?: boolean,
+): Promise<ListTagAttachmentsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listTagAttachments({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      query: {
+        value: filters?.value,
+        targetType: filters?.targetType,
+        createdAfter: filters?.createdAfter,
+        createdBefore: filters?.createdBefore,
+        warehouseId: filters?.warehouseId,
+        pageSize: filters?.pageSize,
+        pageToken: filters?.pageToken,
+      },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listTagAttachments', notify);
+    throw error;
+  }
+}
+
+// The reverse-lookup viewer wants every attachment matching its filters, not
+// one page — same next-page-token follow-through as listAllTagDefinitions.
+async function listAllTagAttachments(
+  tagDefinitionId: string,
+  filters?: Omit<NonNullable<Parameters<typeof listTagAttachments>[1]>, 'pageSize' | 'pageToken'>,
+  notify?: boolean,
+): Promise<TagAttachment[]> {
+  const all: TagAttachment[] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await listTagAttachments(
+      tagDefinitionId,
+      { ...filters, pageSize: 100, pageToken },
+      notify,
+    );
+    all.push(...(res.attachments ?? []));
+    pageToken = res['next-page-token'] ?? undefined;
+  } while (pageToken);
+  return all;
+}
+
+// Tag permissions (OpenFGA): who owns a tag definition and who may apply it.
+async function getTagAssignmentsById(
+  tagDefinitionId: string,
+  relations?: TagRelation[],
+): Promise<GetTagAssignmentsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTagAssignmentsById({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      query: { relations },
+    });
+    if (error) throw error;
+    return data as GetTagAssignmentsResponse;
+  } catch (error) {
+    handleError(error, 'getTagAssignmentsById');
+    throw error;
+  }
+}
+
+async function updateTagAssignmentsById(
+  tagDefinitionId: string,
+  deletes: TagAssignment[],
+  writes: TagAssignment[],
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    const visual = useVisualStore();
+    const serverInfo = visual.getServerInfo();
+
+    if (!appConfig.enabledAuthentication || !isOpenFGABackend(serverInfo)) {
+      console.warn('Cannot update tag assignments: OpenFGA backend is required');
+      return false;
+    }
+
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.updateTagAssignmentsById({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      body: { deletes, writes },
+    });
+    if (error) throw error;
+    handleSuccess('updateTagAssignmentsById', 'Tag permissions updated', notify);
+    return true;
+  } catch (error) {
+    handleError(error, 'updateTagAssignmentsById', notify);
+    return false;
+  }
+}
+
+// Entity tag attachments
+
+async function listWarehouseTags(
+  warehouseId: string,
+  effective?: boolean,
+  notify?: boolean,
+): Promise<ListTagsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listWarehouseTags({
+      client,
+      path: { warehouse_id: warehouseId },
+      query: { effective },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listWarehouseTags', notify);
+    throw error;
+  }
+}
+
+async function setWarehouseTag(
+  warehouseId: string,
+  tagName: string,
+  value?: string | null,
+  notify?: boolean,
+): Promise<AppliedTag> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.setWarehouseTag({
+      client,
+      path: { warehouse_id: warehouseId, tag_name: tagName },
+      body: { value },
+    });
+    if (error) throw error;
+    handleSuccess('setWarehouseTag', `Tag '${tagName}' applied`, notify);
+    return data;
+  } catch (error) {
+    handleError(error, 'setWarehouseTag', notify);
+    throw error;
+  }
+}
+
+async function deleteWarehouseTag(
+  warehouseId: string,
+  tagName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteWarehouseTag({
+      client,
+      path: { warehouse_id: warehouseId, tag_name: tagName },
+    });
+    if (error) throw error;
+    handleSuccess('deleteWarehouseTag', `Tag '${tagName}' removed`, notify);
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteWarehouseTag', notify);
+    throw error;
+  }
+}
+
+async function listNamespaceTags(
+  warehouseId: string,
+  namespaceId: string,
+  effective?: boolean,
+  notify?: boolean,
+): Promise<ListTagsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listNamespaceTags({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId },
+      query: { effective },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listNamespaceTags', notify);
+    throw error;
+  }
+}
+
+async function setNamespaceTag(
+  warehouseId: string,
+  namespaceId: string,
+  tagName: string,
+  value?: string | null,
+  notify?: boolean,
+): Promise<AppliedTag> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.setNamespaceTag({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId, tag_name: tagName },
+      body: { value },
+    });
+    if (error) throw error;
+    handleSuccess('setNamespaceTag', `Tag '${tagName}' applied`, notify);
+    return data;
+  } catch (error) {
+    handleError(error, 'setNamespaceTag', notify);
+    throw error;
+  }
+}
+
+async function deleteNamespaceTag(
+  warehouseId: string,
+  namespaceId: string,
+  tagName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteNamespaceTag({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId, tag_name: tagName },
+    });
+    if (error) throw error;
+    handleSuccess('deleteNamespaceTag', `Tag '${tagName}' removed`, notify);
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteNamespaceTag', notify);
+    throw error;
+  }
+}
+
+async function listTableTags(
+  warehouseId: string,
+  tableId: string,
+  effective?: boolean,
+  notify?: boolean,
+): Promise<ListTagsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listTableTags({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+      query: { effective },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listTableTags', notify);
+    throw error;
+  }
+}
+
+async function setTableTag(
+  warehouseId: string,
+  tableId: string,
+  tagName: string,
+  value?: string | null,
+  notify?: boolean,
+): Promise<AppliedTag> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.setTableTag({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId, tag_name: tagName },
+      body: { value },
+    });
+    if (error) throw error;
+    handleSuccess('setTableTag', `Tag '${tagName}' applied`, notify);
+    return data;
+  } catch (error) {
+    handleError(error, 'setTableTag', notify);
+    throw error;
+  }
+}
+
+async function deleteTableTag(
+  warehouseId: string,
+  tableId: string,
+  tagName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteTableTag({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId, tag_name: tagName },
+    });
+    if (error) throw error;
+    handleSuccess('deleteTableTag', `Tag '${tagName}' removed`, notify);
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteTableTag', notify);
+    throw error;
+  }
+}
+
+async function listViewTags(
+  warehouseId: string,
+  viewId: string,
+  effective?: boolean,
+  notify?: boolean,
+): Promise<ListTagsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listViewTags({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+      query: { effective },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listViewTags', notify);
+    throw error;
+  }
+}
+
+async function setViewTag(
+  warehouseId: string,
+  viewId: string,
+  tagName: string,
+  value?: string | null,
+  notify?: boolean,
+): Promise<AppliedTag> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.setViewTag({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId, tag_name: tagName },
+      body: { value },
+    });
+    if (error) throw error;
+    handleSuccess('setViewTag', `Tag '${tagName}' applied`, notify);
+    return data;
+  } catch (error) {
+    handleError(error, 'setViewTag', notify);
+    throw error;
+  }
+}
+
+async function deleteViewTag(
+  warehouseId: string,
+  viewId: string,
+  tagName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteViewTag({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId, tag_name: tagName },
+    });
+    if (error) throw error;
+    handleSuccess('deleteViewTag', `Tag '${tagName}' removed`, notify);
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteViewTag', notify);
+    throw error;
+  }
+}
+
+async function listGenericTableTags(
+  warehouseId: string,
+  genericTableId: string,
+  effective?: boolean,
+  notify?: boolean,
+): Promise<ListTagsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listGenericTableTags({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+      query: { effective },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listGenericTableTags', notify);
+    throw error;
+  }
+}
+
+async function setGenericTableTag(
+  warehouseId: string,
+  genericTableId: string,
+  tagName: string,
+  value?: string | null,
+  notify?: boolean,
+): Promise<AppliedTag> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.setGenericTableTag({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId, tag_name: tagName },
+      body: { value },
+    });
+    if (error) throw error;
+    handleSuccess('setGenericTableTag', `Tag '${tagName}' applied`, notify);
+    return data;
+  } catch (error) {
+    handleError(error, 'setGenericTableTag', notify);
+    throw error;
+  }
+}
+
+async function deleteGenericTableTag(
+  warehouseId: string,
+  genericTableId: string,
+  tagName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteGenericTableTag({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId, tag_name: tagName },
+    });
+    if (error) throw error;
+    handleSuccess('deleteGenericTableTag', `Tag '${tagName}' removed`, notify);
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteGenericTableTag', notify);
+    throw error;
+  }
+}
+
+// Column tags (path uses the column name)
+
+async function listTableColumnTags(
+  warehouseId: string,
+  tableId: string,
+  columnName: string,
+  effective?: boolean,
+  notify?: boolean,
+): Promise<ListTagsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listTableColumnTags({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId, column_name: columnName },
+      query: { effective },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listTableColumnTags', notify);
+    throw error;
+  }
+}
+
+async function setTableColumnTag(
+  warehouseId: string,
+  tableId: string,
+  columnName: string,
+  tagName: string,
+  value?: string | null,
+  notify?: boolean,
+): Promise<AppliedTag> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.setTableColumnTag({
+      client,
+      path: {
+        warehouse_id: warehouseId,
+        table_id: tableId,
+        column_name: columnName,
+        tag_name: tagName,
+      },
+      body: { value },
+    });
+    if (error) throw error;
+    handleSuccess(
+      'setTableColumnTag',
+      `Tag '${tagName}' applied to column '${columnName}'`,
+      notify,
+    );
+    return data;
+  } catch (error) {
+    handleError(error, 'setTableColumnTag', notify);
+    throw error;
+  }
+}
+
+async function deleteTableColumnTag(
+  warehouseId: string,
+  tableId: string,
+  columnName: string,
+  tagName: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteTableColumnTag({
+      client,
+      path: {
+        warehouse_id: warehouseId,
+        table_id: tableId,
+        column_name: columnName,
+        tag_name: tagName,
+      },
+    });
+    if (error) throw error;
+    handleSuccess(
+      'deleteTableColumnTag',
+      `Tag '${tagName}' removed from column '${columnName}'`,
+      notify,
+    );
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteTableColumnTag', notify);
     throw error;
   }
 }
@@ -4004,38 +4677,38 @@ async function updateRoleSourceSystem(
 
 // Tasks
 
-async function getTaskQueueConfigTabularExpiration(
+async function getTaskQueueConfigSoftDeletion(
   warehouseId: string,
-): Promise<TabularExpirationQueueConfig> {
+): Promise<SoftDeletionQueueConfig> {
   try {
     init();
 
     const client = mngClient.client;
 
-    const { data, error } = await mng.getTaskQueueConfigTabularExpiration({
+    const { data, error } = await mng.getTaskQueueConfigSoftDeletion({
       client,
       path: { warehouse_id: warehouseId },
     });
 
     if (error) throw error;
 
-    return data as TabularExpirationQueueConfig;
+    return data as SoftDeletionQueueConfig;
   } catch (error: any) {
-    handleError(error, 'getTaskQueueConfigTabularExpiration');
+    handleError(error, 'getTaskQueueConfigSoftDeletion');
     throw error;
   }
 }
 
-async function setTaskQueueConfigTabularExpiration(
+async function setTaskQueueConfigSoftDeletion(
   warehouseId: string,
-  config: TabularExpirationQueueConfig,
+  config: SoftDeletionQueueConfig,
 ): Promise<boolean> {
   try {
     init();
 
     const client = mngClient.client;
 
-    const { error } = await mng.setTaskQueueConfigTabularExpiration({
+    const { error } = await mng.setTaskQueueConfigSoftDeletion({
       client,
       path: { warehouse_id: warehouseId },
       body: { 'queue-config': config },
@@ -4045,7 +4718,7 @@ async function setTaskQueueConfigTabularExpiration(
 
     return true;
   } catch (error: any) {
-    handleError(error, 'setTaskQueueConfigTabularExpiration');
+    handleError(error, 'setTaskQueueConfigSoftDeletion');
     throw error;
   }
 }
@@ -4870,7 +5543,7 @@ async function getRoleCatalogActions(
   roleId: string,
   projectId?: string,
   notify?: boolean,
-): Promise<LakekeeperRoleAction[]> {
+): Promise<LakekeeperRoleActionKind[]> {
   try {
     if (!appConfig.enabledAuthentication) {
       return permissionActions.catalogRoleActions;
@@ -4888,7 +5561,7 @@ async function getRoleCatalogActions(
 
     if (error) throw error;
 
-    const actions = (data ?? {})['allowed-actions'] as LakekeeperRoleAction[];
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperRoleActionKind[];
 
     if (notify) {
       handleSuccess('getRoleCatalogActions', 'Role catalog actions retrieved successfully', true);
@@ -5306,6 +5979,35 @@ export function useFunctions(config?: any) {
     getWarehouseStatistics,
     getEndpointStatistics,
     setWarehouseProtection,
+    // Governance tags
+    listTagDefinitions,
+    listAllTagDefinitions,
+    createTagDefinition,
+    getTagDefinition,
+    updateTagDefinition,
+    deleteTagDefinition,
+    listTagAttachments,
+    listAllTagAttachments,
+    getTagAssignmentsById,
+    updateTagAssignmentsById,
+    listWarehouseTags,
+    setWarehouseTag,
+    deleteWarehouseTag,
+    listNamespaceTags,
+    setNamespaceTag,
+    deleteNamespaceTag,
+    listTableTags,
+    setTableTag,
+    deleteTableTag,
+    listViewTags,
+    setViewTag,
+    deleteViewTag,
+    listGenericTableTags,
+    setGenericTableTag,
+    deleteGenericTableTag,
+    listTableColumnTags,
+    setTableColumnTag,
+    deleteTableColumnTag,
     setWarehouseFormatVersionPolicy,
     setNamespaceProtection,
     getNamespaceProtection,
@@ -5325,8 +6027,8 @@ export function useFunctions(config?: any) {
     batchCheckActions,
     checkAction,
     // Task functions
-    getTaskQueueConfigTabularExpiration,
-    setTaskQueueConfigTabularExpiration,
+    getTaskQueueConfigSoftDeletion,
+    setTaskQueueConfigSoftDeletion,
     getTaskQueueConfigTabularPurge,
     setTaskQueueConfigTabularPurge,
     getTaskDetails,

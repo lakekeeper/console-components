@@ -4,7 +4,7 @@ import type {
   LakekeeperWarehouseAction,
   LakekeeperNamespaceAction,
   LakekeeperServerAction,
-  LakekeeperRoleAction,
+  LakekeeperRoleActionKind,
   LakekeeperGenericTableAction,
 } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
@@ -29,7 +29,7 @@ export const usePermissionStore = defineStore('permissions', () => {
   async function getRolePermissions(
     roleId: string,
     projectId?: string,
-  ): Promise<LakekeeperRoleAction[]> {
+  ): Promise<LakekeeperRoleActionKind[]> {
     try {
       const permissions = await functions.getRoleCatalogActions(roleId, projectId);
       return permissions;

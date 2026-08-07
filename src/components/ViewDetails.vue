@@ -408,6 +408,21 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <!-- Governance tags -->
+    <template v-if="viewId">
+      <div class="text-subtitle-2 mt-6 mb-2 d-flex align-center">
+        <v-icon size="18" class="mr-2" color="primary">mdi-tag-multiple-outline</v-icon>
+        Tags
+      </div>
+      <v-sheet rounded="lg" border class="mb-4">
+        <EntityTags
+          scope="view"
+          :warehouse-id="warehouseId || ''"
+          :entity-id="viewId"
+          :can-manage="canManageTags" />
+      </v-sheet>
+    </template>
   </v-card-text>
 </template>
 
@@ -416,6 +431,7 @@ import { computed, ref, watch } from 'vue';
 import { format as formatSQL } from 'sql-formatter';
 import { useFunctions } from '../plugins/functions';
 import SqlEditor from './SqlEditor.vue';
+import EntityTags from './EntityTags.vue';
 import { transformFields } from '../common/schemaUtils';
 import type { LoadViewResult } from '../gen/iceberg/types.gen';
 
@@ -426,8 +442,11 @@ const props = defineProps<{
   namespacePath?: string;
   viewName?: string;
   canEdit?: boolean;
+  canManageTags?: boolean;
   protectedState?: boolean | null;
 }>();
+
+const viewId = computed(() => props.view.metadata?.['view-uuid'] || '');
 
 // Emits
 defineEmits<{

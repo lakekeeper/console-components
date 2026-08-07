@@ -37,7 +37,7 @@
             <template #prepend>
               <v-icon size="small">mdi-check-circle</v-icon>
             </template>
-            <v-list-item-title>Tabular Expiration Settings</v-list-item-title>
+            <v-list-item-title>Soft Deletion Settings</v-list-item-title>
           </v-list-item>
           <v-list-item>
             <template #prepend>

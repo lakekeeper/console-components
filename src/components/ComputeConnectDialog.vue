@@ -85,7 +85,7 @@
             <v-tab value="machine">machine flow</v-tab>
           </v-tabs>
 
-          <v-tabs-window v-model="tab">
+          <v-tabs-window v-model="tab" crossfade>
             <v-tabs-window-item value="human">
               <v-card>
                 <v-card-text>

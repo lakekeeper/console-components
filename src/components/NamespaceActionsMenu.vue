@@ -18,6 +18,22 @@
           propsDialog?.open();
         " />
 
+      <template v-if="canManageTags && namespaceId">
+        <v-divider class="my-1"></v-divider>
+        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
+        <EntityTagsManageDialog
+          scope="namespace"
+          :warehouse-id="warehouseId"
+          :entity-id="namespaceId">
+          <template #activator="{ props: aProps }">
+            <v-list-item
+              v-bind="aProps"
+              prepend-icon="mdi-tag-multiple-outline"
+              title="Manage tags" />
+          </template>
+        </EntityTagsManageDialog>
+      </template>
+
       <template v-if="canDelete">
         <v-divider class="my-1"></v-divider>
         <v-list-item
@@ -151,6 +167,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
 import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
+import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -186,10 +203,11 @@ const protectedPending = ref(false);
 const namespaceId = ref('');
 const namespaceProps = ref<Record<string, string>>({});
 
-const { canUpdateProperties, canSetProtection, hasPermission } = useNamespacePermissions(
-  namespaceId,
-  computed(() => props.warehouseId),
-);
+const { canUpdateProperties, canSetProtection, hasPermission, canManageTags } =
+  useNamespacePermissions(
+    namespaceId,
+    computed(() => props.warehouseId),
+  );
 const canDelete = computed(
   () => hasPermission('delete') || !config.enabledAuthentication || !config.enabledPermissions,
 );
@@ -199,26 +217,33 @@ const confirmTarget = computed(() => props.namespacePath.split('\x1F').pop() || 
 const confirmName = ref('');
 const deleteConfirmed = computed(() => confirmName.value.trim() === confirmTarget.value);
 
+// Guards against a stale response overwriting a newer one when warehouseId/
+// namespacePath change again before an in-flight load() resolves.
+let loadToken = 0;
 async function load() {
+  const token = ++loadToken;
+  namespaceId.value = ''; // don't act on the previous namespace while reloading
   try {
     const meta = (await functions.loadNamespaceMetadata(
       props.warehouseId,
       props.namespacePath,
       false,
     )) as GetNamespaceResponse;
+    if (token !== loadToken) return;
     namespaceProps.value = (meta.properties ?? {}) as Record<string, string>;
     namespaceId.value = meta.properties?.namespace_id || (meta as any)['namespace-uuid'] || '';
     if (namespaceId.value) {
       try {
-        protectedState.value = (
-          await functions.getNamespaceProtection(props.warehouseId, namespaceId.value)
-        ).protected;
+        const prot = await functions.getNamespaceProtection(props.warehouseId, namespaceId.value);
+        if (token !== loadToken) return;
+        protectedState.value = prot.protected;
         protectedPending.value = protectedState.value;
       } catch {
         /* protection not visible to this role */
       }
     }
   } catch (e) {
+    if (token !== loadToken) return;
     console.error('[NamespaceActionsMenu] load failed', e);
   }
 }

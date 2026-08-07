@@ -1,5 +1,10 @@
 <template>
+  <div v-if="forbidden" class="pa-8 text-medium-emphasis d-flex align-center ga-2">
+    <v-icon>mdi-lock-outline</v-icon>
+    You don't have access to the permissions of this {{ objectLabel }}.
+  </div>
   <v-data-table
+    v-else
     fixed-header
     :headers="headers"
     hover
@@ -9,8 +14,9 @@
       <v-toolbar color="transparent" density="compact" flat>
         <v-switch
           v-if="
-            props.relationType === RelationType.Warehouse ||
-            props.relationType === RelationType.Namespace
+            !props.hideManagedAccess &&
+            (props.relationType === RelationType.Warehouse ||
+              props.relationType === RelationType.Namespace)
           "
           v-model="isManagedAccess"
           class="ml-4 mt-4"
@@ -135,7 +141,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, reactive, computed, ref, inject } from 'vue';
+import { onMounted, reactive, computed, ref, inject, watch } from 'vue';
 
 import {
   useServerAuthorizerPermissions,
@@ -237,9 +243,14 @@ const props = withDefaults(
     relationType: RelationType;
     warehouseId?: string; // Required for table and view assignments
     status?: StatusIntent;
+    // Hide the managed-access toggle. It's an object setting, not a permission
+    // assignment; callers that surface it elsewhere (e.g. the permission explorer)
+    // can opt out. Defaults to showing it, preserving existing pages' behavior.
+    hideManagedAccess?: boolean;
   }>(),
   {
     status: StatusIntent.INACTIVE,
+    hideManagedAccess: false,
   },
 );
 
@@ -250,6 +261,10 @@ const emit = defineEmits<{
 
 // Internal state management
 const loaded = ref(false);
+// onMounted and the canReadAssignments watcher can both fire init() around the
+// same time (authorizer permissions resolving shortly after mount) — guard
+// against running two loads concurrently.
+let initializing = false;
 const assignStatus = ref(StatusIntent.INACTIVE);
 const existingAssignments = reactive<any[]>([]);
 const assignableObj = reactive<{ id: string; name: string }>({
@@ -296,6 +311,45 @@ if (props.relationType === RelationType.Server) {
 // Computed property to check if user can manage grants
 const canManageGrants = computed(() => authzPerms?.canManageGrants.value ?? false);
 
+// Whether the user may read this object's assignments. When false we must NOT
+// call the assignments endpoint: some scopes (e.g. server for a project admin)
+// return 401, which the global error handler turns into a login redirect.
+const canReadAssignments = computed(() => (authzPerms as any)?.canReadAssignments?.value ?? false);
+const authzLoading = computed(() => (authzPerms as any)?.loading?.value ?? false);
+// Show an inline "no permission" message once authorizer perms have resolved
+// and the user cannot read assignments here.
+const forbidden = computed(() => !!authzPerms && !authzLoading.value && !canReadAssignments.value);
+
+// Human-readable noun for the current object, for the "no access" message.
+const objectLabel = computed(() => {
+  switch (props.relationType) {
+    case RelationType.Server:
+      return 'server';
+    case RelationType.Project:
+      return 'project';
+    case RelationType.Warehouse:
+      return 'warehouse';
+    case RelationType.Namespace:
+      return 'namespace';
+    case RelationType.Table:
+      return 'table';
+    case RelationType.View:
+      return 'view';
+    case RelationType.GenericTable:
+      return 'generic table';
+    case RelationType.Role:
+      return 'role';
+    default:
+      return 'object';
+  }
+});
+
+// Authorizer permissions resolve asynchronously; once read access is confirmed,
+// (re)load the assignments. The `:key` remount handles object switches.
+watch(canReadAssignments, (canRead) => {
+  if (canRead) init();
+});
+
 async function loadObjectData() {
   try {
     let objData: any = null;
@@ -341,6 +395,9 @@ async function loadObjectData() {
 }
 
 async function fetchAssignments() {
+  // Never hit the assignments endpoint without read permission — it can 401
+  // (e.g. server scope for a project admin) and trigger a login redirect.
+  if (!canReadAssignments.value) return [];
   try {
     let assignments: any[] = [];
 
@@ -405,6 +462,16 @@ async function loadManagedAccess() {
 }
 
 async function init() {
+  if (initializing) return;
+  initializing = true;
+  try {
+    await doInit();
+  } finally {
+    initializing = false;
+  }
+}
+
+async function doInit() {
   loaded.value = false;
   permissionRows.splice(0, permissionRows.length);
 

@@ -7,6 +7,7 @@
       :namespace-path="props.namespaceId"
       :view-name="props.viewName"
       :can-edit="canCommit"
+      :can-manage-tags="canManageTags"
       :protected-state="protectedState"
       @updated="loadViewData" />
   </div>
@@ -31,7 +32,7 @@ const viewId = ref('');
 const protectedState = ref<boolean | null>(null);
 
 // Use view permissions composable (rename/edit gating; protection lives in the cog menu)
-const { canCommit } = useViewPermissions(
+const { canCommit, canManageTags } = useViewPermissions(
   computed(() => viewId.value),
   computed(() => props.warehouseId),
 );

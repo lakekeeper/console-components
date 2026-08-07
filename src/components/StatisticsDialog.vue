@@ -17,7 +17,7 @@
               <v-tab density="compact" value="plot">plot</v-tab>
               <v-tab density="compact" value="tables">table</v-tab>
             </v-tabs>
-            <v-tabs-window v-model="tab">
+            <v-tabs-window v-model="tab" crossfade>
               <v-tabs-window-item value="plot">
                 <Line :data="data" :options="options" />
               </v-tabs-window-item>

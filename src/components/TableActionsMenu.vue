@@ -25,6 +25,23 @@
       <!-- Premium maintenance actions (schedule / advanced overrides) -->
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
 
+      <template v-if="canManageTags && tableId">
+        <v-divider class="my-1"></v-divider>
+        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
+        <TableTagsManageDialog
+          :warehouse-id="warehouseId"
+          :table-id="tableId"
+          :columns="tableColumns">
+          <template #activator="{ props: aProps }">
+            <v-list-item
+              v-bind="aProps"
+              prepend-icon="mdi-tag-multiple-outline"
+              title="Manage tags"
+              subtitle="Table & column tags" />
+          </template>
+        </TableTagsManageDialog>
+      </template>
+
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
         <v-list-item
@@ -165,6 +182,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
+import TableTagsManageDialog from './TableTagsManageDialog.vue';
 import type { LoadTableResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -191,7 +209,20 @@ const protectedState = ref(false);
 const nameInput = ref(props.tableName);
 const protectedPending = ref(false);
 
-const { canCommit, canSetProtection, canDrop } = useTablePermissions(tableId, props.warehouseId);
+const { canCommit, canSetProtection, canDrop, canManageTags } = useTablePermissions(
+  tableId,
+  props.warehouseId,
+);
+
+// Current-schema column names for the column-tag manage dialog.
+const tableColumns = computed(() => {
+  const meta = table.value?.metadata;
+  if (!meta) return [];
+  const schemas = meta.schemas ?? [];
+  const current =
+    schemas.find((s: any) => s['schema-id'] === meta['current-schema-id']) ?? schemas[0];
+  return (current?.fields ?? []).map((f: any) => f.name as string);
+});
 
 const deleteOpen = ref(false);
 const deleting = ref(false);
@@ -240,21 +271,29 @@ const settingsDirty = computed(
     protectedPending.value !== protectedState.value,
 );
 
+// Guards against a stale response overwriting a newer one when warehouseId/
+// namespaceId/tableName change again before an in-flight load() resolves.
+let loadToken = 0;
 async function load() {
+  const token = ++loadToken;
+  tableId.value = ''; // don't act on the previous table while reloading
   try {
-    table.value = (await functions.loadTableCustomized(
+    const loaded = (await functions.loadTableCustomized(
       props.warehouseId,
       props.namespaceId,
       props.tableName,
     )) as LoadTableResult;
+    if (token !== loadToken) return;
+    table.value = loaded;
     tableId.value = table.value.metadata['table-uuid'] ?? '';
     if (tableId.value) {
-      protectedState.value = (
-        await functions.getTableProtection(props.warehouseId, tableId.value)
-      ).protected;
+      const prot = await functions.getTableProtection(props.warehouseId, tableId.value);
+      if (token !== loadToken) return;
+      protectedState.value = prot.protected;
       protectedPending.value = protectedState.value;
     }
   } catch (e) {
+    if (token !== loadToken) return;
     console.error('[TableActionsMenu] load failed', e);
   }
 }

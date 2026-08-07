@@ -73,6 +73,25 @@ export type AdlsProfile = {
     'storage-layout'?: null | StorageLayout;
 };
 
+export type AppliedTag = {
+    /**
+     * Timestamp when the tag was applied or last updated on this target
+     */
+    'applied-at': string;
+    /**
+     * Name of the applied tag definition
+     */
+    name: string;
+    /**
+     * ID of the applied tag definition
+     */
+    'tag-definition-id': string;
+    /**
+     * Value the tag carries on this target
+     */
+    value?: string | null;
+};
+
 export type AzCredential = {
     'client-id': string;
     'client-secret': string;
@@ -329,6 +348,32 @@ export type CreateRoleRequest = {
      * Must be provided together with `provider-id`.
      */
     'source-id'?: string | null;
+};
+
+export type CreateTagDefinitionRequest = {
+    /**
+     * Permitted values. Required (non-empty) for `enumerated` definitions,
+     * must be omitted otherwise.
+     */
+    'allowed-values'?: Array<string> | null;
+    /**
+     * Description of the tag definition
+     */
+    description?: string | null;
+    /**
+     * Name of the tag definition. `.` is the hierarchy delimiter
+     * (e.g. `pii.classification`). Unique within the project,
+     * case-insensitively.
+     */
+    name: string;
+    /**
+     * Target types this definition may be applied to
+     */
+    scope: Array<TagScope>;
+    /**
+     * How values of this definition are constrained
+     */
+    'value-kind': TagValueKind;
 };
 
 export type CreateUserRequest = {
@@ -679,23 +724,23 @@ export type GetLakekeeperGenericTableActionsResponse = {
 };
 
 export type GetLakekeeperNamespaceActionsResponse = {
-    'allowed-actions': Array<LakekeeperNamespaceAction>;
+    'allowed-actions': Array<LakekeeperNamespaceActionKind>;
 };
 
 export type GetLakekeeperProjectActionsResponse = {
-    'allowed-actions': Array<LakekeeperProjectAction>;
+    'allowed-actions': Array<LakekeeperProjectActionKind>;
 };
 
 export type GetLakekeeperRoleActionsResponse = {
-    'allowed-actions': Array<LakekeeperRoleAction>;
+    'allowed-actions': Array<LakekeeperRoleActionKind>;
 };
 
 export type GetLakekeeperServerActionsResponse = {
-    'allowed-actions': Array<LakekeeperServerAction>;
+    'allowed-actions': Array<LakekeeperServerActionKind>;
 };
 
 export type GetLakekeeperTableActionsResponse = {
-    'allowed-actions': Array<LakekeeperTableAction>;
+    'allowed-actions': Array<LakekeeperTableActionKind>;
 };
 
 export type GetLakekeeperUserActionsResponse = {
@@ -703,11 +748,11 @@ export type GetLakekeeperUserActionsResponse = {
 };
 
 export type GetLakekeeperViewActionsResponse = {
-    'allowed-actions': Array<LakekeeperViewAction>;
+    'allowed-actions': Array<LakekeeperViewActionKind>;
 };
 
 export type GetLakekeeperWarehouseActionsResponse = {
-    'allowed-actions': Array<LakekeeperWarehouseAction>;
+    'allowed-actions': Array<LakekeeperWarehouseActionKind>;
 };
 
 export type GetNamespaceAccessResponse = {
@@ -821,6 +866,11 @@ export type GetServerAssignmentsResponse = {
     assignments: Array<ServerAssignment>;
 };
 
+export type GetSoftDeletionQueueConfig = {
+    'max-seconds-since-last-heartbeat'?: number | null;
+    'queue-config': SoftDeletionQueueConfig;
+};
+
 export type GetTableAccessResponse = {
     'allowed-actions': Array<TableAction>;
 };
@@ -829,9 +879,8 @@ export type GetTableAssignmentsResponse = {
     assignments: Array<TableAssignment>;
 };
 
-export type GetTabularExpirationQueueConfig = {
-    'max-seconds-since-last-heartbeat'?: number | null;
-    'queue-config': TabularExpirationQueueConfig;
+export type GetTagAssignmentsResponse = {
+    assignments: Array<TagAssignment>;
 };
 
 export type GetTaskDetailsResponse = WarehouseTaskInfo & {
@@ -969,6 +1018,8 @@ export type LakekeeperGenericTableAction = {
     action: 'control_tasks';
 } | {
     action: 'set_protection';
+} | {
+    action: 'manage_tags';
 };
 
 export type LakekeeperNamespaceAction = {
@@ -1004,6 +1055,21 @@ export type LakekeeperNamespaceAction = {
     };
 } | {
     action: 'delete';
+    /**
+     * Whether the warehouse-configured soft-deletion is bypassed, i.e.
+     * contained tabulars are hard-deleted immediately instead of being
+     * recoverable for the configured grace period.
+     */
+    force?: boolean;
+    /**
+     * Whether the underlying data/metadata files are physically purged.
+     */
+    purge?: boolean;
+    /**
+     * Whether the drop recurses into child namespaces, tables and views,
+     * deleting the entire subtree rooted at this namespace.
+     */
+    recursive?: boolean;
 } | {
     action: 'update_properties';
     removed_properties?: Array<string>;
@@ -1049,6 +1115,40 @@ export type LakekeeperNamespaceAction = {
     };
 } | {
     action: 'list_generic_tables';
+} | {
+    action: 'manage_tags';
+};
+
+export type LakekeeperNamespaceActionKind = {
+    action: 'create_table';
+} | {
+    action: 'create_view';
+} | {
+    action: 'create_namespace';
+} | {
+    action: 'delete';
+} | {
+    action: 'update_properties';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'list_tables';
+} | {
+    action: 'list_views';
+} | {
+    action: 'list_namespaces';
+} | {
+    action: 'list_everything';
+} | {
+    action: 'set_protection';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'create_generic_table';
+} | {
+    action: 'list_generic_tables';
+} | {
+    action: 'manage_tags';
 };
 
 export type LakekeeperProjectAction = {
@@ -1087,9 +1187,51 @@ export type LakekeeperProjectAction = {
     action: 'get_project_tasks';
 } | {
     action: 'control_project_tasks';
+} | {
+    action: 'create_tag';
+    /**
+     * Name of the tag to create.
+     */
+    name?: string | null;
+} | {
+    action: 'list_tags';
 };
 
-export type LakekeeperRoleAction = {
+export type LakekeeperProjectActionKind = {
+    action: 'create_warehouse';
+} | {
+    action: 'delete';
+} | {
+    action: 'rename';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'list_warehouses';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'create_role';
+} | {
+    action: 'list_roles';
+} | {
+    action: 'search_roles';
+} | {
+    action: 'get_endpoint_statistics';
+} | {
+    action: 'modify_task_queue_config';
+} | {
+    action: 'get_task_queue_config';
+} | {
+    action: 'get_project_tasks';
+} | {
+    action: 'control_project_tasks';
+} | {
+    action: 'create_tag';
+} | {
+    action: 'list_tags';
+};
+
+export type LakekeeperRoleActionKind = {
     action: 'read';
 } | {
     action: 'read_metadata';
@@ -1103,7 +1245,6 @@ export type LakekeeperRoleAction = {
     action: 'read_role_assignments';
 } | {
     action: 'update_source_system';
-    target: SourceSystemTarget;
 };
 
 export type LakekeeperServerAction = {
@@ -1126,8 +1267,30 @@ export type LakekeeperServerAction = {
     action: 'provision_users';
 };
 
+export type LakekeeperServerActionKind = {
+    action: 'create_project';
+} | {
+    action: 'update_users';
+} | {
+    action: 'delete_users';
+} | {
+    action: 'list_users';
+} | {
+    action: 'provision_users';
+};
+
 export type LakekeeperTableAction = {
     action: 'drop';
+    /**
+     * Whether the warehouse-configured soft-deletion is bypassed, i.e. the
+     * table is hard-deleted immediately instead of being recoverable for the
+     * configured grace period. Extra destructive — irreversible right away.
+     */
+    force?: boolean;
+    /**
+     * Whether the underlying data files are physically purged from storage.
+     */
+    purge?: boolean;
 } | {
     action: 'write_data';
 } | {
@@ -1137,6 +1300,15 @@ export type LakekeeperTableAction = {
 } | {
     action: 'commit';
     removed_properties?: Array<string>;
+    /**
+     * The branch and tag names this commit creates, moves, or removes.
+     * Empty when the commit targets no ref by name.
+     */
+    target_refs?: Array<string>;
+    /**
+     * The kinds of metadata updates this commit contains.
+     */
+    update_kinds?: Array<TableUpdateKind>;
     updated_properties?: {
         [key: string]: string;
     };
@@ -1152,6 +1324,34 @@ export type LakekeeperTableAction = {
     action: 'control_tasks';
 } | {
     action: 'set_protection';
+} | {
+    action: 'manage_tags';
+};
+
+export type LakekeeperTableActionKind = {
+    action: 'drop';
+} | {
+    action: 'write_data';
+} | {
+    action: 'read_data';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'commit';
+} | {
+    action: 'rename';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'undrop';
+} | {
+    action: 'get_tasks';
+} | {
+    action: 'control_tasks';
+} | {
+    action: 'set_protection';
+} | {
+    action: 'manage_tags';
 };
 
 export type LakekeeperUserAction = {
@@ -1166,6 +1366,16 @@ export type LakekeeperUserAction = {
 
 export type LakekeeperViewAction = {
     action: 'drop';
+    /**
+     * Whether the warehouse-configured soft-deletion is bypassed, i.e. the
+     * view is hard-deleted immediately instead of being recoverable for the
+     * configured grace period. Extra destructive — irreversible right away.
+     */
+    force?: boolean;
+    /**
+     * Whether the underlying metadata files are physically purged from storage.
+     */
+    purge?: boolean;
 } | {
     action: 'get_metadata';
 } | {
@@ -1188,6 +1398,32 @@ export type LakekeeperViewAction = {
     action: 'control_tasks';
 } | {
     action: 'set_protection';
+} | {
+    action: 'manage_tags';
+};
+
+export type LakekeeperViewActionKind = {
+    action: 'drop';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'select';
+} | {
+    action: 'commit';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'rename';
+} | {
+    action: 'undrop';
+} | {
+    action: 'get_tasks';
+} | {
+    action: 'control_tasks';
+} | {
+    action: 'set_protection';
+} | {
+    action: 'manage_tags';
 };
 
 export type LakekeeperWarehouseAction = {
@@ -1241,6 +1477,56 @@ export type LakekeeperWarehouseAction = {
     action: 'set_format_version_policy';
 } | {
     action: 'get_endpoint_statistics';
+} | {
+    action: 'manage_tags';
+};
+
+export type LakekeeperWarehouseActionKind = {
+    action: 'create_namespace';
+} | {
+    action: 'delete';
+} | {
+    action: 'update_storage';
+} | {
+    action: 'update_storage_credential';
+} | {
+    action: 'get_metadata';
+} | {
+    action: 'get_config';
+} | {
+    action: 'list_namespaces';
+} | {
+    action: 'list_everything';
+} | {
+    action: 'use';
+} | {
+    action: 'include_in_list';
+} | {
+    action: 'deactivate';
+} | {
+    action: 'activate';
+} | {
+    action: 'rename';
+} | {
+    action: 'list_deleted_tabulars';
+} | {
+    action: 'modify_soft_deletion';
+} | {
+    action: 'get_task_queue_config';
+} | {
+    action: 'modify_task_queue_config';
+} | {
+    action: 'get_all_tasks';
+} | {
+    action: 'control_all_tasks';
+} | {
+    action: 'set_protection';
+} | {
+    action: 'set_format_version_policy';
+} | {
+    action: 'get_endpoint_statistics';
+} | {
+    action: 'manage_tags';
 };
 
 /**
@@ -1340,13 +1626,14 @@ export type ListProjectsResponse = {
 };
 
 /**
- * One page of a role's direct members (users ∪ member roles).
+ * One page of a role's members (users ∪ member roles) — direct for `/members`,
+ * transitive for `/members/transitive`.
  */
 export type ListRoleMembersResponse = {
     members: Array<RoleMember>;
     /**
      * Token for the next page; `null`/absent once the listing is exhausted.
-     * Note for SDK authors: **stop when `next_page_token` is null/absent.** The
+     * Note for SDK authors: **stop when `next-page-token` is null/absent.** The
      * final page of results may itself return a null token, so don't rely on
      * receiving a separate trailing empty page — keep requesting until the token
      * is null.
@@ -1355,12 +1642,13 @@ export type ListRoleMembersResponse = {
 };
 
 /**
- * One page of roles (the `member-of` set, or a user's directly-assigned roles).
+ * One page of roles — the `member-of` set or a user's roles, direct or transitive
+ * depending on the endpoint.
  */
 export type ListRoleMembershipsResponse = {
     /**
      * Token for the next page; `null`/absent once the listing is exhausted.
-     * Note for SDK authors: **stop when `next_page_token` is null/absent.** The
+     * Note for SDK authors: **stop when `next-page-token` is null/absent.** The
      * final page of results may itself return a null token, so don't rely on
      * receiving a separate trailing empty page — keep requesting until the token
      * is null.
@@ -1372,6 +1660,23 @@ export type ListRoleMembershipsResponse = {
 export type ListRolesResponse = {
     'next-page-token'?: string | null;
     roles: Array<Role>;
+};
+
+export type ListTagAttachmentsResponse = {
+    /**
+     * The targets carrying this tag (direct attachments only — no hierarchy expansion)
+     */
+    attachments: Array<TagAttachment>;
+    'next-page-token'?: string | null;
+};
+
+export type ListTagDefinitionsResponse = {
+    'next-page-token'?: string | null;
+    'tag-definitions': Array<TagDefinition>;
+};
+
+export type ListTagsResponse = {
+    tags: Array<TargetTag>;
 };
 
 export type ListTasksRequest = {
@@ -1695,7 +2000,7 @@ export type RoleAssignment = (UserOrRole & {
 /**
  * A member of a role, returned by `GET /role/{id}/members`. Discriminated by
  * `type`: a `user` (direct user→role assignment) or a `role` (role→role edge).
- * Identity is hydrated; for requests and add/remove confirmations use the
+ * Identity is hydrated; for requests and add confirmations use the
  * un-hydrated [`RoleMemberRef`] instead.
  */
 export type RoleMember = (UserMembership & {
@@ -1706,9 +2011,9 @@ export type RoleMember = (UserMembership & {
 
 /**
  * An identity reference to a role member — a `user` or a `role`, by typed id.
- * Sent in `POST /role/{id}/members` requests and echoed by the add/remove
- * confirmations. Unlike [`RoleMember`] it is never hydrated (no display name):
- * it names *which* principal, not its display identity.
+ * Sent in `POST /role/{id}/members` requests and echoed by the add confirmation
+ * (remove returns `204` with no body). Unlike [`RoleMember`] it is never hydrated
+ * (no display name): it names *which* principal, not its display identity.
  */
 export type RoleMemberRef = {
     id: string;
@@ -1769,23 +2074,6 @@ export type RoleMetadata = {
 };
 
 export type RoleRelation = 'assignee' | 'ownership';
-
-/**
- * The external identity (source system) a role is bound to: a `(provider_id,
- * source_id)` pair. An external identity is always both parts together, so this
- * type makes a partial binding unrepresentable. Used as the rebind destination
- * in [`CatalogRoleAction::UpdateSourceSystem`].
- */
-export type RoleSourceSystem = {
-    /**
-     * Provider that owns the role (e.g. `oidc`, `ldap`).
-     */
-    provider_id: string;
-    /**
-     * Identifier of the role within the provider.
-     */
-    source_id: string;
-};
 
 /**
  * S3CredentialAccessKey
@@ -2164,9 +2452,17 @@ export type SetPurgeQueueConfig = {
     'queue-config': PurgeQueueConfig;
 };
 
-export type SetTabularExpirationQueueConfig = {
+export type SetSoftDeletionQueueConfig = {
     'max-seconds-since-last-heartbeat'?: number | null;
-    'queue-config': TabularExpirationQueueConfig;
+    'queue-config': SoftDeletionQueueConfig;
+};
+
+export type SetTagRequest = {
+    /**
+     * Value for the tag. Required for `free-text` and `enumerated`
+     * definitions; must be omitted for `marker` definitions.
+     */
+    value?: string | null;
 };
 
 export type SetTaskLogCleanupConfig = {
@@ -2183,21 +2479,11 @@ export type SetWarehouseManagedByRequest = {
 };
 
 /**
- * The destination of a [`CatalogRoleAction::UpdateSourceSystem`] rebind.
- *
- * `To` names a concrete external identity (the real authorization check); `Any`
- * is the destination-less base-capability marker used for permission
- * introspection and "can this principal rebind at all?" queries. Keeping the base
- * case an explicit, named variant — rather than an absent/`None` value — means an
- * authorizer is never silently asked to allow an unspecified rebind: a
- * per-destination policy gates the concrete `To` target and never matches `Any`.
+ * Warehouse-specific configuration for the soft-deletion (tabular expiration) queue.
  */
-export type SourceSystemTarget = {
-    /**
-     * Concrete rebind destination.
-     */
-    to: RoleSourceSystem;
-} | 'any';
+export type SoftDeletionQueueConfig = {
+    [key: string]: unknown;
+};
 
 /**
  * Storage secret for a warehouse.
@@ -2239,9 +2525,14 @@ export type StorageCredentialType = {
 /**
  * Controls how namespace and tabular paths are constructed under the warehouse base location.
  *
- * - `default` / omitted: one directory per direct-parent namespace, one per tabular, both with `"{uuid}"` segments.
+ * - `default` / omitted: flat — no namespace directories; all tabulars are placed directly under
+ * the base location with a fixed `"{uuid}"` segment. (Changed in 0.13; before 0.13 the default
+ * emitted a `"{uuid}"` directory for the direct-parent namespace. Existing namespaces created
+ * before 0.13 keep their persisted location, so only namespaces created on/after 0.13 use the
+ * flat default.)
  * - `full-hierarchy`: one directory per namespace level, one per tabular.
- * - `tabular-only`: no namespace directories; all tabulars are placed directly under the base location.
+ * - `tabular-only`: no namespace directories; all tabulars are placed directly under the base
+ * location, with a configurable tabular template (which must contain `{uuid}`).
  *
  * Segment templates may use `{uuid}` and `{name}` as placeholders.
  */
@@ -2315,18 +2606,17 @@ export type TableAssignment = (UserOrRole & {
 
 export type TableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify';
 
+/**
+ * The kind of a table metadata update, identified by its Iceberg action name
+ * (for example `set-snapshot-ref`, `add-schema`, or `remove-snapshots`).
+ */
+export type TableUpdateKind = 'upgrade-format-version' | 'assign-uuid' | 'add-schema' | 'set-current-schema' | 'add-spec' | 'set-default-spec' | 'add-sort-order' | 'set-default-sort-order' | 'add-snapshot' | 'set-snapshot-ref' | 'remove-snapshots' | 'remove-snapshot-ref' | 'set-location' | 'set-properties' | 'remove-properties' | 'remove-partition-specs' | 'set-statistics' | 'remove-statistics' | 'set-partition-statistics' | 'remove-partition-statistics' | 'remove-schemas' | 'add-encryption-key' | 'remove-encryption-key';
+
 export type TabularDeleteProfile = {
     type: 'hard';
 } | {
     'expiration-seconds': number;
     type: 'soft';
-};
-
-/**
- * Warehouse-specific configuration for the tabular expiration (Soft-Deletion) queue.
- */
-export type TabularExpirationQueueConfig = {
-    [key: string]: unknown;
 };
 
 /**
@@ -2362,6 +2652,177 @@ export type TabularIdentUuid = {
  * Type of tabular
  */
 export type TabularType = 'table' | 'view' | 'generic-table';
+
+export type TagAssignment = (UserOrRole & {
+    type: 'ownership';
+}) | (UserOrRole & {
+    type: 'apply';
+});
+
+/**
+ * One target a tag definition is attached to (reverse lookup).
+ */
+export type TagAttachment = {
+    /**
+     * Timestamp when the tag was applied to this target
+     */
+    'created-at': string;
+    /**
+     * How the tag came to exist on this target
+     */
+    source: TagSource;
+    /**
+     * The object the tag is attached to
+     */
+    target: TagAttachmentTarget;
+    /**
+     * Timestamp when the tag's value was last updated on this target
+     */
+    'updated-at'?: string | null;
+    /**
+     * Value the tag carries on this target
+     */
+    value?: string | null;
+};
+
+/**
+ * The object a tag is attached to in a reverse-lookup listing. `type`
+ * discriminates the target kind; columns are addressed by Iceberg field-id.
+ */
+export type TagAttachmentTarget = {
+    type: 'warehouse';
+    'warehouse-id': string;
+} | {
+    'namespace-id': string;
+    type: 'namespace';
+    'warehouse-id': string;
+} | {
+    'table-id': string;
+    type: 'table';
+    'warehouse-id': string;
+} | {
+    type: 'view';
+    'view-id': string;
+    'warehouse-id': string;
+} | {
+    'generic-table-id': string;
+    type: 'generic-table';
+    'warehouse-id': string;
+} | {
+    /**
+     * Iceberg field-id of the column within the table's schema.
+     */
+    'field-id': number;
+    'table-id': string;
+    type: 'column';
+    'warehouse-id': string;
+};
+
+export type TagDefinition = {
+    /**
+     * Permitted values of an enumerated definition. Present when a single
+     * definition is fetched or created; omitted on list entries.
+     */
+    'allowed-values'?: Array<string> | null;
+    /**
+     * Timestamp when the tag definition was created
+     */
+    'created-at': string;
+    /**
+     * Description of the tag definition
+     */
+    description?: string | null;
+    /**
+     * Globally unique UUID identifier
+     */
+    id: string;
+    /**
+     * Name of the tag definition
+     */
+    name: string;
+    /**
+     * Target types this definition may be applied to
+     */
+    scope: Array<TagScope>;
+    /**
+     * Timestamp when the tag definition was last updated
+     */
+    'updated-at'?: string | null;
+    /**
+     * How values of this definition are constrained
+     */
+    'value-kind': TagValueKind;
+};
+
+/**
+ * The ancestor an inherited effective tag is attached to. Restricted to the levels
+ * that can actually be ancestors (warehouse / namespace).
+ */
+export type TagInheritanceSource = {
+    type: 'warehouse';
+    'warehouse-id': string;
+} | {
+    'namespace-id': string;
+    type: 'namespace';
+    'warehouse-id': string;
+};
+
+/**
+ * The directly-assignable relations of a tag definition: the per-tag delegation
+ * points a grantor can hand out or revoke.
+ */
+export type TagRelation = 'ownership' | 'apply';
+
+/**
+ * Target types a tag definition may be applied to.
+ */
+export type TagScope = 'warehouse' | 'namespace' | 'table' | 'view' | 'generic-table' | 'column';
+
+/**
+ * How a tag came to exist. Server-assigned; currently always `manual`.
+ */
+export type TagSource = 'manual';
+
+/**
+ * How a tag definition's value is constrained: presence-only, arbitrary text,
+ * or one of a fixed set of allowed values.
+ */
+export type TagValueKind = 'marker' | 'free-text' | 'enumerated';
+
+/**
+ * A tag on a target. With `effective=true` an entry may be inherited from an
+ * ancestor — see `inherited-from`. The `value`/`source`/`created-at`/`updated-at`
+ * fields describe the attachment that supplies the tag: the queried object itself
+ * when `inherited-from` is absent, otherwise the ancestor named there.
+ */
+export type TargetTag = {
+    /**
+     * Timestamp when the supplying attachment was created
+     */
+    'created-at': string;
+    'inherited-from'?: null | TagInheritanceSource;
+    /**
+     * Name of the tag definition
+     */
+    name: string;
+    /**
+     * How the supplying attachment was produced (producer axis, e.g. `manual`;
+     * independent of direct-vs-inherited, which is `inherited-from`)
+     */
+    source: TagSource;
+    /**
+     * ID of the tag definition
+     */
+    'tag-definition-id': string;
+    /**
+     * Timestamp when the supplying attachment's value was last updated
+     */
+    'updated-at'?: string | null;
+    /**
+     * Value the tag carries on the supplying attachment
+     */
+    value?: string | null;
+};
 
 export type TaskAttempt = {
     /**
@@ -2509,6 +2970,32 @@ export type UpdateServerAssignmentsRequest = {
 export type UpdateTableAssignmentsRequest = {
     deletes?: Array<TableAssignment>;
     writes?: Array<TableAssignment>;
+};
+
+export type UpdateTagAssignmentsRequest = {
+    deletes?: Array<TagAssignment>;
+    writes?: Array<TagAssignment>;
+};
+
+export type UpdateTagDefinitionRequest = {
+    /**
+     * Values to add to an enumerated definition's allowed set. Existing values
+     * are never removed. Only valid for `enumerated` definitions.
+     */
+    'add-allowed-values'?: Array<string> | null;
+    /**
+     * Description of the tag definition. If not set, the description will be removed.
+     */
+    description?: string | null;
+    /**
+     * New name of the tag definition (may equal the current name)
+     */
+    name: string;
+    /**
+     * Full replacement scope. Must contain every currently configured scope
+     * (scope can only be widened).
+     */
+    scope: Array<TagScope>;
 };
 
 export type UpdateUserRequest = {
@@ -3431,6 +3918,50 @@ export type GetAuthorizerServerActionsResponses = {
 };
 
 export type GetAuthorizerServerActionsResponse = GetAuthorizerServerActionsResponses[keyof GetAuthorizerServerActionsResponses];
+
+export type GetTagAssignmentsByIdData = {
+    body?: never;
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: {
+        /**
+         * Relations to be loaded. If not specified, all relations are returned.
+         */
+        relations?: Array<TagRelation>;
+    };
+    url: '/management/v1/permissions/tag/{tag_definition_id}/assignments';
+};
+
+export type GetTagAssignmentsByIdResponses = {
+    200: GetTagAssignmentsResponse;
+};
+
+export type GetTagAssignmentsByIdResponse = GetTagAssignmentsByIdResponses[keyof GetTagAssignmentsByIdResponses];
+
+export type UpdateTagAssignmentsByIdData = {
+    body: UpdateTagAssignmentsRequest;
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: never;
+    url: '/management/v1/permissions/tag/{tag_definition_id}/assignments';
+};
+
+export type UpdateTagAssignmentsByIdResponses = {
+    /**
+     * Permissions updated successfully
+     */
+    204: void;
+};
+
+export type UpdateTagAssignmentsByIdResponse = UpdateTagAssignmentsByIdResponses[keyof UpdateTagAssignmentsByIdResponses];
 
 export type GetWarehouseByIdData = {
     body?: never;
@@ -4883,6 +5414,240 @@ export type GetServerActionsResponses = {
 
 export type GetServerActionsResponse = GetServerActionsResponses[keyof GetServerActionsResponses];
 
+export type ListTagDefinitionsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Next page token
+         */
+        pageToken?: string | null;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         * Default: 100
+         */
+        pageSize?: number | null;
+        /**
+         * Filter by exact name (case-insensitive). If set, the response contains
+         * zero or one entries and no pagination token.
+         */
+        name?: string | null;
+    };
+    url: '/management/v1/tag-definition';
+};
+
+export type ListTagDefinitionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListTagDefinitionsError = ListTagDefinitionsErrors[keyof ListTagDefinitionsErrors];
+
+export type ListTagDefinitionsResponses = {
+    /**
+     * List of tag definitions
+     */
+    200: ListTagDefinitionsResponse;
+};
+
+export type ListTagDefinitionsResponse2 = ListTagDefinitionsResponses[keyof ListTagDefinitionsResponses];
+
+export type CreateTagDefinitionData = {
+    body: CreateTagDefinitionRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/tag-definition';
+};
+
+export type CreateTagDefinitionErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type CreateTagDefinitionError = CreateTagDefinitionErrors[keyof CreateTagDefinitionErrors];
+
+export type CreateTagDefinitionResponses = {
+    /**
+     * Tag definition successfully created
+     */
+    201: TagDefinition;
+};
+
+export type CreateTagDefinitionResponse = CreateTagDefinitionResponses[keyof CreateTagDefinitionResponses];
+
+export type DeleteTagDefinitionData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: never;
+    url: '/management/v1/tag-definition/{tag_definition_id}';
+};
+
+export type DeleteTagDefinitionErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type DeleteTagDefinitionError = DeleteTagDefinitionErrors[keyof DeleteTagDefinitionErrors];
+
+export type DeleteTagDefinitionResponses = {
+    /**
+     * Tag definition deleted successfully
+     */
+    204: void;
+};
+
+export type DeleteTagDefinitionResponse = DeleteTagDefinitionResponses[keyof DeleteTagDefinitionResponses];
+
+export type GetTagDefinitionData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: never;
+    url: '/management/v1/tag-definition/{tag_definition_id}';
+};
+
+export type GetTagDefinitionErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetTagDefinitionError = GetTagDefinitionErrors[keyof GetTagDefinitionErrors];
+
+export type GetTagDefinitionResponses = {
+    /**
+     * Tag definition details
+     */
+    200: TagDefinition;
+};
+
+export type GetTagDefinitionResponse = GetTagDefinitionResponses[keyof GetTagDefinitionResponses];
+
+export type UpdateTagDefinitionData = {
+    body: UpdateTagDefinitionRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: never;
+    url: '/management/v1/tag-definition/{tag_definition_id}';
+};
+
+export type UpdateTagDefinitionErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type UpdateTagDefinitionError = UpdateTagDefinitionErrors[keyof UpdateTagDefinitionErrors];
+
+export type UpdateTagDefinitionResponses = {
+    /**
+     * Tag definition updated successfully
+     */
+    200: TagDefinition;
+};
+
+export type UpdateTagDefinitionResponse = UpdateTagDefinitionResponses[keyof UpdateTagDefinitionResponses];
+
+export type ListTagAttachmentsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: {
+        /**
+         * Next page token
+         */
+        pageToken?: string | null;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         * Default: 100
+         */
+        pageSize?: number | null;
+        /**
+         * Return only attachments carrying exactly this value (case-sensitive). Omit to
+         * return all. Marker tags carry no value, so a value filter excludes them.
+         */
+        value?: string | null;
+        /**
+         * Restrict to a single target object type.
+         */
+        targetType?: null | TagScope;
+        /**
+         * Only attachments created at or after this instant (RFC 3339, inclusive).
+         */
+        createdAfter?: string | null;
+        /**
+         * Only attachments created at or before this instant (RFC 3339, inclusive).
+         */
+        createdBefore?: string | null;
+        /**
+         * Restrict to attachments within a single warehouse.
+         */
+        warehouseId?: string | null;
+    };
+    url: '/management/v1/tag-definition/{tag_definition_id}/attachments';
+};
+
+export type ListTagAttachmentsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListTagAttachmentsError = ListTagAttachmentsErrors[keyof ListTagAttachmentsErrors];
+
+export type ListTagAttachmentsResponses = {
+    /**
+     * Targets carrying this tag
+     */
+    200: ListTagAttachmentsResponse;
+};
+
+export type ListTagAttachmentsResponse2 = ListTagAttachmentsResponses[keyof ListTagAttachmentsResponses];
+
 export type ListUserData = {
     body?: never;
     path?: never;
@@ -5502,6 +6267,133 @@ export type SetGenericTableProtectionResponses = {
 
 export type SetGenericTableProtectionResponse = SetGenericTableProtectionResponses[keyof SetGenericTableProtectionResponses];
 
+export type ListGenericTableTagsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Generic Table ID
+         */
+        generic_table_id: string;
+    };
+    query?: {
+        /**
+         * When `true`, return the resolved *effective* tags — the target's own tags
+         * plus tags inherited from its ancestor namespaces and warehouse
+         * (most-specific-wins) — instead of only directly-attached tags. No-op for a
+         * warehouse (no ancestors) and for a column (columns do not inherit).
+         */
+        effective?: boolean | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/tags';
+};
+
+export type ListGenericTableTagsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListGenericTableTagsError = ListGenericTableTagsErrors[keyof ListGenericTableTagsErrors];
+
+export type ListGenericTableTagsResponses = {
+    /**
+     * Tags on the generic table
+     */
+    200: ListTagsResponse;
+};
+
+export type ListGenericTableTagsResponse = ListGenericTableTagsResponses[keyof ListGenericTableTagsResponses];
+
+export type DeleteGenericTableTagData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Generic Table ID
+         */
+        generic_table_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/tags/{tag_name}';
+};
+
+export type DeleteGenericTableTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type DeleteGenericTableTagError = DeleteGenericTableTagErrors[keyof DeleteGenericTableTagErrors];
+
+export type DeleteGenericTableTagResponses = {
+    /**
+     * Tag removed
+     */
+    204: void;
+};
+
+export type DeleteGenericTableTagResponse = DeleteGenericTableTagResponses[keyof DeleteGenericTableTagResponses];
+
+export type SetGenericTableTagData = {
+    body: SetTagRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Generic Table ID
+         */
+        generic_table_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/tags/{tag_name}';
+};
+
+export type SetGenericTableTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetGenericTableTagError = SetGenericTableTagErrors[keyof SetGenericTableTagErrors];
+
+export type SetGenericTableTagResponses = {
+    /**
+     * Tag applied
+     */
+    200: AppliedTag;
+};
+
+export type SetGenericTableTagResponse = SetGenericTableTagResponses[keyof SetGenericTableTagResponses];
+
 export type SetWarehouseManagedByData = {
     body: SetWarehouseManagedByRequest;
     path: {
@@ -5605,6 +6497,133 @@ export type SetNamespaceProtectionResponses = {
 };
 
 export type SetNamespaceProtectionResponse = SetNamespaceProtectionResponses[keyof SetNamespaceProtectionResponses];
+
+export type ListNamespaceTagsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Namespace ID
+         */
+        namespace_id: string;
+    };
+    query?: {
+        /**
+         * When `true`, return the resolved *effective* tags — the target's own tags
+         * plus tags inherited from its ancestor namespaces and warehouse
+         * (most-specific-wins) — instead of only directly-attached tags. No-op for a
+         * warehouse (no ancestors) and for a column (columns do not inherit).
+         */
+        effective?: boolean | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/tags';
+};
+
+export type ListNamespaceTagsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListNamespaceTagsError = ListNamespaceTagsErrors[keyof ListNamespaceTagsErrors];
+
+export type ListNamespaceTagsResponses = {
+    /**
+     * Tags on the namespace
+     */
+    200: ListTagsResponse;
+};
+
+export type ListNamespaceTagsResponse = ListNamespaceTagsResponses[keyof ListNamespaceTagsResponses];
+
+export type DeleteNamespaceTagData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Namespace ID
+         */
+        namespace_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/tags/{tag_name}';
+};
+
+export type DeleteNamespaceTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type DeleteNamespaceTagError = DeleteNamespaceTagErrors[keyof DeleteNamespaceTagErrors];
+
+export type DeleteNamespaceTagResponses = {
+    /**
+     * Tag removed
+     */
+    204: void;
+};
+
+export type DeleteNamespaceTagResponse = DeleteNamespaceTagResponses[keyof DeleteNamespaceTagResponses];
+
+export type SetNamespaceTagData = {
+    body: SetTagRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Namespace ID
+         */
+        namespace_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/tags/{tag_name}';
+};
+
+export type SetNamespaceTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetNamespaceTagError = SetNamespaceTagErrors[keyof SetNamespaceTagErrors];
+
+export type SetNamespaceTagResponses = {
+    /**
+     * Tag applied
+     */
+    200: AppliedTag;
+};
+
+export type SetNamespaceTagResponse = SetNamespaceTagResponses[keyof SetNamespaceTagResponses];
 
 export type SetWarehouseProtectionData = {
     body: SetProtectionRequest;
@@ -5792,6 +6811,145 @@ export type GetTableActionsResponses = {
 
 export type GetTableActionsResponse = GetTableActionsResponses[keyof GetTableActionsResponses];
 
+export type ListTableColumnTagsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+        /**
+         * Column name in the table's current schema
+         */
+        column_name: string;
+    };
+    query?: {
+        /**
+         * When `true`, return the resolved *effective* tags — the target's own tags
+         * plus tags inherited from its ancestor namespaces and warehouse
+         * (most-specific-wins) — instead of only directly-attached tags. No-op for a
+         * warehouse (no ancestors) and for a column (columns do not inherit).
+         */
+        effective?: boolean | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/column/{column_name}/tags';
+};
+
+export type ListTableColumnTagsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListTableColumnTagsError = ListTableColumnTagsErrors[keyof ListTableColumnTagsErrors];
+
+export type ListTableColumnTagsResponses = {
+    /**
+     * Tags on the column
+     */
+    200: ListTagsResponse;
+};
+
+export type ListTableColumnTagsResponse = ListTableColumnTagsResponses[keyof ListTableColumnTagsResponses];
+
+export type DeleteTableColumnTagData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+        /**
+         * Column name in the table's current schema
+         */
+        column_name: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/column/{column_name}/tags/{tag_name}';
+};
+
+export type DeleteTableColumnTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type DeleteTableColumnTagError = DeleteTableColumnTagErrors[keyof DeleteTableColumnTagErrors];
+
+export type DeleteTableColumnTagResponses = {
+    /**
+     * Tag removed
+     */
+    204: void;
+};
+
+export type DeleteTableColumnTagResponse = DeleteTableColumnTagResponses[keyof DeleteTableColumnTagResponses];
+
+export type SetTableColumnTagData = {
+    body: SetTagRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+        /**
+         * Column name in the table's current schema
+         */
+        column_name: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/column/{column_name}/tags/{tag_name}';
+};
+
+export type SetTableColumnTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetTableColumnTagError = SetTableColumnTagErrors[keyof SetTableColumnTagErrors];
+
+export type SetTableColumnTagResponses = {
+    /**
+     * Tag applied
+     */
+    200: AppliedTag;
+};
+
+export type SetTableColumnTagResponse = SetTableColumnTagResponses[keyof SetTableColumnTagResponses];
+
 export type GetTableProtectionData = {
     body?: never;
     path: {
@@ -5839,50 +6997,292 @@ export type SetTableProtectionResponses = {
 
 export type SetTableProtectionResponse = SetTableProtectionResponses[keyof SetTableProtectionResponses];
 
-export type GetTaskQueueConfigTabularExpirationData = {
+export type ListTableTagsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+    };
+    query?: {
+        /**
+         * When `true`, return the resolved *effective* tags — the target's own tags
+         * plus tags inherited from its ancestor namespaces and warehouse
+         * (most-specific-wins) — instead of only directly-attached tags. No-op for a
+         * warehouse (no ancestors) and for a column (columns do not inherit).
+         */
+        effective?: boolean | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/tags';
+};
+
+export type ListTableTagsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListTableTagsError = ListTableTagsErrors[keyof ListTableTagsErrors];
+
+export type ListTableTagsResponses = {
+    /**
+     * Tags on the table
+     */
+    200: ListTagsResponse;
+};
+
+export type ListTableTagsResponse = ListTableTagsResponses[keyof ListTableTagsResponses];
+
+export type DeleteTableTagData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/tags/{tag_name}';
+};
+
+export type DeleteTableTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type DeleteTableTagError = DeleteTableTagErrors[keyof DeleteTableTagErrors];
+
+export type DeleteTableTagResponses = {
+    /**
+     * Tag removed
+     */
+    204: void;
+};
+
+export type DeleteTableTagResponse = DeleteTableTagResponses[keyof DeleteTableTagResponses];
+
+export type SetTableTagData = {
+    body: SetTagRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/tags/{tag_name}';
+};
+
+export type SetTableTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetTableTagError = SetTableTagErrors[keyof SetTableTagErrors];
+
+export type SetTableTagResponses = {
+    /**
+     * Tag applied
+     */
+    200: AppliedTag;
+};
+
+export type SetTableTagResponse = SetTableTagResponses[keyof SetTableTagResponses];
+
+export type ListWarehouseTagsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+    };
+    query?: {
+        /**
+         * When `true`, return the resolved *effective* tags — the target's own tags
+         * plus tags inherited from its ancestor namespaces and warehouse
+         * (most-specific-wins) — instead of only directly-attached tags. No-op for a
+         * warehouse (no ancestors) and for a column (columns do not inherit).
+         */
+        effective?: boolean | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/tags';
+};
+
+export type ListWarehouseTagsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListWarehouseTagsError = ListWarehouseTagsErrors[keyof ListWarehouseTagsErrors];
+
+export type ListWarehouseTagsResponses = {
+    /**
+     * Tags on the warehouse (direct; or effective with ?effective=true, which is a no-op here as a warehouse has no ancestors)
+     */
+    200: ListTagsResponse;
+};
+
+export type ListWarehouseTagsResponse = ListWarehouseTagsResponses[keyof ListWarehouseTagsResponses];
+
+export type DeleteWarehouseTagData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/tags/{tag_name}';
+};
+
+export type DeleteWarehouseTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type DeleteWarehouseTagError = DeleteWarehouseTagErrors[keyof DeleteWarehouseTagErrors];
+
+export type DeleteWarehouseTagResponses = {
+    /**
+     * Tag removed
+     */
+    204: void;
+};
+
+export type DeleteWarehouseTagResponse = DeleteWarehouseTagResponses[keyof DeleteWarehouseTagResponses];
+
+export type SetWarehouseTagData = {
+    body: SetTagRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/tags/{tag_name}';
+};
+
+export type SetWarehouseTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetWarehouseTagError = SetWarehouseTagErrors[keyof SetWarehouseTagErrors];
+
+export type SetWarehouseTagResponses = {
+    /**
+     * Tag applied
+     */
+    200: AppliedTag;
+};
+
+export type SetWarehouseTagResponse = SetWarehouseTagResponses[keyof SetWarehouseTagResponses];
+
+export type GetTaskQueueConfigSoftDeletionData = {
     body?: never;
     path: {
         warehouse_id: string;
     };
     query?: never;
-    url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_expiration/config';
+    url: '/management/v1/warehouse/{warehouse_id}/task-queue/soft_deletion/config';
 };
 
-export type GetTaskQueueConfigTabularExpirationErrors = {
+export type GetTaskQueueConfigSoftDeletionErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type GetTaskQueueConfigTabularExpirationError = GetTaskQueueConfigTabularExpirationErrors[keyof GetTaskQueueConfigTabularExpirationErrors];
+export type GetTaskQueueConfigSoftDeletionError = GetTaskQueueConfigSoftDeletionErrors[keyof GetTaskQueueConfigSoftDeletionErrors];
 
-export type GetTaskQueueConfigTabularExpirationResponses = {
-    200: GetTabularExpirationQueueConfig;
+export type GetTaskQueueConfigSoftDeletionResponses = {
+    200: GetSoftDeletionQueueConfig;
 };
 
-export type GetTaskQueueConfigTabularExpirationResponse = GetTaskQueueConfigTabularExpirationResponses[keyof GetTaskQueueConfigTabularExpirationResponses];
+export type GetTaskQueueConfigSoftDeletionResponse = GetTaskQueueConfigSoftDeletionResponses[keyof GetTaskQueueConfigSoftDeletionResponses];
 
-export type SetTaskQueueConfigTabularExpirationData = {
-    body: SetTabularExpirationQueueConfig;
+export type SetTaskQueueConfigSoftDeletionData = {
+    body: SetSoftDeletionQueueConfig;
     path: {
         warehouse_id: string;
     };
     query?: never;
-    url: '/management/v1/warehouse/{warehouse_id}/task-queue/tabular_expiration/config';
+    url: '/management/v1/warehouse/{warehouse_id}/task-queue/soft_deletion/config';
 };
 
-export type SetTaskQueueConfigTabularExpirationErrors = {
+export type SetTaskQueueConfigSoftDeletionErrors = {
     '4XX': IcebergErrorResponse;
 };
 
-export type SetTaskQueueConfigTabularExpirationError = SetTaskQueueConfigTabularExpirationErrors[keyof SetTaskQueueConfigTabularExpirationErrors];
+export type SetTaskQueueConfigSoftDeletionError = SetTaskQueueConfigSoftDeletionErrors[keyof SetTaskQueueConfigSoftDeletionErrors];
 
-export type SetTaskQueueConfigTabularExpirationResponses = {
+export type SetTaskQueueConfigSoftDeletionResponses = {
     /**
      * Task queue config set successfully
      */
     204: void;
 };
 
-export type SetTaskQueueConfigTabularExpirationResponse = SetTaskQueueConfigTabularExpirationResponses[keyof SetTaskQueueConfigTabularExpirationResponses];
+export type SetTaskQueueConfigSoftDeletionResponse = SetTaskQueueConfigSoftDeletionResponses[keyof SetTaskQueueConfigSoftDeletionResponses];
 
 export type GetTaskQueueConfigTabularPurgeData = {
     body?: never;
@@ -6080,6 +7480,133 @@ export type SetViewProtectionResponses = {
 };
 
 export type SetViewProtectionResponse = SetViewProtectionResponses[keyof SetViewProtectionResponses];
+
+export type ListViewTagsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * View ID
+         */
+        view_id: string;
+    };
+    query?: {
+        /**
+         * When `true`, return the resolved *effective* tags — the target's own tags
+         * plus tags inherited from its ancestor namespaces and warehouse
+         * (most-specific-wins) — instead of only directly-attached tags. No-op for a
+         * warehouse (no ancestors) and for a column (columns do not inherit).
+         */
+        effective?: boolean | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/tags';
+};
+
+export type ListViewTagsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListViewTagsError = ListViewTagsErrors[keyof ListViewTagsErrors];
+
+export type ListViewTagsResponses = {
+    /**
+     * Tags on the view
+     */
+    200: ListTagsResponse;
+};
+
+export type ListViewTagsResponse = ListViewTagsResponses[keyof ListViewTagsResponses];
+
+export type DeleteViewTagData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * View ID
+         */
+        view_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/tags/{tag_name}';
+};
+
+export type DeleteViewTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type DeleteViewTagError = DeleteViewTagErrors[keyof DeleteViewTagErrors];
+
+export type DeleteViewTagResponses = {
+    /**
+     * Tag removed
+     */
+    204: void;
+};
+
+export type DeleteViewTagResponse = DeleteViewTagResponses[keyof DeleteViewTagResponses];
+
+export type SetViewTagData = {
+    body: SetTagRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * View ID
+         */
+        view_id: string;
+        /**
+         * Name of the tag definition
+         */
+        tag_name: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/tags/{tag_name}';
+};
+
+export type SetViewTagErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetViewTagError = SetViewTagErrors[keyof SetViewTagErrors];
+
+export type SetViewTagResponses = {
+    /**
+     * Tag applied
+     */
+    200: AppliedTag;
+};
+
+export type SetViewTagResponse = SetViewTagResponses[keyof SetViewTagResponses];
 
 export type WhoamiData = {
     body?: never;
