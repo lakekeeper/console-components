@@ -10240,6 +10240,10 @@ components:
         bucket:
           type: string
           description: Name of the S3 bucket
+        partition:
+          type: string
+          default: aws
+          description: AWS partition used when constructing S3 ARNs for vended-credential policies.
         endpoint:
           type:
             - string
