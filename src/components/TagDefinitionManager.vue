@@ -5,7 +5,7 @@
         <v-btn
           v-if="canListTags"
           size="small"
-          variant="tonal"
+          variant="outlined"
           color="primary"
           class="mr-2"
           :prepend-icon="filtersCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
@@ -59,6 +59,7 @@
             chips
             closable-chips
             clearable
+            no-data-text="No kinds available"
             hide-details></v-select>
 
           <v-select
@@ -72,6 +73,7 @@
             chips
             closable-chips
             clearable
+            no-data-text="No scopes available"
             hide-details></v-select>
 
           <v-btn
@@ -92,6 +94,7 @@
         style="min-width: 0"
         height="100%"
         fixed-header
+        density="compact"
         :headers="headers"
         hover
         :items="displayedDefinitions"
@@ -102,7 +105,7 @@
           <span style="display: flex; align-items: center">
             <v-icon class="mr-2" color="info">mdi-tag-outline</v-icon>
             {{ item.name }}
-            <v-icon v-if="isSystem(item)" class="ml-2" size="x-small" color="grey">
+            <v-icon v-if="isSystem(item)" class="ml-2 text-medium-emphasis" size="x-small">
               mdi-lock-outline
             </v-icon>
           </span>

@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="dialogVisible" max-width="620">
+  <v-dialog v-model="dialogVisible" max-width="600">
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
@@ -11,7 +11,7 @@
       </v-btn>
     </template>
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         <v-icon class="mr-2" color="warning">mdi-shield-lock-outline</v-icon>
         CORS Configuration
       </v-card-title>

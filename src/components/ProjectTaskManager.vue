@@ -46,7 +46,8 @@
                       chips
                       clearable
                       density="compact"
-                      hide-details>
+                      hide-details
+                      no-data-text="No statuses available">
                       <template #chip="{ props, item }">
                         <v-chip v-bind="props" :color="getStatusColor(item.value)" size="small">
                           {{ item.title }}
@@ -90,24 +91,22 @@
                 <v-card-title class="text-subtitle-2 pb-2">Created Date Range</v-card-title>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.createdAfter"
                       label="After"
-                      type="datetime-local"
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks created after this date"></v-text-field>
+                      hint="Tasks created after this date"></DateTimePicker>
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.createdBefore"
                       label="Before"
-                      type="datetime-local"
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks created before this date"></v-text-field>
+                      hint="Tasks created before this date"></DateTimePicker>
                   </v-col>
                 </v-row>
               </v-card>
@@ -118,24 +117,22 @@
                 <v-card-title class="text-subtitle-2 pb-2">Scheduled Date Range</v-card-title>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.scheduledAfter"
                       label="After"
-                      type="datetime-local"
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks scheduled after this date"></v-text-field>
+                      hint="Tasks scheduled after this date"></DateTimePicker>
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.scheduledBefore"
                       label="Before"
-                      type="datetime-local"
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks scheduled before this date"></v-text-field>
+                      hint="Tasks scheduled before this date"></DateTimePicker>
                   </v-col>
                 </v-row>
               </v-card>
@@ -176,9 +173,9 @@
       :items="tasks"
       :items-per-page="currentPaginationOptions.itemsPerPage"
       :items-per-page-options="[
-        { title: '25 items', value: 25 },
-        { title: '50 items', value: 50 },
-        { title: '100 items', value: 100 },
+        { title: '25', value: 25 },
+        { title: '50', value: 50 },
+        { title: '100', value: 100 },
       ]"
       hover
       density="compact"
@@ -196,7 +193,7 @@
           <v-btn
             icon="mdi-content-copy"
             size="small"
-            variant="flat"
+            variant="text"
             @click="functions.copyToClipboard(item['task-id'])"></v-btn>
           {{ item['task-id'] }}
         </span>
@@ -225,7 +222,7 @@
 
       <template #item.actions="{ item }">
         <v-btn
-          icon="mdi-information"
+          icon="mdi-information-outline"
           size="small"
           variant="text"
           @click="viewTaskDetails(item)"></v-btn>
@@ -253,42 +250,43 @@
       </template>
 
       <template #no-data>
-        <div class="text-center pa-4" v-if="hasError">
-          <v-icon size="64" color="warning">mdi-alert-circle-outline</v-icon>
-          <div class="text-h6 mt-2">Unable to load tasks</div>
-          <div class="text-subtitle-1 text-grey">
-            {{ errorMessage }}
-          </div>
-          <v-btn class="mt-3" color="primary" variant="outlined" @click="refreshTasks">
-            Try Again
-          </v-btn>
-        </div>
-        <div class="text-center pa-4" v-else>
-          <v-icon size="64" color="grey-lighten-1">mdi-clipboard-list-outline</v-icon>
-          <div class="text-h6 mt-2">No tasks found</div>
-          <div class="text-subtitle-1 text-grey">
-            No tasks have been created for this project yet.
-          </div>
-        </div>
+        <v-empty-state
+          v-if="hasError"
+          icon="mdi-alert-circle-outline"
+          title="Unable to load tasks"
+          :text="errorMessage"
+          size="small">
+          <template #actions>
+            <v-btn color="primary" variant="outlined" @click="refreshTasks">Try Again</v-btn>
+          </template>
+        </v-empty-state>
+        <v-empty-state
+          v-else
+          icon="mdi-clipboard-list-outline"
+          title="No tasks found"
+          text="No tasks have been created for this project yet."
+          size="small"></v-empty-state>
       </template>
     </v-data-table>
 
     <!-- Error state display when data table is hidden -->
-    <div v-if="hasError" class="text-center pa-8">
-      <v-icon size="64" color="warning">mdi-alert-circle-outline</v-icon>
-      <div class="text-h6 mt-2">Unable to load tasks</div>
-      <div class="text-subtitle-1 text-grey mb-4">
-        {{ errorMessage }}
-      </div>
-      <v-btn color="primary" variant="outlined" @click="refreshTasks" :loading="tasksLoading">
-        Try Again
-      </v-btn>
-    </div>
+    <v-empty-state
+      v-if="hasError"
+      icon="mdi-alert-circle-outline"
+      title="Unable to load tasks"
+      :text="errorMessage"
+      size="small">
+      <template #actions>
+        <v-btn color="primary" variant="outlined" :loading="tasksLoading" @click="refreshTasks">
+          Try Again
+        </v-btn>
+      </template>
+    </v-empty-state>
 
     <!-- Task Details Modal -->
-    <v-dialog v-model="showTaskDetailsDialog" max-width="900px" scrollable>
+    <v-dialog v-model="showTaskDetailsDialog" max-width="800" scrollable>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-spacer></v-spacer>
           <v-btn icon="mdi-close" variant="text" @click="closeTaskDetailsDialog"></v-btn>
         </v-card-title>
@@ -298,13 +296,18 @@
           <div class="text-h6 mt-4">Loading task details...</div>
         </v-card-text>
 
-        <v-card-text v-else-if="taskDetailsError" class="text-center pa-8">
-          <v-icon size="64" color="error">mdi-alert-circle-outline</v-icon>
-          <div class="text-h6 mt-2 text-error">Failed to load task details</div>
-          <div class="text-body-1 mt-2 text-grey">{{ taskDetailsError }}</div>
-          <v-btn class="mt-4" color="primary" variant="outlined" @click="retryLoadTaskDetails">
-            Try Again
-          </v-btn>
+        <v-card-text v-else-if="taskDetailsError" class="pa-0">
+          <v-empty-state
+            icon="mdi-alert-circle-outline"
+            title="Failed to load task details"
+            :text="taskDetailsError"
+            size="small">
+            <template #actions>
+              <v-btn color="primary" variant="outlined" @click="retryLoadTaskDetails">
+                Try Again
+              </v-btn>
+            </template>
+          </v-empty-state>
         </v-card-text>
 
         <v-card-text v-else class="pa-0">
@@ -317,9 +320,9 @@
     </v-dialog>
 
     <!-- Cancel Task Confirmation Modal -->
-    <v-dialog v-model="showCancelConfirmDialog" max-width="500px">
+    <v-dialog v-model="showCancelConfirmDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon class="mr-2" color="error">mdi-cancel</v-icon>
           Cancel Task
         </v-card-title>
@@ -353,7 +356,7 @@
 
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="secondary" variant="text" @click="closeCancelConfirmDialog">Cancel</v-btn>
+          <v-btn variant="text" @click="closeCancelConfirmDialog">Cancel</v-btn>
           <v-btn
             color="error"
             variant="flat"
@@ -366,9 +369,9 @@
     </v-dialog>
 
     <!-- Run Now Confirmation Modal -->
-    <v-dialog v-model="showRunNowConfirmDialog" max-width="500px">
+    <v-dialog v-model="showRunNowConfirmDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon class="mr-2" color="success">mdi-play</v-icon>
           Run Task Now
         </v-card-title>
@@ -406,7 +409,7 @@
 
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="secondary" variant="text" @click="closeRunNowConfirmDialog">Cancel</v-btn>
+          <v-btn variant="text" @click="closeRunNowConfirmDialog">Cancel</v-btn>
           <v-btn
             color="success"
             variant="flat"
@@ -419,9 +422,9 @@
     </v-dialog>
 
     <!-- Task Log Cleanup Configuration Dialog -->
-    <v-dialog v-model="showConfigDialog" max-width="600px" scrollable>
+    <v-dialog v-model="showConfigDialog" max-width="600" scrollable>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon class="mr-2" color="primary">mdi-cog</v-icon>
           Task Log Cleanup Configuration
           <v-spacer></v-spacer>
@@ -435,13 +438,16 @@
           <div class="text-h6 mt-4">Loading configuration...</div>
         </v-card-text>
 
-        <v-card-text v-else-if="configError" class="text-center pa-8">
-          <v-icon size="64" color="error">mdi-alert-circle-outline</v-icon>
-          <div class="text-h6 mt-2 text-error">Failed to load configuration</div>
-          <div class="text-body-1 mt-2 text-grey">{{ configError }}</div>
-          <v-btn class="mt-4" color="primary" variant="outlined" @click="loadConfig">
-            Try Again
-          </v-btn>
+        <v-card-text v-else-if="configError" class="pa-0">
+          <v-empty-state
+            icon="mdi-alert-circle-outline"
+            title="Failed to load configuration"
+            :text="configError"
+            size="small">
+            <template #actions>
+              <v-btn color="primary" variant="outlined" @click="loadConfig">Try Again</v-btn>
+            </template>
+          </v-empty-state>
         </v-card-text>
 
         <v-card-text v-else class="pt-4">
@@ -494,7 +500,7 @@
 
             <v-col cols="12">
               <v-divider class="my-2"></v-divider>
-              <div class="text-caption text-grey">
+              <div class="text-caption text-medium-emphasis">
                 <strong>Current Settings:</strong>
                 <div class="mt-2">
                   • Task logs will be deleted after
@@ -513,7 +519,7 @@
 
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="secondary" variant="text" @click="closeConfigDialog">Cancel</v-btn>
+          <v-btn variant="text" @click="closeConfigDialog">Cancel</v-btn>
           <v-btn
             color="primary"
             variant="flat"

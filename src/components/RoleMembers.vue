@@ -20,7 +20,7 @@
       <v-btn
         v-if="canEdit && selected.length"
         color="error"
-        variant="tonal"
+        variant="text"
         size="small"
         prepend-icon="mdi-account-remove"
         class="mr-2"
@@ -30,7 +30,7 @@
       <v-btn
         v-if="canEdit"
         color="primary"
-        variant="tonal"
+        variant="flat"
         size="small"
         prepend-icon="mdi-plus"
         @click="openAdd">
@@ -61,7 +61,7 @@
         </span>
         <span
           v-if="item.type === 'role' && item.projectId && item.projectId !== currentProjectId"
-          class="text-caption text-grey">
+          class="text-caption text-medium-emphasis">
           <v-chip class="ml-1" color="warning" size="x-small" variant="outlined">
             External Project Role
           </v-chip>
@@ -69,7 +69,7 @@
           <v-btn
             icon="mdi-content-copy"
             size="x-small"
-            variant="flat"
+            variant="text"
             @click="functions.copyToClipboard(item.projectId)"></v-btn>
           )
         </span>
@@ -83,20 +83,23 @@
           @click="requestRemove([item])"></v-btn>
       </template>
       <template #no-data>
-        <div class="text-center pa-4 text-medium-emphasis">No members</div>
+        <v-empty-state
+          icon="mdi-account-off-outline"
+          title="No members"
+          size="small"></v-empty-state>
       </template>
     </v-data-table>
 
     <!-- Add member dialog -->
-    <v-dialog v-model="addOpen" max-width="1000">
+    <v-dialog v-model="addOpen" max-width="600">
       <v-card>
-        <v-card-title>Add member</v-card-title>
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">Add member</v-card-title>
         <v-card-text>
           <PrincipalSearch v-model="addSelected" :exclude-role-id="roleId" />
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text="Cancel" @click="addOpen = false"></v-btn>
+          <v-btn variant="text" text="Cancel" @click="addOpen = false"></v-btn>
           <v-btn
             color="primary"
             variant="flat"
@@ -109,9 +112,9 @@
     </v-dialog>
 
     <!-- Remove member(s) confirm dialog -->
-    <v-dialog v-model="removeConfirm.open" max-width="480">
+    <v-dialog v-model="removeConfirm.open" max-width="440">
       <v-card>
-        <v-card-title class="text-subtitle-1 font-weight-medium">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           Remove {{ removeConfirm.items.length }} member{{
             removeConfirm.items.length === 1 ? '' : 's'
           }}?

@@ -7,7 +7,7 @@
       <template v-if="selectedPaths.length > 0">
         <v-btn
           size="small"
-          variant="tonal"
+          variant="flat"
           color="primary"
           prepend-icon="mdi-download-outline"
           @click="bulkDownload">
@@ -173,7 +173,10 @@
           @change.stop="toggleSelect(row.node.path)"
           @click.stop />
 
-        <v-icon size="x-small" class="mr-2" :color="row.node.isFolder ? 'amber-darken-2' : 'grey'">
+        <v-icon
+          size="x-small"
+          class="mr-2"
+          :color="row.node.isFolder ? 'amber-darken-2' : 'rgba(var(--v-theme-on-surface), 0.6)'">
           {{
             row.node.isFolder
               ? dragOverFolder === row.node.path
@@ -264,7 +267,7 @@
     <!-- File preview -->
     <v-dialog v-model="previewOpen" max-width="1100" scrollable>
       <v-card>
-        <v-card-title class="d-flex align-center text-subtitle-1 py-2">
+        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">{{ fileIcon(previewNode?.name || '') }}</v-icon>
           <span class="font-mono text-truncate">{{ previewNode?.name }}</span>
           <v-chip v-if="previewNode?.size != null" size="x-small" variant="outlined" class="ml-2">
@@ -361,9 +364,8 @@
     </v-dialog>
 
     <!-- Create folder dialog -->
-    <v-dialog v-model="createFolderOpen" max-width="400" persistent>
-      <v-card>
-        <v-card-title class="text-subtitle-1">New folder</v-card-title>
+    <v-dialog v-model="createFolderOpen" max-width="440" persistent>
+      <v-card title="New folder">
         <v-card-text>
           <v-text-field
             v-model="newFolderName"
@@ -396,9 +398,8 @@
     </v-dialog>
 
     <!-- Delete folder confirm -->
-    <v-dialog v-model="deleteFolderOpen" max-width="400">
-      <v-card>
-        <v-card-title class="text-subtitle-1">Delete folder?</v-card-title>
+    <v-dialog v-model="deleteFolderOpen" max-width="440">
+      <v-card title="Delete folder?">
         <v-card-text>
           <span class="font-mono text-caption">{{ deleteFolderNode?.name }}</span>
           <div class="text-caption text-error mt-1">
@@ -412,7 +413,7 @@
           </v-btn>
           <v-btn
             color="error"
-            variant="tonal"
+            variant="flat"
             :loading="deleteFolderLoading"
             @click="executeDeleteFolder">
             Delete
@@ -422,18 +423,15 @@
     </v-dialog>
 
     <!-- Bulk delete confirm -->
-    <v-dialog v-model="bulkDeleteOpen" max-width="400">
-      <v-card>
-        <v-card-title class="text-subtitle-1">
-          Delete {{ selectedPaths.length }} files?
-        </v-card-title>
+    <v-dialog v-model="bulkDeleteOpen" max-width="440">
+      <v-card :title="`Delete ${selectedPaths.length} files?`">
         <v-card-text class="text-error font-weight-bold">This cannot be undone.</v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" :disabled="bulkDeleting" @click="bulkDeleteOpen = false">
             Cancel
           </v-btn>
-          <v-btn color="error" variant="tonal" :loading="bulkDeleting" @click="executeBulkDelete">
+          <v-btn color="error" variant="flat" :loading="bulkDeleting" @click="executeBulkDelete">
             Delete all
           </v-btn>
         </v-card-actions>
@@ -441,16 +439,15 @@
     </v-dialog>
 
     <!-- Delete confirm -->
-    <v-dialog v-model="deleteOpen" max-width="400">
-      <v-card>
-        <v-card-title class="text-subtitle-1">Delete file?</v-card-title>
+    <v-dialog v-model="deleteOpen" max-width="440">
+      <v-card title="Delete file?">
         <v-card-text>
           <span class="font-mono text-caption">{{ deleteNode?.name }}</span>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="deleteOpen = false">Cancel</v-btn>
-          <v-btn color="error" variant="tonal" :loading="deleteLoading" @click="doDelete">
+          <v-btn color="error" variant="flat" :loading="deleteLoading" @click="doDelete">
             Delete
           </v-btn>
         </v-card-actions>

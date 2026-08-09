@@ -7,6 +7,7 @@
     v-model="selected"
     items-per-page="50"
     height="65vh"
+    density="compact"
     :search="searchView"
     fixed-header
     show-select
@@ -17,8 +18,8 @@
     :items="loadedViews"
     :sort-by="[{ key: 'name', order: 'asc' }]"
     :items-per-page-options="[
-      { title: '50 items', value: 50 },
-      { title: '100 items', value: 100 },
+      { title: '50', value: 50 },
+      { title: '100', value: 100 },
     ]"
     @update:options="paginationCheck($event)">
     <template #item.name="{ item }">
@@ -57,11 +58,11 @@
       <div class="d-flex justify-end align-center">
         <v-btn
           v-if="item.type === 'view'"
-          rounded="pill"
-          variant="flat"
-          @click="openRenameDialog(item)">
-          <v-icon color="primary">mdi-pencil-outline</v-icon>
-        </v-btn>
+          icon="mdi-pencil-outline"
+          variant="text"
+          color="primary"
+          size="small"
+          @click="openRenameDialog(item)"></v-btn>
         <DeleteDialog
           v-if="item.type === 'view'"
           :type="item.type"
@@ -75,9 +76,9 @@
   </v-data-table>
 
   <!-- Rename dialog -->
-  <v-dialog v-model="renameDialog" max-width="500" persistent>
+  <v-dialog v-model="renameDialog" max-width="440" persistent>
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
         Rename View
       </v-card-title>
@@ -108,9 +109,13 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
+        <v-btn variant="text" @click="closeRenameDialog">
+          {{ isDefaultLayout ? 'Cancel' : 'Close' }}
+        </v-btn>
         <v-btn
           v-if="isDefaultLayout"
           color="primary"
+          variant="flat"
           :disabled="
             !renameNewName ||
             /\s/.test(renameNewName) ||
@@ -121,16 +126,15 @@
           @click="executeRename">
           Rename
         </v-btn>
-        <v-btn @click="closeRenameDialog">{{ isDefaultLayout ? 'Cancel' : 'Close' }}</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 
   <!-- Bulk delete -->
-  <v-dialog v-model="bulkDeleteDialog" max-width="540" persistent>
+  <v-dialog v-model="bulkDeleteDialog" max-width="600" persistent>
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon color="error" class="mr-2">mdi-delete-alert-outline</v-icon>
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
+        <v-icon color="error" class="mr-2">mdi-delete-outline</v-icon>
         Delete {{ selected.length }} {{ selected.length === 1 ? 'view' : 'views' }}?
       </v-card-title>
       <v-card-text>
@@ -164,7 +168,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn :disabled="bulkDeleting" @click="bulkDeleteDialog = false">
+        <v-btn variant="text" :disabled="bulkDeleting" @click="bulkDeleteDialog = false">
           {{ bulkDone ? 'Close' : 'Cancel' }}
         </v-btn>
         <v-btn

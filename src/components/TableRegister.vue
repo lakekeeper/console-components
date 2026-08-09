@@ -1,20 +1,20 @@
 <template>
-  <v-dialog v-model="dialog" max-width="1000px" persistent>
+  <v-dialog v-model="dialog" max-width="1000" persistent>
     <template #activator="{ props: dialogProps }">
       <v-btn
         v-bind="dialogProps"
         size="small"
-        color="secondary"
-        variant="elevated"
+        color="primary"
+        variant="flat"
         prepend-icon="mdi-table-arrow-down">
         Register Table
       </v-btn>
     </template>
 
     <v-card>
-      <v-card-title class="d-flex justify-space-between align-center">
-        <span class="text-h5">Register Tables</span>
-        <v-btn icon="mdi-close" variant="text" @click="closeDialog"></v-btn>
+      <v-card-title class="d-flex justify-space-between align-center text-subtitle-1 py-3">
+        Register Tables
+        <v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog"></v-btn>
       </v-card-title>
 
       <v-tabs v-model="formatTab" align-tabs="start" density="compact" color="primary">
@@ -44,8 +44,7 @@
             <div class="d-flex align-center mb-4 ga-2">
               <v-btn
                 size="small"
-                variant="tonal"
-                color="primary"
+                variant="outlined"
                 prepend-icon="mdi-upload"
                 @click="triggerFileUpload"
                 :disabled="isRegistering">
@@ -56,8 +55,8 @@
                   <v-btn
                     v-bind="menuProps"
                     size="small"
-                    variant="tonal"
-                    prepend-icon="mdi-download"
+                    variant="outlined"
+                    prepend-icon="mdi-download-outline"
                     :disabled="isRegistering">
                     Download Template
                   </v-btn>
@@ -213,8 +212,8 @@
             </v-btn>
             <v-btn
               v-if="!registrationDone"
-              color="secondary"
-              variant="elevated"
+              color="primary"
+              variant="flat"
               @click="registerTables"
               :disabled="!canRegister || isRegistering"
               :loading="isRegistering">

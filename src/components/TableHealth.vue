@@ -1,7 +1,7 @@
 <template>
   <!-- Loading state when self-loading table metadata -->
   <div v-if="tableLoading" class="d-flex justify-center align-center pa-6">
-    <v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
+    <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
     <span class="ml-3 text-body-2 text-medium-emphasis">Loading table metadata…</span>
   </div>
   <v-alert v-else-if="tableError" type="error" variant="tonal" density="compact" class="mb-4">
@@ -25,6 +25,7 @@
             hide-details
             style="max-width: 180px"
             class="mr-2"
+            no-data-text="No branches available"
             prepend-inner-icon="mdi-source-branch"></v-select>
           <v-chip
             v-else
@@ -41,12 +42,12 @@
                 icon="mdi-information-outline"
                 size="x-small"
                 variant="text"
-                color="info"
+                color="primary"
                 class="mr-1"></v-btn>
             </template>
             <template #default="{ isActive }">
               <v-card>
-                <v-card-title class="d-flex align-center">
+                <v-card-title class="d-flex align-center text-subtitle-1 py-3">
                   <v-icon class="mr-2" color="info">mdi-information-outline</v-icon>
                   Health Check Logic
                 </v-card-title>
@@ -247,7 +248,8 @@
         variant="outlined"
         hide-details
         style="max-width: 220px"
-        class="mr-2"></v-select>
+        class="mr-2"
+        no-data-text="No metrics available"></v-select>
     </v-toolbar>
     <v-divider></v-divider>
     <div class="pa-3">
@@ -296,7 +298,7 @@
     </v-toolbar>
     <v-divider></v-divider>
     <div v-if="partitionLoading" class="d-flex justify-center align-center pa-6">
-      <v-progress-circular indeterminate color="primary" size="24"></v-progress-circular>
+      <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
       <span class="ml-3 text-body-2 text-medium-emphasis">
         Querying partition metadata via DuckDB…
       </span>
@@ -1378,13 +1380,15 @@ function renderHealthChart() {
       .attr('d', line);
   }
 
-  // Data dots
+  // Data dots — colored by operation, matching the same semantic tokens used
+  // for operation chips elsewhere (append=success, overwrite=warning, etc.)
+  // so this chart doesn't invent its own ad hoc palette.
   const opColorMap: Record<string, string> = {
-    append: '#4caf50',
-    overwrite: '#ff9800',
-    delete: '#f44336',
-    replace: '#2196f3',
-    merge: '#00bcd4',
+    append: 'rgb(var(--v-theme-success))',
+    overwrite: 'rgb(var(--v-theme-warning))',
+    delete: 'rgb(var(--v-theme-error))',
+    replace: 'rgb(var(--v-theme-primary))',
+    merge: 'rgb(var(--v-theme-info))',
   };
 
   g.selectAll('circle.data-dot')
@@ -1394,7 +1398,7 @@ function renderHealthChart() {
     .attr('cx', (d, i) => (data.length === 1 ? chartW / 2 : xScale(i)))
     .attr('cy', (d) => yScale(d.value))
     .attr('r', data.length === 1 ? 6 : data.length > 30 ? 2.5 : 4)
-    .attr('fill', (d) => opColorMap[d.operation] ?? metric.color)
+    .style('fill', (d) => opColorMap[d.operation] ?? metric.color)
     .style('stroke', 'rgba(var(--v-theme-surface), 1)')
     .attr('stroke-width', 1.5)
     .style('cursor', 'pointer');

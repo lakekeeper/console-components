@@ -1,15 +1,15 @@
 <template>
   <v-card-text>
-    <div class="d-flex align-center mb-4">
-      <v-icon class="mr-2">mdi-history</v-icon>
-      <span class="text-h6">View Evolution History</span>
-    </div>
+    <h1 class="text-h6 d-flex align-center ga-2 mb-4">
+      <v-icon>mdi-history</v-icon>
+      View Evolution History
+    </h1>
 
-    <div v-if="versionHistory.length === 0" class="text-center pa-8">
-      <v-icon size="64" color="grey">mdi-eye-off-outline</v-icon>
-      <div class="text-subtitle-1 mt-2">No versions found</div>
-      <div class="text-body-2 text-medium-emphasis">This view has no version history</div>
-    </div>
+    <v-empty-state
+      v-if="versionHistory.length === 0"
+      icon="mdi-eye-off-outline"
+      title="No versions found"
+      text="This view has no version history"></v-empty-state>
 
     <!-- Interactive Timeline Overview -->
     <div v-if="versionHistory.length > 0" class="mb-6">
@@ -36,7 +36,7 @@
                 event.type === 'schema-change'
                   ? 'warning'
                   : event.type === 'version' && isInitialVersion(event.version)
-                    ? 'purple'
+                    ? 'secondary'
                     : index === 0
                       ? 'success'
                       : 'info'
@@ -55,7 +55,10 @@
                   @click="scrollToVersion(event.version['version-id'])">
                   <v-tooltip location="top">
                     <template #activator="{ props }">
-                      <v-icon v-bind="props" :size="index === 0 ? 16 : 14" color="white">
+                      <v-icon
+                        v-bind="props"
+                        :size="index === 0 ? 'small' : 'x-small'"
+                        color="white">
                         {{ index === 0 ? 'mdi-check-circle' : 'mdi-eye' }}
                       </v-icon>
                     </template>
@@ -67,7 +70,7 @@
                   style="display: flex; align-items: center; justify-content: center">
                   <v-tooltip location="top">
                     <template #activator="{ props }">
-                      <v-icon v-bind="props" size="12" color="white">mdi-table-cog</v-icon>
+                      <v-icon v-bind="props" size="x-small" color="white">mdi-table-cog</v-icon>
                     </template>
                     Schema Change: {{ event.schemaId }}
                   </v-tooltip>
@@ -89,7 +92,7 @@
                   </div>
                 </div>
                 <div v-else-if="event.type === 'schema-change'">
-                  <div class="text-caption mb-1" style="color: #fb8c00">Schema Change</div>
+                  <div class="text-caption text-warning mb-1">Schema Change</div>
                   <v-chip size="x-small" color="warning" variant="flat" class="text-caption">
                     ID: {{ event.schemaId }}
                   </v-chip>
@@ -125,7 +128,7 @@
               <v-btn
                 icon="mdi-content-copy"
                 size="small"
-                variant="flat"
+                variant="text"
                 @click="copyToClipboard(String(version['version-id']))"></v-btn>
             </v-card-title>
 
@@ -166,7 +169,7 @@
                         <v-btn
                           icon="mdi-content-copy"
                           size="small"
-                          variant="flat"
+                          variant="text"
                           @click="copyToClipboard(version.representations[0].sql)"></v-btn>
                       </v-list-item-subtitle>
                     </v-list-item>
@@ -525,17 +528,17 @@ defineExpose({
 }
 
 .horizontal-timeline-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.1);
+  background: rgba(var(--v-theme-on-surface), 0.1);
   border-radius: 3px;
 }
 
 .horizontal-timeline-container::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(var(--v-theme-on-surface), 0.3);
   border-radius: 3px;
 }
 
 .horizontal-timeline-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(var(--v-theme-on-surface), 0.5);
 }
 
 .timeline-item-content {
@@ -545,13 +548,13 @@ defineExpose({
 
 @keyframes highlight-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.4);
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-success), 0.4);
   }
   50% {
-    box-shadow: 0 0 0 10px rgba(76, 175, 80, 0.1);
+    box-shadow: 0 0 0 10px rgba(var(--v-theme-success), 0.1);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-success), 0);
   }
 }
 </style>

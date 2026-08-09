@@ -24,6 +24,7 @@
       hide-details
       class="mb-3"
       :loading="loadingProjects"
+      no-data-text="No projects available"
       prepend-inner-icon="mdi-folder-account"
       @update:model-value="rerun">
       <template #item="{ props: ip, item }">
@@ -69,6 +70,7 @@
       density="compact"
       variant="outlined"
       hide-details
+      :no-data-text="`No ${type}s found`"
       @update:search="onSearch"
       @update:model-value="$emit('update:modelValue', $event)"></v-autocomplete>
 

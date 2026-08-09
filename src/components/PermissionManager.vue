@@ -6,6 +6,7 @@
   <v-data-table
     v-else
     fixed-header
+    density="compact"
     :headers="headers"
     hover
     :items="filteredAssignments"
@@ -57,7 +58,9 @@
         </v-icon>
         <v-icon v-else class="mr-2">mdi-account-box-multiple-outline</v-icon>
         {{ item.name }}
-        <span v-if="isRoleFromDifferentProject(item)" class="text-caption text-grey ml-2">
+        <span
+          v-if="isRoleFromDifferentProject(item)"
+          class="text-caption text-medium-emphasis ml-2">
           <v-chip
             v-if="isRoleFromDifferentProject(item)"
             class="ml-2"
@@ -105,7 +108,7 @@
           color="error"
           size="small"
           text="Revoke All"
-          variant="outlined"
+          variant="text"
           @click="openDeleteDialog(item)"></v-btn>
       </span>
     </template>
@@ -123,9 +126,11 @@
   </v-data-table>
 
   <!-- Revoke All Confirmation Dialog -->
-  <v-dialog v-model="deleteDialog" max-width="500">
+  <v-dialog v-model="deleteDialog" max-width="440">
     <v-card>
-      <v-card-title class="text-h5">Revoke All Permissions</v-card-title>
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
+        Revoke All Permissions
+      </v-card-title>
       <v-card-text>
         Are you sure you want to revoke all permissions for
         <strong>{{ itemToDelete?.name }}</strong>
@@ -133,7 +138,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="grey" text="Cancel" variant="text" @click="deleteDialog = false"></v-btn>
+        <v-btn text="Cancel" variant="text" @click="deleteDialog = false"></v-btn>
         <v-btn color="error" text="Revoke All" variant="flat" @click="confirmDelete"></v-btn>
       </v-card-actions>
     </v-card>

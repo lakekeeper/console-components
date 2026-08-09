@@ -3,7 +3,7 @@
     <v-toolbar color="transparent" density="compact" flat class="px-2">
       <v-btn
         size="small"
-        variant="tonal"
+        variant="outlined"
         color="primary"
         :prepend-icon="filtersCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
         :text="filtersCollapsed ? 'Show filters' : 'Hide filters'"
@@ -39,6 +39,7 @@
             density="compact"
             clearable
             hide-details
+            no-data-text="No target types available"
             @update:model-value="reload"></v-select>
           <v-select
             v-model="warehouseFilter"
@@ -51,6 +52,7 @@
             density="compact"
             clearable
             hide-details
+            no-data-text="No warehouses available"
             @update:model-value="reload"></v-select>
           <v-btn
             v-if="activeFilterCount"
@@ -69,7 +71,7 @@
         :headers="headers"
         :items="attachments"
         :loading="loading"
-        density="comfortable">
+        density="compact">
         <template #item.target="{ item }">
           <div class="d-flex align-center flex-nowrap ga-1" style="white-space: nowrap">
             <v-chip color="info" size="x-small" variant="tonal">{{ item.target.type }}</v-chip>

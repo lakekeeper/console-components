@@ -57,5 +57,5 @@ const logoSrc = computed(() => {
   transition: .2s ease-in-out
 
   &:hover
-    color: rgba(25, 118, 210, 1)
+    color: rgb(var(--v-theme-primary))
 </style>

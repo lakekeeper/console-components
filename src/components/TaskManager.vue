@@ -4,16 +4,19 @@
       <v-toolbar-title>Task Management</v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn
-        color="secondary"
         density="compact"
         variant="outlined"
-        @click="showFilters = !showFilters"
-        class="mr-2">
-        <v-icon start>mdi-filter-variant</v-icon>
+        prepend-icon="mdi-filter-variant"
+        class="mr-2"
+        @click="showFilters = !showFilters">
         Filters
       </v-btn>
-      <v-btn color="primary" density="compact" variant="outlined" @click="refreshTasks">
-        <v-icon start>mdi-refresh</v-icon>
+      <v-btn
+        color="primary"
+        density="compact"
+        variant="outlined"
+        prepend-icon="mdi-refresh"
+        @click="refreshTasks">
         Refresh
       </v-btn>
     </v-toolbar>
@@ -37,6 +40,7 @@
                       chips
                       clearable
                       density="compact"
+                      no-data-text="No statuses available"
                       hide-details>
                       <template #chip="{ props, item }">
                         <v-chip v-bind="props" :color="getStatusColor(item.value)" size="small">
@@ -56,6 +60,7 @@
                       chips
                       clearable
                       density="compact"
+                      no-data-text="No task types available"
                       hide-details
                       hint="Select from common queues or enter custom names"></v-combobox>
                   </v-col>
@@ -81,24 +86,22 @@
                 <v-card-title class="text-subtitle-2 pb-2">Created Date Range</v-card-title>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.createdAfter"
                       label="After"
-                      type="datetime-local"
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks created after this date"></v-text-field>
+                      hint="Tasks created after this date"></DateTimePicker>
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.createdBefore"
                       label="Before"
-                      type="datetime-local"
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks created before this date"></v-text-field>
+                      hint="Tasks created before this date"></DateTimePicker>
                   </v-col>
                 </v-row>
               </v-card>
@@ -109,24 +112,22 @@
                 <v-card-title class="text-subtitle-2 pb-2">Scheduled Date Range</v-card-title>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.scheduledAfter"
                       label="After"
-                      type="datetime-local"
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks scheduled after this date"></v-text-field>
+                      hint="Tasks scheduled after this date"></DateTimePicker>
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.scheduledBefore"
                       label="Before"
-                      type="datetime-local"
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks scheduled before this date"></v-text-field>
+                      hint="Tasks scheduled before this date"></DateTimePicker>
                   </v-col>
                 </v-row>
               </v-card>
@@ -137,17 +138,13 @@
             <v-col cols="12" class="d-flex align-center">
               <v-btn
                 color="primary"
+                variant="flat"
                 density="compact"
                 @click="applyFilters"
                 :loading="tasksLoading">
                 Apply Filters
               </v-btn>
-              <v-btn
-                color="secondary"
-                density="compact"
-                variant="outlined"
-                class="ml-2"
-                @click="clearFilters">
+              <v-btn density="compact" variant="outlined" class="ml-2" @click="clearFilters">
                 Clear All
               </v-btn>
               <v-spacer></v-spacer>
@@ -215,7 +212,7 @@
                 <v-btn
                   v-if="state.next.status === 'SCHEDULED'"
                   size="x-small"
-                  variant="tonal"
+                  variant="flat"
                   color="primary"
                   prepend-icon="mdi-play"
                   @click="runQueueNow(state.next)">
@@ -224,7 +221,7 @@
                 <v-btn
                   v-if="state.next.status === 'SCHEDULED'"
                   size="x-small"
-                  variant="tonal"
+                  variant="outlined"
                   prepend-icon="mdi-clock-edit-outline"
                   @click="openReschedule(state.next)">
                   Reschedule
@@ -232,7 +229,7 @@
                 <v-btn
                   v-if="state.next.status === 'SCHEDULED' || state.next.status === 'STOPPING'"
                   size="x-small"
-                  variant="tonal"
+                  variant="outlined"
                   color="error"
                   prepend-icon="mdi-close-circle-outline"
                   @click="cancelQueueTask(state.next)">
@@ -246,9 +243,9 @@
     </v-card>
 
     <!-- Reschedule dialog -->
-    <v-dialog v-model="rescheduleDialog" max-width="420" persistent>
+    <v-dialog v-model="rescheduleDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon class="mr-2" color="primary">mdi-clock-edit-outline</v-icon>
           Reschedule task
         </v-card-title>
@@ -256,9 +253,8 @@
           <div class="text-caption text-medium-emphasis mb-2">
             {{ rescheduleTarget ? formatQueueName(rescheduleTarget['queue-name']) : '' }}
           </div>
-          <v-text-field
+          <DateTimePicker
             v-model="rescheduleAt"
-            type="datetime-local"
             label="Scheduled for"
             variant="outlined"
             density="compact"
@@ -269,6 +265,7 @@
           <v-btn variant="text" @click="closeReschedule">Cancel</v-btn>
           <v-btn
             color="primary"
+            variant="flat"
             :disabled="!rescheduleAt"
             :loading="rescheduleSaving"
             @click="confirmReschedule">
@@ -311,9 +308,9 @@
       :items="tasks"
       :items-per-page="currentPaginationOptions.itemsPerPage"
       :items-per-page-options="[
-        { title: '25 items', value: 25 },
-        { title: '50 items', value: 50 },
-        { title: '100 items', value: 100 },
+        { title: '25', value: 25 },
+        { title: '50', value: 50 },
+        { title: '100', value: 100 },
       ]"
       hover
       density="compact"
@@ -407,42 +404,42 @@
       </template>
 
       <template #no-data>
-        <div class="text-center pa-4" v-if="hasError">
-          <v-icon size="64" color="warning">mdi-alert-circle-outline</v-icon>
-          <div class="text-h6 mt-2">Unable to load tasks</div>
-          <div class="text-subtitle-1 text-grey">
-            {{ errorMessage }}
-          </div>
-          <v-btn class="mt-3" color="primary" variant="outlined" @click="refreshTasks">
-            Try Again
-          </v-btn>
-        </div>
-        <div class="text-center pa-4" v-else>
-          <v-icon size="64" color="grey-lighten-1">mdi-clipboard-list-outline</v-icon>
-          <div class="text-h6 mt-2">No tasks found</div>
-          <div class="text-subtitle-1 text-grey">
-            No tasks have been created for this {{ props.entityType || 'warehouse' }} yet.
-          </div>
-        </div>
+        <v-empty-state
+          v-if="hasError"
+          icon="mdi-alert-circle-outline"
+          color="warning"
+          title="Unable to load tasks"
+          :text="errorMessage">
+          <template #actions>
+            <v-btn color="primary" variant="outlined" @click="refreshTasks">Try Again</v-btn>
+          </template>
+        </v-empty-state>
+        <v-empty-state
+          v-else
+          icon="mdi-clipboard-list-outline"
+          title="No tasks found"
+          :text="`No tasks have been created for this ${props.entityType || 'warehouse'} yet.`"></v-empty-state>
       </template>
     </v-data-table>
 
     <!-- Error state display when data table is hidden -->
-    <div v-if="hasError" class="text-center pa-8">
-      <v-icon size="64" color="warning">mdi-alert-circle-outline</v-icon>
-      <div class="text-h6 mt-2">Unable to load tasks</div>
-      <div class="text-subtitle-1 text-grey mb-4">
-        {{ errorMessage }}
-      </div>
-      <v-btn color="primary" variant="outlined" @click="refreshTasks" :loading="tasksLoading">
-        Try Again
-      </v-btn>
-    </div>
+    <v-empty-state
+      v-if="hasError"
+      icon="mdi-alert-circle-outline"
+      color="warning"
+      title="Unable to load tasks"
+      :text="errorMessage">
+      <template #actions>
+        <v-btn color="primary" variant="outlined" :loading="tasksLoading" @click="refreshTasks">
+          Try Again
+        </v-btn>
+      </template>
+    </v-empty-state>
 
     <!-- Task Details Modal -->
-    <v-dialog v-model="showTaskDetailsDialog" max-width="900px" scrollable>
+    <v-dialog v-model="showTaskDetailsDialog" max-width="800" scrollable>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-spacer></v-spacer>
           <v-btn icon="mdi-close" variant="text" @click="closeTaskDetailsDialog"></v-btn>
         </v-card-title>
@@ -453,12 +450,17 @@
         </v-card-text>
 
         <v-card-text v-else-if="taskDetailsError" class="text-center pa-8">
-          <v-icon size="64" color="error">mdi-alert-circle-outline</v-icon>
-          <div class="text-h6 mt-2 text-error">Failed to load task details</div>
-          <div class="text-body-1 mt-2 text-grey">{{ taskDetailsError }}</div>
-          <v-btn class="mt-4" color="primary" variant="outlined" @click="retryLoadTaskDetails">
-            Try Again
-          </v-btn>
+          <v-empty-state
+            icon="mdi-alert-circle-outline"
+            color="error"
+            title="Failed to load task details"
+            :text="taskDetailsError">
+            <template #actions>
+              <v-btn color="primary" variant="outlined" @click="retryLoadTaskDetails">
+                Try Again
+              </v-btn>
+            </template>
+          </v-empty-state>
         </v-card-text>
 
         <v-card-text v-else class="pa-0">
@@ -471,9 +473,9 @@
     </v-dialog>
 
     <!-- Cancel Task Confirmation Modal -->
-    <v-dialog v-model="showCancelConfirmDialog" max-width="500px">
+    <v-dialog v-model="showCancelConfirmDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon class="mr-2" color="error">mdi-cancel</v-icon>
           Cancel Task
         </v-card-title>
@@ -507,7 +509,7 @@
 
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="secondary" variant="text" @click="closeCancelConfirmDialog">Cancel</v-btn>
+          <v-btn variant="text" @click="closeCancelConfirmDialog">Cancel</v-btn>
           <v-btn
             color="error"
             variant="flat"
@@ -520,9 +522,9 @@
     </v-dialog>
 
     <!-- Run Now Confirmation Modal -->
-    <v-dialog v-model="showRunNowConfirmDialog" max-width="500px">
+    <v-dialog v-model="showRunNowConfirmDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon class="mr-2" color="success">mdi-play</v-icon>
           Run Task Now
         </v-card-title>
@@ -560,7 +562,7 @@
 
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="secondary" variant="text" @click="closeRunNowConfirmDialog">Cancel</v-btn>
+          <v-btn variant="text" @click="closeRunNowConfirmDialog">Cancel</v-btn>
           <v-btn
             color="success"
             variant="flat"

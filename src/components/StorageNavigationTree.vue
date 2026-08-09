@@ -5,15 +5,13 @@
       class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
       <span class="flex-grow-1 mr-2">Volumes</span>
       <v-btn
-        icon
+        icon="mdi-refresh"
         size="x-small"
         variant="text"
         @click="refreshWarehouses"
         :loading="isLoading"
         title="Refresh warehouses"
-        class="ml-1">
-        <v-icon size="small">mdi-refresh</v-icon>
-      </v-btn>
+        class="ml-1"></v-btn>
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
 
@@ -81,7 +79,10 @@
           <v-icon size="x-small" v-else-if="item.type === 'dataset'" color="amber-darken-2">
             mdi-folder-multiple-outline
           </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'load-more'" color="grey">
+          <v-icon
+            size="small"
+            v-else-if="item.type === 'load-more'"
+            color="rgba(var(--v-theme-on-surface), 0.6)">
             mdi-dots-horizontal
           </v-icon>
         </template>
@@ -116,7 +117,7 @@
                 color: isActiveItem(item)
                   ? 'rgb(var(--v-theme-primary))'
                   : item.type === 'load-more'
-                    ? 'grey'
+                    ? 'rgba(var(--v-theme-on-surface), 0.6)'
                     : undefined,
               }">
               {{ item.name }}

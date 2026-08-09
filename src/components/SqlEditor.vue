@@ -259,6 +259,11 @@ const darkHighlightStyle = HighlightStyle.define([
 
 // ── Theme extension ──────────────────────────────────────────────────
 
+// Editor chrome (background/border/text/accents) routes through Vuetify theme
+// tokens via CSS custom properties so it follows dark mode and console-plus
+// white-label branding automatically. Only the syntax-highlighting token
+// colors above (lightHighlightStyle / darkHighlightStyle) are a deliberate
+// fixed palette, matching the chart-categorical-palette exception.
 const createThemeExtension = (dark: boolean) => {
   return EditorView.theme(
     {
@@ -268,17 +273,17 @@ const createThemeExtension = (dark: boolean) => {
         overflow: 'hidden',
         fontSize: '13px',
         lineHeight: '1.6',
-        border: dark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.12)',
+        border: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
         borderRadius: '8px',
-        backgroundColor: dark ? '#0D1117' : '#FFFFFF',
-        color: dark ? '#C9D1D9' : '#24292F',
+        backgroundColor: 'rgb(var(--v-theme-surface))',
+        color: 'rgb(var(--v-theme-on-surface))',
         boxShadow: dark ? '0 1px 3px rgba(0, 0, 0, 0.3)' : '0 1px 3px rgba(0, 0, 0, 0.08)',
         transition: 'border-color 0.15s ease, box-shadow 0.15s ease',
       },
       '&.cm-focused': {
         outline: 'none',
-        borderColor: dark ? '#58A6FF' : '#0969DA',
-        boxShadow: dark ? '0 0 0 3px rgba(88, 166, 255, 0.2)' : '0 0 0 3px rgba(9, 105, 218, 0.15)',
+        borderColor: 'rgb(var(--v-theme-primary))',
+        boxShadow: '0 0 0 3px rgba(var(--v-theme-primary), 0.2)',
       },
       '.cm-scroller': {
         overflow: 'auto',
@@ -286,52 +291,48 @@ const createThemeExtension = (dark: boolean) => {
       },
       '.cm-content': {
         padding: '12px 8px',
-        caretColor: dark ? '#58A6FF' : '#0969DA',
+        caretColor: 'rgb(var(--v-theme-primary))',
       },
       '.cm-placeholder': {
-        color: dark ? '#484F58' : '#AFB8C1',
+        color: 'rgba(var(--v-theme-on-surface), 0.5)',
         fontStyle: 'italic',
       },
       '.cm-line': {
         padding: '0 4px',
       },
       '.cm-cursor': {
-        borderLeftColor: dark ? '#58A6FF' : '#0969DA',
+        borderLeftColor: 'rgb(var(--v-theme-primary))',
         borderLeftWidth: '2px',
       },
       '.cm-selectionBackground': {
-        backgroundColor: dark
-          ? 'rgba(88, 166, 255, 0.15) !important'
-          : 'rgba(9, 105, 218, 0.12) !important',
+        backgroundColor: 'rgba(var(--v-theme-primary), 0.15) !important',
       },
       '&.cm-focused .cm-selectionBackground': {
-        backgroundColor: dark
-          ? 'rgba(88, 166, 255, 0.25) !important'
-          : 'rgba(9, 105, 218, 0.2) !important',
+        backgroundColor: 'rgba(var(--v-theme-primary), 0.25) !important',
       },
       '.cm-activeLine': {
-        backgroundColor: dark ? 'rgba(136, 198, 255, 0.04)' : 'rgba(9, 105, 218, 0.04)',
+        backgroundColor: 'rgba(var(--v-theme-primary), 0.04)',
       },
       '.cm-gutters': {
-        backgroundColor: dark ? '#0D1117' : '#F6F8FA',
-        color: dark ? '#484F58' : '#AFB8C1',
+        backgroundColor: 'rgb(var(--v-theme-surface-light))',
+        color: 'rgba(var(--v-theme-on-surface), 0.5)',
         border: 'none',
-        borderRight: dark ? '1px solid rgba(255, 255, 255, 0.06)' : '1px solid rgba(0, 0, 0, 0.06)',
+        borderRight: '1px solid rgba(var(--v-theme-on-surface), 0.06)',
         borderTopLeftRadius: '8px',
         borderBottomLeftRadius: '8px',
       },
       '.cm-activeLineGutter': {
-        backgroundColor: dark ? 'rgba(136, 198, 255, 0.04)' : 'rgba(9, 105, 218, 0.04)',
-        color: dark ? '#C9D1D9' : '#24292F',
+        backgroundColor: 'rgba(var(--v-theme-primary), 0.04)',
+        color: 'rgb(var(--v-theme-on-surface))',
       },
       '.cm-matchingBracket': {
-        backgroundColor: dark ? 'rgba(88, 166, 255, 0.25)' : 'rgba(9, 105, 218, 0.15)',
-        outline: dark ? '1px solid rgba(88, 166, 255, 0.4)' : '1px solid rgba(9, 105, 218, 0.3)',
+        backgroundColor: 'rgba(var(--v-theme-primary), 0.2)',
+        outline: '1px solid rgba(var(--v-theme-primary), 0.35)',
         borderRadius: '2px',
       },
       '.cm-tooltip': {
-        backgroundColor: dark ? '#161B22' : '#FFFFFF',
-        border: dark ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(0, 0, 0, 0.12)',
+        backgroundColor: 'rgb(var(--v-theme-surface-bright))',
+        border: '1px solid rgba(var(--v-theme-on-surface), 0.12)',
         borderRadius: '6px',
         boxShadow: dark ? '0 4px 12px rgba(0, 0, 0, 0.4)' : '0 4px 12px rgba(0, 0, 0, 0.1)',
       },
@@ -340,8 +341,8 @@ const createThemeExtension = (dark: boolean) => {
         borderRadius: '4px',
       },
       '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
-        backgroundColor: dark ? 'rgba(88, 166, 255, 0.15)' : 'rgba(9, 105, 218, 0.1)',
-        color: dark ? '#C9D1D9' : '#24292F',
+        backgroundColor: 'rgba(var(--v-theme-primary), 0.12)',
+        color: 'rgb(var(--v-theme-on-surface))',
       },
     },
     { dark },

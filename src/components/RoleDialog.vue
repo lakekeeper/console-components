@@ -1,12 +1,12 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="500">
+  <v-dialog v-model="isDialogActive" max-width="600">
     <template #activator="{ props: activatorProps }">
       <v-btn
         class="me-5"
         v-bind="activatorProps"
-        :color="actionType == 'add' ? 'info' : 'warning'"
+        color="primary"
         size="small"
-        :text="`${props.actionType} Role`"
+        :text="actionType == 'add' ? 'Add Role' : 'Edit Role'"
         :variant="actionType == 'add' ? 'flat' : 'outlined'"></v-btn>
     </template>
 
@@ -16,8 +16,13 @@
           v-model="roleData.name"
           label="Role Name"
           placeholder="my-role"
-          :rules="[nameRule]"></v-text-field>
-        <v-textarea v-model="roleData.description" label="Role description"></v-textarea>
+          :rules="[nameRule]"
+          hide-details="auto"
+          @keyup.enter="createRole"></v-text-field>
+        <v-textarea
+          v-model="roleData.description"
+          label="Role description"
+          hide-details="auto"></v-textarea>
         <!--v-text-field
           v-model="roleData.providerId"
           label="Provider ID (optional)"
@@ -37,8 +42,10 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
-        <v-btn color="success" :disabled="!isNameValid" @click="createRole">save role</v-btn>
-        <v-btn color="error" text="Cancel" @click="cancelRoleInput"></v-btn>
+        <v-btn variant="text" text="Cancel" @click="cancelRoleInput"></v-btn>
+        <v-btn color="primary" variant="flat" :disabled="!isNameValid" @click="createRole">
+          save role
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

@@ -8,7 +8,7 @@
         <img
           :src="logoSrc"
           alt="Lakekeeper"
-          style="height: 32px; width: auto; vertical-align: middle" />
+          style="height: 26px; width: auto; vertical-align: middle" />
       </v-app-bar-title>
     </slot>
     <v-list-item>
@@ -26,9 +26,9 @@
       size="small"
       class="text-none mr-1"
       rounded="lg">
-      <v-icon :start="starCount > 0" size="18">mdi-github</v-icon>
+      <v-icon :start="starCount > 0" size="small">mdi-github</v-icon>
       <template v-if="starCount > 0">
-        <v-icon size="14" class="mr-1" color="amber">mdi-star</v-icon>
+        <v-icon size="small" class="mr-1" color="amber">mdi-star</v-icon>
         {{ formatStarCount(starCount) }}
       </template>
     </v-btn>
@@ -37,7 +37,7 @@
       <!-- Default OSS support menu (fallback if slot not provided) -->
       <v-menu v-if="showUserMenu" open-on-hover>
         <template #activator="{ props }">
-          <v-btn v-bind="props"><v-icon>mdi-help-box</v-icon></v-btn>
+          <v-btn icon="mdi-help-box" variant="text" v-bind="props"></v-btn>
         </template>
         <v-list>
           <v-list-item prepend-icon="mdi-file-document-check-outline" @click="goToDocumentation">
@@ -61,7 +61,7 @@
 
     <v-menu v-if="showUserMenu" open-on-hover>
       <template #activator="{ props }">
-        <v-btn v-bind="props"><v-icon>mdi-account</v-icon></v-btn>
+        <v-btn icon="mdi-account" variant="text" v-bind="props"></v-btn>
       </template>
       <v-list>
         <v-list-item prepend-icon="mdi-account">

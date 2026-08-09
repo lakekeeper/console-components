@@ -1,6 +1,6 @@
 <template>
   <v-card v-if="task">
-    <v-card-title class="d-flex align-center">
+    <v-card-title class="text-subtitle-1 d-flex align-center py-3">
       <v-icon class="mr-2">mdi-information-outline</v-icon>
       Task Details
       <v-spacer></v-spacer>
@@ -26,7 +26,7 @@
             <v-btn
               icon="mdi-content-copy"
               size="small"
-              variant="flat"
+              variant="text"
               @click="$emit('copy', task['task-id'])"></v-btn>
           </v-list-item-subtitle>
         </v-list-item>
@@ -68,7 +68,7 @@
             <v-btn
               icon="mdi-content-copy"
               size="small"
-              variant="flat"
+              variant="text"
               @click="$emit('copy', task['warehouse-id'])"></v-btn>
           </v-list-item-subtitle>
         </v-list-item>
@@ -80,7 +80,7 @@
             <v-btn
               icon="mdi-content-copy"
               size="small"
-              variant="flat"
+              variant="text"
               @click="$emit('copy', task['parent-task-id'])"></v-btn>
           </v-list-item-subtitle>
         </v-list-item>
@@ -114,7 +114,7 @@
             <v-btn
               icon="mdi-content-copy"
               size="small"
-              variant="flat"
+              variant="text"
               @click="$emit('copy', getEntityId(task.entity) || '')"></v-btn>
           </v-list-item-subtitle>
         </v-list-item>
@@ -367,18 +367,18 @@ function getEntityId(entity: any): string | null {
   }
 }
 
-function getEntityTypeColor(type: string): string {
+function getEntityTypeColor(type: string): string | undefined {
   switch (type.toLowerCase()) {
     case 'table':
-      return 'blue';
+      return 'primary';
     case 'view':
-      return 'purple';
+      return 'secondary';
     case 'generic-table':
-      return 'orange';
+      return 'warning';
     case 'namespace':
-      return 'green';
+      return 'success';
     default:
-      return 'grey';
+      return undefined;
   }
 }
 

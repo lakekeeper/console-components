@@ -1,7 +1,7 @@
 <template>
-  <v-dialog v-model="dialog" max-width="500">
+  <v-dialog v-model="dialog" max-width="440">
     <v-card>
-      <v-card-title class="text-h5">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         {{ title }}
       </v-card-title>
       <v-card-text>
@@ -9,8 +9,8 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="grey" variant="text" @click="cancel">Cancel</v-btn>
-        <v-btn :color="confirmColor" variant="elevated" @click="confirm">Confirm</v-btn>
+        <v-btn variant="text" @click="cancel">Cancel</v-btn>
+        <v-btn :color="confirmColor" variant="flat" @click="confirm">Confirm</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

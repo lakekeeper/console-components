@@ -123,6 +123,7 @@
             item-title="title"
             item-value="value"
             :loading="projectOptionsLoading"
+            no-data-text="No projects available"
             variant="outlined"
             density="compact"
             hide-details></v-autocomplete>

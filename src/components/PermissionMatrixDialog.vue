@@ -1,19 +1,20 @@
 <template>
-  <v-dialog v-model="dialog" max-width="1400px" scrollable>
+  <v-dialog v-model="dialog" max-width="1400" scrollable>
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
         color="primary"
         class="mr-2"
         prepend-icon="mdi-shield-check"
-        variant="elevated"
+        variant="outlined"
         size="small">
         Evaluate
       </v-btn>
     </template>
 
     <v-card>
-      <v-card-title class="d-flex align-center justify-space-between bg-primary">
+      <v-card-title
+        class="text-subtitle-1 d-flex align-center justify-space-between py-3 bg-primary">
         <div class="d-flex align-center">
           <v-icon color="white" class="mr-2">mdi-matrix</v-icon>
           <span class="text-white">Permission Matrix - Evaluate Access</span>
@@ -57,6 +58,7 @@
                       item-value="value"
                       label="Identity Type"
                       density="compact"
+                      no-data-text="No identity types available"
                       @update:model-value="onIdentityTypeChange"></v-select>
 
                     <!-- Project Selector for Roles -->
@@ -73,6 +75,7 @@
                       persistent-hint
                       class="mt-2"
                       :loading="loadingProjects"
+                      no-data-text="No projects available"
                       @update:model-value="onProjectChange">
                       <template #prepend-inner>
                         <v-icon>mdi-folder-account</v-icon>
@@ -81,7 +84,7 @@
                         <v-list-item v-bind="itemProps">
                           <template #title>
                             <span>{{ item.raw['project-name'] }}</span>
-                            <span class="text-caption text-grey ml-2">
+                            <span class="text-caption text-medium-emphasis ml-2">
                               ({{ item.raw['project-id'] }})
                             </span>
                           </template>
@@ -100,7 +103,8 @@
                       chips
                       closable-chips
                       density="compact"
-                      :loading="loadingUsers">
+                      :loading="loadingUsers"
+                      no-data-text="No users available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-account</v-icon>
@@ -122,6 +126,7 @@
                       density="compact"
                       :loading="loadingRoles"
                       :disabled="!selectedProjectForRoles"
+                      no-data-text="No roles available"
                       :placeholder="
                         !selectedProjectForRoles ? 'Please select a project first' : ''
                       ">
@@ -148,6 +153,7 @@
                       item-value="value"
                       label="Resource Type"
                       density="compact"
+                      no-data-text="No resource types available"
                       @update:model-value="onResourceTypeChange"></v-select>
 
                     <v-autocomplete
@@ -161,7 +167,8 @@
                       chips
                       closable-chips
                       density="compact"
-                      :loading="loadingWarehouses">
+                      :loading="loadingWarehouses"
+                      no-data-text="No warehouses available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-warehouse</v-icon>
@@ -182,7 +189,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No namespaces available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-folder-outline</v-icon>
@@ -203,7 +211,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No tables available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-table</v-icon>
@@ -224,7 +233,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No views available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-eye-outline</v-icon>
@@ -245,7 +255,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No generic tables available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-table-multiple</v-icon>
@@ -261,7 +272,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No actions available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">{{ item.title }}</v-chip>
                       </template>

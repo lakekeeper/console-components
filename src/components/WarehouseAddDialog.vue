@@ -5,7 +5,7 @@
         v-bind="activatorProps"
         v-if="creatingWarehouse || props.objectType === ObjectType.WAREHOUSE">
         <v-list-item-title>
-          <v-btn color="info" size="small" text="Add Warehouse" variant="flat"></v-btn>
+          <v-btn color="primary" size="small" text="Add Warehouse" variant="flat"></v-btn>
         </v-list-item-title>
       </v-list-item>
       <v-list-item
@@ -40,10 +40,10 @@
               style="display: none"
               @change="handleFileImport" />
             <v-btn
-              color="info"
+              color="primary"
               prepend-icon="mdi-upload"
               size="small"
-              variant="outlined"
+              variant="flat"
               @click="fileInputRef?.click()">
               Import Warehouse
             </v-btn>
@@ -56,9 +56,9 @@
           <v-row justify="center">
             <v-progress-circular
               class="mt-4"
-              color="info"
+              color="primary"
               indeterminate
-              :size="126"></v-progress-circular>
+              size="64"></v-progress-circular>
           </v-row>
         </v-card-text>
       </span>
@@ -73,7 +73,7 @@
         </v-card-text>
         <v-card-actions>
           <v-btn
-            color="success"
+            variant="text"
             @click="
               isDialogActive = false;
               $emit('close');
@@ -204,6 +204,7 @@
                             :items="policyDefaultItems"
                             variant="outlined"
                             density="comfortable"
+                            no-data-text="No format versions selected"
                             hide-details />
                         </div>
                       </div>
@@ -268,7 +269,7 @@
                 v-if="props.objectType === ObjectType.CATALOG_SETTINGS"
                 class="d-flex justify-end">
                 <v-btn
-                  color="success"
+                  color="primary"
                   variant="flat"
                   prepend-icon="mdi-content-save-outline"
                   :disabled="!catalogSettingsDirty"
@@ -279,7 +280,7 @@
             </div>
 
             <!-- Confirm dialog for the immediate access/protection toggles -->
-            <v-dialog v-model="accessConfirm.open" max-width="460">
+            <v-dialog v-model="accessConfirm.open" max-width="440">
               <v-card>
                 <v-card-title class="text-subtitle-1 font-weight-medium">
                   {{ accessConfirm.title }}
@@ -429,7 +430,7 @@
         </v-card-text>
         <v-card-actions>
           <v-btn
-            color="error"
+            variant="text"
             @click="
               isDialogActive = false;
               $emit('cancel');
@@ -721,6 +722,47 @@ const warehouseObjectOneLake = reactive<WarehousObject>({
   },
 });
 
+// Vue's reactive() proxies aren't structured-cloneable (DataCloneError) —
+// a JSON round-trip is a safe deep clone for this plain form data instead.
+function deepClone<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value));
+}
+
+// Pristine snapshots captured once at setup, used to reset the create-flow
+// form after a successful create so re-opening the dialog (e.g. to add
+// another warehouse) doesn't show stale input from the previous one.
+const initialWarehouseObjects = {
+  s3: deepClone(warehouseObjectS3),
+  r2: deepClone(warehouseObjectR2),
+  s3Compat: deepClone(warehouseObjectS3Compat),
+  aliyun: deepClone(warehouseObjectAliyun),
+  gcs: deepClone(warehouseObjectGCS),
+  az: deepClone(warehouseObjectAz),
+  oneLake: deepClone(warehouseObjectOneLake),
+};
+const initialKey = deepClone(key);
+
+function resetCreateForm() {
+  warehouseName.value = '';
+  storageCredentialType.value = '';
+  slider.value = 7;
+  delProfileSoftActive.value = false;
+  policyAllowed.value = [1, 2, 3];
+  policyDefault.value = 2;
+  emptyWarehouse.value = true;
+  Object.assign(warehouseObjectS3, deepClone(initialWarehouseObjects.s3));
+  Object.assign(warehouseObjectR2, deepClone(initialWarehouseObjects.r2));
+  Object.assign(warehouseObjectS3Compat, deepClone(initialWarehouseObjects.s3Compat));
+  Object.assign(warehouseObjectAliyun, deepClone(initialWarehouseObjects.aliyun));
+  Object.assign(warehouseObjectGCS, deepClone(initialWarehouseObjects.gcs));
+  Object.assign(warehouseObjectAz, deepClone(initialWarehouseObjects.az));
+  Object.assign(warehouseObjectOneLake, deepClone(initialWarehouseObjects.oneLake));
+  Object.assign(key, deepClone(initialKey));
+  // Force the storage-profile sub-forms to remount so their own local state
+  // (e.g. touched/validation state) resets too — same trick used on import.
+  importKey.value++;
+}
+
 async function createWarehouse(
   warehouseObject: WarehousObject,
   shouldDownloadJson: boolean = false,
@@ -788,6 +830,7 @@ async function createWarehouse(
     emit('addedWarehouse');
     creatingWarehouse.value = false;
     isDialogActive.value = false;
+    resetCreateForm();
   } catch (error) {
     creatingWarehouse.value = false;
     handleError(error, 'createWarehouse', true);

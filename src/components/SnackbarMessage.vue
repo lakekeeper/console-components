@@ -4,19 +4,26 @@
     :key="msg.id"
     v-model="msg.visible"
     location="top"
-    :timeout="msg.ttl"
-    :timer="getTimerColor(msg)"
+    :timeout="-1"
     :style="{ top: `${20 + index * 70}px` }"
-    class="stacked-snackbar">
+    class="stacked-snackbar"
+    @mouseenter="pause(msg)"
+    @mouseleave="resume(msg)">
     {{ msg.text }}
     <template #actions>
-      <v-btn :color="msg.type" @click="msg.visible = false">Close</v-btn>
+      <v-btn :color="msg.type" @click="close(msg)">Close</v-btn>
     </template>
+    <div class="v-snackbar__timer">
+      <v-progress-linear
+        :model-value="(msg.remaining / msg.ttl) * 100"
+        :color="msg.type"
+        height="4"></v-progress-linear>
+    </div>
   </v-snackbar>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onUnmounted, ref, watch } from 'vue';
 
 import { useVisualStore } from '@/stores/visual';
 import { SnackbarMsg } from '@/common/interfaces';
@@ -24,7 +31,15 @@ import { Type } from '@/common/enums';
 
 const visual = useVisualStore();
 const snackbarMsgs = ref<
-  Array<{ id: number; text: string; ttl: number; visible: boolean; type: Type }>
+  Array<{
+    id: number;
+    text: string;
+    ttl: number;
+    remaining: number;
+    paused: boolean;
+    visible: boolean;
+    type: Type;
+  }>
 >([]);
 let msgIdCounter = 0;
 
@@ -47,45 +62,62 @@ watch(
         return;
       }
 
-      const currentMsgId = msgIdCounter++;
       snackbarMsgs.value.push({
-        id: currentMsgId,
+        id: msgIdCounter++,
         text: snackbarMsg.value.text,
         ttl: snackbarMsg.value.ttl,
+        remaining: snackbarMsg.value.ttl,
+        paused: false,
         visible: true,
         type: snackbarMsg.value.type,
       });
-
-      // Remove the message after it times out
-      setTimeout(() => {
-        const index = snackbarMsgs.value.findIndex((m) => m.id === currentMsgId);
-        if (index > -1) {
-          snackbarMsgs.value.splice(index, 1);
-        }
-      }, snackbarMsg.value.ttl);
     }
   },
 );
 
-function getTimerColor(msg: { type: Type }): string {
-  // Cover over types Success and Info and colors
-  switch (msg.type) {
-    case Type.ERROR:
-      return 'red';
-    case Type.WARNING:
-      return 'orange';
-    case Type.INFO:
-      return 'blue';
-    case Type.SUCCESS:
-      return 'green';
-    default:
-      return 'grey';
+// A single tick drives every snackbar's countdown so hovering one message
+// (which sets `paused`) never affects the others. Messages are only removed
+// here — never via a standalone setTimeout — so a hovered message can never
+// be dismissed behind the user's back while its countdown is paused.
+const TICK_MS = 100;
+const tickInterval = window.setInterval(() => {
+  for (let i = snackbarMsgs.value.length - 1; i >= 0; i--) {
+    const msg = snackbarMsgs.value[i];
+    if (msg.paused) continue;
+    msg.remaining -= TICK_MS;
+    if (msg.remaining <= 0) {
+      msg.visible = false;
+      snackbarMsgs.value.splice(i, 1);
+    }
   }
+}, TICK_MS);
+
+onUnmounted(() => window.clearInterval(tickInterval));
+
+function pause(msg: { paused: boolean }) {
+  msg.paused = true;
+}
+
+function resume(msg: { paused: boolean }) {
+  msg.paused = false;
+}
+
+function close(msg: { id: number; visible: boolean }) {
+  msg.visible = false;
+  const index = snackbarMsgs.value.findIndex((m) => m.id === msg.id);
+  if (index > -1) snackbarMsgs.value.splice(index, 1);
 }
 </script>
 
 <style scoped>
 .stacked-snackbar {
   position: fixed !important;
+}
+
+.v-snackbar__timer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
 }
 </style>

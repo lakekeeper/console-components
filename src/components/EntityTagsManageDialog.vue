@@ -12,7 +12,7 @@
         :entity-id="entityId" />
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn text="Close" @click="dialogOpen = false"></v-btn>
+        <v-btn variant="text" @click="dialogOpen = false">Close</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

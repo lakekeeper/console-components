@@ -15,8 +15,8 @@
       :loading="loading"
       :sort-by="[{ key: 'name', order: 'asc' }]"
       :items-per-page-options="[
-        { title: '50 items', value: 50 },
-        { title: '100 items', value: 100 },
+        { title: '50', value: 50 },
+        { title: '100', value: 100 },
       ]"
       item-value="name"
       hover>
@@ -25,7 +25,7 @@
           <v-btn
             v-if="selected.length"
             color="error"
-            variant="tonal"
+            variant="text"
             size="small"
             prepend-icon="mdi-delete-outline"
             :loading="bulkDeleting"
@@ -53,31 +53,31 @@
 
       <template #item.actions="{ item }">
         <div class="d-flex justify-end align-center">
-          <v-btn icon size="small" variant="text" title="Rename" @click.stop="openRename(item)">
-            <v-icon size="small">mdi-pencil-outline</v-icon>
-          </v-btn>
           <v-btn
-            icon
+            icon="mdi-pencil-outline"
+            size="small"
+            variant="text"
+            title="Rename"
+            @click.stop="openRename(item)"></v-btn>
+          <v-btn
+            icon="mdi-delete-outline"
             size="small"
             variant="text"
             color="error"
             title="Delete"
-            @click.stop="openDelete(item)">
-            <v-icon size="small">mdi-delete-outline</v-icon>
-          </v-btn>
+            @click.stop="openDelete(item)"></v-btn>
         </div>
       </template>
 
       <template #no-data>
-        <div class="text-center py-6 text-medium-emphasis">
-          <v-icon size="48" color="grey">mdi-folder-multiple-outline</v-icon>
-          <div class="mt-2">No datasets in this namespace</div>
-        </div>
+        <v-empty-state
+          icon="mdi-folder-multiple-outline"
+          text="No datasets in this namespace"></v-empty-state>
       </template>
     </v-data-table>
 
     <!-- Rename dialog -->
-    <v-dialog v-model="renameOpen" max-width="480" persistent>
+    <v-dialog v-model="renameOpen" max-width="440" persistent>
       <v-card>
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">mdi-pencil-outline</v-icon>
@@ -114,10 +114,10 @@
     </v-dialog>
 
     <!-- Delete single dialog -->
-    <v-dialog v-model="deleteOpen" max-width="480">
+    <v-dialog v-model="deleteOpen" max-width="440">
       <v-card>
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-          <v-icon class="mr-2" color="error">mdi-delete-alert-outline</v-icon>
+          <v-icon class="mr-2" color="error">mdi-delete-outline</v-icon>
           Delete Dataset
         </v-card-title>
         <v-divider></v-divider>
@@ -153,10 +153,10 @@
     </v-dialog>
 
     <!-- Bulk delete dialog -->
-    <v-dialog v-model="bulkDeleteOpen" max-width="480">
+    <v-dialog v-model="bulkDeleteOpen" max-width="440">
       <v-card>
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-          <v-icon class="mr-2" color="error">mdi-delete-alert-outline</v-icon>
+          <v-icon class="mr-2" color="error">mdi-delete-outline</v-icon>
           Delete {{ selected.length }} Datasets
         </v-card-title>
         <v-divider></v-divider>

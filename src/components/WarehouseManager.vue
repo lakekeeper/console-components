@@ -1,31 +1,23 @@
 <template>
-  <v-container v-if="loading" class="fill-height">
-    <v-responsive class="align-centerfill-height mx-auto" max-width="900">
-      <v-row justify="center">
-        <v-progress-circular
-          class="mt-4"
-          color="info"
-          indeterminate
-          :size="126"></v-progress-circular>
-      </v-row>
-    </v-responsive>
-  </v-container>
+  <div
+    v-if="loading"
+    class="warehouse-loading d-flex flex-column align-center justify-center"
+    style="height: calc(100vh - 200px)">
+    <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
+    <span class="text-caption text-medium-emphasis mt-4">Loading…</span>
+  </div>
   <v-container v-else fluid class="pa-0">
     <v-toolbar class="mb-4" color="transparent" density="compact" flat>
       <template #prepend>
         <!-- Collapse/Expand Button -->
         <v-btn
-          icon
+          :icon="isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
           size="default"
           variant="tonal"
           color="primary"
           @click="toggleNavigation"
           class="mr-3"
-          :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
-          <v-icon>
-            {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
-          </v-icon>
-        </v-btn>
+          :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'"></v-btn>
         <v-icon>mdi-warehouse</v-icon>
       </template>
       <v-toolbar-title>
@@ -38,8 +30,16 @@
         @added-warehouse="onWarehouseAdded" />
     </v-toolbar>
 
+    <div
+      v-if="canListWarehouses && warehousesLoading"
+      class="warehouse-loading d-flex flex-column align-center justify-center"
+      style="height: calc(100vh - 340px)">
+      <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
+      <span class="text-caption text-medium-emphasis mt-4">Loading warehouses…</span>
+    </div>
+
     <v-data-table
-      v-if="canListWarehouses"
+      v-else-if="canListWarehouses"
       height="calc(100vh - 340px)"
       fixed-header
       :headers="headers"
@@ -48,8 +48,8 @@
       :items="filteredWarehouses"
       :sort-by="sortBy"
       :items-per-page-options="[
-        { title: '50 items', value: 50 },
-        { title: '100 items', value: 100 },
+        { title: '50', value: 50 },
+        { title: '100', value: 100 },
       ]">
       <template #top>
         <v-toolbar color="transparent" density="compact" flat>
@@ -101,9 +101,15 @@
 <script lang="ts" setup>
 import { h, onMounted, reactive, ref, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
+import { helix } from 'ldrs';
 import { Intent, ObjectType } from '@/common/enums';
 import { GetWarehouseResponse } from '@/gen/management/types.gen';
 import { useFunctions } from '@/plugins/functions';
+
+// Registers the <l-helix> custom element. Idempotent (no-ops if another
+// component, e.g. LoQEExplorer, already registered it) — don't rely on
+// load order between components that both use <l-helix>.
+helix.register();
 import { useVisualStore } from '@/stores/visual';
 import { usePermissionStore } from '@/stores/permissions';
 import { useProjectPermissions, hasAction } from '@/composables/useCatalogPermissions';
@@ -160,6 +166,7 @@ type GetWarehouseResponseExtended = GetWarehouseResponse & {
 };
 
 const whResponse = reactive<GetWarehouseResponseExtended[]>([]);
+const warehousesLoading = ref(false);
 
 const filteredWarehouses = computed(() => {
   if (!searchWarehouse.value || searchWarehouse.value === '') {
@@ -243,6 +250,7 @@ watch(canListWarehouses, async (newValue) => {
 });
 
 async function listWarehouse() {
+  warehousesLoading.value = true;
   try {
     whResponse.splice(0, whResponse.length);
     const wh = await functions.listWarehouses(false);
@@ -260,6 +268,8 @@ async function listWarehouse() {
     );
   } catch (error) {
     logError('listWarehouse', error);
+  } finally {
+    warehousesLoading.value = false;
   }
 }
 
@@ -288,3 +298,10 @@ function toggleNavigation() {
   isNavigationCollapsed.value = !isNavigationCollapsed.value;
 }
 </script>
+
+<style scoped>
+.warehouse-loading {
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  border-radius: 4px;
+}
+</style>

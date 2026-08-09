@@ -5,12 +5,10 @@
         <v-btn
           size="small"
           class="mr-2"
-          :color="statisticsVisualTableSwitch ? 'primary' : 'success'"
+          color="primary"
           variant="outlined"
+          :prepend-icon="statisticsVisualTableSwitch ? 'mdi-chart-line' : 'mdi-table'"
           @click="statisticsVisualTableSwitch = !statisticsVisualTableSwitch">
-          <v-icon left>
-            {{ statisticsVisualTableSwitch ? 'mdi-chart-line' : 'mdi-table' }}
-          </v-icon>
           {{ statisticsVisualTableSwitch ? 'Show Chart' : 'Show Table' }}
         </v-btn>
         <v-btn
@@ -18,16 +16,15 @@
           v-if="!statisticsVisualTableSwitch"
           color="primary"
           variant="outlined"
+          :prepend-icon="drillDownSwitch ? 'mdi-arrow-down-bold-box-outline' : 'mdi-sigma'"
           @click="drillDownSwitch = !drillDownSwitch">
-          <v-icon left>
-            {{ drillDownSwitch ? 'mdi-arrow-down-bold-box-outline' : 'mdi-sigma' }}
-          </v-icon>
           {{ drillDownSwitch ? 'Drill down ' : 'Aggregate' }}
         </v-btn>
       </v-row>
       <v-row v-if="statisticsVisualTableSwitch">
         <v-col>
           <v-data-table-virtual
+            density="compact"
             fixed-header
             height="calc(100vh - 340px)"
             :headers="headersStatistics"
@@ -39,9 +36,8 @@
                 <span style="display: flex; align-items: center">
                   <v-btn
                     size="small"
-                    prepend-icon="mdi-file-download"
+                    prepend-icon="mdi-file-download-outline"
                     variant="outlined"
-                    color="primary"
                     @click="downloadStatsAsCSV">
                     Download
                   </v-btn>
@@ -52,7 +48,9 @@
               {{ formatDate(item.timestamp) }}
             </template>
             <template #no-data>
-              <div>No statistics available</div>
+              <v-empty-state
+                icon="mdi-chart-box-outline"
+                title="No statistics available"></v-empty-state>
             </template>
           </v-data-table-virtual>
         </v-col>
@@ -78,6 +76,7 @@
             attach
             chips
             label="HTTP Codes"
+            no-data-text="No HTTP codes available"
             multiple></v-select>
         </v-col>
       </v-row>
@@ -193,8 +192,8 @@ onMounted(() => {
     data_aggr_all.datasets = [
       {
         label: 'Total API Calls',
-        backgroundColor: '#1e857d',
-        borderColor: '#1e857d',
+        backgroundColor: 'rgb(var(--v-theme-secondary))',
+        borderColor: 'rgb(var(--v-theme-secondary))',
         data: Object.values(aggregatedAll),
       },
     ];

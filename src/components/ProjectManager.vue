@@ -53,6 +53,7 @@
 
           <v-data-table
             fixed-header
+            density="compact"
             :headers="headers"
             hover
             :items="filteredProjects"
@@ -84,7 +85,7 @@
               <v-btn
                 v-if="item.info === 'selected'"
                 text="selected"
-                color="info"
+                color="primary"
                 size="small"
                 disabled
                 variant="plain">
@@ -93,7 +94,7 @@
               <v-btn
                 v-if="item.info === 'activate'"
                 text="activate"
-                color="info"
+                color="primary"
                 size="small"
                 variant="flat"
                 @click="activateProject(item)"></v-btn>
@@ -116,7 +117,10 @@
             </template>
 
             <template #no-data>
-              <div>No projects available</div>
+              <v-empty-state
+                icon="mdi-folder-off-outline"
+                title="No projects available"
+                size="small"></v-empty-state>
             </template>
           </v-data-table>
         </v-tabs-window-item>

@@ -70,6 +70,7 @@
                     closable-chips
                     density="compact"
                     variant="outlined"
+                    no-data-text="No status codes available"
                     hide-details>
                     <template #chip="{ item, props: chipProps }">
                       <v-chip
@@ -85,10 +86,9 @@
                   </v-select>
                 </v-col>
                 <v-col cols="6" md="3">
-                  <v-text-field
+                  <DateTimePicker
                     v-model="dateFrom"
                     label="From"
-                    type="datetime-local"
                     density="compact"
                     variant="outlined"
                     hide-details
@@ -96,10 +96,9 @@
                     :max="dateTo || undefined" />
                 </v-col>
                 <v-col cols="6" md="3">
-                  <v-text-field
+                  <DateTimePicker
                     v-model="dateTo"
                     label="To"
-                    type="datetime-local"
                     density="compact"
                     variant="outlined"
                     hide-details

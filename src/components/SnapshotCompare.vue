@@ -4,7 +4,7 @@
       <v-btn
         v-bind="activatorProps"
         size="small"
-        variant="tonal"
+        variant="flat"
         color="primary"
         prepend-icon="mdi-compare-horizontal"
         :disabled="snapshots.length < 2">
@@ -13,7 +13,7 @@
     </template>
 
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="d-flex align-center text-subtitle-1 py-3">
         <v-icon class="mr-2" color="primary">mdi-compare-horizontal</v-icon>
         Snapshot Comparison
       </v-card-title>
@@ -32,6 +32,7 @@
               variant="outlined"
               density="compact"
               hide-details
+              no-data-text="No snapshots available"
               prepend-inner-icon="mdi-camera-outline"></v-select>
           </v-col>
           <v-col cols="12" md="6">
@@ -45,13 +46,14 @@
               density="compact"
               hide-details
               :disabled="!leftSnapshotId"
+              no-data-text="No snapshots available"
               prepend-inner-icon="mdi-camera-outline"></v-select>
           </v-col>
         </v-row>
 
         <!-- No selection state -->
         <div v-if="!leftSnapshot || !rightSnapshot" class="text-center pa-8 text-medium-emphasis">
-          <v-icon size="48" color="grey-lighten-1">mdi-compare-horizontal</v-icon>
+          <v-icon size="x-large" class="text-medium-emphasis">mdi-compare-horizontal</v-icon>
           <div class="text-body-1 mt-2">Select two snapshots to compare</div>
         </div>
 
@@ -59,7 +61,7 @@
         <div
           v-else-if="leftSnapshotId === rightSnapshotId"
           class="text-center pa-8 text-medium-emphasis">
-          <v-icon size="48" color="warning">mdi-equal</v-icon>
+          <v-icon size="x-large" color="warning">mdi-equal</v-icon>
           <div class="text-body-1 mt-2">Same snapshot selected — pick two different ones</div>
         </div>
 
@@ -246,7 +248,7 @@
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="primary" text="Close" @click="dialogVisible = false"></v-btn>
+        <v-btn variant="text" text="Close" @click="dialogVisible = false"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

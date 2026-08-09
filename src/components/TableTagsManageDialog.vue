@@ -9,9 +9,7 @@
         <v-icon class="mr-2">mdi-tag-multiple-outline</v-icon>
         <v-toolbar-title><span class="text-subtitle-1">Manage tags</span></v-toolbar-title>
         <v-spacer></v-spacer>
-        <v-btn icon variant="text" size="small" @click="dialogOpen = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
+        <v-btn icon="mdi-close" variant="text" size="small" @click="dialogOpen = false"></v-btn>
       </v-toolbar>
 
       <v-tabs v-model="tab" color="primary">

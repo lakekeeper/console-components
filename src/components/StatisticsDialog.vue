@@ -6,7 +6,7 @@
         density="default"
         icon="mdi-information-box-outline"
         size="small"
-        color="info"></v-btn>
+        color="primary"></v-btn>
     </template>
 
     <v-card title="Warehouse Statistics">
@@ -22,16 +22,20 @@
                 <Line :data="data" :options="options" />
               </v-tabs-window-item>
               <v-tabs-window-item value="tables">
-                <v-data-table fixed-header :headers="headersStatistics" hover :items="props.stats">
+                <v-data-table
+                  density="compact"
+                  fixed-header
+                  :headers="headersStatistics"
+                  hover
+                  :items="props.stats">
                   <template #top>
                     <v-toolbar color="transparent" density="compact" flat>
                       <v-spacer></v-spacer>
                       <span style="display: flex; align-items: center">
                         <v-btn
                           size="small"
-                          prepend-icon="mdi-file-download"
+                          prepend-icon="mdi-file-download-outline"
                           variant="outlined"
-                          color="primary"
                           @click="downloadStatsAsCSV">
                           Download
                         </v-btn>
@@ -45,7 +49,9 @@
                     {{ formatDate(item['updated-at']) }}
                   </template>
                   <template #no-data>
-                    <div>No statiscs available</div>
+                    <v-empty-state
+                      icon="mdi-chart-box-outline"
+                      title="No statistics available"></v-empty-state>
                   </template>
                 </v-data-table>
               </v-tabs-window-item>
@@ -57,7 +63,7 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
-        <v-btn color="info" text="Close" @click="isDialogActive = false"></v-btn>
+        <v-btn variant="text" text="Close" @click="isDialogActive = false"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -109,12 +115,12 @@ const data = reactive<ChartData>({
   datasets: [
     {
       label: 'Number of Tables',
-      backgroundColor: '#1e857d',
+      backgroundColor: 'rgb(var(--v-theme-secondary))',
       data: [],
     },
     {
       label: 'Number of Views',
-      backgroundColor: '#0097fb',
+      backgroundColor: 'rgb(var(--v-theme-primary))',
       data: [],
     },
   ],

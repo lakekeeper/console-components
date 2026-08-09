@@ -1,12 +1,7 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="500">
+  <v-dialog v-model="isDialogActive" max-width="440">
     <template #activator="{ props: activatorProps }">
-      <v-btn
-        v-bind="activatorProps"
-        color="warning"
-        size="small"
-        text="Rename"
-        variant="outlined"></v-btn>
+      <v-btn v-bind="activatorProps" size="small" text="Rename" variant="outlined"></v-btn>
     </template>
 
     <v-card title="New user name">
@@ -14,19 +9,23 @@
         <v-text-field
           v-model="newName"
           label="New user name"
-          placeholder="user name"></v-text-field>
+          placeholder="user name"
+          @keyup.enter="
+            props.name !== newName && newName !== '' && emmitNewUserName()
+          "></v-text-field>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer></v-spacer>
 
+        <v-btn variant="text" text="Cancel" @click="cancelRoleInput"></v-btn>
         <v-btn
-          color="success"
+          color="primary"
+          variant="flat"
           :disabled="props.name === newName || newName === ''"
           @click="emmitNewUserName">
           submit
         </v-btn>
-        <v-btn color="error" text="Cancel" @click="cancelRoleInput"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

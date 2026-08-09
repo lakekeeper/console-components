@@ -64,7 +64,7 @@
                   :title="'Mark all as read'"></v-btn>
                 <v-btn
                   v-if="notificationStore.notifications.length > 0"
-                  icon="mdi-delete-sweep"
+                  icon="mdi-delete-sweep-outline"
                   size="small"
                   variant="text"
                   color="error"
@@ -85,7 +85,7 @@
           <v-card
             flat
             :style="{ padding: '8px 16px', backgroundColor: 'rgb(var(--v-theme-surface))' }">
-            <div class="text-caption text-grey mb-2">Filter by type:</div>
+            <div class="text-caption text-medium-emphasis mb-2">Filter by type:</div>
             <div class="d-flex gap-2 flex-wrap">
               <v-chip
                 :color="selectedFilter === 'all' ? 'primary' : 'default'"
@@ -168,27 +168,20 @@
               margin: '0',
               scrollbarWidth: 'thin',
             }">
-            <div
+            <v-empty-state
               v-if="filteredNotifications.length === 0"
-              :style="{ padding: '16px', textAlign: 'center' }">
-              <v-icon size="64" color="grey-lighten-1" class="mb-4">
-                {{ selectedFilter === 'all' ? 'mdi-bell-off' : 'mdi-filter-off' }}
-              </v-icon>
-              <div class="text-body-1 text-grey">
-                {{
-                  selectedFilter === 'all'
-                    ? 'No notifications yet'
-                    : `No ${selectedFilter} notifications`
-                }}
-              </div>
-              <div class="text-caption text-grey">
-                {{
-                  selectedFilter === 'all'
-                    ? 'Events from function calls will appear here'
-                    : 'Try changing the filter to see other notifications'
-                }}
-              </div>
-            </div>
+              :icon="selectedFilter === 'all' ? 'mdi-bell-off' : 'mdi-filter-off'"
+              :title="
+                selectedFilter === 'all'
+                  ? 'No notifications yet'
+                  : `No ${selectedFilter} notifications`
+              "
+              :text="
+                selectedFilter === 'all'
+                  ? 'Events from function calls will appear here'
+                  : 'Try changing the filter to see other notifications'
+              "
+              size="small"></v-empty-state>
 
             <div v-else :style="{ paddingBottom: '16px', width: '100%' }">
               <div
@@ -202,7 +195,7 @@
                 <!-- Date Header -->
                 <v-list-subheader
                   :style="{ padding: '8px 16px' }"
-                  class="text-caption font-weight-bold text-grey">
+                  class="text-caption font-weight-bold text-medium-emphasis">
                   {{ formatDateHeader(dateKey) }}
                 </v-list-subheader>
 
@@ -258,7 +251,7 @@
                           </div>
 
                           <!-- Short description -->
-                          <div class="text-body-2 text-grey mb-2">
+                          <div class="text-body-2 text-medium-emphasis mb-2">
                             {{ getNotificationDescription(notification) }}
                           </div>
 
@@ -266,24 +259,24 @@
                           <div
                             v-if="getErrorId(notification)"
                             class="text-caption mb-2 d-flex align-center">
-                            <v-icon size="x-small" class="mr-1" color="grey">mdi-identifier</v-icon>
-                            <span class="text-grey-darken-1">Error ID:</span>
+                            <v-icon size="x-small" class="mr-1 text-medium-emphasis">
+                              mdi-identifier
+                            </v-icon>
+                            <span class="text-medium-emphasis">Error ID:</span>
                             <code class="ml-1 text-primary" style="font-size: 11px">
                               {{ getErrorId(notification) }}
                             </code>
                             <v-btn
-                              icon
+                              icon="mdi-content-copy"
                               size="x-small"
                               variant="text"
                               class="ml-1"
                               @click.stop="functions.copyToClipboard(getErrorId(notification)!)"
-                              :title="'Copy Error ID'">
-                              <v-icon size="x-small">mdi-content-copy</v-icon>
-                            </v-btn>
+                              :title="'Copy Error ID'"></v-btn>
                           </div>
 
                           <div class="d-flex align-center justify-space-between">
-                            <div class="text-caption text-grey">
+                            <div class="text-caption text-medium-emphasis">
                               <span>{{ formatTime(notification.timestamp) }}</span>
                             </div>
 
@@ -310,7 +303,6 @@
                             icon="mdi-close"
                             size="x-small"
                             variant="text"
-                            color="grey"
                             :style="{ opacity: '0', transition: 'opacity 0.2s ease' }"
                             @click.stop="deleteNotification(notification.id)"
                             :title="'Delete notification'"
@@ -334,7 +326,7 @@
           <div class="d-flex align-center">
             <v-icon
               :color="
-                selectedNotification ? getNotificationColor(selectedNotification.type) : 'grey'
+                selectedNotification ? getNotificationColor(selectedNotification.type) : undefined
               "
               :icon="
                 selectedNotification ? getNotificationIcon(selectedNotification.type) : 'mdi-bell'
@@ -351,7 +343,7 @@
         <v-card-text v-if="selectedNotification" class="pa-4">
           <!-- Function Name -->
           <div v-if="selectedNotification.function" class="mb-3">
-            <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Function</div>
+            <div class="text-subtitle-2 font-weight-bold text-medium-emphasis mb-1">Function</div>
             <v-chip :color="getNotificationColor(selectedNotification.type)" variant="outlined">
               {{ selectedNotification.function }}
             </v-chip>
@@ -359,7 +351,7 @@
 
           <!-- Message -->
           <div class="mb-3">
-            <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Message</div>
+            <div class="text-subtitle-2 font-weight-bold text-medium-emphasis mb-1">Message</div>
             <div class="text-body-1">{{ selectedNotification.text }}</div>
           </div>
 
@@ -367,7 +359,7 @@
           <div
             v-if="selectedNotification.stack && selectedNotification.stack.length > 0"
             class="mb-3">
-            <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">
+            <div class="text-subtitle-2 font-weight-bold text-medium-emphasis mb-1">
               More Information in Lakekeeper logs
             </div>
             <v-list dense class="pa-0">
@@ -384,14 +376,12 @@
                     <v-chip size="small" class="ml-2" variant="outlined" color="primary">
                       {{ item.split(':')[1].trim() }}
                       <v-btn
-                        icon
+                        icon="mdi-content-copy"
                         size="x-small"
                         variant="text"
                         class="ml-1"
                         @click="functions.copyToClipboard(item.split(':')[1].trim())"
-                        :title="'Copy Error ID'">
-                        <v-icon size="x-small">mdi-content-copy</v-icon>
-                      </v-btn>
+                        :title="'Copy Error ID'"></v-btn>
                     </v-chip>
                   </template>
                   <template v-else>
@@ -404,13 +394,13 @@
 
           <!-- Timestamp -->
           <div class="mb-3">
-            <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Time</div>
+            <div class="text-subtitle-2 font-weight-bold text-medium-emphasis mb-1">Time</div>
             <div class="text-body-2">{{ formatFullTimestamp(selectedNotification.timestamp) }}</div>
           </div>
 
           <!-- Status -->
           <div class="mb-3">
-            <div class="text-subtitle-2 font-weight-bold text-grey-darken-1 mb-1">Status</div>
+            <div class="text-subtitle-2 font-weight-bold text-medium-emphasis mb-1">Status</div>
             <v-chip :color="getNotificationColor(selectedNotification.type)" size="small">
               {{ getNotificationTypeText(selectedNotification.type) }}
             </v-chip>
@@ -419,6 +409,7 @@
 
         <v-card-actions class="pa-4">
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeDetails">Close</v-btn>
           <v-btn
             v-if="selectedNotification && !selectedNotification.read"
             color="primary"
@@ -426,8 +417,7 @@
             @click="markAsReadAndClose">
             Mark as Read
           </v-btn>
-          <v-btn color="error" variant="outlined" @click="deleteAndClose">Delete</v-btn>
-          <v-btn color="primary" @click="closeDetails">Close</v-btn>
+          <v-btn color="error" variant="flat" @click="deleteAndClose">Delete</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

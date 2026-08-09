@@ -16,7 +16,7 @@
         label="Show inherited"
         @update:model-value="loadTags"></v-switch>
       <v-btn
-        color="info"
+        color="primary"
         size="small"
         variant="flat"
         prepend-icon="mdi-plus"
@@ -28,7 +28,7 @@
       :headers="headers"
       :items="tags"
       :loading="loading"
-      density="comfortable"
+      density="compact"
       item-value="tag-definition-id"
       :sort-by="[{ key: 'name', order: 'asc' }]">
       <template #item.name="{ item }">
@@ -55,7 +55,7 @@
         <span v-else class="text-disabled">—</span>
       </template>
       <template #item.origin="{ item }">
-        <v-chip v-if="item['inherited-from']" color="grey" size="x-small" variant="tonal">
+        <v-chip v-if="item['inherited-from']" size="x-small" variant="tonal">
           <v-icon start size="x-small">mdi-arrow-top-left</v-icon>
           inherited
         </v-chip>
@@ -75,7 +75,7 @@
         <template v-if="!item['inherited-from']">
           <v-btn
             v-if="tagKind(item) !== 'marker'"
-            icon="mdi-pencil"
+            icon="mdi-pencil-outline"
             size="x-small"
             variant="text"
             @click="openEditDialog(item)"></v-btn>
@@ -95,7 +95,7 @@
     <!-- Remove confirmation -->
     <v-dialog v-model="confirmRemoveOpen" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center ga-2">
+        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
           <v-icon color="error">mdi-delete-outline</v-icon>
           Remove tag
         </v-card-title>
@@ -116,7 +116,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
+          <v-btn variant="text" @click="confirmRemoveOpen = false">Cancel</v-btn>
           <v-btn
             color="error"
             variant="flat"
@@ -128,7 +128,7 @@
     </v-dialog>
 
     <!-- Apply / edit form -->
-    <v-dialog v-model="formDialog" max-width="500">
+    <v-dialog v-model="formDialog" max-width="440">
       <v-card :title="editing ? `Edit tag '${form.name}'` : 'Apply tag'">
         <v-card-text>
           <v-autocomplete
@@ -140,6 +140,7 @@
             item-title="name"
             item-value="id"
             auto-select-first
+            no-data-text="No tags available"
             :rules="[(v) => !!v || 'Select a tag']"
             @update:model-value="onDefinitionSelected"></v-autocomplete>
 
@@ -167,6 +168,7 @@
             label="Value"
             :items="allowedValues"
             :loading="loadingDefinition"
+            no-data-text="No values available"
             :rules="[(v) => (v !== null && v !== '') || 'Value is required']"></v-select>
           <div v-else-if="selectedKind === 'marker'" class="text-caption text-disabled">
             Marker tag — no value.
@@ -174,8 +176,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="success" :disabled="!canSubmit" @click="submit">save</v-btn>
-          <v-btn color="error" text="Cancel" @click="formDialog = false"></v-btn>
+          <v-btn variant="text" @click="formDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" :disabled="!canSubmit" @click="submit">save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

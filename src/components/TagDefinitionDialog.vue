@@ -1,19 +1,19 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="560">
+  <v-dialog v-model="isDialogActive" max-width="600">
     <template #activator="{ props: activatorProps }">
       <slot name="activator" :props="activatorProps">
         <v-btn
           v-if="actionType === 'add'"
           class="me-2"
           v-bind="activatorProps"
-          color="info"
+          color="primary"
           size="small"
           text="New Tag"
           variant="flat"></v-btn>
         <v-btn
           v-else
           v-bind="activatorProps"
-          icon="mdi-pencil"
+          icon="mdi-pencil-outline"
           size="x-small"
           variant="text"></v-btn>
       </slot>
@@ -27,7 +27,8 @@
           placeholder="pii.classification"
           hint="`.` is the hierarchy delimiter. Unique per project (case-insensitive)."
           persistent-hint
-          :rules="[nameRule]"></v-text-field>
+          :rules="[nameRule]"
+          @keyup.enter="save"></v-text-field>
 
         <v-textarea
           v-model="data.description"
@@ -43,7 +44,8 @@
           :items="valueKindOptions"
           :disabled="actionType === 'edit'"
           :hint="actionType === 'edit' ? 'Value kind is immutable' : ''"
-          :persistent-hint="actionType === 'edit'"></v-select>
+          :persistent-hint="actionType === 'edit'"
+          no-data-text="No value kinds available"></v-select>
 
         <v-select
           v-model="data.scope"
@@ -52,6 +54,7 @@
           :items="scopeOptions"
           multiple
           chips
+          no-data-text="No scopes available"
           :rules="[(v: string[]) => v.length > 0 || 'Select at least one scope']">
           <template #chip="{ item, props: chipProps }">
             <v-chip
@@ -90,8 +93,8 @@
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="success" :disabled="!isValid" @click="save">save</v-btn>
-        <v-btn color="error" text="Cancel" @click="cancel"></v-btn>
+        <v-btn variant="text" text="Cancel" @click="cancel"></v-btn>
+        <v-btn color="primary" variant="flat" :disabled="!isValid" @click="save">save</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

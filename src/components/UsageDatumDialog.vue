@@ -57,8 +57,7 @@
           <v-col cols="auto">
             <v-btn
               prepend-icon="mdi-console"
-              color="secondary"
-              variant="tonal"
+              variant="outlined"
               size="large"
               :disabled="rows.length === 0"
               @click="scriptDialog = true">
@@ -78,7 +77,7 @@
         </v-row>
 
         <!-- Script preview dialog -->
-        <v-dialog v-model="scriptDialog" max-width="860">
+        <v-dialog v-model="scriptDialog" max-width="800">
           <v-card>
             <v-toolbar color="transparent" density="compact" flat>
               <v-toolbar-title class="text-subtitle-1">
@@ -107,11 +106,7 @@
             <v-card-actions>
               <v-spacer></v-spacer>
               <v-btn prepend-icon="mdi-content-copy" variant="text" @click="copyScript">Copy</v-btn>
-              <v-btn
-                prepend-icon="mdi-download"
-                color="secondary"
-                variant="tonal"
-                @click="downloadScript">
+              <v-btn prepend-icon="mdi-download" variant="outlined" @click="downloadScript">
                 Download .sh
               </v-btn>
             </v-card-actions>
@@ -124,11 +119,10 @@
           {{ loadError }}
         </v-alert>
 
-        <div
+        <v-empty-state
           v-if="!loading && rows.length === 0 && !loadError"
-          class="text-body-2 text-center py-6">
-          No warehouses found.
-        </div>
+          icon="mdi-database-off-outline"
+          title="No warehouses found"></v-empty-state>
 
         <div v-if="rows.length > 0" style="overflow-x: auto">
           <v-table density="compact" class="usage-datum-table">
@@ -255,7 +249,7 @@
         <v-btn
           prepend-icon="mdi-download"
           color="primary"
-          variant="tonal"
+          variant="flat"
           :disabled="rows.length === 0"
           @click="downloadCsv">
           Download CSV

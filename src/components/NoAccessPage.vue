@@ -1,12 +1,5 @@
 <template>
   <v-container fluid class="noaccess-container fill-height pa-0">
-    <!-- Animated background (mirrors LoginPage) -->
-    <div class="noaccess-background">
-      <div class="gradient-orb orb-1"></div>
-      <div class="gradient-orb orb-2"></div>
-      <div class="gradient-orb orb-3"></div>
-    </div>
-
     <!-- No-access card -->
     <v-row class="fill-height" align="center" justify="center">
       <v-col cols="12" sm="10" md="7" lg="5" xl="4">
@@ -71,7 +64,7 @@
             color="primary"
             prepend-icon="mdi-refresh"
             size="large"
-            variant="tonal"
+            variant="flat"
             @click="recheck">
             <span class="font-weight-medium">Check again</span>
           </v-btn>
@@ -105,7 +98,7 @@
                 <div v-if="!started || paused || gameOver" class="tetris-overlay">
                   <div v-if="gameOver" class="text-h6 font-weight-bold mb-1">Game over</div>
                   <div v-else-if="paused" class="text-h6 font-weight-medium mb-1">Paused</div>
-                  <v-btn size="small" color="primary" variant="elevated" @click="startGame">
+                  <v-btn size="small" color="primary" variant="flat" @click="startGame">
                     {{ gameOver ? 'Play again' : started ? 'Resume' : 'Start' }}
                   </v-btn>
                 </div>
@@ -488,6 +481,7 @@ onUnmounted(() => {
   position: relative;
   overflow: hidden;
   min-height: 100vh;
+  background: rgb(var(--v-theme-background));
 }
 
 /* Tetris */
@@ -530,92 +524,13 @@ onUnmounted(() => {
   backdrop-filter: blur(2px);
 }
 
-/* Calm, mostly-neutral backdrop (not the loud login gradient) — this is an
-   access-denied page, so keep it subtle: theme background with a faint tint. */
-.noaccess-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background:
-    linear-gradient(
-      135deg,
-      rgba(var(--v-theme-primary), 0.1) 0%,
-      rgba(var(--v-theme-secondary), 0.1) 100%
-    ),
-    rgb(var(--v-theme-background));
-  z-index: 0;
-}
-
-.gradient-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.12;
-  animation: float 20s ease-in-out infinite;
-}
-
-.orb-1 {
-  width: 400px;
-  height: 400px;
-  background: linear-gradient(
-    135deg,
-    rgb(var(--v-theme-secondary)) 0%,
-    rgb(var(--v-theme-primary)) 100%
-  );
-  top: -100px;
-  left: -100px;
-  animation-delay: 0s;
-}
-
-.orb-2 {
-  width: 350px;
-  height: 350px;
-  background: linear-gradient(
-    135deg,
-    rgb(var(--v-theme-primary)) 0%,
-    rgb(var(--v-theme-primary-darken-1)) 100%
-  );
-  bottom: -100px;
-  right: -100px;
-  animation-delay: 5s;
-}
-
-.orb-3 {
-  width: 300px;
-  height: 300px;
-  background: linear-gradient(
-    135deg,
-    rgb(var(--v-theme-secondary)) 0%,
-    rgb(var(--v-theme-primary)) 100%
-  );
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation-delay: 10s;
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -30px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-}
-
 .noaccess-card {
   position: relative;
   z-index: 1;
   backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.95) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+  background: rgba(var(--v-theme-surface), 0.95) !important;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  box-shadow: 0 8px 32px 0 rgba(var(--v-theme-on-surface), 0.2);
 }
 
 .logo-container {
@@ -631,11 +546,6 @@ onUnmounted(() => {
   display: block;
   object-fit: contain;
   filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.15));
-}
-
-.v-theme--dark .noaccess-card {
-  background: rgba(30, 30, 30, 0.95) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 @media (max-width: 600px) {

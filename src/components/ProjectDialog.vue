@@ -1,10 +1,10 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="500">
+  <v-dialog v-model="isDialogActive" max-width="440">
     <template #activator="{ props: activatorProps }">
       <slot name="activator" :props="activatorProps">
         <v-btn
           v-bind="activatorProps"
-          color="info"
+          color="primary"
           size="small"
           text="Add Project"
           variant="flat"></v-btn>
@@ -17,13 +17,15 @@
           v-model="projectName"
           label="Project Name"
           placeholder="my-project"
-          :rules="[projectRule]"></v-text-field>
+          :rules="[projectRule]"
+          hide-details="auto"
+          @keyup.enter="handleSubmit"></v-text-field>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="success" :disabled="!isValid" @click="handleSubmit">Add</v-btn>
-        <v-btn color="error" @click="handleCancel">Cancel</v-btn>
+        <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
+        <v-btn color="primary" variant="flat" :disabled="!isValid" @click="handleSubmit">Add</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

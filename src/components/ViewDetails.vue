@@ -8,7 +8,7 @@
           border
           class="pa-3 h-100"
           style="display: flex; flex-direction: column">
-          <v-icon :color="s.color" size="20" class="mb-1">{{ s.icon }}</v-icon>
+          <v-icon :color="s.color" size="small" class="mb-1">{{ s.icon }}</v-icon>
           <div
             :title="String(s.value)"
             style="
@@ -29,7 +29,7 @@
     <div
       class="d-flex align-center mb-2"
       style="font-size: 0.95rem; opacity: 0.8; min-height: 32px">
-      <v-icon size="18" class="mr-2" color="primary">mdi-information-outline</v-icon>
+      <v-icon size="small" class="mr-2" color="primary">mdi-information-outline</v-icon>
       Identity &amp; location
     </div>
     <v-sheet rounded="lg" border class="mb-6">
@@ -96,6 +96,7 @@
               density="compact"
               variant="outlined"
               hide-details
+              no-data-text="No versions available"
               style="max-width: 280px"></v-select>
           </div>
           <SqlEditor :model-value="formattedSql" disabled min-height="40vh" />
@@ -231,7 +232,7 @@
             <v-spacer></v-spacer>
             <v-btn
               size="small"
-              variant="tonal"
+              variant="flat"
               color="primary"
               prepend-icon="mdi-compare-horizontal"
               @click="openCompare">
@@ -289,14 +290,18 @@
                         schemaFieldDiffs[schema['schema-id'] ?? 0].added.length === 0 &&
                         schemaFieldDiffs[schema['schema-id'] ?? 0].removed.length === 0
                       "
-                      class="text-grey">
+                      class="text-medium-emphasis">
                       {{ schema['schema-id'] === 0 ? 'Initial schema' : 'No field changes' }}
                     </span>
                   </template>
                 </td>
                 <td>
-                  <v-btn icon size="x-small" variant="text" @click="openSchema(schema)">
-                    <v-icon size="small">mdi-eye-outline</v-icon>
+                  <v-btn
+                    icon="mdi-eye-outline"
+                    size="x-small"
+                    variant="text"
+                    @click="openSchema(schema)">
+                    <v-icon></v-icon>
                     <v-tooltip activator="parent" location="top">View schema</v-tooltip>
                   </v-btn>
                 </td>
@@ -308,7 +313,7 @@
     </v-expansion-panels>
 
     <!-- View a single schema's fields -->
-    <v-dialog v-model="schemaViewOpen" max-width="640" scrollable>
+    <v-dialog v-model="schemaViewOpen" max-width="600" scrollable>
       <v-card v-if="schemaViewData">
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
@@ -317,9 +322,11 @@
             {{ schemaViewData.fields?.length || 0 }} fields
           </v-chip>
           <v-spacer></v-spacer>
-          <v-btn icon variant="text" size="small" @click="schemaViewOpen = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            @click="schemaViewOpen = false"></v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text>
@@ -349,15 +356,13 @@
     </v-dialog>
 
     <!-- Compare two schemas -->
-    <v-dialog v-model="compareOpen" max-width="760" scrollable>
+    <v-dialog v-model="compareOpen" max-width="800" scrollable>
       <v-card>
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">mdi-compare-horizontal</v-icon>
           Compare schemas
           <v-spacer></v-spacer>
-          <v-btn icon variant="text" size="small" @click="compareOpen = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="compareOpen = false"></v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text>
@@ -369,6 +374,7 @@
               density="compact"
               variant="outlined"
               hide-details
+              no-data-text="No schema versions available"
               style="max-width: 200px"></v-select>
             <v-icon>mdi-arrow-right</v-icon>
             <v-select
@@ -378,6 +384,7 @@
               density="compact"
               variant="outlined"
               hide-details
+              no-data-text="No schema versions available"
               style="max-width: 200px"></v-select>
           </div>
           <v-table density="compact">
@@ -412,7 +419,7 @@
     <!-- Governance tags -->
     <template v-if="viewId">
       <div class="text-subtitle-2 mt-6 mb-2 d-flex align-center">
-        <v-icon size="18" class="mr-2" color="primary">mdi-tag-multiple-outline</v-icon>
+        <v-icon size="small" class="mr-2" color="primary">mdi-tag-multiple-outline</v-icon>
         Tags
       </div>
       <v-sheet rounded="lg" border class="mb-4">
@@ -554,13 +561,13 @@ const statTiles = computed(() => {
         ? formatTimestamp(currentViewVersion.value['timestamp-ms'])
         : '—',
       icon: 'mdi-update',
-      color: 'grey',
+      color: undefined,
     },
     {
       label: 'Protection',
       value: props.protectedState == null ? '—' : props.protectedState ? 'On' : 'Off',
       icon: props.protectedState ? 'mdi-lock' : 'mdi-lock-open-variant-outline',
-      color: props.protectedState ? 'success' : 'grey',
+      color: props.protectedState ? 'success' : undefined,
     },
   ];
 });

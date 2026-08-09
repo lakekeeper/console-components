@@ -1,7 +1,7 @@
 <template>
   <v-dialog v-model="open" max-width="820" scrollable>
     <v-card>
-      <v-card-title class="d-flex align-center" style="gap: 8px">
+      <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
         <v-icon size="small" color="primary">
           {{ state.isJson ? 'mdi-code-json' : 'mdi-text-long' }}
         </v-icon>

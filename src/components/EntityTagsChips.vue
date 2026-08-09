@@ -1,14 +1,18 @@
 <template>
   <div class="d-flex flex-wrap align-center ga-2">
-    <v-progress-circular v-if="loading" indeterminate color="info" size="18"></v-progress-circular>
+    <v-progress-circular
+      v-if="loading"
+      indeterminate
+      color="primary"
+      size="18"></v-progress-circular>
     <template v-else-if="tags.length">
       <v-tooltip v-for="t in tags" :key="t['tag-definition-id']" location="top" max-width="500">
         <template #activator="{ props: tp }">
           <v-chip
             v-bind="tp"
             size="small"
-            :color="t['inherited-from'] ? 'deep-purple' : 'teal'"
-            :variant="t['inherited-from'] ? 'tonal' : 'flat'"
+            :color="t['inherited-from'] ? undefined : 'info'"
+            :variant="t['inherited-from'] ? 'outlined' : 'tonal'"
             :prepend-icon="
               t['inherited-from'] ? 'mdi-arrow-top-left-bold-outline' : 'mdi-tag-outline'
             ">

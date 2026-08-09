@@ -3,14 +3,16 @@
     <v-card-title
       class="bg-surface-light d-flex align-center flex-wrap text-subtitle-1 py-3"
       style="gap: 8px">
-      <v-btn icon variant="text" size="small" @click="collapsed = !collapsed">
-        <v-icon>{{ collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up' }}</v-icon>
-      </v-btn>
+      <v-btn
+        :icon="collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'"
+        variant="text"
+        size="small"
+        @click="collapsed = !collapsed"></v-btn>
       <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
       Structure &amp; governance
       <v-chip size="x-small" variant="tonal">{{ schemaTree.length }} fields</v-chip>
       <v-btn
-        variant="tonal"
+        variant="outlined"
         size="small"
         prepend-icon="mdi-code-json"
         @click="schemaJsonOpen = true">
@@ -42,6 +44,7 @@
           density="compact"
           variant="outlined"
           hide-details
+          no-data-text="No row limits available"
           style="min-width: 160px; max-width: 190px"></v-select>
         <v-btn
           v-if="hasResults"
@@ -129,7 +132,7 @@
                             top: 0;
                             bottom: 0;
                             left: 16px;
-                            border-left: 1px solid rgba(127, 127, 127, 0.45);
+                            border-left: 1px solid rgba(var(--v-theme-on-surface), 0.3);
                           "></span>
                         <!-- Elbow: horizontal connector into this node -->
                         <span
@@ -139,7 +142,7 @@
                             top: 50%;
                             left: 16px;
                             width: 32px;
-                            border-top: 1px solid rgba(127, 127, 127, 0.45);
+                            border-top: 1px solid rgba(var(--v-theme-on-surface), 0.3);
                           "></span>
                       </span>
 
@@ -156,25 +159,21 @@
                           <!-- Expand toggle for nested (struct/list/map) nodes -->
                           <v-btn
                             v-if="row.expandable"
-                            icon
+                            :icon="expanded.has(row.key) ? 'mdi-chevron-down' : 'mdi-chevron-right'"
                             size="x-small"
                             variant="text"
-                            @click="toggleExpand(row.key)">
-                            <v-icon size="small">
-                              {{ expanded.has(row.key) ? 'mdi-chevron-down' : 'mdi-chevron-right' }}
-                            </v-icon>
-                          </v-btn>
+                            @click="toggleExpand(row.key)"></v-btn>
                           <!-- Analyze button for top-level primitive columns -->
                           <v-btn
                             v-else-if="row.profilable"
-                            icon
+                            icon="mdi-play"
                             size="x-small"
-                            variant="tonal"
+                            variant="text"
                             color="primary"
                             :loading="results[row.name]?.loading"
                             :disabled="schemaView === 'tags' || !canQuery || analyzingAll"
                             @click="analyzeOne(row)">
-                            <v-icon size="small">mdi-play</v-icon>
+                            <v-icon></v-icon>
                             <v-tooltip activator="parent" location="top">
                               {{
                                 schemaView === 'tags'
@@ -190,12 +189,12 @@
                         </div>
                         <v-btn
                           v-if="row.profilable && hasChart(row.name)"
-                          icon
+                          icon="mdi-chart-bar"
                           size="small"
-                          variant="flat"
-                          color="teal"
+                          variant="text"
+                          color="secondary"
                           @click="openChart(row.name)">
-                          <v-icon>mdi-chart-bar</v-icon>
+                          <v-icon></v-icon>
                           <v-tooltip activator="parent" location="top">Show chart</v-tooltip>
                         </v-btn>
                       </div>
@@ -272,7 +271,7 @@
                               v-bind="tp"
                               size="small"
                               variant="flat"
-                              color="teal"
+                              color="secondary"
                               prepend-icon="mdi-tag-outline">
                               {{ tag.name }}
                               <span v-if="tag.value">: {{ truncate(tag.value, 32) }}</span>
@@ -297,7 +296,7 @@
     </template>
 
     <!-- Distribution popup: histogram (numeric) or top-values bar (categorical) -->
-    <v-dialog v-model="histDialogOpen" max-width="680">
+    <v-dialog v-model="histDialogOpen" max-width="600">
       <v-card v-if="chartData">
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">
@@ -306,9 +305,11 @@
           {{ chartData.histogram ? 'Value distribution' : 'Top values' }} —
           <span class="font-mono ml-1">{{ histColName }}</span>
           <v-spacer></v-spacer>
-          <v-btn icon variant="text" size="small" @click="histDialogOpen = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            @click="histDialogOpen = false"></v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text>
@@ -325,7 +326,7 @@
     </v-dialog>
 
     <!-- Raw schema JSON -->
-    <v-dialog v-model="schemaJsonOpen" max-width="760" scrollable>
+    <v-dialog v-model="schemaJsonOpen" max-width="1000" scrollable>
       <v-card>
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">mdi-code-json</v-icon>
@@ -341,9 +342,11 @@
             @click="copySchemaJson">
             Copy
           </v-btn>
-          <v-btn icon variant="text" size="small" @click="schemaJsonOpen = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            @click="schemaJsonOpen = false"></v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text style="max-height: 70vh">
@@ -519,7 +522,7 @@ function renderHistogram(el: HTMLElement, h: NonNullable<ProfileData['histogram'
     .attr('y', (d) => y(d))
     .attr('height', (d) => ch - y(d))
     .attr('rx', 1)
-    .attr('fill', '#26a69a')
+    .style('fill', 'rgb(var(--v-theme-secondary))')
     .append('title')
     .text(
       (d, i) =>
@@ -564,7 +567,7 @@ function renderBars(el: HTMLElement, items: { value: string; count: number }[]) 
     .attr('y', (d) => y(d.count))
     .attr('height', (d) => ch - y(d.count))
     .attr('rx', 2)
-    .attr('fill', '#26a69a')
+    .style('fill', 'rgb(var(--v-theme-secondary))')
     .append('title')
     .text((d) => `${d.value}: ${d.count.toLocaleString()} rows`);
 

@@ -37,9 +37,9 @@
           Copy to Clipboard
         </v-btn>
         <v-btn
-          prepend-icon="mdi-download"
+          prepend-icon="mdi-download-outline"
           color="primary"
-          variant="tonal"
+          variant="flat"
           @click="downloadSupportBundle">
           Download JSON
         </v-btn>
