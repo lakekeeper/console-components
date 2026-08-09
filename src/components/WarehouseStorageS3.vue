@@ -59,7 +59,7 @@
           row>
           <v-row>
             <v-col>
-              <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
+              <span class="text-subtitle-2 text-medium-emphasis">Select Credential Type:</span>
             </v-col>
           </v-row>
           <v-row>
@@ -97,7 +97,7 @@
           row>
           <v-row>
             <v-col>
-              <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
+              <span class="text-subtitle-2 text-medium-emphasis">Select Credential Type:</span>
             </v-col>
           </v-row>
           <v-row>
@@ -196,7 +196,8 @@
 
         <v-btn
           v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-          color="success"
+          color="primary"
+          variant="flat"
           :disabled="
             warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
             (!warehouseObjectData['storage-credential']['access-key-id'] ||
@@ -253,7 +254,8 @@
               :rules="[rules.required]"
               :error="isFlavorInvalid"
               :color="isFlavorInvalid ? 'error' : 'primary'"
-              :style="isFlavorInvalid ? 'color: rgb(var(--v-theme-error));' : ''">
+              :style="isFlavorInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
+              no-data-text="No S3 flavors available">
               <template #item="{ props: itemProps, item }">
                 <v-list-item v-bind="itemProps" :subtitle="item.raw.code"></v-list-item>
               </template>
@@ -414,6 +416,7 @@
                     label="Remote signing URL style"
                     clearable
                     placeholder="Auto-detect"
+                    no-data-text="No URL styles available"
                     hint="URL style detection mode"></v-select>
                 </v-col>
               </v-row>
@@ -472,6 +475,7 @@
                 item-title="name"
                 item-value="code"
                 label="Layout Type"
+                no-data-text="No layout types available"
                 :hint="
                   storageLayoutType !== 'default'
                     ? 'How namespace and table paths are constructed under the base location'
@@ -677,7 +681,7 @@
                 </v-col>
                 <v-col cols="2" class="d-flex align-center">
                   <v-btn
-                    icon="mdi-delete"
+                    icon="mdi-delete-outline"
                     variant="text"
                     size="small"
                     color="error"
@@ -705,7 +709,8 @@
           v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
           divided>
           <v-btn
-            color="success"
+            color="primary"
+            variant="flat"
             type="submit"
             :disabled="
               isAccessKeyMissing ||
@@ -718,7 +723,8 @@
           <v-menu>
             <template #activator="{ props: menuProps }">
               <v-btn
-                color="success"
+                color="primary"
+                variant="flat"
                 v-bind="menuProps"
                 icon="mdi-menu-down"
                 size="small"
@@ -747,7 +753,8 @@
         </v-btn-group>
         <v-btn
           v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
-          color="success"
+          color="primary"
+          variant="flat"
           :disabled="
             isAccessKeyMissing ||
             !warehouseObjectData['storage-profile'].bucket ||

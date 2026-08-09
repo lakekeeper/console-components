@@ -8,10 +8,10 @@
     </v-card-title>
     <v-divider></v-divider>
 
-    <v-card-text v-if="!snapshot" class="text-center pa-8">
-      <v-icon size="64" color="grey-lighten-1">mdi-camera-off-outline</v-icon>
-      <div class="text-h6 mt-2 text-grey-lighten-1">No snapshot available</div>
-    </v-card-text>
+    <v-empty-state
+      v-if="!snapshot"
+      icon="mdi-camera-off-outline"
+      title="No snapshot available"></v-empty-state>
 
     <v-list v-else density="compact">
       <!-- Snapshot ID -->
@@ -22,7 +22,7 @@
           <v-btn
             icon="mdi-content-copy"
             size="small"
-            variant="flat"
+            variant="text"
             @click="copyToClipboard(String(snapshot['snapshot-id']))"></v-btn>
         </v-list-item-subtitle>
       </v-list-item>
@@ -59,7 +59,7 @@
           <v-btn
             icon="mdi-content-copy"
             size="small"
-            variant="flat"
+            variant="text"
             @click="copyToClipboard(String(snapshot['parent-snapshot-id']))"></v-btn>
         </v-list-item-subtitle>
       </v-list-item>
@@ -87,7 +87,7 @@
           <v-btn
             icon="mdi-content-copy"
             size="small"
-            variant="flat"
+            variant="text"
             @click="copyToClipboard(snapshot['manifest-list'])"></v-btn>
         </v-list-item-subtitle>
       </v-list-item>
@@ -98,7 +98,7 @@
       <v-divider></v-divider>
       <v-card-text>
         <div class="text-subtitle-2 mb-3 d-flex align-center">
-          <v-icon size="18" class="mr-1">mdi-clipboard-text-outline</v-icon>
+          <v-icon size="small" class="mr-1">mdi-clipboard-text-outline</v-icon>
           Summary
         </div>
 
@@ -106,7 +106,7 @@
           <v-col v-for="h in highlights" :key="h.label" cols="6" sm="3">
             <v-sheet border rounded="lg" class="pa-3 h-100">
               <div class="d-flex align-center text-caption text-medium-emphasis mb-1">
-                <v-icon size="14" class="mr-1">{{ h.icon }}</v-icon>
+                <v-icon size="x-small" class="mr-1">{{ h.icon }}</v-icon>
                 {{ h.label }}
               </div>
               <div class="text-h6 font-weight-medium summary-value">{{ h.value }}</div>

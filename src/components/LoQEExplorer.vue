@@ -5,7 +5,7 @@
       <div class="text-h6 d-flex align-center ga-2">
         <v-icon>mdi-database-cog-outline</v-icon>
         LoQE
-        <span class="text-caption text-grey">Local Query Engine</span>
+        <span class="text-caption text-medium-emphasis">Local Query Engine</span>
         <v-chip color="primary" size="x-small" variant="tonal" class="ml-2" label>
           DuckDB WASM
         </v-chip>
@@ -29,7 +29,7 @@
         Ready
       </v-chip>
 
-      <v-chip v-else color="grey" size="small" variant="tonal" class="mr-2">
+      <v-chip v-else size="small" variant="tonal" class="mr-2">
         <v-icon start size="x-small">mdi-circle-outline</v-icon>
         Idle
       </v-chip>
@@ -60,13 +60,13 @@
       </v-chip>
 
       <v-btn
-        icon
+        icon="mdi-broom"
         size="small"
         variant="text"
         :loading="isFreeing"
         @click="handleFreeMemory"
         class="mr-1">
-        <v-icon size="small">mdi-broom</v-icon>
+        <v-icon></v-icon>
         <v-tooltip activator="parent" location="bottom">
           Free RAM — close idle connections, flush caches
         </v-tooltip>
@@ -74,8 +74,8 @@
 
       <DuckDBSettingsDialog :on-free-memory="handleFreeMemory" />
 
-      <v-btn icon size="small" variant="text" @click="showResetDialog = true">
-        <v-icon size="small">mdi-refresh</v-icon>
+      <v-btn icon="mdi-refresh" size="small" variant="text" @click="showResetDialog = true">
+        <v-icon></v-icon>
         <v-tooltip activator="parent" location="bottom">Reset engine</v-tooltip>
       </v-btn>
     </v-toolbar>
@@ -116,13 +116,11 @@
                   Extensions
                   <v-spacer />
                   <v-btn
-                    icon
+                    icon="mdi-plus"
                     size="x-small"
                     variant="text"
                     @click.stop="showExtensionDialog = true"
-                    class="mr-2">
-                    <v-icon size="x-small">mdi-plus</v-icon>
-                  </v-btn>
+                    class="mr-2"></v-btn>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
                   <v-list density="compact" v-if="userExtensions.length">
@@ -136,17 +134,15 @@
                       </template>
                       <template v-slot:append>
                         <v-btn
-                          icon
+                          icon="mdi-close"
                           size="x-small"
                           variant="text"
                           density="compact"
-                          @click="handleRemoveExtension(ext)">
-                          <v-icon size="x-small">mdi-close</v-icon>
-                        </v-btn>
+                          @click="handleRemoveExtension(ext)"></v-btn>
                       </template>
                     </v-list-item>
                   </v-list>
-                  <div v-else class="text-caption text-grey pa-2">
+                  <div v-else class="text-caption text-medium-emphasis pa-2">
                     No custom extensions installed
                   </div>
                 </v-expansion-panel-text>
@@ -160,13 +156,12 @@
                   <v-spacer />
                   <v-btn
                     v-if="loqe.store.queryHistory.length"
-                    icon
+                    icon="mdi-delete-outline"
+                    color="error"
                     size="x-small"
                     variant="text"
                     @click.stop="loqe.store.clearHistory()"
-                    class="mr-2">
-                    <v-icon size="x-small">mdi-delete-outline</v-icon>
-                  </v-btn>
+                    class="mr-2"></v-btn>
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
                   <v-list density="compact" v-if="loqe.store.queryHistory.length">
@@ -189,8 +184,8 @@
                       </v-list-item-subtitle>
                     </v-list-item>
                   </v-list>
-                  <div v-else class="text-caption text-grey pa-2">No queries yet</div>
-                  <div class="text-caption text-grey pa-2 pt-0">
+                  <div v-else class="text-caption text-medium-emphasis pa-2">No queries yet</div>
+                  <div class="text-caption text-medium-emphasis pa-2 pt-0">
                     History keeps the last 200 queries.
                   </div>
                 </v-expansion-panel-text>
@@ -229,16 +224,12 @@
                   <!-- Collapse toggle + info alert -->
                   <div class="d-flex align-center mb-3">
                     <v-btn
-                      icon
+                      :icon="sidebarCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
                       size="default"
                       variant="tonal"
                       color="primary"
                       @click="sidebarCollapsed = !sidebarCollapsed"
-                      class="mr-3">
-                      <v-icon>
-                        {{ sidebarCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
-                      </v-icon>
-                    </v-btn>
+                      class="mr-3"></v-btn>
                     <span class="text-subtitle-2">SQL Query</span>
                   </div>
 
@@ -279,18 +270,21 @@
                         mdi-close
                       </v-icon>
                     </v-tab>
-                    <v-btn icon size="x-small" variant="text" class="ml-2" @click="handleAddTab">
-                      <v-icon>mdi-plus</v-icon>
-                    </v-btn>
+                    <v-btn
+                      icon="mdi-plus"
+                      size="x-small"
+                      variant="text"
+                      class="ml-2"
+                      @click="handleAddTab"></v-btn>
                   </v-tabs>
 
                   <!-- Tab actions toolbar -->
                   <div
                     class="d-flex align-center ga-1 py-1 px-1"
-                    style="border-bottom: 1px solid rgba(128, 128, 128, 0.15)">
+                    style="border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12)">
                     <v-btn
                       variant="text"
-                      size="x-small"
+                      size="small"
                       @click="formatSQL"
                       :disabled="loqe.isInitializing.value">
                       <v-icon start size="small">mdi-auto-fix</v-icon>
@@ -298,7 +292,7 @@
                     </v-btn>
                     <v-btn
                       variant="text"
-                      size="x-small"
+                      size="small"
                       @click="copySQL"
                       :disabled="loqe.isInitializing.value">
                       <v-icon start size="small">mdi-content-copy</v-icon>
@@ -306,7 +300,7 @@
                     </v-btn>
                     <v-btn
                       variant="text"
-                      size="x-small"
+                      size="small"
                       @click="sqlEditorRef?.clearContent()"
                       :disabled="loqe.isInitializing.value">
                       <v-icon start size="small">mdi-eraser</v-icon>
@@ -315,19 +309,19 @@
                     <v-divider vertical class="mx-1" style="height: 20px; align-self: center" />
                     <v-btn
                       variant="text"
-                      size="x-small"
+                      size="small"
                       @click="
                         startRenameTab(
                           currentLoqeTabs[activeTabIndex]?.id,
                           currentLoqeTabs[activeTabIndex]?.name,
                         )
                       ">
-                      <v-icon start size="small">mdi-pencil</v-icon>
+                      <v-icon start size="small">mdi-pencil-outline</v-icon>
                       Rename
                     </v-btn>
                     <v-btn
                       variant="text"
-                      size="x-small"
+                      size="small"
                       @click="handleCloseOtherTabs(currentLoqeTabs[activeTabIndex]?.id)"
                       :disabled="currentLoqeTabs.length <= 1">
                       <v-icon start size="small">mdi-close-box-multiple</v-icon>
@@ -337,7 +331,7 @@
                     <v-btn
                       v-if="loqe.isQuerying.value"
                       variant="outlined"
-                      size="x-small"
+                      size="small"
                       color="error"
                       @click="loqe.cancelQuery()">
                       <v-icon start size="small">mdi-stop</v-icon>
@@ -346,7 +340,7 @@
                     <v-btn
                       v-else
                       variant="flat"
-                      size="x-small"
+                      size="small"
                       :color="sqlQuery.trim() ? 'primary' : undefined"
                       @click="executeQuery"
                       :disabled="!sqlQuery.trim() || loqe.isInitializing.value">
@@ -360,7 +354,7 @@
                     v-if="loqe.isInitializing.value"
                     class="loqe-skeleton-editor d-flex flex-column align-center justify-center"
                     :style="{ minHeight: editorHeight + 'vh', overflow: 'hidden' }">
-                    <l-helix size="45" speed="2.5" color="#0097FB"></l-helix>
+                    <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
                     <span class="text-caption text-medium-emphasis mt-4">
                       Initialising DuckDB engine…
                     </span>
@@ -398,7 +392,7 @@
                       style="
                         text-align: center;
                         font-size: 10px;
-                        color: #999;
+                        color: rgba(var(--v-theme-on-surface), 0.4);
                         line-height: 5px;
                         user-select: none;
                       ">
@@ -565,7 +559,7 @@
                         style="
                           text-align: center;
                           font-size: 10px;
-                          color: #999;
+                          color: rgba(var(--v-theme-on-surface), 0.4);
                           line-height: 5px;
                           user-select: none;
                         ">
@@ -586,19 +580,19 @@
                     v-if="loqe.isQuerying.value"
                     variant="outlined"
                     class="d-flex flex-column align-center justify-center pa-8">
-                    <l-hourglass size="40" speed="1.75" color="#0097FB"></l-hourglass>
+                    <l-hourglass
+                      size="40"
+                      speed="1.75"
+                      color="rgb(var(--v-theme-primary))"></l-hourglass>
                     <span class="text-caption text-medium-emphasis mt-4">Running query…</span>
                   </v-card>
 
                   <!-- Empty state -->
-                  <v-card
+                  <v-empty-state
                     v-else-if="loqe.isInitialized.value && !loqe.isQuerying.value && !hasAnyResults"
-                    variant="outlined"
-                    class="text-center pa-8">
-                    <v-icon size="64" color="grey-lighten-1">mdi-database-off-outline</v-icon>
-                    <div class="text-h6 mt-4 text-grey">No Results</div>
-                    <div class="text-body-2 text-grey">Execute a query to see results here</div>
-                  </v-card>
+                    icon="mdi-database-off-outline"
+                    title="No Results"
+                    text="Execute a query to see results here"></v-empty-state>
                 </v-card-text>
               </v-card>
             </v-col>
@@ -608,9 +602,9 @@
     </div>
 
     <!-- ── Install Extension Dialog ──────────────────────────────── -->
-    <v-dialog v-model="showExtensionDialog" max-width="450">
+    <v-dialog v-model="showExtensionDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="primary" class="mr-2">mdi-puzzle-plus-outline</v-icon>
           Install Extension
         </v-card-title>
@@ -641,9 +635,9 @@
     </v-dialog>
 
     <!-- ── Reset Confirmation Dialog ─────────────────────────────── -->
-    <v-dialog v-model="showResetDialog" max-width="450">
+    <v-dialog v-model="showResetDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
           Reset LoQE Engine?
         </v-card-title>
@@ -652,7 +646,7 @@
             This will destroy the current DuckDB instance, detach catalogs, and remove query
             history.
           </p>
-          <p class="text-body-2 text-grey mb-0">
+          <p class="text-body-2 text-medium-emphasis mb-0">
             The engine will be re-initialised on the next query.
           </p>
         </v-card-text>
@@ -665,15 +659,15 @@
     </v-dialog>
 
     <!-- ── Close Tab Confirmation Dialog ──────────────────────────── -->
-    <v-dialog v-model="showCloseTabDialog" max-width="500">
+    <v-dialog v-model="showCloseTabDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
           Close Query Tab?
         </v-card-title>
         <v-card-text>
           <p class="mb-2">Are you sure you want to close "{{ tabToClose?.name }}"?</p>
-          <p class="text-body-2 text-grey mb-0">
+          <p class="text-body-2 text-medium-emphasis mb-0">
             The SQL query in this tab will be permanently deleted and cannot be recovered.
           </p>
         </v-card-text>
@@ -686,10 +680,10 @@
     </v-dialog>
 
     <!-- ── Rename Tab Dialog ─────────────────────────────────────── -->
-    <v-dialog v-model="showRenameDialog" max-width="500">
+    <v-dialog v-model="showRenameDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon color="primary" class="mr-2">mdi-pencil</v-icon>
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
+          <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
           Rename Query
         </v-card-title>
         <v-card-text>
@@ -701,6 +695,7 @@
             @keyup.esc="cancelRename"
             variant="outlined"
             density="comfortable"
+            hide-details="auto"
             hint="Press Enter to save, Esc to cancel"
             persistent-hint
             :error="!!renameError"
@@ -711,7 +706,7 @@
           <v-btn variant="text" @click="cancelRename">Cancel</v-btn>
           <v-btn
             color="primary"
-            variant="elevated"
+            variant="flat"
             @click="confirmRename"
             :disabled="!newTabName.trim()">
             Rename
@@ -721,9 +716,9 @@
     </v-dialog>
 
     <!-- ── Close Other Tabs Confirmation Dialog ──────────────────── -->
-    <v-dialog v-model="showCloseOtherTabsDialog" max-width="500">
+    <v-dialog v-model="showCloseOtherTabsDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="warning" class="mr-2">mdi-alert</v-icon>
           Close Other Tabs?
         </v-card-title>
@@ -731,7 +726,7 @@
           <p class="mb-2">
             Are you sure you want to close all tabs except "{{ tabToKeep?.name }}"?
           </p>
-          <p class="text-body-2 text-grey mb-0">
+          <p class="text-body-2 text-medium-emphasis mb-0">
             {{ otherTabsCount }} tab{{ otherTabsCount !== 1 ? 's' : '' }} will be permanently
             deleted and cannot be recovered.
           </p>
@@ -747,21 +742,23 @@
     </v-dialog>
 
     <!-- Table Preview Dialog -->
-    <v-dialog v-model="showPreviewDialog" max-width="900" scrollable>
+    <v-dialog v-model="showPreviewDialog" max-width="800" scrollable>
       <v-card>
-        <v-card-title class="d-flex align-center text-subtitle-1">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon size="small" class="mr-2">mdi-eye-outline</v-icon>
           {{ previewTitle }}
           <v-spacer />
-          <v-btn icon size="small" variant="text" @click="showPreviewDialog = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+          <v-btn
+            icon="mdi-close"
+            size="small"
+            variant="text"
+            @click="showPreviewDialog = false"></v-btn>
         </v-card-title>
         <v-divider />
         <v-card-text class="pa-0" style="max-height: 500px; overflow: auto">
           <div v-if="isPreviewLoading" class="text-center py-8">
-            <v-progress-circular indeterminate size="32" color="primary" />
-            <div class="text-caption mt-2 text-grey">Loading preview…</div>
+            <v-progress-circular indeterminate size="48" color="primary" />
+            <div class="text-caption mt-2 text-medium-emphasis">Loading preview…</div>
           </div>
           <div v-else-if="previewError" class="pa-4">
             <v-alert type="error" variant="tonal" density="compact">{{ previewError }}</v-alert>
@@ -815,19 +812,21 @@
     <!-- DDL Dialog -->
     <v-dialog v-model="showDDLDialog" max-width="1200" height="80vh" scrollable>
       <v-card style="height: 100%; display: flex; flex-direction: column">
-        <v-card-title class="d-flex align-center text-subtitle-1">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon size="small" class="mr-2">mdi-code-tags</v-icon>
           {{ ddlTitle }}
           <v-spacer />
-          <v-btn icon size="small" variant="text" @click="showDDLDialog = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+          <v-btn
+            icon="mdi-close"
+            size="small"
+            variant="text"
+            @click="showDDLDialog = false"></v-btn>
         </v-card-title>
         <v-divider />
         <v-card-text class="pa-0" style="flex: 1; overflow: auto">
           <div v-if="isDDLLoading" class="text-center py-8">
-            <v-progress-circular indeterminate size="32" color="primary" />
-            <div class="text-caption mt-2 text-grey">Loading metadata…</div>
+            <v-progress-circular indeterminate size="48" color="primary" />
+            <div class="text-caption mt-2 text-medium-emphasis">Loading metadata…</div>
           </div>
           <div v-else-if="ddlError" class="pa-4">
             <v-alert type="error" variant="tonal" density="compact">{{ ddlError }}</v-alert>
@@ -1860,7 +1859,7 @@ onBeforeUnmount(() => {
 
 /* Skeleton editor effect while DuckDB initialises */
 .loqe-skeleton-editor {
-  background: rgba(128, 128, 128, 0.04);
+  background: rgba(var(--v-theme-on-surface), 0.04);
   border-radius: 4px;
 }
 </style>

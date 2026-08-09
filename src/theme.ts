@@ -57,7 +57,7 @@ export const lakekeeperDarkTheme = {
     'surface-bright': '#32485C',
     'surface-light': '#28415A',
     'surface-variant': '#8DA5BA',
-    'on-surface-variant': '#BCD4EB',
+    'on-surface-variant': '#1E3448',
     primary: '#0097FB',
     'primary-darken-1': '#0079C9',
     'on-primary': '#000000',

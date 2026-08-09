@@ -27,15 +27,13 @@
   </v-menu>
 
   <!-- Table settings: rename + deletion protection -->
-  <v-dialog v-model="settingsOpen" max-width="520">
+  <v-dialog v-model="settingsOpen" max-width="440">
     <v-card>
       <v-card-title class="d-flex align-center text-subtitle-1 py-3">
         <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
         {{ label[0].toUpperCase() + label.slice(1) }} Settings
         <v-spacer></v-spacer>
-        <v-btn icon variant="text" size="small" @click="settingsOpen = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
+        <v-btn icon="mdi-close" variant="text" size="small" @click="settingsOpen = false"></v-btn>
       </v-card-title>
       <v-divider></v-divider>
       <v-card-text>
@@ -83,10 +81,10 @@
   </v-dialog>
 
   <!-- Delete confirmation -->
-  <v-dialog v-model="deleteOpen" max-width="520">
+  <v-dialog v-model="deleteOpen" max-width="440">
     <v-card>
       <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-        <v-icon class="mr-2" color="error">mdi-delete-alert-outline</v-icon>
+        <v-icon class="mr-2" color="error">mdi-delete-outline</v-icon>
         Delete {{ label }}
       </v-card-title>
       <v-divider></v-divider>

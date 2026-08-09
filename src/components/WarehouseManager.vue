@@ -3,7 +3,7 @@
     v-if="loading"
     class="warehouse-loading d-flex flex-column align-center justify-center"
     style="height: calc(100vh - 200px)">
-    <l-helix size="45" speed="2.5" color="#0097FB"></l-helix>
+    <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
     <span class="text-caption text-medium-emphasis mt-4">Loading…</span>
   </div>
   <v-container v-else fluid class="pa-0">
@@ -11,17 +11,13 @@
       <template #prepend>
         <!-- Collapse/Expand Button -->
         <v-btn
-          icon
+          :icon="isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
           size="default"
           variant="tonal"
           color="primary"
           @click="toggleNavigation"
           class="mr-3"
-          :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
-          <v-icon>
-            {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
-          </v-icon>
-        </v-btn>
+          :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'"></v-btn>
         <v-icon>mdi-warehouse</v-icon>
       </template>
       <v-toolbar-title>
@@ -38,7 +34,7 @@
       v-if="canListWarehouses && warehousesLoading"
       class="warehouse-loading d-flex flex-column align-center justify-center"
       style="height: calc(100vh - 340px)">
-      <l-helix size="45" speed="2.5" color="#0097FB"></l-helix>
+      <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
       <span class="text-caption text-medium-emphasis mt-4">Loading warehouses…</span>
     </div>
 
@@ -305,7 +301,7 @@ function toggleNavigation() {
 
 <style scoped>
 .warehouse-loading {
-  background: rgba(128, 128, 128, 0.04);
+  background: rgba(var(--v-theme-on-surface), 0.04);
   border-radius: 4px;
 }
 </style>

@@ -37,7 +37,7 @@
         <v-radio-group v-model="credentialType" row>
           <v-row>
             <v-col>
-              <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
+              <span class="text-subtitle-2 text-medium-emphasis">Select Credential Type:</span>
             </v-col>
           </v-row>
           <v-row>
@@ -87,7 +87,8 @@
             @update:model-value="verifyKeyJson"></v-textarea>
           <v-btn
             v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-            color="success"
+            color="primary"
+            variant="flat"
             :disabled="!keyStringValid"
             @click="emitNewCredentials">
             Update Credentials
@@ -194,6 +195,7 @@
                 item-title="name"
                 item-value="code"
                 label="Layout Type"
+                no-data-text="No layout types available"
                 :hint="
                   storageLayoutType !== 'default'
                     ? 'How directories are organized under the warehouse base location'
@@ -318,7 +320,8 @@
           v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
           divided>
           <v-btn
-            color="success"
+            color="primary"
+            variant="flat"
             :disabled="
               (credentialType === 'service-account-key' && !keyStringValid) ||
               warehouseObjectData['storage-profile'].bucket == ''
@@ -329,7 +332,8 @@
           <v-menu>
             <template #activator="{ props: menuProps }">
               <v-btn
-                color="success"
+                color="primary"
+                variant="flat"
                 v-bind="menuProps"
                 icon="mdi-menu-down"
                 size="small"
@@ -357,7 +361,8 @@
 
         <v-btn
           v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
-          color="success"
+          color="primary"
+          variant="flat"
           :disabled="!warehouseObjectData['storage-profile'].bucket"
           @click="emitNewProfile">
           Update Profile

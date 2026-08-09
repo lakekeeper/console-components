@@ -7,14 +7,12 @@
       <v-icon size="small" class="mr-1">mdi-file-tree-outline</v-icon>
       <span class="flex-grow-1">Object Browser</span>
       <v-btn
-        icon
+        icon="mdi-refresh"
         size="x-small"
         variant="text"
         @click="refreshTree"
         :loading="isLoading"
-        title="Refresh">
-        <v-icon size="small">mdi-refresh</v-icon>
-      </v-btn>
+        title="Refresh"></v-btn>
     </v-sheet>
 
     <!-- Search -->
@@ -50,14 +48,12 @@
         </template>
         <template #append-inner>
           <v-btn
-            icon
+            icon="mdi-arrow-right"
             size="x-small"
             variant="text"
             :disabled="!searchQuery || isSearching || !selectedSearchWarehouse"
             @click="performSearch"
-            title="Search warehouse (fuzzy)">
-            <v-icon size="small">mdi-arrow-right</v-icon>
-          </v-btn>
+            title="Search warehouse (fuzzy)"></v-btn>
         </template>
       </v-text-field>
     </v-sheet>
@@ -71,12 +67,12 @@
       class="flex-shrink-0"
       style="max-height: 240px; overflow-y: auto">
       <div v-if="isSearching" class="text-center py-3">
-        <v-progress-circular color="primary" indeterminate size="20" />
+        <v-progress-circular color="primary" indeterminate size="48" />
         <div class="text-caption mt-1">Searching…</div>
       </div>
       <div v-else-if="searchResults.length === 0" class="text-center py-3">
-        <v-icon size="24" color="grey">mdi-table-search</v-icon>
-        <div class="text-caption mt-1 text-grey">No results found</div>
+        <v-icon class="text-medium-emphasis">mdi-table-search</v-icon>
+        <div class="text-caption mt-1 text-medium-emphasis">No results found</div>
       </div>
       <div v-else>
         <div class="d-flex align-center px-3 pt-2">
@@ -97,12 +93,11 @@
             </template>
           </v-checkbox>
           <v-btn
+            icon="mdi-close"
             size="x-small"
             variant="text"
             @click="dismissSearch"
-            title="Dismiss search results">
-            <v-icon size="small">mdi-close</v-icon>
-          </v-btn>
+            title="Dismiss search results"></v-btn>
         </div>
         <v-list density="compact" class="pa-2 pt-0 search-results-list" bg-color="transparent">
           <v-list-item
@@ -133,24 +128,20 @@
                 {{ Math.round((1 - result.distance) * 100) }}%
               </v-chip>
               <v-btn
-                icon
+                icon="mdi-plus-circle-outline"
                 size="x-small"
                 variant="text"
                 @click.stop="insertSearchResult(result)"
-                title="Insert into SQL editor">
-                <v-icon size="small">mdi-plus-circle-outline</v-icon>
-              </v-btn>
+                title="Insert into SQL editor"></v-btn>
               <v-menu location="bottom end">
                 <template #activator="{ props: menuProps }">
                   <v-btn
                     v-bind="menuProps"
-                    icon
+                    icon="mdi-dots-vertical"
                     size="x-small"
                     variant="text"
                     @click.stop
-                    title="More actions">
-                    <v-icon size="small">mdi-dots-vertical</v-icon>
-                  </v-btn>
+                    title="More actions"></v-btn>
                 </template>
                 <v-list density="compact" class="pa-1" min-width="160">
                   <v-list-item
@@ -182,15 +173,15 @@
 
     <!-- Loading state -->
     <div v-if="isLoading && treeItems.length === 0" class="text-center py-4">
-      <v-progress-circular indeterminate size="24" color="primary" />
-      <div class="text-caption mt-2 text-grey">Loading warehouses…</div>
+      <v-progress-circular indeterminate size="48" color="primary" />
+      <div class="text-caption mt-2 text-medium-emphasis">Loading warehouses…</div>
     </div>
 
     <!-- Empty state -->
-    <div v-else-if="!isLoading && treeItems.length === 0" class="text-center py-4 px-3">
-      <v-icon size="32" color="grey-lighten-1">mdi-database-off-outline</v-icon>
-      <div class="text-caption mt-2 text-grey">No warehouses found</div>
-    </div>
+    <v-empty-state
+      v-else-if="!isLoading && treeItems.length === 0"
+      icon="mdi-database-off-outline"
+      title="No warehouses found"></v-empty-state>
 
     <!-- Tree -->
     <v-sheet
@@ -269,7 +260,7 @@
             :icon="getTypeIcon(item.fieldType)"
             :color="getTypeColor(item.fieldType)"
             size="x-small" />
-          <v-icon v-else-if="item.type === 'load-more'" size="small" color="grey">
+          <v-icon v-else-if="item.type === 'load-more'" size="small" class="text-medium-emphasis">
             mdi-dots-horizontal
           </v-icon>
         </template>
@@ -288,7 +279,11 @@
             <span
               v-if="item.type === 'load-more'"
               class="tree-item-title text-caption"
-              style="cursor: pointer; font-style: italic; color: grey"
+              style="
+                cursor: pointer;
+                font-style: italic;
+                color: rgba(var(--v-theme-on-surface), 0.6);
+              "
               @click.stop="handleLoadMore(item)">
               {{ item.name }}
             </span>
@@ -310,30 +305,26 @@
             <!-- Insert button for tables/views -->
             <v-btn
               v-if="item.type === 'table' || item.type === 'view'"
-              icon
+              icon="mdi-plus-circle-outline"
               size="x-small"
               variant="text"
               class="tree-item-insert-btn"
               :style="{ opacity: hoveredItem === item.id ? 1 : 0 }"
               @click.stop="handleInsertPath(item)"
-              title="Insert path into query">
-              <v-icon size="small">mdi-plus-circle-outline</v-icon>
-            </v-btn>
+              title="Insert path into query"></v-btn>
 
             <!-- Kebab menu for tables/views -->
             <v-menu v-if="item.type === 'table' || item.type === 'view'" location="bottom end">
               <template #activator="{ props: menuProps }">
                 <v-btn
                   v-bind="menuProps"
-                  icon
+                  icon="mdi-dots-vertical"
                   size="x-small"
                   variant="text"
                   class="tree-item-insert-btn"
                   :style="{ opacity: hoveredItem === item.id ? 1 : 0 }"
                   @click.stop
-                  title="More actions">
-                  <v-icon size="small">mdi-dots-vertical</v-icon>
-                </v-btn>
+                  title="More actions"></v-btn>
               </template>
               <v-list density="compact" class="pa-1" min-width="160">
                 <v-list-item
@@ -360,15 +351,13 @@
             <!-- Insert button for fields -->
             <v-btn
               v-if="item.type === 'field'"
-              icon
+              icon="mdi-plus-circle-outline"
               size="x-small"
               variant="text"
               class="tree-item-insert-btn"
               :style="{ opacity: hoveredItem === item.id ? 1 : 0 }"
               @click.stop="handleInsertField(item)"
-              title="Insert field name">
-              <v-icon size="small">mdi-plus-circle-outline</v-icon>
-            </v-btn>
+              title="Insert field name"></v-btn>
           </div>
         </template>
       </v-treeview>

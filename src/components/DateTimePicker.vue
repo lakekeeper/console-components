@@ -18,13 +18,16 @@
         @click:clear.stop="clear"></v-text-field>
     </template>
 
-    <v-card min-width="300">
-      <v-date-picker
-        v-model="draftDate"
-        :min="minDate"
-        :max="maxDate"
-        hide-header
-        show-adjacent-months></v-date-picker>
+    <v-card width="336">
+      <div class="pa-2">
+        <v-date-picker
+          v-model="draftDate"
+          :min="minDate"
+          :max="maxDate"
+          hide-header
+          show-adjacent-months
+          width="100%"></v-date-picker>
+      </div>
       <v-divider></v-divider>
       <div class="d-flex align-center ga-2 px-4 py-3">
         <v-select
@@ -33,6 +36,7 @@
           label="HH"
           density="compact"
           hide-details
+          no-data-text="No hours available"
           style="max-width: 90px"></v-select>
         <span class="text-medium-emphasis">:</span>
         <v-select
@@ -41,6 +45,7 @@
           label="MM"
           density="compact"
           hide-details
+          no-data-text="No minutes available"
           style="max-width: 90px"></v-select>
       </div>
       <v-card-actions>
@@ -81,7 +86,7 @@ const props = withDefaults(
     label: undefined,
     density: 'default',
     variant: 'outlined',
-    hideDetails: false,
+    hideDetails: 'auto',
     clearable: false,
     hint: undefined,
     persistentHint: false,

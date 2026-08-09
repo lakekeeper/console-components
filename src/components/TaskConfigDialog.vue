@@ -11,9 +11,9 @@
   </v-list-item>
 
   <!-- Task Config PLUS Feature Dialog -->
-  <v-dialog v-model="showTaskConfigDialog" max-width="500px">
+  <v-dialog v-model="showTaskConfigDialog" max-width="600">
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         <v-icon class="mr-2" color="primary">mdi-star</v-icon>
         Lakekeeper PLUS Feature
       </v-card-title>
@@ -22,7 +22,7 @@
 
       <v-card-text class="pt-4">
         <div class="text-center mb-4">
-          <v-icon size="64" color="primary">mdi-cog-outline</v-icon>
+          <v-icon size="x-large" color="primary">mdi-cog-outline</v-icon>
         </div>
 
         <div class="text-h6 text-center mb-3">Task Configuration</div>
@@ -69,9 +69,9 @@
 
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="secondary" variant="text" @click="showTaskConfigDialog = false">Close</v-btn>
+        <v-btn variant="text" @click="showTaskConfigDialog = false">Close</v-btn>
         <v-btn
-          color="success"
+          color="secondary"
           variant="flat"
           size="small"
           @click="scheduleMeeting('https://zcal.co/viktor-kessler/demo')">

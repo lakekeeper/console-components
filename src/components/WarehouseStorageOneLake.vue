@@ -38,7 +38,7 @@
         <v-radio-group v-model="credentialType" row>
           <v-row>
             <v-col>
-              <span class="text-subtitle-2 text-grey-darken-1">Select Credential Type:</span>
+              <span class="text-subtitle-2 text-medium-emphasis">Select Credential Type:</span>
             </v-col>
           </v-row>
           <v-row>
@@ -92,7 +92,8 @@
             :color="isTenantIdInvalid ? 'error' : 'primary'" />
           <v-btn
             v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-            color="success"
+            color="primary"
+            variant="flat"
             :disabled="
               !warehouseObjectData['storage-credential']['client-id'] ||
               !warehouseObjectData['storage-credential']['client-secret'] ||
@@ -110,7 +111,8 @@
           </v-alert>
           <v-btn
             v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-            color="success"
+            color="primary"
+            variant="flat"
             @click="emitNewCredentials">
             Update Credentials
           </v-btn>
@@ -162,6 +164,7 @@
           :items="['Files', 'Tables']"
           label="Top-level folder"
           hint="Managed folder under the lakehouse (default: Files)"
+          no-data-text="No folders available"
           persistent-hint></v-select>
         <v-text-field
           v-model="warehouseObjectData['storage-profile']['directory-rel-path']"
@@ -191,6 +194,7 @@
                 item-value="code"
                 label="Endpoint mode"
                 hint="How Lakekeeper reaches OneLake (default: global endpoint)"
+                no-data-text="No endpoint modes available"
                 persistent-hint
                 class="mb-2"></v-select>
               <v-text-field
@@ -224,7 +228,8 @@
                 :items="storageLayoutOptions"
                 item-title="name"
                 item-value="code"
-                label="Layout Type">
+                label="Layout Type"
+                no-data-text="No layout types available">
                 <template #item="{ props: itemProps, item }">
                   <v-list-item v-bind="itemProps" :subtitle="item.raw.description"></v-list-item>
                 </template>
@@ -308,10 +313,15 @@
         <v-btn-group
           v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
           divided>
-          <v-btn color="success" type="submit">Create</v-btn>
+          <v-btn color="primary" variant="flat" type="submit">Create</v-btn>
           <v-menu>
             <template #activator="{ props: menuProps }">
-              <v-btn color="success" v-bind="menuProps" icon="mdi-menu-down" size="small"></v-btn>
+              <v-btn
+                color="primary"
+                variant="flat"
+                v-bind="menuProps"
+                icon="mdi-menu-down"
+                size="small"></v-btn>
             </template>
             <v-list>
               <v-list-item @click="handleSubmit">
@@ -328,7 +338,8 @@
 
         <v-btn
           v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
-          color="success"
+          color="primary"
+          variant="flat"
           :disabled="isWorkspaceIdInvalid || isLakehouseIdInvalid"
           @click="emitNewProfile">
           Update Profile

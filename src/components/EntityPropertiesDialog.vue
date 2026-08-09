@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="650" scrollable>
+  <v-dialog v-model="isDialogActive" max-width="800" scrollable>
     <template v-if="!hideActivator" #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
@@ -7,13 +7,13 @@
         size="x-small"
         variant="text"
         color="primary">
-        <v-icon>mdi-pencil-outline</v-icon>
+        <v-icon></v-icon>
         <v-tooltip activator="parent" location="bottom">Edit Properties</v-tooltip>
       </v-btn>
     </template>
 
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         <v-icon color="primary" class="mr-2">mdi-text-box-multiple-outline</v-icon>
         {{ entityLabel }} Properties
       </v-card-title>
@@ -42,7 +42,7 @@
             <v-text-field
               v-model="removalConfirmations[key]"
               density="compact"
-              hide-details
+              hide-details="auto"
               :placeholder="key"
               variant="outlined"
               :color="removalConfirmations[key] === key ? 'success' : undefined"></v-text-field>
@@ -105,7 +105,7 @@
               <v-text-field
                 v-model="prop.key"
                 density="compact"
-                hide-details
+                hide-details="auto"
                 label="Key"
                 placeholder="key"
                 variant="outlined"
@@ -114,7 +114,7 @@
               <v-text-field
                 v-model="prop.value"
                 density="compact"
-                hide-details
+                hide-details="auto"
                 label="Value"
                 placeholder="value"
                 variant="outlined"
@@ -127,7 +127,7 @@
                 size="small"
                 variant="text"
                 @click="markForRemoval(index)">
-                <v-icon>mdi-close</v-icon>
+                <v-icon></v-icon>
                 <v-tooltip activator="parent" location="bottom">Remove</v-tooltip>
               </v-btn>
               <v-btn
@@ -138,7 +138,7 @@
                 size="small"
                 variant="text"
                 @click="unmarkRemoval(index)">
-                <v-icon>mdi-undo</v-icon>
+                <v-icon></v-icon>
                 <v-tooltip activator="parent" location="bottom">Undo removal</v-tooltip>
               </v-btn>
             </div>
@@ -166,26 +166,28 @@
       <v-card-actions>
         <v-spacer></v-spacer>
         <template v-if="confirmingRemovals">
+          <v-btn variant="text" @click="confirmingRemovals = false">Back</v-btn>
           <v-btn
-            color="success"
+            color="primary"
+            variant="flat"
             :disabled="!allRemovalsConfirmed || saving"
             :loading="saving"
             @click="executeSave">
             Confirm &amp; Save
           </v-btn>
-          <v-btn color="error" @click="confirmingRemovals = false">Back</v-btn>
         </template>
         <template v-else>
+          <v-btn variant="text" @click="close">
+            {{ canEdit ? 'Cancel' : 'Close' }}
+          </v-btn>
           <v-btn
             v-if="canEdit"
-            color="success"
+            color="primary"
+            variant="flat"
             :disabled="!hasChanges || saving"
             :loading="saving"
             @click="saveChanges">
             Save
-          </v-btn>
-          <v-btn color="error" @click="close">
-            {{ canEdit ? 'Cancel' : 'Close' }}
           </v-btn>
         </template>
       </v-card-actions>

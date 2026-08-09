@@ -1,20 +1,20 @@
 <template>
-  <v-dialog v-model="dialog" max-width="900px" persistent>
+  <v-dialog v-model="dialog" max-width="1000" persistent>
     <template #activator="{ props: dialogProps }">
       <v-btn
         v-bind="dialogProps"
         size="small"
         color="primary"
-        variant="elevated"
+        variant="flat"
         prepend-icon="mdi-table-plus">
         Add Table
       </v-btn>
     </template>
 
     <v-card>
-      <v-card-title class="d-flex justify-space-between align-center">
-        <span class="text-h5">Create Table</span>
-        <v-btn icon="mdi-close" variant="text" @click="closeDialog"></v-btn>
+      <v-card-title class="d-flex justify-space-between align-center text-subtitle-1 py-3">
+        Create Table
+        <v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog"></v-btn>
       </v-card-title>
 
       <v-tabs v-model="formatTab" align-tabs="start" density="compact" color="primary">
@@ -83,7 +83,12 @@
             <div class="mb-4">
               <div class="d-flex justify-space-between align-center mb-2">
                 <span class="text-h6">Schema</span>
-                <v-btn color="primary" size="small" prepend-icon="mdi-plus" @click="addField">
+                <v-btn
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  prepend-icon="mdi-plus"
+                  @click="addField">
                   Add Field
                 </v-btn>
               </div>
@@ -119,6 +124,7 @@
                         variant="outlined"
                         density="compact"
                         :rules="[rules.required]"
+                        no-data-text="No data types available"
                         hide-details="auto"></v-select>
                     </v-col>
 
@@ -131,7 +137,7 @@
                         hide-details></v-checkbox>
                       <v-spacer></v-spacer>
                       <v-btn
-                        icon="mdi-delete"
+                        icon="mdi-delete-outline"
                         size="small"
                         color="error"
                         variant="text"
@@ -150,7 +156,7 @@
                   SQL Preview
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                  <pre class="bg-grey-lighten-4 pa-3 rounded text-caption">{{ sqlPreview }}</pre>
+                  <pre class="bg-surface-light pa-3 rounded text-caption">{{ sqlPreview }}</pre>
                 </v-expansion-panel-text>
               </v-expansion-panel>
             </v-expansion-panels>
@@ -177,7 +183,7 @@
             <v-btn variant="text" @click="closeDialog" :disabled="isCreating">Cancel</v-btn>
             <v-btn
               color="primary"
-              variant="elevated"
+              variant="flat"
               @click="createTable"
               :disabled="!canCreate || isCreating"
               :loading="isCreating">

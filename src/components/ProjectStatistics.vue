@@ -61,7 +61,8 @@
             closable-chips
             density="compact"
             variant="outlined"
-            hide-details>
+            hide-details
+            no-data-text="No status codes available">
             <template #chip="{ item, props: chipProps }">
               <v-chip
                 v-bind="chipProps"
@@ -79,7 +80,6 @@
           <DateTimePicker
             v-model="dateFrom"
             label="From"
-            
             density="compact"
             variant="outlined"
             hide-details
@@ -90,7 +90,6 @@
           <DateTimePicker
             v-model="dateTo"
             label="To"
-            
             density="compact"
             variant="outlined"
             hide-details
@@ -163,7 +162,10 @@
             </v-chip>
           </template>
           <template #no-data>
-            <div class="text-body-2 pa-4">No statistics available</div>
+            <v-empty-state
+              icon="mdi-chart-line-variant"
+              title="No statistics available"
+              size="small"></v-empty-state>
           </template>
         </v-data-table-virtual>
       </div>
@@ -827,7 +829,7 @@ function drawBarChart() {
     .attr('width', (d) => x(d.count))
     .attr('height', y.bandwidth())
     .attr('rx', 3)
-    .attr('fill', '#1e857d')
+    .style('fill', 'rgb(var(--v-theme-secondary))')
     .attr('opacity', 0.85);
 
   bars.each(function (d) {

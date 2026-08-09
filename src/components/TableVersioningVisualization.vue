@@ -4,10 +4,11 @@
       v-if="!table.metadata.refs || Object.keys(table.metadata.refs).length === 0"
       justify="center"
       class="pa-8">
-      <v-col cols="12" class="text-center">
-        <v-icon size="64" color="grey-lighten-1">mdi-source-branch-remove</v-icon>
-        <div class="text-h6 mt-2 text-grey-lighten-1">No branches found</div>
-        <div class="text-body-1 text-grey-lighten-1">This table has no branch references</div>
+      <v-col cols="12">
+        <v-empty-state
+          icon="mdi-source-branch-remove"
+          title="No branches found"
+          text="This table has no branch references"></v-empty-state>
       </v-col>
     </v-row>
 
@@ -18,7 +19,7 @@
           <div class="zoom-bar">
             <v-btn-group variant="flat" density="comfortable" class="zoom-group" rounded="lg">
               <v-btn size="small" icon="mdi-plus" @click="zoomIn">
-                <v-icon size="18">mdi-plus</v-icon>
+                <v-icon size="small">mdi-plus</v-icon>
                 <v-tooltip activator="parent" location="bottom">Zoom in</v-tooltip>
               </v-btn>
               <v-btn size="small" class="zoom-label" @click="resetZoom">
@@ -26,11 +27,11 @@
                 <v-tooltip activator="parent" location="bottom">Reset zoom</v-tooltip>
               </v-btn>
               <v-btn size="small" icon="mdi-minus" @click="zoomOut">
-                <v-icon size="18">mdi-minus</v-icon>
+                <v-icon size="small">mdi-minus</v-icon>
                 <v-tooltip activator="parent" location="bottom">Zoom out</v-tooltip>
               </v-btn>
               <v-btn size="small" icon="mdi-fit-to-screen" @click="fitToView">
-                <v-icon size="18">mdi-fit-to-screen</v-icon>
+                <v-icon size="small">mdi-fit-to-screen</v-icon>
                 <v-tooltip activator="parent" location="bottom">Fit to view</v-tooltip>
               </v-btn>
             </v-btn-group>
@@ -40,7 +41,7 @@
           <SnapshotCompare :snapshots="snapshotHistory" :schemas="table.metadata.schemas" />
           <v-btn
             size="small"
-            variant="tonal"
+            variant="outlined"
             class="ml-2"
             prepend-icon="mdi-refresh"
             @click="emit('refresh')">
@@ -111,7 +112,8 @@
                     entry.name !== 'main' &&
                     entry.name !== 'master'
                   "
-                  icon="mdi-close-circle"
+                  icon="mdi-close-circle-outline"
+                  color="error"
                   size="x-small"
                   variant="text"
                   density="compact"
@@ -127,7 +129,8 @@
                   @click.stop="openRenameTagDialog(entry.name)"></v-btn>
                 <v-btn
                   v-if="canRollback && entry.type === 'tag'"
-                  icon="mdi-close-circle"
+                  icon="mdi-close-circle-outline"
+                  color="error"
                   size="x-small"
                   variant="text"
                   density="compact"
@@ -166,7 +169,7 @@
                 <v-row no-gutters class="mb-3" align="center">
                   <v-col>
                     <span class="text-subtitle-1 font-weight-bold d-flex align-center">
-                      <v-icon size="18" class="mr-1">mdi-camera-outline</v-icon>
+                      <v-icon size="small" class="mr-1">mdi-camera-outline</v-icon>
                       Snapshot #{{ selectedSnapshot['sequence-number'] }}
                     </span>
                   </v-col>
@@ -176,7 +179,7 @@
                         <v-btn
                           v-bind="menuProps"
                           size="small"
-                          variant="tonal"
+                          variant="outlined"
                           prepend-icon="mdi-dots-horizontal"
                           class="mr-1">
                           Actions
@@ -440,9 +443,9 @@
     </div>
 
     <!-- Create branch dialog -->
-    <v-dialog v-model="createBranchDialog" max-width="500" persistent>
+    <v-dialog v-model="createBranchDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="primary" class="mr-2">mdi-source-branch-plus</v-icon>
           Create Branch
         </v-card-title>
@@ -467,8 +470,10 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeCreateBranchDialog">Cancel</v-btn>
           <v-btn
             color="primary"
+            variant="flat"
             :disabled="
               !createBranchName ||
               /\s/.test(createBranchName) ||
@@ -479,15 +484,14 @@
             @click="executeCreateBranch">
             Create
           </v-btn>
-          <v-btn @click="closeCreateBranchDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Rename branch dialog -->
-    <v-dialog v-model="renameBranchDialog" max-width="500" persistent>
+    <v-dialog v-model="renameBranchDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
           Rename Branch
         </v-card-title>
@@ -513,8 +517,10 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeRenameBranchDialog">Cancel</v-btn>
           <v-btn
             color="primary"
+            variant="flat"
             :disabled="
               !renameBranchNewName ||
               /\s/.test(renameBranchNewName) ||
@@ -526,15 +532,14 @@
             @click="executeRenameBranch">
             Rename
           </v-btn>
-          <v-btn @click="closeRenameBranchDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Delete branch confirmation dialog -->
-    <v-dialog v-model="deleteBranchDialog" max-width="500" persistent>
+    <v-dialog v-model="deleteBranchDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="error" class="mr-2">mdi-source-branch-remove</v-icon>
           Delete Branch
         </v-card-title>
@@ -561,22 +566,23 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeDeleteBranchDialog">Cancel</v-btn>
           <v-btn
             color="error"
+            variant="flat"
             :disabled="deleteBranchConfirmText !== deleteBranchName || deleteBranchLoading"
             :loading="deleteBranchLoading"
             @click="executeDeleteBranch">
             Delete
           </v-btn>
-          <v-btn @click="closeDeleteBranchDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Fast forward confirmation dialog -->
-    <v-dialog v-model="fastForwardDialog" max-width="500" persistent>
+    <v-dialog v-model="fastForwardDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="success" class="mr-2">mdi-fast-forward</v-icon>
           Fast Forward Branch
         </v-card-title>
@@ -605,8 +611,10 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeFastForwardDialog">Cancel</v-btn>
           <v-btn
-            color="success"
+            color="primary"
+            variant="flat"
             :disabled="
               fastForwardConfirmText !== fastForwardTargetBranch?.name || fastForwardLoading
             "
@@ -614,15 +622,14 @@
             @click="executeFastForward">
             Fast Forward
           </v-btn>
-          <v-btn @click="closeFastForwardDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Rollback confirmation dialog -->
-    <v-dialog v-model="rollbackDialog" max-width="500" persistent>
+    <v-dialog v-model="rollbackDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="warning" class="mr-2">mdi-undo-variant</v-icon>
           Rollback to Snapshot
         </v-card-title>
@@ -643,6 +650,7 @@
             density="compact"
             variant="outlined"
             class="mb-4"
+            no-data-text="No branches available"
             hide-details></v-select>
           <div class="text-body-2 mb-2">
             Type the snapshot ID
@@ -663,8 +671,10 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeRollbackDialog">Cancel</v-btn>
           <v-btn
-            color="warning"
+            color="error"
+            variant="flat"
             :disabled="
               rollbackConfirmText !== String(selectedSnapshot?.['snapshot-id']) ||
               rollbackLoading ||
@@ -674,16 +684,15 @@
             @click="executeRollback">
             Rollback
           </v-btn>
-          <v-btn color="error" @click="closeRollbackDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Create tag dialog -->
-    <v-dialog v-model="createTagDialog" max-width="500" persistent>
+    <v-dialog v-model="createTagDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon color="teal" class="mr-2">mdi-tag-plus-outline</v-icon>
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
+          <v-icon color="info" class="mr-2">mdi-tag-plus-outline</v-icon>
           Create Tag
         </v-card-title>
         <v-card-text>
@@ -707,8 +716,10 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeCreateTagDialog">Cancel</v-btn>
           <v-btn
-            color="teal"
+            color="primary"
+            variant="flat"
             :disabled="
               !createTagName ||
               /\s/.test(createTagName) ||
@@ -719,16 +730,15 @@
             @click="executeCreateTag">
             Create
           </v-btn>
-          <v-btn @click="closeCreateTagDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Rename tag dialog -->
-    <v-dialog v-model="renameTagDialog" max-width="500" persistent>
+    <v-dialog v-model="renameTagDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon color="teal" class="mr-2">mdi-tag-edit-outline</v-icon>
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
+          <v-icon color="info" class="mr-2">mdi-tag-edit-outline</v-icon>
           Rename Tag
         </v-card-title>
         <v-card-text>
@@ -753,8 +763,10 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeRenameTagDialog">Cancel</v-btn>
           <v-btn
-            color="teal"
+            color="primary"
+            variant="flat"
             :disabled="
               !renameTagNewName ||
               /\s/.test(renameTagNewName) ||
@@ -766,15 +778,14 @@
             @click="executeRenameTag">
             Rename
           </v-btn>
-          <v-btn @click="closeRenameTagDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Delete tag confirmation dialog -->
-    <v-dialog v-model="deleteTagDialog" max-width="500" persistent>
+    <v-dialog v-model="deleteTagDialog" max-width="440" persistent>
       <v-card>
-        <v-card-title class="d-flex align-center">
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
           <v-icon color="error" class="mr-2">mdi-tag-off-outline</v-icon>
           Delete Tag
         </v-card-title>
@@ -799,14 +810,15 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" @click="closeDeleteTagDialog">Cancel</v-btn>
           <v-btn
             color="error"
+            variant="flat"
             :disabled="deleteTagConfirmText !== deleteTagName || deleteTagLoading"
             :loading="deleteTagLoading"
             @click="executeDeleteTag">
             Delete
           </v-btn>
-          <v-btn @click="closeDeleteTagDialog">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -2479,7 +2491,7 @@ onBeforeUnmount(() => {
   background: rgba(var(--v-theme-surface), 0.95);
   backdrop-filter: blur(4px);
   border-radius: 8px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 1px 6px rgba(var(--v-theme-on-surface), 0.12);
 }
 
 .zoom-label {

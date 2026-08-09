@@ -4,7 +4,7 @@
     <div class="d-flex justify-end ga-2 mb-3">
       <v-btn
         prepend-icon="mdi-table-arrow-down"
-        variant="tonal"
+        variant="outlined"
         size="small"
         @click="usageDatumDialog = true">
         Usage Statistics
@@ -277,7 +277,7 @@
                 </td>
                 <td>
                   <v-chip
-                    :color="projectInfo['aws-system-identities-enabled'] ? 'success' : 'grey'"
+                    :color="projectInfo['aws-system-identities-enabled'] ? 'success' : 'default'"
                     size="small"
                     variant="flat">
                     {{ projectInfo['aws-system-identities-enabled'] ? 'Enabled' : 'Disabled' }}
@@ -291,7 +291,7 @@
                 </td>
                 <td>
                   <v-chip
-                    :color="projectInfo['azure-system-identities-enabled'] ? 'success' : 'grey'"
+                    :color="projectInfo['azure-system-identities-enabled'] ? 'success' : 'default'"
                     size="small"
                     variant="flat">
                     {{ projectInfo['azure-system-identities-enabled'] ? 'Enabled' : 'Disabled' }}
@@ -305,7 +305,7 @@
                 </td>
                 <td>
                   <v-chip
-                    :color="projectInfo['gcp-system-identities-enabled'] ? 'success' : 'grey'"
+                    :color="projectInfo['gcp-system-identities-enabled'] ? 'success' : 'default'"
                     size="small"
                     variant="flat">
                     {{ projectInfo['gcp-system-identities-enabled'] ? 'Enabled' : 'Disabled' }}
@@ -392,7 +392,7 @@
             <td class="font-weight-medium">User Surveys</td>
             <td>
               <v-chip
-                :color="appConfig.enabledUserSurveys ? 'success' : 'grey'"
+                :color="appConfig.enabledUserSurveys ? 'success' : 'default'"
                 size="small"
                 variant="flat">
                 {{ appConfig.enabledUserSurveys ? 'Enabled' : 'Disabled' }}
@@ -486,7 +486,7 @@ function shortSha(sha: string | null | undefined): string {
 }
 
 function getLicenseTypeColor(licenseType: string): string {
-  if (!licenseType) return 'grey';
+  if (!licenseType) return 'default';
   if (licenseType.includes('Apache') || licenseType.includes('MIT')) return 'success';
   if (licenseType.includes('Enterprise')) return 'primary';
   if (licenseType.includes('Trial')) return 'warning';

@@ -1,5 +1,5 @@
 <template>
-  <v-btn prepend-icon="mdi-plus" variant="elevated" color="primary" @click="open = true">
+  <v-btn prepend-icon="mdi-plus" variant="flat" color="primary" @click="open = true">
     New Dataset
   </v-btn>
 
@@ -9,9 +9,7 @@
         <v-icon class="mr-2" color="amber-darken-2">mdi-folder-multiple-outline</v-icon>
         Create Dataset
         <v-spacer></v-spacer>
-        <v-btn icon variant="text" size="small" @click="open = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn>
+        <v-btn icon="mdi-close" variant="text" size="small" @click="open = false"></v-btn>
       </v-card-title>
       <v-divider></v-divider>
       <v-card-text>

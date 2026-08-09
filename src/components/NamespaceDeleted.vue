@@ -2,6 +2,7 @@
   <v-data-table
     items-per-page="50"
     height="65vh"
+    density="compact"
     :search="searchDeleted"
     fixed-header
     :headers="headers"
@@ -60,7 +61,13 @@
       </v-tooltip>
     </template>
     <template #item.actions="{ item }">
-      <v-icon color="error" @click="undropTabular(item)">mdi-restore</v-icon>
+      <v-btn
+        icon="mdi-restore"
+        variant="text"
+        color="primary"
+        size="small"
+        title="Restore"
+        @click="undropTabular(item)"></v-btn>
     </template>
     <template #no-data>
       <div>No deleted tabulars in this namespace</div>

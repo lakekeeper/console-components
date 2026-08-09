@@ -5,6 +5,7 @@
   <v-data-table
     v-else
     height="65vh"
+    density="compact"
     items-per-page="50"
     :search="searchNamespace"
     fixed-header

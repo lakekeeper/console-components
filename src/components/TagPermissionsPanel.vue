@@ -2,6 +2,7 @@
   <v-data-table
     fixed-header
     hover
+    density="compact"
     :headers="headers"
     :items="principalRows"
     :loading="loading"
@@ -80,9 +81,9 @@
   </v-data-table>
 
   <!-- Revoke-all confirmation -->
-  <v-dialog v-model="confirmRevokeOpen" max-width="460">
+  <v-dialog v-model="confirmRevokeOpen" max-width="440">
     <v-card>
-      <v-card-title class="d-flex align-center ga-2">
+      <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
         <v-icon color="error">mdi-account-remove-outline</v-icon>
         Revoke all access
       </v-card-title>
@@ -95,7 +96,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn text="Cancel" @click="confirmRevokeOpen = false"></v-btn>
+        <v-btn variant="text" text="Cancel" @click="confirmRevokeOpen = false"></v-btn>
         <v-btn color="error" variant="flat" text="Revoke all" @click="doRevokeAll"></v-btn>
       </v-card-actions>
     </v-card>

@@ -63,6 +63,7 @@
             hide-details
             style="max-width: 180px"
             label="Branch"
+            no-data-text="No branches available"
             prepend-inner-icon="mdi-source-branch"
             @update:model-value="
               selectedSnapshot = null;
@@ -79,6 +80,7 @@
             hide-details
             style="max-width: 400px; min-width: 280px"
             label="Time Travel"
+            no-data-text="No snapshots available"
             prepend-inner-icon="mdi-clock-outline"
             clearable
             @update:model-value="loadPreview"></v-select>
@@ -96,10 +98,9 @@
           <v-btn
             size="small"
             variant="outlined"
-            color="primary"
+            prepend-icon="mdi-download-outline"
             @click="downloadCSV"
             :disabled="!csvDownload.isDownloadAvailable(queryResults)">
-            <v-icon start>mdi-download</v-icon>
             CSV
           </v-btn>
         </div>

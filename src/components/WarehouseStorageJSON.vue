@@ -25,10 +25,17 @@
     <!--Storage Profile-->
 
     <div>
-      <v-btn :disabled="!JSONStringIsValid" type="submit" color="success" class="mr-6">
+      <v-btn
+        :disabled="!JSONStringIsValid"
+        type="submit"
+        color="primary"
+        variant="flat"
+        class="mr-6">
         Submit
       </v-btn>
-      <v-btn :disabled="!JSONStringIsValid" @click="handlePreload" color="primary">Preload</v-btn>
+      <v-btn :disabled="!JSONStringIsValid" @click="handlePreload" variant="outlined">
+        Preload
+      </v-btn>
     </div>
   </v-form>
 </template>

@@ -1,7 +1,7 @@
 <template>
   <div class="d-flex justify-center align-center" style="height: 100vh">
     <v-card class="pa-8 text-center" elevation="2" max-width="400">
-      <v-icon color="info" size="64">mdi-logout</v-icon>
+      <v-icon color="info" size="x-large">mdi-logout</v-icon>
       <v-card-title class="text-h5 mt-4">Logging out...</v-card-title>
       <v-card-text>
         <p>You are being logged out. Please wait...</p>

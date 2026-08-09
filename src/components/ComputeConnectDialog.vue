@@ -16,7 +16,8 @@
             <v-col>
               <v-card
                 class="mx-auto"
-                :color="compute == 'spark' ? 'grey-lighten-1' : 'white'"
+                :color="compute == 'spark' ? 'primary' : undefined"
+                variant="tonal"
                 hover
                 max-width="344"
                 subtitle="Connect Spark to Lakekeeper "
@@ -30,7 +31,8 @@
             <v-col>
               <v-card
                 class="mx-auto"
-                :color="compute == 'python' ? 'grey-lighten-1' : 'white'"
+                :color="compute == 'python' ? 'primary' : undefined"
+                variant="tonal"
                 hover
                 max-width="344"
                 subtitle="Connect Python to Lakekeeper "
@@ -49,11 +51,12 @@
                 class="mx-auto"
                 :color="
                   warehouse['storage-profile'].type !== 's3'
-                    ? 'grey-lighten-1'
+                    ? 'surface-light'
                     : compute == 'trino'
-                      ? 'grey-lighten-1'
-                      : 'white'
+                      ? 'primary'
+                      : undefined
                 "
+                variant="tonal"
                 :hover="warehouse['storage-profile'].type === 's3'"
                 max-width="344"
                 subtitle="Connect Trino to Lakekeeper "
@@ -68,7 +71,7 @@
           </v-row>
           <!-- @vue-skip -->
           <template #next="{ next }">
-            <v-btn color="primary" :disabled="compute == ''" @click="next"></v-btn>
+            <v-btn color="primary" variant="flat" :disabled="compute == ''" @click="next"></v-btn>
           </template>
 
           <template #prev></template>
@@ -89,7 +92,9 @@
             <v-tabs-window-item value="human">
               <v-card>
                 <v-card-text>
-                  <span v-if="config.enabledAuthentication.value" class="text-h5">
+                  <span
+                    v-if="config.enabledAuthentication.value"
+                    class="text-subtitle-2 font-weight-medium">
                     Token expires at {{ formatExpiresAt(expiresAt) }}
                   </span>
 
@@ -111,7 +116,9 @@
             <v-tabs-window-item value="machine">
               <v-card>
                 <v-card-text>
-                  <span v-if="config.enabledAuthentication.value" class="text-h5">
+                  <span
+                    v-if="config.enabledAuthentication.value"
+                    class="text-subtitle-2 font-weight-medium">
                     Ask your Administrator for Client Id and Client Secret
                   </span>
                   <div style="display: flex; justify-content: flex-end">
@@ -133,11 +140,11 @@
 
           <!-- @vue-skip -->
           <template #next="{ next }">
-            <v-btn color="primary" text="Finish" @click="next"></v-btn>
+            <v-btn color="primary" variant="flat" text="Finish" @click="next"></v-btn>
           </template>
           <!-- @vue-skip -->
           <template #prev="{ prev }">
-            <v-btn variant="plain" @click="prev"></v-btn>
+            <v-btn variant="text" @click="prev"></v-btn>
           </template>
         </v-stepper-vertical-item>
       </template>

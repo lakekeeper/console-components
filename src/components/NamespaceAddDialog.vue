@@ -18,6 +18,7 @@
           label="Namespace Name"
           placeholder="my-namespace"
           :rules="[namespaceRule]"
+          hide-details="auto"
           @keyup.enter="handleAddNamespace"></v-text-field>
 
         <v-divider class="my-4"></v-divider>
@@ -59,10 +60,10 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
-        <v-btn color="success" :disabled="!isValid" @click="handleAddNamespace">
+        <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
+        <v-btn color="primary" variant="flat" :disabled="!isValid" @click="handleAddNamespace">
           Add Namespace
         </v-btn>
-        <v-btn color="error" @click="handleCancel">Cancel</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

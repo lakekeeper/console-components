@@ -53,6 +53,7 @@
 
           <v-data-table
             fixed-header
+            density="compact"
             :headers="headers"
             hover
             :items="filteredProjects"
@@ -116,7 +117,10 @@
             </template>
 
             <template #no-data>
-              <div>No projects available</div>
+              <v-empty-state
+                icon="mdi-folder-off-outline"
+                title="No projects available"
+                size="small"></v-empty-state>
             </template>
           </v-data-table>
         </v-tabs-window-item>

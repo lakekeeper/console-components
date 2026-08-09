@@ -23,7 +23,7 @@
                         <v-btn
                           icon="mdi-content-copy"
                           size="x-small"
-                          variant="flat"
+                          variant="text"
                           @click="copyToClipboard(warehouse.id)"></v-btn>
                       </div>
                     </v-col>
@@ -36,7 +36,7 @@
                         <v-btn
                           icon="mdi-content-copy"
                           size="x-small"
-                          variant="flat"
+                          variant="text"
                           @click="copyToClipboard(warehouse['project-id'])"></v-btn>
                       </div>
                     </v-col>
@@ -277,7 +277,7 @@
               <!-- Azure ADLS Storage -->
               <v-card v-if="warehouse['storage-profile'].type === 'adls'" variant="outlined">
                 <v-card-title class="bg-surface-light d-flex align-center">
-                  <v-icon icon="mdi-microsoft-azure" class="mr-2" color="blue"></v-icon>
+                  <v-icon icon="mdi-microsoft-azure" class="mr-2" color="primary"></v-icon>
                   Azure Data Lake Storage Configuration
                 </v-card-title>
                 <v-card-text>
@@ -362,7 +362,7 @@
               <!-- GCS Storage -->
               <v-card v-if="warehouse['storage-profile'].type === 'gcs'" variant="outlined">
                 <v-card-title class="bg-surface-light d-flex align-center">
-                  <v-icon icon="mdi-google-cloud" class="mr-2" color="blue"></v-icon>
+                  <v-icon icon="mdi-google-cloud" class="mr-2" color="info"></v-icon>
                   Google Cloud Storage Configuration
                 </v-card-title>
                 <v-card-text>

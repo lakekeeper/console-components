@@ -18,7 +18,9 @@
           </template>
         </span>
       </v-toolbar-title>
-      <v-icon v-if="isSystem" class="ml-2" size="small" color="grey">mdi-lock-outline</v-icon>
+      <v-icon v-if="isSystem" class="ml-2 text-medium-emphasis" size="small">
+        mdi-lock-outline
+      </v-icon>
     </v-toolbar>
 
     <v-tabs v-model="tab" color="primary">
@@ -107,16 +109,16 @@
                 <v-btn
                   v-bind="aProps"
                   color="primary"
-                  variant="tonal"
+                  variant="outlined"
                   size="small"
-                  prepend-icon="mdi-pencil">
+                  prepend-icon="mdi-pencil-outline">
                   Edit tag
                 </v-btn>
               </template>
             </TagDefinitionDialog>
             <v-btn
               color="error"
-              variant="tonal"
+              variant="outlined"
               size="small"
               prepend-icon="mdi-delete-outline"
               :loading="checking"
@@ -142,7 +144,7 @@
     </v-tabs-window>
 
     <!-- Type-to-confirm delete -->
-    <v-dialog v-model="confirmDialog" max-width="500">
+    <v-dialog v-model="confirmDialog" max-width="440">
       <v-card title="Confirm deletion of tag definition">
         <v-card-text>
           <div class="ma-2">Please enter the name "{{ full.name }}" to confirm the deletion</div>
@@ -155,20 +157,21 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
+          <v-btn variant="text" text="Cancel" @click="confirmDialog = false"></v-btn>
           <v-btn
-            color="success"
+            color="error"
+            variant="flat"
             :disabled="confirmName !== full.name"
             text="Confirm"
             @click="doDelete"></v-btn>
-          <v-btn color="error" text="Cancel" @click="confirmDialog = false"></v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Still-in-use -->
-    <v-dialog v-model="inUseDialog" max-width="480">
+    <v-dialog v-model="inUseDialog" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center ga-2">
+        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
           <v-icon color="warning">mdi-alert-circle-outline</v-icon>
           Can't delete tag
         </v-card-title>
@@ -181,7 +184,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text="Close" @click="inUseDialog = false"></v-btn>
+          <v-btn variant="text" text="Close" @click="inUseDialog = false"></v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

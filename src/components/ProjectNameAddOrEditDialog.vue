@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="500">
+  <v-dialog v-model="isDialogActive" max-width="440">
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
@@ -17,20 +17,20 @@
           :label="props.actionType == 'add' ? 'Add Project' : 'Rename'"
           placeholder="my-project"
           @keyup.enter="
-            project !== '' &&
-              (props.actionType == 'add' ? emitProjectCreate() : emitProjectName())
+            project !== '' && (props.actionType == 'add' ? emitProjectCreate() : emitProjectName())
           "></v-text-field>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer></v-spacer>
+        <v-btn variant="text" text="Cancel" @click="isDialogActive = false"></v-btn>
         <v-btn
-          color="success"
+          color="primary"
+          variant="flat"
           :disabled="project == ''"
           @click="props.actionType == 'add' ? emitProjectCreate() : emitProjectName()">
           Submit
         </v-btn>
-        <v-btn color="error" text="Cancel" @click="isDialogActive = false"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

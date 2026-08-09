@@ -5,6 +5,7 @@
   <v-data-table
     v-else
     height="65vh"
+    density="compact"
     items-per-page="50"
     :search="searchTbl"
     fixed-header
@@ -44,9 +45,12 @@
     </template>
     <template #item.actions="{ item }">
       <div class="d-flex justify-end align-center">
-        <v-btn rounded="pill" variant="flat" @click="openRenameDialog(item)">
-          <v-icon color="primary">mdi-pencil-outline</v-icon>
-        </v-btn>
+        <v-btn
+          icon="mdi-pencil-outline"
+          variant="text"
+          color="primary"
+          size="small"
+          @click="openRenameDialog(item)"></v-btn>
         <DeleteDialog
           type="generic-table"
           :name="item.name"
@@ -58,9 +62,9 @@
     </template>
   </v-data-table>
 
-  <v-dialog v-model="renameDialog" max-width="500" persistent>
+  <v-dialog v-model="renameDialog" max-width="440" persistent>
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
         Rename Generic Table
       </v-card-title>
@@ -85,8 +89,10 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
+        <v-btn variant="text" @click="closeRenameDialog">Cancel</v-btn>
         <v-btn
           color="primary"
+          variant="flat"
           :disabled="
             !renameNewName ||
             /\s/.test(renameNewName) ||
@@ -97,7 +103,6 @@
           @click="executeRename">
           Rename
         </v-btn>
-        <v-btn @click="closeRenameDialog">Cancel</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

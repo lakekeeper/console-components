@@ -3,6 +3,7 @@
     height="calc(100vh - 340px)"
     items-per-page="50"
     fixed-header
+    density="compact"
     :headers="headers"
     hover
     :items="searchResults"
@@ -51,7 +52,7 @@
           <v-btn
             icon="mdi-content-copy"
             size="small"
-            variant="flat"
+            variant="text"
             @click="functions.copyToClipboard(item.id)"></v-btn>
         </span>
       </td>
@@ -72,14 +73,14 @@
     <template #item.last-updated-with="{ item }">
       <v-chip
         size="small"
-        :color="updatedByLabels[item['last-updated-with']]?.color ?? 'grey'"
+        :color="updatedByLabels[item['last-updated-with']]?.color"
         variant="tonal">
         {{ updatedByLabels[item['last-updated-with']]?.text ?? item['last-updated-with'] }}
       </v-chip>
     </template>
 
     <template #no-data>
-      <div>No users found</div>
+      <v-empty-state icon="mdi-account-off-outline" title="No users found"></v-empty-state>
     </template>
   </v-data-table>
 </template>
@@ -111,7 +112,7 @@ const updatedByLabels: Record<string, { text: string; color: string }> = {
   'create-endpoint': { text: 'Created', color: 'info' },
   'config-call-creation': { text: 'Config', color: 'warning' },
   'update-endpoint': { text: 'Updated', color: 'success' },
-  'role-provider': { text: 'Role Provider', color: 'purple' },
+  'role-provider': { text: 'Role Provider', color: 'secondary' },
 };
 
 const emit = defineEmits<{

@@ -7,17 +7,13 @@
     </v-toolbar-title>
     <template #prepend>
       <v-btn
-        icon
+        :icon="isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
         size="default"
         variant="tonal"
         color="primary"
         @click="toggleNavigation"
         class="mr-3"
-        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'">
-        <v-icon>
-          {{ isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open' }}
-        </v-icon>
-      </v-btn>
+        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'"></v-btn>
       <v-icon>mdi-table-multiple</v-icon>
     </template>
     <v-spacer></v-spacer>

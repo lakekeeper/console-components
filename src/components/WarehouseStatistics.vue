@@ -70,6 +70,7 @@
                     closable-chips
                     density="compact"
                     variant="outlined"
+                    no-data-text="No status codes available"
                     hide-details>
                     <template #chip="{ item, props: chipProps }">
                       <v-chip
@@ -88,7 +89,6 @@
                   <DateTimePicker
                     v-model="dateFrom"
                     label="From"
-                    
                     density="compact"
                     variant="outlined"
                     hide-details
@@ -99,7 +99,6 @@
                   <DateTimePicker
                     v-model="dateTo"
                     label="To"
-                    
                     density="compact"
                     variant="outlined"
                     hide-details

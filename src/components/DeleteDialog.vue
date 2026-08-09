@@ -1,9 +1,7 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="500">
+  <v-dialog v-model="isDialogActive" max-width="600">
     <template #activator="{ props: activatorProps }">
-      <v-btn v-bind="activatorProps" rounded="pill" variant="flat">
-        <v-icon color="error">mdi-delete-outline</v-icon>
-      </v-btn>
+      <v-btn icon="mdi-delete-outline" color="error" variant="text" v-bind="activatorProps"></v-btn>
     </template>
 
     <v-card :title="`Confirm deletion of ${props.type}`">
@@ -121,12 +119,13 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
+        <v-btn variant="text" text="Cancel" @click="reject"></v-btn>
         <v-btn
-          color="success"
+          color="error"
+          variant="flat"
           :disabled="deleteName != $props.name"
           text="Confirm"
           @click="confirm"></v-btn>
-        <v-btn color="error" text="Cancel" @click="reject"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

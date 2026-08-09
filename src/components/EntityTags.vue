@@ -32,7 +32,7 @@
       <v-progress-circular
         v-if="loading"
         indeterminate
-        color="info"
+        color="primary"
         size="20"></v-progress-circular>
       <template v-else-if="tags.length">
         <v-tooltip v-for="t in tags" :key="t['tag-definition-id']" location="top" max-width="500">
@@ -63,7 +63,7 @@
     </div>
 
     <!-- Manage dialog: full apply / edit / remove table. -->
-    <v-dialog v-model="manageDialog" max-width="860">
+    <v-dialog v-model="manageDialog" max-width="800">
       <v-card>
         <v-toolbar color="transparent" density="compact" flat class="pl-4">
           <v-icon class="mr-2">mdi-tag-multiple-outline</v-icon>
@@ -90,7 +90,7 @@
           :headers="headers"
           :items="tags"
           :loading="loading"
-          density="comfortable"
+          density="compact"
           item-value="tag-definition-id"
           :sort-by="[{ key: 'name', order: 'asc' }]">
           <template #item.name="{ item }">
@@ -117,7 +117,7 @@
             <span v-else class="text-disabled">—</span>
           </template>
           <template #item.origin="{ item }">
-            <v-chip v-if="item['inherited-from']" color="grey" size="x-small" variant="tonal">
+            <v-chip v-if="item['inherited-from']" size="x-small" variant="tonal">
               <v-icon start size="x-small">mdi-arrow-top-left</v-icon>
               inherited from {{ inheritedFromLabel(item['inherited-from']) }}
             </v-chip>
@@ -127,7 +127,7 @@
             <template v-if="canManage && !item['inherited-from']">
               <v-btn
                 v-if="tagKind(item) !== 'marker'"
-                icon="mdi-pencil"
+                icon="mdi-pencil-outline"
                 size="x-small"
                 variant="text"
                 @click="openEditDialog(item)"></v-btn>
@@ -145,13 +145,13 @@
         </v-data-table>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text="Close" @click="manageDialog = false"></v-btn>
+          <v-btn variant="text" text="Close" @click="manageDialog = false"></v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Apply / edit dialog -->
-    <v-dialog v-model="dialog" max-width="500">
+    <v-dialog v-model="dialog" max-width="440">
       <v-card :title="editing ? `Edit tag '${form.name}'` : 'Apply tag'">
         <v-card-text>
           <v-autocomplete
@@ -201,8 +201,8 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn color="success" :disabled="!canSubmit" @click="submit">save</v-btn>
-          <v-btn color="error" text="Cancel" @click="dialog = false"></v-btn>
+          <v-btn variant="text" text="Cancel" @click="dialog = false"></v-btn>
+          <v-btn color="primary" variant="flat" :disabled="!canSubmit" @click="submit">save</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -210,7 +210,7 @@
     <!-- Remove confirmation -->
     <v-dialog v-model="confirmRemoveOpen" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center ga-2">
+        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
           <v-icon color="error">mdi-delete-outline</v-icon>
           Remove tag
         </v-card-title>
@@ -221,7 +221,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
+          <v-btn variant="text" text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
           <v-btn color="error" variant="flat" text="Remove" @click="doRemove"></v-btn>
         </v-card-actions>
       </v-card>

@@ -1,14 +1,14 @@
 <template>
-  <v-dialog v-model="dialogVisible" max-width="550">
+  <v-dialog v-model="dialogVisible" max-width="600">
     <template v-slot:activator="{ props: activatorProps }">
-      <v-btn icon size="small" variant="text" v-bind="activatorProps">
-        <v-icon size="small">mdi-cog</v-icon>
+      <v-btn icon="mdi-cog" size="small" variant="text" v-bind="activatorProps">
+        <v-icon></v-icon>
         <v-tooltip activator="parent" location="bottom">Settings</v-tooltip>
       </v-btn>
     </template>
 
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         <v-icon color="primary" class="mr-2">mdi-cog</v-icon>
         DuckDB WASM Settings
       </v-card-title>
@@ -27,9 +27,7 @@
               <strong>{{ currentMemoryMB }} MB</strong>
               <span v-if="heapLimitMB">/ {{ heapLimitMB }} MB</span>
             </span>
-            <v-btn size="x-small" variant="text" @click="refreshMemory">
-              <v-icon size="small">mdi-refresh</v-icon>
-            </v-btn>
+            <v-btn icon="mdi-refresh" size="x-small" variant="text" @click="refreshMemory"></v-btn>
           </div>
         </v-alert>
 
@@ -62,6 +60,7 @@
           persistent-hint
           variant="outlined"
           density="comfortable"
+          no-data-text="No options available"
           class="mb-3" />
 
         <!-- Memory Warning Threshold -->

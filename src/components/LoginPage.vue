@@ -1,12 +1,5 @@
 <template>
   <v-container fluid class="login-container fill-height pa-0">
-    <!-- Animated background -->
-    <div class="login-background">
-      <div class="gradient-orb orb-1"></div>
-      <div class="gradient-orb orb-2"></div>
-      <div class="gradient-orb orb-3"></div>
-    </div>
-
     <!-- Login card -->
     <v-row class="fill-height" align="center" justify="center">
       <v-col cols="12" sm="8" md="6" lg="4" xl="3">
@@ -42,7 +35,7 @@
             color="primary"
             prepend-icon="mdi-login"
             size="x-large"
-            variant="elevated"
+            variant="flat"
             @click="login">
             <span class="text-h6 font-weight-medium">Sign In</span>
           </v-btn>
@@ -168,97 +161,20 @@ onUnmounted(() => {
 });
 </script>
 
-<style>
-/* Same styles as before */
-.login-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(
-    135deg,
-    rgb(var(--v-theme-primary)) 0%,
-    rgb(var(--v-theme-secondary)) 100%
-  );
-  z-index: 0;
-}
-
-.gradient-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.5;
-  animation: float 20s ease-in-out infinite;
-}
-
-.orb-1 {
-  width: 400px;
-  height: 400px;
-  background: linear-gradient(
-    135deg,
-    rgb(var(--v-theme-secondary)) 0%,
-    rgb(var(--v-theme-primary)) 100%
-  );
-  top: -100px;
-  left: -100px;
-  animation-delay: 0s;
-}
-
-.orb-2 {
-  width: 350px;
-  height: 350px;
-  background: linear-gradient(
-    135deg,
-    rgb(var(--v-theme-primary)) 0%,
-    rgb(var(--v-theme-primary-darken-1)) 100%
-  );
-  bottom: -100px;
-  right: -100px;
-  animation-delay: 5s;
-}
-
-.orb-3 {
-  width: 300px;
-  height: 300px;
-  background: linear-gradient(
-    135deg,
-    rgb(var(--v-theme-secondary)) 0%,
-    rgb(var(--v-theme-primary)) 100%
-  );
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation-delay: 10s;
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translate(0, 0) scale(1);
-  }
-  33% {
-    transform: translate(30px, -30px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-}
-</style>
-
 <style scoped>
 .login-container {
   position: relative;
   overflow: hidden;
   min-height: 100vh;
+  background: rgb(var(--v-theme-background));
 }
 
 .login-card {
   position: relative;
   z-index: 1;
   backdrop-filter: blur(20px);
-  background: rgba(255, 255, 255, 0.95) !important;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(var(--v-theme-surface), 0.95) !important;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
   box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
   transition:
     transform 0.3s ease,
@@ -318,11 +234,6 @@ onUnmounted(() => {
 
 .login-btn:active {
   transform: translateY(0);
-}
-
-.v-theme--dark .login-card {
-  background: rgba(30, 30, 30, 0.95) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 @media (max-width: 600px) {

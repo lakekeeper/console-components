@@ -14,7 +14,7 @@
       <v-col cols="6" sm="3">
         <v-card variant="outlined" class="stat-card text-center">
           <v-card-text class="pa-3">
-            <v-icon color="primary" size="24" class="mb-1">mdi-folder-multiple</v-icon>
+            <v-icon color="primary" class="mb-1">mdi-folder-multiple</v-icon>
             <div class="text-h5 font-weight-bold">{{ loading ? '—' : projects }}</div>
             <div class="text-caption text-medium-emphasis">Projects</div>
           </v-card-text>
@@ -23,7 +23,7 @@
       <v-col cols="6" sm="3">
         <v-card variant="outlined" class="stat-card text-center">
           <v-card-text class="pa-3">
-            <v-icon color="info" size="24" class="mb-1">mdi-warehouse</v-icon>
+            <v-icon color="info" class="mb-1">mdi-warehouse</v-icon>
             <div class="text-h5 font-weight-bold">{{ loading ? '—' : warehouses }}</div>
             <div class="text-caption text-medium-emphasis">Warehouses</div>
           </v-card-text>
@@ -32,7 +32,7 @@
       <v-col cols="6" sm="3">
         <v-card variant="outlined" class="stat-card text-center">
           <v-card-text class="pa-3">
-            <v-icon color="success" size="24" class="mb-1">mdi-table</v-icon>
+            <v-icon color="success" class="mb-1">mdi-table</v-icon>
             <div class="text-h5 font-weight-bold">{{ loading ? '—' : tables }}</div>
             <div class="text-caption text-medium-emphasis">Tables</div>
           </v-card-text>
@@ -41,7 +41,7 @@
       <v-col cols="6" sm="3">
         <v-card variant="outlined" class="stat-card text-center">
           <v-card-text class="pa-3">
-            <v-icon color="warning" size="24" class="mb-1">mdi-eye</v-icon>
+            <v-icon color="warning" class="mb-1">mdi-eye</v-icon>
             <div class="text-h5 font-weight-bold">{{ loading ? '—' : views }}</div>
             <div class="text-caption text-medium-emphasis">Views</div>
           </v-card-text>
@@ -53,7 +53,7 @@
     <v-card v-if="!chartForbidden" variant="outlined" class="chart-card">
       <v-card-text class="pa-3">
         <div class="d-flex align-center mb-2">
-          <v-icon size="18" class="mr-2" color="primary">mdi-chart-line</v-icon>
+          <v-icon size="small" class="mr-2" color="primary">mdi-chart-line</v-icon>
           <span class="text-body-2 font-weight-bold">{{ chartTitle }}</span>
         </div>
         <div
@@ -118,10 +118,20 @@ const chartTitle = computed(() => {
 });
 
 // ─── Status helpers ──────────────────────────────────────────────────────────
-const STATUS_COLORS = {
-  success: '#4caf50',
-  error: '#f44336',
-};
+// Resolve theme colors at draw time so the chart follows the active theme
+// tokens (dark mode + console-plus runtime branding) instead of fixed hex.
+function themeColor(token: string): string {
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue(`--v-theme-${token}`)
+    .trim();
+  return v ? `rgb(${v})` : '#888';
+}
+function themeColorAlpha(token: string, alpha: number): string {
+  const v = getComputedStyle(document.documentElement)
+    .getPropertyValue(`--v-theme-${token}`)
+    .trim();
+  return v ? `rgba(${v}, ${alpha})` : `rgba(128, 128, 128, ${alpha})`;
+}
 
 // ─── Load counts ─────────────────────────────────────────────────────────────
 async function loadCounts() {
@@ -260,8 +270,8 @@ function drawChart() {
   d3.select(el).selectAll('*').remove();
 
   const isDark = !visual.themeLight;
-  const textColor = isDark ? '#aaa' : '#666';
-  const gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const textColor = themeColorAlpha('on-surface', 0.7);
+  const gridColor = themeColorAlpha('on-surface', isDark ? 0.08 : 0.06);
 
   const margin = { top: 12, right: 16, bottom: 36, left: 44 };
   const width = el.clientWidth - margin.left - margin.right;
@@ -319,7 +329,7 @@ function drawChart() {
     .y1((d) => y(d[1]))
     .curve(d3.curveMonotoneX);
 
-  const colors = [STATUS_COLORS.success, STATUS_COLORS.error];
+  const colors = [themeColor('success'), themeColor('error')];
 
   svg
     .selectAll('.area-layer')
@@ -360,8 +370,8 @@ function drawChart() {
   const legend = svg.append('g').attr('transform', `translate(${width - 110}, -4)`);
 
   [
-    { label: 'Success', color: STATUS_COLORS.success },
-    { label: 'Error', color: STATUS_COLORS.error },
+    { label: 'Success', color: themeColor('success') },
+    { label: 'Error', color: themeColor('error') },
   ].forEach((item, i) => {
     const g = legend.append('g').attr('transform', `translate(${i * 60}, 0)`);
     g.append('rect')
@@ -384,12 +394,12 @@ function drawChart() {
     .append('div')
     .style('position', 'absolute')
     .style('pointer-events', 'none')
-    .style('background', isDark ? 'rgba(30,30,30,0.95)' : 'rgba(255,255,255,0.95)')
-    .style('border', `1px solid ${isDark ? '#555' : '#ddd'}`)
+    .style('background', themeColorAlpha('surface', 0.95))
+    .style('border', `1px solid ${themeColorAlpha('on-surface', 0.15)}`)
     .style('border-radius', '6px')
     .style('padding', '6px 10px')
     .style('font-size', '11px')
-    .style('color', isDark ? '#eee' : '#333')
+    .style('color', themeColor('on-surface'))
     .style('box-shadow', '0 2px 8px rgba(0,0,0,0.15)')
     .style('opacity', 0);
 
@@ -414,8 +424,8 @@ function drawChart() {
       tooltip
         .html(
           `<strong>${fmtDate}</strong><br/>` +
-            `<span style="color:${STATUS_COLORS.success}">●</span> Success: ${d.success.toLocaleString()}<br/>` +
-            `<span style="color:${STATUS_COLORS.error}">●</span> Error: ${d.error.toLocaleString()}<br/>` +
+            `<span style="color:${themeColor('success')}">●</span> Success: ${d.success.toLocaleString()}<br/>` +
+            `<span style="color:${themeColor('error')}">●</span> Error: ${d.error.toLocaleString()}<br/>` +
             `Total: ${d.total.toLocaleString()}`,
         )
         .style('opacity', 1)

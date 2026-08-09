@@ -6,6 +6,7 @@
     v-else
     v-model="selected"
     height="65vh"
+    density="compact"
     items-per-page="50"
     :search="searchTbl"
     fixed-header
@@ -63,16 +64,19 @@
           <v-icon v-if="formatIcon(item.format)" size="small" class="mr-2">
             <v-img :src="formatIcon(item.format)!" width="18" height="18" />
           </v-icon>
-          <v-icon v-else size="small" color="grey" class="mr-2">mdi-alpha-g</v-icon>
+          <v-icon v-else size="small" class="mr-2 text-medium-emphasis">mdi-alpha-g</v-icon>
           {{ item.name }}
         </span>
       </td>
     </template>
     <template #item.actions="{ item }">
       <div class="d-flex justify-end align-center">
-        <v-btn rounded="pill" variant="flat" @click="openRenameDialog(item)">
-          <v-icon color="primary">mdi-pencil-outline</v-icon>
-        </v-btn>
+        <v-btn
+          icon="mdi-pencil-outline"
+          variant="text"
+          color="primary"
+          size="small"
+          @click="openRenameDialog(item)"></v-btn>
         <DeleteDialog
           :type="item.source === 'generic' ? 'generic-table' : 'table'"
           :name="item.name"
@@ -85,9 +89,9 @@
   </v-data-table>
 
   <!-- Rename dialog -->
-  <v-dialog v-model="renameDialog" max-width="500" persistent>
+  <v-dialog v-model="renameDialog" max-width="440" persistent>
     <v-card>
-      <v-card-title class="d-flex align-center">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         <v-icon color="primary" class="mr-2">mdi-pencil-outline</v-icon>
         Rename {{ renameTarget?.source === 'generic' ? 'Generic Table' : 'Table' }}
       </v-card-title>
@@ -118,9 +122,13 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
+        <v-btn variant="text" @click="closeRenameDialog">
+          {{ isDefaultLayout || renameTarget?.source === 'generic' ? 'Cancel' : 'Close' }}
+        </v-btn>
         <v-btn
           v-if="isDefaultLayout || renameTarget?.source === 'generic'"
           color="primary"
+          variant="flat"
           :disabled="
             !renameNewName ||
             /\s/.test(renameNewName) ||
@@ -131,18 +139,15 @@
           @click="executeRename">
           Rename
         </v-btn>
-        <v-btn @click="closeRenameDialog">
-          {{ isDefaultLayout || renameTarget?.source === 'generic' ? 'Cancel' : 'Close' }}
-        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
 
   <!-- Bulk delete -->
-  <v-dialog v-model="bulkDeleteDialog" max-width="540" persistent>
+  <v-dialog v-model="bulkDeleteDialog" max-width="600" persistent>
     <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon color="error" class="mr-2">mdi-delete-alert-outline</v-icon>
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
+        <v-icon color="error" class="mr-2">mdi-delete-outline</v-icon>
         Delete {{ selected.length }} {{ selected.length === 1 ? 'table' : 'tables' }}?
       </v-card-title>
       <v-card-text>
@@ -202,7 +207,7 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn :disabled="bulkDeleting" @click="bulkDeleteDialog = false">
+        <v-btn variant="text" :disabled="bulkDeleting" @click="bulkDeleteDialog = false">
           {{ bulkDone ? 'Close' : 'Cancel' }}
         </v-btn>
         <v-btn

@@ -18,8 +18,10 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
-        <v-btn color="success" :disabled="isRenameDisabled" @click="emitRename">rename</v-btn>
-        <v-btn color="error" text="Cancel" @click="isDialogActive = false"></v-btn>
+        <v-btn variant="text" text="Cancel" @click="isDialogActive = false"></v-btn>
+        <v-btn color="primary" variant="flat" :disabled="isRenameDisabled" @click="emitRename">
+          rename
+        </v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

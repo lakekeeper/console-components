@@ -1,19 +1,20 @@
 <template>
-  <v-dialog v-model="dialog" max-width="1400px" scrollable>
+  <v-dialog v-model="dialog" max-width="1400" scrollable>
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
         color="primary"
         class="mr-2"
         prepend-icon="mdi-shield-check"
-        variant="elevated"
+        variant="outlined"
         size="small">
         Evaluate
       </v-btn>
     </template>
 
     <v-card>
-      <v-card-title class="d-flex align-center justify-space-between bg-primary">
+      <v-card-title
+        class="text-subtitle-1 d-flex align-center justify-space-between py-3 bg-primary">
         <div class="d-flex align-center">
           <v-icon color="white" class="mr-2">mdi-matrix</v-icon>
           <span class="text-white">Permission Matrix - Evaluate Access</span>
@@ -57,6 +58,7 @@
                       item-value="value"
                       label="Identity Type"
                       density="compact"
+                      no-data-text="No identity types available"
                       @update:model-value="onIdentityTypeChange"></v-select>
 
                     <!-- Project Selector for Roles -->
@@ -82,7 +84,7 @@
                         <v-list-item v-bind="itemProps">
                           <template #title>
                             <span>{{ item.raw['project-name'] }}</span>
-                            <span class="text-caption text-grey ml-2">
+                            <span class="text-caption text-medium-emphasis ml-2">
                               ({{ item.raw['project-id'] }})
                             </span>
                           </template>
@@ -151,6 +153,7 @@
                       item-value="value"
                       label="Resource Type"
                       density="compact"
+                      no-data-text="No resource types available"
                       @update:model-value="onResourceTypeChange"></v-select>
 
                     <v-autocomplete

@@ -44,8 +44,10 @@
           label="How did you find Lakekeeper? *"
           :items="discoveryOptions"
           :rules="[(v) => !!v || 'Required']"
+          no-data-text="No options available"
           density="compact"
           variant="outlined"
+          hide-details="auto"
           class="mb-2"></v-select>
 
         <v-text-field
@@ -55,6 +57,7 @@
           :rules="[(v) => !!v.trim() || 'Required']"
           density="compact"
           variant="outlined"
+          hide-details="auto"
           class="mb-2"></v-text-field>
 
         <v-textarea
@@ -65,6 +68,7 @@
           :rules="[(v) => !!v.trim() || 'Required']"
           density="compact"
           variant="outlined"
+          hide-details="auto"
           rows="5"></v-textarea>
       </v-card-text>
       <v-divider></v-divider>

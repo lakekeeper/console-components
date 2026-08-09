@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="1200">
+  <v-dialog v-model="isDialogActive" max-width="800">
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-if="actionType == 'grant'"
@@ -57,6 +57,7 @@
               hint="Choose a project to search for roles"
               persistent-hint
               :loading="loadingProjects"
+              no-data-text="No projects found"
               @update:model-value="onProjectChange">
               <template #prepend-inner>
                 <v-icon>mdi-folder-account</v-icon>
@@ -145,7 +146,9 @@
                 mdi-badge-account-alert-outline
               </v-icon>
               {{ selectedItem.name }}
-              <span v-if="isRoleFromDifferentProject(selectedItem)" class="text-caption text-grey">
+              <span
+                v-if="isRoleFromDifferentProject(selectedItem)"
+                class="text-caption text-medium-emphasis">
                 ({{ (selectedItem as any)['project-id'] }})
               </span>
             </span>
@@ -186,13 +189,14 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
+        <v-btn variant="text" text="Cancel" @click="cancelRoleAssignment"></v-btn>
         <v-btn
-          color="success"
+          color="primary"
+          variant="flat"
           :disabled="toWrite.length == 0 && toDelete.length == 0"
           @click="assign">
           save
         </v-btn>
-        <v-btn color="error" text="Cancel" @click="cancelRoleAssignment"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

@@ -5,15 +5,13 @@
       class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center nav-header">
       <span class="flex-grow-1 mr-2">{{ headerTitle }}</span>
       <v-btn
-        icon
+        icon="mdi-refresh"
         size="x-small"
         variant="text"
         @click="refreshWarehouses"
         :loading="isLoading"
         title="Refresh warehouses"
-        class="ml-1">
-        <v-icon size="small">mdi-refresh</v-icon>
-      </v-btn>
+        class="ml-1"></v-btn>
     </v-sheet>
     <!-- Warehouse Search -->
     <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
@@ -53,14 +51,12 @@
         </template>
         <template #append-inner>
           <v-btn
-            icon
+            icon="mdi-arrow-right"
             size="x-small"
             variant="text"
             :disabled="!searchQuery || isSearching || !searchWarehouseId"
             @click="performSearch"
-            title="Search warehouse (fuzzy)">
-            <v-icon size="small">mdi-arrow-right</v-icon>
-          </v-btn>
+            title="Search warehouse (fuzzy)"></v-btn>
         </template>
       </v-text-field>
     </v-sheet>
@@ -77,8 +73,8 @@
         <div class="text-caption mt-1">Searching...</div>
       </div>
       <div v-else-if="searchResults.length === 0" class="text-center py-3">
-        <v-icon size="24" color="grey">mdi-table-search</v-icon>
-        <div class="text-caption mt-1 text-grey">No results found</div>
+        <v-icon class="text-medium-emphasis">mdi-table-search</v-icon>
+        <div class="text-caption mt-1 text-medium-emphasis">No results found</div>
       </div>
       <div v-else>
         <div class="d-flex align-center px-3 pt-2">
@@ -86,12 +82,11 @@
             {{ searchResults.length }} result(s)
           </span>
           <v-btn
+            icon="mdi-close"
             size="x-small"
             variant="text"
             @click="dismissSearch"
-            title="Dismiss search results">
-            <v-icon size="small">mdi-close</v-icon>
-          </v-btn>
+            title="Dismiss search results"></v-btn>
         </div>
         <v-list density="compact" class="pa-2 pt-0 search-results-list" bg-color="transparent">
           <v-list-item
@@ -101,16 +96,16 @@
             class="search-result-item"
             @click="navigateToSearchResult(result)">
             <template #prepend>
-              <v-icon v-if="result.type === 'view'" size="small" color="green">
-                mdi-eye-outline
-              </v-icon>
+              <v-icon v-if="result.type === 'view'" size="small">mdi-eye-outline</v-icon>
               <v-icon
                 v-else-if="result.type === 'table'"
                 size="small"
                 :title="`Iceberg ${result.type}`">
                 <v-img :src="icebergIcon" width="18" height="18" />
               </v-icon>
-              <v-icon v-else size="small" color="grey" title="Generic table">mdi-alpha-g</v-icon>
+              <v-icon v-else size="small" class="text-medium-emphasis" title="Generic table">
+                mdi-alpha-g
+              </v-icon>
             </template>
             <v-list-item-title class="text-caption">
               {{ result.name }}
@@ -216,11 +211,11 @@
           <v-icon
             v-else-if="item.type === 'table' || item.type === 'generic-table'"
             size="x-small"
-            color="grey">
+            class="text-medium-emphasis">
             mdi-alpha-g
           </v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
-          <v-icon size="small" v-else-if="item.type === 'load-more'" color="grey">
+          <v-icon size="small" v-else-if="item.type === 'load-more'" class="text-medium-emphasis">
             mdi-dots-horizontal
           </v-icon>
         </template>
@@ -261,33 +256,30 @@
                 color: isActiveItem(item)
                   ? 'rgb(var(--v-theme-primary))'
                   : item.type === 'load-more'
-                    ? 'grey'
+                    ? 'rgba(var(--v-theme-on-surface), 0.6)'
                     : undefined,
               }">
               {{ item.name }}
             </span>
             <v-btn
               v-if="props.pickable && canPick(item.type)"
-              icon
+              icon="mdi-plus-circle-outline"
               size="x-small"
               variant="text"
+              color="primary"
               class="tree-item-action-btn"
               :title="`Pick ${item.name}`"
-              @click.stop="handlePick(item)">
-              <v-icon size="small" color="primary">mdi-plus-circle-outline</v-icon>
-            </v-btn>
+              @click.stop="handlePick(item)"></v-btn>
             <v-menu v-if="!props.pickable && item.type === 'namespace'">
               <template v-slot:activator="{ props }">
                 <v-btn
-                  icon
+                  icon="mdi-open-in-new"
                   size="x-small"
                   variant="text"
                   v-bind="props"
                   class="tree-item-action-btn"
                   @click.stop
-                  title="Go to namespace tab">
-                  <v-icon size="x-small">mdi-open-in-new</v-icon>
-                </v-btn>
+                  title="Go to namespace tab"></v-btn>
               </template>
               <v-list density="compact" class="compact-menu">
                 <v-list-item @click="navigateToTab(item, 'namespaces')" density="compact">

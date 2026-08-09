@@ -24,28 +24,30 @@
           <span class="text-caption text-medium-emphasis">Chart {{ pIdx + 1 }}</span>
           <v-spacer />
           <v-btn
+            icon="mdi-download"
             size="x-small"
             variant="text"
             :disabled="!canRender(panel)"
             @click="downloadPng(panel)">
-            <v-icon size="small">mdi-download</v-icon>
+            <v-icon></v-icon>
             <v-tooltip activator="parent">Download PNG</v-tooltip>
           </v-btn>
           <v-btn
+            icon="mdi-printer"
             size="x-small"
             variant="text"
             :disabled="!canRender(panel)"
             @click="printPdf(panel)">
-            <v-icon size="small">mdi-printer</v-icon>
+            <v-icon></v-icon>
             <v-tooltip activator="parent">Print / PDF</v-tooltip>
           </v-btn>
           <v-btn
             v-if="panels.length > 1"
+            icon="mdi-close"
             size="x-small"
             variant="text"
             color="error"
             @click="removePanel(pIdx)">
-            <v-icon size="small">mdi-close</v-icon>
             <v-tooltip activator="parent">Remove chart</v-tooltip>
           </v-btn>
         </div>
@@ -101,13 +103,12 @@
               <v-spacer />
               <v-btn
                 v-if="panel.chartType !== 'pie' && panel.chartType !== 'scatter'"
+                icon="mdi-plus"
                 size="x-small"
                 variant="text"
                 color="primary"
                 :disabled="columns.length === 0"
-                @click="addSeries(panel)">
-                <v-icon size="x-small">mdi-plus</v-icon>
-              </v-btn>
+                @click="addSeries(panel)"></v-btn>
             </div>
             <div
               v-for="(series, sIdx) in panel.ySeriesList"
@@ -127,12 +128,10 @@
                 style="min-width: 0" />
               <v-btn
                 v-if="panel.ySeriesList.length > 1"
+                icon="mdi-close"
                 size="x-small"
                 variant="text"
-                icon
-                @click="removeSeries(panel, sIdx)">
-                <v-icon size="x-small">mdi-close</v-icon>
-              </v-btn>
+                @click="removeSeries(panel, sIdx)"></v-btn>
             </div>
 
             <!-- Aggregation (not for scatter; pie uses raw values) -->
@@ -144,6 +143,7 @@
                 density="compact"
                 variant="outlined"
                 hide-details
+                no-data-text="No aggregations available"
                 class="mb-3" />
             </template>
 
@@ -198,6 +198,7 @@
                 density="compact"
                 variant="outlined"
                 hide-details
+                no-data-text="No sort options available"
                 class="mb-2" />
               <div class="rbp-section-label">Limit rows</div>
               <v-select
@@ -206,6 +207,7 @@
                 density="compact"
                 variant="outlined"
                 hide-details
+                no-data-text="No options available"
                 class="mb-1" />
             </template>
           </div>
@@ -237,7 +239,7 @@
                 :options="buildOptions(panel)" />
             </div>
             <div v-else class="rbp-empty">
-              <v-icon size="40" color="grey-lighten-2">mdi-chart-bar</v-icon>
+              <v-icon size="large" class="text-medium-emphasis">mdi-chart-bar</v-icon>
               <div class="text-caption text-medium-emphasis mt-2">
                 Select X and at least one Y column
               </div>
@@ -275,22 +277,23 @@
   </v-card>
 
   <!-- Save dialog -->
-  <v-dialog v-model="saveDialog" max-width="380">
+  <v-dialog v-model="saveDialog" max-width="440">
     <v-card>
-      <v-card-title>Save Report</v-card-title>
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">Save Report</v-card-title>
       <v-card-text>
         <v-text-field
           v-model="saveName"
           label="Report Name"
           density="comfortable"
           variant="outlined"
+          hide-details="auto"
           autofocus
           @keyup.enter="confirmSave" />
       </v-card-text>
       <v-card-actions>
         <v-spacer />
         <v-btn variant="text" @click="saveDialog = false">Cancel</v-btn>
-        <v-btn color="primary" variant="elevated" :disabled="!saveName.trim()" @click="confirmSave">
+        <v-btn color="primary" variant="flat" :disabled="!saveName.trim()" @click="confirmSave">
           Save
         </v-btn>
       </v-card-actions>

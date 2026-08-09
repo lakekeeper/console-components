@@ -5,7 +5,7 @@
       <v-row dense class="mb-6">
         <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
           <v-card variant="outlined" class="pa-3 stat-tile h-100">
-            <v-icon :color="s.color" size="20" class="mb-1">{{ s.icon }}</v-icon>
+            <v-icon :color="s.color" size="small" class="mb-1">{{ s.icon }}</v-icon>
             <div class="stat-value" :title="String(s.value)">{{ s.value }}</div>
             <div class="stat-label">{{ s.label }}</div>
           </v-card>
@@ -135,14 +135,18 @@
                           schemaFieldDiffs[schema['schema-id'] ?? 0].added.length === 0 &&
                           schemaFieldDiffs[schema['schema-id'] ?? 0].removed.length === 0
                         "
-                        class="text-grey">
+                        class="text-medium-emphasis">
                         {{ schema['schema-id'] === 0 ? 'Initial schema' : 'No field changes' }}
                       </span>
                     </template>
                   </td>
                   <td>
-                    <v-btn icon size="x-small" variant="text" @click="openSchema(schema)">
-                      <v-icon size="small">mdi-eye-outline</v-icon>
+                    <v-btn
+                      icon="mdi-eye-outline"
+                      size="x-small"
+                      variant="text"
+                      @click="openSchema(schema)">
+                      <v-icon></v-icon>
                       <v-tooltip activator="parent" location="top">View schema</v-tooltip>
                     </v-btn>
                   </td>
@@ -191,7 +195,7 @@
     </section>
 
     <!-- View a single schema as a fields table or its raw JSON (toggle) -->
-    <v-dialog v-model="schemaViewOpen" max-width="720" scrollable>
+    <v-dialog v-model="schemaViewOpen" max-width="800" scrollable>
       <v-card v-if="schemaViewData">
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
@@ -218,9 +222,11 @@
             @click="copyToClipboard(JSON.stringify(schemaViewData, null, 2))">
             Copy
           </v-btn>
-          <v-btn icon variant="text" size="small" @click="schemaViewOpen = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+          <v-btn
+            icon="mdi-close"
+            variant="text"
+            size="small"
+            @click="schemaViewOpen = false"></v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text>
@@ -261,15 +267,13 @@
     </v-dialog>
 
     <!-- Compare two schemas -->
-    <v-dialog v-model="compareOpen" max-width="760" scrollable>
+    <v-dialog v-model="compareOpen" max-width="800" scrollable>
       <v-card>
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">mdi-compare-horizontal</v-icon>
           Compare schemas
           <v-spacer></v-spacer>
-          <v-btn icon variant="text" size="small" @click="compareOpen = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="compareOpen = false"></v-btn>
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text>
@@ -336,7 +340,7 @@
           <v-row dense>
             <v-col cols="12" md="6">
               <div class="text-overline text-medium-emphasis d-flex align-center">
-                <v-icon size="16" class="mr-1" color="warning">mdi-view-grid-outline</v-icon>
+                <v-icon size="small" class="mr-1" color="warning">mdi-view-grid-outline</v-icon>
                 Partitioning
                 <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal" class="ml-2">
                   spec {{ activePartitionSpec['spec-id'] }}
@@ -360,7 +364,7 @@
 
             <v-col cols="12" md="6">
               <div class="text-overline text-medium-emphasis d-flex align-center">
-                <v-icon size="16" class="mr-1" color="success">mdi-sort-ascending</v-icon>
+                <v-icon size="small" class="mr-1" color="success">mdi-sort-ascending</v-icon>
                 Sort order
                 <v-chip v-if="activeSortOrder" size="x-small" variant="tonal" class="ml-2">
                   order {{ activeSortOrder['order-id'] }}
@@ -403,6 +407,7 @@
             hide-details
             prepend-inner-icon="mdi-source-branch"
             label="Branch"
+            no-data-text="No branches available"
             style="max-width: 220px"></v-select>
         </v-card-title>
         <v-data-table
@@ -464,7 +469,7 @@
     </section>
 
     <!-- Snapshot detail popup -->
-    <v-dialog v-model="snapshotDialog" max-width="900" scrollable>
+    <v-dialog v-model="snapshotDialog" max-width="800" scrollable>
       <TableSnapshotDetails
         v-if="selectedSnapshot"
         :snapshot="selectedSnapshot"
@@ -867,7 +872,7 @@ const getOperationColor = (operation: string): string => {
     expire: 'orange',
     compact: 'teal',
   };
-  return colors[operation?.toLowerCase()] || 'grey';
+  return colors[operation?.toLowerCase()] || 'default';
 };
 
 // Schema evolution panel starts collapsed.
@@ -911,7 +916,7 @@ const statTiles = computed(() => {
       label: 'Updated',
       value: m['last-updated-ms'] ? formatTimestamp(m['last-updated-ms']) : '—',
       icon: 'mdi-update',
-      color: 'grey',
+      color: 'default',
     },
   ];
 });
@@ -990,7 +995,7 @@ const identityRows = computed(() => {
 .schema-json {
   max-height: 60vh;
   overflow: auto;
-  border: 1px solid rgba(127, 127, 127, 0.25);
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.25);
   border-radius: 6px;
   padding: 4px 8px;
 }

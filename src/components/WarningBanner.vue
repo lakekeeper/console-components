@@ -1,11 +1,11 @@
 <template>
-  <v-banner :sticky="sticky" color="white" icon="mdi-alert-box" lines="one" bg-color="error">
+  <v-banner :sticky="sticky" color="on-error" icon="mdi-alert-box" lines="one" bg-color="error">
     <template #text>
       <span class="text-h6">{{ message }}</span>
     </template>
     <template v-if="showActions" #actions>
       <slot name="actions">
-        <v-btn color="white" @click="$emit('dismiss')">Dismiss</v-btn>
+        <v-btn color="on-error" @click="$emit('dismiss')">Dismiss</v-btn>
       </slot>
     </template>
   </v-banner>

@@ -4,7 +4,6 @@
       <v-btn
         size="small"
         variant="outlined"
-        color="primary"
         class="mr-8 ml-4"
         @click="depth = 1"
         append-icon="mdi-collapse-all">
@@ -13,18 +12,12 @@
       <v-btn
         size="small"
         variant="outlined"
-        color="success"
         class="mr-8"
         @click="depth = maxDepth"
         append-icon="mdi-expand-all">
         Expand
       </v-btn>
-      <v-btn
-        size="small"
-        variant="outlined"
-        color="primary"
-        @click="copyTableJson"
-        prepend-icon="mdi-content-copy">
+      <v-btn size="small" variant="outlined" @click="copyTableJson" prepend-icon="mdi-content-copy">
         Copy JSON
       </v-btn>
     </div>

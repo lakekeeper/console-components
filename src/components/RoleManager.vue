@@ -15,6 +15,7 @@
       height="calc(100vh - 340px)"
       items-per-page="50"
       fixed-header
+      density="compact"
       :headers="headers"
       hover
       :items="displayedResults"
@@ -84,7 +85,10 @@
         <RoleDialog v-if="canCreateRole" :action-type="'add'" @role-input="roleInput" />
       </template>
     </v-data-table>
-    <div v-else>You don't have permission to list roles</div>
+    <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
+      <v-icon>mdi-lock-outline</v-icon>
+      You don't have permission to list roles.
+    </div>
   </v-card>
 </template>
 

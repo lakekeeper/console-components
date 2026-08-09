@@ -24,6 +24,7 @@
       hide-details
       class="mb-3"
       :loading="loadingProjects"
+      no-data-text="No projects available"
       prepend-inner-icon="mdi-folder-account"
       @update:model-value="rerun">
       <template #item="{ props: ip, item }">

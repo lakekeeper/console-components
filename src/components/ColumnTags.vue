@@ -13,7 +13,7 @@
       :headers="headers"
       :items="columns"
       :loading="loading"
-      density="comfortable"
+      density="compact"
       item-value="name">
       <template #item.tags="{ item }">
         <template v-if="tagsByColumn[item.name]?.length">
@@ -51,7 +51,7 @@
     </v-data-table>
 
     <!-- Per-column manage dialog. -->
-    <v-dialog v-model="manageDialog" max-width="560">
+    <v-dialog v-model="manageDialog" max-width="600">
       <v-card :title="`Manage tags — column '${activeColumn?.name}'`">
         <v-card-text>
           <div v-if="activeTags.length" class="mb-3 d-flex flex-wrap ga-1">
@@ -115,12 +115,19 @@
           </div>
 
           <div class="d-flex justify-end">
-            <v-btn color="success" size="small" :disabled="!canSubmit" @click="submit">apply</v-btn>
+            <v-btn
+              color="primary"
+              variant="flat"
+              size="small"
+              :disabled="!canSubmit"
+              @click="submit">
+              apply
+            </v-btn>
           </div>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text="Close" @click="manageDialog = false"></v-btn>
+          <v-btn variant="text" text="Close" @click="manageDialog = false"></v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -128,7 +135,7 @@
     <!-- Remove confirmation -->
     <v-dialog v-model="confirmRemoveOpen" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center ga-2">
+        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
           <v-icon color="error">mdi-delete-outline</v-icon>
           Remove tag
         </v-card-title>
@@ -151,7 +158,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
+          <v-btn variant="text" text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
           <v-btn
             color="error"
             variant="flat"

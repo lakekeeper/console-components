@@ -10,7 +10,7 @@
       <v-progress-circular
         indeterminate
         color="primary"
-        size="40"
+        size="48"
         class="mb-3"></v-progress-circular>
       Loading version history…
     </div>

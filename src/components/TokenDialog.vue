@@ -1,7 +1,7 @@
 <template>
-  <v-dialog v-model="dialog" max-width="600px" persistent>
+  <v-dialog v-model="dialog" max-width="600" persistent>
     <v-card>
-      <v-card-title class="text-h6">
+      <v-card-title class="text-subtitle-1 d-flex align-center py-3">
         <v-icon class="mr-2">mdi-key-variant</v-icon>
         Access Token
       </v-card-title>
@@ -28,11 +28,11 @@
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
-        <v-btn color="primary" variant="text" @click="copyToken">
+        <v-btn variant="text" @click="closeDialog">Close</v-btn>
+        <v-btn color="primary" variant="flat" @click="copyToken">
           <v-icon class="mr-2">mdi-content-copy</v-icon>
           Copy to Clipboard
         </v-btn>
-        <v-btn color="secondary" variant="text" @click="closeDialog">Close</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

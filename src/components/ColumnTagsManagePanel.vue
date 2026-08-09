@@ -4,7 +4,7 @@
       :headers="headers"
       :items="allColumnTagRows"
       :loading="loading"
-      density="comfortable"
+      density="compact"
       :items-per-page="-1"
       hide-default-footer>
       <template #item.value="{ item }">
@@ -21,7 +21,7 @@
         <div class="d-flex flex-nowrap justify-end">
           <v-btn
             v-if="item.value !== null && item.value !== undefined"
-            icon="mdi-pencil"
+            icon="mdi-pencil-outline"
             size="x-small"
             variant="text"
             title="Edit value"
@@ -48,7 +48,7 @@
           label="Column"
           :items="columns"
           density="compact"
-          hide-details
+          hide-details="auto"
           no-data-text="No columns available"
           style="min-width: 200px"></v-select>
         <v-autocomplete
@@ -60,7 +60,7 @@
           item-value="id"
           auto-select-first
           density="compact"
-          hide-details
+          hide-details="auto"
           no-data-text="No tags available"
           style="min-width: 200px"
           @update:model-value="onDefinitionSelected"></v-autocomplete>
@@ -90,20 +90,20 @@
           density="compact"
           :items="allowedValues"
           :loading="loadingDefinition"
-          hide-details
+          hide-details="auto"
           no-data-text="No values available"
           style="min-width: 320px"></v-select>
         <span v-else class="text-caption text-disabled align-self-center">
           {{ selectedKind === 'marker' ? 'Marker — no value' : 'Select a tag to set its value' }}
         </span>
-        <v-btn color="success" :disabled="!canSubmit" @click="submit">apply</v-btn>
+        <v-btn color="primary" variant="flat" :disabled="!canSubmit" @click="submit">apply</v-btn>
       </div>
     </div>
 
     <!-- Remove confirmation -->
     <v-dialog v-model="confirmRemoveOpen" max-width="440">
       <v-card>
-        <v-card-title class="d-flex align-center ga-2">
+        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
           <v-icon color="error">mdi-delete-outline</v-icon>
           Remove tag
         </v-card-title>
@@ -126,7 +126,7 @@
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
-          <v-btn text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
+          <v-btn variant="text" text="Cancel" @click="confirmRemoveOpen = false"></v-btn>
           <v-btn
             color="error"
             variant="flat"

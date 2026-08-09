@@ -5,7 +5,7 @@
         <v-icon
           class="mr-2"
           :color="
-            recommendedActions.length > 0 ? 'warning' : partitionLoading ? 'grey' : 'success'
+            recommendedActions.length > 0 ? 'warning' : partitionLoading ? 'info' : 'success'
           ">
           {{
             recommendedActions.length > 0
@@ -30,7 +30,7 @@
         </template>
         <template #default="{ isActive }">
           <v-card>
-            <v-card-title class="d-flex align-center">
+            <v-card-title class="d-flex align-center text-subtitle-1 py-3">
               <v-icon class="mr-2" color="info">mdi-information-outline</v-icon>
               Recommended Actions Logic
             </v-card-title>
@@ -157,7 +157,7 @@
         variant="flat">
         {{ recommendedActions.length }} action{{ recommendedActions.length !== 1 ? 's' : '' }}
       </v-chip>
-      <v-chip v-else-if="partitionLoading" color="grey" size="small" variant="flat">
+      <v-chip v-else-if="partitionLoading" color="info" size="small" variant="flat">
         Analyzing…
       </v-chip>
       <v-chip v-else color="success" size="small" variant="flat">No issues</v-chip>
@@ -200,7 +200,7 @@
         v-else-if="isPartitioned && (!partitionData || partitionData.length === 0)"
         class="py-2 text-caption text-medium-emphasis">
         <template #prepend>
-          <v-icon size="small" color="grey">mdi-information-outline</v-icon>
+          <v-icon size="small" color="info">mdi-information-outline</v-icon>
         </template>
         <v-list-item-title class="text-caption text-medium-emphasis">
           Partition distribution data unavailable — some partition-specific checks were skipped.
