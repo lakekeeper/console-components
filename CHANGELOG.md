@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.20.0](https://github.com/lakekeeper/console-components/compare/v0.19.0...v0.20.0) (2026-08-09)
+
+
+### Features
+
+* **ui:** add StyleGuide reference component documenting canonical design patterns ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+
+
+### Bug Fixes
+
+* **ui:** fix Add/Edit Role button color and label capitalization ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** fix dark-theme tooltip and snackbar unreadable due to low-contrast token pairing ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** fix dialog action button order to put neutral cancel before primary/destructive ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** fix icon-only buttons rendering blank when paired with a tooltip ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** fix WarehouseAddDialog crash caused by structuredClone on reactive state ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** improve DateTimePicker popup spacing and width consistency ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** normalize button color/variant for cancel, destructive, and primary actions ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** normalize LoQE SQL editor toolbar button sizing ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** remove decorative primary/secondary gradient background on login and no-access pages ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** reset WarehouseAddDialog form state after a successful warehouse creation ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** route hardcoded colors through theme tokens for dark-mode and white-label safety ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+* **ui:** shrink AppBar logo size ([5da9099](https://github.com/lakekeeper/console-components/commit/5da90990fe2f60064b37f39cf5b40c4a2853e55b))
+
 ## [0.19.0](https://github.com/lakekeeper/console-components/compare/v0.18.0...v0.19.0) (2026-08-07)
 
 
