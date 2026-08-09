@@ -49,6 +49,7 @@
           :items="columns"
           density="compact"
           hide-details
+          no-data-text="No columns available"
           style="min-width: 200px"></v-select>
         <v-autocomplete
           v-model="form.tagDefinitionId"
@@ -60,6 +61,7 @@
           auto-select-first
           density="compact"
           hide-details
+          no-data-text="No tags available"
           style="min-width: 200px"
           @update:model-value="onDefinitionSelected"></v-autocomplete>
       </div>
@@ -89,6 +91,7 @@
           :items="allowedValues"
           :loading="loadingDefinition"
           hide-details
+          no-data-text="No values available"
           style="min-width: 320px"></v-select>
         <span v-else class="text-caption text-disabled align-self-center">
           {{ selectedKind === 'marker' ? 'Marker — no value' : 'Select a tag to set its value' }}

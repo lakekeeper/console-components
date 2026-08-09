@@ -4,7 +4,7 @@
       <v-btn
         v-bind="activatorProps"
         size="small"
-        variant="tonal"
+        variant="flat"
         color="primary"
         prepend-icon="mdi-compare-horizontal"
         :disabled="snapshots.length < 2">
@@ -32,6 +32,7 @@
               variant="outlined"
               density="compact"
               hide-details
+              no-data-text="No snapshots available"
               prepend-inner-icon="mdi-camera-outline"></v-select>
           </v-col>
           <v-col cols="12" md="6">
@@ -45,6 +46,7 @@
               density="compact"
               hide-details
               :disabled="!leftSnapshotId"
+              no-data-text="No snapshots available"
               prepend-inner-icon="mdi-camera-outline"></v-select>
           </v-col>
         </v-row>

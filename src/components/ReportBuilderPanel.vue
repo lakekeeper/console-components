@@ -9,7 +9,7 @@
         <v-icon start size="small">mdi-plus</v-icon>
         Add chart
       </v-btn>
-      <v-btn size="x-small" variant="tonal" color="primary" @click="openSaveDialog">
+      <v-btn size="x-small" variant="flat" color="primary" @click="openSaveDialog">
         <v-icon start size="small">mdi-content-save-outline</v-icon>
         Save
       </v-btn>
@@ -91,6 +91,7 @@
               density="compact"
               variant="outlined"
               hide-details
+              no-data-text="No columns available"
               placeholder="Select column"
               class="mb-3" />
 
@@ -121,6 +122,7 @@
                 density="compact"
                 variant="outlined"
                 hide-details
+                no-data-text="No columns available"
                 class="flex-grow-1"
                 style="min-width: 0" />
               <v-btn

@@ -19,7 +19,7 @@
         @update:model-value="loadTags"></v-switch>
       <v-btn
         v-if="canManage"
-        color="info"
+        color="primary"
         size="small"
         variant="flat"
         prepend-icon="mdi-tag-edit-outline"
@@ -79,7 +79,7 @@
             label="Show inherited"
             @update:model-value="loadTags"></v-switch>
           <v-btn
-            color="info"
+            color="primary"
             size="small"
             variant="flat"
             prepend-icon="mdi-plus"
@@ -163,6 +163,7 @@
             item-title="name"
             item-value="id"
             auto-select-first
+            no-data-text="No tags available"
             :rules="[(v) => !!v || 'Select a tag']"
             @update:model-value="onDefinitionSelected"></v-autocomplete>
 
@@ -191,6 +192,7 @@
               label="Value"
               :items="allowedValues"
               :loading="loadingDefinition"
+              no-data-text="No values available"
               :rules="[(v) => (v !== null && v !== '') || 'Value is required']"></v-select>
           </template>
           <template v-else-if="selectedKind === 'marker'">

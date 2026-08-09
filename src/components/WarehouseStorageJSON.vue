@@ -28,7 +28,7 @@
       <v-btn :disabled="!JSONStringIsValid" type="submit" color="success" class="mr-6">
         Submit
       </v-btn>
-      <v-btn :disabled="!JSONStringIsValid" @click="handlePreload" color="info">Preload</v-btn>
+      <v-btn :disabled="!JSONStringIsValid" @click="handlePreload" color="primary">Preload</v-btn>
     </div>
   </v-form>
 </template>

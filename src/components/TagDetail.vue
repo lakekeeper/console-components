@@ -150,7 +150,8 @@
             v-model="confirmName"
             label="Tag definition name"
             maxlength="500"
-            :placeholder="full.name"></v-text-field>
+            :placeholder="full.name"
+            @keyup.enter="confirmName === full.name && doDelete()"></v-text-field>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>

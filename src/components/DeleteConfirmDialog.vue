@@ -17,7 +17,8 @@
           v-model="deleteName"
           :label="`${capitalize(props.type)} Name`"
           maxlength="500"
-          :placeholder="$props.name"></v-text-field>
+          :placeholder="$props.name"
+          @keyup.enter="deleteName === $props.name && confirm()"></v-text-field>
       </v-card-text>
 
       <v-card-actions>

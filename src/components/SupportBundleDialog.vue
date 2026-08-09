@@ -39,7 +39,7 @@
         <v-btn
           prepend-icon="mdi-download"
           color="primary"
-          variant="tonal"
+          variant="flat"
           @click="downloadSupportBundle">
           Download JSON
         </v-btn>

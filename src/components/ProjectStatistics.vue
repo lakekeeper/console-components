@@ -48,6 +48,7 @@
             density="compact"
             variant="outlined"
             hide-details
+            no-data-text="No warehouses available"
             prepend-inner-icon="mdi-warehouse" />
         </v-col>
         <v-col cols="12" md="3">
@@ -75,10 +76,10 @@
           </v-select>
         </v-col>
         <v-col cols="6" md="2">
-          <v-text-field
+          <DateTimePicker
             v-model="dateFrom"
             label="From"
-            type="datetime-local"
+            
             density="compact"
             variant="outlined"
             hide-details
@@ -86,10 +87,10 @@
             :max="dateTo || undefined" />
         </v-col>
         <v-col cols="6" md="2">
-          <v-text-field
+          <DateTimePicker
             v-model="dateTo"
             label="To"
-            type="datetime-local"
+            
             density="compact"
             variant="outlined"
             hide-details

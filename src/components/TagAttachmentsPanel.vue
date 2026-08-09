@@ -51,6 +51,7 @@
             density="compact"
             clearable
             hide-details
+            no-data-text="No warehouses available"
             @update:model-value="reload"></v-select>
           <v-btn
             v-if="activeFilterCount"

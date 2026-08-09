@@ -16,7 +16,8 @@
           v-model="roleData.name"
           label="Role Name"
           placeholder="my-role"
-          :rules="[nameRule]"></v-text-field>
+          :rules="[nameRule]"
+          @keyup.enter="createRole"></v-text-field>
         <v-textarea v-model="roleData.description" label="Role description"></v-textarea>
         <!--v-text-field
           v-model="roleData.providerId"

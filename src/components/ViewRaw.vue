@@ -4,7 +4,7 @@
       <v-btn
         size="small"
         variant="outlined"
-        color="info"
+        color="primary"
         class="mr-8 ml-4"
         @click="depthRawRepresentation = 1"
         append-icon="mdi-collapse-all">

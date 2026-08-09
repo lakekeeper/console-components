@@ -6,7 +6,7 @@
         icon="mdi-pencil-outline"
         size="x-small"
         variant="text"
-        color="info">
+        color="primary">
         <v-icon>mdi-pencil-outline</v-icon>
         <v-tooltip activator="parent" location="bottom">Edit Properties</v-tooltip>
       </v-btn>
@@ -65,7 +65,7 @@
             <v-spacer></v-spacer>
             <v-btn
               v-if="canEdit"
-              color="info"
+              color="primary"
               density="compact"
               size="small"
               variant="text"
@@ -132,7 +132,7 @@
               </v-btn>
               <v-btn
                 v-else
-                color="info"
+                color="primary"
                 density="compact"
                 icon="mdi-undo"
                 size="small"

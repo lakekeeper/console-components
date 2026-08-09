@@ -7,7 +7,7 @@
       <template v-if="selectedPaths.length > 0">
         <v-btn
           size="small"
-          variant="tonal"
+          variant="flat"
           color="primary"
           prepend-icon="mdi-download-outline"
           @click="bulkDownload">

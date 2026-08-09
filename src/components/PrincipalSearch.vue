@@ -69,6 +69,7 @@
       density="compact"
       variant="outlined"
       hide-details
+      :no-data-text="`No ${type}s found`"
       @update:search="onSearch"
       @update:model-value="$emit('update:modelValue', $event)"></v-autocomplete>
 

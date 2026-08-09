@@ -14,7 +14,8 @@
         <v-text-field
           v-model="newName"
           label="New user name"
-          placeholder="user name"></v-text-field>
+          placeholder="user name"
+          @keyup.enter="props.name !== newName && newName !== '' && emmitNewUserName()"></v-text-field>
       </v-card-text>
 
       <v-card-actions>

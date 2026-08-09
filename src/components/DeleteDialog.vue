@@ -13,7 +13,8 @@
           v-model="deleteName"
           :label="`Type ${capitalize(props.type)} Name`"
           maxlength="500"
-          :placeholder="$props.name"></v-text-field>
+          :placeholder="$props.name"
+          @keyup.enter="deleteName === $props.name && confirm()"></v-text-field>
 
         <v-row class="mt-6 mb-2">
           <v-col cols="auto">

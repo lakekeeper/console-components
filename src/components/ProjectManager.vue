@@ -84,7 +84,7 @@
               <v-btn
                 v-if="item.info === 'selected'"
                 text="selected"
-                color="info"
+                color="primary"
                 size="small"
                 disabled
                 variant="plain">
@@ -93,7 +93,7 @@
               <v-btn
                 v-if="item.info === 'activate'"
                 text="activate"
-                color="info"
+                color="primary"
                 size="small"
                 variant="flat"
                 @click="activateProject(item)"></v-btn>

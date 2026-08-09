@@ -96,6 +96,7 @@ import AppBar from './components/AppBar.vue';
 import WarningBanner from './components/WarningBanner.vue';
 import SnackbarMessage from './components/SnackbarMessage.vue';
 import BreadcrumbsFromUrl from './components/BreadcrumbsFromUrl.vue';
+import DateTimePicker from './components/DateTimePicker.vue';
 import DeleteDialog from './components/DeleteDialog.vue';
 import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
@@ -143,6 +144,7 @@ export {
   WarningBanner,
   SnackbarMessage,
   BreadcrumbsFromUrl,
+  DateTimePicker,
   DeleteDialog,
   EntityPropertiesDialog,
   TaskConfigDialog,
@@ -374,6 +376,7 @@ const components = {
   WarningBanner,
   SnackbarMessage,
   BreadcrumbsFromUrl,
+  DateTimePicker,
   DeleteDialog,
   EntityPropertiesDialog,
   TaskConfigDialog,

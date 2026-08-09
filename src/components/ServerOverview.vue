@@ -11,7 +11,7 @@
       </v-btn>
       <v-btn
         prepend-icon="mdi-export-variant"
-        variant="tonal"
+        variant="flat"
         color="primary"
         size="small"
         @click="exportDialog = true">

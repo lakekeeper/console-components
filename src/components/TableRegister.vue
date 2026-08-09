@@ -44,7 +44,7 @@
             <div class="d-flex align-center mb-4 ga-2">
               <v-btn
                 size="small"
-                variant="tonal"
+                variant="flat"
                 color="primary"
                 prepend-icon="mdi-upload"
                 @click="triggerFileUpload"

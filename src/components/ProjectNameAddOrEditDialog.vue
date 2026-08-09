@@ -3,7 +3,7 @@
     <template #activator="{ props: activatorProps }">
       <v-btn
         v-bind="activatorProps"
-        color="info"
+        color="primary"
         size="small"
         class="me-5"
         :text="props.actionType == 'add' ? 'Add Project' : 'Rename'"
@@ -15,7 +15,11 @@
         <v-text-field
           v-model="project"
           :label="props.actionType == 'add' ? 'Add Project' : 'Rename'"
-          placeholder="my-project"></v-text-field>
+          placeholder="my-project"
+          @keyup.enter="
+            project !== '' &&
+              (props.actionType == 'add' ? emitProjectCreate() : emitProjectName())
+          "></v-text-field>
       </v-card-text>
 
       <v-card-actions>

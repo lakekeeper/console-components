@@ -255,7 +255,7 @@
         <v-btn
           prepend-icon="mdi-download"
           color="primary"
-          variant="tonal"
+          variant="flat"
           :disabled="rows.length === 0"
           @click="downloadCsv">
           Download CSV

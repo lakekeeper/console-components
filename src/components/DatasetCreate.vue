@@ -1,5 +1,5 @@
 <template>
-  <v-btn prepend-icon="mdi-plus" variant="tonal" color="primary" @click="open = true">
+  <v-btn prepend-icon="mdi-plus" variant="elevated" color="primary" @click="open = true">
     New Dataset
   </v-btn>
 

@@ -79,6 +79,7 @@
             item-value="id"
             auto-select-first
             density="compact"
+            no-data-text="No tags available"
             @update:model-value="onDefinitionSelected"></v-autocomplete>
 
           <v-text-field
@@ -107,6 +108,7 @@
             density="compact"
             :items="allowedValues"
             :loading="loadingDefinition"
+            no-data-text="No values available"
             :rules="[(v) => (v !== null && v !== '') || 'Value is required']"></v-select>
           <div v-else-if="selectedKind === 'marker'" class="text-caption text-disabled">
             Marker tag — no value.

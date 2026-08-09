@@ -105,6 +105,7 @@
                   ? 'Please select a project first'
                   : ''
               "
+              :no-data-text="`No ${searchForType}s found`"
               @update:focused="items.splice(0, items.length)"
               @update:model-value="selectedObject"
               @update:search="searchMember">

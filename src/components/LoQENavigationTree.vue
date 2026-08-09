@@ -25,6 +25,7 @@
         density="compact"
         variant="outlined"
         placeholder="Select warehouse to search…"
+        no-data-text="No warehouses available"
         hide-details
         clearable
         class="filter-field mb-1">

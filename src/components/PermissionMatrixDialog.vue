@@ -73,6 +73,7 @@
                       persistent-hint
                       class="mt-2"
                       :loading="loadingProjects"
+                      no-data-text="No projects available"
                       @update:model-value="onProjectChange">
                       <template #prepend-inner>
                         <v-icon>mdi-folder-account</v-icon>
@@ -100,7 +101,8 @@
                       chips
                       closable-chips
                       density="compact"
-                      :loading="loadingUsers">
+                      :loading="loadingUsers"
+                      no-data-text="No users available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-account</v-icon>
@@ -122,6 +124,7 @@
                       density="compact"
                       :loading="loadingRoles"
                       :disabled="!selectedProjectForRoles"
+                      no-data-text="No roles available"
                       :placeholder="
                         !selectedProjectForRoles ? 'Please select a project first' : ''
                       ">
@@ -161,7 +164,8 @@
                       chips
                       closable-chips
                       density="compact"
-                      :loading="loadingWarehouses">
+                      :loading="loadingWarehouses"
+                      no-data-text="No warehouses available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-warehouse</v-icon>
@@ -182,7 +186,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No namespaces available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-folder-outline</v-icon>
@@ -203,7 +208,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No tables available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-table</v-icon>
@@ -224,7 +230,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No views available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-eye-outline</v-icon>
@@ -245,7 +252,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No generic tables available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-table-multiple</v-icon>
@@ -261,7 +269,8 @@
                       multiple
                       chips
                       closable-chips
-                      density="compact">
+                      density="compact"
+                      no-data-text="No actions available">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">{{ item.title }}</v-chip>
                       </template>

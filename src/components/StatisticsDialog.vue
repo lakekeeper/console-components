@@ -6,7 +6,7 @@
         density="default"
         icon="mdi-information-box-outline"
         size="small"
-        color="info"></v-btn>
+        color="primary"></v-btn>
     </template>
 
     <v-card title="Warehouse Statistics">
@@ -57,7 +57,7 @@
       <v-card-actions>
         <v-spacer></v-spacer>
 
-        <v-btn color="info" text="Close" @click="isDialogActive = false"></v-btn>
+        <v-btn color="primary" text="Close" @click="isDialogActive = false"></v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

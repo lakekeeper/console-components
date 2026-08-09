@@ -13,8 +13,8 @@
     :items="loadedWarehouseItems"
     :sort-by="[{ key: 'name', order: 'asc' }]"
     :items-per-page-options="[
-      { title: '50 items', value: 50 },
-      { title: '100 items', value: 100 },
+      { title: '50', value: 50 },
+      { title: '100', value: 100 },
     ]"
     @update:options="paginationCheckNamespace($event)">
     <template #top>

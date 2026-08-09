@@ -347,7 +347,7 @@
                       v-else
                       variant="flat"
                       size="x-small"
-                      color="primary"
+                      :color="sqlQuery.trim() ? 'primary' : undefined"
                       @click="executeQuery"
                       :disabled="!sqlQuery.trim() || loqe.isInitializing.value">
                       <v-icon start size="small">mdi-play</v-icon>
@@ -629,8 +629,8 @@
           <v-spacer />
           <v-btn variant="text" @click="showExtensionDialog = false">Cancel</v-btn>
           <v-btn
+            variant="flat"
             color="primary"
-            variant="elevated"
             :disabled="!extensionName.trim()"
             :loading="isInstallingExt"
             @click="handleInstallExtension">

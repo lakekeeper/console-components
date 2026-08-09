@@ -6,7 +6,7 @@
           v-if="actionType === 'add'"
           class="me-2"
           v-bind="activatorProps"
-          color="info"
+          color="primary"
           size="small"
           text="New Tag"
           variant="flat"></v-btn>
@@ -27,7 +27,8 @@
           placeholder="pii.classification"
           hint="`.` is the hierarchy delimiter. Unique per project (case-insensitive)."
           persistent-hint
-          :rules="[nameRule]"></v-text-field>
+          :rules="[nameRule]"
+          @keyup.enter="save"></v-text-field>
 
         <v-textarea
           v-model="data.description"

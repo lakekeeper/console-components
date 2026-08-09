@@ -24,6 +24,7 @@
         density="compact"
         variant="outlined"
         placeholder="Select warehouse to search..."
+        no-data-text="No warehouses available"
         hide-details
         clearable
         class="filter-field mb-1">
@@ -143,6 +144,7 @@
         density="compact"
         open-on-click
         indent-lines="default"
+        no-data-text="No warehouses available"
         class="tree-view pa-2"
         style="background-color: transparent !important; --v-treeview-indent-line-opacity: 0.5">
         <template v-slot:prepend="{ item }">

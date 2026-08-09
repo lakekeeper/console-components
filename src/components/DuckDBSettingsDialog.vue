@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="dialogVisible" max-width="550" persistent>
+  <v-dialog v-model="dialogVisible" max-width="550">
     <template v-slot:activator="{ props: activatorProps }">
       <v-btn icon size="small" variant="text" v-bind="activatorProps">
         <v-icon size="small">mdi-cog</v-icon>
@@ -166,7 +166,7 @@
           Reset Defaults
         </v-btn>
         <v-spacer />
-        <v-btn variant="elevated" color="primary" @click="dialogVisible = false">Done</v-btn>
+        <v-btn variant="flat" color="primary" @click="dialogVisible = false">Done</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>

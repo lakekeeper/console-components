@@ -20,8 +20,8 @@
       :items="displayedResults"
       :sort-by="[{ key: 'name', order: 'asc' }]"
       :items-per-page-options="[
-        { title: '25 items', value: 25 },
-        { title: '50 items', value: 50 },
+        { title: '25', value: 25 },
+        { title: '50', value: 50 },
       ]"
       :loading="loading"
       @update:options="paginationCheck">
@@ -38,6 +38,7 @@
             multiple
             chips
             closable-chips
+            no-data-text="No providers available"
             style="max-width: 400px"
             @update:model-value="onProviderFilterChange"></v-combobox>
           <v-spacer></v-spacer>

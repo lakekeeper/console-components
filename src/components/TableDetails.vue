@@ -74,7 +74,7 @@
               <v-spacer></v-spacer>
               <v-btn
                 size="small"
-                variant="tonal"
+                variant="flat"
                 color="primary"
                 prepend-icon="mdi-compare-horizontal"
                 @click="openCompare">
@@ -281,6 +281,7 @@
               density="compact"
               variant="outlined"
               hide-details
+              no-data-text="No schema versions available"
               style="max-width: 200px"></v-select>
             <v-icon>mdi-arrow-right</v-icon>
             <v-select
@@ -290,6 +291,7 @@
               density="compact"
               variant="outlined"
               hide-details
+              no-data-text="No schema versions available"
               style="max-width: 200px"></v-select>
           </div>
           <v-table density="compact">

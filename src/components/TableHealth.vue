@@ -41,7 +41,7 @@
                 icon="mdi-information-outline"
                 size="x-small"
                 variant="text"
-                color="info"
+                color="primary"
                 class="mr-1"></v-btn>
             </template>
             <template #default="{ isActive }">

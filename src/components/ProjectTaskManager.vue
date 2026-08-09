@@ -90,24 +90,24 @@
                 <v-card-title class="text-subtitle-2 pb-2">Created Date Range</v-card-title>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.createdAfter"
                       label="After"
-                      type="datetime-local"
+                      
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks created after this date"></v-text-field>
+                      hint="Tasks created after this date"></DateTimePicker>
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.createdBefore"
                       label="Before"
-                      type="datetime-local"
+                      
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks created before this date"></v-text-field>
+                      hint="Tasks created before this date"></DateTimePicker>
                   </v-col>
                 </v-row>
               </v-card>
@@ -118,24 +118,24 @@
                 <v-card-title class="text-subtitle-2 pb-2">Scheduled Date Range</v-card-title>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.scheduledAfter"
                       label="After"
-                      type="datetime-local"
+                      
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks scheduled after this date"></v-text-field>
+                      hint="Tasks scheduled after this date"></DateTimePicker>
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-text-field
+                    <DateTimePicker
                       v-model="filters.scheduledBefore"
                       label="Before"
-                      type="datetime-local"
+                      
                       clearable
                       density="compact"
                       hide-details
-                      hint="Tasks scheduled before this date"></v-text-field>
+                      hint="Tasks scheduled before this date"></DateTimePicker>
                   </v-col>
                 </v-row>
               </v-card>
@@ -176,9 +176,9 @@
       :items="tasks"
       :items-per-page="currentPaginationOptions.itemsPerPage"
       :items-per-page-options="[
-        { title: '25 items', value: 25 },
-        { title: '50 items', value: 50 },
-        { title: '100 items', value: 100 },
+        { title: '25', value: 25 },
+        { title: '50', value: 50 },
+        { title: '100', value: 100 },
       ]"
       hover
       density="compact"

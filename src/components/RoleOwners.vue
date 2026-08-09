@@ -30,7 +30,7 @@
       <v-btn
         v-if="canEdit"
         color="primary"
-        variant="tonal"
+        variant="elevated"
         size="small"
         prepend-icon="mdi-plus"
         @click="openAdd">

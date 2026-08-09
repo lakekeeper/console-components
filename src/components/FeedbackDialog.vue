@@ -73,7 +73,7 @@
         <v-btn variant="text" @click="$emit('update:modelValue', false)">Cancel</v-btn>
         <v-btn
           color="primary"
-          variant="tonal"
+          variant="flat"
           prepend-icon="mdi-email-fast"
           :disabled="!isValid"
           @click="sendFeedback">
