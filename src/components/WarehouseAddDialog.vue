@@ -775,6 +775,9 @@ const initialWarehouseObjects = {
 };
 const initialKey = deepClone(key);
 
+// Populated in onMounted for the update flows; see the comment there.
+let loadedWarehouseObjects: Record<string, WarehousObject> | null = null;
+
 function resetCreateForm() {
   warehouseName.value = '';
   storageCredentialType.value = '';
@@ -1039,14 +1042,25 @@ function cancelDialog() {
 //  - create flow: clear every input back to empty, but keep the user on the storage
 //    tab they picked (resetCreateForm() blanks the tab selection, which is only
 //    wanted after a successful create, where the dialog closes anyway).
-//  - update flows: bumping importKey remounts the storage sub-form, which re-seeds
-//    itself from the loaded warehouse — i.e. reverts to the saved values.
+//  - update flows: restore the snapshot taken when the warehouse was loaded. The
+//    restore has to happen before the remount — the sub-form mutates these objects
+//    in place, so remounting alone would just re-read the edited values.
 function handleReset() {
   if (props.objectType === ObjectType.WAREHOUSE) {
     const selectedTab = storageCredentialType.value;
     resetCreateForm();
     storageCredentialType.value = selectedTab;
     return;
+  }
+
+  if (loadedWarehouseObjects) {
+    Object.assign(warehouseObjectS3, deepClone(loadedWarehouseObjects.s3));
+    Object.assign(warehouseObjectR2, deepClone(loadedWarehouseObjects.r2));
+    Object.assign(warehouseObjectS3Compat, deepClone(loadedWarehouseObjects.s3Compat));
+    Object.assign(warehouseObjectAliyun, deepClone(loadedWarehouseObjects.aliyun));
+    Object.assign(warehouseObjectGCS, deepClone(loadedWarehouseObjects.gcs));
+    Object.assign(warehouseObjectAz, deepClone(loadedWarehouseObjects.az));
+    Object.assign(warehouseObjectOneLake, deepClone(loadedWarehouseObjects.oneLake));
   }
   importKey.value++;
 }
@@ -1184,6 +1198,20 @@ onMounted(() => {
       warehouseName.value = props.warehouse.name ?? '';
       loadedName.value = warehouseName.value;
     }
+
+    // Snapshot the storage objects as loaded, so Reset can discard edits.
+    // The sub-forms Object.assign these in (a shallow copy), which shares the
+    // nested 'storage-profile'/'storage-credential' objects — so editing the
+    // sub-form mutates these in place and they cannot be re-read as a baseline.
+    loadedWarehouseObjects = {
+      s3: deepClone(warehouseObjectS3),
+      r2: deepClone(warehouseObjectR2),
+      s3Compat: deepClone(warehouseObjectS3Compat),
+      aliyun: deepClone(warehouseObjectAliyun),
+      gcs: deepClone(warehouseObjectGCS),
+      az: deepClone(warehouseObjectAz),
+      oneLake: deepClone(warehouseObjectOneLake),
+    };
   }
 });
 
