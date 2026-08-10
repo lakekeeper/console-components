@@ -120,6 +120,7 @@ import {
   TagAssignment,
   TagRelation,
   GetTagAssignmentsResponse,
+  ValidateWarehouseResponse,
 } from '@/gen/management/types.gen';
 
 import { useUserStore } from '@/stores/user';
@@ -928,6 +929,140 @@ async function updateStorageProfile(
     return data;
   } catch (error) {
     handleError(error, 'updateStorageProfile');
+    throw error;
+  }
+}
+
+async function validateWarehouse(
+  wh: CreateWarehouseRequest,
+  notify?: boolean,
+): Promise<ValidateWarehouseResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.validateWarehouse({
+      client,
+      body: wh,
+    });
+    if (error) throw error;
+
+    const result = data as ValidateWarehouseResponse;
+    if (notify) {
+      handleSuccess(
+        'validateWarehouse',
+        result.valid ? 'Warehouse configuration is valid' : 'Warehouse configuration is invalid',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'validateWarehouse', notify);
+    throw error;
+  }
+}
+
+async function validateStorageProfile(
+  whId: string,
+  storageCredential: StorageCredential | null | undefined,
+  storageProfile: StorageProfile,
+  notify?: boolean,
+): Promise<ValidateWarehouseResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.validateStorageProfile({
+      client,
+      body: {
+        'storage-profile': storageProfile,
+        'storage-credential': storageCredential,
+      },
+      path: {
+        warehouse_id: whId,
+      },
+    });
+    if (error) throw error;
+
+    const result = data as ValidateWarehouseResponse;
+    if (notify) {
+      handleSuccess(
+        'validateStorageProfile',
+        result.valid ? 'Storage profile is valid' : 'Storage profile is invalid',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'validateStorageProfile', notify);
+    throw error;
+  }
+}
+
+async function validateStorageCredential(
+  whId: string,
+  storageCredential: StorageCredential,
+  notify?: boolean,
+): Promise<ValidateWarehouseResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.validateStorageCredential({
+      client,
+      body: { 'new-storage-credential': storageCredential },
+      path: {
+        warehouse_id: whId,
+      },
+    });
+    if (error) throw error;
+
+    const result = data as ValidateWarehouseResponse;
+    if (notify) {
+      handleSuccess(
+        'validateStorageCredential',
+        result.valid ? 'Storage credential is valid' : 'Storage credential is invalid',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'validateStorageCredential', notify);
+    throw error;
+  }
+}
+
+async function validateStorageAccess(
+  whId: string,
+  notify?: boolean,
+): Promise<ValidateWarehouseResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.validateStorageAccess({
+      client,
+      path: {
+        warehouse_id: whId,
+      },
+    });
+    if (error) throw error;
+
+    const result = data as ValidateWarehouseResponse;
+    if (notify) {
+      handleSuccess(
+        'validateStorageAccess',
+        result.valid ? 'Storage access is valid' : 'Storage access is invalid',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'validateStorageAccess', notify);
     throw error;
   }
 }
@@ -5958,6 +6093,10 @@ export function useFunctions(config?: any) {
     renameWarehouse,
     updateStorageCredential,
     updateStorageProfile,
+    validateWarehouse,
+    validateStorageProfile,
+    validateStorageCredential,
+    validateStorageAccess,
     updateWarehouseDeleteProfile,
     dropView,
     dropTable,

@@ -38,6 +38,7 @@ import WarehouseStorageAzure from './components/WarehouseStorageAzure.vue';
 import WarehouseStorageOneLake from './components/WarehouseStorageOneLake.vue';
 import WarehouseStorageGCS from './components/WarehouseStorageGCS.vue';
 import WarehouseStorageJSON from './components/WarehouseStorageJSON.vue';
+import WarehouseValidationReport from './components/WarehouseValidationReport.vue';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue';
 import WarehouseDetails from './components/WarehouseDetails.vue';
 import TaskManager from './components/TaskManager.vue';
@@ -165,6 +166,7 @@ export {
   WarehouseStorageOneLake,
   WarehouseStorageGCS,
   WarehouseStorageJSON,
+  WarehouseValidationReport,
   DeleteConfirmDialog,
   StatisticsDialog,
   StatisticsProject,
@@ -397,6 +399,7 @@ const components = {
   WarehouseStorageOneLake,
   WarehouseStorageGCS,
   WarehouseStorageJSON,
+  WarehouseValidationReport,
   DeleteConfirmDialog,
   StatisticsDialog,
   StatisticsProject,

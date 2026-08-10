@@ -41,6 +41,10 @@
           @close="$emit('close')"
           @update-profile="updateStorageProfile"
           @cancel="menuOpen = false" />
+
+        <v-list-item prepend-icon="mdi-shield-search" @click="testStorageAccess">
+          <v-list-item-title>Test Storage Access</v-list-item-title>
+        </v-list-item>
       </template>
 
       <template v-if="canManageTags">
@@ -62,6 +66,14 @@
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
     </v-list>
   </v-menu>
+
+  <v-dialog v-model="validationDialogOpen" max-width="700">
+    <WarehouseValidationReport
+      :report="validationReport"
+      :loading="validationLoading"
+      :error="validationError"
+      @close="validationDialogOpen = false"></WarehouseValidationReport>
+  </v-dialog>
 </template>
 
 <script lang="ts" setup>
@@ -70,21 +82,24 @@ import {
   StorageCredential,
   StorageProfile,
   TabularDeleteProfile,
+  ValidateWarehouseResponse,
 } from '../gen/management/types.gen';
 import { ref, computed, onMounted } from 'vue';
 import { Intent, ObjectType } from '../common/enums';
 import { useUserStore } from '../stores/user';
 import { useWarehousePermissions } from '../composables/useCatalogPermissions';
+import { useFunctions } from '../plugins/functions';
 import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
+import WarehouseValidationReport from './WarehouseValidationReport.vue';
 
 const menuOpen = ref(false);
 const userStore = useUserStore();
+const functions = useFunctions();
 // Lock spec-mutating actions on instance-admin-managed warehouses for non-admins.
 const locked = computed(
   () =>
     (warehouse['managed-by'] as string) === 'instance-admin' && userStore.isInstanceAdmin !== true,
 );
-// const functions = useFunctions();
 
 interface CatalogSettingsUpdate {
   deleteProfile?: TabularDeleteProfile;
@@ -128,6 +143,26 @@ function updateStorageProfile(e: { profile: StorageProfile; credentials: Storage
 function updateCatalogSettings(e: CatalogSettingsUpdate) {
   emit('updateCatalogSettings', e);
   menuOpen.value = false;
+}
+
+const validationDialogOpen = ref(false);
+const validationLoading = ref(false);
+const validationReport = ref<ValidateWarehouseResponse | null>(null);
+const validationError = ref<string | null>(null);
+
+async function testStorageAccess() {
+  menuOpen.value = false;
+  validationDialogOpen.value = true;
+  validationLoading.value = true;
+  validationReport.value = null;
+  validationError.value = null;
+  try {
+    validationReport.value = await functions.validateStorageAccess(warehouse.id);
+  } catch (error: any) {
+    validationError.value = error?.error?.message || error?.message || 'Validation request failed.';
+  } finally {
+    validationLoading.value = false;
+  }
 }
 
 // watch(

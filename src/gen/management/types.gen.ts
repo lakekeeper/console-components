@@ -1440,8 +1440,6 @@ export type LakekeeperWarehouseAction = {
 } | {
     action: 'update_storage';
 } | {
-    action: 'update_storage_credential';
-} | {
     action: 'get_metadata';
 } | {
     action: 'get_config';
@@ -1487,8 +1485,6 @@ export type LakekeeperWarehouseActionKind = {
     action: 'delete';
 } | {
     action: 'update_storage';
-} | {
-    action: 'update_storage_credential';
 } | {
     action: 'get_metadata';
 } | {
@@ -3130,6 +3126,65 @@ export type UserOrRole = {
  * Type of a User
  */
 export type UserType = 'human' | 'application';
+
+/**
+ * Outcome of validating a warehouse configuration.
+ *
+ * Returned with HTTP 200 whether or not the configuration is usable — a failing
+ * check is a result, not a request error. Only authorization and malformed
+ * bodies produce a 4xx.
+ */
+export type ValidateWarehouseResponse = {
+    /**
+     * Every check that was considered, in execution order — passed, failed and
+     * skipped alike, so the caller can see what was and was not covered.
+     */
+    checks: Array<ValidationCheck>;
+    /**
+     * True when no check failed. Skipped checks do not make a configuration invalid.
+     */
+    valid: boolean;
+};
+
+export type ValidationCheck = {
+    /**
+     * Wall-clock duration of the check. Absent for skipped checks.
+     */
+    'duration-ms'?: number | null;
+    error?: null | ErrorModel;
+    name: ValidationCheckName;
+    /**
+     * Why the check was skipped. Only set for `skipped`.
+     */
+    reason?: string | null;
+    status: ValidationCheckStatus;
+};
+
+/**
+ * A single check performed against a warehouse configuration.
+ *
+ * Each name is a claim about the configuration that is true exactly when the
+ * check's `status` is `passed`. A check that asserts a property of a subject is
+ * named `<subject>-<predicate>`, the predicate an adjective or past participle;
+ * a check that exercises an operation is named after the operation. A check is
+ * never named after the failure it detects — a requirement that is naturally
+ * negative is stated as the positive property that must hold.
+ *
+ * These are stable wire identifiers. Adding a value is a breaking change for
+ * generated clients, which reject unknown enum values, so new checks ship in a
+ * release that clients must upgrade to.
+ */
+export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' | 'warehouse-name-valid' | 'location-exclusive' | 'spec-mutable' | 'format-version-policy-consistent' | 'managed-by-allowed' | 'storage-client-initialized' | 'lakekeeper-read-write' | 'vended-credentials-issued' | 'vended-credentials-read-write' | 'vended-credentials-scope-enforced' | 'cleanup';
+
+/**
+ * The outcome of a single check.
+ *
+ * `passed` and `failed` are verdicts about the configuration. `skipped` is not
+ * a verdict: the check did not apply, or a prerequisite failed, and `reason`
+ * says which. Skipped checks never make a configuration invalid, so a report
+ * can be `valid` with nothing actually verified — read the individual checks.
+ */
+export type ValidationCheckStatus = 'passed' | 'failed' | 'skipped';
 
 export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
@@ -5950,6 +6005,34 @@ export type CreateWarehouseResponses = {
 
 export type CreateWarehouseResponse2 = CreateWarehouseResponses[keyof CreateWarehouseResponses];
 
+export type ValidateWarehouseData = {
+    body: CreateWarehouseRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/warehouse-creation-validation';
+};
+
+export type ValidateWarehouseErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ValidateWarehouseError = ValidateWarehouseErrors[keyof ValidateWarehouseErrors];
+
+export type ValidateWarehouseResponses = {
+    /**
+     * Validation ran; see `valid` and `checks` for the outcome
+     */
+    200: ValidateWarehouseResponse;
+};
+
+export type ValidateWarehouseResponse2 = ValidateWarehouseResponses[keyof ValidateWarehouseResponses];
+
 export type DeleteWarehouseData = {
     body?: never;
     path: {
@@ -6777,6 +6860,78 @@ export type UpdateStorageCredentialResponses = {
 };
 
 export type UpdateStorageCredentialResponse = UpdateStorageCredentialResponses[keyof UpdateStorageCredentialResponses];
+
+export type ValidateStorageAccessData = {
+    body?: never;
+    path: {
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-access';
+};
+
+export type ValidateStorageAccessErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ValidateStorageAccessError = ValidateStorageAccessErrors[keyof ValidateStorageAccessErrors];
+
+export type ValidateStorageAccessResponses = {
+    /**
+     * Validation ran; see `valid` and `checks` for the outcome
+     */
+    200: ValidateWarehouseResponse;
+};
+
+export type ValidateStorageAccessResponse = ValidateStorageAccessResponses[keyof ValidateStorageAccessResponses];
+
+export type ValidateStorageCredentialData = {
+    body: UpdateWarehouseCredentialRequest;
+    path: {
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-credential';
+};
+
+export type ValidateStorageCredentialErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ValidateStorageCredentialError = ValidateStorageCredentialErrors[keyof ValidateStorageCredentialErrors];
+
+export type ValidateStorageCredentialResponses = {
+    /**
+     * Validation ran; see `valid` and `checks` for the outcome
+     */
+    200: ValidateWarehouseResponse;
+};
+
+export type ValidateStorageCredentialResponse = ValidateStorageCredentialResponses[keyof ValidateStorageCredentialResponses];
+
+export type ValidateStorageProfileData = {
+    body: UpdateWarehouseStorageRequest;
+    path: {
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-profile';
+};
+
+export type ValidateStorageProfileErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ValidateStorageProfileError = ValidateStorageProfileErrors[keyof ValidateStorageProfileErrors];
+
+export type ValidateStorageProfileResponses = {
+    /**
+     * Validation ran; see `valid` and `checks` for the outcome
+     */
+    200: ValidateWarehouseResponse;
+};
+
+export type ValidateStorageProfileResponse = ValidateStorageProfileResponses[keyof ValidateStorageProfileResponses];
 
 export type GetTableActionsData = {
     body?: never;

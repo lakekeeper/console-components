@@ -85,14 +85,28 @@
             rows="6"
             :rules="[rules.required, rules.validJson]"
             @update:model-value="verifyKeyJson"></v-textarea>
-          <v-btn
-            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-            color="primary"
-            variant="flat"
-            :disabled="!keyStringValid"
-            @click="emitNewCredentials">
-            Update Credentials
-          </v-btn>
+          <div v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL" class="d-flex ga-2">
+            <v-btn
+              color="primary"
+              :variant="primaryVariant(!keyStringValid)"
+              :disabled="!keyStringValid"
+              @click="emitNewCredentials">
+              Update Credentials
+            </v-btn>
+            <v-btn
+              variant="outlined"
+              prepend-icon="mdi-shield-search"
+              color="secondary"
+              :disabled="!keyStringValid"
+              @click="emitValidateCredential">
+              Validate
+            </v-btn>
+            <v-spacer></v-spacer>
+            <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">
+              Reset
+            </v-btn>
+            <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+          </div>
         </div>
 
         <div v-else-if="credentialType === 'gcp-system-identity'">
@@ -316,57 +330,72 @@
           </template>
         </v-switch>
 
-        <v-btn-group
+        <div
           v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
-          divided>
+          class="d-flex ga-2">
           <v-btn
             color="primary"
-            variant="flat"
+            :variant="
+              primaryVariant(
+                (credentialType === 'service-account-key' && !keyStringValid) ||
+                  warehouseObjectData['storage-profile'].bucket == '',
+              )
+            "
+            type="submit"
+            :disabled="
+              (credentialType === 'service-account-key' && !keyStringValid) ||
+              warehouseObjectData['storage-profile'].bucket == ''
+            ">
+            Create
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            color="secondary"
+            prepend-icon="mdi-shield-search"
             :disabled="
               (credentialType === 'service-account-key' && !keyStringValid) ||
               warehouseObjectData['storage-profile'].bucket == ''
             "
-            type="submit">
-            Create
+            @click="emitValidate">
+            Validate
           </v-btn>
-          <v-menu>
-            <template #activator="{ props: menuProps }">
-              <v-btn
-                color="primary"
-                variant="flat"
-                v-bind="menuProps"
-                icon="mdi-menu-down"
-                size="small"
-                :disabled="
-                  (credentialType === 'service-account-key' && !keyStringValid) ||
-                  warehouseObjectData['storage-profile'].bucket == ''
-                "></v-btn>
-            </template>
-            <v-list>
-              <v-list-item @click="handleSubmit">
-                <template #prepend>
-                  <v-icon>mdi-check</v-icon>
-                </template>
-                <v-list-item-title>Create</v-list-item-title>
-              </v-list-item>
-              <v-list-item @click="saveAsJson">
-                <template #prepend>
-                  <v-icon>mdi-download</v-icon>
-                </template>
-                <v-list-item-title>& save config</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-menu>
-        </v-btn-group>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-download"
+            :disabled="
+              (credentialType === 'service-account-key' && !keyStringValid) ||
+              warehouseObjectData['storage-profile'].bucket == ''
+            "
+            @click="saveAsJson">
+            Create &amp; Save Config
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">Reset</v-btn>
+          <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+        </div>
 
-        <v-btn
+        <div
           v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
-          color="primary"
-          variant="flat"
-          :disabled="!warehouseObjectData['storage-profile'].bucket"
-          @click="emitNewProfile">
-          Update Profile
-        </v-btn>
+          class="d-flex ga-2">
+          <v-btn
+            color="primary"
+            :variant="primaryVariant(!warehouseObjectData['storage-profile'].bucket)"
+            :disabled="!warehouseObjectData['storage-profile'].bucket"
+            @click="emitNewProfile">
+            Update Profile
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-shield-search"
+            color="secondary"
+            :disabled="!warehouseObjectData['storage-profile'].bucket"
+            @click="emitValidate">
+            Validate
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">Reset</v-btn>
+          <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+        </div>
       </v-card-text>
     </v-card>
   </v-form>
@@ -405,6 +434,10 @@ const emit = defineEmits<{
     e: 'updateProfile',
     newProfile: { profile: StorageProfile; credentials: StorageCredential },
   ): void;
+  (e: 'validate', warehouseObjectDataEmit: WarehousObject): void;
+  (e: 'validateCredential', credentials: StorageCredential): void;
+  (e: 'reset'): void;
+  (e: 'cancel'): void;
 }>();
 
 const key = reactive<GcsServiceKey>({
@@ -553,6 +586,10 @@ const isBucketInvalid = computed(() => {
   return !warehouseObjectData['storage-profile'].bucket;
 });
 
+// A disabled `flat` button renders as a muddy filled grey; falling back to
+// `outlined` keeps it consistent with the other (outlined) actions in the row.
+const primaryVariant = (disabled: boolean) => (disabled ? 'outlined' : 'flat');
+
 const handleSubmit = () => {
   shouldSaveAsJson.value = false;
   emit('submit', warehouseObjectData, shouldSaveAsJson.value);
@@ -563,28 +600,36 @@ const saveAsJson = () => {
   emit('submit', warehouseObjectData, shouldSaveAsJson.value);
 };
 
-const emitNewCredentials = () => {
+const buildCleanCredential = (): StorageCredential => {
   const cred = warehouseObjectData['storage-credential'];
-  const credentials = {
+  return {
     type: 'gcs',
     'credential-type': credentialType.value,
     key: cred['credential-type'] === 'service-account-key' ? cred.key : undefined,
   } as StorageCredential;
+};
 
-  emit('updateCredentials', credentials);
+const emitNewCredentials = () => {
+  emit('updateCredentials', buildCleanCredential());
 };
 
 const emitNewProfile = () => {
-  const cred = warehouseObjectData['storage-credential'];
   const newProfile = {
     profile: warehouseObjectData['storage-profile'],
-    credentials: {
-      type: 'gcs',
-      'credential-type': credentialType.value,
-      key: cred['credential-type'] === 'service-account-key' ? cred.key : undefined,
-    } as StorageCredential,
+    credentials: buildCleanCredential(),
   } as { profile: StorageProfile; credentials: StorageCredential };
   emit('updateProfile', newProfile);
+};
+
+const emitValidate = () => {
+  emit('validate', {
+    'storage-profile': warehouseObjectData['storage-profile'],
+    'storage-credential': buildCleanCredential(),
+  } as WarehousObject);
+};
+
+const emitValidateCredential = () => {
+  emit('validateCredential', buildCleanCredential());
 };
 
 onMounted(() => {

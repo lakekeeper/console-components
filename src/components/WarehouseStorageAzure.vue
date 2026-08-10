@@ -112,18 +112,42 @@
             :color="isTenantIdInvalid ? 'error' : 'primary'"
             :style="isTenantIdInvalid ? 'color: rgb(var(--v-theme-error));' : ''" />
 
-          <v-btn
-            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-            color="primary"
-            variant="flat"
-            :disabled="
-              !warehouseObjectData['storage-credential']['client-id'] ||
-              !warehouseObjectData['storage-credential']['client-secret'] ||
-              !warehouseObjectData['storage-credential']['tenant-id']
-            "
-            @click="emitNewCredentials">
-            Update Credentials
-          </v-btn>
+          <div v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL" class="d-flex ga-2">
+            <v-btn
+              color="primary"
+              :variant="
+                primaryVariant(
+                  !warehouseObjectData['storage-credential']['client-id'] ||
+                    !warehouseObjectData['storage-credential']['client-secret'] ||
+                    !warehouseObjectData['storage-credential']['tenant-id'],
+                )
+              "
+              :disabled="
+                !warehouseObjectData['storage-credential']['client-id'] ||
+                !warehouseObjectData['storage-credential']['client-secret'] ||
+                !warehouseObjectData['storage-credential']['tenant-id']
+              "
+              @click="emitNewCredentials">
+              Update Credentials
+            </v-btn>
+            <v-btn
+              variant="outlined"
+              prepend-icon="mdi-shield-search"
+              color="secondary"
+              :disabled="
+                !warehouseObjectData['storage-credential']['client-id'] ||
+                !warehouseObjectData['storage-credential']['client-secret'] ||
+                !warehouseObjectData['storage-credential']['tenant-id']
+              "
+              @click="emitValidateCredential">
+              Validate
+            </v-btn>
+            <v-spacer></v-spacer>
+            <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">
+              Reset
+            </v-btn>
+            <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+          </div>
         </template>
 
         <template v-else-if="isSharedAccessKey(warehouseObjectData['storage-credential'])">
@@ -139,14 +163,28 @@
             :color="isSharedKeyInvalid ? 'error' : 'primary'"
             :style="isSharedKeyInvalid ? 'color: rgb(var(--v-theme-error));' : ''"
             @click:append-inner="showPassword = !showPassword" />
-          <v-btn
-            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-            color="primary"
-            variant="flat"
-            :disabled="!warehouseObjectData['storage-credential']['key']"
-            @click="emitNewCredentials">
-            Update Credentials
-          </v-btn>
+          <div v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL" class="d-flex ga-2">
+            <v-btn
+              color="primary"
+              :variant="primaryVariant(!warehouseObjectData['storage-credential']['key'])"
+              :disabled="!warehouseObjectData['storage-credential']['key']"
+              @click="emitNewCredentials">
+              Update Credentials
+            </v-btn>
+            <v-btn
+              variant="outlined"
+              prepend-icon="mdi-shield-search"
+              color="secondary"
+              :disabled="!warehouseObjectData['storage-credential']['key']"
+              @click="emitValidateCredential">
+              Validate
+            </v-btn>
+            <v-spacer></v-spacer>
+            <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">
+              Reset
+            </v-btn>
+            <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+          </div>
         </template>
 
         <template v-else-if="isAzureSystemIdentityKey(warehouseObjectData['storage-credential'])">
@@ -154,13 +192,23 @@
             No additional credentials required. The system will use the managed identity configured
             on the Lakekeeper server.
           </v-alert>
-          <v-btn
-            v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-            color="primary"
-            variant="flat"
-            @click="emitNewCredentials">
-            Update Credentials
-          </v-btn>
+          <div v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL" class="d-flex ga-2">
+            <v-btn color="primary" variant="flat" @click="emitNewCredentials">
+              Update Credentials
+            </v-btn>
+            <v-btn
+              variant="outlined"
+              prepend-icon="mdi-shield-search"
+              color="secondary"
+              @click="emitValidateCredential">
+              Validate
+            </v-btn>
+            <v-spacer></v-spacer>
+            <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">
+              Reset
+            </v-btn>
+            <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+          </div>
         </template>
       </v-card-text>
     </v-card>
@@ -434,53 +482,76 @@
           </v-col>
         </v-row>
 
-        <v-btn-group
+        <div
           v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
-          divided>
+          class="d-flex ga-2">
           <v-btn color="primary" variant="flat" type="submit">Create</v-btn>
-          <v-menu>
-            <template #activator="{ props: menuProps }">
-              <v-btn
-                color="primary"
-                variant="flat"
-                v-bind="menuProps"
-                icon="mdi-menu-down"
-                size="small"></v-btn>
-            </template>
-            <v-list>
-              <v-list-item @click="handleSubmit">
-                <template #prepend>
-                  <v-icon>mdi-check</v-icon>
-                </template>
-                <v-list-item-title>Create</v-list-item-title>
-              </v-list-item>
-              <v-list-item @click="saveAsJson">
-                <template #prepend>
-                  <v-icon>mdi-download</v-icon>
-                </template>
-                <v-list-item-title>& save config</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-menu>
-        </v-btn-group>
+          <v-btn
+            variant="outlined"
+            color="secondary"
+            prepend-icon="mdi-shield-search"
+            @click="emitValidate">
+            Validate
+          </v-btn>
+          <v-btn variant="outlined" prepend-icon="mdi-download" @click="saveAsJson">
+            Create &amp; Save Config
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">Reset</v-btn>
+          <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+        </div>
 
-        <v-btn
+        <div
           v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
-          color="primary"
-          variant="flat"
-          :disabled="
-            !warehouseObjectData['storage-profile']['account-name'] ||
-            !warehouseObjectData['storage-profile']['filesystem'] ||
-            (isClientCredentials(warehouseObjectData['storage-credential']) &&
-              (!warehouseObjectData['storage-credential']['client-id'] ||
-                !warehouseObjectData['storage-credential']['client-secret'] ||
-                !warehouseObjectData['storage-credential']['tenant-id'])) ||
-            (isSharedAccessKey(warehouseObjectData['storage-credential']) &&
-              !warehouseObjectData['storage-credential']['key'])
-          "
-          @click="emitNewProfile">
-          Update Profile
-        </v-btn>
+          class="d-flex ga-2">
+          <v-btn
+            color="primary"
+            :variant="
+              primaryVariant(
+                !warehouseObjectData['storage-profile']['account-name'] ||
+                  !warehouseObjectData['storage-profile']['filesystem'] ||
+                  (isClientCredentials(warehouseObjectData['storage-credential']) &&
+                    (!warehouseObjectData['storage-credential']['client-id'] ||
+                      !warehouseObjectData['storage-credential']['client-secret'] ||
+                      !warehouseObjectData['storage-credential']['tenant-id'])) ||
+                  (isSharedAccessKey(warehouseObjectData['storage-credential']) &&
+                    !warehouseObjectData['storage-credential']['key']),
+              )
+            "
+            :disabled="
+              !warehouseObjectData['storage-profile']['account-name'] ||
+              !warehouseObjectData['storage-profile']['filesystem'] ||
+              (isClientCredentials(warehouseObjectData['storage-credential']) &&
+                (!warehouseObjectData['storage-credential']['client-id'] ||
+                  !warehouseObjectData['storage-credential']['client-secret'] ||
+                  !warehouseObjectData['storage-credential']['tenant-id'])) ||
+              (isSharedAccessKey(warehouseObjectData['storage-credential']) &&
+                !warehouseObjectData['storage-credential']['key'])
+            "
+            @click="emitNewProfile">
+            Update Profile
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-shield-search"
+            color="secondary"
+            :disabled="
+              !warehouseObjectData['storage-profile']['account-name'] ||
+              !warehouseObjectData['storage-profile']['filesystem'] ||
+              (isClientCredentials(warehouseObjectData['storage-credential']) &&
+                (!warehouseObjectData['storage-credential']['client-id'] ||
+                  !warehouseObjectData['storage-credential']['client-secret'] ||
+                  !warehouseObjectData['storage-credential']['tenant-id'])) ||
+              (isSharedAccessKey(warehouseObjectData['storage-credential']) &&
+                !warehouseObjectData['storage-credential']['key'])
+            "
+            @click="emitValidate">
+            Validate
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">Reset</v-btn>
+          <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+        </div>
       </v-card-text>
     </v-card>
   </v-form>
@@ -516,6 +587,10 @@ const emit = defineEmits<{
     e: 'updateProfile',
     newProfile: { profile: StorageProfile; credentials: StorageCredential },
   ): void;
+  (e: 'validate', warehouseObjectDataEmit: WarehousObject): void;
+  (e: 'validateCredential', credentials: StorageCredential): void;
+  (e: 'reset'): void;
+  (e: 'cancel'): void;
 }>();
 
 const warehouseObjectData = reactive<{
@@ -703,6 +778,10 @@ const isFilesystemInvalid = computed(() => {
   return !warehouseObjectData['storage-profile']['filesystem'];
 });
 
+// A disabled `flat` button renders as a muddy filled grey; falling back to
+// `outlined` keeps it consistent with the other (outlined) actions in the row.
+const primaryVariant = (disabled: boolean) => (disabled ? 'outlined' : 'flat');
+
 const handleSubmit = () => {
   shouldSaveAsJson.value = false;
   emit('submit', warehouseObjectData, shouldSaveAsJson.value);
@@ -713,48 +792,51 @@ const saveAsJson = () => {
   emit('submit', warehouseObjectData, shouldSaveAsJson.value);
 };
 
-const emitNewCredentials = () => {
+const buildCleanCredential = (): StorageCredential => {
   if (isClientCredentials(warehouseObjectData['storage-credential'])) {
-    emit('updateCredentials', {
+    return {
       type: 'az',
       'credential-type': warehouseObjectData['storage-credential']['credential-type'],
       'client-id': warehouseObjectData['storage-credential']['client-id'],
       'client-secret': warehouseObjectData['storage-credential']['client-secret'],
       'tenant-id': warehouseObjectData['storage-credential']['tenant-id'],
-    });
+    };
   } else if (isSharedAccessKey(warehouseObjectData['storage-credential'])) {
-    emit('updateCredentials', {
+    return {
       type: 'az',
       'credential-type': warehouseObjectData['storage-credential']['credential-type'],
       key: warehouseObjectData['storage-credential']['key'],
-    });
+    };
   } else if (isAzureSystemIdentityKey(warehouseObjectData['storage-credential'])) {
-    emit('updateCredentials', {
+    return {
       type: 'az',
       'credential-type': warehouseObjectData['storage-credential']['credential-type'],
-    });
-  } else {
-    throw new Error('Invalid credential type');
+    };
   }
+  throw new Error('Invalid credential type');
+};
+
+const emitNewCredentials = () => {
+  emit('updateCredentials', buildCleanCredential());
 };
 
 const emitNewProfile = () => {
   const newProfile = {
     profile: warehouseObjectData['storage-profile'],
-    credentials: {
-      type: 'az',
-      'credential-type': warehouseObjectData['storage-credential']['credential-type'],
-      ...(isClientCredentials(warehouseObjectData['storage-credential']) && {
-        'client-id': warehouseObjectData['storage-credential']['client-id'],
-        'client-secret': warehouseObjectData['storage-credential']['client-secret'],
-        'tenant-id': warehouseObjectData['storage-credential']['tenant-id'],
-      }),
-      ...(isSharedAccessKey(warehouseObjectData['storage-credential']) && {
-        key: warehouseObjectData['storage-credential']['key'],
-      }),
-    } as StorageCredential,
+    credentials: buildCleanCredential(),
   } as { profile: StorageProfile; credentials: StorageCredential };
   emit('updateProfile', newProfile);
+};
+
+const emitValidate = () => {
+  emit('validate', {
+    'storage-profile': warehouseObjectData['storage-profile'],
+    'storage-credential': buildCleanCredential(),
+  } as WarehousObject);
+};
+
+const emitValidateCredential = () => {
+  emit('validateCredential', buildCleanCredential());
 };
 
 onMounted(() => {

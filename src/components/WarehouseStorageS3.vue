@@ -194,18 +194,26 @@
 
         <!-- AWS System Identity Fields -->
 
-        <v-btn
-          v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL"
-          color="primary"
-          variant="flat"
-          :disabled="
-            warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
-            (!warehouseObjectData['storage-credential']['access-key-id'] ||
-              !warehouseObjectData['storage-credential']['secret-access-key'])
-          "
-          @click="emitNewCredentials">
-          Update Credentials
-        </v-btn>
+        <div v-if="props.objectType === ObjectType.STORAGE_CREDENTIAL" class="d-flex ga-2">
+          <v-btn
+            color="primary"
+            :variant="primaryVariant(isCredentialIncomplete)"
+            :disabled="isCredentialIncomplete"
+            @click="emitNewCredentials">
+            Update Credentials
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-shield-search"
+            color="secondary"
+            :disabled="isCredentialIncomplete"
+            @click="emitValidateCredential">
+            Validate
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">Reset</v-btn>
+          <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+        </div>
       </v-card-text>
     </v-card>
 
@@ -705,65 +713,57 @@
           </div>
         </div>
 
-        <v-btn-group
+        <div
           v-if="props.intent === Intent.CREATE && props.objectType === ObjectType.WAREHOUSE"
-          divided>
+          class="d-flex ga-2">
           <v-btn
             color="primary"
-            variant="flat"
+            :variant="primaryVariant(isProfileIncomplete)"
             type="submit"
-            :disabled="
-              isAccessKeyMissing ||
-              !warehouseObjectData['storage-profile'].bucket ||
-              isRegionInvalid ||
-              isStsArnMissing
-            ">
+            :disabled="isProfileIncomplete">
             Create
           </v-btn>
-          <v-menu>
-            <template #activator="{ props: menuProps }">
-              <v-btn
-                color="primary"
-                variant="flat"
-                v-bind="menuProps"
-                icon="mdi-menu-down"
-                size="small"
-                :disabled="
-                  isAccessKeyMissing ||
-                  !warehouseObjectData['storage-profile'].bucket ||
-                  isRegionInvalid ||
-                  isStsArnMissing
-                "></v-btn>
-            </template>
-            <v-list>
-              <v-list-item @click="handleSubmit">
-                <template #prepend>
-                  <v-icon>mdi-check</v-icon>
-                </template>
-                <v-list-item-title>Create</v-list-item-title>
-              </v-list-item>
-              <v-list-item @click="saveAsJson">
-                <template #prepend>
-                  <v-icon>mdi-download</v-icon>
-                </template>
-                <v-list-item-title>& save config</v-list-item-title>
-              </v-list-item>
-            </v-list>
-          </v-menu>
-        </v-btn-group>
-        <v-btn
+          <v-btn
+            variant="outlined"
+            color="secondary"
+            prepend-icon="mdi-shield-search"
+            :disabled="isProfileIncomplete"
+            @click="emitValidate">
+            Validate
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-download"
+            :disabled="isProfileIncomplete"
+            @click="saveAsJson">
+            Create &amp; Save Config
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">Reset</v-btn>
+          <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+        </div>
+        <div
           v-if="props.intent === Intent.UPDATE && props.objectType === ObjectType.STORAGE_PROFILE"
-          color="primary"
-          variant="flat"
-          :disabled="
-            isAccessKeyMissing ||
-            !warehouseObjectData['storage-profile'].bucket ||
-            isRegionInvalid ||
-            isStsArnMissing
-          "
-          @click="emitNewProfile">
-          Update Profile
-        </v-btn>
+          class="d-flex ga-2">
+          <v-btn
+            color="primary"
+            :variant="primaryVariant(isProfileIncomplete)"
+            :disabled="isProfileIncomplete"
+            @click="emitNewProfile">
+            Update Profile
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            prepend-icon="mdi-shield-search"
+            color="secondary"
+            :disabled="isProfileIncomplete"
+            @click="emitValidate">
+            Validate
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn variant="outlined" prepend-icon="mdi-restore" @click="$emit('reset')">Reset</v-btn>
+          <v-btn variant="outlined" @click="$emit('cancel')">Cancel</v-btn>
+        </div>
       </v-card-text>
     </v-card>
   </v-form>
@@ -812,6 +812,10 @@ const emit = defineEmits<{
     e: 'updateProfile',
     newProfile: { profile: StorageProfile; credentials: StorageCredential },
   ): void;
+  (e: 'validate', warehouseObjectDataEmit: WarehousObject): void;
+  (e: 'validateCredential', credentials: StorageCredential): void;
+  (e: 'reset'): void;
+  (e: 'cancel'): void;
 }>();
 
 const warehouseObjectData = reactive<{
@@ -1108,6 +1112,27 @@ const isStsArnMissing = computed(() => {
   return profile.flavor !== 's3-compat';
 });
 
+// Submit/validate share the same completeness gates; extracted so the buttons can
+// key both `disabled` and `variant` off one expression.
+const isCredentialIncomplete = computed(
+  () =>
+    warehouseObjectData['storage-credential']['credential-type'] === 'access-key' &&
+    (!(warehouseObjectData['storage-credential'] as any)['access-key-id'] ||
+      !(warehouseObjectData['storage-credential'] as any)['secret-access-key']),
+);
+
+const isProfileIncomplete = computed(
+  () =>
+    isAccessKeyMissing.value ||
+    !warehouseObjectData['storage-profile'].bucket ||
+    isRegionInvalid.value ||
+    isStsArnMissing.value,
+);
+
+// A disabled `flat` button renders as a muddy filled grey; falling back to
+// `outlined` keeps it consistent with the other (outlined) actions in the row.
+const primaryVariant = (disabled: boolean) => (disabled ? 'outlined' : 'flat');
+
 const getFieldLabel = (baseLabel: string, isRequired: boolean) => {
   return isRequired ? `${baseLabel} *` : `${baseLabel} (optional)`;
 };
@@ -1180,6 +1205,14 @@ const emitNewProfile = () => {
   } as { profile: StorageProfile; credentials: StorageCredential };
 
   emit('updateProfile', newProfile);
+};
+
+const emitValidate = () => {
+  emit('validate', buildCleanData());
+};
+
+const emitValidateCredential = () => {
+  emit('validateCredential', buildCleanCredential());
 };
 
 onMounted(() => {

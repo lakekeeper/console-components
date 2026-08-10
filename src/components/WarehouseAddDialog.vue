@@ -347,7 +347,11 @@
                     :warehouse-object="warehouseObjectS3"
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
-                    @update-profile="newProfile"></WarehouseStorageS3>
+                    @update-profile="newProfile"
+                    @validate="handleValidate"
+                    @validate-credential="handleValidateCredential"
+                    @reset="handleReset"
+                    @cancel="cancelDialog"></WarehouseStorageS3>
                 </v-tabs-window-item>
 
                 <v-tabs-window-item value="GCS">
@@ -359,7 +363,11 @@
                     :warehouse-object="warehouseObjectGCS"
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
-                    @update-profile="newProfile"></WarehouseStorageGCS>
+                    @update-profile="newProfile"
+                    @validate="handleValidate"
+                    @validate-credential="handleValidateCredential"
+                    @reset="handleReset"
+                    @cancel="cancelDialog"></WarehouseStorageGCS>
                 </v-tabs-window-item>
 
                 <v-tabs-window-item value="AZURE">
@@ -371,7 +379,11 @@
                     :warehouse-object="warehouseObjectAz"
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
-                    @update-profile="newProfile"></WarehouseStorageAzure>
+                    @update-profile="newProfile"
+                    @validate="handleValidate"
+                    @validate-credential="handleValidateCredential"
+                    @reset="handleReset"
+                    @cancel="cancelDialog"></WarehouseStorageAzure>
                 </v-tabs-window-item>
 
                 <v-tabs-window-item value="ONELAKE">
@@ -383,7 +395,11 @@
                     :warehouse-object="warehouseObjectOneLake"
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
-                    @update-profile="newProfile"></WarehouseStorageOneLake>
+                    @update-profile="newProfile"
+                    @validate="handleValidate"
+                    @validate-credential="handleValidateCredential"
+                    @reset="handleReset"
+                    @cancel="cancelDialog"></WarehouseStorageOneLake>
                 </v-tabs-window-item>
 
                 <v-tabs-window-item value="R2">
@@ -396,7 +412,11 @@
                     :warehouse-object="warehouseObjectR2"
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
-                    @update-profile="newProfile"></WarehouseStorageS3>
+                    @update-profile="newProfile"
+                    @validate="handleValidate"
+                    @validate-credential="handleValidateCredential"
+                    @reset="handleReset"
+                    @cancel="cancelDialog"></WarehouseStorageS3>
                 </v-tabs-window-item>
 
                 <v-tabs-window-item value="ALIYUN_OSS">
@@ -409,7 +429,11 @@
                     :warehouse-object="warehouseObjectAliyun"
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
-                    @update-profile="newProfile"></WarehouseStorageS3>
+                    @update-profile="newProfile"
+                    @validate="handleValidate"
+                    @validate-credential="handleValidateCredential"
+                    @reset="handleReset"
+                    @cancel="cancelDialog"></WarehouseStorageS3>
                 </v-tabs-window-item>
 
                 <v-tabs-window-item value="S3_COMPAT">
@@ -422,24 +446,31 @@
                     :warehouse-object="warehouseObjectS3Compat"
                     @submit="createWarehouse"
                     @update-credentials="newCredentials"
-                    @update-profile="newProfile"></WarehouseStorageS3>
+                    @update-profile="newProfile"
+                    @validate="handleValidate"
+                    @validate-credential="handleValidateCredential"
+                    @reset="handleReset"
+                    @cancel="cancelDialog"></WarehouseStorageS3>
                 </v-tabs-window-item>
               </v-tabs-window>
             </span>
           </v-form>
         </v-card-text>
-        <v-card-actions>
-          <v-btn
-            variant="text"
-            @click="
-              isDialogActive = false;
-              $emit('cancel');
-            ">
-            Cancel
-          </v-btn>
+        <!-- Every flow with a storage sub-form keeps Cancel inline with its
+             action row, so it is only rendered here for catalog settings. -->
+        <v-card-actions v-if="props.objectType === ObjectType.CATALOG_SETTINGS">
+          <v-btn variant="text" @click="cancelDialog">Cancel</v-btn>
         </v-card-actions>
       </span>
     </v-card>
+  </v-dialog>
+
+  <v-dialog v-model="validationDialogOpen" max-width="700">
+    <WarehouseValidationReport
+      :report="validationReport"
+      :loading="validationLoading"
+      :error="validationError"
+      @close="validationDialogOpen = false"></WarehouseValidationReport>
   </v-dialog>
 </template>
 
@@ -454,6 +485,7 @@ import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import aliyunIcon from '@/assets/aliyun.svg';
 import WarehouseStorageOneLake from './WarehouseStorageOneLake.vue';
+import WarehouseValidationReport from './WarehouseValidationReport.vue';
 
 import {
   CreateWarehouseRequest,
@@ -464,6 +496,7 @@ import {
   StorageCredential,
   StorageProfile,
   TabularDeleteProfile,
+  ValidateWarehouseResponse,
 } from '../gen/management/types.gen';
 import { Intent, ObjectType } from '../common/enums';
 import { WarehousObject } from '@/common/interfaces';
@@ -763,6 +796,27 @@ function resetCreateForm() {
   importKey.value++;
 }
 
+function buildCreateWarehouseRequest(warehouseObject: WarehousObject): CreateWarehouseRequest {
+  const delProfile: TabularDeleteProfile = delProfileSoftActive.value
+    ? { type: 'soft', 'expiration-seconds': Math.round(slider.value * 86400) }
+    : { type: 'hard' };
+
+  // Belt-and-suspenders: never send a default that's not in the allowed set.
+  const effectiveDefault = policyAllowed.value.includes(policyDefault.value)
+    ? policyDefault.value
+    : pickDefaultFromAllowed(policyAllowed.value);
+
+  return {
+    'delete-profile': delProfile,
+    'warehouse-name': warehouseName.value,
+    'project-id': projectId.value,
+    'storage-credential': warehouseObject['storage-credential'] as StorageCredential,
+    'storage-profile': warehouseObject['storage-profile'] as StorageProfile,
+    'allowed-format-versions': [...policyAllowed.value].sort((a, b) => a - b),
+    'default-format-version': effectiveDefault,
+  };
+}
+
 async function createWarehouse(
   warehouseObject: WarehousObject,
   shouldDownloadJson: boolean = false,
@@ -784,32 +838,7 @@ async function createWarehouse(
 
     creatingWarehouse.value = true;
 
-    const delProfileSoft = reactive<TabularDeleteProfile>({
-      type: 'soft',
-      'expiration-seconds': Math.round(slider.value * 86400),
-    });
-
-    const delProfileHard = reactive<TabularDeleteProfile>({
-      type: 'hard',
-    });
-
-    const delProfile = computed(() => {
-      return delProfileSoftActive.value ? delProfileSoft : delProfileHard;
-    });
-
-    // Belt-and-suspenders: never send a default that's not in the allowed set.
-    const effectiveDefault = policyAllowed.value.includes(policyDefault.value)
-      ? policyDefault.value
-      : pickDefaultFromAllowed(policyAllowed.value);
-    const wh = reactive<CreateWarehouseRequest>({
-      'delete-profile': delProfile.value,
-      'warehouse-name': warehouseName.value,
-      'project-id': projectId.value,
-      'storage-credential': warehouseObject['storage-credential'] as StorageCredential,
-      'storage-profile': warehouseObject['storage-profile'] as StorageProfile,
-      'allowed-format-versions': [...policyAllowed.value].sort((a, b) => a - b),
-      'default-format-version': effectiveDefault,
-    });
+    const wh = buildCreateWarehouseRequest(warehouseObject);
 
     const res: CreateWarehouseResponse = await functions.createWarehouse(wh, true);
 
@@ -1001,12 +1030,73 @@ function confirmAccess() {
   accessConfirm.open = false;
 }
 
+function cancelDialog() {
+  isDialogActive.value = false;
+  emit('cancel');
+}
+
+// Reset means "discard my edits":
+//  - create flow: clear every input back to empty, but keep the user on the storage
+//    tab they picked (resetCreateForm() blanks the tab selection, which is only
+//    wanted after a successful create, where the dialog closes anyway).
+//  - update flows: bumping importKey remounts the storage sub-form, which re-seeds
+//    itself from the loaded warehouse — i.e. reverts to the saved values.
+function handleReset() {
+  if (props.objectType === ObjectType.WAREHOUSE) {
+    const selectedTab = storageCredentialType.value;
+    resetCreateForm();
+    storageCredentialType.value = selectedTab;
+    return;
+  }
+  importKey.value++;
+}
+
 function newCredentials(credentials: StorageCredential) {
   emit('updateCredentials', credentials);
 }
 
 function newProfile(item: { profile: StorageProfile; credentials: StorageCredential }) {
   emit('updateProfile', item);
+}
+
+const validationDialogOpen = ref(false);
+const validationLoading = ref(false);
+const validationReport = ref<ValidateWarehouseResponse | null>(null);
+const validationError = ref<string | null>(null);
+
+async function runValidation(run: () => Promise<ValidateWarehouseResponse>) {
+  validationDialogOpen.value = true;
+  validationLoading.value = true;
+  validationReport.value = null;
+  validationError.value = null;
+  try {
+    validationReport.value = await run();
+  } catch (error: any) {
+    validationError.value = error?.error?.message || error?.message || 'Validation request failed.';
+  } finally {
+    validationLoading.value = false;
+  }
+}
+
+function handleValidate(warehouseObject: WarehousObject) {
+  if (props.objectType === ObjectType.STORAGE_PROFILE && props.warehouse) {
+    const whId = props.warehouse['warehouse-id'];
+    runValidation(() =>
+      functions.validateStorageProfile(
+        whId,
+        (warehouseObject['storage-credential'] as StorageCredential) ?? null,
+        warehouseObject['storage-profile'] as StorageProfile,
+      ),
+    );
+  } else {
+    runValidation(() => functions.validateWarehouse(buildCreateWarehouseRequest(warehouseObject)));
+  }
+}
+
+function handleValidateCredential(credential: StorageCredential) {
+  if (!props.warehouse) return;
+  const whId = props.warehouse['warehouse-id'];
+  runValidation(() => functions.validateStorageCredential(whId, credential));
 }
 
 onMounted(() => {
