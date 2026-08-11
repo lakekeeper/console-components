@@ -94,13 +94,17 @@ describe('TableColumnProfiler', () => {
       },
     });
 
-    expect(wrapper.text()).toContain('Current customer record');
-    expect(wrapper.text()).not.toContain('Legacy field');
-    expect(wrapper.text()).not.toContain('Primary contact address');
+    const initialFieldDocs = wrapper.findAll('.field-doc').map((node) => node.text());
+    expect(initialFieldDocs).toContain('Current customer record');
+    expect(initialFieldDocs).not.toContain('Legacy field');
+    expect(initialFieldDocs).not.toContain('Primary contact address');
 
     await wrapper.get('button[data-icon="mdi-chevron-right"]').trigger('click');
     await nextTick();
 
-    expect(wrapper.text()).toContain('Primary contact address');
+    const expandedFieldDocs = wrapper.findAll('.field-doc').map((node) => node.text());
+    expect(expandedFieldDocs).toContain('Current customer record');
+    expect(expandedFieldDocs).not.toContain('Legacy field');
+    expect(expandedFieldDocs).toContain('Primary contact address');
   });
 });
