@@ -186,6 +186,9 @@
 
                         <div class="flex-grow-1 ml-2" style="min-width: 0">
                           <div class="font-mono font-weight-medium">{{ row.name }}</div>
+                          <div v-if="row.doc" class="field-doc text-caption text-medium-emphasis">
+                            {{ row.doc }}
+                          </div>
                         </div>
                         <v-btn
                           v-if="row.profilable && hasChart(row.name)"
@@ -375,7 +378,7 @@ import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
 import { useLoQEStore } from '../stores/loqe';
 import EntityTagsChips from './EntityTagsChips.vue';
-import type { TableMetadata } from '../gen/iceberg/types.gen';
+import type { StructField, TableMetadata } from '../gen/iceberg/types.gen';
 import type { TargetTag } from '../gen/management/types.gen';
 
 const props = defineProps<{
@@ -628,6 +631,7 @@ function shortType(t: any): string {
 interface SchemaNode {
   key: string;
   name: string;
+  doc?: string;
   type: string;
   depth: number;
   children: SchemaNode[];
@@ -641,29 +645,41 @@ interface SchemaNode {
 function childrenOf(t: any, parentKey: string, depth: number): SchemaNode[] {
   if (!t || typeof t !== 'object') return [];
   if (t.type === 'struct') {
-    return (t.fields ?? []).map((f: any) => makeNode(f.name, f.type, parentKey, depth));
+    return (t.fields ?? []).map((f: StructField) =>
+      makeNode(f.name, f.type, f.doc, parentKey, depth),
+    );
   }
   if (t.type === 'list') {
     const el = t.element;
     if (el && typeof el === 'object') {
       if (el.type === 'struct') return childrenOf(el, parentKey, depth);
-      return [makeNode('element', el, parentKey, depth)];
+      return [makeNode('element', el, undefined, parentKey, depth)];
     }
     return [];
   }
   if (t.type === 'map') {
-    return [makeNode('key', t.key, parentKey, depth), makeNode('value', t.value, parentKey, depth)];
+    return [
+      makeNode('key', t.key, undefined, parentKey, depth),
+      makeNode('value', t.value, undefined, parentKey, depth),
+    ];
   }
   return [];
 }
 
-function makeNode(name: string, type: any, parentKey: string, parentDepth: number): SchemaNode {
+function makeNode(
+  name: string,
+  type: any,
+  doc: string | undefined,
+  parentKey: string,
+  parentDepth: number,
+): SchemaNode {
   const depth = parentDepth + 1;
   const key = `${parentKey}.${name}`;
   const children = childrenOf(type, key, depth);
   return {
     key,
     name,
+    doc,
     type: shortType(type),
     depth,
     children,
@@ -680,6 +696,7 @@ const schemaTree = computed<SchemaNode[]>(() => {
     return {
       key: f.name,
       name: f.name,
+      doc: f.doc,
       type: shortType(f.type),
       depth: 0,
       children,
@@ -953,6 +970,10 @@ watch(
 }
 .profiler-table :deep(.col-field) {
   min-width: 220px;
+  white-space: normal;
+}
+.field-doc {
+  overflow-wrap: anywhere;
   white-space: normal;
 }
 .profiler-table :deep(.nested-row) td {
