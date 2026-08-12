@@ -33,10 +33,10 @@ import AuthenticationDisabledWarningBanner from './components/AuthenticationDisa
 import WarehouseRenameDialog from './components/WarehouseRenameDialog.vue';
 import WarehouseActionsMenu from './components/WarehouseActionsMenu.vue';
 import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
-import WarehouseStorageS3 from './components/WarehouseStorageS3.vue';
-import WarehouseStorageAzure from './components/WarehouseStorageAzure.vue';
-import WarehouseStorageOneLake from './components/WarehouseStorageOneLake.vue';
-import WarehouseStorageGCS from './components/WarehouseStorageGCS.vue';
+import WarehouseStorageFormS3 from './components/WarehouseStorageFormS3.vue';
+import WarehouseStorageFormAzure from './components/WarehouseStorageFormAzure.vue';
+import WarehouseStorageFormOneLake from './components/WarehouseStorageFormOneLake.vue';
+import WarehouseStorageFormGCS from './components/WarehouseStorageFormGCS.vue';
 import WarehouseStorageJSON from './components/WarehouseStorageJSON.vue';
 import WarehouseValidationReport from './components/WarehouseValidationReport.vue';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue';
@@ -111,6 +111,7 @@ import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
 import StackedAreaChart from './components/StackedAreaChart.vue';
 import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
+import ComputeConnectPanel from './components/ComputeConnectPanel.vue';
 import NotificationButton from './components/NotificationButton.vue';
 import NotificationPanel from './components/NotificationPanel.vue';
 import ReportBuilderPanel from './components/ReportBuilderPanel.vue';
@@ -161,10 +162,10 @@ export {
   WarehouseRenameDialog,
   WarehouseActionsMenu,
   WarehouseAddDialog,
-  WarehouseStorageS3,
-  WarehouseStorageAzure,
-  WarehouseStorageOneLake,
-  WarehouseStorageGCS,
+  WarehouseStorageFormS3,
+  WarehouseStorageFormAzure,
+  WarehouseStorageFormOneLake,
+  WarehouseStorageFormGCS,
   WarehouseStorageJSON,
   WarehouseValidationReport,
   DeleteConfirmDialog,
@@ -172,6 +173,7 @@ export {
   StatisticsProject,
   StackedAreaChart,
   ComputeConnectDialog,
+  ComputeConnectPanel,
   ProjectManager,
   ProjectStatistics,
   WarehouseDetails,
@@ -394,10 +396,10 @@ const components = {
   WarehouseRenameDialog,
   WarehouseActionsMenu,
   WarehouseAddDialog,
-  WarehouseStorageS3,
-  WarehouseStorageAzure,
-  WarehouseStorageOneLake,
-  WarehouseStorageGCS,
+  WarehouseStorageFormS3,
+  WarehouseStorageFormAzure,
+  WarehouseStorageFormOneLake,
+  WarehouseStorageFormGCS,
   WarehouseStorageJSON,
   WarehouseValidationReport,
   DeleteConfirmDialog,
@@ -405,6 +407,7 @@ const components = {
   StatisticsProject,
   StackedAreaChart,
   ComputeConnectDialog,
+  ComputeConnectPanel,
   ProjectManager,
   ProjectStatistics,
   WarehouseDetails,

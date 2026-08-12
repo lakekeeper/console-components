@@ -140,8 +140,10 @@ async function updateCredentials(credentials: StorageCredential) {
   processStatus.value = 'running';
   try {
     await functions.updateStorageCredential(props.warehouseId, credentials, true);
-    processStatus.value = 'success';
+    // Reload before reporting success: the settings dialog re-seeds its panes from
+    // `warehouse` when it sees 'success', and would otherwise re-read stale values.
     await loadWarehouse();
+    processStatus.value = 'success';
   } catch (error) {
     processStatus.value = 'error';
     console.error('Failed to update credentials:', error);
@@ -150,18 +152,20 @@ async function updateCredentials(credentials: StorageCredential) {
 
 async function updateProfile(newProfile: {
   profile: StorageProfile;
-  credentials: StorageCredential;
+  // Omitted when the user changed only the profile: the endpoint then keeps the
+  // credential already stored, and sending an empty one would be rejected.
+  credentials?: StorageCredential;
 }) {
   processStatus.value = 'running';
   try {
     await functions.updateStorageProfile(
       props.warehouseId,
-      newProfile.credentials,
+      newProfile.credentials as StorageCredential,
       newProfile.profile,
       true,
     );
-    processStatus.value = 'success';
     await loadWarehouse();
+    processStatus.value = 'success';
   } catch (error) {
     processStatus.value = 'error';
     console.error('Failed to update storage profile:', error);

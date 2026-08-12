@@ -11,7 +11,7 @@
     <v-divider></v-divider>
     <v-card-text style="max-height: 60vh; overflow-y: auto">
       <div v-if="loading" class="d-flex flex-column align-center pa-8">
-        <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+        <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
         <span class="mt-4 text-body-2 text-medium-emphasis">Running validation checks…</span>
       </div>
       <v-alert v-else-if="error" type="error" variant="tonal" density="compact">
@@ -72,7 +72,13 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { helix } from 'ldrs';
 import { ValidateWarehouseResponse, ValidationCheckName } from '@/gen/management/types.gen';
+
+// Registers the <l-helix> custom element. Idempotent (no-ops if another
+// component, e.g. WarehouseManager, already registered it) — don't rely on
+// load order between components that both use <l-helix>.
+helix.register();
 
 const props = defineProps<{
   report: ValidateWarehouseResponse | null;
