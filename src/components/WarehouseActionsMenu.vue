@@ -35,7 +35,8 @@
         <EntityTagsManageDialog
           scope="warehouse"
           :warehouse-id="warehouse.id"
-          :entity-id="warehouse.id">
+          :entity-id="warehouse.id"
+          :entity-name="warehouse.name">
           <template #activator="{ props: aProps }">
             <v-list-item
               v-bind="aProps"

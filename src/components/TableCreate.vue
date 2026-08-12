@@ -11,7 +11,9 @@
       </v-btn>
     </template>
 
-    <v-card>
+    <!-- Bounded so the schema list cannot push the title off the top and the
+         Create button below the fold: only the body between them scrolls. -->
+    <v-card style="max-height: 90vh; display: flex; flex-direction: column">
       <v-card-title class="d-flex justify-space-between align-center text-subtitle-1 py-3">
         Create Table
         <v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog"></v-btn>
@@ -26,9 +28,9 @@
       </v-tabs>
       <v-divider></v-divider>
 
-      <v-tabs-window v-model="formatTab" crossfade>
-        <v-tabs-window-item value="iceberg">
-          <v-card-text>
+      <v-tabs-window v-model="formatTab" crossfade class="create-table-window">
+        <v-tabs-window-item value="iceberg" class="create-table-pane">
+          <v-card-text ref="icebergBodyRef" style="flex: 1 1 auto; overflow-y: auto; min-height: 0">
             <!-- Table Name -->
             <v-text-field
               v-model="tableName"
@@ -178,7 +180,8 @@
             </v-alert>
           </v-card-text>
 
-          <v-card-actions>
+          <v-card-actions
+            style="flex: 0 0 auto; border-top: 1px solid rgba(var(--v-border-color), 0.16)">
             <v-spacer></v-spacer>
             <v-btn variant="text" @click="closeDialog" :disabled="isCreating">Cancel</v-btn>
             <v-btn
@@ -192,8 +195,8 @@
           </v-card-actions>
         </v-tabs-window-item>
 
-        <v-tabs-window-item value="generic">
-          <v-card-text>
+        <v-tabs-window-item value="generic" class="create-table-pane">
+          <v-card-text style="flex: 1 1 auto; overflow-y: auto; min-height: 0">
             <v-alert type="info" variant="tonal" prominent class="my-2">
               <div class="text-body-1 font-weight-bold mb-2">Roadmap</div>
               <div class="text-body-2">
@@ -214,7 +217,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, toRef, inject } from 'vue';
+import { ref, computed, watch, toRef, inject, nextTick } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useLoQE } from '@/composables/useLoQE';
@@ -325,12 +328,19 @@ ${fieldDefinitions}
 );`;
 });
 // Methods
-function addField() {
+// The body scrolls now, so a field appended below the fold would otherwise be
+// added out of sight.
+const icebergBodyRef = ref<{ $el?: HTMLElement } | null>(null);
+
+async function addField() {
   fields.value.push({
     name: '',
     type: 'string',
     nullable: true,
   });
+  await nextTick();
+  const body = icebergBodyRef.value?.$el;
+  if (body) body.scrollTop = body.scrollHeight;
 }
 
 function removeField(index: number) {
@@ -411,5 +421,26 @@ watch(dialog, async (newVal) => {
 pre {
   white-space: pre-wrap;
   word-wrap: break-word;
+}
+</style>
+
+<style scoped>
+/* VWindow inserts its own container between the window and the pane, so the flex
+   chain has to be re-established through it or the inner overflow never engages. */
+.create-table-window {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+.create-table-window :deep(.v-window__container) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+}
+.create-table-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 </style>

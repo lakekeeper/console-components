@@ -31,7 +31,8 @@
         <TableTagsManageDialog
           :warehouse-id="warehouseId"
           :table-id="tableId"
-          :columns="tableColumns">
+          :columns="tableColumns"
+          :table-name="tableName">
           <template #activator="{ props: aProps }">
             <v-list-item
               v-bind="aProps"
@@ -212,14 +213,16 @@ const { canCommit, canSetProtection, canDrop, canManageTags } = useTablePermissi
   props.warehouseId,
 );
 
-// Current-schema column names for the column-tag manage dialog.
+// Current-schema fields for the column-tag manage dialog, passed through with
+// their raw Iceberg types: the panel renders list/map shapes and walks struct
+// fields, which are taggable under a dotted path (address.zip).
 const tableColumns = computed(() => {
   const meta = table.value?.metadata;
   if (!meta) return [];
   const schemas = meta.schemas ?? [];
   const current =
     schemas.find((s: any) => s['schema-id'] === meta['current-schema-id']) ?? schemas[0];
-  return (current?.fields ?? []).map((f: any) => f.name as string);
+  return (current?.fields ?? []) as { name: string; type: any }[];
 });
 
 const deleteOpen = ref(false);

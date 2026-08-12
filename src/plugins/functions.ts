@@ -1792,6 +1792,64 @@ async function setTableColumnTag(
   }
 }
 
+// handleSuccess() always raises a snackbar — `notify` only controls the
+// persistent notification store — so a caller that writes many columns in one
+// gesture would stack one snackbar per column. These two are the silent
+// variants for that case; the existing wrappers are untouched.
+async function setTableColumnTagSilent(
+  warehouseId: string,
+  tableId: string,
+  columnName: string,
+  tagName: string,
+  value?: string | null,
+): Promise<AppliedTag> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.setTableColumnTag({
+      client,
+      path: {
+        warehouse_id: warehouseId,
+        table_id: tableId,
+        column_name: columnName,
+        tag_name: tagName,
+      },
+      body: { value },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'setTableColumnTag', true);
+    throw error;
+  }
+}
+
+async function deleteTableColumnTagSilent(
+  warehouseId: string,
+  tableId: string,
+  columnName: string,
+  tagName: string,
+): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteTableColumnTag({
+      client,
+      path: {
+        warehouse_id: warehouseId,
+        table_id: tableId,
+        column_name: columnName,
+        tag_name: tagName,
+      },
+    });
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteTableColumnTag', true);
+    throw error;
+  }
+}
+
 async function deleteTableColumnTag(
   warehouseId: string,
   tableId: string,
@@ -6147,6 +6205,8 @@ export function useFunctions(config?: any) {
     listTableColumnTags,
     setTableColumnTag,
     deleteTableColumnTag,
+    setTableColumnTagSilent,
+    deleteTableColumnTagSilent,
     setWarehouseFormatVersionPolicy,
     setNamespaceProtection,
     getNamespaceProtection,

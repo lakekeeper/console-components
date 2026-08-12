@@ -427,6 +427,7 @@
           scope="view"
           :warehouse-id="warehouseId || ''"
           :entity-id="viewId"
+          :entity-name="viewName"
           :can-manage="canManageTags" />
       </v-sheet>
     </template>

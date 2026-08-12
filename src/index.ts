@@ -22,6 +22,7 @@ import EntityTagsChips from './components/EntityTagsChips.vue';
 import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
 import TableTagsManageDialog from './components/TableTagsManageDialog.vue';
 import EntityTagsManagePanel from './components/EntityTagsManagePanel.vue';
+import TagPickerList from './components/TagPickerList.vue';
 import ColumnTagsManagePanel from './components/ColumnTagsManagePanel.vue';
 import ColumnTags from './components/ColumnTags.vue';
 import RoleMembers from './components/RoleMembers.vue';
@@ -137,6 +138,7 @@ export {
   EntityTagsManageDialog,
   TableTagsManageDialog,
   EntityTagsManagePanel,
+  TagPickerList,
   ColumnTagsManagePanel,
   ColumnTags,
   RoleMembers,
@@ -372,6 +374,7 @@ const components = {
   EntityTagsManageDialog,
   TableTagsManageDialog,
   EntityTagsManagePanel,
+  TagPickerList,
   ColumnTagsManagePanel,
   ColumnTags,
   RoleMembers,

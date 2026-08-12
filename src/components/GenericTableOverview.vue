@@ -77,6 +77,7 @@
         scope="generic-table"
         :warehouse-id="warehouseId"
         :entity-id="genericTableId"
+        :entity-name="tableName"
         :can-manage="canManageTags" />
     </v-card>
   </div>
