@@ -615,7 +615,7 @@ import {
   TabularDeleteProfile,
   ValidateWarehouseResponse,
 } from '../gen/management/types.gen';
-import { Intent, ObjectType } from '../common/enums';
+import { Intent, ObjectType, Type } from '../common/enums';
 import { WarehousObject } from '@/common/interfaces';
 import { useUserStore } from '../stores/user';
 
@@ -1377,7 +1377,20 @@ function handleReset() {
 function submitCredentials() {
   const data = currentStorageData();
   if (!data) return;
-  emit('updateCredentials', data['storage-credential'] as StorageCredential);
+  const credential = data['storage-credential'] as StorageCredential;
+  // The API never returns credentials, so the fields start empty; sending that
+  // back would replace a working credential with nothing.
+  if (!credentialEntered(credential)) {
+    visual.setSnackbarMsg({
+      function: 'updateStorageCredential',
+      text: 'Enter the credential fields before updating credentials.',
+      ttl: 4000,
+      ts: Date.now(),
+      type: Type.WARNING,
+    });
+    return;
+  }
+  emit('updateCredentials', credential);
 }
 
 function submitProfile() {

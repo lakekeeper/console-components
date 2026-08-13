@@ -309,14 +309,9 @@ function toggleSelectAll(value: boolean | null) {
 const confirmOpen = ref(false);
 const removing = ref(false);
 const confirmInput = ref('');
-const pendingIndexes = ref<number[]>([]);
-
-const pendingKeys = computed(() =>
-  pendingIndexes.value
-    .map((i) => editableProperties.value[i])
-    .filter(Boolean)
-    .map((p) => p.originalKey || p.key || '(unnamed)'),
-);
+// Keys, not indexes: removing the unsaved rows first shifts every index after
+// them, and the confirm dialog would then name — and delete — the wrong ones.
+const pendingKeys = ref<string[]>([]);
 
 // One property is named to confirm it, the way a single tag or table is; a batch
 // has no single name, so it asks for a word instead.
@@ -332,15 +327,17 @@ const confirmed = computed(() =>
 );
 
 function openConfirm(indexes: number[]) {
+  const rows = indexes.map((i) => editableProperties.value[i]).filter(Boolean);
+  const fresh = rows.filter((p) => !p.isExisting);
+  const existing = rows.filter((p) => p.isExisting);
+
   // A row that was never saved has nothing to confirm — it just goes.
-  const existing = indexes.filter((i) => editableProperties.value[i]?.isExisting);
-  const fresh = indexes.filter((i) => !editableProperties.value[i]?.isExisting);
   if (fresh.length) {
-    for (const i of [...fresh].sort((a, b) => b - a)) editableProperties.value.splice(i, 1);
+    editableProperties.value = editableProperties.value.filter((p) => !fresh.includes(p));
     selected.value = [];
   }
   if (!existing.length) return;
-  pendingIndexes.value = existing;
+  pendingKeys.value = existing.map((p) => p.originalKey || p.key || '(unnamed)');
   confirmInput.value = '';
   confirmOpen.value = true;
 }
@@ -360,7 +357,7 @@ async function applyRemoval() {
   try {
     await commit({}, keys);
     selected.value = [];
-    pendingIndexes.value = [];
+    pendingKeys.value = [];
     confirmOpen.value = false;
     // Re-read rather than patch the local list: the write already happened, so
     // the server is the only honest account of what is left.

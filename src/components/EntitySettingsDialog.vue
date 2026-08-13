@@ -281,6 +281,10 @@ watch(dialogOpen, (open) => {
   if (open) {
     resetSettings();
     pane.value = 'SETTINGS';
+  } else {
+    // The panel unmounts on close, so nothing would ever emit dirty:false and
+    // the next open would start marked — and refuse to close.
+    propertiesDirty.value = false;
   }
 });
 watch(

@@ -63,7 +63,7 @@
       </template>
       <div v-else class="text-body-2 text-medium-emphasis pa-4">No validation run yet.</div>
     </v-card-text>
-    <v-card-actions>
+    <v-card-actions v-if="!hideClose">
       <v-spacer></v-spacer>
       <v-btn variant="text" @click="$emit('close')">Close</v-btn>
     </v-card-actions>
@@ -84,6 +84,8 @@ const props = defineProps<{
   report: ValidateWarehouseResponse | null;
   loading: boolean;
   error?: string | null;
+  /** Rendered as a pane rather than a dialog: there is nothing to close. */
+  hideClose?: boolean;
 }>();
 
 defineEmits<{ (e: 'close'): void }>();

@@ -451,15 +451,17 @@ async function loadColumnTags() {
     for (const entry of columns) byFieldId.set(entry['field-id'], entry.tags ?? []);
 
     for (const key of Object.keys(columnTags)) delete columnTags[key];
-    let matched = 0;
+    const matchedFieldIds = new Set<number>();
     for (const row of rows.value) {
       const tags = row.fieldId !== undefined ? byFieldId.get(row.fieldId) : undefined;
       columnTags[row.path] = tags ?? [];
-      if (tags) matched++;
+      if (tags && row.fieldId !== undefined) matchedFieldIds.add(row.fieldId);
     }
-    // Reported rather than silently dropped: the tags exist server-side even
-    // though no current column claims them.
-    orphanTagCount.value = columns.length - matched;
+    // Tags, not columns: one dropped column can carry several, and the line
+    // below counts what is hidden, not how many columns hid it.
+    orphanTagCount.value = columns
+      .filter((entry) => !matchedFieldIds.has(entry['field-id']))
+      .reduce((sum, entry) => sum + (entry.tags?.length ?? 0), 0);
   } catch {
     // handled
   } finally {
