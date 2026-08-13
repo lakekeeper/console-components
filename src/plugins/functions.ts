@@ -18,6 +18,7 @@ import {
   GetProjectTaskDetailsResponse,
   GetTaskLogCleanupConfig,
   SetTaskLogCleanupConfig,
+  ColumnTags,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
 import { currentAccessToken } from '@/plugins/authToken';
@@ -120,6 +121,7 @@ import {
   TagAssignment,
   TagRelation,
   GetTagAssignmentsResponse,
+  ValidateWarehouseResponse,
 } from '@/gen/management/types.gen';
 
 import { useUserStore } from '@/stores/user';
@@ -932,6 +934,140 @@ async function updateStorageProfile(
   }
 }
 
+async function validateWarehouse(
+  wh: CreateWarehouseRequest,
+  notify?: boolean,
+): Promise<ValidateWarehouseResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.validateWarehouse({
+      client,
+      body: wh,
+    });
+    if (error) throw error;
+
+    const result = data as ValidateWarehouseResponse;
+    if (notify) {
+      handleSuccess(
+        'validateWarehouse',
+        result.valid ? 'Warehouse configuration is valid' : 'Warehouse configuration is invalid',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'validateWarehouse', notify);
+    throw error;
+  }
+}
+
+async function validateStorageProfile(
+  whId: string,
+  storageCredential: StorageCredential | null | undefined,
+  storageProfile: StorageProfile,
+  notify?: boolean,
+): Promise<ValidateWarehouseResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.validateStorageProfile({
+      client,
+      body: {
+        'storage-profile': storageProfile,
+        'storage-credential': storageCredential,
+      },
+      path: {
+        warehouse_id: whId,
+      },
+    });
+    if (error) throw error;
+
+    const result = data as ValidateWarehouseResponse;
+    if (notify) {
+      handleSuccess(
+        'validateStorageProfile',
+        result.valid ? 'Storage profile is valid' : 'Storage profile is invalid',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'validateStorageProfile', notify);
+    throw error;
+  }
+}
+
+async function validateStorageCredential(
+  whId: string,
+  storageCredential: StorageCredential,
+  notify?: boolean,
+): Promise<ValidateWarehouseResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.validateStorageCredential({
+      client,
+      body: { 'new-storage-credential': storageCredential },
+      path: {
+        warehouse_id: whId,
+      },
+    });
+    if (error) throw error;
+
+    const result = data as ValidateWarehouseResponse;
+    if (notify) {
+      handleSuccess(
+        'validateStorageCredential',
+        result.valid ? 'Storage credential is valid' : 'Storage credential is invalid',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'validateStorageCredential', notify);
+    throw error;
+  }
+}
+
+async function validateStorageAccess(
+  whId: string,
+  notify?: boolean,
+): Promise<ValidateWarehouseResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.validateStorageAccess({
+      client,
+      path: {
+        warehouse_id: whId,
+      },
+    });
+    if (error) throw error;
+
+    const result = data as ValidateWarehouseResponse;
+    if (notify) {
+      handleSuccess(
+        'validateStorageAccess',
+        result.valid ? 'Storage access is valid' : 'Storage access is invalid',
+        notify,
+      );
+    }
+    return result;
+  } catch (error) {
+    handleError(error, 'validateStorageAccess', notify);
+    throw error;
+  }
+}
+
 async function updateWarehouseDeleteProfile(
   whId: string,
   deleteProfile: TabularDeleteProfile,
@@ -1653,6 +1789,87 @@ async function setTableColumnTag(
     return data;
   } catch (error) {
     handleError(error, 'setTableColumnTag', notify);
+    throw error;
+  }
+}
+
+// handleSuccess() always raises a snackbar — `notify` only controls the
+// persistent notification store — so a caller that writes many columns in one
+// gesture would stack one snackbar per column. These two are the silent
+// variants for that case; the existing wrappers are untouched.
+// One request for the whole table instead of one per column. The response keys
+// columns by Iceberg field-id — stable across schema evolution, unlike names —
+// so the caller resolves them against the current schema itself.
+async function listAllColumnTags(
+  warehouseId: string,
+  tableId: string,
+  notify?: boolean,
+): Promise<ColumnTags[]> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listColumnTags({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+    });
+    if (error) throw error;
+    return data?.columns ?? [];
+  } catch (error) {
+    handleError(error, 'listAllColumnTags', notify);
+    throw error;
+  }
+}
+
+async function setTableColumnTagSilent(
+  warehouseId: string,
+  tableId: string,
+  columnName: string,
+  tagName: string,
+  value?: string | null,
+): Promise<AppliedTag> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.setTableColumnTag({
+      client,
+      path: {
+        warehouse_id: warehouseId,
+        table_id: tableId,
+        column_name: columnName,
+        tag_name: tagName,
+      },
+      body: { value },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'setTableColumnTag', true);
+    throw error;
+  }
+}
+
+async function deleteTableColumnTagSilent(
+  warehouseId: string,
+  tableId: string,
+  columnName: string,
+  tagName: string,
+): Promise<boolean> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.deleteTableColumnTag({
+      client,
+      path: {
+        warehouse_id: warehouseId,
+        table_id: tableId,
+        column_name: columnName,
+        tag_name: tagName,
+      },
+    });
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    handleError(error, 'deleteTableColumnTag', true);
     throw error;
   }
 }
@@ -5958,6 +6175,10 @@ export function useFunctions(config?: any) {
     renameWarehouse,
     updateStorageCredential,
     updateStorageProfile,
+    validateWarehouse,
+    validateStorageProfile,
+    validateStorageCredential,
+    validateStorageAccess,
     updateWarehouseDeleteProfile,
     dropView,
     dropTable,
@@ -6006,8 +6227,11 @@ export function useFunctions(config?: any) {
     setGenericTableTag,
     deleteGenericTableTag,
     listTableColumnTags,
+    listAllColumnTags,
     setTableColumnTag,
     deleteTableColumnTag,
+    setTableColumnTagSilent,
+    deleteTableColumnTagSilent,
     setWarehouseFormatVersionPolicy,
     setNamespaceProtection,
     getNamespaceProtection,
