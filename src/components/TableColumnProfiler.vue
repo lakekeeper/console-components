@@ -907,33 +907,29 @@ function colTags(name: string): TargetTag[] {
   return columnTags[name] ?? [];
 }
 
-async function refreshColumnTags(name: string, token: number) {
-  if (!props.warehouseId || !props.tableId) return;
-  try {
-    const res = await functions.listTableColumnTags(
-      props.warehouseId,
-      props.tableId,
-      name,
-      true, // effective — include inherited tags, matching the other tag views
-      false,
-    );
-    if (token !== columnTagsToken) return; // a newer table/schema load is in flight
-    columnTags[name] = res.tags ?? [];
-  } catch {
-    // handled
-  }
-}
-
 // Guards against a slower, now-stale request (from the previous table) writing
 // into columnTags after the user has switched tables — column names commonly
 // recur across tables, so a stale write would silently show the wrong tags.
 let columnTagsToken = 0;
+
+// One request for the table, matched to the current schema by field-id. Column
+// tags are never inherited, so a direct-only listing is the whole picture.
 async function loadAllColumnTags() {
   if (!props.warehouseId || !props.tableId) return;
   const token = ++columnTagsToken;
   for (const key of Object.keys(columnTags)) delete columnTags[key];
-  const cols = currentSchema.value?.fields ?? [];
-  await Promise.all(cols.map((f) => refreshColumnTags(f.name, token)));
+  try {
+    const columns = await functions.listAllColumnTags(props.warehouseId, props.tableId, false);
+    if (token !== columnTagsToken) return;
+    const byFieldId = new Map<number, TargetTag[]>();
+    for (const entry of columns) byFieldId.set(entry['field-id'], entry.tags ?? []);
+    for (const field of currentSchema.value?.fields ?? []) {
+      const tags = byFieldId.get((field as any).id);
+      if (tags) columnTags[field.name] = tags;
+    }
+  } catch {
+    // handled
+  }
 }
 
 watch(

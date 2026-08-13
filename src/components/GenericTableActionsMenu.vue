@@ -5,15 +5,47 @@
     </template>
 
     <v-list density="compact" min-width="248">
-      <v-list-item
-        prepend-icon="mdi-cog-outline"
-        :title="`${label[0].toUpperCase()}${label.slice(1)} settings`"
-        subtitle="Rename · delete protection"
-        @click="openSettings" />
-      <v-list-item
-        prepend-icon="mdi-download-outline"
-        title="Download metadata.json"
-        @click="downloadJson" />
+      <!-- One entry for everything about the dataset itself: name, protection
+           and metadata. Generic tables have no properties endpoint, so that pane
+           does not appear for them. -->
+      <EntitySettingsDialog
+        entity-type="generic-table"
+        :warehouse-id="warehouseId"
+        :namespace-path="namespaceId"
+        :entity-name="tableName"
+        :entity-id="tableId"
+        :entity-label="label"
+        :metadata="genericTable"
+        :protected-state="protectedState"
+        :can-commit="canRename"
+        :can-set-protection="canSetProtection"
+        @updated="$emit('updated')"
+        @protection-changed="protectedState = $event">
+        <template #activator="{ props: aProps }">
+          <v-list-item
+            v-bind="aProps"
+            prepend-icon="mdi-cog-outline"
+            :title="`${label[0].toUpperCase()}${label.slice(1)} settings`"
+            subtitle="Rename · protection · metadata" />
+        </template>
+      </EntitySettingsDialog>
+
+      <template v-if="canManageTags && tableId">
+        <v-divider class="my-1"></v-divider>
+        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
+        <EntityTagsManageDialog
+          scope="generic-table"
+          :warehouse-id="warehouseId"
+          :entity-id="tableId"
+          :entity-name="tableName">
+          <template #activator="{ props: aProps }">
+            <v-list-item
+              v-bind="aProps"
+              prepend-icon="mdi-tag-multiple-outline"
+              title="Manage tags" />
+          </template>
+        </EntityTagsManageDialog>
+      </template>
 
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
@@ -25,60 +57,6 @@
       </template>
     </v-list>
   </v-menu>
-
-  <!-- Table settings: rename + deletion protection -->
-  <v-dialog v-model="settingsOpen" max-width="440">
-    <v-card>
-      <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-        <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
-        {{ label[0].toUpperCase() + label.slice(1) }} Settings
-        <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="text" size="small" @click="settingsOpen = false"></v-btn>
-      </v-card-title>
-      <v-divider></v-divider>
-      <v-card-text>
-        <v-text-field
-          v-model="nameInput"
-          :label="`${label[0].toUpperCase()}${label.slice(1)} name`"
-          prepend-inner-icon="mdi-rename-outline"
-          :rules="[
-            (v) => !!v?.trim() || 'Required',
-            (v) => !v.includes('/') || 'Cannot contain “/”',
-          ]"
-          :disabled="!canRename"
-          class="mb-2"></v-text-field>
-
-        <v-switch
-          :model-value="protectedPending"
-          color="primary"
-          hide-details
-          density="compact"
-          :disabled="!canSetProtection"
-          :prepend-icon="protectedPending ? 'mdi-lock' : 'mdi-lock-open-variant-outline'"
-          :label="protectedPending ? 'Deletion protected' : 'Deletion protection off'"
-          @update:model-value="protectedPending = $event === true"></v-switch>
-        <div class="text-caption text-medium-emphasis ml-10">
-          Prevent this {{ label }} from being deleted.
-        </div>
-
-        <v-alert v-if="settingsError" type="error" variant="tonal" density="compact" class="mt-3">
-          {{ settingsError }}
-        </v-alert>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn variant="text" :disabled="saving" @click="settingsOpen = false">Cancel</v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          :loading="saving"
-          :disabled="!settingsDirty"
-          @click="saveSettings">
-          Save
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 
   <!-- Delete confirmation -->
   <v-dialog v-model="deleteOpen" max-width="440">
@@ -128,6 +106,8 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useGenericTablePermissions, useConfig } from '@/composables/useCatalogPermissions';
+import EntitySettingsDialog from './EntitySettingsDialog.vue';
+import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -138,7 +118,7 @@ const props = defineProps<{
 
 const label = computed(() => props.entityLabel ?? 'table');
 
-const emit = defineEmits<{ (e: 'updated'): void }>();
+defineEmits<{ (e: 'updated'): void }>();
 
 const functions = useFunctions();
 const router = useRouter();
@@ -146,17 +126,12 @@ const route = useRoute();
 const config = useConfig();
 
 const menuOpen = ref(false);
-const settingsOpen = ref(false);
-const saving = ref(false);
-const settingsError = ref<string | null>(null);
 
 const genericTable = ref<Record<string, any> | null>(null);
 const tableId = ref('');
 const protectedState = ref(false);
-const nameInput = ref(props.tableName);
-const protectedPending = ref(false);
 
-const { canSetProtection, canDrop, hasPermission } = useGenericTablePermissions(
+const { canSetProtection, canDrop, canManageTags, hasPermission } = useGenericTablePermissions(
   tableId,
   props.warehouseId,
 );
@@ -165,12 +140,6 @@ const canRename = computed(
     hasPermission('rename') ||
     !config.enabledAuthentication.value ||
     !config.enabledPermissions.value,
-);
-
-const settingsDirty = computed(
-  () =>
-    (nameInput.value.trim() !== props.tableName && !!nameInput.value.trim()) ||
-    protectedPending.value !== protectedState.value,
 );
 
 const deleteOpen = ref(false);
@@ -189,7 +158,6 @@ async function load() {
     );
     genericTable.value = response.table ?? null;
     protectedState.value = !!response.table?.protected;
-    protectedPending.value = protectedState.value;
     // loadGenericTable does not return the id; resolve it via listGenericTables
     // for the permission/protection lookups which are keyed by generic_table_id.
     const list = await functions.listGenericTables(
@@ -208,61 +176,7 @@ async function load() {
 }
 
 onMounted(load);
-watch(
-  () => [props.warehouseId, props.namespaceId, props.tableName],
-  () => {
-    nameInput.value = props.tableName;
-    load();
-  },
-);
-
-function openSettings() {
-  menuOpen.value = false;
-  nameInput.value = props.tableName;
-  protectedPending.value = protectedState.value;
-  settingsError.value = null;
-  settingsOpen.value = true;
-}
-
-async function saveSettings() {
-  saving.value = true;
-  settingsError.value = null;
-  try {
-    if (protectedPending.value !== protectedState.value) {
-      await functions.setGenericTableProtection(
-        props.warehouseId,
-        tableId.value,
-        protectedPending.value,
-        true,
-      );
-      protectedState.value = protectedPending.value;
-    }
-    const newName = nameInput.value.trim();
-    if (newName && newName !== props.tableName && !newName.includes('/')) {
-      await functions.renameGenericTable(
-        props.warehouseId,
-        props.namespaceId,
-        props.tableName,
-        props.namespaceId,
-        newName,
-        true,
-      );
-      settingsOpen.value = false;
-      await router.replace({
-        name: route.name as any,
-        params: { ...route.params, tid: newName },
-        query: route.query,
-      });
-      return;
-    }
-    settingsOpen.value = false;
-    emit('updated');
-  } catch (e: any) {
-    settingsError.value = e?.error?.message || e?.message || 'Failed to save table settings';
-  } finally {
-    saving.value = false;
-  }
-}
+watch(() => [props.warehouseId, props.namespaceId, props.tableName], load);
 
 function openDelete() {
   menuOpen.value = false;
@@ -287,21 +201,5 @@ async function confirmDelete() {
   } finally {
     deleting.value = false;
   }
-}
-
-function downloadJson() {
-  menuOpen.value = false;
-  if (!genericTable.value) return;
-  const blob = new Blob([JSON.stringify(genericTable.value, null, 2)], {
-    type: 'application/json',
-  });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${props.tableName || 'generic-table'}.json`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 </script>

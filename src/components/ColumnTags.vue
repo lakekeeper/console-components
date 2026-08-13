@@ -223,21 +223,17 @@ async function loadDefinitions() {
   }
 }
 
+// One request for the table rather than one per column; the response is keyed by
+// field-id, which each ColumnRef already carries.
 async function loadAllColumnTags() {
   loading.value = true;
   try {
-    await Promise.all(
-      props.columns.map(async (col) => {
-        const res = await functions.listTableColumnTags(
-          props.warehouseId,
-          props.tableId,
-          col.name,
-          false,
-          false,
-        );
-        tagsByColumn[col.name] = res.tags ?? [];
-      }),
-    );
+    const columns = await functions.listAllColumnTags(props.warehouseId, props.tableId, false);
+    const byFieldId = new Map<number, TargetTag[]>();
+    for (const entry of columns) byFieldId.set(entry['field-id'], entry.tags ?? []);
+    for (const col of props.columns) {
+      tagsByColumn[col.name] = byFieldId.get(col.fieldId) ?? [];
+    }
   } catch {
     // handled
   } finally {

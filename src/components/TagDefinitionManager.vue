@@ -100,6 +100,12 @@
         :items="displayedDefinitions"
         :sort-by="[{ key: 'name', order: 'asc' }]"
         :loading="loading"
+        items-per-page="50"
+        :items-per-page-options="[
+          { title: '50', value: 50 },
+          { title: '100', value: 100 },
+          { title: 'All', value: -1 },
+        ]"
         @click:row="onRowClick">
         <template #item.name="{ item }">
           <span style="display: flex; align-items: center">
