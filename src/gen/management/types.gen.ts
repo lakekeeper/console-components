@@ -92,6 +92,32 @@ export type AppliedTag = {
     value?: string | null;
 };
 
+/**
+ * A grant diff: create `writes`, remove `deletes`.
+ *
+ * Applied atomically, and safe to retry: applying the same diff twice has the same
+ * effect as applying it once. The same entry may not appear in both lists — that is
+ * rejected rather than resolved, because either reading of it would be a guess.
+ *
+ * Unknown fields are rejected: a misspelled `deletes` would otherwise silently apply
+ * the writes and drop the revocations.
+ *
+ * At least one entry is required, and `writes` and `deletes` together may not exceed
+ * 100. Neither rule is expressible as a per-field schema constraint — a `maxItems` on
+ * each array would say 200 are acceptable — so both are stated here and enforced by
+ * the server.
+ */
+export type ApplyGrantsRequest = {
+    /**
+     * Grants to remove. Counts against the shared 100-entry limit with `writes`.
+     */
+    deletes?: Array<GrantEntry>;
+    /**
+     * Grants to create. Counts against the shared 100-entry limit with `deletes`.
+     */
+    writes?: Array<GrantEntry>;
+};
+
 export type AzCredential = {
     'client-id': string;
     'client-secret': string;
@@ -257,6 +283,23 @@ export type CheckResponse = {
      * Whether the action is allowed.
      */
     allowed: boolean;
+};
+
+/**
+ * A column and the governance tags attached directly to it. The column is identified
+ * by Iceberg field-id only; resolve it to a name against the table metadata client-side
+ * (field-ids are stable across schema evolution, names are not).
+ */
+export type ColumnTags = {
+    /**
+     * Iceberg field-id of the column.
+     */
+    'field-id': number;
+    /**
+     * Tags attached directly to this column. Always non-empty — a column with no tags
+     * is omitted from the response entirely.
+     */
+    tags: Array<TargetTag>;
 };
 
 /**
@@ -680,7 +723,7 @@ export type GcsServiceKey = {
     universe_domain: string;
 };
 
-export type GenericTableAction = 'drop' | 'undrop' | 'write_data' | 'read_data' | 'get_metadata' | 'rename' | 'include_in_list' | 'get_tasks' | 'control_tasks' | 'set_protection' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+export type GenericTableAction = 'drop' | 'undrop' | 'write_data' | 'read_data' | 'get_metadata' | 'rename' | 'include_in_list' | 'get_tasks' | 'control_tasks' | 'set_protection' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
 export type GenericTableAssignment = (UserOrRole & {
     type: 'ownership';
@@ -694,9 +737,11 @@ export type GenericTableAssignment = (UserOrRole & {
     type: 'select';
 }) | (UserOrRole & {
     type: 'modify';
+}) | (UserOrRole & {
+    type: 'manage_tags';
 });
 
-export type GenericTableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify';
+export type GenericTableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
 
 export type GetEndpointStatisticsRequest = {
     'range-specifier'?: null | TimeWindowSelector;
@@ -741,6 +786,10 @@ export type GetLakekeeperServerActionsResponse = {
 
 export type GetLakekeeperTableActionsResponse = {
     'allowed-actions': Array<LakekeeperTableActionKind>;
+};
+
+export type GetLakekeeperTagActionsResponse = {
+    'allowed-actions': Array<LakekeeperTagAction>;
 };
 
 export type GetLakekeeperUserActionsResponse = {
@@ -992,6 +1041,111 @@ export type GetWarehouseResponse = {
 };
 
 /**
+ * One entry of a grant diff.
+ *
+ * Unknown fields are rejected so that feeding a `GrantResponse` from a listing
+ * straight back into an apply fails loudly instead of silently dropping its
+ * `resource` — which would apply the grant to whatever resource the endpoint names.
+ */
+export type GrantEntry = {
+    principal: UserOrRole;
+    /**
+     * A privilege from the authorizer's grantable vocabulary. Which values are legal
+     * differs between authorizers and is published by the server.
+     */
+    privilege: string;
+};
+
+/**
+ * The resource a grant is held on, as it appears in a response.
+ *
+ * `type` carries the same spelling as `ResourceType`, which is also the URL segment
+ * that addresses the resource — so a client can look a listed grant up in the
+ * vocabulary, or build a request path from it, without a translation table.
+ */
+export type GrantResourceResponse = {
+    type: 'server';
+} | {
+    'project-id': string;
+    type: 'project';
+} | {
+    type: 'warehouse';
+    'warehouse-id': string;
+} | {
+    'namespace-id': string;
+    type: 'namespace';
+    'warehouse-id': string;
+} | {
+    'table-id': string;
+    type: 'table';
+    'warehouse-id': string;
+} | {
+    type: 'view';
+    'view-id': string;
+    'warehouse-id': string;
+} | {
+    'generic-table-id': string;
+    type: 'generic-table';
+    'warehouse-id': string;
+} | {
+    'tag-definition-id': string;
+    type: 'tag-definition';
+};
+
+/**
+ * One grant in a listing.
+ */
+export type GrantResponse = {
+    'created-at'?: string | null;
+    principal: UserOrRole;
+    privilege: string;
+    /**
+     * Whether `privilege` is still in the authorizer's vocabulary. Where grants live
+     * in the catalog, a `false` value is surfaced rather than hidden: the grant
+     * enforces nothing today but is still there, and can still be revoked. An
+     * authorizer that owns its grants may instead omit unrecognized grants from
+     * listings entirely, so `false` never appears there — see its documentation.
+     */
+    recognized: boolean;
+    resource: GrantResourceResponse;
+};
+
+/**
+ * One privilege of a resource's vocabulary, and whether the principal may grant it.
+ */
+export type GrantablePrivilege = {
+    /**
+     * Whether the principal may grant and revoke this privilege on this resource.
+     */
+    allowed: boolean;
+    /**
+     * The privilege itself: static vocabulary, identical for every caller, and the same
+     * object `GET /management/v1/grants/grantable-privileges` publishes. Nested rather
+     * than flattened so the cacheable description and the per-caller decision below stay
+     * distinct — and so a new descriptor field can never collide with `allowed`.
+     */
+    privilege: PrivilegeDescriptor;
+};
+
+/**
+ * The privileges this server's authorizer will accept, per resource type.
+ *
+ * Which privileges exist is decided by the configured authorizer, not by the API, so
+ * this endpoint is the only reliable way to learn them: sending a name the authorizer
+ * does not know is a 400.
+ */
+export type GrantablePrivilegesResponse = {
+    /**
+     * Keyed by resource type. Every resource type the API knows is present, so an
+     * empty list distinguishes "nothing is grantable here" from "unknown type" — an
+     * authorizer that manages no grants reports every list empty.
+     */
+    privileges: {
+        [key: string]: Array<PrivilegeDescriptor>;
+    };
+};
+
+/**
  * JSON wrapper for all error responses (non-2xx)
  */
 export type IcebergErrorResponse = {
@@ -1020,6 +1174,8 @@ export type LakekeeperGenericTableAction = {
     action: 'set_protection';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperNamespaceAction = {
@@ -1117,6 +1273,8 @@ export type LakekeeperNamespaceAction = {
     action: 'list_generic_tables';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperNamespaceActionKind = {
@@ -1149,6 +1307,8 @@ export type LakekeeperNamespaceActionKind = {
     action: 'list_generic_tables';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperProjectAction = {
@@ -1195,6 +1355,8 @@ export type LakekeeperProjectAction = {
     name?: string | null;
 } | {
     action: 'list_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperProjectActionKind = {
@@ -1229,6 +1391,8 @@ export type LakekeeperProjectActionKind = {
     action: 'create_tag';
 } | {
     action: 'list_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperRoleActionKind = {
@@ -1265,6 +1429,8 @@ export type LakekeeperServerAction = {
     action: 'list_users';
 } | {
     action: 'provision_users';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperServerActionKind = {
@@ -1277,6 +1443,8 @@ export type LakekeeperServerActionKind = {
     action: 'list_users';
 } | {
     action: 'provision_users';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperTableAction = {
@@ -1326,6 +1494,8 @@ export type LakekeeperTableAction = {
     action: 'set_protection';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperTableActionKind = {
@@ -1352,6 +1522,24 @@ export type LakekeeperTableActionKind = {
     action: 'set_protection';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
+};
+
+export type LakekeeperTagAction = {
+    action: 'read';
+} | {
+    action: 'update';
+} | {
+    action: 'delete';
+} | {
+    action: 'apply';
+} | {
+    action: 'remove';
+} | {
+    action: 'read_attachments';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperUserAction = {
@@ -1400,6 +1588,8 @@ export type LakekeeperViewAction = {
     action: 'set_protection';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperViewActionKind = {
@@ -1424,6 +1614,8 @@ export type LakekeeperViewActionKind = {
     action: 'set_protection';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperWarehouseAction = {
@@ -1440,8 +1632,6 @@ export type LakekeeperWarehouseAction = {
 } | {
     action: 'update_storage';
 } | {
-    action: 'update_storage_credential';
-} | {
     action: 'get_metadata';
 } | {
     action: 'get_config';
@@ -1479,6 +1669,8 @@ export type LakekeeperWarehouseAction = {
     action: 'get_endpoint_statistics';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
 };
 
 export type LakekeeperWarehouseActionKind = {
@@ -1488,8 +1680,6 @@ export type LakekeeperWarehouseActionKind = {
 } | {
     action: 'update_storage';
 } | {
-    action: 'update_storage_credential';
-} | {
     action: 'get_metadata';
 } | {
     action: 'get_config';
@@ -1527,6 +1717,8 @@ export type LakekeeperWarehouseActionKind = {
     action: 'get_endpoint_statistics';
 } | {
     action: 'manage_tags';
+} | {
+    action: 'read_grants';
 };
 
 /**
@@ -1567,6 +1759,15 @@ export type LicenseStatus = {
     valid: boolean;
 };
 
+/**
+ * Every column of a table that carries at least one tag, each with its direct tags;
+ * columns without tags are omitted. Column tags are never inherited, so this is a
+ * direct-only listing (no effective view).
+ */
+export type ListColumnTagsResponse = {
+    columns: Array<ColumnTags>;
+};
+
 export type ListDeletedTabularsResponse = {
     /**
      * Token to fetch the next page
@@ -1576,6 +1777,26 @@ export type ListDeletedTabularsResponse = {
      * List of tabulars
      */
     tabulars: Array<DeletedTabularResponse>;
+};
+
+/**
+ * A page of grants.
+ *
+ * The order is **unspecified** and differs by authorizer, so do not rely on it. Use the
+ * page token to walk a listing, and sort client-side if you need a stable presentation.
+ */
+export type ListGrantsResponse = {
+    grants: Array<GrantResponse>;
+    /**
+     * Present when another page may follow. Follow the token until it is **absent**:
+     * depending on the authorizer, a page can come back short or even empty while
+     * more grants remain, so neither a short page nor an empty one signals the end.
+     *
+     * The project-scoped listing pages like the rest, but only where grants live in
+     * the catalog. An authorizer that owns its grants may not implement that listing
+     * at all — see its `501` response.
+     */
+    'next-page-token'?: string | null;
 };
 
 export type ListProjectTasksRequest = {
@@ -1748,7 +1969,7 @@ export type ListWarehousesResponse = {
  */
 export type ManagedBy = 'self-managed' | 'instance-admin';
 
-export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'set_protection';
+export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'set_protection';
 
 export type NamespaceAssignment = (UserOrRole & {
     type: 'ownership';
@@ -1764,6 +1985,8 @@ export type NamespaceAssignment = (UserOrRole & {
     type: 'create';
 }) | (UserOrRole & {
     type: 'modify';
+}) | (UserOrRole & {
+    type: 'manage_tags';
 });
 
 /**
@@ -1777,7 +2000,7 @@ export type NamespaceIdentOrUuid = {
     'warehouse-id': string;
 };
 
-export type NamespaceRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify';
+export type NamespaceRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify' | 'manage_tags';
 
 /**
  * Storage profile for a Microsoft Fabric / `OneLake` lakehouse.
@@ -1825,23 +2048,55 @@ export type OneLakeProfile = {
     'workspace-id': string;
 };
 
-export type OpenFgaGenericTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+export type OpenFgaGenericTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
-export type OpenFgaNamespaceAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants';
+export type OpenFgaNamespaceAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags';
 
-export type OpenFgaProjectAction = 'read_assignments' | 'grant_role_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin';
+export type OpenFgaProjectAction = 'read_assignments' | 'grant_role_creator' | 'grant_tag_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin';
 
 export type OpenFgaRoleAction = 'assume' | 'can_grant_assignee' | 'can_change_ownership' | 'read_assignments';
 
 export type OpenFgaServerAction = 'read_assignments' | 'grant_admin';
 
-export type OpenFgaTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+export type OpenFgaTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
-export type OpenFgaViewAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+export type OpenFgaViewAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
-export type OpenFgaWarehouseAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'change_ownership';
+export type OpenFgaWarehouseAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership';
 
-export type ProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'list_warehouses' | 'create_role' | 'list_roles' | 'search_roles' | 'read_assignments' | 'grant_role_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin' | 'get_endpoint_statistics';
+/**
+ * One grantable privilege, as published by an authorizer for discovery.
+ */
+export type PrivilegeDescriptor = {
+    /**
+     * Which group of privileges this one belongs to, so a picker can lay out columns
+     * instead of one long list.
+     *
+     * Authorizer-supplied and open, because the vocabulary it groups is too. Treat an
+     * unrecognized value as its own group rather than an error, and `null` as
+     * ungrouped. Lakekeeper's own authorizers use `metadata`, `read`, `write`,
+     * `create`, `security` and `administration`; a client that wants a fixed column
+     * order should key off those and fall back for anything else.
+     */
+    category?: string | null;
+    /**
+     * What the privilege permits, when the authorizer supplies an explanation.
+     * `null` rather than a guess: a wrong description of a permission is worse than
+     * none, so an authorizer that has not written one reports nothing.
+     */
+    description?: string | null;
+    /**
+     * Short human-readable label for pickers.
+     */
+    'display-name': string;
+    /**
+     * The name to send back in a grant request.
+     */
+    name: string;
+    'resource-type': ResourceType;
+};
+
+export type ProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'list_warehouses' | 'create_role' | 'list_roles' | 'search_roles' | 'read_assignments' | 'grant_role_creator' | 'grant_tag_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin' | 'get_endpoint_statistics';
 
 export type ProjectAssignment = (UserOrRole & {
     type: 'project_admin';
@@ -1852,6 +2107,8 @@ export type ProjectAssignment = (UserOrRole & {
 }) | (UserOrRole & {
     type: 'role_creator';
 }) | (UserOrRole & {
+    type: 'tag_creator';
+}) | (UserOrRole & {
     type: 'describe';
 }) | (UserOrRole & {
     type: 'select';
@@ -1861,7 +2118,7 @@ export type ProjectAssignment = (UserOrRole & {
     type: 'modify';
 });
 
-export type ProjectRelation = 'project_admin' | 'security_admin' | 'data_admin' | 'role_creator' | 'describe' | 'select' | 'create' | 'modify';
+export type ProjectRelation = 'project_admin' | 'security_admin' | 'data_admin' | 'role_creator' | 'tag_creator' | 'describe' | 'select' | 'create' | 'modify';
 
 export type ProjectTaskInfo = {
     /**
@@ -1948,6 +2205,44 @@ export type RenameWarehouseRequest = {
      */
     'new-name': string;
 };
+
+/**
+ * This resource's whole vocabulary, each entry marked with whether the principal may
+ * grant it.
+ *
+ * The deployment-wide vocabulary answers "what does this server understand"; this
+ * answers "what may I do here", which is the question a grant dialog asks. Grant
+ * authority is a right of its own, invisible to action introspection, so neither
+ * `.../actions` nor the vocabulary can substitute for it.
+ *
+ * Deliberately **not** filtered to the permitted subset — unlike `allowed-actions` on
+ * the action-introspection endpoints. A picker chooses from a closed, published set, so
+ * a silently shortened list reads as a missing privilege rather than a withheld one;
+ * the caller needs to render `ownership` greyed out, not to wonder where it went.
+ * Nothing is disclosed by listing them: the same names are public at
+ * `/management/v1/grants/grantable-privileges`.
+ */
+export type ResourceGrantablePrivilegesResponse = {
+    /**
+     * Every privilege this resource level publishes, in the authorizer's own order.
+     */
+    privileges: Array<GrantablePrivilege>;
+};
+
+/**
+ * The kinds of resource a grant can be held on.
+ *
+ * Every value is also the URL segment that addresses that kind of resource, so a
+ * client can build request paths straight from a vocabulary response. Kept link-free:
+ * this doc comment is published verbatim in the `OpenAPI` description, where an
+ * intra-doc link would render as a raw Rust module path.
+ *
+ * This is the vocabulary the API speaks. A store is free to persist a coarser one —
+ * tables, views and generic tables are one kind to a catalog that already records
+ * which of the three an id refers to — so this deliberately carries no storage
+ * mapping.
+ */
+export type ResourceType = 'server' | 'project' | 'warehouse' | 'namespace' | 'table' | 'view' | 'generic-table' | 'tag-definition';
 
 export type Role = {
     /**
@@ -2592,7 +2887,7 @@ export type StorageProfile = (AdlsProfile & {
     type: 'gcs';
 });
 
-export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
+export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
 export type TableAssignment = (UserOrRole & {
     type: 'ownership';
@@ -2606,9 +2901,11 @@ export type TableAssignment = (UserOrRole & {
     type: 'select';
 }) | (UserOrRole & {
     type: 'modify';
+}) | (UserOrRole & {
+    type: 'manage_tags';
 });
 
-export type TableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify';
+export type TableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
 
 /**
  * The kind of a table metadata update, identified by its Iceberg action name
@@ -3117,6 +3414,11 @@ export type UserMembership = {
 
 /**
  * Identifies a user or a role
+ *
+ * Exactly one of `user` and `role` is present. Naming both is rejected by the schema as
+ * well as by the server: it matches both `oneOf` branches, and `oneOf` admits exactly
+ * one. Leave the branches open — this type is flattened into the assignment schemas, so
+ * an `additionalProperties: false` on a branch would reject their own properties.
  */
 export type UserOrRole = {
     /**
@@ -3135,7 +3437,66 @@ export type UserOrRole = {
  */
 export type UserType = 'human' | 'application';
 
-export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
+/**
+ * Outcome of validating a warehouse configuration.
+ *
+ * Returned with HTTP 200 whether or not the configuration is usable — a failing
+ * check is a result, not a request error. Only authorization and malformed
+ * bodies produce a 4xx.
+ */
+export type ValidateWarehouseResponse = {
+    /**
+     * Every check that was considered, in execution order — passed, failed and
+     * skipped alike, so the caller can see what was and was not covered.
+     */
+    checks: Array<ValidationCheck>;
+    /**
+     * True when no check failed. Skipped checks do not make a configuration invalid.
+     */
+    valid: boolean;
+};
+
+export type ValidationCheck = {
+    /**
+     * Wall-clock duration of the check. Absent for skipped checks.
+     */
+    'duration-ms'?: number | null;
+    error?: null | ErrorModel;
+    name: ValidationCheckName;
+    /**
+     * Why the check was skipped. Only set for `skipped`.
+     */
+    reason?: string | null;
+    status: ValidationCheckStatus;
+};
+
+/**
+ * A single check performed against a warehouse configuration.
+ *
+ * Each name is a claim about the configuration that is true exactly when the
+ * check's `status` is `passed`. A check that asserts a property of a subject is
+ * named `<subject>-<predicate>`, the predicate an adjective or past participle;
+ * a check that exercises an operation is named after the operation. A check is
+ * never named after the failure it detects — a requirement that is naturally
+ * negative is stated as the positive property that must hold.
+ *
+ * These are stable wire identifiers. Adding a value is a breaking change for
+ * generated clients, which reject unknown enum values, so new checks ship in a
+ * release that clients must upgrade to.
+ */
+export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' | 'warehouse-name-valid' | 'location-exclusive' | 'spec-mutable' | 'format-version-policy-consistent' | 'managed-by-allowed' | 'storage-client-initialized' | 'lakekeeper-read-write' | 'vended-credentials-issued' | 'vended-credentials-read-write' | 'vended-credentials-scope-enforced' | 'cleanup';
+
+/**
+ * The outcome of a single check.
+ *
+ * `passed` and `failed` are verdicts about the configuration. `skipped` is not
+ * a verdict: the check did not apply, or a prerequisite failed, and `reason`
+ * says which. Skipped checks never make a configuration invalid, so a report
+ * can be `valid` with nothing actually verified — read the individual checks.
+ */
+export type ValidationCheckStatus = 'passed' | 'failed' | 'skipped';
+
+export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
 export type ViewAssignment = (UserOrRole & {
     type: 'ownership';
@@ -3149,11 +3510,13 @@ export type ViewAssignment = (UserOrRole & {
     type: 'select';
 }) | (UserOrRole & {
     type: 'modify';
+}) | (UserOrRole & {
+    type: 'manage_tags';
 });
 
-export type ViewRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify';
+export type ViewRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
 
-export type WarehouseAction = 'create_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'set_format_version_policy' | 'get_endpoint_statistics';
+export type WarehouseAction = 'create_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'set_format_version_policy' | 'get_endpoint_statistics';
 
 export type WarehouseAssignment = (UserOrRole & {
     type: 'ownership';
@@ -3169,6 +3532,8 @@ export type WarehouseAssignment = (UserOrRole & {
     type: 'create';
 }) | (UserOrRole & {
     type: 'modify';
+}) | (UserOrRole & {
+    type: 'manage_tags';
 });
 
 export type WarehouseFilter = {
@@ -3180,7 +3545,7 @@ export type WarehouseFilter = {
     type: 'all';
 };
 
-export type WarehouseRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify';
+export type WarehouseRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify' | 'manage_tags';
 
 export type WarehouseStatistics = {
     /**
@@ -3392,6 +3757,80 @@ export type GetEndpointStatisticsResponses = {
 };
 
 export type GetEndpointStatisticsResponse = GetEndpointStatisticsResponses[keyof GetEndpointStatisticsResponses];
+
+export type ListGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/grants';
+};
+
+export type ListGrantsErrors = {
+    /**
+     * Project-wide grant listing is not supported under the configured authorizer backend
+     */
+    501: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListGrantsError = ListGrantsErrors[keyof ListGrantsErrors];
+
+export type ListGrantsResponses = {
+    /**
+     * Grants the principal holds in the project
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListGrantsResponse2 = ListGrantsResponses[keyof ListGrantsResponses];
+
+export type GetGrantablePrivilegesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/management/v1/grants/grantable-privileges';
+};
+
+export type GetGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetGrantablePrivilegesError = GetGrantablePrivilegesErrors[keyof GetGrantablePrivilegesErrors];
+
+export type GetGrantablePrivilegesResponses = {
+    /**
+     * Grantable privileges per resource type
+     */
+    200: GrantablePrivilegesResponse;
+};
+
+export type GetGrantablePrivilegesResponse = GetGrantablePrivilegesResponses[keyof GetGrantablePrivilegesResponses];
 
 export type GetServerInfoData = {
     body?: never;
@@ -4575,6 +5014,126 @@ export type GetProjectActionsResponses = {
 
 export type GetProjectActionsResponse = GetProjectActionsResponses[keyof GetProjectActionsResponses];
 
+export type ListProjectGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/project/grants';
+};
+
+export type ListProjectGrantsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListProjectGrantsError = ListProjectGrantsErrors[keyof ListProjectGrantsErrors];
+
+export type ListProjectGrantsResponses = {
+    /**
+     * Grants held on the project
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListProjectGrantsResponse = ListProjectGrantsResponses[keyof ListProjectGrantsResponses];
+
+export type ApplyProjectGrantsData = {
+    body: ApplyGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/project/grants';
+};
+
+export type ApplyProjectGrantsErrors = {
+    /**
+     * Conflict — the request was not applied and can be retried.
+     */
+    409: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ApplyProjectGrantsError = ApplyProjectGrantsErrors[keyof ApplyProjectGrantsErrors];
+
+export type ApplyProjectGrantsResponses = {
+    /**
+     * Grants applied
+     */
+    204: void;
+};
+
+export type ApplyProjectGrantsResponse = ApplyProjectGrantsResponses[keyof ApplyProjectGrantsResponses];
+
+export type GetProjectGrantablePrivilegesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: {
+        /**
+         * Report which privileges this user may grant, instead of the caller. Requires
+         * authority to read the resource's grants, since it discloses another principal's
+         * access. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * Report which privileges this role may grant, instead of the caller. Same
+         * authority requirement as `principalUser`, and mutually exclusive with it.
+         */
+        principalRole?: string | null;
+    };
+    url: '/management/v1/project/grants/grantable-privileges';
+};
+
+export type GetProjectGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetProjectGrantablePrivilegesError = GetProjectGrantablePrivilegesErrors[keyof GetProjectGrantablePrivilegesErrors];
+
+export type GetProjectGrantablePrivilegesResponses = {
+    /**
+     * This resource's privileges, each marked allowed or not
+     */
+    200: ResourceGrantablePrivilegesResponse;
+};
+
+export type GetProjectGrantablePrivilegesResponse = GetProjectGrantablePrivilegesResponses[keyof GetProjectGrantablePrivilegesResponses];
+
 export type RenameProjectData = {
     body: RenameProjectRequest;
     headers?: {
@@ -5418,6 +5977,108 @@ export type GetServerActionsResponses = {
 
 export type GetServerActionsResponse = GetServerActionsResponses[keyof GetServerActionsResponses];
 
+export type ListServerGrantsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/server/grants';
+};
+
+export type ListServerGrantsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListServerGrantsError = ListServerGrantsErrors[keyof ListServerGrantsErrors];
+
+export type ListServerGrantsResponses = {
+    /**
+     * Grants held on the server
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListServerGrantsResponse = ListServerGrantsResponses[keyof ListServerGrantsResponses];
+
+export type ApplyServerGrantsData = {
+    body: ApplyGrantsRequest;
+    path?: never;
+    query?: never;
+    url: '/management/v1/server/grants';
+};
+
+export type ApplyServerGrantsErrors = {
+    /**
+     * Conflict — the request was not applied and can be retried.
+     */
+    409: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ApplyServerGrantsError = ApplyServerGrantsErrors[keyof ApplyServerGrantsErrors];
+
+export type ApplyServerGrantsResponses = {
+    /**
+     * Grants applied
+     */
+    204: void;
+};
+
+export type ApplyServerGrantsResponse = ApplyServerGrantsResponses[keyof ApplyServerGrantsResponses];
+
+export type GetServerGrantablePrivilegesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Report which privileges this user may grant, instead of the caller. Requires
+         * authority to read the resource's grants, since it discloses another principal's
+         * access. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * Report which privileges this role may grant, instead of the caller. Same
+         * authority requirement as `principalUser`, and mutually exclusive with it.
+         */
+        principalRole?: string | null;
+    };
+    url: '/management/v1/server/grants/grantable-privileges';
+};
+
+export type GetServerGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetServerGrantablePrivilegesError = GetServerGrantablePrivilegesErrors[keyof GetServerGrantablePrivilegesErrors];
+
+export type GetServerGrantablePrivilegesResponses = {
+    /**
+     * This resource's privileges, each marked allowed or not
+     */
+    200: ResourceGrantablePrivilegesResponse;
+};
+
+export type GetServerGrantablePrivilegesResponse = GetServerGrantablePrivilegesResponses[keyof GetServerGrantablePrivilegesResponses];
+
 export type ListTagDefinitionsData = {
     body?: never;
     headers?: {
@@ -5588,6 +6249,38 @@ export type UpdateTagDefinitionResponses = {
 
 export type UpdateTagDefinitionResponse = UpdateTagDefinitionResponses[keyof UpdateTagDefinitionResponses];
 
+export type GetTagActionsData = {
+    body?: never;
+    path: {
+        tag_definition_id: string;
+    };
+    query?: {
+        /**
+         * The user to show actions for.
+         * If neither user nor role is specified, shows actions for the current user.
+         */
+        principalUser?: string;
+        /**
+         * The role to show actions for.
+         * If neither user nor role is specified, shows actions for the current user.
+         */
+        principalRole?: string;
+    };
+    url: '/management/v1/tag-definition/{tag_definition_id}/actions';
+};
+
+export type GetTagActionsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetTagActionsError = GetTagActionsErrors[keyof GetTagActionsErrors];
+
+export type GetTagActionsResponses = {
+    200: GetLakekeeperTagActionsResponse;
+};
+
+export type GetTagActionsResponse = GetTagActionsResponses[keyof GetTagActionsResponses];
+
 export type ListTagAttachmentsData = {
     body?: never;
     headers?: {
@@ -5651,6 +6344,138 @@ export type ListTagAttachmentsResponses = {
 };
 
 export type ListTagAttachmentsResponse2 = ListTagAttachmentsResponses[keyof ListTagAttachmentsResponses];
+
+export type ListTagGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/tag-definition/{tag_definition_id}/grants';
+};
+
+export type ListTagGrantsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListTagGrantsError = ListTagGrantsErrors[keyof ListTagGrantsErrors];
+
+export type ListTagGrantsResponses = {
+    /**
+     * Grants held on the tag definition
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListTagGrantsResponse = ListTagGrantsResponses[keyof ListTagGrantsResponses];
+
+export type ApplyTagGrantsData = {
+    body: ApplyGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Tag Definition ID
+         */
+        tag_definition_id: string;
+    };
+    query?: never;
+    url: '/management/v1/tag-definition/{tag_definition_id}/grants';
+};
+
+export type ApplyTagGrantsErrors = {
+    /**
+     * Conflict — the request was not applied and can be retried.
+     */
+    409: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ApplyTagGrantsError = ApplyTagGrantsErrors[keyof ApplyTagGrantsErrors];
+
+export type ApplyTagGrantsResponses = {
+    /**
+     * Grants applied
+     */
+    204: void;
+};
+
+export type ApplyTagGrantsResponse = ApplyTagGrantsResponses[keyof ApplyTagGrantsResponses];
+
+export type GetTagGrantablePrivilegesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        tag_definition_id: string;
+    };
+    query?: {
+        /**
+         * Report which privileges this user may grant, instead of the caller. Requires
+         * authority to read the resource's grants, since it discloses another principal's
+         * access. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * Report which privileges this role may grant, instead of the caller. Same
+         * authority requirement as `principalUser`, and mutually exclusive with it.
+         */
+        principalRole?: string | null;
+    };
+    url: '/management/v1/tag-definition/{tag_definition_id}/grants/grantable-privileges';
+};
+
+export type GetTagGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetTagGrantablePrivilegesError = GetTagGrantablePrivilegesErrors[keyof GetTagGrantablePrivilegesErrors];
+
+export type GetTagGrantablePrivilegesResponses = {
+    /**
+     * This resource's privileges, each marked allowed or not
+     */
+    200: ResourceGrantablePrivilegesResponse;
+};
+
+export type GetTagGrantablePrivilegesResponse = GetTagGrantablePrivilegesResponses[keyof GetTagGrantablePrivilegesResponses];
 
 export type ListUserData = {
     body?: never;
@@ -5954,6 +6779,34 @@ export type CreateWarehouseResponses = {
 
 export type CreateWarehouseResponse2 = CreateWarehouseResponses[keyof CreateWarehouseResponses];
 
+export type ValidateWarehouseData = {
+    body: CreateWarehouseRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path?: never;
+    query?: never;
+    url: '/management/v1/warehouse-creation-validation';
+};
+
+export type ValidateWarehouseErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ValidateWarehouseError = ValidateWarehouseErrors[keyof ValidateWarehouseErrors];
+
+export type ValidateWarehouseResponses = {
+    /**
+     * Validation ran; see `valid` and `checks` for the outcome
+     */
+    200: ValidateWarehouseResponse;
+};
+
+export type ValidateWarehouseResponse2 = ValidateWarehouseResponses[keyof ValidateWarehouseResponses];
+
 export type DeleteWarehouseData = {
     body?: never;
     path: {
@@ -6224,6 +7077,147 @@ export type GetGenericTableActionsResponses = {
 
 export type GetGenericTableActionsResponse = GetGenericTableActionsResponses[keyof GetGenericTableActionsResponses];
 
+export type ListGenericTableGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Generic Table ID
+         */
+        generic_table_id: string;
+    };
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/grants';
+};
+
+export type ListGenericTableGrantsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListGenericTableGrantsError = ListGenericTableGrantsErrors[keyof ListGenericTableGrantsErrors];
+
+export type ListGenericTableGrantsResponses = {
+    /**
+     * Grants held on the generic table
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListGenericTableGrantsResponse = ListGenericTableGrantsResponses[keyof ListGenericTableGrantsResponses];
+
+export type ApplyGenericTableGrantsData = {
+    body: ApplyGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Generic Table ID
+         */
+        generic_table_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/grants';
+};
+
+export type ApplyGenericTableGrantsErrors = {
+    /**
+     * Conflict — the request was not applied and can be retried.
+     */
+    409: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ApplyGenericTableGrantsError = ApplyGenericTableGrantsErrors[keyof ApplyGenericTableGrantsErrors];
+
+export type ApplyGenericTableGrantsResponses = {
+    /**
+     * Grants applied
+     */
+    204: void;
+};
+
+export type ApplyGenericTableGrantsResponse = ApplyGenericTableGrantsResponses[keyof ApplyGenericTableGrantsResponses];
+
+export type GetGenericTableGrantablePrivilegesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        warehouse_id: string;
+        generic_table_id: string;
+    };
+    query?: {
+        /**
+         * Report which privileges this user may grant, instead of the caller. Requires
+         * authority to read the resource's grants, since it discloses another principal's
+         * access. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * Report which privileges this role may grant, instead of the caller. Same
+         * authority requirement as `principalUser`, and mutually exclusive with it.
+         */
+        principalRole?: string | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/grants/grantable-privileges';
+};
+
+export type GetGenericTableGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetGenericTableGrantablePrivilegesError = GetGenericTableGrantablePrivilegesErrors[keyof GetGenericTableGrantablePrivilegesErrors];
+
+export type GetGenericTableGrantablePrivilegesResponses = {
+    /**
+     * This resource's privileges, each marked allowed or not
+     */
+    200: ResourceGrantablePrivilegesResponse;
+};
+
+export type GetGenericTableGrantablePrivilegesResponse = GetGenericTableGrantablePrivilegesResponses[keyof GetGenericTableGrantablePrivilegesResponses];
+
 export type GetGenericTableProtectionData = {
     body?: never;
     path: {
@@ -6398,6 +7392,138 @@ export type SetGenericTableTagResponses = {
 
 export type SetGenericTableTagResponse = SetGenericTableTagResponses[keyof SetGenericTableTagResponses];
 
+export type ListWarehouseGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+    };
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/grants';
+};
+
+export type ListWarehouseGrantsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListWarehouseGrantsError = ListWarehouseGrantsErrors[keyof ListWarehouseGrantsErrors];
+
+export type ListWarehouseGrantsResponses = {
+    /**
+     * Grants held on the warehouse
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListWarehouseGrantsResponse = ListWarehouseGrantsResponses[keyof ListWarehouseGrantsResponses];
+
+export type ApplyWarehouseGrantsData = {
+    body: ApplyGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/grants';
+};
+
+export type ApplyWarehouseGrantsErrors = {
+    /**
+     * Conflict — the request was not applied and can be retried.
+     */
+    409: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ApplyWarehouseGrantsError = ApplyWarehouseGrantsErrors[keyof ApplyWarehouseGrantsErrors];
+
+export type ApplyWarehouseGrantsResponses = {
+    /**
+     * Grants applied
+     */
+    204: void;
+};
+
+export type ApplyWarehouseGrantsResponse = ApplyWarehouseGrantsResponses[keyof ApplyWarehouseGrantsResponses];
+
+export type GetWarehouseGrantablePrivilegesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        warehouse_id: string;
+    };
+    query?: {
+        /**
+         * Report which privileges this user may grant, instead of the caller. Requires
+         * authority to read the resource's grants, since it discloses another principal's
+         * access. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * Report which privileges this role may grant, instead of the caller. Same
+         * authority requirement as `principalUser`, and mutually exclusive with it.
+         */
+        principalRole?: string | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/grants/grantable-privileges';
+};
+
+export type GetWarehouseGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetWarehouseGrantablePrivilegesError = GetWarehouseGrantablePrivilegesErrors[keyof GetWarehouseGrantablePrivilegesErrors];
+
+export type GetWarehouseGrantablePrivilegesResponses = {
+    /**
+     * This resource's privileges, each marked allowed or not
+     */
+    200: ResourceGrantablePrivilegesResponse;
+};
+
+export type GetWarehouseGrantablePrivilegesResponse = GetWarehouseGrantablePrivilegesResponses[keyof GetWarehouseGrantablePrivilegesResponses];
+
 export type SetWarehouseManagedByData = {
     body: SetWarehouseManagedByRequest;
     path: {
@@ -6454,6 +7580,147 @@ export type GetNamespaceActionsResponses = {
 };
 
 export type GetNamespaceActionsResponse = GetNamespaceActionsResponses[keyof GetNamespaceActionsResponses];
+
+export type ListNamespaceGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Namespace ID
+         */
+        namespace_id: string;
+    };
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/grants';
+};
+
+export type ListNamespaceGrantsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListNamespaceGrantsError = ListNamespaceGrantsErrors[keyof ListNamespaceGrantsErrors];
+
+export type ListNamespaceGrantsResponses = {
+    /**
+     * Grants held on the namespace
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListNamespaceGrantsResponse = ListNamespaceGrantsResponses[keyof ListNamespaceGrantsResponses];
+
+export type ApplyNamespaceGrantsData = {
+    body: ApplyGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Namespace ID
+         */
+        namespace_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/grants';
+};
+
+export type ApplyNamespaceGrantsErrors = {
+    /**
+     * Conflict — the request was not applied and can be retried.
+     */
+    409: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ApplyNamespaceGrantsError = ApplyNamespaceGrantsErrors[keyof ApplyNamespaceGrantsErrors];
+
+export type ApplyNamespaceGrantsResponses = {
+    /**
+     * Grants applied
+     */
+    204: void;
+};
+
+export type ApplyNamespaceGrantsResponse = ApplyNamespaceGrantsResponses[keyof ApplyNamespaceGrantsResponses];
+
+export type GetNamespaceGrantablePrivilegesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        warehouse_id: string;
+        namespace_id: string;
+    };
+    query?: {
+        /**
+         * Report which privileges this user may grant, instead of the caller. Requires
+         * authority to read the resource's grants, since it discloses another principal's
+         * access. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * Report which privileges this role may grant, instead of the caller. Same
+         * authority requirement as `principalUser`, and mutually exclusive with it.
+         */
+        principalRole?: string | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/grants/grantable-privileges';
+};
+
+export type GetNamespaceGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetNamespaceGrantablePrivilegesError = GetNamespaceGrantablePrivilegesErrors[keyof GetNamespaceGrantablePrivilegesErrors];
+
+export type GetNamespaceGrantablePrivilegesResponses = {
+    /**
+     * This resource's privileges, each marked allowed or not
+     */
+    200: ResourceGrantablePrivilegesResponse;
+};
+
+export type GetNamespaceGrantablePrivilegesResponse = GetNamespaceGrantablePrivilegesResponses[keyof GetNamespaceGrantablePrivilegesResponses];
 
 export type GetNamespaceProtectionData = {
     body?: never;
@@ -6782,6 +8049,78 @@ export type UpdateStorageCredentialResponses = {
 
 export type UpdateStorageCredentialResponse = UpdateStorageCredentialResponses[keyof UpdateStorageCredentialResponses];
 
+export type ValidateStorageAccessData = {
+    body?: never;
+    path: {
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-access';
+};
+
+export type ValidateStorageAccessErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ValidateStorageAccessError = ValidateStorageAccessErrors[keyof ValidateStorageAccessErrors];
+
+export type ValidateStorageAccessResponses = {
+    /**
+     * Validation ran; see `valid` and `checks` for the outcome
+     */
+    200: ValidateWarehouseResponse;
+};
+
+export type ValidateStorageAccessResponse = ValidateStorageAccessResponses[keyof ValidateStorageAccessResponses];
+
+export type ValidateStorageCredentialData = {
+    body: UpdateWarehouseCredentialRequest;
+    path: {
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-credential';
+};
+
+export type ValidateStorageCredentialErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ValidateStorageCredentialError = ValidateStorageCredentialErrors[keyof ValidateStorageCredentialErrors];
+
+export type ValidateStorageCredentialResponses = {
+    /**
+     * Validation ran; see `valid` and `checks` for the outcome
+     */
+    200: ValidateWarehouseResponse;
+};
+
+export type ValidateStorageCredentialResponse = ValidateStorageCredentialResponses[keyof ValidateStorageCredentialResponses];
+
+export type ValidateStorageProfileData = {
+    body: UpdateWarehouseStorageRequest;
+    path: {
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-profile';
+};
+
+export type ValidateStorageProfileErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ValidateStorageProfileError = ValidateStorageProfileErrors[keyof ValidateStorageProfileErrors];
+
+export type ValidateStorageProfileResponses = {
+    /**
+     * Validation ran; see `valid` and `checks` for the outcome
+     */
+    200: ValidateWarehouseResponse;
+};
+
+export type ValidateStorageProfileResponse = ValidateStorageProfileResponses[keyof ValidateStorageProfileResponses];
+
 export type GetTableActionsData = {
     body?: never;
     path: {
@@ -6814,6 +8153,43 @@ export type GetTableActionsResponses = {
 };
 
 export type GetTableActionsResponse = GetTableActionsResponses[keyof GetTableActionsResponses];
+
+export type ListColumnTagsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/column-tags';
+};
+
+export type ListColumnTagsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListColumnTagsError = ListColumnTagsErrors[keyof ListColumnTagsErrors];
+
+export type ListColumnTagsResponses = {
+    /**
+     * Tags on each column of the table
+     */
+    200: ListColumnTagsResponse;
+};
+
+export type ListColumnTagsResponse2 = ListColumnTagsResponses[keyof ListColumnTagsResponses];
 
 export type ListTableColumnTagsData = {
     body?: never;
@@ -6953,6 +8329,147 @@ export type SetTableColumnTagResponses = {
 };
 
 export type SetTableColumnTagResponse = SetTableColumnTagResponses[keyof SetTableColumnTagResponses];
+
+export type ListTableGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+    };
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/grants';
+};
+
+export type ListTableGrantsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListTableGrantsError = ListTableGrantsErrors[keyof ListTableGrantsErrors];
+
+export type ListTableGrantsResponses = {
+    /**
+     * Grants held on the table
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListTableGrantsResponse = ListTableGrantsResponses[keyof ListTableGrantsResponses];
+
+export type ApplyTableGrantsData = {
+    body: ApplyGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Table ID
+         */
+        table_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/grants';
+};
+
+export type ApplyTableGrantsErrors = {
+    /**
+     * Conflict — the request was not applied and can be retried.
+     */
+    409: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ApplyTableGrantsError = ApplyTableGrantsErrors[keyof ApplyTableGrantsErrors];
+
+export type ApplyTableGrantsResponses = {
+    /**
+     * Grants applied
+     */
+    204: void;
+};
+
+export type ApplyTableGrantsResponse = ApplyTableGrantsResponses[keyof ApplyTableGrantsResponses];
+
+export type GetTableGrantablePrivilegesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        warehouse_id: string;
+        table_id: string;
+    };
+    query?: {
+        /**
+         * Report which privileges this user may grant, instead of the caller. Requires
+         * authority to read the resource's grants, since it discloses another principal's
+         * access. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * Report which privileges this role may grant, instead of the caller. Same
+         * authority requirement as `principalUser`, and mutually exclusive with it.
+         */
+        principalRole?: string | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/grants/grantable-privileges';
+};
+
+export type GetTableGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetTableGrantablePrivilegesError = GetTableGrantablePrivilegesErrors[keyof GetTableGrantablePrivilegesErrors];
+
+export type GetTableGrantablePrivilegesResponses = {
+    /**
+     * This resource's privileges, each marked allowed or not
+     */
+    200: ResourceGrantablePrivilegesResponse;
+};
+
+export type GetTableGrantablePrivilegesResponse = GetTableGrantablePrivilegesResponses[keyof GetTableGrantablePrivilegesResponses];
 
 export type GetTableProtectionData = {
     body?: never;
@@ -7437,6 +8954,147 @@ export type GetViewActionsResponses = {
 };
 
 export type GetViewActionsResponse = GetViewActionsResponses[keyof GetViewActionsResponses];
+
+export type ListViewGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * View ID
+         */
+        view_id: string;
+    };
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         * A resource's own listing accepts neither and then lists every principal's; the
+         * project-wide listing requires one of the two.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`,
+         * and subject to the same requirement on the project-wide listing.
+         */
+        principalRole?: string | null;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/grants';
+};
+
+export type ListViewGrantsErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListViewGrantsError = ListViewGrantsErrors[keyof ListViewGrantsErrors];
+
+export type ListViewGrantsResponses = {
+    /**
+     * Grants held on the view
+     */
+    200: ListGrantsResponse;
+};
+
+export type ListViewGrantsResponse = ListViewGrantsResponses[keyof ListViewGrantsResponses];
+
+export type ApplyViewGrantsData = {
+    body: ApplyGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * View ID
+         */
+        view_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/grants';
+};
+
+export type ApplyViewGrantsErrors = {
+    /**
+     * Conflict — the request was not applied and can be retried.
+     */
+    409: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ApplyViewGrantsError = ApplyViewGrantsErrors[keyof ApplyViewGrantsErrors];
+
+export type ApplyViewGrantsResponses = {
+    /**
+     * Grants applied
+     */
+    204: void;
+};
+
+export type ApplyViewGrantsResponse = ApplyViewGrantsResponses[keyof ApplyViewGrantsResponses];
+
+export type GetViewGrantablePrivilegesData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        warehouse_id: string;
+        view_id: string;
+    };
+    query?: {
+        /**
+         * Report which privileges this user may grant, instead of the caller. Requires
+         * authority to read the resource's grants, since it discloses another principal's
+         * access. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * Report which privileges this role may grant, instead of the caller. Same
+         * authority requirement as `principalUser`, and mutually exclusive with it.
+         */
+        principalRole?: string | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/grants/grantable-privileges';
+};
+
+export type GetViewGrantablePrivilegesErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type GetViewGrantablePrivilegesError = GetViewGrantablePrivilegesErrors[keyof GetViewGrantablePrivilegesErrors];
+
+export type GetViewGrantablePrivilegesResponses = {
+    /**
+     * This resource's privileges, each marked allowed or not
+     */
+    200: ResourceGrantablePrivilegesResponse;
+};
+
+export type GetViewGrantablePrivilegesResponse = GetViewGrantablePrivilegesResponses[keyof GetViewGrantablePrivilegesResponses];
 
 export type GetViewProtectionData = {
     body?: never;

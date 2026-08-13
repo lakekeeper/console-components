@@ -17,11 +17,12 @@ import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
 import TagPermissionsPanel from './components/TagPermissionsPanel.vue';
 import TagDetail from './components/TagDetail.vue';
-import EntityTags from './components/EntityTags.vue';
 import EntityTagsChips from './components/EntityTagsChips.vue';
 import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
 import TableTagsManageDialog from './components/TableTagsManageDialog.vue';
+import EntitySettingsDialog from './components/EntitySettingsDialog.vue';
 import EntityTagsManagePanel from './components/EntityTagsManagePanel.vue';
+import TagPickerList from './components/TagPickerList.vue';
 import ColumnTagsManagePanel from './components/ColumnTagsManagePanel.vue';
 import ColumnTags from './components/ColumnTags.vue';
 import RoleMembers from './components/RoleMembers.vue';
@@ -33,11 +34,12 @@ import AuthenticationDisabledWarningBanner from './components/AuthenticationDisa
 import WarehouseRenameDialog from './components/WarehouseRenameDialog.vue';
 import WarehouseActionsMenu from './components/WarehouseActionsMenu.vue';
 import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
-import WarehouseStorageS3 from './components/WarehouseStorageS3.vue';
-import WarehouseStorageAzure from './components/WarehouseStorageAzure.vue';
-import WarehouseStorageOneLake from './components/WarehouseStorageOneLake.vue';
-import WarehouseStorageGCS from './components/WarehouseStorageGCS.vue';
+import WarehouseStorageFormS3 from './components/WarehouseStorageFormS3.vue';
+import WarehouseStorageFormAzure from './components/WarehouseStorageFormAzure.vue';
+import WarehouseStorageFormOneLake from './components/WarehouseStorageFormOneLake.vue';
+import WarehouseStorageFormGCS from './components/WarehouseStorageFormGCS.vue';
 import WarehouseStorageJSON from './components/WarehouseStorageJSON.vue';
+import WarehouseValidationReport from './components/WarehouseValidationReport.vue';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue';
 import WarehouseDetails from './components/WarehouseDetails.vue';
 import TaskManager from './components/TaskManager.vue';
@@ -99,7 +101,7 @@ import BreadcrumbsFromUrl from './components/BreadcrumbsFromUrl.vue';
 import DateTimePicker from './components/DateTimePicker.vue';
 import StyleGuide from './components/StyleGuide.vue';
 import DeleteDialog from './components/DeleteDialog.vue';
-import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
+import EntityPropertiesPanel from './components/EntityPropertiesPanel.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
 import ServerOverview from './components/ServerOverview.vue';
 import SupportBundleDialog from './components/SupportBundleDialog.vue';
@@ -110,6 +112,7 @@ import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
 import StackedAreaChart from './components/StackedAreaChart.vue';
 import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
+import ComputeConnectPanel from './components/ComputeConnectPanel.vue';
 import NotificationButton from './components/NotificationButton.vue';
 import NotificationPanel from './components/NotificationPanel.vue';
 import ReportBuilderPanel from './components/ReportBuilderPanel.vue';
@@ -130,11 +133,12 @@ export {
   TagAttachmentsPanel,
   TagPermissionsPanel,
   TagDetail,
-  EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,
   TableTagsManageDialog,
+  EntitySettingsDialog,
   EntityTagsManagePanel,
+  TagPickerList,
   ColumnTagsManagePanel,
   ColumnTags,
   RoleMembers,
@@ -148,7 +152,7 @@ export {
   DateTimePicker,
   StyleGuide,
   DeleteDialog,
-  EntityPropertiesDialog,
+  EntityPropertiesPanel,
   TaskConfigDialog,
   ServerOverview,
   SupportBundleDialog,
@@ -160,16 +164,18 @@ export {
   WarehouseRenameDialog,
   WarehouseActionsMenu,
   WarehouseAddDialog,
-  WarehouseStorageS3,
-  WarehouseStorageAzure,
-  WarehouseStorageOneLake,
-  WarehouseStorageGCS,
+  WarehouseStorageFormS3,
+  WarehouseStorageFormAzure,
+  WarehouseStorageFormOneLake,
+  WarehouseStorageFormGCS,
   WarehouseStorageJSON,
+  WarehouseValidationReport,
   DeleteConfirmDialog,
   StatisticsDialog,
   StatisticsProject,
   StackedAreaChart,
   ComputeConnectDialog,
+  ComputeConnectPanel,
   ProjectManager,
   ProjectStatistics,
   WarehouseDetails,
@@ -363,11 +369,12 @@ const components = {
   TagAttachmentsPanel,
   TagPermissionsPanel,
   TagDetail,
-  EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,
   TableTagsManageDialog,
+  EntitySettingsDialog,
   EntityTagsManagePanel,
+  TagPickerList,
   ColumnTagsManagePanel,
   ColumnTags,
   RoleMembers,
@@ -381,7 +388,7 @@ const components = {
   DateTimePicker,
   StyleGuide,
   DeleteDialog,
-  EntityPropertiesDialog,
+  EntityPropertiesPanel,
   TaskConfigDialog,
   ServerOverview,
   SupportBundleDialog,
@@ -392,16 +399,18 @@ const components = {
   WarehouseRenameDialog,
   WarehouseActionsMenu,
   WarehouseAddDialog,
-  WarehouseStorageS3,
-  WarehouseStorageAzure,
-  WarehouseStorageOneLake,
-  WarehouseStorageGCS,
+  WarehouseStorageFormS3,
+  WarehouseStorageFormAzure,
+  WarehouseStorageFormOneLake,
+  WarehouseStorageFormGCS,
   WarehouseStorageJSON,
+  WarehouseValidationReport,
   DeleteConfirmDialog,
   StatisticsDialog,
   StatisticsProject,
   StackedAreaChart,
   ComputeConnectDialog,
+  ComputeConnectPanel,
   ProjectManager,
   ProjectStatistics,
   WarehouseDetails,

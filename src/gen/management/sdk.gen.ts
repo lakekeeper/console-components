@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, AddRoleMembersData, AddRoleMembersErrors, AddRoleMembersResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateTagDefinitionData, CreateTagDefinitionErrors, CreateTagDefinitionResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteGenericTableTagData, DeleteGenericTableTagErrors, DeleteGenericTableTagResponses, DeleteNamespaceTagData, DeleteNamespaceTagErrors, DeleteNamespaceTagResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteTableColumnTagData, DeleteTableColumnTagErrors, DeleteTableColumnTagResponses, DeleteTableTagData, DeleteTableTagErrors, DeleteTableTagResponses, DeleteTagDefinitionData, DeleteTagDefinitionErrors, DeleteTagDefinitionResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteViewTagData, DeleteViewTagErrors, DeleteViewTagResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, DeleteWarehouseTagData, DeleteWarehouseTagErrors, DeleteWarehouseTagResponses, GetAuthorizerGenericTableActionsData, GetAuthorizerGenericTableActionsResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetGenericTableActionsData, GetGenericTableActionsErrors, GetGenericTableActionsResponses, GetGenericTableAssignmentsByIdData, GetGenericTableAssignmentsByIdResponses, GetGenericTableProtectionData, GetGenericTableProtectionErrors, GetGenericTableProtectionResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTagAssignmentsByIdData, GetTagAssignmentsByIdResponses, GetTagDefinitionData, GetTagDefinitionErrors, GetTagDefinitionResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigSoftDeletionData, GetTaskQueueConfigSoftDeletionErrors, GetTaskQueueConfigSoftDeletionResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListGenericTableTagsData, ListGenericTableTagsErrors, ListGenericTableTagsResponses, ListNamespaceTagsData, ListNamespaceTagsErrors, ListNamespaceTagsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRoleMemberOfData, ListRoleMemberOfErrors, ListRoleMemberOfResponses, ListRoleMembersData, ListRoleMembersErrors, ListRoleMembersResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListRoleTransitiveMemberOfData, ListRoleTransitiveMemberOfErrors, ListRoleTransitiveMemberOfResponses, ListRoleTransitiveMembersData, ListRoleTransitiveMembersErrors, ListRoleTransitiveMembersResponses, ListTableColumnTagsData, ListTableColumnTagsErrors, ListTableColumnTagsResponses, ListTableTagsData, ListTableTagsErrors, ListTableTagsResponses, ListTagAttachmentsData, ListTagAttachmentsErrors, ListTagAttachmentsResponses, ListTagDefinitionsData, ListTagDefinitionsErrors, ListTagDefinitionsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListUserRolesData, ListUserRolesErrors, ListUserRolesResponses, ListUserTransitiveRolesData, ListUserTransitiveRolesErrors, ListUserTransitiveRolesResponses, ListViewTagsData, ListViewTagsErrors, ListViewTagsResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, ListWarehouseTagsData, ListWarehouseTagsErrors, ListWarehouseTagsResponses, RemoveRoleMemberData, RemoveRoleMemberErrors, RemoveRoleMemberResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetGenericTableProtectionData, SetGenericTableProtectionErrors, SetGenericTableProtectionResponses, SetGenericTableTagData, SetGenericTableTagErrors, SetGenericTableTagResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetNamespaceTagData, SetNamespaceTagErrors, SetNamespaceTagResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableColumnTagData, SetTableColumnTagErrors, SetTableColumnTagResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTableTagData, SetTableTagErrors, SetTableTagResponses, SetTaskQueueConfigSoftDeletionData, SetTaskQueueConfigSoftDeletionErrors, SetTaskQueueConfigSoftDeletionResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetViewTagData, SetViewTagErrors, SetViewTagResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseManagedByData, SetWarehouseManagedByErrors, SetWarehouseManagedByResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, SetWarehouseTagData, SetWarehouseTagErrors, SetWarehouseTagResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateGenericTableAssignmentsByIdData, UpdateGenericTableAssignmentsByIdResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateTagAssignmentsByIdData, UpdateTagAssignmentsByIdResponses, UpdateTagDefinitionData, UpdateTagDefinitionErrors, UpdateTagDefinitionResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, UpdateWarehouseFormatVersionPolicyData, UpdateWarehouseFormatVersionPolicyErrors, UpdateWarehouseFormatVersionPolicyResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
+import type { ActivateWarehouseData, ActivateWarehouseErrors, ActivateWarehouseResponses, AddRoleMembersData, AddRoleMembersErrors, AddRoleMembersResponses, ApplyGenericTableGrantsData, ApplyGenericTableGrantsErrors, ApplyGenericTableGrantsResponses, ApplyNamespaceGrantsData, ApplyNamespaceGrantsErrors, ApplyNamespaceGrantsResponses, ApplyProjectGrantsData, ApplyProjectGrantsErrors, ApplyProjectGrantsResponses, ApplyServerGrantsData, ApplyServerGrantsErrors, ApplyServerGrantsResponses, ApplyTableGrantsData, ApplyTableGrantsErrors, ApplyTableGrantsResponses, ApplyTagGrantsData, ApplyTagGrantsErrors, ApplyTagGrantsResponses, ApplyViewGrantsData, ApplyViewGrantsErrors, ApplyViewGrantsResponses, ApplyWarehouseGrantsData, ApplyWarehouseGrantsErrors, ApplyWarehouseGrantsResponses, BatchCheckActionsData, BatchCheckActionsErrors, BatchCheckActionsResponses, BootstrapData, BootstrapErrors, BootstrapResponses, CheckData, CheckResponses, ControlProjectTasksData, ControlProjectTasksErrors, ControlProjectTasksResponses, ControlTasksData, ControlTasksErrors, ControlTasksResponses, CreateProjectData, CreateProjectErrors, CreateProjectResponses, CreateRoleData, CreateRoleErrors, CreateRoleResponses, CreateTagDefinitionData, CreateTagDefinitionErrors, CreateTagDefinitionResponses, CreateUserData, CreateUserErrors, CreateUserResponses, CreateWarehouseData, CreateWarehouseErrors, CreateWarehouseResponses, DeactivateWarehouseData, DeactivateWarehouseErrors, DeactivateWarehouseResponses, DeleteGenericTableTagData, DeleteGenericTableTagErrors, DeleteGenericTableTagResponses, DeleteNamespaceTagData, DeleteNamespaceTagErrors, DeleteNamespaceTagResponses, DeleteProjectByIdDeprecatedData, DeleteProjectByIdDeprecatedErrors, DeleteProjectByIdDeprecatedResponses, DeleteProjectData, DeleteProjectErrors, DeleteProjectResponses, DeleteRoleData, DeleteRoleErrors, DeleteRoleResponses, DeleteTableColumnTagData, DeleteTableColumnTagErrors, DeleteTableColumnTagResponses, DeleteTableTagData, DeleteTableTagErrors, DeleteTableTagResponses, DeleteTagDefinitionData, DeleteTagDefinitionErrors, DeleteTagDefinitionResponses, DeleteUserData, DeleteUserErrors, DeleteUserResponses, DeleteViewTagData, DeleteViewTagErrors, DeleteViewTagResponses, DeleteWarehouseData, DeleteWarehouseErrors, DeleteWarehouseResponses, DeleteWarehouseTagData, DeleteWarehouseTagErrors, DeleteWarehouseTagResponses, GetAuthorizerGenericTableActionsData, GetAuthorizerGenericTableActionsResponses, GetAuthorizerNamespaceActionsData, GetAuthorizerNamespaceActionsResponses, GetAuthorizerProjectActionsData, GetAuthorizerProjectActionsResponses, GetAuthorizerRoleActionsData, GetAuthorizerRoleActionsResponses, GetAuthorizerServerActionsData, GetAuthorizerServerActionsResponses, GetAuthorizerTableActionsData, GetAuthorizerTableActionsResponses, GetAuthorizerViewActionsData, GetAuthorizerViewActionsResponses, GetAuthorizerWarehouseActionsData, GetAuthorizerWarehouseActionsResponses, GetEndpointStatisticsData, GetEndpointStatisticsErrors, GetEndpointStatisticsResponses, GetGenericTableActionsData, GetGenericTableActionsErrors, GetGenericTableActionsResponses, GetGenericTableAssignmentsByIdData, GetGenericTableAssignmentsByIdResponses, GetGenericTableGrantablePrivilegesData, GetGenericTableGrantablePrivilegesErrors, GetGenericTableGrantablePrivilegesResponses, GetGenericTableProtectionData, GetGenericTableProtectionErrors, GetGenericTableProtectionResponses, GetGrantablePrivilegesData, GetGrantablePrivilegesErrors, GetGrantablePrivilegesResponses, GetNamespaceAccessByIdData, GetNamespaceAccessByIdResponses, GetNamespaceActionsData, GetNamespaceActionsErrors, GetNamespaceActionsResponses, GetNamespaceAssignmentsByIdData, GetNamespaceAssignmentsByIdResponses, GetNamespaceByIdData, GetNamespaceByIdResponses, GetNamespaceGrantablePrivilegesData, GetNamespaceGrantablePrivilegesErrors, GetNamespaceGrantablePrivilegesResponses, GetNamespaceProtectionData, GetNamespaceProtectionErrors, GetNamespaceProtectionResponses, GetProjectAccessByIdData, GetProjectAccessByIdResponses, GetProjectAccessData, GetProjectAccessResponses, GetProjectActionsData, GetProjectActionsErrors, GetProjectActionsResponses, GetProjectAssignmentsByIdData, GetProjectAssignmentsByIdResponses, GetProjectAssignmentsData, GetProjectAssignmentsResponses, GetProjectByIdDeprecatedData, GetProjectByIdDeprecatedErrors, GetProjectByIdDeprecatedResponses, GetProjectData, GetProjectErrors, GetProjectGrantablePrivilegesData, GetProjectGrantablePrivilegesErrors, GetProjectGrantablePrivilegesResponses, GetProjectResponses, GetProjectTaskDetailsData, GetProjectTaskDetailsErrors, GetProjectTaskDetailsResponses, GetProjectTaskQueueConfigTaskLogCleanupData, GetProjectTaskQueueConfigTaskLogCleanupErrors, GetProjectTaskQueueConfigTaskLogCleanupResponses, GetRoleAccessByIdData, GetRoleAccessByIdResponses, GetRoleActionsData, GetRoleActionsErrors, GetRoleActionsResponses, GetRoleAssignmentsByIdData, GetRoleAssignmentsByIdResponses, GetRoleData, GetRoleErrors, GetRoleMetadataData, GetRoleMetadataErrors, GetRoleMetadataResponses, GetRoleResponses, GetServerAccessData, GetServerAccessResponses, GetServerActionsData, GetServerActionsErrors, GetServerActionsResponses, GetServerAssignmentsData, GetServerAssignmentsResponses, GetServerGrantablePrivilegesData, GetServerGrantablePrivilegesErrors, GetServerGrantablePrivilegesResponses, GetServerInfoData, GetServerInfoErrors, GetServerInfoResponses, GetTableAccessByIdData, GetTableAccessByIdResponses, GetTableActionsData, GetTableActionsErrors, GetTableActionsResponses, GetTableAssignmentsByIdData, GetTableAssignmentsByIdResponses, GetTableGrantablePrivilegesData, GetTableGrantablePrivilegesErrors, GetTableGrantablePrivilegesResponses, GetTableProtectionData, GetTableProtectionErrors, GetTableProtectionResponses, GetTagActionsData, GetTagActionsErrors, GetTagActionsResponses, GetTagAssignmentsByIdData, GetTagAssignmentsByIdResponses, GetTagDefinitionData, GetTagDefinitionErrors, GetTagDefinitionResponses, GetTagGrantablePrivilegesData, GetTagGrantablePrivilegesErrors, GetTagGrantablePrivilegesResponses, GetTaskDetailsData, GetTaskDetailsErrors, GetTaskDetailsResponses, GetTaskQueueConfigSoftDeletionData, GetTaskQueueConfigSoftDeletionErrors, GetTaskQueueConfigSoftDeletionResponses, GetTaskQueueConfigTabularPurgeData, GetTaskQueueConfigTabularPurgeErrors, GetTaskQueueConfigTabularPurgeResponses, GetUserActionsData, GetUserActionsErrors, GetUserActionsResponses, GetUserData, GetUserErrors, GetUserResponses, GetViewAccessByIdData, GetViewAccessByIdResponses, GetViewActionsData, GetViewActionsErrors, GetViewActionsResponses, GetViewAssignmentsByIdData, GetViewAssignmentsByIdResponses, GetViewGrantablePrivilegesData, GetViewGrantablePrivilegesErrors, GetViewGrantablePrivilegesResponses, GetViewProtectionData, GetViewProtectionErrors, GetViewProtectionResponses, GetWarehouseAccessByIdData, GetWarehouseAccessByIdResponses, GetWarehouseActionsData, GetWarehouseActionsErrors, GetWarehouseActionsResponses, GetWarehouseAssignmentsByIdData, GetWarehouseAssignmentsByIdResponses, GetWarehouseByIdData, GetWarehouseByIdResponses, GetWarehouseData, GetWarehouseErrors, GetWarehouseGrantablePrivilegesData, GetWarehouseGrantablePrivilegesErrors, GetWarehouseGrantablePrivilegesResponses, GetWarehouseResponses, GetWarehouseStatisticsData, GetWarehouseStatisticsErrors, GetWarehouseStatisticsResponses, ListColumnTagsData, ListColumnTagsErrors, ListColumnTagsResponses, ListDeletedTabularsData, ListDeletedTabularsErrors, ListDeletedTabularsResponses, ListGenericTableGrantsData, ListGenericTableGrantsErrors, ListGenericTableGrantsResponses, ListGenericTableTagsData, ListGenericTableTagsErrors, ListGenericTableTagsResponses, ListGrantsData, ListGrantsErrors, ListGrantsResponses, ListNamespaceGrantsData, ListNamespaceGrantsErrors, ListNamespaceGrantsResponses, ListNamespaceTagsData, ListNamespaceTagsErrors, ListNamespaceTagsResponses, ListProjectGrantsData, ListProjectGrantsErrors, ListProjectGrantsResponses, ListProjectsData, ListProjectsErrors, ListProjectsResponses, ListProjectTasksData, ListProjectTasksErrors, ListProjectTasksResponses, ListRoleMemberOfData, ListRoleMemberOfErrors, ListRoleMemberOfResponses, ListRoleMembersData, ListRoleMembersErrors, ListRoleMembersResponses, ListRolesData, ListRolesErrors, ListRolesResponses, ListRoleTransitiveMemberOfData, ListRoleTransitiveMemberOfErrors, ListRoleTransitiveMemberOfResponses, ListRoleTransitiveMembersData, ListRoleTransitiveMembersErrors, ListRoleTransitiveMembersResponses, ListServerGrantsData, ListServerGrantsErrors, ListServerGrantsResponses, ListTableColumnTagsData, ListTableColumnTagsErrors, ListTableColumnTagsResponses, ListTableGrantsData, ListTableGrantsErrors, ListTableGrantsResponses, ListTableTagsData, ListTableTagsErrors, ListTableTagsResponses, ListTagAttachmentsData, ListTagAttachmentsErrors, ListTagAttachmentsResponses, ListTagDefinitionsData, ListTagDefinitionsErrors, ListTagDefinitionsResponses, ListTagGrantsData, ListTagGrantsErrors, ListTagGrantsResponses, ListTasksData, ListTasksErrors, ListTasksResponses, ListUserData, ListUserErrors, ListUserResponses, ListUserRolesData, ListUserRolesErrors, ListUserRolesResponses, ListUserTransitiveRolesData, ListUserTransitiveRolesErrors, ListUserTransitiveRolesResponses, ListViewGrantsData, ListViewGrantsErrors, ListViewGrantsResponses, ListViewTagsData, ListViewTagsErrors, ListViewTagsResponses, ListWarehouseGrantsData, ListWarehouseGrantsErrors, ListWarehouseGrantsResponses, ListWarehousesData, ListWarehousesErrors, ListWarehousesResponses, ListWarehouseTagsData, ListWarehouseTagsErrors, ListWarehouseTagsResponses, RemoveRoleMemberData, RemoveRoleMemberErrors, RemoveRoleMemberResponses, RenameProjectByIdDeprecatedData, RenameProjectByIdDeprecatedErrors, RenameProjectByIdDeprecatedResponses, RenameProjectData, RenameProjectErrors, RenameProjectResponses, RenameWarehouseData, RenameWarehouseErrors, RenameWarehouseResponses, SearchRoleData, SearchRoleErrors, SearchRoleResponses, SearchTabularData, SearchTabularErrors, SearchTabularResponses, SearchUserData, SearchUserErrors, SearchUserResponses, SetGenericTableProtectionData, SetGenericTableProtectionErrors, SetGenericTableProtectionResponses, SetGenericTableTagData, SetGenericTableTagErrors, SetGenericTableTagResponses, SetNamespaceManagedAccessData, SetNamespaceManagedAccessResponses, SetNamespaceProtectionData, SetNamespaceProtectionErrors, SetNamespaceProtectionResponses, SetNamespaceTagData, SetNamespaceTagErrors, SetNamespaceTagResponses, SetProjectTaskQueueConfigTaskLogCleanupData, SetProjectTaskQueueConfigTaskLogCleanupErrors, SetProjectTaskQueueConfigTaskLogCleanupResponses, SetTableColumnTagData, SetTableColumnTagErrors, SetTableColumnTagResponses, SetTableProtectionData, SetTableProtectionErrors, SetTableProtectionResponses, SetTableTagData, SetTableTagErrors, SetTableTagResponses, SetTaskQueueConfigSoftDeletionData, SetTaskQueueConfigSoftDeletionErrors, SetTaskQueueConfigSoftDeletionResponses, SetTaskQueueConfigTabularPurgeData, SetTaskQueueConfigTabularPurgeErrors, SetTaskQueueConfigTabularPurgeResponses, SetViewProtectionData, SetViewProtectionErrors, SetViewProtectionResponses, SetViewTagData, SetViewTagErrors, SetViewTagResponses, SetWarehouseManagedAccessData, SetWarehouseManagedAccessResponses, SetWarehouseManagedByData, SetWarehouseManagedByErrors, SetWarehouseManagedByResponses, SetWarehouseProtectionData, SetWarehouseProtectionErrors, SetWarehouseProtectionResponses, SetWarehouseTagData, SetWarehouseTagErrors, SetWarehouseTagResponses, UndropTabularsData, UndropTabularsErrors, UndropTabularsResponses, UpdateGenericTableAssignmentsByIdData, UpdateGenericTableAssignmentsByIdResponses, UpdateNamespaceAssignmentsByIdData, UpdateNamespaceAssignmentsByIdResponses, UpdateProjectAssignmentsByIdData, UpdateProjectAssignmentsByIdResponses, UpdateProjectAssignmentsData, UpdateProjectAssignmentsResponses, UpdateRoleAssignmentsByIdData, UpdateRoleAssignmentsByIdResponses, UpdateRoleData, UpdateRoleErrors, UpdateRoleResponses, UpdateRoleSourceSystemData, UpdateRoleSourceSystemErrors, UpdateRoleSourceSystemResponses, UpdateServerAssignmentsData, UpdateServerAssignmentsResponses, UpdateStorageCredentialData, UpdateStorageCredentialErrors, UpdateStorageCredentialResponses, UpdateStorageProfileData, UpdateStorageProfileErrors, UpdateStorageProfileResponses, UpdateTableAssignmentsByIdData, UpdateTableAssignmentsByIdResponses, UpdateTagAssignmentsByIdData, UpdateTagAssignmentsByIdResponses, UpdateTagDefinitionData, UpdateTagDefinitionErrors, UpdateTagDefinitionResponses, UpdateUserData, UpdateUserErrors, UpdateUserResponses, UpdateViewAssignmentsByIdData, UpdateViewAssignmentsByIdResponses, UpdateWarehouseAssignmentsByIdData, UpdateWarehouseAssignmentsByIdResponses, UpdateWarehouseDeleteProfileData, UpdateWarehouseDeleteProfileErrors, UpdateWarehouseDeleteProfileResponses, UpdateWarehouseFormatVersionPolicyData, UpdateWarehouseFormatVersionPolicyErrors, UpdateWarehouseFormatVersionPolicyResponses, ValidateStorageAccessData, ValidateStorageAccessErrors, ValidateStorageAccessResponses, ValidateStorageCredentialData, ValidateStorageCredentialErrors, ValidateStorageCredentialResponses, ValidateStorageProfileData, ValidateStorageProfileErrors, ValidateStorageProfileResponses, ValidateWarehouseData, ValidateWarehouseErrors, ValidateWarehouseResponses, WhoamiData, WhoamiErrors, WhoamiResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -107,6 +107,53 @@ export const getEndpointStatistics = <ThrowOnError extends boolean = false>(opti
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * List Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists everything one principal holds across the project — "what does this
+ * principal have here". Exactly one of `principalUser` or `principalRole` is
+ * **required**; a request naming neither is refused with `MissingGrantPrincipal`
+ * (400). To read every grant held on a single resource, use that resource's own
+ * listing.
+ *
+ * Grants are reported at the layer they are held: a grant a role holds is listed
+ * under that role, not under the users who have the role, and a grant on an
+ * ancestor is listed under the ancestor. Server grants belong to no project and are
+ * not included.
+ *
+ * Listing your own grants needs no extra permission; any other principal requires
+ * the project-level grant-read permission.
+ *
+ * **Availability depends on the configured authorizer.** This listing crosses every
+ * resource in the project, which an authorizer that stores permissions per resource
+ * cannot answer without reading its whole store. Those report
+ * `GrantListingNotImplemented` (501) — under OpenFGA, for example. Read one
+ * resource's grants from its own endpoint instead; those listings work, and page,
+ * under every authorizer. `GET /info` reports the configured backend.
+ */
+export const listGrants = <ThrowOnError extends boolean = false>(options?: Options<ListGrantsData, ThrowOnError>): RequestResult<ListGrantsResponses, ListGrantsErrors, ThrowOnError> => (options?.client ?? client).get<ListGrantsResponses, ListGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/grants',
+    ...options
+});
+
+/**
+ * Get Available Privileges [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the privileges that may be granted, per resource type. The vocabulary
+ * belongs to the configured authorizer, so it differs between deployments and a
+ * name this server does not know is rejected — fetch it rather than hard-coding it.
+ */
+export const getGrantablePrivileges = <ThrowOnError extends boolean = false>(options?: Options<GetGrantablePrivilegesData, ThrowOnError>): RequestResult<GetGrantablePrivilegesResponses, GetGrantablePrivilegesErrors, ThrowOnError> => (options?.client ?? client).get<GetGrantablePrivilegesResponses, GetGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/grants/grantable-privileges',
+    ...options
 });
 
 /**
@@ -662,6 +709,62 @@ export const getProjectActions = <ThrowOnError extends boolean = false>(options?
 });
 
 /**
+ * List Project Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the grants held on the project named by `x-project-id`, or the default
+ * project. Grants on resources inside the project are not included — use those
+ * resources' own endpoints, or `GET /grants` for one principal's across the whole
+ * project.
+ *
+ * Supply `principalUser` or `principalRole` to narrow to one principal. Narrowing to
+ * yourself requires only permission to see the project; every other listing requires
+ * the project's grant-read permission.
+ */
+export const listProjectGrants = <ThrowOnError extends boolean = false>(options?: Options<ListProjectGrantsData, ThrowOnError>): RequestResult<ListProjectGrantsResponses, ListProjectGrantsErrors, ThrowOnError> => (options?.client ?? client).get<ListProjectGrantsResponses, ListProjectGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/grants',
+    ...options
+});
+
+/**
+ * Apply Project Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Creates the grants in `writes` and removes those in `deletes`, atomically.
+ * Idempotent. Success is `204` with no body: whether an entry was already in
+ * the requested state is not reported.
+ */
+export const applyProjectGrants = <ThrowOnError extends boolean = false>(options: Options<ApplyProjectGrantsData, ThrowOnError>): RequestResult<ApplyProjectGrantsResponses, ApplyProjectGrantsErrors, ThrowOnError> => (options.client ?? client).post<ApplyProjectGrantsResponses, ApplyProjectGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Grantable Privileges on a project [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Every privilege this project publishes, each marked with whether the caller may
+ * grant and revoke it here. Not filtered: a picker needs to show the ones it
+ * cannot offer, not omit them. Pass `principalUser` or `principalRole` to ask on
+ * another principal's behalf, which requires authority to read this project's
+ * grants.
+ */
+export const getProjectGrantablePrivileges = <ThrowOnError extends boolean = false>(options?: Options<GetProjectGrantablePrivilegesData, ThrowOnError>): RequestResult<GetProjectGrantablePrivilegesResponses, GetProjectGrantablePrivilegesErrors, ThrowOnError> => (options?.client ?? client).get<GetProjectGrantablePrivilegesResponses, GetProjectGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/project/grants/grantable-privileges',
+    ...options
+});
+
+/**
  * Rename Project
  */
 export const renameProject = <ThrowOnError extends boolean = false>(options: Options<RenameProjectData, ThrowOnError>): RequestResult<RenameProjectResponses, RenameProjectErrors, ThrowOnError> => (options.client ?? client).post<RenameProjectResponses, RenameProjectErrors, ThrowOnError>({
@@ -1002,6 +1105,60 @@ export const getServerActions = <ThrowOnError extends boolean = false>(options?:
 });
 
 /**
+ * List Server Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the grants held on the server itself. Server grants belong to no project,
+ * so they are the one level the project-scoped listing does not report.
+ *
+ * Supply `principalUser` or `principalRole` to narrow to one principal. Narrowing to
+ * yourself needs no permission, and is the only way to read your own server grants;
+ * every other listing requires the server's grant-read permission.
+ */
+export const listServerGrants = <ThrowOnError extends boolean = false>(options?: Options<ListServerGrantsData, ThrowOnError>): RequestResult<ListServerGrantsResponses, ListServerGrantsErrors, ThrowOnError> => (options?.client ?? client).get<ListServerGrantsResponses, ListServerGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/server/grants',
+    ...options
+});
+
+/**
+ * Apply Server Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Creates the grants in `writes` and removes those in `deletes`, atomically.
+ * Idempotent. Success is `204` with no body: whether an entry was already in
+ * the requested state is not reported.
+ */
+export const applyServerGrants = <ThrowOnError extends boolean = false>(options: Options<ApplyServerGrantsData, ThrowOnError>): RequestResult<ApplyServerGrantsResponses, ApplyServerGrantsErrors, ThrowOnError> => (options.client ?? client).post<ApplyServerGrantsResponses, ApplyServerGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/server/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Grantable Privileges on a server [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Every privilege this server publishes, each marked with whether the caller may
+ * grant and revoke it here. Not filtered: a picker needs to show the ones it
+ * cannot offer, not omit them. Pass `principalUser` or `principalRole` to ask on
+ * another principal's behalf, which requires authority to read this server's
+ * grants.
+ */
+export const getServerGrantablePrivileges = <ThrowOnError extends boolean = false>(options?: Options<GetServerGrantablePrivilegesData, ThrowOnError>): RequestResult<GetServerGrantablePrivilegesResponses, GetServerGrantablePrivilegesErrors, ThrowOnError> => (options?.client ?? client).get<GetServerGrantablePrivilegesResponses, GetServerGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/server/grants/grantable-privileges',
+    ...options
+});
+
+/**
  * List Tag Definitions
  *
  * Returns the tag definitions of the project.
@@ -1067,6 +1224,15 @@ export const updateTagDefinition = <ThrowOnError extends boolean = false>(option
 });
 
 /**
+ * Get allowed actions for a tag definition
+ */
+export const getTagActions = <ThrowOnError extends boolean = false>(options: Options<GetTagActionsData, ThrowOnError>): RequestResult<GetTagActionsResponses, GetTagActionsErrors, ThrowOnError> => (options.client ?? client).get<GetTagActionsResponses, GetTagActionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition/{tag_definition_id}/actions',
+    ...options
+});
+
+/**
  * List Tag Attachments
  *
  * Lists the targets a tag definition is attached to (reverse lookup).
@@ -1076,6 +1242,60 @@ export const updateTagDefinition = <ThrowOnError extends boolean = false>(option
 export const listTagAttachments = <ThrowOnError extends boolean = false>(options: Options<ListTagAttachmentsData, ThrowOnError>): RequestResult<ListTagAttachmentsResponses, ListTagAttachmentsErrors, ThrowOnError> => (options.client ?? client).get<ListTagAttachmentsResponses, ListTagAttachmentsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/tag-definition/{tag_definition_id}/attachments',
+    ...options
+});
+
+/**
+ * List Tag Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the grants held on this tag definition — who may apply it, and who may
+ * manage it. Distinct from the grants on the objects the tag is attached to.
+ *
+ * Supply `principalUser` or `principalRole` to narrow to one principal. Narrowing to
+ * yourself requires only permission to see the tag definition; every other listing
+ * requires the tag definition's grant-read permission.
+ */
+export const listTagGrants = <ThrowOnError extends boolean = false>(options: Options<ListTagGrantsData, ThrowOnError>): RequestResult<ListTagGrantsResponses, ListTagGrantsErrors, ThrowOnError> => (options.client ?? client).get<ListTagGrantsResponses, ListTagGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition/{tag_definition_id}/grants',
+    ...options
+});
+
+/**
+ * Apply Tag Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Creates the grants in `writes` and removes those in `deletes`, atomically.
+ * Idempotent. Success is `204` with no body: whether an entry was already in
+ * the requested state is not reported.
+ */
+export const applyTagGrants = <ThrowOnError extends boolean = false>(options: Options<ApplyTagGrantsData, ThrowOnError>): RequestResult<ApplyTagGrantsResponses, ApplyTagGrantsErrors, ThrowOnError> => (options.client ?? client).post<ApplyTagGrantsResponses, ApplyTagGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition/{tag_definition_id}/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Grantable Privileges on a tag definition [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Every privilege this tag definition publishes, each marked with whether the caller may
+ * grant and revoke it here. Not filtered: a picker needs to show the ones it
+ * cannot offer, not omit them. Pass `principalUser` or `principalRole` to ask on
+ * another principal's behalf, which requires authority to read this tag definition's
+ * grants.
+ */
+export const getTagGrantablePrivileges = <ThrowOnError extends boolean = false>(options: Options<GetTagGrantablePrivilegesData, ThrowOnError>): RequestResult<GetTagGrantablePrivilegesResponses, GetTagGrantablePrivilegesErrors, ThrowOnError> => (options.client ?? client).get<GetTagGrantablePrivilegesResponses, GetTagGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/tag-definition/{tag_definition_id}/grants/grantable-privileges',
     ...options
 });
 
@@ -1210,6 +1430,27 @@ export const createWarehouse = <ThrowOnError extends boolean = false>(options: O
 });
 
 /**
+ * Validate Warehouse Configuration
+ *
+ * Runs the checks `Create Warehouse` runs — profile syntax, name
+ * availability, location overlap, format-version policy, `managed-by`, and
+ * physical storage access including credential vending — without creating
+ * anything. No warehouse is persisted and no credential is stored.
+ *
+ * Returns 200 whether or not the configuration is usable; inspect `valid` and
+ * the per-check results. Requires the same permission as creating a warehouse.
+ */
+export const validateWarehouse = <ThrowOnError extends boolean = false>(options: Options<ValidateWarehouseData, ThrowOnError>): RequestResult<ValidateWarehouseResponses, ValidateWarehouseErrors, ThrowOnError> => (options.client ?? client).post<ValidateWarehouseResponses, ValidateWarehouseErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse-creation-validation',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Delete Warehouse
  *
  * Permanently removes a warehouse and all its associated resources.
@@ -1331,6 +1572,59 @@ export const getGenericTableActions = <ThrowOnError extends boolean = false>(opt
 });
 
 /**
+ * List Generic Table Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the grants held directly on this generic table. Grants do not inherit.
+ *
+ * Supply `principalUser` or `principalRole` to narrow to one principal. Narrowing to
+ * yourself requires only permission to see the generic table; every other listing
+ * requires the generic table's grant-read permission.
+ */
+export const listGenericTableGrants = <ThrowOnError extends boolean = false>(options: Options<ListGenericTableGrantsData, ThrowOnError>): RequestResult<ListGenericTableGrantsResponses, ListGenericTableGrantsErrors, ThrowOnError> => (options.client ?? client).get<ListGenericTableGrantsResponses, ListGenericTableGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/grants',
+    ...options
+});
+
+/**
+ * Apply Generic Table Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Creates the grants in `writes` and removes those in `deletes`, atomically.
+ * Idempotent. Success is `204` with no body: whether an entry was already in
+ * the requested state is not reported.
+ */
+export const applyGenericTableGrants = <ThrowOnError extends boolean = false>(options: Options<ApplyGenericTableGrantsData, ThrowOnError>): RequestResult<ApplyGenericTableGrantsResponses, ApplyGenericTableGrantsErrors, ThrowOnError> => (options.client ?? client).post<ApplyGenericTableGrantsResponses, ApplyGenericTableGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Grantable Privileges on a generic table [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Every privilege this generic table publishes, each marked with whether the caller may
+ * grant and revoke it here. Not filtered: a picker needs to show the ones it
+ * cannot offer, not omit them. Pass `principalUser` or `principalRole` to ask on
+ * another principal's behalf, which requires authority to read this generic table's
+ * grants.
+ */
+export const getGenericTableGrantablePrivileges = <ThrowOnError extends boolean = false>(options: Options<GetGenericTableGrantablePrivilegesData, ThrowOnError>): RequestResult<GetGenericTableGrantablePrivilegesResponses, GetGenericTableGrantablePrivilegesErrors, ThrowOnError> => (options.client ?? client).get<GetGenericTableGrantablePrivilegesResponses, GetGenericTableGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/generic-table/{generic_table_id}/grants/grantable-privileges',
+    ...options
+});
+
+/**
  * Get Generic Table Protection
  *
  * Retrieves whether a generic table is protected from deletion.
@@ -1396,6 +1690,66 @@ export const setGenericTableTag = <ThrowOnError extends boolean = false>(options
 });
 
 /**
+ * List Warehouse Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the grants held directly on this warehouse. Grants do not inherit: a
+ * grant held by a role belongs to that role, and a grant on an ancestor belongs
+ * to the ancestor. Use the action-check endpoints to ask what a principal may
+ * effectively do.
+ *
+ * Supply `principalUser` or `principalRole` to narrow to one principal. Narrowing to
+ * yourself requires only permission to see the warehouse; every other listing
+ * requires the warehouse's grant-read permission.
+ */
+export const listWarehouseGrants = <ThrowOnError extends boolean = false>(options: Options<ListWarehouseGrantsData, ThrowOnError>): RequestResult<ListWarehouseGrantsResponses, ListWarehouseGrantsErrors, ThrowOnError> => (options.client ?? client).get<ListWarehouseGrantsResponses, ListWarehouseGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/grants',
+    ...options
+});
+
+/**
+ * Apply Warehouse Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Creates the grants in `writes` and removes those in `deletes`, atomically.
+ * Idempotent: granting twice creates one grant, revoking a grant that is not
+ * held is not an error. Which privileges are legal differs between authorizers.
+ *
+ * Success is `204` with no body: whether an entry was already in the requested
+ * state is not reported. Read the grants back, or read the `grant_created` and
+ * `grant_revoked` audit records, for what changed.
+ */
+export const applyWarehouseGrants = <ThrowOnError extends boolean = false>(options: Options<ApplyWarehouseGrantsData, ThrowOnError>): RequestResult<ApplyWarehouseGrantsResponses, ApplyWarehouseGrantsErrors, ThrowOnError> => (options.client ?? client).post<ApplyWarehouseGrantsResponses, ApplyWarehouseGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Grantable Privileges on a warehouse [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Every privilege this warehouse publishes, each marked with whether the caller may
+ * grant and revoke it here. Not filtered: a picker needs to show the ones it
+ * cannot offer, not omit them. Pass `principalUser` or `principalRole` to ask on
+ * another principal's behalf, which requires authority to read this warehouse's
+ * grants.
+ */
+export const getWarehouseGrantablePrivileges = <ThrowOnError extends boolean = false>(options: Options<GetWarehouseGrantablePrivilegesData, ThrowOnError>): RequestResult<GetWarehouseGrantablePrivilegesResponses, GetWarehouseGrantablePrivilegesErrors, ThrowOnError> => (options.client ?? client).get<GetWarehouseGrantablePrivilegesResponses, GetWarehouseGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/grants/grantable-privileges',
+    ...options
+});
+
+/**
  * Set Warehouse Managed-By
  *
  * Sets (or clears) the managed-by marker on a warehouse. When set, the
@@ -1418,6 +1772,60 @@ export const setWarehouseManagedBy = <ThrowOnError extends boolean = false>(opti
 export const getNamespaceActions = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceActionsData, ThrowOnError>): RequestResult<GetNamespaceActionsResponses, GetNamespaceActionsErrors, ThrowOnError> => (options.client ?? client).get<GetNamespaceActionsResponses, GetNamespaceActionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/actions',
+    ...options
+});
+
+/**
+ * List Namespace Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the grants held directly on this namespace. Grants do not inherit, in
+ * either direction: a child namespace's grants are its own.
+ *
+ * Supply `principalUser` or `principalRole` to narrow to one principal. Narrowing to
+ * yourself requires only permission to see the namespace; every other listing
+ * requires the namespace's grant-read permission.
+ */
+export const listNamespaceGrants = <ThrowOnError extends boolean = false>(options: Options<ListNamespaceGrantsData, ThrowOnError>): RequestResult<ListNamespaceGrantsResponses, ListNamespaceGrantsErrors, ThrowOnError> => (options.client ?? client).get<ListNamespaceGrantsResponses, ListNamespaceGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/grants',
+    ...options
+});
+
+/**
+ * Apply Namespace Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Creates the grants in `writes` and removes those in `deletes`, atomically.
+ * Idempotent. Success is `204` with no body: whether an entry was already in
+ * the requested state is not reported.
+ */
+export const applyNamespaceGrants = <ThrowOnError extends boolean = false>(options: Options<ApplyNamespaceGrantsData, ThrowOnError>): RequestResult<ApplyNamespaceGrantsResponses, ApplyNamespaceGrantsErrors, ThrowOnError> => (options.client ?? client).post<ApplyNamespaceGrantsResponses, ApplyNamespaceGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Grantable Privileges on a namespace [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Every privilege this namespace publishes, each marked with whether the caller may
+ * grant and revoke it here. Not filtered: a picker needs to show the ones it
+ * cannot offer, not omit them. Pass `principalUser` or `principalRole` to ask on
+ * another principal's behalf, which requires authority to read this namespace's
+ * grants.
+ */
+export const getNamespaceGrantablePrivileges = <ThrowOnError extends boolean = false>(options: Options<GetNamespaceGrantablePrivilegesData, ThrowOnError>): RequestResult<GetNamespaceGrantablePrivilegesResponses, GetNamespaceGrantablePrivilegesErrors, ThrowOnError> => (options.client ?? client).get<GetNamespaceGrantablePrivilegesResponses, GetNamespaceGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/grants/grantable-privileges',
     ...options
 });
 
@@ -1592,11 +2000,75 @@ export const updateStorageCredential = <ThrowOnError extends boolean = false>(op
 });
 
 /**
+ * Validate Stored Warehouse Configuration
+ *
+ * Re-runs the storage checks against the configuration the warehouse is
+ * currently running with, using its stored profile and stored credential.
+ * Use this to find out whether a warehouse's storage access still works —
+ * for example after a credential has expired or a bucket policy changed.
+ */
+export const validateStorageAccess = <ThrowOnError extends boolean = false>(options: Options<ValidateStorageAccessData, ThrowOnError>): RequestResult<ValidateStorageAccessResponses, ValidateStorageAccessErrors, ThrowOnError> => (options.client ?? client).post<ValidateStorageAccessResponses, ValidateStorageAccessErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-access',
+    ...options
+});
+
+/**
+ * Validate Storage Credential
+ *
+ * Dry-run of `Update Storage Credential`: probes the warehouse's stored
+ * storage profile with the supplied replacement credential. The stored
+ * credential is left untouched.
+ */
+export const validateStorageCredential = <ThrowOnError extends boolean = false>(options: Options<ValidateStorageCredentialData, ThrowOnError>): RequestResult<ValidateStorageCredentialResponses, ValidateStorageCredentialErrors, ThrowOnError> => (options.client ?? client).post<ValidateStorageCredentialResponses, ValidateStorageCredentialErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-credential',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Validate Storage Profile Update
+ *
+ * Dry-run of `Update Storage Profile`: checks that the warehouse's spec may
+ * be changed, that the new profile is a permitted evolution of the current
+ * one, and that the storage is reachable — without changing the warehouse.
+ *
+ * Probes the incoming profile as supplied, before it would be merged into
+ * the stored one, matching what the real update validates.
+ */
+export const validateStorageProfile = <ThrowOnError extends boolean = false>(options: Options<ValidateStorageProfileData, ThrowOnError>): RequestResult<ValidateStorageProfileResponses, ValidateStorageProfileErrors, ThrowOnError> => (options.client ?? client).post<ValidateStorageProfileResponses, ValidateStorageProfileErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/storage/validate-profile',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * Get allowed actions for a table
  */
 export const getTableActions = <ThrowOnError extends boolean = false>(options: Options<GetTableActionsData, ThrowOnError>): RequestResult<GetTableActionsResponses, GetTableActionsErrors, ThrowOnError> => (options.client ?? client).get<GetTableActionsResponses, GetTableActionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/actions',
+    ...options
+});
+
+/**
+ * List All Column Tags
+ *
+ * Returns the governance tags on every column of the table in one call, grouped by
+ * column (field-id). Columns without tags are omitted. Requires metadata access on
+ * the table.
+ */
+export const listColumnTags = <ThrowOnError extends boolean = false>(options: Options<ListColumnTagsData, ThrowOnError>): RequestResult<ListColumnTagsResponses, ListColumnTagsErrors, ThrowOnError> => (options.client ?? client).get<ListColumnTagsResponses, ListColumnTagsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/column-tags',
     ...options
 });
 
@@ -1638,6 +2110,62 @@ export const setTableColumnTag = <ThrowOnError extends boolean = false>(options:
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * List Table Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the grants held directly on this table. Grants do not inherit — a grant on
+ * the containing namespace or warehouse belongs to that resource, not to the table.
+ * A table in the recycle bin still reports its grants, because an undrop restores
+ * them.
+ *
+ * Supply `principalUser` or `principalRole` to narrow to one principal. Narrowing to
+ * yourself requires only permission to see the table; every other listing requires
+ * the table's grant-read permission.
+ */
+export const listTableGrants = <ThrowOnError extends boolean = false>(options: Options<ListTableGrantsData, ThrowOnError>): RequestResult<ListTableGrantsResponses, ListTableGrantsErrors, ThrowOnError> => (options.client ?? client).get<ListTableGrantsResponses, ListTableGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/grants',
+    ...options
+});
+
+/**
+ * Apply Table Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Creates the grants in `writes` and removes those in `deletes`, atomically.
+ * Idempotent. Success is `204` with no body: whether an entry was already in
+ * the requested state is not reported.
+ */
+export const applyTableGrants = <ThrowOnError extends boolean = false>(options: Options<ApplyTableGrantsData, ThrowOnError>): RequestResult<ApplyTableGrantsResponses, ApplyTableGrantsErrors, ThrowOnError> => (options.client ?? client).post<ApplyTableGrantsResponses, ApplyTableGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Grantable Privileges on a table [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Every privilege this table publishes, each marked with whether the caller may
+ * grant and revoke it here. Not filtered: a picker needs to show the ones it
+ * cannot offer, not omit them. Pass `principalUser` or `principalRole` to ask on
+ * another principal's behalf, which requires authority to read this table's
+ * grants.
+ */
+export const getTableGrantablePrivileges = <ThrowOnError extends boolean = false>(options: Options<GetTableGrantablePrivilegesData, ThrowOnError>): RequestResult<GetTableGrantablePrivilegesResponses, GetTableGrantablePrivilegesErrors, ThrowOnError> => (options.client ?? client).get<GetTableGrantablePrivilegesResponses, GetTableGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/table/{table_id}/grants/grantable-privileges',
+    ...options
 });
 
 /**
@@ -1837,6 +2365,59 @@ export const listTasks = <ThrowOnError extends boolean = false>(options: Options
 export const getViewActions = <ThrowOnError extends boolean = false>(options: Options<GetViewActionsData, ThrowOnError>): RequestResult<GetViewActionsResponses, GetViewActionsErrors, ThrowOnError> => (options.client ?? client).get<GetViewActionsResponses, GetViewActionsErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/actions',
+    ...options
+});
+
+/**
+ * List View Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Lists the grants held directly on this view. Grants do not inherit.
+ *
+ * Supply `principalUser` or `principalRole` to narrow to one principal. Narrowing to
+ * yourself requires only permission to see the view; every other listing requires the
+ * view's grant-read permission.
+ */
+export const listViewGrants = <ThrowOnError extends boolean = false>(options: Options<ListViewGrantsData, ThrowOnError>): RequestResult<ListViewGrantsResponses, ListViewGrantsErrors, ThrowOnError> => (options.client ?? client).get<ListViewGrantsResponses, ListViewGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/grants',
+    ...options
+});
+
+/**
+ * Apply View Grants [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Creates the grants in `writes` and removes those in `deletes`, atomically.
+ * Idempotent. Success is `204` with no body: whether an entry was already in
+ * the requested state is not reported.
+ */
+export const applyViewGrants = <ThrowOnError extends boolean = false>(options: Options<ApplyViewGrantsData, ThrowOnError>): RequestResult<ApplyViewGrantsResponses, ApplyViewGrantsErrors, ThrowOnError> => (options.client ?? client).post<ApplyViewGrantsResponses, ApplyViewGrantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/grants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Grantable Privileges on a view [Preview]
+ *
+ * This API may change in a backward-incompatible way in a future release.
+ *
+ * Every privilege this view publishes, each marked with whether the caller may
+ * grant and revoke it here. Not filtered: a picker needs to show the ones it
+ * cannot offer, not omit them. Pass `principalUser` or `principalRole` to ask on
+ * another principal's behalf, which requires authority to read this view's
+ * grants.
+ */
+export const getViewGrantablePrivileges = <ThrowOnError extends boolean = false>(options: Options<GetViewGrantablePrivilegesData, ThrowOnError>): RequestResult<GetViewGrantablePrivilegesResponses, GetViewGrantablePrivilegesErrors, ThrowOnError> => (options.client ?? client).get<GetViewGrantablePrivilegesResponses, GetViewGrantablePrivilegesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/management/v1/warehouse/{warehouse_id}/view/{view_id}/grants/grantable-privileges',
     ...options
 });
 

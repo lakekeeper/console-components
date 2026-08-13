@@ -346,7 +346,6 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const canCreateNamespace = computed(() => hasPermission('create_namespace'));
   const canDelete = computed(() => hasPermission('delete'));
   const canUpdateStorage = computed(() => hasPermission('update_storage'));
-  const canUpdateStorageCredential = computed(() => hasPermission('update_storage_credential'));
   const canRename = computed(() => hasPermission('rename'));
   const canGetAllTasks = computed(() => hasPermission('get_all_tasks'));
   const canControlAllTasks = computed(() => hasPermission('control_all_tasks'));
@@ -369,9 +368,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
-  const canModifyWarehouse = computed(() =>
-    hasAnyPermission('update_storage', 'update_storage_credential', 'rename'),
-  );
+  const canModifyWarehouse = computed(() => hasAnyPermission('update_storage', 'rename'));
 
   // UI visibility helpers
   const showTasksTab = computed(
@@ -421,7 +418,6 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canCreateNamespace,
     canDelete,
     canUpdateStorage,
-    canUpdateStorageCredential,
     canModifyWarehouse,
     canGetAllTasks,
     canControlAllTasks,
