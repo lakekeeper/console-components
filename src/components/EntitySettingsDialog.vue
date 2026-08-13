@@ -9,7 +9,7 @@
 
     <v-card style="height: 100%; width: 100%; display: flex; flex-direction: column">
       <v-toolbar density="comfortable" flat>
-        <v-btn icon="mdi-close" @click="dialogOpen = false"></v-btn>
+        <v-btn icon="mdi-close" @click="attemptClose"></v-btn>
         <v-toolbar-title>
           <v-icon class="mr-2" size="small">mdi-cog-outline</v-icon>
           {{ labelCap }} settings
@@ -19,12 +19,12 @@
         <!-- Downloading the metadata is a one-shot action, not a place to go, so
              it sits in the toolbar rather than earning a pane. -->
         <v-btn
+          v-if="metadata"
           color="primary"
           variant="flat"
           size="small"
           prepend-icon="mdi-download-outline"
           class="mr-2"
-          :disabled="!metadata"
           @click="downloadJson">
           Download metadata.json
         </v-btn>
@@ -52,6 +52,11 @@
               <v-tab v-if="hasProperties" value="PROPERTIES">
                 <v-icon size="20" class="mr-3">mdi-text-box-multiple-outline</v-icon>
                 Properties
+                <!-- The rail carries the unsaved state, so a pane you are not
+                     looking at can still tell you it is waiting on a save. -->
+                <v-icon v-if="propertiesDirty" color="primary" size="10" class="ml-2">
+                  mdi-circle
+                </v-icon>
               </v-tab>
             </v-tabs>
 
@@ -63,6 +68,7 @@
               <div style="max-width: 1000px; padding: 16px 24px">
                 <div v-show="pane === 'SETTINGS'">
                   <v-text-field
+                    v-if="canBeRenamed"
                     v-model="nameInput"
                     :label="`${labelCap} name`"
                     prepend-inner-icon="mdi-rename-outline"
@@ -75,6 +81,16 @@
                     :error="!nameInput.trim()"
                     :disabled="!canCommit"
                     class="mb-4"></v-text-field>
+
+                  <v-alert
+                    v-if="!canBeRenamed"
+                    type="info"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-4">
+                    A namespace is identified by its path, so it cannot be renamed. Create the new
+                    path and move its contents instead.
+                  </v-alert>
 
                   <v-card variant="flat" class="mb-4">
                     <v-card-item class="pb-1">
@@ -124,6 +140,7 @@
                     </v-btn>
                     <v-spacer></v-spacer>
                     <v-btn
+                      size="small"
                       color="primary"
                       :variant="canSaveSettings ? 'flat' : 'outlined'"
                       prepend-icon="mdi-content-save-outline"
@@ -139,12 +156,13 @@
                   <EntityPropertiesPanel
                     v-if="dialogOpen && hasProperties"
                     ref="propsPanel"
-                    :entity-type="entityType === 'view' ? 'view' : 'table'"
+                    :entity-type="propertiesEntityType"
                     :warehouse-id="warehouseId"
                     :namespace-path="namespacePath"
                     :entity-name="entityName"
                     :can-edit="canCommit"
                     height="auto"
+                    @dirty="propertiesDirty = $event"
                     @updated="emit('updated')" />
                 </div>
               </div>
@@ -156,11 +174,29 @@
       <v-card-actions
         class="px-6 py-4"
         style="flex: 0 0 auto; border-top: 1px solid rgba(var(--v-border-color), 0.16)">
-        <span class="text-caption text-medium-emphasis">Each pane saves on its own.</span>
         <v-spacer></v-spacer>
-        <v-btn variant="text" @click="dialogOpen = false">Close</v-btn>
+        <v-btn variant="text" @click="attemptClose">Close</v-btn>
       </v-card-actions>
     </v-card>
+
+    <!-- Closing with edits in flight discards them, so it is asked about rather
+         than done silently. -->
+    <v-dialog v-model="confirmCloseOpen" max-width="460">
+      <v-card>
+        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
+          <v-icon color="warning">mdi-alert-outline</v-icon>
+          Discard unsaved changes?
+        </v-card-title>
+        <v-card-text class="text-body-2">
+          {{ unsavedSummary }} will be lost if you close now.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="confirmCloseOpen = false">Keep editing</v-btn>
+          <v-btn color="error" variant="flat" @click="discardAndClose">Discard and close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-dialog>
 </template>
 
@@ -170,8 +206,9 @@ import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
 const props = defineProps<{
-  /** Tables, views and generic tables differ only in which endpoints apply. */
-  entityType: 'table' | 'view' | 'generic-table';
+  /** The four differ only in which endpoints apply — and namespaces cannot be
+      renamed at all, so that field is simply absent for them. */
+  entityType: 'table' | 'view' | 'generic-table' | 'namespace';
   warehouseId: string;
   namespacePath: string;
   entityName: string;
@@ -198,11 +235,17 @@ const route = useRoute();
 
 const label = computed(() => props.entityLabel ?? props.entityType.replace('-', ' '));
 const labelCap = computed(() => label.value.charAt(0).toUpperCase() + label.value.slice(1));
-// Only Iceberg tables and views carry editable properties; a generic table has
-// no properties endpoint, so that pane does not exist for it.
+// Only Iceberg tables, views and namespaces carry editable properties; a generic
+// table has no properties endpoint, so that pane does not exist for it.
 const hasProperties = computed(() => props.entityType !== 'generic-table');
+// There is no rename endpoint for a namespace: its path is its identity.
+const canBeRenamed = computed(() => props.entityType !== 'namespace');
 // The route names the entity differently depending on what it is.
 const routeParam = computed(() => (props.entityType === 'view' ? 'vid' : 'tid'));
+// The properties editor knows three kinds; a generic table never reaches it.
+const propertiesEntityType = computed<'table' | 'view' | 'namespace'>(() =>
+  props.entityType === 'view' || props.entityType === 'namespace' ? props.entityType : 'table',
+);
 
 const dialogOpen = ref(false);
 const pane = ref('SETTINGS');
@@ -211,15 +254,20 @@ const protectedPending = ref(props.protectedState);
 const settingsError = ref<string | null>(null);
 const saving = ref(false);
 const propsPanel = ref<{ reload: () => void } | null>(null);
+const propertiesDirty = ref(false);
 
 const settingsDirty = computed(
   () =>
-    (nameInput.value.trim() !== props.entityName && !!nameInput.value.trim()) ||
+    (canBeRenamed.value &&
+      nameInput.value.trim() !== props.entityName &&
+      !!nameInput.value.trim()) ||
     protectedPending.value !== props.protectedState,
 );
-const canSaveSettings = computed(
-  () => settingsDirty.value && !!nameInput.value.trim() && !nameInput.value.includes('/'),
-);
+const canSaveSettings = computed(() => {
+  if (!settingsDirty.value) return false;
+  if (!canBeRenamed.value) return true;
+  return !!nameInput.value.trim() && !nameInput.value.includes('/');
+});
 
 function resetSettings() {
   nameInput.value = props.entityName;
@@ -245,7 +293,9 @@ watch(
 // Three entity types, three pairs of endpoints; everything else about this
 // modal is the same for all of them.
 async function setProtection(value: boolean) {
-  if (props.entityType === 'view') {
+  if (props.entityType === 'namespace') {
+    await functions.setNamespaceProtection(props.warehouseId, props.entityId, value, true);
+  } else if (props.entityType === 'view') {
     await functions.setViewProtection(props.warehouseId, props.entityId, value, true);
   } else if (props.entityType === 'generic-table') {
     await functions.setGenericTableProtection(props.warehouseId, props.entityId, value, true);
@@ -255,6 +305,7 @@ async function setProtection(value: boolean) {
 }
 
 async function rename(newName: string) {
+  if (props.entityType === 'namespace') return;
   if (props.entityType === 'view') {
     await functions.renameView(
       props.warehouseId,
@@ -292,7 +343,7 @@ async function saveSettings() {
       emit('protectionChanged', protectedPending.value);
     }
     const newName = nameInput.value.trim();
-    if (newName && newName !== props.entityName && !newName.includes('/')) {
+    if (canBeRenamed.value && newName && newName !== props.entityName && !newName.includes('/')) {
       await rename(newName);
       dialogOpen.value = false;
       // The route carries the entity name (`tid` or `vid`); follow the rename.
@@ -325,6 +376,27 @@ function downloadJson() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
+}
+
+// Unsaved work lives in the panes, so the modal asks before throwing it away.
+const confirmCloseOpen = ref(false);
+const hasUnsaved = computed(() => settingsDirty.value || propertiesDirty.value);
+const unsavedSummary = computed(() => {
+  const panes = [
+    settingsDirty.value ? 'Settings' : null,
+    propertiesDirty.value ? 'Properties' : null,
+  ].filter(Boolean);
+  return `Unsaved changes in ${panes.join(' and ')}`;
+});
+
+function attemptClose() {
+  if (hasUnsaved.value) confirmCloseOpen.value = true;
+  else dialogOpen.value = false;
+}
+
+function discardAndClose() {
+  confirmCloseOpen.value = false;
+  dialogOpen.value = false;
 }
 
 defineExpose({ open: () => (dialogOpen.value = true) });

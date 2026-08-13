@@ -11,13 +11,7 @@
         <v-btn size="x-small" variant="text" @click="expandAll(false)">Collapse</v-btn>
         <!-- Both directions are real questions: what is left to classify, and
              what has been classified so far. -->
-        <v-btn-toggle
-          v-model="tagFilter"
-          mandatory
-          density="compact"
-          variant="outlined"
-          divided
-          @update:model-value="onTagFilterChange">
+        <v-btn-toggle v-model="tagFilter" mandatory density="compact" variant="outlined" divided>
           <v-btn size="x-small" value="all">All</v-btn>
           <v-btn size="x-small" value="tagged">Tagged</v-btn>
           <v-btn size="x-small" value="untagged">Untagged</v-btn>
@@ -31,17 +25,9 @@
         clearable
         prepend-inner-icon="mdi-magnify"
         placeholder="Filter fields"></v-text-field>
-      <div v-if="loadingAll" class="mt-2">
-        <div class="d-flex align-center text-caption text-medium-emphasis mb-1">
-          <span>Reading tags for every field…</span>
-          <v-spacer></v-spacer>
-          <span>{{ loadedCount }} / {{ rows.length }}</span>
-        </div>
-        <v-progress-linear
-          :model-value="loadProgress"
-          color="primary"
-          height="4"
-          rounded></v-progress-linear>
+      <div v-if="orphanTagCount" class="text-caption text-medium-emphasis mt-2">
+        {{ orphanTagCount }} tag{{ orphanTagCount === 1 ? '' : 's' }} belong to columns that no
+        longer exist in the current schema and are not shown.
       </div>
     </div>
 
@@ -110,15 +96,13 @@
       </div>
     </div>
 
-    <div ref="listRef" class="px-4 pb-3" style="flex: 1 1 auto; overflow-y: auto; min-height: 0">
+    <div class="px-4 pb-3" style="flex: 1 1 auto; overflow-y: auto; min-height: 0">
       <!-- Filtering by tagged/untagged needs every field read first. Rendering
            the list meanwhile would have rows appear and vanish one request at a
            time, so the list waits behind this instead. -->
-      <div v-if="loadingAll" class="d-flex flex-column align-center pa-8">
+      <div v-if="loading" class="d-flex flex-column align-center pa-8">
         <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
-        <span class="mt-4 text-body-2 text-medium-emphasis">
-          Reading tags for {{ rows.length }} fields…
-        </span>
+        <span class="mt-4 text-body-2 text-medium-emphasis">Reading column tags…</span>
       </div>
       <div v-else-if="!visibleRows.length" class="text-body-2 text-medium-emphasis pa-4">
         {{ rows.length ? 'No field matches this filter.' : 'This table has no columns.' }}
@@ -130,7 +114,6 @@
         <div
           v-for="(row, index) in visibleRows"
           :key="row.path"
-          :ref="(el: any) => registerRow(el, row.path)"
           class="schema-row"
           :class="[
             index % 2 ? 'schema-row--alt' : '',
@@ -159,8 +142,7 @@
                   size="x-small"
                   variant="tonal"
                   color="primary"
-                  :title="`Add tags to ${row.path}`"
-                  @click.stop="ensureLoaded(row.path)"></v-btn>
+                  :title="`Add tags to ${row.path}`"></v-btn>
               </template>
               <v-card width="420">
                 <div class="text-caption text-medium-emphasis px-3 pt-3">
@@ -196,13 +178,7 @@
           </div>
 
           <div class="schema-cell flex-wrap" style="gap: 4px">
-            <v-progress-circular
-              v-if="!isLoaded(row.path)"
-              indeterminate
-              size="12"
-              width="2"
-              color="primary"></v-progress-circular>
-            <template v-else-if="(columnTags[row.path] ?? []).length">
+            <template v-if="(columnTags[row.path] ?? []).length">
               <v-menu
                 v-for="tag in columnTags[row.path]"
                 :key="tag['tag-definition-id']"
@@ -320,7 +296,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch, nextTick } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { helix } from 'ldrs';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
@@ -349,12 +325,9 @@ const functions = useFunctions();
 const visual = useVisualStore();
 
 const columnTags = reactive<Record<string, TargetTag[]>>({});
-const loadedColumns = reactive(new Set<string>());
-const inFlight = reactive(new Set<string>());
 const definitions = ref<TagDefinition[]>([]);
 const search = ref('');
 const tagFilter = ref<'all' | 'tagged' | 'untagged'>('all');
-const loadingAll = ref(false);
 const selected = ref<string[]>([]);
 const busy = ref<string | null>(null);
 const expanded = reactive(new Set<string>());
@@ -376,7 +349,15 @@ function typeLabel(type: any): string {
   return String(type.type ?? '');
 }
 
-type Row = { path: string; name: string; type: string; depth: number; hasChildren: boolean };
+type Row = {
+  path: string;
+  name: string;
+  type: string;
+  depth: number;
+  hasChildren: boolean;
+  // Tags come back keyed by field-id, so every row carries its own.
+  fieldId?: number;
+};
 
 function flatten(fields: any[], parent = '', depth = 0): Row[] {
   const out: Row[] = [];
@@ -384,17 +365,20 @@ function flatten(fields: any[], parent = '', depth = 0): Row[] {
     const entry = typeof field === 'string' ? { name: field, type: '' } : field;
     const path = parent ? `${parent}.${entry.name}` : entry.name;
     const struct = typeof entry.type === 'object' && entry.type?.type === 'struct';
-    out.push({ path, name: entry.name, type: typeLabel(entry.type), depth, hasChildren: struct });
+    out.push({
+      path,
+      name: entry.name,
+      type: typeLabel(entry.type),
+      depth,
+      hasChildren: struct,
+      fieldId: typeof entry.id === 'number' ? entry.id : undefined,
+    });
     if (struct) out.push(...flatten(entry.type.fields ?? [], path, depth + 1));
   }
   return out;
 }
 
 const rows = computed(() => flatten(props.columns as any[]));
-
-function isLoaded(name: string): boolean {
-  return loadedColumns.has(name);
-}
 
 // A row shows only when every ancestor is expanded; filtering by name lifts that
 // so a match deep in a struct is still reachable.
@@ -409,9 +393,8 @@ const visibleRows = computed(() => {
         if (!expanded.has(parts.slice(0, i).join('.'))) return false;
       }
     }
-    // An unloaded row's state is unknown, so it stays visible rather than being
-    // silently dropped from either side of the filter.
-    if (tagFilter.value !== 'all' && isLoaded(r.path)) {
+    // Everything is loaded in one call, so the filter can be applied directly.
+    if (tagFilter.value !== 'all') {
       const tagged = (columnTags[r.path] ?? []).length > 0;
       if (tagFilter.value === 'tagged' && !tagged) return false;
       if (tagFilter.value === 'untagged' && tagged) return false;
@@ -419,13 +402,6 @@ const visibleRows = computed(() => {
     return true;
   });
 });
-
-// Progress is reported against the whole schema, so a 250-field table shows
-// movement rather than a spinner that could mean anything.
-const loadedCount = computed(() => rows.value.filter((r) => loadedColumns.has(r.path)).length);
-const loadProgress = computed(() =>
-  rows.value.length ? (loadedCount.value / rows.value.length) * 100 : 0,
-);
 
 const columnCount = computed(() =>
   visibleRows.value.length === rows.value.length
@@ -458,95 +434,46 @@ function isEditable(tagName: string): boolean {
 }
 
 // ---- loading ---------------------------------------------------------------
-// The API reads tags one column at a time, so a 250-column table would fire 250
-// requests on open. Rows load as they scroll into view instead.
-async function ensureLoaded(name: string) {
-  if (loadedColumns.has(name) || inFlight.has(name)) return;
-  inFlight.add(name);
+// One request for the whole table. The response is keyed by field-id, which
+// survives renames, so it is matched against the current schema here rather than
+// asked for column by column.
+const loading = ref(false);
+// Tags whose field-id is no longer in the current schema: the column was dropped
+// but its tags outlived it, and there is no column name left to address them by.
+const orphanTagCount = ref(0);
+
+async function loadColumnTags() {
+  if (!props.tableId) return;
+  loading.value = true;
   try {
-    const res = await functions.listTableColumnTags(
-      props.warehouseId,
-      props.tableId,
-      name,
-      false,
-      false,
-    );
-    columnTags[name] = res.tags ?? [];
-    loadedColumns.add(name);
+    const columns = await functions.listAllColumnTags(props.warehouseId, props.tableId, false);
+    const byFieldId = new Map<number, TargetTag[]>();
+    for (const entry of columns) byFieldId.set(entry['field-id'], entry.tags ?? []);
+
+    for (const key of Object.keys(columnTags)) delete columnTags[key];
+    let matched = 0;
+    for (const row of rows.value) {
+      const tags = row.fieldId !== undefined ? byFieldId.get(row.fieldId) : undefined;
+      columnTags[row.path] = tags ?? [];
+      if (tags) matched++;
+    }
+    // Reported rather than silently dropped: the tags exist server-side even
+    // though no current column claims them.
+    orphanTagCount.value = columns.length - matched;
   } catch {
     // handled
   } finally {
-    inFlight.delete(name);
+    loading.value = false;
   }
-}
-
-async function reload(name: string) {
-  loadedColumns.delete(name);
-  await ensureLoaded(name);
-}
-
-async function loadEveryColumn() {
-  loadingAll.value = true;
-  try {
-    await Promise.all(rows.value.map((r) => ensureLoaded(r.path)));
-  } finally {
-    loadingAll.value = false;
-  }
-}
-
-// Splitting tagged from untagged needs every column's tags, so either filter
-// gives up the lazy loading and fetches them all.
-function onTagFilterChange(value: unknown) {
-  if (value && value !== 'all') loadEveryColumn();
-}
-
-const listRef = ref<HTMLElement | null>(null);
-let observer: IntersectionObserver | null = null;
-// Ref callbacks run while the parent mounts — before its onMounted — so the
-// first screenful of rows registers before the observer exists. They are kept
-// here and observed once it does, and again whenever the table changes.
-const rowNodes = new Map<string, HTMLElement>();
-
-function registerRow(el: any, name: string) {
-  const node: HTMLElement | undefined = el?.$el ?? el;
-  if (!node || node.nodeType !== 1) {
-    rowNodes.delete(name);
-    return;
-  }
-  node.setAttribute('data-column', name);
-  rowNodes.set(name, node);
-  observer?.observe(node);
-}
-
-function observeAllRows() {
-  if (!observer) return;
-  observer.disconnect();
-  for (const node of rowNodes.values()) observer.observe(node);
 }
 
 onMounted(async () => {
-  observer = new IntersectionObserver(
-    (entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        const name = (entry.target as HTMLElement).dataset.column;
-        if (name) ensureLoaded(name);
-      }
-    },
-    { rootMargin: '200px' },
-  );
-  observeAllRows();
   try {
     definitions.value = await functions.listAllTagDefinitions(undefined, false);
   } catch {
     // handled
   }
-});
-
-onBeforeUnmount(() => {
-  observer?.disconnect();
-  observer = null;
-  rowNodes.clear();
+  await loadColumnTags();
 });
 
 watch(
@@ -555,10 +482,7 @@ watch(
     selected.value = [];
     tagFilter.value = 'all';
     expanded.clear();
-    loadedColumns.clear();
-    for (const key of Object.keys(columnTags)) delete columnTags[key];
-    await nextTick();
-    observeAllRows();
+    await loadColumnTags();
   },
 );
 
@@ -568,7 +492,6 @@ function toggleColumn(path: string) {
     selected.value = selected.value.filter((c) => c !== path);
   } else {
     selected.value = [...selected.value, path];
-    ensureLoaded(path);
   }
 }
 
@@ -583,7 +506,6 @@ const someVisibleSelected = computed(() =>
 function toggleSelectAll(value: boolean | null) {
   if (value) {
     selected.value = visibleRows.value.map((r) => r.path);
-    visibleRows.value.forEach((r) => ensureLoaded(r.path));
   } else {
     selected.value = [];
   }
@@ -614,8 +536,8 @@ async function applyTo(columns: string[], tagName: string, value?: string | null
         tagName,
         payload,
       );
-      await reload(column);
     }
+    await loadColumnTags();
     visual.setSnackbarMsg({
       function: 'setTableColumnTag',
       text:
@@ -660,7 +582,7 @@ async function doRemove() {
       pending.tagName,
       false,
     );
-    await reload(pending.column);
+    await loadColumnTags();
     visual.bumpTagsRefresh();
   } catch {
     // handled
@@ -694,8 +616,8 @@ async function doBulkRemove() {
         );
         removed++;
       }
-      await reload(column);
     }
+    await loadColumnTags();
     visual.setSnackbarMsg({
       function: 'deleteTableColumnTag',
       text: `Removed ${removed} tag${removed === 1 ? '' : 's'}`,

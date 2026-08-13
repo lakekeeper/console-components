@@ -5,18 +5,28 @@
     </template>
 
     <v-list density="compact" min-width="240">
-      <v-list-item
-        prepend-icon="mdi-cog-outline"
-        title="Namespace settings"
-        subtitle="Delete protection"
-        @click="openSettings" />
-      <v-list-item
-        prepend-icon="mdi-text-box-edit-outline"
-        title="Change properties"
-        @click="
-          menuOpen = false;
-          propsDialog?.open();
-        " />
+      <!-- One entry for everything about the namespace itself: protection and
+           properties — each pane saves for itself. -->
+      <EntitySettingsDialog
+        v-if="namespaceId"
+        entity-type="namespace"
+        :warehouse-id="warehouseId"
+        :namespace-path="namespacePath"
+        :entity-name="displayName"
+        :entity-id="namespaceId"
+        :protected-state="protectedState"
+        :can-commit="canUpdateProperties"
+        :can-set-protection="canSetProtection"
+        @updated="$emit('updated')"
+        @protection-changed="protectedState = $event">
+        <template #activator="{ props: aProps }">
+          <v-list-item
+            v-bind="aProps"
+            prepend-icon="mdi-cog-outline"
+            title="Namespace settings"
+            subtitle="Protection · properties" />
+        </template>
+      </EntitySettingsDialog>
 
       <template v-if="canManageTags && namespaceId">
         <v-divider class="my-1"></v-divider>
@@ -45,59 +55,6 @@
       </template>
     </v-list>
   </v-menu>
-
-  <!-- Headless properties editor, opened from the menu -->
-  <EntityPropertiesDialog
-    ref="propsDialog"
-    hide-activator
-    entity-type="namespace"
-    :warehouse-id="warehouseId"
-    :namespace-path="namespacePath"
-    :properties="namespaceProps"
-    :can-edit="canUpdateProperties"
-    @updated="$emit('updated')" />
-
-  <!-- Namespace settings: deletion protection -->
-  <v-dialog v-model="settingsOpen" max-width="440">
-    <v-card>
-      <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-        <v-icon class="mr-2" color="primary">mdi-cog-outline</v-icon>
-        Namespace Settings
-        <v-spacer></v-spacer>
-        <v-btn icon="mdi-close" variant="text" size="small" @click="settingsOpen = false"></v-btn>
-      </v-card-title>
-      <v-divider></v-divider>
-      <v-card-text>
-        <v-switch
-          :model-value="protectedPending"
-          color="primary"
-          hide-details
-          density="compact"
-          :disabled="!canSetProtection"
-          :prepend-icon="protectedPending ? 'mdi-lock' : 'mdi-lock-open-variant-outline'"
-          :label="protectedPending ? 'Deletion protected' : 'Deletion protection off'"
-          @update:model-value="protectedPending = $event === true"></v-switch>
-        <div class="text-caption text-medium-emphasis ml-10">
-          Prevent this namespace from being deleted.
-        </div>
-        <v-alert v-if="settingsError" type="error" variant="tonal" density="compact" class="mt-3">
-          {{ settingsError }}
-        </v-alert>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer></v-spacer>
-        <v-btn variant="text" :disabled="saving" @click="settingsOpen = false">Cancel</v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          :loading="saving"
-          :disabled="protectedPending === protectedState"
-          @click="saveSettings">
-          Save
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 
   <!-- Delete confirmation -->
   <v-dialog v-model="deleteOpen" max-width="600">
@@ -165,7 +122,7 @@ import { ref, computed, onMounted, watch, inject } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
-import EntityPropertiesDialog from './EntityPropertiesDialog.vue';
+import EntitySettingsDialog from './EntitySettingsDialog.vue';
 import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 
@@ -191,16 +148,8 @@ const deleteError = ref<string | null>(null);
 const recursive = ref(false);
 const purge = ref(false);
 const force = ref(false);
-const propsDialog = ref<{ open: () => void } | null>(null);
-
-const settingsOpen = ref(false);
-const saving = ref(false);
-const settingsError = ref<string | null>(null);
 const protectedState = ref(false);
-const protectedPending = ref(false);
-
 const namespaceId = ref('');
-const namespaceProps = ref<Record<string, string>>({});
 
 const { canUpdateProperties, canSetProtection, hasPermission, canManageTags } =
   useNamespacePermissions(
@@ -229,14 +178,12 @@ async function load() {
       false,
     )) as GetNamespaceResponse;
     if (token !== loadToken) return;
-    namespaceProps.value = (meta.properties ?? {}) as Record<string, string>;
     namespaceId.value = meta.properties?.namespace_id || (meta as any)['namespace-uuid'] || '';
     if (namespaceId.value) {
       try {
         const prot = await functions.getNamespaceProtection(props.warehouseId, namespaceId.value);
         if (token !== loadToken) return;
         protectedState.value = prot.protected;
-        protectedPending.value = protectedState.value;
       } catch {
         /* protection not visible to this role */
       }
@@ -249,32 +196,6 @@ async function load() {
 
 onMounted(load);
 watch(() => [props.warehouseId, props.namespacePath], load);
-
-function openSettings() {
-  menuOpen.value = false;
-  protectedPending.value = protectedState.value;
-  settingsError.value = null;
-  settingsOpen.value = true;
-}
-
-async function saveSettings() {
-  saving.value = true;
-  settingsError.value = null;
-  try {
-    await functions.setNamespaceProtection(
-      props.warehouseId,
-      namespaceId.value,
-      protectedPending.value,
-      true,
-    );
-    protectedState.value = protectedPending.value;
-    settingsOpen.value = false;
-  } catch (e: any) {
-    settingsError.value = e?.error?.message || e?.message || 'Failed to update protection';
-  } finally {
-    saving.value = false;
-  }
-}
 
 function openDelete() {
   menuOpen.value = false;

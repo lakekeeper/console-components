@@ -201,6 +201,7 @@
       <v-spacer></v-spacer>
       <v-btn
         v-if="canEdit"
+        size="small"
         color="primary"
         :variant="canSave ? 'flat' : 'outlined'"
         :disabled="!canSave"
@@ -246,6 +247,8 @@ const emit = defineEmits<{
   updated: [];
   /** Saved and done — a hosting dialog can close on this. */
   saved: [];
+  /** Unsaved edits, so a host rail can mark the pane. */
+  dirty: [value: boolean];
 }>();
 
 const height = computed(() => props.height ?? '100%');
@@ -430,6 +433,9 @@ const hasChanges = computed(() => {
 const canSave = computed(
   () => hasChanges.value && !saving.value && !hasDuplicateKeys.value && !hasMissingKeys.value,
 );
+
+// The host shows this on its rail; the pane itself already has its Save button.
+watch(hasChanges, (value) => emit('dirty', value));
 
 function addProperty() {
   editableProperties.value.push({

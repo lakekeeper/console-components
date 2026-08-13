@@ -101,7 +101,6 @@ import BreadcrumbsFromUrl from './components/BreadcrumbsFromUrl.vue';
 import DateTimePicker from './components/DateTimePicker.vue';
 import StyleGuide from './components/StyleGuide.vue';
 import DeleteDialog from './components/DeleteDialog.vue';
-import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
 import EntityPropertiesPanel from './components/EntityPropertiesPanel.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
 import ServerOverview from './components/ServerOverview.vue';
@@ -153,7 +152,6 @@ export {
   DateTimePicker,
   StyleGuide,
   DeleteDialog,
-  EntityPropertiesDialog,
   EntityPropertiesPanel,
   TaskConfigDialog,
   ServerOverview,
@@ -390,7 +388,6 @@ const components = {
   DateTimePicker,
   StyleGuide,
   DeleteDialog,
-  EntityPropertiesDialog,
   EntityPropertiesPanel,
   TaskConfigDialog,
   ServerOverview,

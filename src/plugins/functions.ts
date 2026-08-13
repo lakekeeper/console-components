@@ -18,6 +18,7 @@ import {
   GetProjectTaskDetailsResponse,
   GetTaskLogCleanupConfig,
   SetTaskLogCleanupConfig,
+  ColumnTags,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
 import { currentAccessToken } from '@/plugins/authToken';
@@ -1796,6 +1797,29 @@ async function setTableColumnTag(
 // persistent notification store — so a caller that writes many columns in one
 // gesture would stack one snackbar per column. These two are the silent
 // variants for that case; the existing wrappers are untouched.
+// One request for the whole table instead of one per column. The response keys
+// columns by Iceberg field-id — stable across schema evolution, unlike names —
+// so the caller resolves them against the current schema itself.
+async function listAllColumnTags(
+  warehouseId: string,
+  tableId: string,
+  notify?: boolean,
+): Promise<ColumnTags[]> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listColumnTags({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+    });
+    if (error) throw error;
+    return data?.columns ?? [];
+  } catch (error) {
+    handleError(error, 'listAllColumnTags', notify);
+    throw error;
+  }
+}
+
 async function setTableColumnTagSilent(
   warehouseId: string,
   tableId: string,
@@ -6203,6 +6227,7 @@ export function useFunctions(config?: any) {
     setGenericTableTag,
     deleteGenericTableTag,
     listTableColumnTags,
+    listAllColumnTags,
     setTableColumnTag,
     deleteTableColumnTag,
     setTableColumnTagSilent,

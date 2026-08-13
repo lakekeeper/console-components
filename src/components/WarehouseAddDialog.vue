@@ -15,7 +15,7 @@
 
     <v-card style="height: 100%; width: 100%; display: flex; flex-direction: column">
       <v-toolbar density="comfortable" flat>
-        <v-btn icon="mdi-close" @click="cancelDialog"></v-btn>
+        <v-btn icon="mdi-close" @click="attemptClose"></v-btn>
         <v-toolbar-title>
           <span v-if="isCreateFlow">
             Add new warehouse
@@ -242,7 +242,7 @@
                               csProtected ? 'mdi-lock' : 'mdi-lock-open-variant-outline'
                             "
                             :label="csProtected ? 'Deletion protected' : 'Deletion protection off'"
-                            @update:model-value="requestProtection($event === true)"></v-switch>
+                            @update:model-value="csProtected = $event === true"></v-switch>
                           <div class="text-caption text-medium-emphasis ml-10">
                             Prevent this warehouse from being deleted.
                           </div>
@@ -263,7 +263,9 @@
                                   ? 'Managed by instance admin'
                                   : 'Self-managed'
                               "
-                              @update:model-value="requestManagedBy($event === true)"></v-switch>
+                              @update:model-value="
+                                csManagedBy = $event === true ? 'instance-admin' : 'self-managed'
+                              "></v-switch>
                             <div class="text-caption text-medium-emphasis ml-10">
                               Restrict spec changes (rename, storage, delete) to instance admins.
                             </div>
@@ -317,6 +319,7 @@
                     <!-- Greyed out, like Reset, until there is something to save:
                        a filled variant reads as available even when disabled. -->
                     <v-btn
+                      size="small"
                       color="primary"
                       :variant="canSaveSettings ? 'flat' : 'outlined'"
                       prepend-icon="mdi-content-save-outline"
@@ -326,26 +329,6 @@
                     </v-btn>
                   </div>
                 </div>
-
-                <!-- Confirm dialog for the access/protection toggles -->
-                <v-dialog v-model="accessConfirm.open" max-width="440">
-                  <v-card>
-                    <v-card-title class="text-subtitle-1 font-weight-medium">
-                      {{ accessConfirm.title }}
-                    </v-card-title>
-                    <v-card-text class="text-body-2">{{ accessConfirm.message }}</v-card-text>
-                    <v-card-actions>
-                      <v-spacer></v-spacer>
-                      <v-btn variant="text" @click="accessConfirm.open = false">Cancel</v-btn>
-                      <v-btn
-                        :color="accessConfirm.danger ? 'error' : 'primary'"
-                        variant="flat"
-                        @click="confirmAccess">
-                        Confirm
-                      </v-btn>
-                    </v-card-actions>
-                  </v-card>
-                </v-dialog>
 
                 <div v-show="isProviderPane">
                   <v-alert
@@ -522,7 +505,7 @@
         <v-btn size="small" variant="outlined" prepend-icon="mdi-restore" @click="handleReset">
           Reset
         </v-btn>
-        <v-btn size="small" variant="outlined" @click="cancelDialog">Cancel</v-btn>
+        <v-btn size="small" variant="outlined" @click="attemptClose">Cancel</v-btn>
         <!-- The full report renders below the fold, so the verdict is repeated
              here where the buttons are. -->
         <v-chip
@@ -582,9 +565,28 @@
           {{ verifySummary.text }}
         </v-chip>
         <v-spacer></v-spacer>
-        <v-btn variant="text" @click="cancelDialog">Close</v-btn>
+        <v-btn variant="text" @click="attemptClose">Close</v-btn>
       </v-card-actions>
     </v-card>
+
+    <!-- Closing with edits in flight discards them, so it is asked about rather
+         than done silently. -->
+    <v-dialog v-model="confirmCloseOpen" max-width="460">
+      <v-card>
+        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
+          <v-icon color="warning">mdi-alert-outline</v-icon>
+          Discard unsaved changes?
+        </v-card-title>
+        <v-card-text class="text-body-2">
+          {{ unsavedSummary }} will be lost if you close now.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer></v-spacer>
+          <v-btn variant="text" @click="confirmCloseOpen = false">Keep editing</v-btn>
+          <v-btn color="error" variant="flat" @click="discardAndClose">Discard and close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-dialog>
 </template>
 
@@ -1098,52 +1100,9 @@ function emitCatalogSettings() {
   });
 }
 
-// Access & protection toggles are confirmed for visibility, then staged — they
-// apply with the rest only when "Save settings" is clicked.
-const accessConfirm = reactive({
-  open: false,
-  kind: null as null | 'protected' | 'managedBy',
-  value: null as boolean | ManagedBy | null,
-  title: '',
-  message: '',
-  danger: false,
-});
-
-function requestProtection(val: boolean) {
-  if (val === csProtected.value) return;
-  accessConfirm.kind = 'protected';
-  accessConfirm.value = val;
-  accessConfirm.danger = !val; // turning protection OFF is the riskier action
-  accessConfirm.title = val ? 'Enable deletion protection?' : 'Disable deletion protection?';
-  accessConfirm.message = val
-    ? 'The warehouse will be protected and cannot be deleted until protection is turned off.'
-    : 'The warehouse will no longer be protected and can be deleted.';
-  accessConfirm.open = true;
-}
-
-function requestManagedBy(instanceAdmin: boolean) {
-  const next: ManagedBy = instanceAdmin ? 'instance-admin' : 'self-managed';
-  if (next === csManagedBy.value) return;
-  accessConfirm.kind = 'managedBy';
-  accessConfirm.value = next;
-  accessConfirm.danger = instanceAdmin;
-  accessConfirm.title = instanceAdmin ? 'Mark managed by instance admin?' : 'Make self-managed?';
-  accessConfirm.message = instanceAdmin
-    ? 'Spec changes (rename, storage, delete, activation) will be restricted to instance admins.'
-    : 'Owners will manage this warehouse through the usual grants.';
-  accessConfirm.open = true;
-}
-
-function confirmAccess() {
-  // Stage only — the change is persisted when "Save settings" is clicked.
-  if (accessConfirm.kind === 'protected') {
-    csProtected.value = accessConfirm.value as boolean;
-  } else if (accessConfirm.kind === 'managedBy') {
-    csManagedBy.value = accessConfirm.value as ManagedBy;
-  }
-  accessConfirm.open = false;
-}
-
+// The toggles stage like every other field in this pane; "Save settings" is the
+// single commit point, and the rail marks the pane until then. A confirm step
+// here would ask twice for one change, and the other entities do not have one.
 // ---------------------------------------------------------------------------
 // Rail: providers + Settings + Verify
 // ---------------------------------------------------------------------------
@@ -1351,6 +1310,31 @@ const canSubmit = computed(
     warehouseName.value.trim().length > 0 && !warehouseName.value.includes('/') && !nameTaken.value,
 );
 
+// Unsaved work lives in the panes, so the modal asks before throwing it away.
+const confirmCloseOpen = ref(false);
+const hasUnsaved = computed(() => {
+  if (isCreateFlow.value) return storageFormDirty.value || warehouseName.value.trim().length > 0;
+  return catalogSettingsDirty.value || storageFormDirty.value;
+});
+const unsavedSummary = computed(() => {
+  if (isCreateFlow.value) return 'This warehouse has not been created yet, so everything entered';
+  const panes = [
+    catalogSettingsDirty.value ? 'Settings' : null,
+    storageFormDirty.value ? currentProviderTitle.value : null,
+  ].filter(Boolean);
+  return `Unsaved changes in ${panes.join(' and ')}`;
+});
+
+function attemptClose() {
+  if (hasUnsaved.value) confirmCloseOpen.value = true;
+  else cancelDialog();
+}
+
+function discardAndClose() {
+  confirmCloseOpen.value = false;
+  cancelDialog();
+}
+
 function cancelDialog() {
   isDialogActive.value = false;
   emit('cancel');
@@ -1468,7 +1452,9 @@ function seedStorageFromWarehouse(wh: GetWarehouseResponse) {
 
 // Seeds the settings pane and, at the same time, the baselines that "dirty" and
 // the diffed save are measured against.
-function seedSettingsFromWarehouse() {
+// Split from the name so a rename in progress is not clobbered when the server
+// copy changes for an unrelated reason.
+function seedAccessAndPolicyFromWarehouse() {
   const wh = props.warehouse;
   if (!wh) return;
 
@@ -1492,10 +1478,32 @@ function seedSettingsFromWarehouse() {
   csProtected.value = wh.protected === true;
   loadedManagedBy.value = csManagedBy.value;
   loadedProtected.value = csProtected.value;
+}
 
+function seedSettingsFromWarehouse() {
+  const wh = props.warehouse;
+  if (!wh) return;
+  seedAccessAndPolicyFromWarehouse();
   warehouseName.value = wh.name ?? '';
   loadedName.value = warehouseName.value;
 }
+
+// Saving these settings goes through the parent, which reloads the warehouse but
+// reports no status back, so the baselines this pane compares against have to
+// follow the server copy itself — otherwise a saved change still reads as unsaved.
+watch(
+  () => [
+    props.warehouse?.protected,
+    props.warehouse?.['managed-by'],
+    props.warehouse?.['delete-profile'],
+    props.warehouse?.['allowed-format-versions'],
+    props.warehouse?.['default-format-version'],
+  ],
+  () => {
+    if (isSettingsFlow.value) seedAccessAndPolicyFromWarehouse();
+  },
+  { deep: true },
+);
 
 // Both flows need the taken names: creating and renaming collide the same way,
 // and a rejected rename is worth catching before the request. The list goes stale
