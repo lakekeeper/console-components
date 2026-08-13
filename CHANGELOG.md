@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.21.0](https://github.com/lakekeeper/console-components/compare/v0.20.0...v0.21.0) (2026-08-13)
+
+
+### Features
+
+* **ui:** display Iceberg field documentation ([5c05592](https://github.com/lakekeeper/console-components/commit/5c055929fa2c602d3b133b2707e84adfe08ee7c1))
+* **ui:** one fullscreen settings modal for tables, views, generic tables and namespaces ([ad99bed](https://github.com/lakekeeper/console-components/commit/ad99bedeea899a344b95a63f208ba4aead9c6504))
+* **ui:** read column tags in one request instead of one per column ([ad99bed](https://github.com/lakekeeper/console-components/commit/ad99bedeea899a344b95a63f208ba4aead9c6504))
+* **ui:** rebuild tag management as fullscreen modals ([ad99bed](https://github.com/lakekeeper/console-components/commit/ad99bedeea899a344b95a63f208ba4aead9c6504))
+* **ui:** rebuild the warehouse storage form and unify the storage update flows ([ad99bed](https://github.com/lakekeeper/console-components/commit/ad99bedeea899a344b95a63f208ba4aead9c6504))
+
+
+### Bug Fixes
+
+* **ui:** make Reset discard edits in the warehouse update flows ([ad99bed](https://github.com/lakekeeper/console-components/commit/ad99bedeea899a344b95a63f208ba4aead9c6504))
+
 ## [0.20.0](https://github.com/lakekeeper/console-components/compare/v0.19.0...v0.20.0) (2026-08-09)
 
 
