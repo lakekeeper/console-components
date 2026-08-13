@@ -48,19 +48,18 @@
               </v-chip>
             </v-chip-group>
             <v-spacer></v-spacer>
-            <!-- Available means "not yet applied": an assigned tag lives in the
-                 right column, where it can also be edited, so showing it here too
-                 is just the same tag twice. -->
-            <v-chip
-              size="small"
-              variant="text"
-              :color="showAssigned ? 'primary' : undefined"
-              @click="showAssigned = !showAssigned">
-              <v-icon start size="small">
-                {{ showAssigned ? 'mdi-checkbox-marked' : 'mdi-checkbox-blank-outline' }}
-              </v-icon>
-              Show assigned
-            </v-chip>
+            <!-- Named states beat a tick nobody can decode: the list defaults to
+                 what can still be added, and says so. -->
+            <v-btn-toggle
+              v-model="availabilityFilter"
+              mandatory
+              density="compact"
+              variant="outlined"
+              divided>
+              <v-btn size="x-small" value="all">All</v-btn>
+              <v-btn size="x-small" value="unassigned">Not assigned</v-btn>
+              <v-btn size="x-small" value="assigned">Assigned</v-btn>
+            </v-btn-toggle>
           </div>
         </div>
         <div class="px-2 pb-3" style="flex: 1 1 auto; overflow-y: auto; min-height: 0">
@@ -76,6 +75,7 @@
             <template v-for="def in filteredDefinitions" :key="def.id">
               <v-list-item
                 :active="isAssigned(def)"
+                :class="isAssigned(def) ? 'tag-def--assigned' : ''"
                 :disabled="busy === def.name"
                 rounded="lg"
                 @click="onDefinitionClick(def)">
@@ -89,6 +89,16 @@
                   {{ def.description }}
                 </v-list-item-subtitle>
                 <template #append>
+                  <!-- Says it in words, not only in a tint: this one is already on
+                       the entity, so clicking it changes or removes it. -->
+                  <v-chip
+                    v-if="isAssigned(def)"
+                    size="x-small"
+                    variant="flat"
+                    color="primary"
+                    class="ml-2">
+                    assigned
+                  </v-chip>
                   <!-- The kind decides whether one click is enough: only a marker
                        carries no value. -->
                   <v-chip size="x-small" variant="tonal" class="ml-2">
@@ -234,111 +244,138 @@
           <div v-if="loading" class="d-flex justify-center pa-6">
             <l-helix size="35" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
           </div>
-          <div v-else-if="!sortedTags.length" class="text-body-2 text-medium-emphasis pa-4">
-            {{
-              tags.length
-                ? 'No assigned tag matches these filters.'
-                : 'No tags applied. Pick one on the left.'
-            }}
+          <!-- Only a filter hiding everything short-circuits the sections; with
+               nothing assigned at all, the direct section says so itself. -->
+          <div
+            v-else-if="tags.length && !sortedTags.length"
+            class="text-body-2 text-medium-emphasis pa-4">
+            No assigned tag matches these filters.
           </div>
           <template v-else>
-            <!-- Filled for what was set here, outlined for what an ancestor
-                 imposes: the two are not equally yours to change, and the origin
-                 chip alone is easy to miss when scanning. -->
-            <v-card
-              v-for="tag in sortedTags"
-              :key="tag['tag-definition-id']"
-              :variant="tag['inherited-from'] ? 'outlined' : 'tonal'"
-              :class="['mb-2', tag['inherited-from'] ? 'text-medium-emphasis' : '']"
-              rounded="lg">
-              <v-card-text class="py-2 px-3">
-                <div class="d-flex align-center">
-                  <v-icon
-                    size="small"
-                    class="mr-2"
-                    :color="tag['inherited-from'] ? undefined : 'info'">
-                    mdi-tag-outline
-                  </v-icon>
-                  <div style="min-width: 0">
-                    <div class="text-body-2">
-                      {{ tag.name }}
-                      <span v-if="tag.value" class="font-weight-medium">= {{ tag.value }}</span>
-                    </div>
-                    <div class="text-caption text-medium-emphasis">
-                      {{ originLabel(tag) }} · updated {{ fmtDate(tag['updated-at']) }}
-                    </div>
-                  </div>
-                  <v-spacer></v-spacer>
-                  <v-chip v-if="tag['inherited-from']" size="x-small" variant="tonal" class="ml-2">
-                    <v-icon start size="x-small">mdi-arrow-top-left</v-icon>
-                    inherited
-                  </v-chip>
-                  <template v-else>
-                    <!-- Changing a value belongs where the value is shown; hunting
-                         for the definition on the left to edit it is a detour. -->
-                    <v-btn
-                      v-if="isEditable(tag)"
-                      :icon="editingTag === tag.name ? 'mdi-close' : 'mdi-pencil-outline'"
-                      size="x-small"
-                      variant="text"
-                      class="ml-2"
-                      @click="editingTag === tag.name ? cancelEdit() : startEdit(tag)"></v-btn>
-                    <!-- An inherited tag belongs to an ancestor; it can only be
-                         removed where it was applied. -->
-                    <v-btn
-                      color="error"
-                      icon="mdi-close"
-                      size="x-small"
-                      variant="text"
-                      class="ml-2"
-                      :loading="busy === tag.name"
-                      @click="unassign(tag.name)"></v-btn>
-                  </template>
-                </div>
-
-                <div v-if="editingTag === tag.name" class="mt-3">
-                  <div v-if="editKind === 'enumerated'">
-                    <div v-if="loadingEditValues" class="text-caption text-medium-emphasis">
-                      Loading values…
-                    </div>
-                    <div v-else-if="!editValues.length" class="text-caption text-medium-emphasis">
-                      This tag has no values to choose from.
-                    </div>
-                    <v-chip-group v-else column>
-                      <v-chip
-                        v-for="value in editValues"
-                        :key="value"
-                        size="small"
-                        :color="tag.value === value ? 'primary' : undefined"
-                        :variant="tag.value === value ? 'flat' : 'outlined'"
-                        @click="saveEdit(tag, value)">
-                        {{ value }}
-                      </v-chip>
-                    </v-chip-group>
-                  </div>
-                  <div v-else class="d-flex align-start" style="gap: 8px">
-                    <v-text-field
-                      v-model="editText"
-                      density="compact"
-                      variant="outlined"
-                      maxlength="256"
-                      hide-details
-                      placeholder="Value"
-                      @keyup.enter="editText && saveEdit(tag, editText)"></v-text-field>
-                    <v-btn
-                      color="primary"
-                      variant="flat"
+            <!-- Split by origin instead of relying on fill alone: what was applied
+                 here is yours to change, what an ancestor imposes is not — and
+                 "nothing here yet" has to be stated, not inferred from a gap. -->
+            <template v-for="section in assignedSections" :key="section.key">
+              <div class="d-flex align-center mb-2" :class="section.key === 'direct' ? '' : 'mt-5'">
+                <v-icon size="14" :color="section.color" class="mr-2">{{ section.icon }}</v-icon>
+                <span class="text-caption font-weight-medium">
+                  {{ section.title }} ({{ section.rows.length }})
+                </span>
+              </div>
+              <div v-if="section.hint" class="text-caption text-medium-emphasis mb-2">
+                {{ section.hint }}
+              </div>
+              <v-sheet
+                v-if="!section.rows.length"
+                rounded="lg"
+                border
+                class="pa-4 mb-2 text-body-2 text-medium-emphasis text-center">
+                {{ section.empty }}
+              </v-sheet>
+              <v-card
+                v-for="tag in section.rows"
+                :key="tag['tag-definition-id']"
+                :variant="tag['inherited-from'] ? 'outlined' : 'tonal'"
+                :class="[
+                  'mb-2',
+                  tag['inherited-from']
+                    ? 'tag-row--inherited text-medium-emphasis'
+                    : 'tag-row--direct',
+                ]"
+                rounded="lg">
+                <v-card-text class="py-2 px-3">
+                  <div class="d-flex align-center">
+                    <v-icon
                       size="small"
-                      class="mt-1"
-                      :disabled="!editText || editText === tag.value"
-                      :loading="busy === tag.name"
-                      @click="saveEdit(tag, editText)">
-                      Update
-                    </v-btn>
+                      class="mr-2"
+                      :color="tag['inherited-from'] ? undefined : 'info'">
+                      mdi-tag-outline
+                    </v-icon>
+                    <div style="min-width: 0">
+                      <div class="text-body-2">
+                        {{ tag.name }}
+                        <span v-if="tag.value" class="font-weight-medium">= {{ tag.value }}</span>
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        {{ originLabel(tag) }} · updated {{ fmtDate(tag['updated-at']) }}
+                      </div>
+                    </div>
+                    <v-spacer></v-spacer>
+                    <v-chip
+                      v-if="tag['inherited-from']"
+                      size="x-small"
+                      variant="tonal"
+                      class="ml-2">
+                      <v-icon start size="x-small">mdi-arrow-top-left</v-icon>
+                      inherited
+                    </v-chip>
+                    <template v-else>
+                      <!-- Changing a value belongs where the value is shown; hunting
+                           for the definition on the left to edit it is a detour. -->
+                      <v-btn
+                        v-if="isEditable(tag)"
+                        :icon="editingTag === tag.name ? 'mdi-close' : 'mdi-pencil-outline'"
+                        size="x-small"
+                        variant="text"
+                        class="ml-2"
+                        @click="editingTag === tag.name ? cancelEdit() : startEdit(tag)"></v-btn>
+                      <!-- An inherited tag belongs to an ancestor; it can only be
+                           removed where it was applied. -->
+                      <v-btn
+                        color="error"
+                        icon="mdi-close"
+                        size="x-small"
+                        variant="text"
+                        class="ml-2"
+                        :loading="busy === tag.name"
+                        @click="unassign(tag.name)"></v-btn>
+                    </template>
                   </div>
-                </div>
-              </v-card-text>
-            </v-card>
+
+                  <div v-if="editingTag === tag.name" class="mt-3">
+                    <div v-if="editKind === 'enumerated'">
+                      <div v-if="loadingEditValues" class="text-caption text-medium-emphasis">
+                        Loading values…
+                      </div>
+                      <div v-else-if="!editValues.length" class="text-caption text-medium-emphasis">
+                        This tag has no values to choose from.
+                      </div>
+                      <v-chip-group v-else column>
+                        <v-chip
+                          v-for="value in editValues"
+                          :key="value"
+                          size="small"
+                          :color="tag.value === value ? 'primary' : undefined"
+                          :variant="tag.value === value ? 'flat' : 'outlined'"
+                          @click="saveEdit(tag, value)">
+                          {{ value }}
+                        </v-chip>
+                      </v-chip-group>
+                    </div>
+                    <div v-else class="d-flex align-start" style="gap: 8px">
+                      <v-text-field
+                        v-model="editText"
+                        density="compact"
+                        variant="outlined"
+                        maxlength="256"
+                        hide-details
+                        placeholder="Value"
+                        @keyup.enter="editText && saveEdit(tag, editText)"></v-text-field>
+                      <v-btn
+                        color="primary"
+                        variant="flat"
+                        size="small"
+                        class="mt-1"
+                        :disabled="!editText || editText === tag.value"
+                        :loading="busy === tag.name"
+                        @click="saveEdit(tag, editText)">
+                        Update
+                      </v-btn>
+                    </div>
+                  </div>
+                </v-card-text>
+              </v-card>
+            </template>
           </template>
         </div>
       </div>
@@ -429,15 +466,17 @@ const applicableDefinitions = computed(() =>
 
 const kindOptions: TagValueKind[] = ['marker', 'free-text', 'enumerated'];
 const kindFilter = ref<TagValueKind[]>([]);
-// Off by default: the left column offers what can still be added, and anything
-// already applied is shown — and edited — on the right.
-const showAssigned = ref(false);
+// Defaults to what can still be added; the other two states exist because
+// "which of these is already on?" is a real question the tick could not answer.
+const availabilityFilter = ref<'all' | 'assigned' | 'unassigned'>('unassigned');
 
 const filteredDefinitions = computed(() => {
   const term = (search.value ?? '').trim().toLowerCase();
   return applicableDefinitions.value.filter((d) => {
     if (kindFilter.value.length && !kindFilter.value.includes(d['value-kind'])) return false;
-    if (!showAssigned.value && directByName.value.has(d.name)) return false;
+    const assigned = directByName.value.has(d.name);
+    if (availabilityFilter.value === 'unassigned' && assigned) return false;
+    if (availabilityFilter.value === 'assigned' && !assigned) return false;
     if (
       term &&
       !d.name.toLowerCase().includes(term) &&
@@ -494,8 +533,13 @@ const filteredTags = computed(() => {
 const availableEmptyMessage = computed(() => {
   if (!applicableDefinitions.value.length)
     return `No tag definitions apply to this ${props.scope}.`;
+  const anyAssigned = applicableDefinitions.value.some((d) => directByName.value.has(d.name));
+  // Each filter is empty for its own reason, and saying which saves the user
+  // wondering whether something is broken.
+  if (availabilityFilter.value === 'assigned' && !anyAssigned)
+    return `No tags are applied to this ${props.scope} yet — switch to “Not assigned” to add one.`;
   if (
-    !showAssigned.value &&
+    availabilityFilter.value === 'unassigned' &&
     applicableDefinitions.value.every((d) => directByName.value.has(d.name))
   )
     return 'Every applicable tag is already assigned.';
@@ -518,6 +562,40 @@ const sortedTags = computed(() =>
     return direct !== 0 ? direct : a.name.localeCompare(b.name);
   }),
 );
+
+const directTags = computed(() => sortedTags.value.filter((t) => !t['inherited-from']));
+const inheritedTags = computed(() => sortedTags.value.filter((t) => !!t['inherited-from']));
+
+// Two sections rather than one mixed list. The direct one always renders, even
+// empty, because "no tags of your own" is the answer the user came for; the
+// inherited one appears only when an ancestor actually supplies something.
+const assignedSections = computed(() => {
+  const sections = [
+    {
+      key: 'direct',
+      title: `APPLIED TO THIS ${props.scope.toUpperCase()}`,
+      icon: 'mdi-tag-check-outline',
+      color: 'primary',
+      rows: directTags.value,
+      hint: '',
+      empty: inheritedTags.value.length
+        ? `No tags applied to this ${props.scope} directly — everything below comes from its ancestors.`
+        : `No tags applied to this ${props.scope} yet. Pick one on the left.`,
+    },
+  ];
+  if (inheritedTags.value.length) {
+    sections.push({
+      key: 'inherited',
+      title: 'INHERITED',
+      icon: 'mdi-arrow-top-left',
+      color: '',
+      rows: inheritedTags.value,
+      hint: 'Applied on an ancestor — remove them where they were applied.',
+      empty: '',
+    });
+  }
+  return sections;
+});
 
 function isAssigned(def: TagDefinition): boolean {
   return directByName.value.has(def.name);

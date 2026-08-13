@@ -71,14 +71,19 @@
       </v-card-text>
     </v-card>
 
-    <!-- Governance tags -->
+    <!-- Governance tags, read-only as on every other details page: managing them
+         is one entry in the actions menu, not a second button per surface. -->
     <v-card v-if="genericTableId" flat class="mx-4 mb-4">
-      <EntityTags
-        scope="generic-table"
-        :warehouse-id="warehouseId"
-        :entity-id="genericTableId"
-        :entity-name="tableName"
-        :can-manage="canManageTags" />
+      <v-card-text>
+        <div class="text-overline text-medium-emphasis">Tags</div>
+        <div class="mt-2">
+          <EntityTagsChips
+            scope="generic-table"
+            :warehouse-id="warehouseId"
+            :entity-id="genericTableId"
+            effective />
+        </div>
+      </v-card-text>
     </v-card>
   </div>
 </template>
@@ -88,7 +93,7 @@ import { ref, reactive, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useStorageExplorer, type StorageLoadResult } from '@/composables/useStorageExplorer';
 import { useVisualStore } from '@/stores/visual';
-import EntityTags from './EntityTags.vue';
+import EntityTagsChips from './EntityTagsChips.vue';
 import type { GenericTableData } from '@/gen/generic-table/types.gen';
 
 const props = defineProps<{
@@ -97,7 +102,6 @@ const props = defineProps<{
   tableName: string;
   entityLabel?: string;
   genericTableId?: string;
-  canManageTags?: boolean;
 }>();
 
 const functions = useFunctions();

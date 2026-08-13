@@ -17,10 +17,10 @@ import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
 import TagPermissionsPanel from './components/TagPermissionsPanel.vue';
 import TagDetail from './components/TagDetail.vue';
-import EntityTags from './components/EntityTags.vue';
 import EntityTagsChips from './components/EntityTagsChips.vue';
 import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
 import TableTagsManageDialog from './components/TableTagsManageDialog.vue';
+import EntitySettingsDialog from './components/EntitySettingsDialog.vue';
 import EntityTagsManagePanel from './components/EntityTagsManagePanel.vue';
 import TagPickerList from './components/TagPickerList.vue';
 import ColumnTagsManagePanel from './components/ColumnTagsManagePanel.vue';
@@ -102,6 +102,7 @@ import DateTimePicker from './components/DateTimePicker.vue';
 import StyleGuide from './components/StyleGuide.vue';
 import DeleteDialog from './components/DeleteDialog.vue';
 import EntityPropertiesDialog from './components/EntityPropertiesDialog.vue';
+import EntityPropertiesPanel from './components/EntityPropertiesPanel.vue';
 import TaskConfigDialog from './components/TaskConfigDialog.vue';
 import ServerOverview from './components/ServerOverview.vue';
 import SupportBundleDialog from './components/SupportBundleDialog.vue';
@@ -133,10 +134,10 @@ export {
   TagAttachmentsPanel,
   TagPermissionsPanel,
   TagDetail,
-  EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,
   TableTagsManageDialog,
+  EntitySettingsDialog,
   EntityTagsManagePanel,
   TagPickerList,
   ColumnTagsManagePanel,
@@ -153,6 +154,7 @@ export {
   StyleGuide,
   DeleteDialog,
   EntityPropertiesDialog,
+  EntityPropertiesPanel,
   TaskConfigDialog,
   ServerOverview,
   SupportBundleDialog,
@@ -369,10 +371,10 @@ const components = {
   TagAttachmentsPanel,
   TagPermissionsPanel,
   TagDetail,
-  EntityTags,
   EntityTagsChips,
   EntityTagsManageDialog,
   TableTagsManageDialog,
+  EntitySettingsDialog,
   EntityTagsManagePanel,
   TagPickerList,
   ColumnTagsManagePanel,
@@ -389,6 +391,7 @@ const components = {
   StyleGuide,
   DeleteDialog,
   EntityPropertiesDialog,
+  EntityPropertiesPanel,
   TaskConfigDialog,
   ServerOverview,
   SupportBundleDialog,

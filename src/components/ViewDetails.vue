@@ -422,13 +422,14 @@
         <v-icon size="small" class="mr-2" color="primary">mdi-tag-multiple-outline</v-icon>
         Tags
       </div>
-      <v-sheet rounded="lg" border class="mb-4">
-        <EntityTags
+      <!-- Read-only here, as on every other details page: managing tags is one
+           entry in the actions menu, not a second button per surface. -->
+      <v-sheet rounded="lg" border class="mb-4 pa-3">
+        <EntityTagsChips
           scope="view"
           :warehouse-id="warehouseId || ''"
           :entity-id="viewId"
-          :entity-name="viewName"
-          :can-manage="canManageTags" />
+          effective />
       </v-sheet>
     </template>
   </v-card-text>
@@ -439,7 +440,7 @@ import { computed, ref, watch } from 'vue';
 import { format as formatSQL } from 'sql-formatter';
 import { useFunctions } from '../plugins/functions';
 import SqlEditor from './SqlEditor.vue';
-import EntityTags from './EntityTags.vue';
+import EntityTagsChips from './EntityTagsChips.vue';
 import { transformFields } from '../common/schemaUtils';
 import type { LoadViewResult } from '../gen/iceberg/types.gen';
 
@@ -450,7 +451,6 @@ const props = defineProps<{
   namespacePath?: string;
   viewName?: string;
   canEdit?: boolean;
-  canManageTags?: boolean;
   protectedState?: boolean | null;
 }>();
 
