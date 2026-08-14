@@ -1,0 +1,499 @@
+import { ref } from 'vue';
+import { useFunctions } from '../plugins/functions';
+import { getErrorCode } from '../common/errorUtils';
+import type {
+  GrantListOptions,
+  GrantPrincipalFilter,
+  GrantResourceRef,
+} from '../common/interfaces';
+import type {
+  GrantEntry,
+  GrantResourceResponse,
+  GrantResponse,
+  GrantablePrivilege,
+  ListGrantsResponse,
+  PrivilegeDescriptor,
+  ResourceType,
+} from '../gen/management/types.gen';
+
+/**
+ * The server applies `writes` and `deletes` in one transaction and caps the two
+ * together at this many entries. It is not a schema constraint — a `maxItems` on
+ * each array would wrongly permit twice as many — so the UI enforces it rather
+ * than discovering it as a 400.
+ */
+export const GRANT_APPLY_LIMIT = 100;
+
+/**
+ * Fixed column order for the privilege groups Lakekeeper's own authorizers use.
+ * The `category` field is authorizer-supplied and open, so anything unrecognized
+ * sorts after these as its own group rather than being treated as an error, and
+ * `null` collects into "other".
+ */
+export const PRIVILEGE_CATEGORY_ORDER = [
+  'metadata',
+  'read',
+  'write',
+  'create',
+  'security',
+  'administration',
+];
+
+/** Rank a category for display: the known ones first, then anything else, then ungrouped. */
+export function privilegeCategoryRank(name: string): number {
+  const i = PRIVILEGE_CATEGORY_ORDER.indexOf(name);
+  if (i !== -1) return i;
+  return PRIVILEGE_CATEGORY_ORDER.length + (name === 'other' ? 1 : 0);
+}
+
+/**
+ * Lays a vocabulary out in groups, so a picker can show columns instead of one
+ * long list. An unrecognized category becomes its own group rather than an
+ * error, and `null` collects into "other" — the categories are authorizer-
+ * supplied and open.
+ */
+export function groupPrivileges(privileges: GrantablePrivilege[]): {
+  name: string;
+  label: string;
+  privileges: GrantablePrivilege[];
+}[] {
+  const byCategory = new Map<string, GrantablePrivilege[]>();
+  for (const p of privileges) {
+    const key = p.privilege.category ?? 'other';
+    if (!byCategory.has(key)) byCategory.set(key, []);
+    byCategory.get(key)!.push(p);
+  }
+  return [...byCategory.entries()]
+    .sort(
+      (a, b) =>
+        privilegeCategoryRank(a[0]) - privilegeCategoryRank(b[0]) || a[0].localeCompare(b[0]),
+    )
+    .map(([name, list]) => ({
+      name,
+      label: name.charAt(0).toUpperCase() + name.slice(1),
+      privileges: list,
+    }));
+}
+
+/** A page walk that never terminates would hang the pane rather than fail it. */
+const MAX_PAGES = 200;
+
+/**
+ * The static vocabulary is identical for every caller and changes only when the
+ * server does, so it is fetched once per session. The per-caller `allowed`
+ * decision deliberately does *not* live here — that comes from the per-resource
+ * endpoints and differs by principal.
+ */
+let vocabularyCache: Record<string, PrivilegeDescriptor[]> | null = null;
+let vocabularyInFlight: Promise<Record<string, PrivilegeDescriptor[]>> | null = null;
+
+/** Drops the cached vocabulary — call when the server or project changes. */
+export function resetGrantVocabulary() {
+  vocabularyCache = null;
+  vocabularyInFlight = null;
+  supportedResolved = false;
+  supportedRef.value = null;
+}
+
+/**
+ * True when the project-wide listing is unavailable on this deployment rather
+ * than failing for this caller. An authorizer that stores permissions per
+ * resource cannot answer "everything this principal holds" without reading its
+ * whole store, so it declines with 501 instead.
+ */
+export function isGrantListingNotImplemented(error: any): boolean {
+  return getErrorCode(error) === 501 || error?.error?.type === 'GrantListingNotImplemented';
+}
+
+/** True when the request named no principal and the endpoint requires one. */
+export function isMissingGrantPrincipal(error: any): boolean {
+  return error?.error?.type === 'MissingGrantPrincipal';
+}
+
+/**
+ * True when the server could not reach its authorizer at all.
+ *
+ * Distinct from "you may not" and from "this authorizer cannot answer that":
+ * nothing is wrong with the request, the authorization service is simply down,
+ * so the honest response is to say so and offer a retry rather than to render
+ * an empty matrix that reads as "no one holds anything".
+ */
+export function isAuthorizationBackendUnavailable(error: any): boolean {
+  return getErrorCode(error) === 503 || error?.error?.type === 'AuthorizationBackendError';
+}
+
+/** Stable identity for a principal, matching the `UserOrRole` union. */
+export function principalKey(p: { user?: string; role?: string } | any): string {
+  return p?.user ? `user:${p.user}` : `role:${p.role}`;
+}
+
+/** Stable identity for one grant, used to diff an edited matrix against its snapshot. */
+export function grantKey(principal: any, privilege: string): string {
+  return `${principalKey(principal)}|${privilege}`;
+}
+
+/** A resource ref reduced to a string, for keying caches and rail panes. */
+export function resourceKey(ref: GrantResourceRef): string {
+  switch (ref.type) {
+    case 'server':
+      return 'server';
+    case 'project':
+      return `project:${ref.projectId ?? 'current'}`;
+    case 'warehouse':
+      return `warehouse:${ref.warehouseId}`;
+    case 'namespace':
+      return `namespace:${ref.warehouseId}:${ref.namespaceId}`;
+    case 'table':
+      return `table:${ref.warehouseId}:${ref.tableId}`;
+    case 'view':
+      return `view:${ref.warehouseId}:${ref.viewId}`;
+    case 'generic-table':
+      return `generic-table:${ref.warehouseId}:${ref.genericTableId}`;
+    case 'tag-definition':
+      return `tag-definition:${ref.tagDefinitionId}`;
+  }
+}
+
+/**
+ * Turns a listed grant's resource back into a ref the console can address.
+ *
+ * The API deliberately spells `type` the same way the URL segment does, so this
+ * is a rename rather than a translation table. Returns null for a shape this
+ * build does not know, so a newer server cannot break an older console.
+ */
+export function refFromResponse(resource: GrantResourceResponse): GrantResourceRef | null {
+  const r = resource as any;
+  switch (r?.type) {
+    case 'server':
+      return { type: 'server' };
+    case 'project':
+      return { type: 'project', projectId: r['project-id'] };
+    case 'warehouse':
+      return { type: 'warehouse', warehouseId: r['warehouse-id'] };
+    case 'namespace':
+      return {
+        type: 'namespace',
+        warehouseId: r['warehouse-id'],
+        namespaceId: r['namespace-id'],
+      };
+    case 'table':
+      return { type: 'table', warehouseId: r['warehouse-id'], tableId: r['table-id'] };
+    case 'view':
+      return { type: 'view', warehouseId: r['warehouse-id'], viewId: r['view-id'] };
+    case 'generic-table':
+      return {
+        type: 'generic-table',
+        warehouseId: r['warehouse-id'],
+        genericTableId: r['generic-table-id'],
+      };
+    case 'tag-definition':
+      return { type: 'tag-definition', tagDefinitionId: r['tag-definition-id'] };
+    default:
+      return null;
+  }
+}
+
+/** Human-readable noun for a resource level, for rail labels and messages. */
+export function resourceLabel(type: ResourceType | string): string {
+  switch (type) {
+    case 'generic-table':
+      return 'Dataset';
+    case 'tag-definition':
+      return 'Tag';
+    default:
+      return String(type).charAt(0).toUpperCase() + String(type).slice(1);
+  }
+}
+
+/** Icon per resource level, so the rail reads as a hierarchy at a glance. */
+export function resourceIcon(type: ResourceType | string): string {
+  switch (type) {
+    case 'server':
+      return 'mdi-server';
+    case 'project':
+      return 'mdi-folder-account-outline';
+    case 'warehouse':
+      return 'mdi-database-outline';
+    case 'namespace':
+      return 'mdi-folder-outline';
+    case 'table':
+      return 'mdi-table';
+    case 'view':
+      return 'mdi-table-eye';
+    case 'generic-table':
+      return 'mdi-file-table-outline';
+    case 'tag-definition':
+      return 'mdi-tag-outline';
+    default:
+      return 'mdi-shield-key-outline';
+  }
+}
+
+/**
+ * Whether to offer the grants UI at all, as a ref a menu can bind to directly.
+ *
+ * Resolves once per session and is shared, so the dozen action menus on a page
+ * ask the server between them exactly once. Starts null — falsy, so nothing
+ * flashes into view before the answer arrives, but still distinguishable from a
+ * definite no.
+ */
+// Null until the server has answered. A plain `false` would be indistinguishable
+// from "not supported", and callers that act on that — restoring a bookmarked
+// tab, say — would act on an answer that has not arrived yet.
+const supportedRef = ref<boolean | null>(null);
+let supportedResolved = false;
+
+export function useGrantsSupported() {
+  if (!supportedResolved) {
+    supportedResolved = true;
+    useGrants()
+      .grantsSupported()
+      .then((ok) => (supportedRef.value = ok))
+      .catch(() => (supportedRef.value = false));
+  }
+  return supportedRef;
+}
+
+/**
+ * The grants API, addressed by resource rather than by endpoint.
+ *
+ * Every level publishes the same triad, so the components work against one
+ * interface and this composable owns the dispatch. It also owns the two things
+ * every caller would otherwise have to remember: that listings page until the
+ * token is *absent* (a short or empty page does not mean the end), and that
+ * `apply` answers 204 with no body, so state comes from a re-read.
+ */
+export function useGrants() {
+  const functions = useFunctions();
+
+  /** Whether this deployment's authorizer manages grants at all. */
+  const supported = ref<boolean | null>(null);
+
+  async function loadVocabulary(): Promise<Record<string, PrivilegeDescriptor[]>> {
+    if (vocabularyCache) return vocabularyCache;
+    // Concurrent panes opening at once should share one request, not race.
+    if (!vocabularyInFlight) {
+      vocabularyInFlight = functions
+        .getGrantablePrivilegesVocabulary()
+        .then((res: any) => {
+          vocabularyCache = res?.privileges ?? {};
+          return vocabularyCache!;
+        })
+        .catch((e: any) => {
+          vocabularyInFlight = null;
+          throw e;
+        });
+    }
+    return vocabularyInFlight;
+  }
+
+  /**
+   * False when no resource type publishes a privilege — the documented signal
+   * for an authorizer that manages no grants, which is what `allow-all` reports.
+   * Surfaces that as "hide the UI" rather than as an error state.
+   */
+  async function grantsSupported(): Promise<boolean> {
+    if (supported.value !== null) return supported.value;
+    try {
+      const vocab = await loadVocabulary();
+      supported.value = Object.values(vocab).some((list) => (list?.length ?? 0) > 0);
+    } catch {
+      supported.value = false;
+    }
+    return supported.value;
+  }
+
+  /** The vocabulary for one resource type, without the per-caller decision. */
+  async function vocabularyFor(type: ResourceType | string): Promise<PrivilegeDescriptor[]> {
+    const vocab = await loadVocabulary();
+    return vocab[type] ?? [];
+  }
+
+  /**
+   * Walks a paged listing to the end.
+   *
+   * Stops on an absent token, never on a short or empty page — those say
+   * nothing about whether more remain. A server that keeps handing back the
+   * same token would otherwise spin, so a repeat ends the walk too.
+   */
+  async function walkPages(
+    fetchPage: (pageToken?: string) => Promise<ListGrantsResponse>,
+  ): Promise<GrantResponse[]> {
+    const out: GrantResponse[] = [];
+    const seenTokens = new Set<string>();
+    let token: string | undefined;
+
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const res = await fetchPage(token);
+      out.push(...(res?.grants ?? []));
+      const next = res?.['next-page-token'];
+      if (!next || seenTokens.has(next)) break;
+      seenTokens.add(next);
+      token = next;
+    }
+    return out;
+  }
+
+  /** Every grant held directly on one resource, across all pages. */
+  async function listGrants(
+    ref: GrantResourceRef,
+    filter?: GrantPrincipalFilter,
+  ): Promise<GrantResponse[]> {
+    return walkPages((pageToken) => {
+      const options: GrantListOptions = { ...filter, pageToken };
+      switch (ref.type) {
+        case 'server':
+          return functions.listServerGrants(options);
+        case 'project':
+          return functions.listProjectGrants(options, ref.projectId);
+        case 'warehouse':
+          return functions.listWarehouseGrants(ref.warehouseId, options);
+        case 'namespace':
+          return functions.listNamespaceGrants(ref.warehouseId, ref.namespaceId, options);
+        case 'table':
+          return functions.listTableGrants(ref.warehouseId, ref.tableId, options);
+        case 'view':
+          return functions.listViewGrants(ref.warehouseId, ref.viewId, options);
+        case 'generic-table':
+          return functions.listGenericTableGrants(ref.warehouseId, ref.genericTableId, options);
+        case 'tag-definition':
+          return functions.listTagGrants(ref.tagDefinitionId, options);
+      }
+    });
+  }
+
+  /**
+   * Everything one principal holds across the project.
+   *
+   * Server grants belong to no project and are not included, and an authorizer
+   * that cannot answer this reports 501 — callers check with
+   * `isGrantListingNotImplemented` and fall back to the per-resource listings.
+   */
+  async function listPrincipalGrants(
+    principal: GrantPrincipalFilter,
+    projectId?: string,
+  ): Promise<GrantResponse[]> {
+    return walkPages((pageToken) =>
+      functions.listGrantsForPrincipal({ ...principal, pageToken }, projectId),
+    );
+  }
+
+  /**
+   * The privileges a resource publishes, each carrying whether this caller may
+   * grant it.
+   *
+   * Deliberately unfiltered by the server: a picker has to render what it
+   * cannot offer, greyed out, so a withheld privilege does not read as a
+   * missing one. `allowed` is also the *only* signal of grant authority —
+   * action introspection does not report it — so this doubles as the gate on
+   * whether the pane is editable at all.
+   */
+  async function grantablePrivileges(
+    ref: GrantResourceRef,
+    principal?: GrantPrincipalFilter,
+  ): Promise<GrantablePrivilege[]> {
+    let res;
+    switch (ref.type) {
+      case 'server':
+        res = await functions.getServerGrantablePrivileges(principal);
+        break;
+      case 'project':
+        res = await functions.getProjectGrantablePrivileges(principal, ref.projectId);
+        break;
+      case 'warehouse':
+        res = await functions.getWarehouseGrantablePrivileges(ref.warehouseId, principal);
+        break;
+      case 'namespace':
+        res = await functions.getNamespaceGrantablePrivileges(
+          ref.warehouseId,
+          ref.namespaceId,
+          principal,
+        );
+        break;
+      case 'table':
+        res = await functions.getTableGrantablePrivileges(ref.warehouseId, ref.tableId, principal);
+        break;
+      case 'view':
+        res = await functions.getViewGrantablePrivileges(ref.warehouseId, ref.viewId, principal);
+        break;
+      case 'generic-table':
+        res = await functions.getGenericTableGrantablePrivileges(
+          ref.warehouseId,
+          ref.genericTableId,
+          principal,
+        );
+        break;
+      case 'tag-definition':
+        res = await functions.getTagGrantablePrivileges(ref.tagDefinitionId, principal);
+        break;
+    }
+    return res?.privileges ?? [];
+  }
+
+  /**
+   * Applies a grant diff to one resource.
+   *
+   * Atomic and idempotent, and answers 204 with no body — whether an entry was
+   * already in the requested state is not reported, so callers re-read rather
+   * than assuming. Rejects a diff the server would refuse: the same entry may
+   * not appear in both lists, and the two together may not exceed the limit.
+   */
+  async function applyGrants(
+    ref: GrantResourceRef,
+    diff: { writes?: GrantEntry[]; deletes?: GrantEntry[] },
+  ): Promise<void> {
+    const writes = diff.writes ?? [];
+    const deletes = diff.deletes ?? [];
+
+    if (writes.length + deletes.length === 0) return;
+    if (writes.length + deletes.length > GRANT_APPLY_LIMIT) {
+      throw new Error(
+        `${writes.length + deletes.length} changes exceeds the ${GRANT_APPLY_LIMIT}-entry limit for a single atomic apply.`,
+      );
+    }
+    // The server rejects an entry present in both lists rather than resolving
+    // it, because either reading would be a guess. Cell-level diffing cannot
+    // produce one, but a revoke-all followed by a re-add can.
+    const written = new Set(writes.map((w) => grantKey(w.principal, w.privilege)));
+    const conflict = deletes.find((d) => written.has(grantKey(d.principal, d.privilege)));
+    if (conflict) {
+      throw new Error(
+        `“${conflict.privilege}” is both granted and revoked in the same change — remove one.`,
+      );
+    }
+
+    const body = {
+      ...(writes.length ? { writes } : {}),
+      ...(deletes.length ? { deletes } : {}),
+    };
+
+    switch (ref.type) {
+      case 'server':
+        return functions.applyServerGrants(body, true);
+      case 'project':
+        return functions.applyProjectGrants(body, ref.projectId, true);
+      case 'warehouse':
+        return functions.applyWarehouseGrants(ref.warehouseId, body, true);
+      case 'namespace':
+        return functions.applyNamespaceGrants(ref.warehouseId, ref.namespaceId, body, true);
+      case 'table':
+        return functions.applyTableGrants(ref.warehouseId, ref.tableId, body, true);
+      case 'view':
+        return functions.applyViewGrants(ref.warehouseId, ref.viewId, body, true);
+      case 'generic-table':
+        return functions.applyGenericTableGrants(ref.warehouseId, ref.genericTableId, body, true);
+      case 'tag-definition':
+        return functions.applyTagGrants(ref.tagDefinitionId, body, true);
+    }
+  }
+
+  return {
+    supported,
+    grantsSupported,
+    vocabularyFor,
+    listGrants,
+    listPrincipalGrants,
+    grantablePrivileges,
+    applyGrants,
+  };
+}

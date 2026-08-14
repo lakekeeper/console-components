@@ -31,6 +31,10 @@
           @click="loadProjectTasks">
           Tasks
         </v-tab>
+        <v-tab v-if="grantsSupported && userStorage.isAuthenticated" value="grants">Grants</v-tab>
+        <v-tab v-if="grantsSupported && userStorage.isAuthenticated" value="grants-by-principal">
+          By principal
+        </v-tab>
         <v-tab v-if="showStatisticsTab" value="statistics" @click="loadStatistics">
           Statistics
         </v-tab>
@@ -143,6 +147,42 @@
             :project-id="project['project-id']" />
         </v-tabs-window-item>
 
+        <!-- Grants. Sits beside Permissions rather than replacing it: the two
+             are different models over the same intent, and a deployment can be
+             moving from one to the other. Server grants belong to no project,
+             so the level switcher is the only route to them from here. -->
+        <v-tabs-window-item
+          v-if="grantsSupported && userStorage.isAuthenticated"
+          value="grants"
+          style="height: 100%">
+          <div class="pa-4 d-flex flex-column" style="height: calc(100vh - 220px); min-height: 0">
+            <v-btn-toggle
+              v-model="grantLevel"
+              mandatory
+              density="compact"
+              variant="outlined"
+              class="mb-3 flex-grow-0 align-self-start">
+              <v-btn value="project" size="small" prepend-icon="mdi-folder-account-outline">
+                Project
+              </v-btn>
+              <v-btn value="server" size="small" prepend-icon="mdi-server">Server</v-btn>
+            </v-btn-toggle>
+            <GrantsPanel
+              v-if="tab === 'grants'"
+              :key="grantLevel"
+              :resource="
+                grantLevel === 'server' ? { type: 'server' } : { type: 'project', projectId }
+              " />
+          </div>
+        </v-tabs-window-item>
+
+        <v-tabs-window-item
+          v-if="grantsSupported && userStorage.isAuthenticated"
+          value="grants-by-principal"
+          style="height: 100%">
+          <GrantsExplorer v-if="tab === 'grants-by-principal'" />
+        </v-tabs-window-item>
+
         <v-tabs-window-item v-if="showStatisticsTab" value="statistics" style="height: 100%">
           <ProjectStatistics ref="projectStatisticsRef" />
         </v-tabs-window-item>
@@ -168,6 +208,9 @@ import { Header, RelationType } from '../common/interfaces';
 import { useRouter } from 'vue-router';
 import ProjectTaskManager from './ProjectTaskManager.vue';
 import ProjectStatistics from './ProjectStatistics.vue';
+import GrantsPanel from './GrantsPanel.vue';
+import GrantsExplorer from './GrantsExplorer.vue';
+import { useGrantsSupported } from '../composables/useGrants';
 
 const dialog = ref(false);
 const tab = ref('overview');
@@ -190,6 +233,10 @@ const serverId = computed(() => visual.getServerInfo()['server-id']);
 // Use composables for permissions
 const { showStatisticsTab, showTasksTab } = useProjectPermissions(projectId);
 const { showPermissionsTab } = useProjectAuthorizerPermissions(projectId);
+// Hidden where the authorizer manages no grants — under `allow-all` every
+// vocabulary comes back empty, and an empty matrix would say nothing.
+const grantsSupported = useGrantsSupported();
+const grantLevel = ref<'project' | 'server'>('project');
 const { canCreateProject } = useServerPermissions(serverId);
 const loaded = ref(true);
 

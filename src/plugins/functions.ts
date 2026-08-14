@@ -6,6 +6,8 @@ import {
   SearchTabularRequest,
   SearchTabularResponse,
   SoftDeletionQueueConfig,
+  GrantListOptions,
+  GrantPrincipalFilter,
 } from '@/common/interfaces';
 import {
   ListTasksRequest,
@@ -122,6 +124,11 @@ import {
   TagRelation,
   GetTagAssignmentsResponse,
   ValidateWarehouseResponse,
+  // Grants [Preview]
+  ApplyGrantsRequest,
+  ListGrantsResponse,
+  ResourceGrantablePrivilegesResponse,
+  GrantablePrivilegesResponse,
 } from '@/gen/management/types.gen';
 
 import { useUserStore } from '@/stores/user';
@@ -6065,6 +6072,583 @@ async function tryClipboardCopy(text: string): Promise<boolean> {
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// Grants [Preview]
+//
+// Every resource level publishes the same triad — list, apply, and the
+// grantable vocabulary — so these wrappers are deliberately uniform: the
+// dispatch from a `GrantResourceRef` to the right triad lives in the
+// `useGrants` composable, not here. This file stays a flat mirror of the API.
+//
+// Two things are true of all of them. Listings page, and the token must be
+// followed until it is *absent* — a short or empty page does not mean the end.
+// And `apply` answers 204 with no body, so callers re-read rather than patching
+// their local copy from the response.
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything one principal holds across the project.
+ *
+ * Requires exactly one of `principalUser` / `principalRole`. Not every
+ * authorizer can answer this — one that stores permissions per resource reports
+ * 501 `GrantListingNotImplemented` rather than reading its whole store — so
+ * callers must be ready to fall back to the per-resource listings.
+ */
+async function listGrantsForPrincipal(
+  options: GrantListOptions,
+  projectId?: string,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listGrants({
+      client,
+      query: { ...options },
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listGrantsForPrincipal', notify);
+    throw error;
+  }
+}
+
+/**
+ * The privileges this server's authorizer accepts, per resource type.
+ *
+ * Static for a given deployment and identical for every caller, which is what
+ * makes it cacheable — the per-caller `allowed` decision comes from the
+ * per-resource endpoints instead.
+ */
+async function getGrantablePrivilegesVocabulary(
+  notify?: boolean,
+): Promise<GrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getGrantablePrivileges({ client });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getGrantablePrivilegesVocabulary', notify);
+    throw error;
+  }
+}
+
+// ---- server ---------------------------------------------------------------
+
+async function listServerGrants(
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listServerGrants({ client, query: { ...options } });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listServerGrants', notify);
+    throw error;
+  }
+}
+
+async function applyServerGrants(body: ApplyGrantsRequest, notify?: boolean): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyServerGrants({ client, body });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyServerGrants', notify);
+    throw error;
+  }
+}
+
+async function getServerGrantablePrivileges(
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getServerGrantablePrivileges({
+      client,
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getServerGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- project --------------------------------------------------------------
+
+async function listProjectGrants(
+  options?: GrantListOptions,
+  projectId?: string,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    // The project endpoints carry no path segment: `x-project-id` is what
+    // addresses them, so passing it is the only way to read a project other
+    // than the selected one.
+    const { data, error } = await mng.listProjectGrants({
+      client,
+      query: { ...options },
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listProjectGrants', notify);
+    throw error;
+  }
+}
+
+async function applyProjectGrants(
+  body: ApplyGrantsRequest,
+  projectId?: string,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyProjectGrants({
+      client,
+      body,
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyProjectGrants', notify);
+    throw error;
+  }
+}
+
+async function getProjectGrantablePrivileges(
+  principal?: GrantPrincipalFilter,
+  projectId?: string,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getProjectGrantablePrivileges({
+      client,
+      query: { ...principal },
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getProjectGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- warehouse ------------------------------------------------------------
+
+async function listWarehouseGrants(
+  warehouseId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listWarehouseGrants({
+      client,
+      path: { warehouse_id: warehouseId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listWarehouseGrants', notify);
+    throw error;
+  }
+}
+
+async function applyWarehouseGrants(
+  warehouseId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyWarehouseGrants({
+      client,
+      path: { warehouse_id: warehouseId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyWarehouseGrants', notify);
+    throw error;
+  }
+}
+
+async function getWarehouseGrantablePrivileges(
+  warehouseId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getWarehouseGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getWarehouseGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- namespace ------------------------------------------------------------
+
+async function listNamespaceGrants(
+  warehouseId: string,
+  namespaceId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listNamespaceGrants({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listNamespaceGrants', notify);
+    throw error;
+  }
+}
+
+async function applyNamespaceGrants(
+  warehouseId: string,
+  namespaceId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyNamespaceGrants({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyNamespaceGrants', notify);
+    throw error;
+  }
+}
+
+async function getNamespaceGrantablePrivileges(
+  warehouseId: string,
+  namespaceId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getNamespaceGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getNamespaceGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- table ----------------------------------------------------------------
+
+async function listTableGrants(
+  warehouseId: string,
+  tableId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listTableGrants({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listTableGrants', notify);
+    throw error;
+  }
+}
+
+async function applyTableGrants(
+  warehouseId: string,
+  tableId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyTableGrants({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyTableGrants', notify);
+    throw error;
+  }
+}
+
+async function getTableGrantablePrivileges(
+  warehouseId: string,
+  tableId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTableGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getTableGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- view -----------------------------------------------------------------
+
+async function listViewGrants(
+  warehouseId: string,
+  viewId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listViewGrants({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listViewGrants', notify);
+    throw error;
+  }
+}
+
+async function applyViewGrants(
+  warehouseId: string,
+  viewId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyViewGrants({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyViewGrants', notify);
+    throw error;
+  }
+}
+
+async function getViewGrantablePrivileges(
+  warehouseId: string,
+  viewId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getViewGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getViewGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- generic table --------------------------------------------------------
+
+async function listGenericTableGrants(
+  warehouseId: string,
+  genericTableId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listGenericTableGrants({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listGenericTableGrants', notify);
+    throw error;
+  }
+}
+
+async function applyGenericTableGrants(
+  warehouseId: string,
+  genericTableId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyGenericTableGrants({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyGenericTableGrants', notify);
+    throw error;
+  }
+}
+
+async function getGenericTableGrantablePrivileges(
+  warehouseId: string,
+  genericTableId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getGenericTableGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getGenericTableGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- tag definition -------------------------------------------------------
+
+async function listTagGrants(
+  tagDefinitionId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listTagGrants({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listTagGrants', notify);
+    throw error;
+  }
+}
+
+async function applyTagGrants(
+  tagDefinitionId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyTagGrants({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyTagGrants', notify);
+    throw error;
+  }
+}
+
+async function getTagGrantablePrivileges(
+  tagDefinitionId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTagGrantablePrivileges({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getTagGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
 export function useFunctions(config?: any) {
   // Set the injected config if provided
   if (config) {
@@ -6266,6 +6850,33 @@ export function useFunctions(config?: any) {
     setProjectTaskLogCleanupConfig,
     getNewToken,
     handleError,
+    // Grants [Preview]
+    listGrantsForPrincipal,
+    getGrantablePrivilegesVocabulary,
+    listServerGrants,
+    applyServerGrants,
+    getServerGrantablePrivileges,
+    listProjectGrants,
+    applyProjectGrants,
+    getProjectGrantablePrivileges,
+    listWarehouseGrants,
+    applyWarehouseGrants,
+    getWarehouseGrantablePrivileges,
+    listNamespaceGrants,
+    applyNamespaceGrants,
+    getNamespaceGrantablePrivileges,
+    listTableGrants,
+    applyTableGrants,
+    getTableGrantablePrivileges,
+    listViewGrants,
+    applyViewGrants,
+    getViewGrantablePrivileges,
+    listGenericTableGrants,
+    applyGenericTableGrants,
+    getGenericTableGrantablePrivileges,
+    listTagGrants,
+    applyTagGrants,
+    getTagGrantablePrivileges,
   };
 
   // Return functions with simple boolean notification control

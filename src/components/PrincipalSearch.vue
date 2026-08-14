@@ -13,7 +13,7 @@
 
     <!-- Project selector for role search (roles are project-scoped) -->
     <v-select
-      v-if="type === 'role' && userProjects.length > 1"
+      v-if="type === 'role' && !lockProjectId && userProjects.length > 1"
       v-model="selectedProject"
       :items="userProjects"
       item-title="project-name"
@@ -64,12 +64,14 @@
       item-title="title"
       item-value="id"
       return-object
-      label="Search by name"
+      :label="type === 'role' && lockProjectId ? 'Search roles by name' : 'Search by name'"
       placeholder="Type to search"
+      :hint="type === 'role' && lockProjectId ? lockedProjectHint : undefined"
+      :persistent-hint="type === 'role' && !!lockProjectId"
       no-filter
       density="compact"
       variant="outlined"
-      hide-details
+      :hide-details="!(type === 'role' && lockProjectId)"
       :no-data-text="`No ${type}s found`"
       @update:search="onSearch"
       @update:model-value="$emit('update:modelValue', $event)"></v-autocomplete>
@@ -102,12 +104,20 @@ export interface SelectedPrincipal {
   id: string;
   title: string;
   type: 'user' | 'role';
+  /** Roles are project-scoped; callers that care which project need to know. */
+  projectId?: string;
 }
 
 const props = defineProps<{
   modelValue: SelectedPrincipal | null;
   /** A role id to exclude from role results (e.g. the role being edited). */
   excludeRoleId?: string;
+  /**
+   * Pins role search to one project and takes the chooser away. For callers
+   * whose target only accepts principals from a single project — offering the
+   * others would just be a slower way to reach a server-side rejection.
+   */
+  lockProjectId?: string;
 }>();
 const emit = defineEmits<{
   (e: 'update:modelValue', v: SelectedPrincipal | null): void;
@@ -128,6 +138,23 @@ const userProjects = reactive<any[]>([]);
 const loadingProjects = ref(false);
 const selectedProject = ref<string | null>(null);
 const currentProjectId = computed(() => visual.projectSelected['project-id'] || null);
+const lockedProjectHint = computed(
+  () => `Only roles in ${lockedProjectLabel.value} — roles are project-scoped.`,
+);
+/**
+ * A name, never an id: this reads inside a sentence. The project list arrives
+ * asynchronously, so the store answers for the active project immediately and
+ * the list only has to cover the rest — otherwise the hint would show a uuid
+ * for a moment and then swap it for a name.
+ */
+const lockedProjectLabel = computed(() => {
+  const match = userProjects.find((p: any) => p['project-id'] === props.lockProjectId);
+  if (match?.['project-name']) return match['project-name'];
+  if (props.lockProjectId === visual.projectSelected['project-id']) {
+    return visual.projectSelected['project-name'] || 'the active project';
+  }
+  return 'the selected project';
+});
 
 async function loadProjects() {
   if (userProjects.length) return;
@@ -135,7 +162,9 @@ async function loadProjects() {
   try {
     const projects = await functions.loadProjectList();
     userProjects.splice(0, userProjects.length, ...projects);
-    if (!selectedProject.value) {
+    if (props.lockProjectId) {
+      selectedProject.value = props.lockProjectId;
+    } else if (!selectedProject.value) {
       selectedProject.value =
         projects.length === 1 ? projects[0]['project-id'] : currentProjectId.value;
     }
@@ -190,7 +219,12 @@ async function runSearch(q: string) {
       const roles = await functions.searchRole(req);
       list = (roles ?? [])
         .filter((r: any) => r.id !== props.excludeRoleId)
-        .map((r: any) => ({ id: r.id, type: 'role' as const, title: r.name || r.ident || r.id }));
+        .map((r: any) => ({
+          id: r.id,
+          type: 'role' as const,
+          title: r.name || r.ident || r.id,
+          projectId: r['project-id'] ?? selectedProject.value ?? undefined,
+        }));
     }
     if (looksLikeId(q) && !list.some((c) => c.id === q)) {
       const resolved = await resolveById(q);
@@ -237,7 +271,12 @@ async function resolveById(id: string): Promise<SelectedPrincipal | null> {
     } else {
       const r: any = await functions.getRoleMetadata(id);
       if (r?.id && r.id !== props.excludeRoleId) {
-        return { id: r.id, type: 'role', title: r.name || r.id };
+        return {
+          id: r.id,
+          type: 'role',
+          title: r.name || r.id,
+          projectId: r['project-id'] ?? selectedProject.value ?? undefined,
+        };
       }
     }
   } catch {
@@ -252,6 +291,7 @@ watch(byId, () => {
 });
 
 onMounted(() => {
+  if (props.lockProjectId) selectedProject.value = props.lockProjectId;
   if (type.value === 'role') loadProjects();
 });
 onUnmounted(() => {

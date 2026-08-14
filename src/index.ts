@@ -13,6 +13,11 @@ import RoleDialog from './components/RoleDialog.vue';
 import RoleManager from './components/RoleManager.vue';
 import TagDefinitionManager from './components/TagDefinitionManager.vue';
 import PermissionExplorer from './components/PermissionExplorer.vue';
+import GrantsPanel from './components/GrantsPanel.vue';
+import GrantAssignDialog from './components/GrantAssignDialog.vue';
+import EntityGrantsTab from './components/EntityGrantsTab.vue';
+import GrantsDialog from './components/GrantsDialog.vue';
+import GrantsExplorer from './components/GrantsExplorer.vue';
 import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
 import TagPermissionsPanel from './components/TagPermissionsPanel.vue';
@@ -129,6 +134,11 @@ export {
   RoleManager,
   TagDefinitionManager,
   PermissionExplorer,
+  GrantsPanel,
+  GrantAssignDialog,
+  EntityGrantsTab,
+  GrantsDialog,
+  GrantsExplorer,
   TagDefinitionDialog,
   TagAttachmentsPanel,
   TagPermissionsPanel,
@@ -260,6 +270,27 @@ export {
 // Auth composables
 export * from './composables/useAuth';
 
+// Grants [Preview] — the resource-addressed view of the grants API, plus the
+// helpers components need to lay a vocabulary out and classify its errors.
+export {
+  useGrants,
+  useGrantsSupported,
+  resetGrantVocabulary,
+  isGrantListingNotImplemented,
+  isMissingGrantPrincipal,
+  isAuthorizationBackendUnavailable,
+  principalKey,
+  grantKey,
+  resourceKey,
+  refFromResponse,
+  resourceLabel,
+  resourceIcon,
+  GRANT_APPLY_LIMIT,
+  PRIVILEGE_CATEGORY_ORDER,
+  privilegeCategoryRank,
+  groupPrivileges,
+} from './composables/useGrants';
+
 // Export stores
 export { useVisualStore, type PolicyBuilderState, type OfflineReason } from './stores/visual';
 export { usePermissionStore } from './stores/permissions';
@@ -365,6 +396,11 @@ const components = {
   RoleManager,
   TagDefinitionManager,
   PermissionExplorer,
+  GrantsPanel,
+  GrantAssignDialog,
+  EntityGrantsTab,
+  GrantsDialog,
+  GrantsExplorer,
   TagDefinitionDialog,
   TagAttachmentsPanel,
   TagPermissionsPanel,
