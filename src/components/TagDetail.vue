@@ -213,7 +213,7 @@ import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.v
 import TagPermissionsPanel from './TagPermissionsPanel.vue';
 import TagAttachmentsPanel from './TagAttachmentsPanel.vue';
 import GrantsPanel from './GrantsPanel.vue';
-import { useGrantsSupported } from '../composables/useGrants';
+import { useGrantsSupported, useGrantsUiEnabled } from '../composables/useGrants';
 import {
   TagAttachment,
   TagDefinition,
@@ -232,7 +232,13 @@ const { canCreateTag } = useProjectPermissions(projectId);
 const isOpenFga = computed(() => visual.getServerInfo()?.['authz-backend'] === 'openfga');
 // Hidden where the authorizer manages no grants — under `allow-all` every
 // vocabulary comes back empty, and an empty matrix would say nothing.
-const grantsSupported = useGrantsSupported();
+// Grants ship only in the enterprise build; the server's answer gates it
+// further, so a capable server still surfaces nothing in the OSS console.
+const grantsUiEnabled = useGrantsUiEnabled();
+const serverGrantsSupported = useGrantsSupported();
+const grantsSupported = computed(
+  () => grantsUiEnabled.value && serverGrantsSupported.value === true,
+);
 
 const full = ref<TagDefinition>({ id: '', name: '' } as TagDefinition);
 const isSystem = computed(() => (full.value.name ?? '').startsWith('system.'));

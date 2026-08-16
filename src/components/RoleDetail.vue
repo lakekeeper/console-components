@@ -122,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import type { RoleMembership } from '../gen/management/types.gen';
@@ -130,7 +130,7 @@ import RoleOverviewEdit from './RoleOverviewEdit.vue';
 import RoleMembers from './RoleMembers.vue';
 import RoleOwners from './RoleOwners.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
-import { useGrantsSupported } from '../composables/useGrants';
+import { useGrantsSupported, useGrantsUiEnabled } from '../composables/useGrants';
 
 const props = defineProps<{ roleId: string; canEdit?: boolean }>();
 
@@ -157,7 +157,13 @@ function onRoleLoaded(role: any) {
   if (role?.name) roleName.value = role.name;
 }
 // Hidden where the authorizer manages no grants at all.
-const grantsSupported = useGrantsSupported();
+// Grants ship only in the enterprise build; the server's answer gates it
+// further, so a capable server still surfaces nothing in the OSS console.
+const grantsUiEnabled = useGrantsUiEnabled();
+const serverGrantsSupported = useGrantsSupported();
+const grantsSupported = computed(
+  () => grantsUiEnabled.value && serverGrantsSupported.value === true,
+);
 const grantCount = ref<number | null>(null);
 const memberOf = ref<RoleMembership[]>([]);
 

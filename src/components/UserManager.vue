@@ -126,19 +126,25 @@
 
 <script lang="ts" setup>
 import { User } from '../gen/management/types.gen';
-import { reactive, ref, onMounted, watch, inject } from 'vue';
+import { computed, reactive, ref, onMounted, watch, inject } from 'vue';
 import { Header } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
 import { useServerPermissions } from '../composables/useCatalogPermissions';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
-import { useGrantsSupported } from '../composables/useGrants';
+import { useGrantsSupported, useGrantsUiEnabled } from '../composables/useGrants';
 import UserRenameDialog from './UserRenameDialog.vue';
 
 const functions = inject<any>('functions')!;
 
 // Hidden where the authorizer manages no grants at all.
-const grantsSupported = useGrantsSupported();
+// Grants ship only in the enterprise build; the server's answer gates it
+// further, so a capable server still surfaces nothing in the OSS console.
+const grantsUiEnabled = useGrantsUiEnabled();
+const serverGrantsSupported = useGrantsSupported();
+const grantsSupported = computed(
+  () => grantsUiEnabled.value && serverGrantsSupported.value === true,
+);
 const grantsOpen = ref(false);
 const grantsUser = ref<{ id: string; name: string } | null>(null);
 

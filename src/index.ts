@@ -294,6 +294,7 @@ export {
 export {
   useGrants,
   useGrantsSupported,
+  useGrantsUiEnabled,
   resetGrantVocabulary,
   isGrantEnabledBackend,
   GRANT_ENABLED_AUTHZ_BACKENDS,

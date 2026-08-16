@@ -187,7 +187,7 @@ import { useRouter } from 'vue-router';
 import ProjectTaskManager from './ProjectTaskManager.vue';
 import ProjectStatistics from './ProjectStatistics.vue';
 import GrantsPanel from './GrantsPanel.vue';
-import { useGrantsSupported } from '../composables/useGrants';
+import { useGrantsSupported, useGrantsUiEnabled } from '../composables/useGrants';
 
 const dialog = ref(false);
 const tab = ref('overview');
@@ -212,7 +212,13 @@ const { showStatisticsTab, showTasksTab } = useProjectPermissions(projectId);
 const { showPermissionsTab } = useProjectAuthorizerPermissions(projectId);
 // Hidden where the authorizer manages no grants — under `allow-all` every
 // vocabulary comes back empty, and an empty matrix would say nothing.
-const grantsSupported = useGrantsSupported();
+// Grants ship only in the enterprise build; the server's answer gates it
+// further, so a capable server still surfaces nothing in the OSS console.
+const grantsUiEnabled = useGrantsUiEnabled();
+const serverGrantsSupported = useGrantsSupported();
+const grantsSupported = computed(
+  () => grantsUiEnabled.value && serverGrantsSupported.value === true,
+);
 const { canCreateProject } = useServerPermissions(serverId);
 const loaded = ref(true);
 

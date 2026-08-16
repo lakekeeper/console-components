@@ -1,4 +1,4 @@
-import { ref, watch } from 'vue';
+import { computed, inject, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
@@ -372,6 +372,19 @@ export function resourceIcon(type: ResourceType | string): string {
 // tab, say — would act on an answer that has not arrived yet.
 const supportedRef = ref<boolean | null>(null);
 let supportedResolved = false;
+
+/**
+ * Whether this build manages grants at all.
+ *
+ * Grants are a Lakekeeper+ capability: the open-source console markets them on
+ * the Governance tab but never manages them, whatever the server reports. Every
+ * grants surface gates on this first, so a capable server does not surface
+ * grants UI in a build that is not meant to have any.
+ */
+export function useGrantsUiEnabled() {
+  const appConfig = inject<{ edition?: string }>('appConfig', {});
+  return computed(() => appConfig?.edition === 'enterprise');
+}
 
 export function useGrantsSupported() {
   if (!supportedResolved) {
