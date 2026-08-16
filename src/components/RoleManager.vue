@@ -34,7 +34,15 @@
           @update:model-value="searchRole"></v-text-field>
       </template>
       <v-spacer></v-spacer>
-      <RoleDialog v-if="canCreateRole" :action-type="'add'" @role-input="roleInput" />
+      <!-- Cedar and friends own roles themselves: the catalog refuses to create
+           or delete them, so the controls are absent rather than failing. -->
+      <span v-if="!roleLifecycleSupported" class="text-caption text-medium-emphasis mr-4">
+        Roles are managed by the authorizer
+      </span>
+      <RoleDialog
+        v-if="canCreateRole && roleLifecycleSupported"
+        :action-type="'add'"
+        @role-input="roleInput" />
     </v-toolbar>
     <v-data-table
       v-if="canListRoles"
@@ -83,14 +91,20 @@
             text="Open"
             @click="getRole(item.id)"></v-btn>
           <DeleteConfirmDialog
-            v-if="item.can_delete"
+            v-if="item.can_delete && roleLifecycleSupported"
             type="role"
             :name="item.name"
             @confirmed="deleteRole(item.id)" />
         </div>
       </template>
       <template #no-data>
-        <RoleDialog v-if="canCreateRole" :action-type="'add'" @role-input="roleInput" />
+        <RoleDialog
+          v-if="canCreateRole && roleLifecycleSupported"
+          :action-type="'add'"
+          @role-input="roleInput" />
+        <span v-else-if="!roleLifecycleSupported" class="text-caption text-medium-emphasis">
+          Roles come from the authorizer here.
+        </span>
       </template>
     </v-data-table>
     <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
@@ -108,9 +122,12 @@ import { useRouter } from 'vue-router';
 import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
 import { useProjectPermissions, hasAction } from '../composables/useCatalogPermissions';
+import { useRoleLifecycleSupported } from '../composables/useAuthzCapabilities';
 
 const functions = useFunctions();
 const visual = useVisualStore();
+// Creating and deleting roles is refused outright by some authorizers.
+const roleLifecycleSupported = useRoleLifecycleSupported();
 const router = useRouter();
 const notify = true;
 

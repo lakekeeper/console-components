@@ -1,5 +1,7 @@
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
+import { useVisualStore } from '../stores/visual';
+import { useUserStore } from '../stores/user';
 import { getErrorCode } from '../common/errorUtils';
 import type {
   GrantListOptions,
@@ -139,6 +141,36 @@ export function formatGrantedSummary(values: (string | null | undefined)[]): str
   const last = times[times.length - 1].toLocaleDateString();
   return first === last ? `Granted ${first}` : `Granted ${first} – ${last}`;
 }
+
+/**
+ * Authorizers whose grants the console manages.
+ *
+ * A list rather than a single name so another backend can be added without
+ * hunting down call sites — every grants surface gates on this one check. The
+ * catalog's other authorizers express access through assignments instead, which
+ * the permissions UI covers.
+ *
+ * `allow-all` is here for development: it publishes the full vocabulary and
+ * permits everything, so it is the only backend the grants UI can currently be
+ * exercised against end to end. Cedar is the intended home but does not
+ * implement `grantable_privileges` yet, so it reports an empty vocabulary and
+ * the surfaces stay hidden until it does.
+ */
+export const GRANT_ENABLED_AUTHZ_BACKENDS = ['cedar', 'allow-all'];
+
+/** Whether this server's authorizer is one whose grants the console manages. */
+export function isGrantEnabledBackend(authzBackend: string | undefined | null): boolean {
+  return !!authzBackend && GRANT_ENABLED_AUTHZ_BACKENDS.includes(authzBackend.toLowerCase());
+}
+
+/**
+ * Principal id -> display name, shared for the session.
+ *
+ * Grants carry ids; every view of them wants names. Resolving is one request
+ * per distinct principal, so the answers are kept rather than re-fetched by
+ * each panel that happens to list the same person.
+ */
+const principalNameCache = new Map<string, { name: string; subtitle: string }>();
 
 /** A page walk that never terminates would hang the pane rather than fail it. */
 const MAX_PAGES = 200;
@@ -338,10 +370,41 @@ let supportedResolved = false;
 export function useGrantsSupported() {
   if (!supportedResolved) {
     supportedResolved = true;
-    useGrants()
-      .grantsSupported()
-      .then((ok) => (supportedRef.value = ok))
-      .catch(() => (supportedRef.value = false));
+    const visual = useVisualStore();
+    const user = useUserStore();
+    const grants = useGrants();
+
+    // This runs wherever a gated control might appear — including the app bar,
+    // which the login and bootstrap pages also render. Asking the server
+    // anything there costs a 401 (management calls are refused before
+    // bootstrap) and the global handler turns that into a redirect to login, so
+    // the question waits until there is someone to ask for and a server willing
+    // to be asked.
+    //
+    // Unknown is not the same answer as unsupported: staying null keeps a
+    // bookmarked ?tab=grants alive until the real answer lands.
+    watch(
+      () => [
+        visual.getServerInfo()?.['authz-backend'],
+        visual.getServerInfo()?.bootstrapped,
+        user.isAuthenticated,
+      ],
+      ([backend, bootstrapped, authenticated]) => {
+        if (!backend || !bootstrapped || !authenticated) {
+          supportedRef.value = null;
+          return;
+        }
+        if (!isGrantEnabledBackend(backend as string)) {
+          supportedRef.value = false;
+          return;
+        }
+        grants
+          .grantsSupported()
+          .then((ok) => (supportedRef.value = ok))
+          .catch(() => (supportedRef.value = false));
+      },
+      { immediate: true },
+    );
   }
   return supportedRef;
 }
@@ -386,6 +449,12 @@ export function useGrants() {
    */
   async function grantsSupported(): Promise<boolean> {
     if (supported.value !== null) return supported.value;
+    // Backend first: on an authorizer the console does not manage grants for,
+    // this answers without asking the server anything.
+    if (!isGrantEnabledBackend(useVisualStore().getServerInfo()?.['authz-backend'])) {
+      supported.value = false;
+      return false;
+    }
     try {
       const vocab = await loadVocabulary();
       supported.value = Object.values(vocab).some((list) => (list?.length ?? 0) > 0);
@@ -698,9 +767,41 @@ export function useGrants() {
     };
   }
 
+  /**
+   * A principal's display name, resolved once and remembered.
+   *
+   * A principal that can no longer be read keeps its row and shows its id: the
+   * grant is still real, and still revocable.
+   */
+  async function resolvePrincipalName(
+    kind: 'user' | 'role',
+    id: string,
+  ): Promise<{ name: string; subtitle: string }> {
+    const key = `${kind}:${id}`;
+    const cached = principalNameCache.get(key);
+    if (cached) return cached;
+
+    const out = { name: id, subtitle: kind === 'role' ? 'Role' : '' };
+    try {
+      if (kind === 'user') {
+        const u: any = await functions.getUser(id);
+        out.name = u?.name || u?.['preferred_username'] || id;
+        out.subtitle = u?.email || '';
+      } else {
+        const r: any = await functions.getRoleMetadata(id);
+        out.name = r?.name || id;
+      }
+    } catch {
+      out.subtitle = kind === 'role' ? 'Role · unresolved' : 'Unresolved';
+    }
+    principalNameCache.set(key, out);
+    return out;
+  }
+
   return {
     supported,
     grantsSupported,
+    resolvePrincipalName,
     resolveResourceLocation,
     vocabularyFor,
     vocabulary,

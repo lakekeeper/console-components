@@ -274,12 +274,21 @@ export {
 // Auth composables
 export * from './composables/useAuth';
 
+// What the configured authorizer lets the console do, beyond per-object rights.
+export {
+  useRoleLifecycleSupported,
+  isExternalRoleBackend,
+  EXTERNAL_ROLE_AUTHZ_BACKENDS,
+} from './composables/useAuthzCapabilities';
+
 // Grants [Preview] — the resource-addressed view of the grants API, plus the
 // helpers components need to lay a vocabulary out and classify its errors.
 export {
   useGrants,
   useGrantsSupported,
   resetGrantVocabulary,
+  isGrantEnabledBackend,
+  GRANT_ENABLED_AUTHZ_BACKENDS,
   isGrantListingNotImplemented,
   isMissingGrantPrincipal,
   isAuthorizationBackendUnavailable,

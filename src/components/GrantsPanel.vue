@@ -122,6 +122,11 @@
               @click="openGrant">
               Grant
             </v-btn>
+            <!-- Hosts with somewhere else to send you put it here rather than
+                 on a row of its own. -->
+            <span class="mr-2">
+              <slot name="toolbar-actions"></slot>
+            </span>
           </v-toolbar>
         </template>
 

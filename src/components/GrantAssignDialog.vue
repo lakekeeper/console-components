@@ -76,7 +76,7 @@
           <!-- The vocabulary is shown whole, including what this caller may not
                grant: a silently shortened list reads as a missing privilege
                rather than a withheld one. -->
-          <div v-for="group in groups" :key="group.name" class="mb-3">
+          <div v-for="group in displayGroups" :key="group.name" class="mb-3">
             <div
               v-if="showGroupHeadings"
               class="text-caption text-medium-emphasis text-uppercase mb-1">
@@ -195,10 +195,26 @@ const grantableNames = computed(() =>
   props.privileges.filter((p) => p.allowed).map((p) => p.privilege.name),
 );
 
-// An authorizer that supplies no categories yields one "Other" group, and a
-// heading over the whole list says nothing.
+/**
+ * Headings earn their place only when they cluster something.
+ *
+ * A vocabulary with no categories collapses to a single "Other" group, and a
+ * short one — the server publishes five privileges — lands one item under each
+ * heading, which is five headings doing no grouping at all. In both cases the
+ * list reads better flat.
+ */
 const showGroupHeadings = computed(
-  () => groups.value.length > 1 || groups.value[0]?.name !== 'other',
+  () =>
+    groups.value.length > 1 &&
+    groups.value.some((g) => g.privileges.length > 1) &&
+    !(groups.value.length === 1 && groups.value[0]?.name === 'other'),
+);
+
+/** Grouped when the headings are shown, one flat list when they are not. */
+const displayGroups = computed(() =>
+  showGroupHeadings.value
+    ? groups.value
+    : [{ name: 'all', label: '', privileges: props.privileges }],
 );
 
 /** The principal being edited, whether it was passed in or just searched for. */

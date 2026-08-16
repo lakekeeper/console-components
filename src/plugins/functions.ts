@@ -23,7 +23,7 @@ import {
   ColumnTags,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
-import { currentAccessToken } from '@/plugins/authToken';
+import { currentAccessToken, clearPersistedAuthSession } from '@/plugins/authToken';
 import * as ice from '@/gen/iceberg/sdk.gen';
 import * as iceClient from '@/gen/iceberg/client.gen';
 import {
@@ -376,9 +376,20 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
         console.warn('Already on auth page, skipping redirect to prevent loop');
         return;
       }
-      // Clear user session
       const userStore = useUserStore();
       userStore.unsetUser();
+      // Only when the token itself was rejected. Clearing the store alone is
+      // not enough there: the request interceptor falls back to the persisted
+      // OIDC session, which is unexpired by the clock and would re-attach the
+      // very token the server refused, looping through login.
+      //
+      // Every other 401 leaves that session alone. `whoami` answers 401 with no
+      // principal before bootstrap, and the header can be missing while
+      // oidc-client-ts is still rehydrating — discarding a good session in
+      // either case breaks the very flow that was about to establish one.
+      if (error?.error?.type === 'AuthenticationFailed') {
+        clearPersistedAuthSession(appConfig?.idpAuthority, appConfig?.idpClientId);
+      }
       // Redirect to login page immediately without showing snackbar
       const baseUrl = appConfig?.baseUrlPrefix || '';
       window.location.href = `${baseUrl}/ui/login`;
