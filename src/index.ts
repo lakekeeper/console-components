@@ -114,6 +114,8 @@ import ServerOverview from './components/ServerOverview.vue';
 import SupportBundleDialog from './components/SupportBundleDialog.vue';
 import UsageDatumDialog from './components/UsageDatumDialog.vue';
 import FeedbackDialog from './components/FeedbackDialog.vue';
+import ContactVakamoDialog from './components/ContactVakamoDialog.vue';
+import PlusFeatureDialog from './components/PlusFeatureDialog.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
@@ -172,6 +174,8 @@ export {
   SupportBundleDialog,
   UsageDatumDialog,
   FeedbackDialog,
+  ContactVakamoDialog,
+  PlusFeatureDialog,
   UserManager,
   ProjectNameAddOrEditDialog,
   AuthenticationDisabledWarningBanner,
@@ -273,6 +277,10 @@ export {
 
 // Auth composables
 export * from './composables/useAuth';
+
+// Session-wide internet reachability — surfaces gate external links on this so
+// air-gapped deployments fall back to offline-safe paths.
+export { useConnectivity, type ConnectivityStatus } from './composables/useConnectivity';
 
 // What the configured authorizer lets the console do, beyond per-object rights.
 export {
@@ -448,6 +456,8 @@ const components = {
   SupportBundleDialog,
   UsageDatumDialog,
   FeedbackDialog,
+  ContactVakamoDialog,
+  PlusFeatureDialog,
   UserManager,
   AuthenticationDisabledWarningBanner,
   WarehouseRenameDialog,

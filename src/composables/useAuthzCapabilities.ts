@@ -20,8 +20,13 @@ import { useVisualStore } from '../stores/visual';
  * rejects both operations outright (`CreateRolesNotSupported` /
  * `DeleteRolesNotSupported`). A list rather than a single name so another such
  * backend can be added in one place.
+ *
+ * `allow-all` does NOT belong here: it permits every operation, roles live in
+ * the catalog's own store, and the backend covers role creation and membership
+ * under that authorizer in its integration tests. Listing it disabled role
+ * management on the one backend that refuses nothing.
  */
-export const EXTERNAL_ROLE_AUTHZ_BACKENDS = ['cedar', 'allow-all'];
+export const EXTERNAL_ROLE_AUTHZ_BACKENDS = ['cedar'];
 
 export function isExternalRoleBackend(authzBackend: string | undefined | null): boolean {
   return !!authzBackend && EXTERNAL_ROLE_AUTHZ_BACKENDS.includes(authzBackend.toLowerCase());

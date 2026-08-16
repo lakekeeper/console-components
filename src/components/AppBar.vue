@@ -49,6 +49,9 @@
           <v-list-item prepend-icon="mdi-face-agent" @click="goToSupport">
             <v-list-item-title>Support</v-list-item-title>
           </v-list-item>
+          <v-list-item prepend-icon="mdi-email-outline" @click="contactOpen = true">
+            <v-list-item-title>Contact Vakamo</v-list-item-title>
+          </v-list-item>
           <v-divider class="my-1"></v-divider>
           <v-list-item prepend-icon="mdi-export-variant" @click="supportBundleOpen = true">
             <v-list-item-title>Export for GitHub</v-list-item-title>
@@ -126,6 +129,9 @@
 
     <!-- Feedback Dialog (OSS only) -->
     <FeedbackDialog v-if="!isEnterpriseEdition" v-model="feedbackOpen" />
+
+    <!-- Contact Dialog (OSS only — enterprise deployments have direct support) -->
+    <ContactVakamoDialog v-if="!isEnterpriseEdition" v-model="contactOpen" />
   </v-app-bar>
 </template>
 
@@ -136,15 +142,18 @@ import { useVisualStore } from '../stores/visual';
 import { useConfig } from '../composables/useCatalogPermissions';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '@/plugins/functions';
+import { useConnectivity } from '@/composables/useConnectivity';
 import { useRouter } from 'vue-router';
 import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT_SIDE.svg';
 import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE_SIDE.svg';
 import TokenDialog from './TokenDialog.vue';
 import SupportBundleDialog from './SupportBundleDialog.vue';
 import FeedbackDialog from './FeedbackDialog.vue';
+import ContactVakamoDialog from './ContactVakamoDialog.vue';
 
 const supportBundleOpen = ref(false);
 const feedbackOpen = ref(false);
+const contactOpen = ref(false);
 
 const appConfigInjected = inject<any>('appConfig', {});
 const isEnterpriseEdition = computed(() => appConfigInjected?.edition === 'enterprise');
@@ -174,6 +183,7 @@ const tokenDialog = ref<InstanceType<typeof TokenDialog> | null>(null);
 
 const userStorage = useUserStore();
 const starCount = ref(0);
+const { checkConnectivity } = useConnectivity();
 
 const theme = useTheme();
 
@@ -225,15 +235,9 @@ function formatStarCount(count: number): string {
 }
 
 async function fetchGitHubStars() {
-  try {
-    const res = await fetch('https://api.github.com/repos/lakekeeper/lakekeeper');
-    if (res.ok) {
-      const data = await res.json();
-      starCount.value = data.stargazers_count ?? 0;
-    }
-  } catch {
-    // silently ignore
-  }
+  // Doubles as the session's connectivity probe — see useConnectivity.
+  const repo = await checkConnectivity();
+  starCount.value = repo?.stargazers_count ?? 0;
 }
 
 function toggleTheme() {
