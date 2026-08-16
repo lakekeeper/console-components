@@ -295,6 +295,7 @@ export {
   privilegeCategoryRank,
   derivePrivilegeCategory,
   groupPrivileges,
+  formatGrantedSummary,
 } from './composables/useGrants';
 
 // Export stores

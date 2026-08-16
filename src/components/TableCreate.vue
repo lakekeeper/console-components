@@ -19,6 +19,27 @@
         <v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog"></v-btn>
       </v-card-title>
 
+      <!-- The version is the warehouse's to decide: this dialog creates through
+           DuckDB's CREATE TABLE, which carries no table properties. Saying so
+           explains why the nanosecond types come and go. -->
+      <div v-if="warehouseName" class="d-flex align-center ga-2 px-4 pt-2">
+        <v-chip size="x-small" variant="tonal">
+          Iceberg v{{ effectiveFormatVersion }}
+          <v-tooltip activator="parent" location="bottom" max-width="360">
+            <template v-if="effectiveFormatVersion >= 3">
+              This warehouse creates v3 tables, so v3-only types ({{ V3_DATA_TYPES.join(', ') }})
+              are available.
+            </template>
+            <template v-else>
+              This warehouse creates v{{ effectiveFormatVersion }} tables, so v3-only types ({{
+                V3_DATA_TYPES.join(', ')
+              }}) are not offered. Change the warehouse's format-version policy to allow them.
+            </template>
+          </v-tooltip>
+        </v-chip>
+        <span class="text-caption text-medium-emphasis">set by the warehouse policy</span>
+      </div>
+
       <v-tabs v-model="formatTab" align-tabs="start" density="compact" color="primary">
         <v-tab value="iceberg">
           <v-img :src="icebergIcon" width="16" height="16" class="mr-2" />
@@ -256,8 +277,10 @@ const namespaceDisplay = computed(() => {
   return ns;
 });
 
-// Iceberg primitive types
-const icebergDataTypes = [
+/**
+ * Iceberg primitive types available in v2 and earlier.
+ */
+const V2_DATA_TYPES = [
   'boolean',
   'int',
   'long',
@@ -268,18 +291,44 @@ const icebergDataTypes = [
   'time',
   'timestamp',
   'timestamptz',
-  'timestamp_ns',
-  'timestamptz_ns',
   'string',
   'uuid',
   'fixed(16)',
   'binary',
 ];
 
+/**
+ * Types the Iceberg spec introduced in v3. Offering them on a v2 table produces
+ * a table the catalog refuses, so they appear only when the warehouse will
+ * actually create v3.
+ */
+const V3_DATA_TYPES = ['timestamp_ns', 'timestamptz_ns'];
+
 const dialog = ref(false);
 const formatTab = ref<'iceberg' | 'generic'>('iceberg');
 const tableName = ref('');
 const warehouseName = ref<string>('');
+const allowedFormatVersions = ref<number[]>([]);
+const defaultFormatVersion = ref<number | null>(null);
+
+/**
+ * The version this table will actually be created as.
+ *
+ * The dialog creates through DuckDB's `CREATE TABLE`, which carries no table
+ * properties, so the version is entirely the warehouse's to decide. Mirrors the
+ * server's own resolution: the configured default, else v2 when allowed, else
+ * the highest allowed version.
+ */
+const effectiveFormatVersion = computed(() => {
+  if (defaultFormatVersion.value) return defaultFormatVersion.value;
+  const allowed = allowedFormatVersions.value;
+  if (!allowed.length) return 2;
+  return allowed.includes(2) ? 2 : Math.max(...allowed);
+});
+
+const icebergDataTypes = computed(() =>
+  effectiveFormatVersion.value >= 3 ? [...V2_DATA_TYPES, ...V3_DATA_TYPES] : [...V2_DATA_TYPES],
+);
 const fields = ref<Field[]>([]);
 const isCreating = ref(false);
 const error = ref<string | null>(null);
@@ -404,8 +453,17 @@ async function createTable() {
 watch(dialog, async (newVal) => {
   if (newVal) {
     try {
-      const wh = await functions.getWarehouse(props.warehouseId);
+      const wh: any = await functions.getWarehouse(props.warehouseId);
       warehouseName.value = wh.name;
+      allowedFormatVersions.value = wh['allowed-format-versions'] ?? [];
+      defaultFormatVersion.value = wh['default-format-version'] ?? null;
+      // A field left on a v3 type would silently produce a table the catalog
+      // rejects, so it falls back rather than being carried into the SQL.
+      if (effectiveFormatVersion.value < 3) {
+        for (const f of fields.value) {
+          if (V3_DATA_TYPES.includes(f.type)) f.type = 'timestamp';
+        }
+      }
     } catch (err) {
       console.error('Failed to load warehouse:', err);
     }

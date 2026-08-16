@@ -112,7 +112,8 @@
           :principal-id="grantsUser.id"
           principal-type="user"
           :principal-name="grantsUser.name"
-          allow-edit />
+          allow-edit
+          allow-open />
       </v-card-text>
       <v-divider></v-divider>
       <v-card-actions class="flex-grow-0">

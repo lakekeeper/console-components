@@ -6072,6 +6072,63 @@ async function tryClipboardCopy(text: string): Promise<boolean> {
   return false;
 }
 
+/**
+ * Tables in a namespace with their uuids alongside their names.
+ *
+ * A separate wrapper rather than a flag on `listTables`: only the grant views
+ * need the uuids, and they need them to work backwards — a grant names a table
+ * by id while every route names it by path. Paired arrays, as the API returns
+ * them.
+ */
+async function listTableUuids(
+  warehouseId: string,
+  namespace: string,
+  notify?: boolean,
+): Promise<{ names: string[]; uuids: string[] }> {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.listTables({
+      client,
+      path: { prefix: warehouseId, namespace },
+      query: { returnUuids: true, pageSize: 1000 },
+    });
+    if (error) throw error;
+    const result = data as ListTablesResponse;
+    return {
+      names: (result.identifiers ?? []).map((i: any) => i.name),
+      uuids: (result['table-uuids'] ?? []) as string[],
+    };
+  } catch (error: any) {
+    handleError(error, 'listTableUuids', notify);
+    throw error;
+  }
+}
+
+/** Views in a namespace with their uuids. See `listTableUuids`. */
+async function listViewUuids(
+  warehouseId: string,
+  namespace: string,
+  notify?: boolean,
+): Promise<{ names: string[]; uuids: string[] }> {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.listViews({
+      client,
+      path: { prefix: warehouseId, namespace },
+      query: { returnUuids: true, pageSize: 1000 },
+    });
+    if (error) throw error;
+    const result = data as any;
+    return {
+      names: (result.identifiers ?? []).map((i: any) => i.name),
+      uuids: (result['view-uuids'] ?? []) as string[],
+    };
+  } catch (error: any) {
+    handleError(error, 'listViewUuids', notify);
+    throw error;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Grants [Preview]
 //
@@ -6850,6 +6907,8 @@ export function useFunctions(config?: any) {
     setProjectTaskLogCleanupConfig,
     getNewToken,
     handleError,
+    listTableUuids,
+    listViewUuids,
     // Grants [Preview]
     listGrantsForPrincipal,
     getGrantablePrivilegesVocabulary,

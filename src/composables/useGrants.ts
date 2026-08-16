@@ -120,8 +120,35 @@ export const RESOURCE_TYPE_ORDER = [
   'tag-definition',
 ];
 
+/**
+ * A one-line "when was this granted" for a set of grants.
+ *
+ * Privileges applied in one atomic diff share a timestamp, which is the common
+ * case, so that collapses to a single date; a set assembled over time reports
+ * its range instead of pretending to a single moment. `created-at` is optional,
+ * so a set with none reports nothing rather than a guess.
+ */
+export function formatGrantedSummary(values: (string | null | undefined)[]): string {
+  const times = values
+    .filter((v): v is string => !!v)
+    .map((v) => new Date(v))
+    .filter((d) => !Number.isNaN(d.getTime()))
+    .sort((a, b) => a.getTime() - b.getTime());
+  if (!times.length) return '';
+  const first = times[0].toLocaleDateString();
+  const last = times[times.length - 1].toLocaleDateString();
+  return first === last ? `Granted ${first}` : `Granted ${first} – ${last}`;
+}
+
 /** A page walk that never terminates would hang the pane rather than fail it. */
 const MAX_PAGES = 200;
+
+/**
+ * Asked for on every listing. The server is free to return fewer — a short page
+ * says nothing about whether more remain — but requesting a sensible number
+ * keeps a resource with many grants from being walked a handful at a time.
+ */
+const GRANT_PAGE_SIZE = 200;
 
 /**
  * The static vocabulary is identical for every caller and changes only when the
@@ -132,10 +159,28 @@ const MAX_PAGES = 200;
 let vocabularyCache: Record<string, PrivilegeDescriptor[]> | null = null;
 let vocabularyInFlight: Promise<Record<string, PrivilegeDescriptor[]>> | null = null;
 
-/** Drops the cached vocabulary — call when the server or project changes. */
+/**
+ * One uuid -> path index per warehouse, built by walking it once.
+ *
+ * Grants name resources by id and every route names them by path, with no
+ * reverse lookup in the API. Resolving row by row would repeat the same walk
+ * for every grant on the same warehouse, so the walk is done once and shared —
+ * and cached for the session, since a rename is far rarer than a re-render.
+ */
+const warehouseIndexCache = new Map<
+  string,
+  Promise<{
+    warehouseName: string;
+    namespaces: Map<string, string>;
+    tabulars: Map<string, { namespace: string; name: string; kind: string }>;
+  }>
+>();
+
+/** Drops every cached lookup — call when the server or project changes. */
 export function resetGrantVocabulary() {
   vocabularyCache = null;
   vocabularyInFlight = null;
+  warehouseIndexCache.clear();
   supportedResolved = false;
   supportedRef.value = null;
 }
@@ -397,7 +442,7 @@ export function useGrants() {
     filter?: GrantPrincipalFilter,
   ): Promise<GrantResponse[]> {
     return walkPages((pageToken) => {
-      const options: GrantListOptions = { ...filter, pageToken };
+      const options: GrantListOptions = { ...filter, pageToken, pageSize: GRANT_PAGE_SIZE };
       switch (ref.type) {
         case 'server':
           return functions.listServerGrants(options);
@@ -431,7 +476,10 @@ export function useGrants() {
     projectId?: string,
   ): Promise<GrantResponse[]> {
     return walkPages((pageToken) =>
-      functions.listGrantsForPrincipal({ ...principal, pageToken }, projectId),
+      functions.listGrantsForPrincipal(
+        { ...principal, pageToken, pageSize: GRANT_PAGE_SIZE },
+        projectId,
+      ),
     );
   }
 
@@ -544,9 +592,116 @@ export function useGrants() {
     }
   }
 
+  /**
+   * Walks one warehouse once and indexes everything in it by uuid.
+   *
+   * A namespace listing plus one tabular listing per namespace. Expensive the
+   * first time and free afterwards, which is what makes resolving a whole
+   * listing of grants affordable — they nearly always share a warehouse.
+   */
+  function warehouseIndex(warehouseId: string) {
+    const cached = warehouseIndexCache.get(warehouseId);
+    if (cached) return cached;
+
+    const built = (async () => {
+      const namespaces = new Map<string, string>();
+      const tabulars = new Map<string, { namespace: string; name: string; kind: string }>();
+
+      const wh: any = await functions.getWarehouse(warehouseId, false).catch(() => null);
+      const warehouseName = wh?.name || warehouseId;
+
+      const listing: any = await functions
+        .listNamespaces(warehouseId, undefined, undefined, false)
+        .catch(() => null);
+      const namespaceMap: Record<string, string> = listing?.namespaceMap ?? {};
+      for (const [path, id] of Object.entries(namespaceMap)) namespaces.set(id, path);
+
+      await Promise.all(
+        Object.keys(namespaceMap).map(async (nsPath) => {
+          const apiNs = nsPath.split('.').join('\x1F');
+          const add = (name: string, id: string, kind: string) =>
+            tabulars.set(id, { namespace: nsPath, name, kind });
+          // A namespace this caller cannot list simply contributes nothing.
+          await Promise.all([
+            functions
+              .listTableUuids(warehouseId, apiNs, false)
+              .then(({ names, uuids }) => uuids.forEach((id, i) => add(names[i], id, 'table')))
+              .catch(() => undefined),
+            functions
+              .listViewUuids(warehouseId, apiNs, false)
+              .then(({ names, uuids }) => uuids.forEach((id, i) => add(names[i], id, 'view')))
+              .catch(() => undefined),
+            functions
+              .listGenericTables(warehouseId, apiNs, undefined, false)
+              .then((res: any) =>
+                (res?.identifiers ?? []).forEach((g: any) => add(g.name, g.id, 'generic-table')),
+              )
+              .catch(() => undefined),
+          ]);
+        }),
+      );
+
+      return { warehouseName, namespaces, tabulars };
+    })();
+
+    warehouseIndexCache.set(warehouseId, built);
+    return built;
+  }
+
+  /**
+   * Turns a grant's resource id into a path a person can read and a route they
+   * can open. Falls back to the id where the object is dropped or invisible —
+   * the grant is still real and still revocable either way.
+   */
+  async function resolveResourceLocation(
+    ref: GrantResourceRef,
+  ): Promise<{ path: string; route: string | null }> {
+    if (ref.type === 'server') return { path: 'Server', route: null };
+    if (ref.type === 'project') return { path: 'Project', route: null };
+
+    if (ref.type === 'tag-definition') {
+      const tag: any = await functions
+        .getTagDefinition(ref.tagDefinitionId, false)
+        .catch(() => null);
+      return {
+        path: tag?.name || ref.tagDefinitionId,
+        route: `/governance/tags/${ref.tagDefinitionId}`,
+      };
+    }
+
+    const warehouseId = (ref as any).warehouseId as string;
+    const index = await warehouseIndex(warehouseId);
+    const { warehouseName } = index;
+
+    if (ref.type === 'warehouse') {
+      return { path: warehouseName, route: `/warehouse/${warehouseId}` };
+    }
+
+    if (ref.type === 'namespace') {
+      const nsPath = index.namespaces.get(ref.namespaceId);
+      if (!nsPath) return { path: `${warehouseName} / ${ref.namespaceId}`, route: null };
+      return {
+        path: `${warehouseName} / ${nsPath}`,
+        route: `/warehouse/${warehouseId}/namespace/${encodeURIComponent(nsPath)}`,
+      };
+    }
+
+    const wantedId =
+      ref.type === 'table' ? ref.tableId : ref.type === 'view' ? ref.viewId : ref.genericTableId;
+    const hit = index.tabulars.get(wantedId);
+    if (!hit) return { path: `${warehouseName} / ${wantedId}`, route: null };
+
+    const segment = ref.type === 'table' ? 'table' : ref.type === 'view' ? 'view' : 'generic-table';
+    return {
+      path: `${warehouseName} / ${hit.namespace} / ${hit.name}`,
+      route: `/warehouse/${warehouseId}/namespace/${encodeURIComponent(hit.namespace)}/${segment}/${encodeURIComponent(hit.name)}`,
+    };
+  }
+
   return {
     supported,
     grantsSupported,
+    resolveResourceLocation,
     vocabularyFor,
     vocabulary,
     listGrants,

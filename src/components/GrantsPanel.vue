@@ -59,6 +59,8 @@
         density="compact"
         :headers="headers"
         :items="visibleRows"
+        show-expand
+        item-value="key"
         :items-per-page="50"
         :items-per-page-options="[50, 100, 250, -1]"
         :sort-by="[{ key: 'name', order: 'asc' }]"
@@ -155,22 +157,31 @@
           </div>
         </template>
 
-        <template #item.privileges="{ item }">
-          <div class="py-1">
-            <v-chip
-              v-for="p in item.privileges"
-              :key="p"
-              class="mr-1 mb-1"
-              size="x-small"
-              variant="tonal">
-              {{ displayName(p) }}
+        <template v-for="c in categories" #[`item.cat_${c}`]="{ item }" :key="c">
+          <!-- Count, not names: the column answers "how much of this kind",
+               and the expanded row answers "which". -->
+          <template v-if="item.byCategory[c]?.length">
+            <v-chip size="x-small" variant="tonal" color="primary">
+              {{ item.byCategory[c].length }}
+              <v-tooltip activator="parent" location="top" max-width="320">
+                {{ item.byCategory[c].map(displayName).join(', ') }}
+              </v-tooltip>
             </v-chip>
-            <!-- A grant whose privilege has left the vocabulary enforces nothing
-                 but is still held, and still revocable. -->
+          </template>
+          <span v-else class="text-disabled">–</span>
+        </template>
+
+        <template #item.granted="{ item }">
+          <span class="text-caption text-medium-emphasis">
+            {{ grantedSummary(item) || '—' }}
+          </span>
+          <!-- Still held but no longer enforced: surfaced here rather than
+               hidden, since it cannot appear in any category column. -->
+          <div v-if="item.stale.length" class="mt-1">
             <v-chip
               v-for="p in item.stale"
               :key="p"
-              class="mr-1 mb-1"
+              class="mr-1"
               size="x-small"
               variant="outlined"
               color="warning">
@@ -180,6 +191,41 @@
               </v-tooltip>
             </v-chip>
           </div>
+        </template>
+
+        <template #expanded-row="{ columns, item }">
+          <tr>
+            <td :colspan="columns.length" class="py-2">
+              <div v-for="c in categories" :key="c" class="d-flex align-start ga-2 mb-1">
+                <span
+                  class="text-caption text-medium-emphasis text-uppercase"
+                  style="min-width: 110px">
+                  {{ c }}
+                </span>
+                <div>
+                  <v-chip
+                    v-for="p in item.byCategory[c] ?? []"
+                    :key="p"
+                    class="mr-1 mb-1"
+                    size="x-small"
+                    variant="tonal">
+                    {{ displayName(p) }}
+                    <v-tooltip activator="parent" location="top">
+                      {{ p }}
+                      <template v-if="item.grantedAt[p]">
+                        · granted {{ formatGrantedAt(item.grantedAt[p]) }}
+                      </template>
+                    </v-tooltip>
+                  </v-chip>
+                  <span
+                    v-if="!(item.byCategory[c] ?? []).length"
+                    class="text-disabled text-caption">
+                    none
+                  </span>
+                </div>
+              </div>
+            </td>
+          </tr>
         </template>
 
         <template #item.actions="{ item }">
@@ -262,7 +308,10 @@ import { isForbiddenError } from '../common/errorUtils';
 import {
   useGrants,
   isAuthorizationBackendUnavailable,
+  formatGrantedSummary,
+  derivePrivilegeCategory,
   principalKey,
+  privilegeCategoryRank,
   resourceKey,
   resourceLabel,
 } from '../composables/useGrants';
@@ -331,13 +380,39 @@ interface Row extends GrantPrincipalRow {
   privileges: string[];
   /** Held privileges the authorizer no longer recognizes. */
   stale: string[];
+  /** When each privilege was granted, where the server reports it. */
+  grantedAt: Record<string, string | null>;
+  /** Held privileges bucketed by category, for the columns. */
+  byCategory: Record<string, string[]>;
 }
 const rows = ref<Row[]>([]);
 const nameCache = new Map<string, { name: string; subtitle: string; projectId?: string }>();
 
-const headers: readonly Header[] = Object.freeze([
+/**
+ * Categories this resource actually publishes, in display order. A column each
+ * answers "what kind of access does this principal have" at a glance; the exact
+ * names are one expand away, because a wall of chips answers neither question
+ * well.
+ */
+const categories = computed(() => {
+  const seen = new Set<string>();
+  for (const p of privileges.value) {
+    seen.add(p.privilege.category ?? derivePrivilegeCategory(p.privilege.name));
+  }
+  return [...seen].sort(
+    (a, b) => privilegeCategoryRank(a) - privilegeCategoryRank(b) || a.localeCompare(b),
+  );
+});
+
+const headers = computed<Header[]>(() => [
   { title: 'Principal', key: 'name', align: 'start' },
-  { title: 'Privileges', key: 'privileges', align: 'start', sortable: false },
+  ...categories.value.map((c) => ({
+    title: c.charAt(0).toUpperCase() + c.slice(1),
+    key: `cat_${c}`,
+    align: 'center' as const,
+    sortable: false,
+  })),
+  { title: 'Granted', key: 'granted', align: 'start', sortable: false },
   { title: '', key: 'actions', align: 'end', sortable: false },
 ]);
 
@@ -346,6 +421,20 @@ const canEditAnything = computed(() => privileges.value.some((p) => p.allowed));
 const grantableNames = computed(
   () => new Set(privileges.value.filter((p) => p.allowed).map((p) => p.privilege.name)),
 );
+
+/**
+ * `created-at` is optional — an authorizer that does not record it reports
+ * nothing, so the tooltip simply omits the clause rather than inventing a date.
+ */
+function formatGrantedAt(value: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+}
+
+function grantedSummary(row: Row): string {
+  return formatGrantedSummary([...row.privileges, ...row.stale].map((p) => row.grantedAt[p]));
+}
 
 function displayName(name: string): string {
   const p = privileges.value.find((x) => x.privilege.name === name);
@@ -449,9 +538,12 @@ async function load() {
           external: false,
           privileges: [],
           stale: [],
+          grantedAt: {},
+          byCategory: {},
         });
       }
       const row = byPrincipal.get(key)!;
+      row.grantedAt[g.privilege] = g['created-at'] ?? null;
       // `recognized: false` means the authorizer no longer knows the privilege.
       if (g.recognized === false || !known.has(g.privilege)) row.stale.push(g.privilege);
       else row.privileges.push(g.privilege);
@@ -474,6 +566,12 @@ async function load() {
           meta.projectId !== activeProjectId.value;
         row.privileges.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
         row.stale.sort();
+        row.byCategory = {};
+        for (const name of row.privileges) {
+          const descriptor = privs.find((x) => x.privilege.name === name)?.privilege;
+          const cat = descriptor?.category ?? derivePrivilegeCategory(name);
+          (row.byCategory[cat] ??= []).push(name);
+        }
       }),
     );
 

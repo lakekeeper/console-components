@@ -49,10 +49,23 @@
     </div>
 
     <template v-else>
-      <div class="text-caption text-medium-emphasis mb-2">
-        {{ grants.length }} {{ grants.length === 1 ? 'grant' : 'grants' }} across
-        {{ groupedByResource.length }}
-        {{ groupedByResource.length === 1 ? 'resource' : 'resources' }}
+      <div class="d-flex align-center flex-wrap ga-3 mb-2">
+        <v-select
+          v-if="presentTypes.length > 1"
+          v-model="typeFilter"
+          :items="[{ value: null, title: 'All objects' }, ...presentTypes]"
+          item-title="title"
+          item-value="value"
+          label="Object"
+          density="compact"
+          variant="underlined"
+          hide-details
+          style="max-width: 220px"></v-select>
+        <div class="text-caption text-medium-emphasis">
+          {{ grants.length }} {{ grants.length === 1 ? 'grant' : 'grants' }} across
+          {{ groupedByResource.length }}
+          {{ groupedByResource.length === 1 ? 'resource' : 'resources' }}
+        </div>
       </div>
 
       <v-list density="compact" bg-color="transparent">
@@ -73,12 +86,33 @@
               variant="tonal"
               :color="g.recognized === false ? 'warning' : undefined">
               {{ g.privilege }}
-              <v-tooltip v-if="g.recognized === false" activator="parent" location="top">
-                No longer in this authorizer's vocabulary — enforces nothing, but is still held.
+              <v-tooltip activator="parent" location="top">
+                <template v-if="g.recognized === false">
+                  No longer in this authorizer's vocabulary — enforces nothing, but is still held.
+                </template>
+                <template v-else-if="g['created-at']">
+                  Granted {{ formatGrantedAt(g['created-at']) }}
+                </template>
+                <template v-else>{{ g.privilege }}</template>
               </v-tooltip>
             </v-chip>
+            <div v-if="grantedSummary(group.grants)" class="text-caption text-medium-emphasis mt-1">
+              {{ grantedSummary(group.grants) }}
+            </div>
           </v-list-item-subtitle>
-          <template v-if="allowManage || allowEdit" #append>
+          <template v-if="allowManage || allowEdit || allowOpen" #append>
+            <!-- Resolves the id to a path on click rather than on render: a
+                 grant names its resource by id, every route names it by path,
+                 and finding one costs several requests. -->
+            <v-btn
+              v-if="allowOpen && group.ref && canOpen(group.ref)"
+              class="mr-2"
+              size="small"
+              variant="text"
+              icon="mdi-open-in-new"
+              :loading="opening === group.key"
+              title="Open this object"
+              @click="openObject(group)"></v-btn>
             <v-btn
               v-if="group.ref && allowManage"
               size="small"
@@ -116,15 +150,19 @@
 
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { helix } from 'ldrs';
 import { useVisualStore } from '../stores/visual';
 import {
   useGrants,
   isGrantListingNotImplemented,
+  isMissingGrantPrincipal,
   isAuthorizationBackendUnavailable,
   refFromResponse,
   resourceIcon,
   resourceLabel,
+  formatGrantedSummary,
+  RESOURCE_TYPE_ORDER,
 } from '../composables/useGrants';
 import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.vue';
 import type { GrantResourceRef } from '../common/interfaces';
@@ -143,10 +181,12 @@ const props = withDefaults(
     allowManage?: boolean;
     /** Lets each listed resource's grants be edited in place. */
     allowEdit?: boolean;
+    /** Offers a per-row jump to the object itself. */
+    allowOpen?: boolean;
     /** Shown in the edit dialog's title. */
     principalName?: string;
   }>(),
-  { allowManage: false, allowEdit: false },
+  { allowManage: false, allowEdit: false, allowOpen: false },
 );
 
 const emit = defineEmits<{
@@ -156,6 +196,7 @@ const emit = defineEmits<{
 }>();
 
 const visual = useVisualStore();
+const router = useRouter();
 const grantsApi = useGrants();
 
 const grants = ref<GrantResponse[]>([]);
@@ -163,9 +204,22 @@ const loading = ref(false);
 const loadError = ref<string | null>(null);
 const notImplemented = ref(false);
 const backendUnavailable = ref(false);
+/** Narrows the listing to one kind of object; null shows everything. */
+const typeFilter = ref<string | null>(null);
 
 const authzBackend = computed(() => visual.getServerInfo()?.['authz-backend'] || 'in use');
 const projectLabel = computed(() => visual.projectSelected['project-name'] || 'this project');
+
+function grantedSummary(list: GrantResponse[]): string {
+  return formatGrantedSummary(list.map((g) => g['created-at']));
+}
+
+/** Optional on every grant: an authorizer that does not record it reports none. */
+function formatGrantedAt(value?: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+}
 
 function resourceIdOf(resource: any): string {
   return (
@@ -187,6 +241,7 @@ const groupedByResource = computed(() => {
     {
       key: string;
       id: string;
+      type: string;
       typeLabel: string;
       label: string;
       icon: string;
@@ -203,10 +258,12 @@ const groupedByResource = computed(() => {
       byResource.set(key, {
         key,
         id,
+        type: r?.type as string,
         typeLabel: resourceLabel(r?.type),
         // The listing carries ids, not names; resolving each would be a request
         // per row, so the id stands in and the type carries the meaning.
         label: id ? `${resourceLabel(r?.type)} ${id.slice(0, 8)}…` : resourceLabel(r?.type),
+        // Replaced by the real path once the warehouse index resolves.
         icon: resourceIcon(r?.type),
         ref: refFromResponse(r),
         grants: [],
@@ -215,10 +272,49 @@ const groupedByResource = computed(() => {
     byResource.get(key)!.grants.push(g);
   }
 
-  return [...byResource.values()].sort(
-    (a, b) => a.typeLabel.localeCompare(b.typeLabel) || a.label.localeCompare(b.label),
-  );
+  return [...byResource.values()]
+    .map((g) => ({ ...g, label: resolvedPaths.value[g.key] ?? g.label }))
+    .filter((g) => !typeFilter.value || g.type === typeFilter.value)
+    .sort((a, b) => a.typeLabel.localeCompare(b.typeLabel) || a.label.localeCompare(b.label));
 });
+
+/** Types actually present in this listing — no point offering the rest. */
+const presentTypes = computed(() => {
+  const seen = new Set<string>();
+  for (const g of grants.value) seen.add((g.resource as any)?.type);
+  return RESOURCE_TYPE_ORDER.filter((t) => seen.has(t)).map((t) => ({
+    value: t,
+    title: resourceLabel(t),
+  }));
+});
+
+// ---- opening the object ----------------------------------------------------
+
+const opening = ref<string | null>(null);
+
+/** The server and the project are not places you can navigate to. */
+function canOpen(target: GrantResourceRef): boolean {
+  return target.type !== 'server' && target.type !== 'project';
+}
+
+async function openObject(group: { key: string; ref: GrantResourceRef | null }) {
+  if (!group.ref) return;
+  opening.value = group.key;
+  try {
+    const { route } = await grantsApi.resolveResourceLocation(group.ref);
+    if (route) router.push(route);
+    else {
+      // Resolution walks the warehouse; not finding it means the object is
+      // dropped or invisible to this caller, not that the grant is bogus.
+      loadError.value =
+        'That object could not be located — it may have been dropped, or you may not be able to see it.';
+    }
+  } catch (e: any) {
+    loadError.value = e?.error?.message || e?.message || 'Failed to locate that object';
+  } finally {
+    opening.value = null;
+  }
+}
 
 // ---- editing ---------------------------------------------------------------
 
@@ -301,6 +397,34 @@ async function applyEdit(payload: { principal: GrantPrincipalRow; privileges: st
   }
 }
 
+const resolvedPaths = ref<Record<string, string>>({});
+
+/**
+ * Replaces every row's id with its real path. All rows on one warehouse share a
+ * single walk of it, so this is one index build per warehouse rather than one
+ * per row — and the ids stay on screen until it returns rather than blocking
+ * the listing behind it.
+ */
+async function resolvePaths() {
+  const groups = [...new Set(grants.value.map((g) => g.resource))];
+  const seen = new Set<string>();
+  await Promise.all(
+    groups.map(async (resource: any) => {
+      const target = refFromResponse(resource);
+      if (!target) return;
+      const key = `${resource?.type}:${resourceIdOf(resource)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      try {
+        const { path } = await grantsApi.resolveResourceLocation(target);
+        resolvedPaths.value = { ...resolvedPaths.value, [key]: path };
+      } catch {
+        // Leaves the id in place; the row is still usable.
+      }
+    }),
+  );
+}
+
 async function load() {
   if (!props.principalId) return;
   loading.value = true;
@@ -315,10 +439,17 @@ async function load() {
         : { principalRole: props.principalId };
     grants.value = await grantsApi.listPrincipalGrants(filter, props.projectId);
     emit('loaded', grants.value.length);
+    resolvedPaths.value = {};
+    // Not awaited: the listing is useful immediately, paths fill in behind it.
+    resolvePaths();
   } catch (e: any) {
     if (isGrantListingNotImplemented(e)) notImplemented.value = true;
     else if (isAuthorizationBackendUnavailable(e)) backendUnavailable.value = true;
-    else loadError.value = e?.error?.message || e?.message || 'Failed to load grants';
+    // Should not happen — a principal is always supplied — but the endpoint has
+    // a dedicated error for it, so name it rather than showing a bare 400.
+    else if (isMissingGrantPrincipal(e)) {
+      loadError.value = 'This listing needs a user or role to report on.';
+    } else loadError.value = e?.error?.message || e?.message || 'Failed to load grants';
   } finally {
     loading.value = false;
   }

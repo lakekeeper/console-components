@@ -73,11 +73,21 @@
         <span v-else>{{ item.description }}</span>
       </template>
       <template #item.actions="{ item }">
-        <DeleteConfirmDialog
-          v-if="item.can_delete"
-          type="role"
-          :name="item.name"
-          @confirmed="deleteRole(item.id)" />
+        <div class="d-inline-flex align-center ga-2">
+          <!-- The name is clickable too, but nothing says so; this is the
+               affordance rather than a second way in. -->
+          <v-btn
+            size="small"
+            variant="outlined"
+            prepend-icon="mdi-open-in-new"
+            text="Open"
+            @click="getRole(item.id)"></v-btn>
+          <DeleteConfirmDialog
+            v-if="item.can_delete"
+            type="role"
+            :name="item.name"
+            @confirmed="deleteRole(item.id)" />
+        </div>
       </template>
       <template #no-data>
         <RoleDialog v-if="canCreateRole" :action-type="'add'" @role-input="roleInput" />
