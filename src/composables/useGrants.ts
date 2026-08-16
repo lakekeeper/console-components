@@ -57,9 +57,15 @@ export const PRIVILEGE_CATEGORY_ORDER = [
 export function derivePrivilegeCategory(name: string): string {
   const n = name.toLowerCase();
   if (/(^|_)grant|ownership|^assume|admin|security/.test(n)) return 'security';
+  // Cedar's `manage` is full functional control of a level and everything
+  // beneath it — rename, configure, delete, protection — not an update among
+  // others. Only the bare name: `manage_tags` and friends are ordinary updates.
+  if (n === 'manage') return 'administration';
   if (/^create|^register/.test(n)) return 'create';
   if (/^delete|^drop|^purge|^remove/.test(n)) return 'delete';
   if (/^get|^list|^read|^select|^describe|^search|^use$|include_in_list/.test(n)) return 'read';
+  // Attaching a tag changes the object it is attached to.
+  if (n === 'apply') return 'update';
   if (
     /^update|^modify|^set|^rename|^commit|^write|^activate|^deactivate|^undrop|^control|^manage/.test(
       n,
