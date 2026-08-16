@@ -17,7 +17,6 @@
           <span class="font-weight-medium">— {{ entityName }}</span>
         </v-toolbar-title>
         <v-spacer></v-spacer>
-        <v-chip size="small" variant="tonal" class="mr-2">Preview API</v-chip>
       </v-toolbar>
 
       <div style="flex: 1 1 auto; min-height: 0; display: flex; overflow: hidden">

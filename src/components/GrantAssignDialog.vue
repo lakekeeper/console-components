@@ -275,8 +275,10 @@ function save() {
   emit('apply', { principal: targetPrincipal.value, privileges: [...selected.value] });
 }
 
-// Seed on open rather than on mount: the panel keeps this dialog alive between
-// rows, so a previous row's selection would otherwise leak into the next.
+// Seed whenever the dialog is open, including on mount: a host that renders it
+// behind a v-if and opens it in the same tick mounts it already open, so a
+// change-only watcher would never fire and the form would come up empty.
+// Re-seeding on each open also stops a previous row's selection leaking in.
 watch(
   () => props.modelValue,
   (open) => {
@@ -284,6 +286,7 @@ watch(
     picked.value = null;
     selected.value = [...initialSet.value];
   },
+  { immediate: true },
 );
 
 // A newly searched principal starts from whatever they already hold here.

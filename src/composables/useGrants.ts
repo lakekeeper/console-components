@@ -31,13 +31,42 @@ export const GRANT_APPLY_LIMIT = 100;
  * `null` collects into "other".
  */
 export const PRIVILEGE_CATEGORY_ORDER = [
-  'metadata',
-  'read',
-  'write',
   'create',
+  'read',
+  'update',
+  'delete',
+  'metadata',
+  'write',
   'security',
   'administration',
 ];
+
+/**
+ * A CRUD bucket inferred from a privilege's name.
+ *
+ * Only used where the authorizer publishes no `category` of its own — several
+ * report none, and one undifferentiated "Other" group tells a reader nothing.
+ * The authorizer's own grouping always wins when it exists: it knows what its
+ * privileges mean, and this only knows how they are spelled.
+ *
+ * Order matters. `grant_*` and ownership are security before anything else
+ * claims them, and `undrop` is a restore rather than a delete.
+ */
+export function derivePrivilegeCategory(name: string): string {
+  const n = name.toLowerCase();
+  if (/(^|_)grant|ownership|^assume|admin|security/.test(n)) return 'security';
+  if (/^create|^register/.test(n)) return 'create';
+  if (/^delete|^drop|^purge|^remove/.test(n)) return 'delete';
+  if (/^get|^list|^read|^select|^describe|^search|^use$|include_in_list/.test(n)) return 'read';
+  if (
+    /^update|^modify|^set|^rename|^commit|^write|^activate|^deactivate|^undrop|^control|^manage/.test(
+      n,
+    )
+  ) {
+    return 'update';
+  }
+  return 'other';
+}
 
 /** Rank a category for display: the known ones first, then anything else, then ungrouped. */
 export function privilegeCategoryRank(name: string): number {
@@ -59,7 +88,7 @@ export function groupPrivileges(privileges: GrantablePrivilege[]): {
 }[] {
   const byCategory = new Map<string, GrantablePrivilege[]>();
   for (const p of privileges) {
-    const key = p.privilege.category ?? 'other';
+    const key = p.privilege.category ?? derivePrivilegeCategory(p.privilege.name);
     if (!byCategory.has(key)) byCategory.set(key, []);
     byCategory.get(key)!.push(p);
   }
@@ -74,6 +103,22 @@ export function groupPrivileges(privileges: GrantablePrivilege[]): {
       privileges: list,
     }));
 }
+
+/**
+ * The resource types in hierarchy order, for views that walk all of them. The
+ * API publishes its vocabulary as an unordered map, and alphabetical would put
+ * a table above a warehouse.
+ */
+export const RESOURCE_TYPE_ORDER = [
+  'server',
+  'project',
+  'warehouse',
+  'namespace',
+  'table',
+  'view',
+  'generic-table',
+  'tag-definition',
+];
 
 /** A page walk that never terminates would hang the pane rather than fail it. */
 const MAX_PAGES = 200;
@@ -197,7 +242,9 @@ export function refFromResponse(resource: GrantResourceResponse): GrantResourceR
 export function resourceLabel(type: ResourceType | string): string {
   switch (type) {
     case 'generic-table':
-      return 'Dataset';
+      // The API's own spelling. The console says "dataset" in places, but that
+      // endpoint does not exist yet, so grants use the name the server uses.
+      return 'Generic table';
     case 'tag-definition':
       return 'Tag';
     default:
@@ -307,6 +354,16 @@ export function useGrants() {
   async function vocabularyFor(type: ResourceType | string): Promise<PrivilegeDescriptor[]> {
     const vocab = await loadVocabulary();
     return vocab[type] ?? [];
+  }
+
+  /**
+   * The whole published vocabulary, keyed by resource type — what *can* be
+   * granted anywhere on this server, as opposed to what anyone holds. Every
+   * resource type the API knows is present, so an empty list distinguishes
+   * "nothing is grantable here" from "unknown type".
+   */
+  async function vocabulary(): Promise<Record<string, PrivilegeDescriptor[]>> {
+    return loadVocabulary();
   }
 
   /**
@@ -491,6 +548,7 @@ export function useGrants() {
     supported,
     grantsSupported,
     vocabularyFor,
+    vocabulary,
     listGrants,
     listPrincipalGrants,
     grantablePrivileges,

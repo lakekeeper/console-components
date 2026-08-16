@@ -153,7 +153,20 @@
               {{ leftCollapsed ? 'Show selector' : 'Hide selector' }}
             </span>
             <v-spacer></v-spacer>
-            <v-chip size="small" variant="tonal" class="mr-2">Preview API</v-chip>
+            <!-- What can be granted at all, as published by this authorizer —
+                 the reference behind every picker in this view. -->
+            <GrantPrivilegeReference>
+              <template #activator="{ props: aProps }">
+                <v-btn
+                  v-bind="aProps"
+                  size="small"
+                  variant="text"
+                  prepend-icon="mdi-book-open-variant-outline"
+                  class="mr-2">
+                  Privilege reference
+                </v-btn>
+              </template>
+            </GrantPrivilegeReference>
           </div>
           <v-divider></v-divider>
 
@@ -194,125 +207,19 @@
               </div>
             </template>
 
-            <!-- Principal mode: the cross-resource listing. -->
+            <!-- Principal mode: the cross-resource listing, shared with the
+                 role and user pages so all three read identically. -->
             <div v-else style="height: 100%; overflow-y: auto" class="pa-4">
               <div v-if="!principal" class="pa-8 text-center text-medium-emphasis">
                 Select a principal to begin.
               </div>
-
-              <div v-else-if="principalLoading" class="d-flex flex-column align-center pa-8">
-                <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
-                <span class="mt-4 text-body-2 text-medium-emphasis">Loading grants…</span>
-              </div>
-
-              <!-- This listing crosses every resource in the project, which an
-                   authorizer that stores permissions per resource cannot answer
-                   without reading its whole store. A property of the deployment,
-                   not a failure. -->
-              <v-alert v-else-if="notImplemented" type="info" variant="tonal" density="comfortable">
-                <div class="text-body-2 font-weight-medium mb-1">
-                  Not available on this authorizer
-                </div>
-                <div class="text-body-2">
-                  The configured backend
-                  <strong>{{ authzBackend }}</strong>
-                  stores permissions per resource, so it cannot list everything one principal holds
-                  without reading its whole store. Pick a resource on the left instead — those
-                  listings work under every authorizer.
-                </div>
-              </v-alert>
-
-              <div v-else-if="principalBackendUnavailable">
-                <v-alert type="warning" variant="tonal" density="comfortable">
-                  <div class="text-body-2 font-weight-medium mb-1">
-                    Authorization service unavailable
-                  </div>
-                  <div class="text-body-2">
-                    The catalog could not reach its authorizer. This is a server-side outage, not a
-                    permissions problem.
-                  </div>
-                </v-alert>
-                <v-btn
-                  class="mt-3"
-                  size="small"
-                  variant="outlined"
-                  prepend-icon="mdi-refresh"
-                  @click="loadPrincipal">
-                  Retry
-                </v-btn>
-              </div>
-
-              <div v-else-if="principalError">
-                <v-alert type="error" variant="tonal" density="compact">
-                  {{ principalError }}
-                </v-alert>
-                <v-btn
-                  class="mt-3"
-                  size="small"
-                  variant="outlined"
-                  prepend-icon="mdi-refresh"
-                  @click="loadPrincipal">
-                  Retry
-                </v-btn>
-              </div>
-
-              <div v-else-if="!grantsList.length" class="pa-8 text-center text-medium-emphasis">
-                <v-icon size="32" class="mb-2">mdi-shield-off-outline</v-icon>
-                <div>{{ principal.title }} holds no grants in this project.</div>
-              </div>
-
-              <template v-else>
-                <v-alert
-                  type="info"
-                  variant="tonal"
-                  density="compact"
-                  class="mb-3"
-                  icon="mdi-information-outline">
-                  Grants are reported where they are held. A grant a role holds is listed under
-                  <strong>that role</strong>
-                  , not under its members, and server grants belong to no project so they are not
-                  listed here.
-                </v-alert>
-
-                <div class="text-subtitle-2 mb-2">
-                  {{ grantsList.length }} {{ grantsList.length === 1 ? 'grant' : 'grants' }} across
-                  {{ groupedByResource.length }}
-                  {{ groupedByResource.length === 1 ? 'resource' : 'resources' }}
-                </div>
-
-                <v-list density="compact" bg-color="transparent">
-                  <v-list-item v-for="group in groupedByResource" :key="group.key" class="px-2">
-                    <template #prepend>
-                      <v-icon size="20" class="mr-3">{{ group.icon }}</v-icon>
-                    </template>
-                    <v-list-item-title class="d-flex align-center ga-2">
-                      <span class="text-body-2">{{ group.label }}</span>
-                      <v-chip size="x-small" variant="outlined">{{ group.typeLabel }}</v-chip>
-                    </v-list-item-title>
-                    <v-list-item-subtitle class="mt-1">
-                      <v-chip
-                        v-for="g in group.grants"
-                        :key="g.privilege"
-                        class="mr-1 mb-1"
-                        size="x-small"
-                        variant="tonal"
-                        :color="g.recognized === false ? 'warning' : undefined">
-                        {{ g.privilege }}
-                      </v-chip>
-                    </v-list-item-subtitle>
-                    <template #append>
-                      <!-- Closes the loop: what you can see here, you can go and
-                           change, without hunting for the resource in the tree. -->
-                      <v-btn
-                        v-if="group.ref"
-                        size="small"
-                        variant="outlined"
-                        text="Manage"
-                        @click="jumpTo(group)"></v-btn>
-                    </template>
-                  </v-list-item>
-                </v-list>
-              </template>
+              <PrincipalGrantsPanel
+                v-else
+                :key="`${principal.type}:${principal.id}`"
+                :principal-id="principal.id"
+                :principal-type="principal.type"
+                allow-manage
+                @manage="onManage" />
             </div>
           </div>
         </div>
@@ -326,20 +233,14 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { helix } from 'ldrs';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
-import {
-  useGrants,
-  isGrantListingNotImplemented,
-  isAuthorizationBackendUnavailable,
-  refFromResponse,
-  resourceIcon,
-  resourceKey,
-  resourceLabel,
-} from '../composables/useGrants';
+import { resourceIcon, resourceKey, resourceLabel } from '../composables/useGrants';
 import GrantsPanel from './GrantsPanel.vue';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
+import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
+import GrantPrivilegeReference from './GrantPrivilegeReference.vue';
 import WarehousesNavigationTree from './WarehousesNavigationTree.vue';
 import type { GrantResourceRef } from '../common/interfaces';
-import type { GrantResponse, TagDefinition } from '../gen/management/types.gen';
+import type { TagDefinition } from '../gen/management/types.gen';
 
 // Registers the <l-helix> custom element. Idempotent.
 helix.register();
@@ -354,7 +255,6 @@ interface PickItem {
 
 const functions = useFunctions();
 const visual = useVisualStore();
-const grants = useGrants();
 
 const scope = ref<'server' | 'project' | 'warehouses' | 'tags' | 'principal'>('server');
 
@@ -405,7 +305,6 @@ function startResize(e: MouseEvent) {
 const currentProjectId = computed(() => visual.projectSelected['project-id'] || '');
 
 const projectName = computed(() => visual.projectSelected['project-name'] || 'this project');
-const authzBackend = computed(() => visual.getServerInfo()?.['authz-backend'] || 'in use');
 
 // ---- resource selection ----------------------------------------------------
 
@@ -566,73 +465,15 @@ const activeResourceName = computed(() => {
 const emptyHint = computed(() => {
   if (scope.value === 'tags') return 'Pick a tag to manage who holds what on it.';
   if (scope.value === 'project') return 'Pick a project to manage its grants.';
-  return 'Pick a warehouse, namespace, table, view or dataset to manage its grants.';
+  return 'Pick a warehouse, namespace, table, view or generic table to manage its grants.';
 });
 
 // ---- principal mode --------------------------------------------------------
 
 const principal = ref<SelectedPrincipal | null>(null);
-const grantsList = ref<GrantResponse[]>([]);
-const principalLoading = ref(false);
-const principalError = ref<string | null>(null);
-const notImplemented = ref(false);
-const principalBackendUnavailable = ref(false);
-
-function resourceIdOf(resource: any): string {
-  return (
-    resource?.['warehouse-id'] ??
-    resource?.['namespace-id'] ??
-    resource?.['table-id'] ??
-    resource?.['view-id'] ??
-    resource?.['generic-table-id'] ??
-    resource?.['tag-definition-id'] ??
-    resource?.['project-id'] ??
-    ''
-  );
-}
-
-/** One row per resource: six privileges on one table is one line, not six. */
-const groupedByResource = computed(() => {
-  const byResource = new Map<
-    string,
-    {
-      key: string;
-      id: string;
-      typeLabel: string;
-      label: string;
-      icon: string;
-      ref: GrantResourceRef | null;
-      grants: GrantResponse[];
-    }
-  >();
-
-  for (const g of grantsList.value) {
-    const r: any = g.resource;
-    const id = resourceIdOf(r);
-    const key = `${r?.type}:${id}`;
-    if (!byResource.has(key)) {
-      byResource.set(key, {
-        key,
-        id,
-        typeLabel: resourceLabel(r?.type),
-        // The listing carries ids, not names; resolving each would be a request
-        // per row, so the id stands in and the type carries the meaning.
-        label: id ? `${resourceLabel(r?.type)} ${id.slice(0, 8)}…` : resourceLabel(r?.type),
-        icon: resourceIcon(r?.type),
-        ref: refFromResponse(r),
-        grants: [],
-      });
-    }
-    byResource.get(key)!.grants.push(g);
-  }
-
-  return [...byResource.values()].sort(
-    (a, b) => a.typeLabel.localeCompare(b.typeLabel) || a.label.localeCompare(b.label),
-  );
-});
 
 /** Switches to the resource view for a listed grant, so it can be changed there. */
-function jumpTo(group: { ref: GrantResourceRef | null; label: string }) {
+function onManage(group: { ref: GrantResourceRef; label: string }) {
   const target = group.ref;
   if (!target) return;
   pickedName.value = group.label;
@@ -655,34 +496,10 @@ function jumpTo(group: { ref: GrantResourceRef | null; label: string }) {
   }
 }
 
-async function loadPrincipal() {
-  if (!principal.value) return;
-  principalLoading.value = true;
-  principalError.value = null;
-  notImplemented.value = false;
-  principalBackendUnavailable.value = false;
-  grantsList.value = [];
-  try {
-    const filter =
-      principal.value.type === 'user'
-        ? { principalUser: principal.value.id }
-        : { principalRole: principal.value.id };
-    grantsList.value = await grants.listPrincipalGrants(filter);
-  } catch (e: any) {
-    if (isGrantListingNotImplemented(e)) notImplemented.value = true;
-    else if (isAuthorizationBackendUnavailable(e)) principalBackendUnavailable.value = true;
-    else principalError.value = e?.error?.message || e?.message || 'Failed to load grants';
-  } finally {
-    principalLoading.value = false;
-  }
-}
-
-watch(principal, loadPrincipal);
 // The app bar can change project underneath this view; a principal from the old
 // one must not stay selected against the new one's listing.
 watch(currentProjectId, () => {
   principal.value = null;
-  grantsList.value = [];
 });
 watch(scope, (s) => {
   if (s === 'tags') loadTags();

@@ -5,7 +5,6 @@
        but not in the way. -->
   <div class="d-flex flex-column" style="height: calc(100vh - 260px); min-height: 380px">
     <div class="d-flex align-center flex-wrap ga-2 px-4 pt-3">
-      <v-chip size="small" variant="tonal">Preview API</v-chip>
       <v-spacer></v-spacer>
       <!-- "Who can touch this table" is not answered by this pane alone: a
            grant on the warehouse or namespace is held there and listed there.

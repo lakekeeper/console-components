@@ -1,11 +1,37 @@
 <template>
   <v-card>
-    <v-toolbar class="mb-4" color="transparent" density="compact" flat>
-      <v-toolbar-title>
-        <span class="text-subtitle-1">Roles</span>
-      </v-toolbar-title>
-      <template #prepend>
-        <v-icon>mdi-account-box-multiple-outline</v-icon>
+    <!-- One row: the tab above already says Roles, and the two filters belong
+         beside each other rather than pinned to opposite edges at different
+         widths. -->
+    <v-toolbar color="transparent" density="compact" flat>
+      <template v-if="canListRoles">
+        <v-combobox
+          v-model="selectedProviders"
+          class="ml-4"
+          label="Filter by provider"
+          :items="providerOptions"
+          variant="underlined"
+          density="compact"
+          hide-details
+          clearable
+          multiple
+          chips
+          closable-chips
+          no-data-text="No providers available"
+          style="max-width: 280px"
+          @update:model-value="onProviderFilterChange"></v-combobox>
+        <v-text-field
+          v-model="searchRoles"
+          class="ml-4"
+          label="Search roles"
+          prepend-inner-icon="mdi-magnify"
+          placeholder="Type to search roles"
+          variant="underlined"
+          density="compact"
+          hide-details
+          clearable
+          style="max-width: 280px"
+          @update:model-value="searchRole"></v-text-field>
       </template>
       <v-spacer></v-spacer>
       <RoleDialog v-if="canCreateRole" :action-type="'add'" @role-input="roleInput" />
@@ -26,34 +52,6 @@
       ]"
       :loading="loading"
       @update:options="paginationCheck">
-      <template #top>
-        <v-toolbar color="transparent" density="compact" flat>
-          <v-combobox
-            class="ml-4"
-            v-model="selectedProviders"
-            label="Filter by provider"
-            :items="providerOptions"
-            variant="underlined"
-            hide-details
-            clearable
-            multiple
-            chips
-            closable-chips
-            no-data-text="No providers available"
-            style="max-width: 400px"
-            @update:model-value="onProviderFilterChange"></v-combobox>
-          <v-spacer></v-spacer>
-          <v-text-field
-            v-model="searchRoles"
-            label="Search roles"
-            prepend-inner-icon="mdi-magnify"
-            placeholder="Type to search roles"
-            variant="underlined"
-            hide-details
-            clearable
-            @update:model-value="searchRole"></v-text-field>
-        </v-toolbar>
-      </template>
       <template #item.name="{ item }">
         <td @click="getRole(item.id)" style="cursor: pointer !important">
           <span style="display: flex; align-items: center">

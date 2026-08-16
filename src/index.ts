@@ -14,6 +14,8 @@ import RoleManager from './components/RoleManager.vue';
 import TagDefinitionManager from './components/TagDefinitionManager.vue';
 import PermissionExplorer from './components/PermissionExplorer.vue';
 import GrantsPanel from './components/GrantsPanel.vue';
+import GrantPrivilegeReference from './components/GrantPrivilegeReference.vue';
+import PrincipalGrantsPanel from './components/PrincipalGrantsPanel.vue';
 import GrantAssignDialog from './components/GrantAssignDialog.vue';
 import EntityGrantsTab from './components/EntityGrantsTab.vue';
 import GrantsDialog from './components/GrantsDialog.vue';
@@ -135,6 +137,8 @@ export {
   TagDefinitionManager,
   PermissionExplorer,
   GrantsPanel,
+  GrantPrivilegeReference,
+  PrincipalGrantsPanel,
   GrantAssignDialog,
   EntityGrantsTab,
   GrantsDialog,
@@ -287,7 +291,9 @@ export {
   resourceIcon,
   GRANT_APPLY_LIMIT,
   PRIVILEGE_CATEGORY_ORDER,
+  RESOURCE_TYPE_ORDER,
   privilegeCategoryRank,
+  derivePrivilegeCategory,
   groupPrivileges,
 } from './composables/useGrants';
 
@@ -397,6 +403,8 @@ const components = {
   TagDefinitionManager,
   PermissionExplorer,
   GrantsPanel,
+  GrantPrivilegeReference,
+  PrincipalGrantsPanel,
   GrantAssignDialog,
   EntityGrantsTab,
   GrantsDialog,

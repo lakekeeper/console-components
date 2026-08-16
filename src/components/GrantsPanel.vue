@@ -65,6 +65,18 @@
         style="flex: 1 1 auto; min-height: 0">
         <template #top>
           <v-toolbar color="transparent" density="compact" flat>
+            <!-- Same three-way toggle the role owners and members lists use, so
+                 narrowing to users or roles works the same way everywhere. -->
+            <v-btn-toggle
+              v-model="kindFilter"
+              mandatory
+              density="compact"
+              variant="outlined"
+              class="ml-4">
+              <v-btn value="all" size="small">All</v-btn>
+              <v-btn value="user" size="small" prepend-icon="mdi-account">Users</v-btn>
+              <v-btn value="role" size="small" prepend-icon="mdi-account-group">Roles</v-btn>
+            </v-btn-toggle>
             <!-- Non-inheritance is worth stating — a short list here does not
                  mean few people can reach the resource — but it is one fact, so
                  it rides in the toolbar with the detail behind a tooltip rather
@@ -305,6 +317,7 @@ const loadError = ref<string | null>(null);
 const saving = ref(false);
 const saveError = ref<string | null>(null);
 const filterText = ref('');
+const kindFilter = ref<'all' | 'user' | 'role'>('all');
 
 const privileges = ref<GrantablePrivilege[]>([]);
 
@@ -341,14 +354,16 @@ function displayName(name: string): string {
 
 const visibleRows = computed(() => {
   const q = filterText.value?.toLowerCase().trim();
-  if (!q) return rows.value;
-  return rows.value.filter(
-    (r) =>
+  return rows.value.filter((r) => {
+    if (kindFilter.value !== 'all' && r.kind !== kindFilter.value) return false;
+    if (!q) return true;
+    return (
       r.name.toLowerCase().includes(q) ||
       r.subtitle.toLowerCase().includes(q) ||
       r.id.toLowerCase().includes(q) ||
-      r.privileges.some((p) => p.toLowerCase().includes(q)),
-  );
+      r.privileges.some((p) => p.toLowerCase().includes(q))
+    );
+  });
 });
 
 /** What one principal currently holds, for the dialog to open on. */
