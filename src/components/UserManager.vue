@@ -126,7 +126,7 @@
 
 <script lang="ts" setup>
 import { User } from '../gen/management/types.gen';
-import { computed, reactive, ref, onMounted, watch, inject } from 'vue';
+import { reactive, ref, onMounted, watch, inject } from 'vue';
 import { Header } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
 import { useServerPermissions } from '../composables/useCatalogPermissions';
