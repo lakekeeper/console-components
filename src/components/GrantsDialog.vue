@@ -126,6 +126,8 @@
                 hover
                 :headers="headers"
                 :items="visibleRows"
+                show-expand
+                item-value="key"
                 :items-per-page="50"
                 :items-per-page-options="[50, 100, -1]"
                 :sort-by="[{ key: 'principal', order: 'asc' }]">
@@ -162,28 +164,66 @@
                   </div>
                 </template>
 
+                <!-- Counts per category, not the names: a row here can hold two
+                     dozen privileges, and the wall of chips pushed every other
+                     column off screen. The names are one expand away. -->
                 <template #item.privileges="{ item }">
-                  <v-chip
-                    v-for="p in item.privileges"
-                    :key="p"
-                    class="mr-1 mb-1"
-                    size="x-small"
-                    variant="tonal">
-                    {{ p }}
-                  </v-chip>
-                  <v-chip
-                    v-for="p in item.stale"
-                    :key="p"
-                    class="mr-1 mb-1"
-                    size="x-small"
-                    variant="outlined"
-                    color="warning">
-                    {{ p }}
-                    <v-tooltip activator="parent" location="top">
-                      No longer in this authorizer's vocabulary — enforces nothing, but is still
-                      held.
-                    </v-tooltip>
-                  </v-chip>
+                  <div class="d-flex align-center flex-wrap ga-1">
+                    <v-chip
+                      v-for="c in item.categories"
+                      :key="c"
+                      size="x-small"
+                      variant="tonal"
+                      color="primary">
+                      {{ c }} · {{ item.byCategory[c].length }}
+                      <v-tooltip activator="parent" location="top" max-width="360">
+                        {{ item.byCategory[c].join(', ') }}
+                      </v-tooltip>
+                    </v-chip>
+                    <span v-if="!item.privileges.length" class="text-disabled">–</span>
+                    <v-chip
+                      v-for="p in item.stale"
+                      :key="p"
+                      size="x-small"
+                      variant="outlined"
+                      color="warning">
+                      {{ p }}
+                      <v-tooltip activator="parent" location="top">
+                        No longer in this authorizer's vocabulary — enforces nothing, but is still
+                        held.
+                      </v-tooltip>
+                    </v-chip>
+                  </div>
+                </template>
+
+                <template #expanded-row="{ columns, item }">
+                  <tr>
+                    <td :colspan="columns.length" class="py-2">
+                      <div
+                        v-for="c in item.categories"
+                        :key="c"
+                        class="d-flex align-start ga-2 mb-1">
+                        <span
+                          class="text-caption text-medium-emphasis text-uppercase"
+                          style="min-width: 110px">
+                          {{ c }}
+                        </span>
+                        <div>
+                          <v-chip
+                            v-for="p in item.byCategory[c]"
+                            :key="p"
+                            class="mr-1 mb-1"
+                            size="x-small"
+                            variant="tonal">
+                            {{ p }}
+                          </v-chip>
+                        </div>
+                      </div>
+                      <span v-if="!item.privileges.length" class="text-disabled text-caption">
+                        Only unrecognized privileges are held here.
+                      </span>
+                    </td>
+                  </tr>
                 </template>
 
                 <template #item.granted="{ item }">
@@ -292,8 +332,10 @@ import { helix } from 'ldrs';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import {
+  derivePrivilegeCategory,
   formatGrantedSummary,
   principalKey,
+  privilegeCategoryRank,
   resourceIcon,
   resourceKey,
   resourceLabel,
@@ -366,8 +408,31 @@ interface Row {
   levelIcon: string;
   depth: number;
   privileges: string[];
+  /** Held privileges bucketed by category, for the collapsed summary. */
+  byCategory: Record<string, string[]>;
+  /** The categories this row actually holds, in display order. */
+  categories: string[];
   stale: string[];
   granted: string;
+}
+
+/**
+ * The category comes off the name, not the authorizer's vocabulary: this table
+ * spans levels whose vocabularies are only fetched when a row is edited, and
+ * loading six of them just to group chips is not worth the round trips.
+ */
+function bucketByCategory(privileges: string[]): {
+  byCategory: Record<string, string[]>;
+  categories: string[];
+} {
+  const byCategory: Record<string, string[]> = {};
+  for (const name of privileges) {
+    (byCategory[derivePrivilegeCategory(name)] ??= []).push(name);
+  }
+  const categories = Object.keys(byCategory).sort(
+    (a, b) => privilegeCategoryRank(a) - privilegeCategoryRank(b) || a.localeCompare(b),
+  );
+  return { byCategory, categories };
 }
 const rows = ref<Row[]>([]);
 
@@ -569,6 +634,10 @@ async function loadAllLevels() {
             const kind: 'user' | 'role' = pk.startsWith('user:') ? 'user' : 'role';
             const id = pk.slice(pk.indexOf(':') + 1);
             const meta = await grants.resolvePrincipalName(kind, id);
+            const held = list
+              .filter((g) => g.recognized !== false)
+              .map((g) => g.privilege)
+              .sort();
             next.push({
               key: `${level.key}|${pk}`,
               principal: meta.name,
@@ -580,10 +649,8 @@ async function loadAllLevels() {
               levelSubtitle: level.subtitle,
               levelIcon: level.icon,
               depth,
-              privileges: list
-                .filter((g) => g.recognized !== false)
-                .map((g) => g.privilege)
-                .sort(),
+              privileges: held,
+              ...bucketByCategory(held),
               stale: list
                 .filter((g) => g.recognized === false)
                 .map((g) => g.privilege)
