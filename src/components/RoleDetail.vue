@@ -122,7 +122,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import type { RoleMembership } from '../gen/management/types.gen';
@@ -130,7 +130,7 @@ import RoleOverviewEdit from './RoleOverviewEdit.vue';
 import RoleMembers from './RoleMembers.vue';
 import RoleOwners from './RoleOwners.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
-import { useGrantsSupported, useGrantsUiEnabled } from '../composables/useGrants';
+import { useGrantPrincipalListingSupported } from '../composables/useGrants';
 
 const props = defineProps<{ roleId: string; canEdit?: boolean }>();
 
@@ -157,13 +157,10 @@ function onRoleLoaded(role: any) {
   if (role?.name) roleName.value = role.name;
 }
 // Hidden where the authorizer manages no grants at all.
-// Grants ship only in the enterprise build; the server's answer gates it
-// further, so a capable server still surfaces nothing in the OSS console.
-const grantsUiEnabled = useGrantsUiEnabled();
-const serverGrantsSupported = useGrantsSupported();
-const grantsSupported = computed(
-  () => grantsUiEnabled.value && serverGrantsSupported.value === true,
-);
+// Principal-scoped: this asks what one principal holds everywhere, which not
+// every authorizer indexes for. OpenFGA cannot, so the surface is not offered
+// there rather than offered and then explaining itself.
+const grantsSupported = useGrantPrincipalListingSupported();
 const grantCount = ref<number | null>(null);
 const memberOf = ref<RoleMembership[]>([]);
 

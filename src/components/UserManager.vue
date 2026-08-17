@@ -132,19 +132,16 @@ import { StatusIntent } from '../common/enums';
 import { useServerPermissions } from '../composables/useCatalogPermissions';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
-import { useGrantsSupported, useGrantsUiEnabled } from '../composables/useGrants';
+import { useGrantPrincipalListingSupported } from '../composables/useGrants';
 import UserRenameDialog from './UserRenameDialog.vue';
 
 const functions = inject<any>('functions')!;
 
 // Hidden where the authorizer manages no grants at all.
-// Grants ship only in the enterprise build; the server's answer gates it
-// further, so a capable server still surfaces nothing in the OSS console.
-const grantsUiEnabled = useGrantsUiEnabled();
-const serverGrantsSupported = useGrantsSupported();
-const grantsSupported = computed(
-  () => grantsUiEnabled.value && serverGrantsSupported.value === true,
-);
+// Principal-scoped: this asks what one principal holds everywhere, which not
+// every authorizer indexes for. OpenFGA cannot, so the surface is not offered
+// there rather than offered and then explaining itself.
+const grantsSupported = useGrantPrincipalListingSupported();
 const grantsOpen = ref(false);
 const grantsUser = ref<{ id: string; name: string } | null>(null);
 

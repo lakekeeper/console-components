@@ -294,10 +294,12 @@ export {
 export {
   useGrants,
   useGrantsSupported,
-  useGrantsUiEnabled,
+  useGrantPrincipalListingSupported,
   resetGrantVocabulary,
   isGrantEnabledBackend,
   GRANT_ENABLED_AUTHZ_BACKENDS,
+  supportsPrincipalGrantListing,
+  GRANT_PRINCIPAL_LISTING_BACKENDS,
   isGrantListingNotImplemented,
   isMissingGrantPrincipal,
   isAuthorizationBackendUnavailable,

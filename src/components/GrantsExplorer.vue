@@ -233,7 +233,12 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { helix } from 'ldrs';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
-import { resourceIcon, resourceKey, resourceLabel } from '../composables/useGrants';
+import {
+  resourceIcon,
+  resourceKey,
+  resourceLabel,
+  useGrantPrincipalListingSupported,
+} from '../composables/useGrants';
 import GrantsPanel from './GrantsPanel.vue';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
@@ -258,13 +263,27 @@ const visual = useVisualStore();
 
 const scope = ref<'server' | 'project' | 'warehouses' | 'tags' | 'principal'>('server');
 
-const scopes = [
+const ALL_SCOPES = [
   { value: 'server', label: 'Server', icon: 'mdi-server' },
   { value: 'project', label: 'Project', icon: 'mdi-folder-account-outline' },
   { value: 'warehouses', label: 'Warehouses', icon: 'mdi-database-outline' },
   { value: 'tags', label: 'Tags', icon: 'mdi-tag-outline' },
   { value: 'principal', label: 'Principal', icon: 'mdi-shield-account-outline' },
 ] as const;
+
+// Every other scope reads one resource's grants, which every authorizer can
+// answer. Principal asks the reverse — what one principal holds anywhere — and
+// OpenFGA keeps no index for it, so the scope is dropped rather than offered
+// and then declined.
+const principalListingSupported = useGrantPrincipalListingSupported();
+const scopes = computed(() =>
+  ALL_SCOPES.filter((s) => s.value !== 'principal' || principalListingSupported.value),
+);
+// The answer arrives after mount, so a scope that stops being offered has to
+// give the view back rather than leave it on a button that no longer exists.
+watch(principalListingSupported, (ok) => {
+  if (!ok && scope.value === 'principal') scope.value = 'server';
+});
 const resolving = ref(false);
 
 // Left column: collapsible and drag-resizable, the same behaviour the warehouse

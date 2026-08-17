@@ -1,4 +1,4 @@
-import { computed, inject, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
@@ -158,15 +158,33 @@ export function formatGrantedSummary(values: (string | null | undefined)[]): str
  *
  * `allow-all` is here for development: it publishes the full vocabulary and
  * permits everything, so it is the only backend the grants UI can currently be
- * exercised against end to end. Cedar is the intended home but does not
- * implement `grantable_privileges` yet, so it reports an empty vocabulary and
- * the surfaces stay hidden until it does.
+ * exercised against end to end. Cedar is the intended home. OpenFGA is listed
+ * because grants are becoming its model too — until its authorizer implements
+ * `grantable_privileges` it reports an empty vocabulary, and every surface stays
+ * hidden on that answer rather than on this list.
  */
-export const GRANT_ENABLED_AUTHZ_BACKENDS = ['cedar', 'allow-all'];
+export const GRANT_ENABLED_AUTHZ_BACKENDS = ['cedar', 'openfga', 'allow-all'];
 
 /** Whether this server's authorizer is one whose grants the console manages. */
 export function isGrantEnabledBackend(authzBackend: string | undefined | null): boolean {
   return !!authzBackend && GRANT_ENABLED_AUTHZ_BACKENDS.includes(authzBackend.toLowerCase());
+}
+
+/**
+ * Authorizers that can answer "what does this principal hold anywhere".
+ *
+ * The reverse question of every other grants view, and a strictly harder one: it
+ * needs an index by principal. OpenFGA keeps none — it stores permissions per
+ * resource and declines the project-wide listing with 501 rather than reading
+ * its whole store — so the principal-scoped surfaces are not offered there at
+ * all. Granting *to* a user or role works under every backend on this list;
+ * only the aggregate listing is missing.
+ */
+export const GRANT_PRINCIPAL_LISTING_BACKENDS = ['cedar', 'allow-all'];
+
+/** Whether this server's authorizer can list one principal's grants project-wide. */
+export function supportsPrincipalGrantListing(authzBackend: string | undefined | null): boolean {
+  return !!authzBackend && GRANT_PRINCIPAL_LISTING_BACKENDS.includes(authzBackend.toLowerCase());
 }
 
 /**
@@ -359,14 +377,6 @@ export function resourceIcon(type: ResourceType | string): string {
   }
 }
 
-/**
- * Whether to offer the grants UI at all, as a ref a menu can bind to directly.
- *
- * Resolves once per session and is shared, so the dozen action menus on a page
- * ask the server between them exactly once. Starts null — falsy, so nothing
- * flashes into view before the answer arrives, but still distinguishable from a
- * definite no.
- */
 // Null until the server has answered. A plain `false` would be indistinguishable
 // from "not supported", and callers that act on that — restoring a bookmarked
 // tab, say — would act on an answer that has not arrived yet.
@@ -374,18 +384,16 @@ const supportedRef = ref<boolean | null>(null);
 let supportedResolved = false;
 
 /**
- * Whether this build manages grants at all.
+ * Whether this deployment manages grants, as a ref a menu can bind to directly.
  *
- * Grants are a Lakekeeper+ capability: the open-source console markets them on
- * the Governance tab but never manages them, whatever the server reports. Every
- * grants surface gates on this first, so a capable server does not surface
- * grants UI in a build that is not meant to have any.
+ * Only the server decides. Grants were briefly gated on the build edition as
+ * well — they were a Lakekeeper+ capability — but they are the access model for
+ * OpenFGA too, so a server that publishes a grant vocabulary gets the UI
+ * whichever console is talking to it.
+ *
+ * Resolves once per session and is shared, so the dozen action menus on a page
+ * ask the server between them exactly once.
  */
-export function useGrantsUiEnabled() {
-  const appConfig = inject<{ edition?: string }>('appConfig', {});
-  return computed(() => appConfig?.edition === 'enterprise');
-}
-
 export function useGrantsSupported() {
   if (!supportedResolved) {
     supportedResolved = true;
@@ -429,6 +437,25 @@ export function useGrantsSupported() {
 }
 
 /**
+ * Whether to offer the principal-scoped grants surfaces — a user's or role's own
+ * Grants tab, and the explorer's Principal scope.
+ *
+ * Both ask the reverse question, which not every authorizer indexes for. Gating
+ * on the backend keeps a tab that could only ever report "not available on this
+ * authorizer" from being offered at all; the panel keeps its own 501 handling
+ * for an authorizer that surprises us.
+ */
+export function useGrantPrincipalListingSupported() {
+  const visual = useVisualStore();
+  const supported = useGrantsSupported();
+  return computed(
+    () =>
+      supported.value === true &&
+      supportsPrincipalGrantListing(visual.getServerInfo()?.['authz-backend']),
+  );
+}
+
+/**
  * The grants API, addressed by resource rather than by endpoint.
  *
  * Every level publishes the same triad, so the components work against one
@@ -448,7 +475,12 @@ export function useGrants() {
     // Concurrent panes opening at once should share one request, not race.
     if (!vocabularyInFlight) {
       vocabularyInFlight = functions
-        .getGrantablePrivilegesVocabulary()
+        // Silent: the first caller is the capability probe, which now runs on
+        // every OpenFGA server — including ones whose authorizer predates
+        // `grantable_privileges`. That answer is "no grants UI", not an error to
+        // put in front of someone. Callers that need to say something (the
+        // panels) render their own state from the rejection.
+        .getGrantablePrivilegesVocabulary(false)
         .then((res: any) => {
           vocabularyCache = res?.privileges ?? {};
           return vocabularyCache!;
