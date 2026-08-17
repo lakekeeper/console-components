@@ -3088,6 +3088,69 @@ async function renameGenericTable(
   }
 }
 
+/**
+ * Create an Iceberg table through the catalog.
+ *
+ * The catalog writes the metadata itself, so this needs no storage credentials
+ * in the browser — unlike creating through DuckDB, which additionally requires
+ * vended credentials, bucket CORS and a working WASM engine.
+ *
+ * `properties` is how the format version is chosen (`format-version: '3'`);
+ * omitting `location` lets the warehouse apply its own layout rules.
+ *
+ * Raw fetch rather than the generated SDK: the response is table metadata,
+ * which carries i64 fields that `response.json()` would silently round.
+ */
+async function createIcebergTable(
+  warehouseId: string,
+  namespacePath: string,
+  request: {
+    name: string;
+    schema: Record<string, any>;
+    properties?: Record<string, string>;
+  },
+  notify?: boolean,
+): Promise<any> {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(request),
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const data = JSONBig({ storeAsString: true }).parse(await response.text());
+
+    if (notify) {
+      handleSuccess('createIcebergTable', `Table '${request.name}' created successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'createIcebergTable', notify);
+    throw error;
+  }
+}
+
 async function loadTable(
   warehouseId: string,
   namespacePath: string,
@@ -6837,6 +6900,7 @@ export function useFunctions(config?: any) {
     renameTable,
     renameView,
     registerTable,
+    createIcebergTable,
     listUser,
     deleteUser,
     createProject,
