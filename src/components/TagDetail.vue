@@ -214,6 +214,7 @@ import TagPermissionsPanel from './TagPermissionsPanel.vue';
 import TagAttachmentsPanel from './TagAttachmentsPanel.vue';
 import GrantsPanel from './GrantsPanel.vue';
 import { useGrantsSupported } from '../composables/useGrants';
+import { PERMISSIONS_UI_ENABLED } from '../common/featureFlags';
 import {
   TagAttachment,
   TagDefinition,
@@ -229,7 +230,11 @@ const route = useRoute();
 
 const projectId = computed(() => visual.projectSelected['project-id']);
 const { canCreateTag } = useProjectPermissions(projectId);
-const isOpenFga = computed(() => visual.getServerInfo()?.['authz-backend'] === 'openfga');
+// Permission assignments are an OpenFGA concept, and the whole surface is hidden
+// for now behind the deprecation flag: grants restate the same intent.
+const isOpenFga = computed(
+  () => PERMISSIONS_UI_ENABLED && visual.getServerInfo()?.['authz-backend'] === 'openfga',
+);
 // Hidden where the authorizer manages no grants — under `allow-all` every
 // vocabulary comes back empty, and an empty matrix would say nothing.
 // Null while the server is still being asked, which is not the same as no:

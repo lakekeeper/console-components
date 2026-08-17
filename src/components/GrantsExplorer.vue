@@ -163,7 +163,7 @@
                   variant="text"
                   prepend-icon="mdi-book-open-variant-outline"
                   class="mr-2">
-                  Privilege reference
+                  Grantable privileges
                 </v-btn>
               </template>
             </GrantPrivilegeReference>

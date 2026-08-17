@@ -152,18 +152,21 @@ export function formatGrantedSummary(values: (string | null | undefined)[]): str
  * Authorizers whose grants the console manages.
  *
  * A list rather than a single name so another backend can be added without
- * hunting down call sites — every grants surface gates on this one check. The
- * catalog's other authorizers express access through assignments instead, which
- * the permissions UI covers.
+ * hunting down call sites — every grants surface gates on this one check.
  *
- * `allow-all` is here for development: it publishes the full vocabulary and
- * permits everything, so it is the only backend the grants UI can currently be
- * exercised against end to end. Cedar is the intended home. OpenFGA is listed
- * because grants are becoming its model too — until its authorizer implements
- * `grantable_privileges` it reports an empty vocabulary, and every surface stays
- * hidden on that answer rather than on this list.
+ * `allow-all` is deliberately absent even though it publishes the full
+ * vocabulary: it permits everything regardless, so a grant made there changes
+ * nothing and the UI would only invite people to write rules that never take
+ * effect. That costs the one backend the grants UI could be exercised against
+ * end to end locally — add it back temporarily to work on grants without a
+ * Cedar or OpenFGA server.
+ *
+ * Cedar is the intended home. OpenFGA is listed because grants are becoming its
+ * model too — until its authorizer implements `grantable_privileges` it reports
+ * an empty vocabulary, and every surface stays hidden on that answer rather than
+ * on this list.
  */
-export const GRANT_ENABLED_AUTHZ_BACKENDS = ['cedar', 'openfga', 'allow-all'];
+export const GRANT_ENABLED_AUTHZ_BACKENDS = ['cedar', 'openfga'];
 
 /** Whether this server's authorizer is one whose grants the console manages. */
 export function isGrantEnabledBackend(authzBackend: string | undefined | null): boolean {
@@ -179,8 +182,11 @@ export function isGrantEnabledBackend(authzBackend: string | undefined | null): 
  * its whole store — so the principal-scoped surfaces are not offered there at
  * all. Granting *to* a user or role works under every backend on this list;
  * only the aggregate listing is missing.
+ *
+ * `allow-all` is absent for the same reason it is absent above — every surface
+ * here also requires `useGrantsSupported()`, so listing it would be dead weight.
  */
-export const GRANT_PRINCIPAL_LISTING_BACKENDS = ['cedar', 'allow-all'];
+export const GRANT_PRINCIPAL_LISTING_BACKENDS = ['cedar'];
 
 /** Whether this server's authorizer can list one principal's grants project-wide. */
 export function supportsPrincipalGrantListing(authzBackend: string | undefined | null): boolean {

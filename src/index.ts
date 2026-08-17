@@ -289,6 +289,9 @@ export {
   EXTERNAL_ROLE_AUTHZ_BACKENDS,
 } from './composables/useAuthzCapabilities';
 
+// Build-time switches for UI on its way in or out.
+export { PERMISSIONS_UI_ENABLED } from './common/featureFlags';
+
 // Grants [Preview] — the resource-addressed view of the grants API, plus the
 // helpers components need to lay a vocabulary out and classify its errors.
 export {
