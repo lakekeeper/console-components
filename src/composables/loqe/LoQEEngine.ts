@@ -181,7 +181,7 @@ export class LoQEEngine {
       // DuckDB appends `/v<version>/wasm_<platform>/<name>.duckdb_extension.wasm`
       // to this repo base, which matches the vendored layout under
       // public/duckdb/extensions/ (see vite.config copyDuckDBFiles). The core
-      // build reports v1.4.3, and we vendor v1.4.3 extensions, so the ABI matches;
+      // build reports v1.5.5, and we vendor v1.5.5 extensions, so the ABI matches;
       // allowUnsignedExtensions (below) covers signature validation.
       // NOTE: keep the vendored extension versions in sync with the DuckDB core
       // version whenever @duckdb/duckdb-wasm is bumped, or INSTALL will 404.
@@ -585,6 +585,21 @@ export class LoQEEngine {
     for (const dep of ['httpfs', 'avro', 'parquet', 'json']) {
       if (!this.installedExtensions.has(dep)) {
         await this.installExtension(dep);
+      }
+    }
+
+    // azure_wasm (community extension) provides the `abfss://` filesystem and
+    // registers the `azure` secret type. It must be loaded BEFORE the first scan:
+    // iceberg turns the vended `adls.sas-token.*` config into a `TYPE azure`
+    // secret, and without a registered type DuckDB would autoload the official
+    // `azure` extension — which has no wasm build, so it 404s in our mirror.
+    // Best-effort: s3/gcs warehouses don't need it, so a missing binary (older
+    // vendored mirror, core version without a community build) must not break ATTACH.
+    if (!this.installedExtensions.has('azure_wasm')) {
+      try {
+        await this.installExtension('azure_wasm');
+      } catch (e) {
+        console.warn('[LoQE] azure_wasm unavailable — ADLS warehouses will not be readable', e);
       }
     }
 

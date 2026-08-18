@@ -49,12 +49,15 @@ export class CatalogManager {
         )`,
       );
 
-      // Attach the Iceberg REST catalog
+      // Attach the Iceberg REST catalog.
+      // NB: the option is `STAGE_CREATE_TABLES` — DuckDB's iceberg extension renamed
+      // it from `SUPPORT_STAGE_CREATE` in 1.5.x. Unknown ATTACH options are silently
+      // collected instead of rejected, so the old name would just disable staging.
       await conn.query(
         `ATTACH IF NOT EXISTS '${projectId}/${config.catalogName}' AS "${config.catalogName}" (
           TYPE iceberg,
           SUPPORT_NESTED_NAMESPACES true,
-          SUPPORT_STAGE_CREATE true,
+          STAGE_CREATE_TABLES true,
           SECRET ${secretName},
           ENDPOINT '${config.restUri}'
         )`,
@@ -153,7 +156,7 @@ export class CatalogManager {
             `ATTACH IF NOT EXISTS '${cat.projectId}/${name}' AS "${name}" (
               TYPE iceberg,
               SUPPORT_NESTED_NAMESPACES true,
-              SUPPORT_STAGE_CREATE true,
+              STAGE_CREATE_TABLES true,
               SECRET ${cat.secretName},
               ENDPOINT '${cat.restUri}'
             )`,
@@ -225,7 +228,7 @@ export class CatalogManager {
             `ATTACH IF NOT EXISTS '${cat.projectId}/${name}' AS "${name}" (
               TYPE iceberg,
               SUPPORT_NESTED_NAMESPACES true,
-              SUPPORT_STAGE_CREATE true,
+              STAGE_CREATE_TABLES true,
               SECRET ${cat.secretName},
               ENDPOINT '${cat.restUri}'
             )`,
