@@ -14,7 +14,10 @@
  *
  * VERSION LOCK: the extension version MUST match the DuckDB core reported by the
  * pinned `@duckdb/duckdb-wasm`. Update EXTENSION_VERSIONS when bumping that dep,
- * or INSTALL will 404 / hit an ABI mismatch. Current pin: DuckDB 1.4.x → v1.4.3.
+ * or INSTALL will 404 / hit an ABI mismatch. Current pin: DuckDB 1.5.5 → v1.5.5.
+ * The community extension (azure_wasm) is published per core version too, so a
+ * core bump also needs a matching community build to exist — check
+ * https://community-extensions.duckdb.org/v<version>/wasm_eh/ before bumping.
  */
 import {
   existsSync,
@@ -33,11 +36,16 @@ import process from 'node:process';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = resolve(__dirname, '..', 'duckdb-extensions');
 const BASE_URL = 'https://extensions.duckdb.org';
+const COMMUNITY_BASE_URL = 'https://community-extensions.duckdb.org';
 
 // DuckDB extension repository coordinates. Keep in sync with @duckdb/duckdb-wasm.
-const EXTENSION_VERSIONS = ['v1.4.3'];
+const EXTENSION_VERSIONS = ['v1.5.5'];
 const PLATFORMS = ['wasm_eh', 'wasm_mvp'];
 const EXTENSIONS = ['httpfs', 'iceberg', 'avro', 'parquet', 'json'];
+// Community extensions: separate repository, identical `/v<ver>/<platform>/` layout.
+// azure_wasm gives DuckDB-WASM an `abfss://` filesystem + `azure` secret type, which
+// is what ADLS warehouses need (the official `azure` extension has no wasm build).
+const COMMUNITY_EXTENSIONS = ['azure_wasm'];
 
 // WASM magic bytes: `\0asm`. Guards against saving a 404 HTML page as a binary.
 const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d]);
@@ -78,11 +86,16 @@ async function main() {
   const jobs = [];
   for (const version of EXTENSION_VERSIONS) {
     for (const platform of PLATFORMS) {
-      for (const ext of EXTENSIONS) {
-        const rel = `${version}/${platform}/${ext}.duckdb_extension.wasm`;
-        const dest = resolve(OUT_DIR, rel);
-        if (existsSync(dest) && isValidCachedFile(dest)) continue; // valid cache
-        jobs.push({ url: `${BASE_URL}/${rel}`, dest, rel });
+      for (const [baseUrl, names] of [
+        [BASE_URL, EXTENSIONS],
+        [COMMUNITY_BASE_URL, COMMUNITY_EXTENSIONS],
+      ]) {
+        for (const ext of names) {
+          const rel = `${version}/${platform}/${ext}.duckdb_extension.wasm`;
+          const dest = resolve(OUT_DIR, rel);
+          if (existsSync(dest) && isValidCachedFile(dest)) continue; // valid cache
+          jobs.push({ url: `${baseUrl}/${rel}`, dest, rel });
+        }
       }
     }
   }
@@ -92,7 +105,7 @@ async function main() {
     return;
   }
 
-  console.log(`[duckdb-ext] downloading ${jobs.length} extension(s) from ${BASE_URL} …`);
+  console.log(`[duckdb-ext] downloading ${jobs.length} extension(s) …`);
   const results = await Promise.allSettled(
     jobs.map((j) => download(j.url, j.dest).then((size) => ({ ...j, size }))),
   );
