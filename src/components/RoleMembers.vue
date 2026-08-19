@@ -1,5 +1,5 @@
 <template>
-  <v-card variant="outlined">
+  <v-card :variant="embedded ? 'flat' : 'outlined'">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
         <v-icon class="mr-2" color="primary">mdi-account-multiple</v-icon>
@@ -149,6 +149,8 @@ import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 const props = defineProps<{
   roleId: string;
   canEdit?: boolean;
+  /** Drop the outer card chrome when a host already provides it (e.g. a tab). */
+  embedded?: boolean;
 }>();
 
 const functions = useFunctions();

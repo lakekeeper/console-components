@@ -31,6 +31,7 @@
           @click="loadProjectTasks">
           Tasks
         </v-tab>
+        <v-tab v-if="grantsSupported && userStorage.isAuthenticated" value="grants">Grants</v-tab>
         <v-tab v-if="showStatisticsTab" value="statistics" @click="loadStatistics">
           Statistics
         </v-tab>
@@ -143,6 +144,23 @@
             :project-id="project['project-id']" />
         </v-tabs-window-item>
 
+        <!-- Grants sit beside Permissions rather than replacing them: the two
+             are different models over the same intent, and a deployment can be
+             moving from one to the other. -->
+        <v-tabs-window-item
+          v-if="grantsSupported && userStorage.isAuthenticated"
+          value="grants"
+          style="height: 100%">
+          <!-- This project's own grants, beside its Permissions tab. Other levels
+               are reached from Governance, which carries the full scope rail. -->
+          <div class="pa-4" style="height: calc(100vh - 220px); min-height: 0">
+            <GrantsPanel
+              v-if="tab === 'grants'"
+              :resource="{ type: 'project' }"
+              :resource-name="project['project-name']" />
+          </div>
+        </v-tabs-window-item>
+
         <v-tabs-window-item v-if="showStatisticsTab" value="statistics" style="height: 100%">
           <ProjectStatistics ref="projectStatisticsRef" />
         </v-tabs-window-item>
@@ -168,6 +186,8 @@ import { Header, RelationType } from '../common/interfaces';
 import { useRouter } from 'vue-router';
 import ProjectTaskManager from './ProjectTaskManager.vue';
 import ProjectStatistics from './ProjectStatistics.vue';
+import GrantsPanel from './GrantsPanel.vue';
+import { useGrantsSupported } from '../composables/useGrants';
 
 const dialog = ref(false);
 const tab = ref('overview');
@@ -190,6 +210,12 @@ const serverId = computed(() => visual.getServerInfo()['server-id']);
 // Use composables for permissions
 const { showStatisticsTab, showTasksTab } = useProjectPermissions(projectId);
 const { showPermissionsTab } = useProjectAuthorizerPermissions(projectId);
+// Hidden where the authorizer manages no grants — under `allow-all` every
+// vocabulary comes back empty, and an empty matrix would say nothing.
+// Null while the server is still being asked, which is not the same as no:
+// nothing renders until the answer is a definite yes.
+const serverGrantsSupported = useGrantsSupported();
+const grantsSupported = computed(() => serverGrantsSupported.value === true);
 const { canCreateProject } = useServerPermissions(serverId);
 const loaded = ref(true);
 

@@ -229,7 +229,7 @@
         <v-col cols="12" md="6">
           <v-text-field
             density="compact"
-            v-model.number="profile['sts-token-validity-seconds']"
+            v-model="profile['sts-token-validity-seconds']"
             hint="Default 3600 (1 hour)"
             persistent-hint
             label="Token validity (seconds)"
@@ -514,6 +514,14 @@ function buildLayout() {
 
 // Drop keys that do not belong to the selected mode, so the payload matches what
 // the user actually chose rather than everything the form ever touched.
+// v-model on a Vuetify field always yields a string, so numeric fields have to be
+// coerced before they go to the API — the backend rejects "3600" for a u64.
+function toNumberOrUndefined(value: unknown) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function getData() {
   const cleanProfile: Record<string, any> = { ...profile };
   if (clientAccess.value !== 'sts') {
@@ -530,6 +538,9 @@ function getData() {
 
   cleanProfile['storage-layout'] = buildLayout();
   if (clientAccess.value === 'sts') {
+    cleanProfile['sts-token-validity-seconds'] = toNumberOrUndefined(
+      cleanProfile['sts-token-validity-seconds'],
+    );
     const tags = sessionTags.filter((t) => t.key.trim() && t.value.trim());
     cleanProfile['sts-session-tags'] = tags.length
       ? Object.fromEntries(tags.map((t) => [t.key.trim(), t.value.trim()]))

@@ -1,5 +1,5 @@
 <template>
-  <v-card variant="outlined">
+  <v-card :variant="embedded ? 'flat' : 'outlined'">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
         <v-icon class="mr-2" color="primary">mdi-shield-account</v-icon>
@@ -140,10 +140,13 @@ import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import type { RoleAssignment } from '../gen/management/types.gen';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
+import { toPrincipal } from '../common/principal';
 
 const props = defineProps<{
   roleId: string;
   canEdit?: boolean;
+  /** Drop the outer card chrome when a host already provides it (e.g. a tab). */
+  embedded?: boolean;
 }>();
 
 const functions = useFunctions();
@@ -209,9 +212,10 @@ function requestRemove(items: OwnerRow[]) {
 async function confirmRemove() {
   removing.value = true;
   try {
-    const del = removeConfirm.items.map((it) =>
-      it.type === 'user' ? { user: it.id, type: 'ownership' } : { role: it.id, type: 'ownership' },
-    );
+    const del = removeConfirm.items.map((it) => ({
+      ...toPrincipal(it.type, it.id),
+      type: 'ownership',
+    }));
     await functions.updateRoleAssignmentsById(props.roleId, del as any[], [], true);
     selected.value = [];
     await load();
@@ -238,9 +242,7 @@ async function confirmAdd() {
   adding.value = true;
   try {
     const writes: any[] = [
-      addSelected.value.type === 'user'
-        ? { user: addSelected.value.id, type: 'ownership' }
-        : { role: addSelected.value.id, type: 'ownership' },
+      { ...toPrincipal(addSelected.value.type, addSelected.value.id), type: 'ownership' },
     ];
     await functions.updateRoleAssignmentsById(props.roleId, [], writes, true);
     addOpen.value = false;

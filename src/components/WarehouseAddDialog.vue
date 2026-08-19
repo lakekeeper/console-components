@@ -95,13 +95,17 @@
               <v-divider class="my-2"></v-divider>
               <div class="text-caption text-medium-emphasis px-4 pb-1">STORAGE PROVIDER</div>
               <!-- The storage type cannot change on an existing warehouse, so the
-                   settings flow shows only the provider the warehouse actually uses. -->
+                   settings flow shows only the provider the warehouse actually uses.
+                   In the create flow the rail holds once there is work to lose —
+                   typed input, or a config imported from a file. -->
               <v-tab
                 v-for="prov in visibleProviders"
                 :key="prov.value"
                 :value="prov.value"
                 :disabled="
-                  isCreateFlow && storageFormDirty && prov.value !== storageCredentialType
+                  isCreateFlow &&
+                  (storageFormDirty || importedProvider !== null) &&
+                  prov.value !== storageCredentialType
                 ">
                 <v-img v-if="prov.img" :src="prov.img" width="20" height="20" class="mr-3" />
                 <v-icon v-else :color="prov.color" size="20" class="mr-3">{{ prov.icon }}</v-icon>
@@ -709,6 +713,12 @@ const updating = computed(() => props.processStatus === 'running');
 const importKey = ref(0);
 // Reported by the storage pane, which owns its own state.
 const storageFormDirty = ref(false);
+// The provider an imported file named, which holds the rail the same way typing
+// into a form does. An import seeds the pane without dirtying it — the seed is
+// its baseline — so the dirty flag alone would leave the other providers open,
+// and switching to one would quietly abandon the file that was just loaded.
+// Cleared by Reset, which is what "I want a different provider after all" means.
+const importedProvider = ref<string | null>(null);
 // A dirty pane that stays dirty reports the same boolean on every keystroke, so
 // the flag alone cannot invalidate a verification report. This counts edits.
 const storageEdits = ref(0);
@@ -922,6 +932,7 @@ function resetCreateForm() {
   Object.assign(key, deepClone(initialKey));
   // Force the storage pane to remount so its own local state resets too.
   storageFormDirty.value = false;
+  importedProvider.value = null;
   importKey.value++;
 }
 
@@ -1025,8 +1036,10 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
       storageCredentialType.value = String(type).toUpperCase();
     }
     // Land on the provider the file describes, rather than leaving the rail on
-    // whichever pane happened to be open.
+    // whichever pane happened to be open, and hold it there: the file is the
+    // whole truth, so the other providers have nothing to show but blank forms.
     pane.value = storageCredentialType.value;
+    importedProvider.value = storageCredentialType.value;
     importKey.value++;
   } catch (error) {
     handleError(error, 'importing warehouse JSON', true);

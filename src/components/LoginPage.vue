@@ -42,9 +42,26 @@
 
           <!-- Footer -->
           <div class="text-center mt-8">
-            <p class="text-caption text-medium-emphasis">
+            <p class="text-caption text-medium-emphasis mb-0">
               Secure authentication powered by OpenID Connect
             </p>
+
+            <!-- Vendor attribution. Opt-in via `show-built-by` so white-labelled
+                 deployments are unaffected, and unlinked when the internet is
+                 unreachable rather than a link that goes nowhere. -->
+            <div
+              v-if="showBuiltBy"
+              class="d-flex align-center justify-center ga-1 mt-4 text-caption text-medium-emphasis">
+              <span>Built by</span>
+              <component
+                :is="isOnline ? 'a' : 'span'"
+                v-bind="
+                  isOnline ? { href: VAKAMO_URL, target: '_blank', rel: 'noopener noreferrer' } : {}
+                "
+                class="built-by-link d-inline-flex align-center">
+                <img :src="vakamoLogoSrc" alt="Vakamo" class="built-by-logo" />
+              </component>
+            </div>
           </div>
         </v-card>
       </v-col>
@@ -60,8 +77,13 @@ import { useUserStore } from '../stores/user';
 import { useNavigationStore } from '../stores/navigation';
 import { useConfig } from '../composables/useCatalogPermissions';
 import { useAuth } from '../composables/useAuth';
+import { useConnectivity } from '../composables/useConnectivity';
 import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT.svg';
 import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE.svg';
+import VakamoLogoDark from '@/assets/vakamo-logo.svg';
+import VakamoLogoLight from '@/assets/vakamo-logo-white.svg';
+
+const VAKAMO_URL = 'https://vakamo.com/about?utm_source=lakekeeper-console&utm_medium=login';
 
 const router = useRouter();
 const visual = useVisualStore();
@@ -83,7 +105,17 @@ const props = defineProps({
     type: String,
     default: undefined,
   },
+  /** Shows the "Built by Vakamo" attribution. Off by default so white-labelled
+   *  deployments opt in explicitly. */
+  showBuiltBy: {
+    type: Boolean,
+    default: false,
+  },
 });
+
+const { isOnline } = useConnectivity();
+
+const vakamoLogoSrc = computed(() => (visual.themeLight ? VakamoLogoDark : VakamoLogoLight));
 
 const logoSrc = computed(() => {
   // If theme-specific custom logos are provided, use them
@@ -247,5 +279,21 @@ onUnmounted(() => {
     width: 250px;
     height: 250px;
   }
+}
+
+.built-by-logo {
+  height: 14px;
+  width: auto;
+  vertical-align: middle;
+  opacity: 0.7;
+  transition: opacity 0.2s ease-in-out;
+}
+
+a.built-by-link {
+  text-decoration: none;
+}
+
+a.built-by-link:hover .built-by-logo {
+  opacity: 1;
 }
 </style>

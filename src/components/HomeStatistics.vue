@@ -68,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue';
 import * as d3 from 'd3';
 import type { EndpointStatisticsResponse, WarehouseStatistics } from '../gen/management/types.gen';
 import { useFunctions } from '../plugins/functions';
@@ -120,16 +120,22 @@ const chartTitle = computed(() => {
 // ─── Status helpers ──────────────────────────────────────────────────────────
 // Resolve theme colors at draw time so the chart follows the active theme
 // tokens (dark mode + console-plus runtime branding) instead of fixed hex.
+// Vuetify writes the active theme's tokens onto the themed subtree
+// (`.v-theme--dark` / `.v-theme--light`); `:root` only ever carries the default
+// theme. Resolving against <html> therefore returns the light values whatever
+// the user has selected — hence black axis text in dark mode. Read from an
+// element inside the app instead.
+function themeVar(token: string): string {
+  const host =
+    chartRef.value ?? document.querySelector('.v-application') ?? document.documentElement;
+  return getComputedStyle(host).getPropertyValue(`--v-theme-${token}`).trim();
+}
 function themeColor(token: string): string {
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue(`--v-theme-${token}`)
-    .trim();
+  const v = themeVar(token);
   return v ? `rgb(${v})` : '#888';
 }
 function themeColorAlpha(token: string, alpha: number): string {
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue(`--v-theme-${token}`)
-    .trim();
+  const v = themeVar(token);
   return v ? `rgba(${v}, ${alpha})` : `rgba(128, 128, 128, ${alpha})`;
 }
 
@@ -466,6 +472,17 @@ defineExpose({ loadStatistics });
 onMounted(() => {
   loadStatistics();
 });
+
+// Colours are baked into the SVG at draw time, so a theme toggle needs a
+// redraw — otherwise the chart keeps the previous theme's palette until
+// something else happens to resize it.
+watch(
+  () => visual.themeLight,
+  async () => {
+    await nextTick();
+    if (chartData.value.length > 0) drawChart();
+  },
+);
 </script>
 
 <style scoped>

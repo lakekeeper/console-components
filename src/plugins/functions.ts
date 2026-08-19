@@ -6,6 +6,8 @@ import {
   SearchTabularRequest,
   SearchTabularResponse,
   SoftDeletionQueueConfig,
+  GrantListOptions,
+  GrantPrincipalFilter,
 } from '@/common/interfaces';
 import {
   ListTasksRequest,
@@ -21,7 +23,7 @@ import {
   ColumnTags,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
-import { currentAccessToken } from '@/plugins/authToken';
+import { currentAccessToken, clearPersistedAuthSession } from '@/plugins/authToken';
 import * as ice from '@/gen/iceberg/sdk.gen';
 import * as iceClient from '@/gen/iceberg/client.gen';
 import {
@@ -68,6 +70,7 @@ import {
   NamespaceAction,
   NamespaceAssignment,
   ProjectAssignment,
+  MoveNamespaceResponse,
   ProtectionResponse,
   RoleMetadata,
   // New action types
@@ -122,6 +125,11 @@ import {
   TagRelation,
   GetTagAssignmentsResponse,
   ValidateWarehouseResponse,
+  // Grants [Preview]
+  ApplyGrantsRequest,
+  ListGrantsResponse,
+  ResourceGrantablePrivilegesResponse,
+  GrantablePrivilegesResponse,
 } from '@/gen/management/types.gen';
 
 import { useUserStore } from '@/stores/user';
@@ -369,9 +377,20 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
         console.warn('Already on auth page, skipping redirect to prevent loop');
         return;
       }
-      // Clear user session
       const userStore = useUserStore();
       userStore.unsetUser();
+      // Only when the token itself was rejected. Clearing the store alone is
+      // not enough there: the request interceptor falls back to the persisted
+      // OIDC session, which is unexpired by the clock and would re-attach the
+      // very token the server refused, looping through login.
+      //
+      // Every other 401 leaves that session alone. `whoami` answers 401 with no
+      // principal before bootstrap, and the header can be missing while
+      // oidc-client-ts is still rehydrating — discarding a good session in
+      // either case breaks the very flow that was about to establish one.
+      if (error?.error?.type === 'AuthenticationFailed') {
+        clearPersistedAuthSession(appConfig?.idpAuthority, appConfig?.idpClientId);
+      }
       // Redirect to login page immediately without showing snackbar
       const baseUrl = appConfig?.baseUrlPrefix || '';
       window.location.href = `${baseUrl}/ui/login`;
@@ -2835,6 +2854,56 @@ async function setNamespaceProtection(
   }
 }
 
+/**
+ * Re-parents and/or renames a namespace in one call.
+ *
+ * `destination` is the full new path, its last element the new name, so moving
+ * to the warehouse root is a single-element array. A destination equal to the
+ * current path is a no-op the server answers 200, which makes a retry safe.
+ *
+ * Refused for namespaces that contain child namespaces, across warehouses, and
+ * for storage layouts that derive physical paths from namespace names or from
+ * the hierarchy — not because existing data would move (a namespace's location
+ * is frozen at creation) but because namespaces created afterwards would render
+ * their path from the new chain and land outside this one.
+ * `force` covers only the protected-namespace case.
+ */
+async function moveNamespace(
+  warehouseId: string,
+  namespaceId: string,
+  destination: string[],
+  force?: boolean,
+  notify?: boolean,
+): Promise<MoveNamespaceResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.moveNamespace({
+      client,
+
+      path: {
+        warehouse_id: warehouseId,
+        namespace_id: namespaceId,
+      },
+      body: {
+        destination,
+        ...(force ? { force: true } : {}),
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('moveNamespace', `Namespace moved to ${destination.join('.')}`, notify);
+    }
+    return data as MoveNamespaceResponse;
+  } catch (error) {
+    handleError(error, 'moveNamespace', notify);
+    throw error;
+  }
+}
+
 // Table
 async function listTables(
   id: string,
@@ -3066,6 +3135,69 @@ async function renameGenericTable(
     return true;
   } catch (error: any) {
     handleError(error, 'renameGenericTable', notify);
+    throw error;
+  }
+}
+
+/**
+ * Create an Iceberg table through the catalog.
+ *
+ * The catalog writes the metadata itself, so this needs no storage credentials
+ * in the browser — unlike creating through DuckDB, which additionally requires
+ * vended credentials, bucket CORS and a working WASM engine.
+ *
+ * `properties` is how the format version is chosen (`format-version: '3'`);
+ * omitting `location` lets the warehouse apply its own layout rules.
+ *
+ * Raw fetch rather than the generated SDK: the response is table metadata,
+ * which carries i64 fields that `response.json()` would silently round.
+ */
+async function createIcebergTable(
+  warehouseId: string,
+  namespacePath: string,
+  request: {
+    name: string;
+    schema: Record<string, any>;
+    properties?: Record<string, string>;
+  },
+  notify?: boolean,
+): Promise<any> {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(request),
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+      throw { error: { code: response.status, message: errorMessage, type: 'FetchError' } };
+    }
+
+    const data = JSONBig({ storeAsString: true }).parse(await response.text());
+
+    if (notify) {
+      handleSuccess('createIcebergTable', `Table '${request.name}' created successfully`, notify);
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'createIcebergTable', notify);
     throw error;
   }
 }
@@ -6065,6 +6197,644 @@ async function tryClipboardCopy(text: string): Promise<boolean> {
   return false;
 }
 
+/**
+ * Tables in a namespace with their uuids alongside their names.
+ *
+ * A separate wrapper rather than a flag on `listTables`: only the grant views
+ * need the uuids, and they need them to work backwards — a grant names a table
+ * by id while every route names it by path. Paired arrays, as the API returns
+ * them.
+ */
+async function listTableUuids(
+  warehouseId: string,
+  namespace: string,
+  notify?: boolean,
+): Promise<{ names: string[]; uuids: string[] }> {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.listTables({
+      client,
+      path: { prefix: warehouseId, namespace },
+      query: { returnUuids: true, pageSize: 1000 },
+    });
+    if (error) throw error;
+    const result = data as ListTablesResponse;
+    return {
+      names: (result.identifiers ?? []).map((i: any) => i.name),
+      uuids: (result['table-uuids'] ?? []) as string[],
+    };
+  } catch (error: any) {
+    handleError(error, 'listTableUuids', notify);
+    throw error;
+  }
+}
+
+/** Views in a namespace with their uuids. See `listTableUuids`. */
+async function listViewUuids(
+  warehouseId: string,
+  namespace: string,
+  notify?: boolean,
+): Promise<{ names: string[]; uuids: string[] }> {
+  try {
+    const client = iceClient.client;
+    const { data, error } = await ice.listViews({
+      client,
+      path: { prefix: warehouseId, namespace },
+      query: { returnUuids: true, pageSize: 1000 },
+    });
+    if (error) throw error;
+    const result = data as any;
+    return {
+      names: (result.identifiers ?? []).map((i: any) => i.name),
+      // `listViews` answers with `ListTablesResponse`, whose uuid field is
+      // `table-uuids` — there is no `view-uuids` in the contract, so reading it
+      // yielded an empty list and every view lost its grant identity. The
+      // fallback covers a server that spells it the other way.
+      uuids: (result['table-uuids'] ?? result['view-uuids'] ?? []) as string[],
+    };
+  } catch (error: any) {
+    handleError(error, 'listViewUuids', notify);
+    throw error;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Grants [Preview]
+//
+// Every resource level publishes the same triad — list, apply, and the
+// grantable vocabulary — so these wrappers are deliberately uniform: the
+// dispatch from a `GrantResourceRef` to the right triad lives in the
+// `useGrants` composable, not here. This file stays a flat mirror of the API.
+//
+// Two things are true of all of them. Listings page, and the token must be
+// followed until it is *absent* — a short or empty page does not mean the end.
+// And `apply` answers 204 with no body, so callers re-read rather than patching
+// their local copy from the response.
+// ---------------------------------------------------------------------------
+
+/**
+ * Everything one principal holds across the project.
+ *
+ * Requires exactly one of `principalUser` / `principalRole`. Not every
+ * authorizer can answer this — one that stores permissions per resource reports
+ * 501 `GrantListingNotImplemented` rather than reading its whole store — so
+ * callers must be ready to fall back to the per-resource listings.
+ */
+async function listGrantsForPrincipal(
+  options: GrantListOptions,
+  projectId?: string,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listGrants({
+      client,
+      query: { ...options },
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listGrantsForPrincipal', notify);
+    throw error;
+  }
+}
+
+/**
+ * The privileges this server's authorizer accepts, per resource type.
+ *
+ * Static for a given deployment and identical for every caller, which is what
+ * makes it cacheable — the per-caller `allowed` decision comes from the
+ * per-resource endpoints instead.
+ */
+async function getGrantablePrivilegesVocabulary(
+  notify?: boolean,
+): Promise<GrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getGrantablePrivileges({ client });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getGrantablePrivilegesVocabulary', notify);
+    throw error;
+  }
+}
+
+// ---- server ---------------------------------------------------------------
+
+async function listServerGrants(
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listServerGrants({ client, query: { ...options } });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listServerGrants', notify);
+    throw error;
+  }
+}
+
+async function applyServerGrants(body: ApplyGrantsRequest, notify?: boolean): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyServerGrants({ client, body });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyServerGrants', notify);
+    throw error;
+  }
+}
+
+async function getServerGrantablePrivileges(
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getServerGrantablePrivileges({
+      client,
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getServerGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- project --------------------------------------------------------------
+
+async function listProjectGrants(
+  options?: GrantListOptions,
+  projectId?: string,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    // The project endpoints carry no path segment: `x-project-id` is what
+    // addresses them, so passing it is the only way to read a project other
+    // than the selected one.
+    const { data, error } = await mng.listProjectGrants({
+      client,
+      query: { ...options },
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listProjectGrants', notify);
+    throw error;
+  }
+}
+
+async function applyProjectGrants(
+  body: ApplyGrantsRequest,
+  projectId?: string,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyProjectGrants({
+      client,
+      body,
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyProjectGrants', notify);
+    throw error;
+  }
+}
+
+async function getProjectGrantablePrivileges(
+  principal?: GrantPrincipalFilter,
+  projectId?: string,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getProjectGrantablePrivileges({
+      client,
+      query: { ...principal },
+      headers: projectId ? { 'x-project-id': projectId } : undefined,
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getProjectGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- warehouse ------------------------------------------------------------
+
+async function listWarehouseGrants(
+  warehouseId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listWarehouseGrants({
+      client,
+      path: { warehouse_id: warehouseId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listWarehouseGrants', notify);
+    throw error;
+  }
+}
+
+async function applyWarehouseGrants(
+  warehouseId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyWarehouseGrants({
+      client,
+      path: { warehouse_id: warehouseId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyWarehouseGrants', notify);
+    throw error;
+  }
+}
+
+async function getWarehouseGrantablePrivileges(
+  warehouseId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getWarehouseGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getWarehouseGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- namespace ------------------------------------------------------------
+
+async function listNamespaceGrants(
+  warehouseId: string,
+  namespaceId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listNamespaceGrants({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listNamespaceGrants', notify);
+    throw error;
+  }
+}
+
+async function applyNamespaceGrants(
+  warehouseId: string,
+  namespaceId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyNamespaceGrants({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyNamespaceGrants', notify);
+    throw error;
+  }
+}
+
+async function getNamespaceGrantablePrivileges(
+  warehouseId: string,
+  namespaceId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getNamespaceGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId, namespace_id: namespaceId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getNamespaceGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- table ----------------------------------------------------------------
+
+async function listTableGrants(
+  warehouseId: string,
+  tableId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listTableGrants({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listTableGrants', notify);
+    throw error;
+  }
+}
+
+async function applyTableGrants(
+  warehouseId: string,
+  tableId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyTableGrants({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyTableGrants', notify);
+    throw error;
+  }
+}
+
+async function getTableGrantablePrivileges(
+  warehouseId: string,
+  tableId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTableGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId, table_id: tableId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getTableGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- view -----------------------------------------------------------------
+
+async function listViewGrants(
+  warehouseId: string,
+  viewId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listViewGrants({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listViewGrants', notify);
+    throw error;
+  }
+}
+
+async function applyViewGrants(
+  warehouseId: string,
+  viewId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyViewGrants({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyViewGrants', notify);
+    throw error;
+  }
+}
+
+async function getViewGrantablePrivileges(
+  warehouseId: string,
+  viewId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getViewGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId, view_id: viewId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getViewGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- generic table --------------------------------------------------------
+
+async function listGenericTableGrants(
+  warehouseId: string,
+  genericTableId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listGenericTableGrants({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listGenericTableGrants', notify);
+    throw error;
+  }
+}
+
+async function applyGenericTableGrants(
+  warehouseId: string,
+  genericTableId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyGenericTableGrants({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyGenericTableGrants', notify);
+    throw error;
+  }
+}
+
+async function getGenericTableGrantablePrivileges(
+  warehouseId: string,
+  genericTableId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getGenericTableGrantablePrivileges({
+      client,
+      path: { warehouse_id: warehouseId, generic_table_id: genericTableId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getGenericTableGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
+// ---- tag definition -------------------------------------------------------
+
+async function listTagGrants(
+  tagDefinitionId: string,
+  options?: GrantListOptions,
+  notify?: boolean,
+): Promise<ListGrantsResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.listTagGrants({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      query: { ...options },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'listTagGrants', notify);
+    throw error;
+  }
+}
+
+async function applyTagGrants(
+  tagDefinitionId: string,
+  body: ApplyGrantsRequest,
+  notify?: boolean,
+): Promise<void> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { error } = await mng.applyTagGrants({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      body,
+    });
+    if (error) throw error;
+  } catch (error) {
+    handleError(error, 'applyTagGrants', notify);
+    throw error;
+  }
+}
+
+async function getTagGrantablePrivileges(
+  tagDefinitionId: string,
+  principal?: GrantPrincipalFilter,
+  notify?: boolean,
+): Promise<ResourceGrantablePrivilegesResponse> {
+  try {
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTagGrantablePrivileges({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+      query: { ...principal },
+    });
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    handleError(error, 'getTagGrantablePrivileges', notify);
+    throw error;
+  }
+}
+
 export function useFunctions(config?: any) {
   // Set the injected config if provided
   if (config) {
@@ -6185,6 +6955,7 @@ export function useFunctions(config?: any) {
     renameTable,
     renameView,
     registerTable,
+    createIcebergTable,
     listUser,
     deleteUser,
     createProject,
@@ -6233,6 +7004,7 @@ export function useFunctions(config?: any) {
     setTableColumnTagSilent,
     deleteTableColumnTagSilent,
     setWarehouseFormatVersionPolicy,
+    moveNamespace,
     setNamespaceProtection,
     getNamespaceProtection,
     getTableProtection,
@@ -6266,6 +7038,35 @@ export function useFunctions(config?: any) {
     setProjectTaskLogCleanupConfig,
     getNewToken,
     handleError,
+    listTableUuids,
+    listViewUuids,
+    // Grants [Preview]
+    listGrantsForPrincipal,
+    getGrantablePrivilegesVocabulary,
+    listServerGrants,
+    applyServerGrants,
+    getServerGrantablePrivileges,
+    listProjectGrants,
+    applyProjectGrants,
+    getProjectGrantablePrivileges,
+    listWarehouseGrants,
+    applyWarehouseGrants,
+    getWarehouseGrantablePrivileges,
+    listNamespaceGrants,
+    applyNamespaceGrants,
+    getNamespaceGrantablePrivileges,
+    listTableGrants,
+    applyTableGrants,
+    getTableGrantablePrivileges,
+    listViewGrants,
+    applyViewGrants,
+    getViewGrantablePrivileges,
+    listGenericTableGrants,
+    applyGenericTableGrants,
+    getGenericTableGrantablePrivileges,
+    listTagGrants,
+    applyTagGrants,
+    getTagGrantablePrivileges,
   };
 
   // Return functions with simple boolean notification control

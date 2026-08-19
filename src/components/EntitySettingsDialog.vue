@@ -68,28 +68,29 @@
               <div style="max-width: 1000px; padding: 16px 24px">
                 <div v-show="pane === 'SETTINGS'">
                   <v-text-field
-                    v-if="canBeRenamed"
                     v-model="nameInput"
                     :label="`${labelCap} name`"
                     prepend-inner-icon="mdi-rename-outline"
-                    :hint="canCommit ? `Renaming moves this ${label} within its namespace` : ''"
+                    :hint="renameHint"
                     persistent-hint
                     :rules="[
                       (v: string) => !!v?.trim() || 'Required',
                       (v: string) => !v.includes('/') || 'Cannot contain “/”',
                     ]"
                     :error="!nameInput.trim()"
-                    :disabled="!canCommit"
+                    :disabled="!canCommit || !canRenameNamespace"
                     class="mb-4"></v-text-field>
 
+                  <!-- A rename is a move with the parent unchanged, and the
+                       storage layout can refuse it. Said here rather than after
+                       a failed save. -->
                   <v-alert
-                    v-if="!canBeRenamed"
-                    type="info"
+                    v-if="renameRefusal"
+                    type="warning"
                     variant="tonal"
                     density="compact"
                     class="mb-4">
-                    A namespace is identified by its path, so it cannot be renamed. Create the new
-                    path and move its contents instead.
+                    {{ renameRefusal }}
                   </v-alert>
 
                   <v-card variant="flat" class="mb-4">
@@ -205,9 +206,14 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
+import {
+  namespaceMoveRefusal,
+  namespaceMoveCapability,
+  type StorageLayoutInfo,
+} from '../common/namespaceMove';
 const props = defineProps<{
-  /** The four differ only in which endpoints apply — and namespaces cannot be
-      renamed at all, so that field is simply absent for them. */
+  /** The four differ only in which endpoints apply. A namespace renames through
+      `move_namespace` with its parent unchanged; the rest have rename endpoints. */
   entityType: 'table' | 'view' | 'generic-table' | 'namespace';
   warehouseId: string;
   namespacePath: string;
@@ -238,8 +244,45 @@ const labelCap = computed(() => label.value.charAt(0).toUpperCase() + label.valu
 // Only Iceberg tables, views and namespaces carry editable properties; a generic
 // table has no properties endpoint, so that pane does not exist for it.
 const hasProperties = computed(() => props.entityType !== 'generic-table');
-// There is no rename endpoint for a namespace: its path is its identity.
-const canBeRenamed = computed(() => props.entityType !== 'namespace');
+// Every entity here can be renamed. A namespace goes through `move_namespace`
+// with its parent unchanged — there is no separate rename endpoint, because its
+// path is its identity. The move dialog covers re-parenting; this the name alone.
+const isNamespace = computed(() => props.entityType === 'namespace');
+const renameHint = computed(() => {
+  if (!props.canCommit) return '';
+  return isNamespace.value
+    ? 'Renaming keeps it under the same parent. Use Move to change where it lives.'
+    : `Renaming moves this ${label.value} within its namespace`;
+});
+/** Namespaces are addressed by path, so the editable part is the last segment. */
+const namespaceSegments = computed(() => props.namespacePath.split('\x1F').filter(Boolean));
+const displayedName = computed(() =>
+  isNamespace.value
+    ? (namespaceSegments.value[namespaceSegments.value.length - 1] ?? props.entityName)
+    : props.entityName,
+);
+
+// The layout can refuse a rename, and only the server knows the layout — so it
+// is fetched once the dialog is actually open rather than by every menu that
+// renders this component.
+const layout = ref<StorageLayoutInfo | null>(null);
+// Stated as soon as the dialog knows the layout, not only once a different name
+// has been typed: the field is unusable either way, and finding that out after
+// editing is worse than being told.
+const hasChildNamespaces = ref(false);
+const canRenameNamespace = computed(
+  () =>
+    !isNamespace.value ||
+    (!hasChildNamespaces.value && namespaceMoveCapability(layout.value).canRename),
+);
+const renameRefusal = computed(() => {
+  if (!isNamespace.value || canRenameNamespace.value) return null;
+  // Children first: it is the blunter rule, and the layout one would be beside
+  // the point while it applies.
+  if (hasChildNamespaces.value)
+    return 'This namespace has child namespaces. Renaming goes through the move endpoint, which does not support moving a subtree, so it has to be empty of namespaces first.';
+  return namespaceMoveRefusal(layout.value, true, false);
+});
 // The route names the entity differently depending on what it is.
 const routeParam = computed(() => (props.entityType === 'view' ? 'vid' : 'tid'));
 // The properties editor knows three kinds; a generic table never reaches it.
@@ -249,7 +292,7 @@ const propertiesEntityType = computed<'table' | 'view' | 'namespace'>(() =>
 
 const dialogOpen = ref(false);
 const pane = ref('SETTINGS');
-const nameInput = ref(props.entityName);
+const nameInput = ref('');
 const protectedPending = ref(props.protectedState);
 const settingsError = ref<string | null>(null);
 const saving = ref(false);
@@ -258,29 +301,36 @@ const propertiesDirty = ref(false);
 
 const settingsDirty = computed(
   () =>
-    (canBeRenamed.value &&
-      nameInput.value.trim() !== props.entityName &&
-      !!nameInput.value.trim()) ||
+    (nameInput.value.trim() !== displayedName.value && !!nameInput.value.trim()) ||
     protectedPending.value !== props.protectedState,
 );
 const canSaveSettings = computed(() => {
   if (!settingsDirty.value) return false;
-  if (!canBeRenamed.value) return true;
+  if (renameRefusal.value) return false;
   return !!nameInput.value.trim() && !nameInput.value.includes('/');
 });
 
 function resetSettings() {
-  nameInput.value = props.entityName;
+  nameInput.value = displayedName.value;
   protectedPending.value = props.protectedState;
   settingsError.value = null;
 }
 
 // Seed on open rather than on mount: the menu keeps this component alive, so a
 // rename or a protection change elsewhere would otherwise show stale values.
-watch(dialogOpen, (open) => {
+watch(dialogOpen, async (open) => {
   if (open) {
     resetSettings();
     pane.value = 'SETTINGS';
+    // Only a namespace rename can be refused by the layout, so only it pays for
+    // the lookup. A failure leaves `layout` null, which refuses nothing — the
+    // server still has the final say on save.
+    if (isNamespace.value && !layout.value) {
+      const warehouse = await functions.getWarehouse(props.warehouseId, false).catch(() => null);
+      layout.value =
+        ((warehouse as any)?.['storage-profile']?.['storage-layout'] as
+          StorageLayoutInfo | undefined) ?? null;
+    }
   } else {
     // The panel unmounts on close, so nothing would ever emit dirty:false and
     // the next open would start marked — and refuse to close.
@@ -309,7 +359,18 @@ async function setProtection(value: boolean) {
 }
 
 async function rename(newName: string) {
-  if (props.entityType === 'namespace') return;
+  if (props.entityType === 'namespace') {
+    // Same parent, new leaf — a rename expressed as a move, which is the only
+    // shape the API has.
+    await functions.moveNamespace(
+      props.warehouseId,
+      props.entityId,
+      [...namespaceSegments.value.slice(0, -1), newName],
+      undefined,
+      true,
+    );
+    return;
+  }
   if (props.entityType === 'view') {
     await functions.renameView(
       props.warehouseId,
@@ -347,15 +408,19 @@ async function saveSettings() {
       emit('protectionChanged', protectedPending.value);
     }
     const newName = nameInput.value.trim();
-    if (canBeRenamed.value && newName && newName !== props.entityName && !newName.includes('/')) {
+    if (newName && newName !== displayedName.value && !newName.includes('/')) {
       await rename(newName);
       dialogOpen.value = false;
       // The route carries the entity name (`tid` or `vid`); follow the rename.
-      await router.replace({
-        name: route.name as any,
-        params: { ...route.params, [routeParam.value]: newName },
-        query: route.query,
-      });
+      // A namespace is addressed by its whole path instead, so the last segment
+      // is swapped and the rest kept.
+      const params = isNamespace.value
+        ? {
+            ...route.params,
+            nsid: [...namespaceSegments.value.slice(0, -1), newName].join('\x1F'),
+          }
+        : { ...route.params, [routeParam.value]: newName };
+      await router.replace({ name: route.name as any, params: params as any, query: route.query });
       return;
     }
     emit('updated');

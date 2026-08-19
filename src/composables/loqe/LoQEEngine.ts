@@ -6,6 +6,7 @@ import { TokenManager } from './TokenManager';
 import { CatalogManager } from './CatalogManager';
 import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
 import { friendlyQueryError } from './queryError';
+import { toPlainCellValue } from './arrowValue';
 
 /**
  * Format an arbitrary thrown value for logging. DuckDB-WASM errors frequently
@@ -367,7 +368,9 @@ export class LoQEEngine {
       for (let i = 0; i < rowsToRead; i++) {
         const row: any[] = [];
         for (let j = 0; j < result.numCols; j++) {
-          row.push(result.getChildAt(j)?.get(i));
+          // Flattened here, at the boundary: an Arrow struct/map row is a proxy
+          // that Vue's reactive() cannot wrap (see toPlainCellValue).
+          row.push(toPlainCellValue(result.getChildAt(j)?.get(i)));
         }
         rows.push(row);
 

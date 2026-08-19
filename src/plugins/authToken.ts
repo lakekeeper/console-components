@@ -32,3 +32,30 @@ export function currentAccessToken(authority?: string, clientId?: string): strin
   }
   return '';
 }
+
+/**
+ * Drop the persisted OIDC session for the active client.
+ *
+ * `unsetUser()` clears the Pinia copy, but `currentAccessToken` deliberately
+ * falls back to oidc-client-ts's own session in `sessionStorage` so a request
+ * fired during rehydration is not sent unauthenticated. That fallback also
+ * means a token the *server* has rejected keeps being re-attached: it is
+ * unexpired by the clock, so nothing local considers it stale. Only the server
+ * can say otherwise, and when it does the session has to go too — otherwise the
+ * next request carries the same dead token and login loops.
+ */
+export function clearPersistedAuthSession(authority?: string, clientId?: string): void {
+  try {
+    if (authority && clientId) {
+      sessionStorage.removeItem(`oidc.user:${authority}:${clientId}`);
+      return;
+    }
+    // Without the client's identity, clear whatever oidc-client-ts wrote rather
+    // than leaving behind a session we cannot name.
+    for (const key of Object.keys(sessionStorage)) {
+      if (key.startsWith('oidc.user:')) sessionStorage.removeItem(key);
+    }
+  } catch {
+    /* sessionStorage unavailable — nothing to clear */
+  }
+}

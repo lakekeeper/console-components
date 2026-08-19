@@ -378,6 +378,7 @@ import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import aliyunIcon from '@/assets/aliyun.svg';
 import { isAliyunOssEndpoint } from '@/common/storageIcon';
+import { formatIcebergType } from '@/common/icebergTypes';
 
 // ── Props / Emits ─────────────────────────────────────────────────────
 
@@ -456,6 +457,8 @@ interface TreeItem {
   namespaceId?: string;
   loaded?: boolean;
   fieldType?: string;
+  /** Dotted path from the top-level column, for nested fields. */
+  fieldPath?: string;
   parentType?: 'table' | 'view';
   parentName?: string;
   /** Storage profile type — only set on warehouse nodes. */
@@ -943,19 +946,59 @@ async function loadFieldsForTableOrView(item: TreeItem) {
   }
 }
 
-function makeFieldItem(parent: TreeItem, field: any): TreeItem {
-  const fieldType = typeof field.type === 'string' ? field.type : JSON.stringify(field.type);
-  return {
-    id: `field-${parent.id}-${field.id}`,
+/**
+ * One field node, with children for anything nested.
+ *
+ * The Iceberg schema already describes nested types in full, so a struct/list/map
+ * column expands rather than being flattened into a JSON blob. Nested nodes keep
+ * a dotted path as their name so inserting one into the editor yields something
+ * usable (`address.street`).
+ */
+function makeFieldItem(parent: TreeItem, field: any, namePath = ''): TreeItem {
+  const path = namePath ? `${namePath}.${field.name}` : field.name;
+  const item: TreeItem = {
+    id: `field-${parent.id}-${path}-${field.id}`,
     name: field.name,
     type: 'field',
-    fieldType,
+    fieldType: formatIcebergType(field.type),
     warehouseId: parent.warehouseId,
     warehouseName: parent.warehouseName,
     namespaceId: parent.namespaceId,
     parentType: parent.type as 'table' | 'view',
     parentName: parent.name,
+    fieldPath: path,
   };
+
+  const children = makeNestedFieldItems(parent, field.type, path);
+  if (children.length) item.children = children;
+  return item;
+}
+
+/**
+ * Children of a non-primitive type. List elements and map key/values have no
+ * name of their own, so they are labelled by their role.
+ */
+function makeNestedFieldItems(parent: TreeItem, type: any, path: string): TreeItem[] {
+  if (!type || typeof type === 'string') return [];
+
+  if (type.type === 'struct') {
+    return (type.fields ?? []).map((f: any) => makeFieldItem(parent, f, path));
+  }
+
+  if (type.type === 'list') {
+    return [
+      makeFieldItem(parent, { id: `${path}-element`, name: 'element', type: type.element }, path),
+    ];
+  }
+
+  if (type.type === 'map') {
+    return [
+      makeFieldItem(parent, { id: `${path}-key`, name: 'key', type: type.key }, path),
+      makeFieldItem(parent, { id: `${path}-value`, name: 'value', type: type.value }, path),
+    ];
+  }
+
+  return [];
 }
 
 // ── Handle "Load more…" node clicks ──────────────────────────────────
@@ -1172,6 +1215,9 @@ function findItemById(items: TreeItem[], id: string): TreeItem | null {
 
 function getTypeIcon(fieldType: string): string {
   const type = fieldType.toLowerCase();
+  // Containers first: `struct<a:string>` contains its members' type names, so
+  // testing primitives first would match those instead.
+  if (isContainerType(type)) return 'mdi-code-json';
   if (
     type.includes('int') ||
     type.includes('long') ||
@@ -1188,18 +1234,22 @@ function getTypeIcon(fieldType: string): string {
     return 'mdi-calendar-clock';
   if (type.includes('binary') || type.includes('bytes')) return 'mdi-file-code';
   if (type.includes('uuid')) return 'mdi-identifier';
-  if (
-    type.includes('struct') ||
-    type.includes('map') ||
-    type.includes('list') ||
-    type.includes('array')
-  )
-    return 'mdi-code-json';
   return 'mdi-help-circle-outline';
+}
+
+/** True for struct/list/map summaries, whatever they contain. */
+function isContainerType(type: string): boolean {
+  return (
+    type.startsWith('struct<') ||
+    type.startsWith('list<') ||
+    type.startsWith('map<') ||
+    type.startsWith('array<')
+  );
 }
 
 function getTypeColor(fieldType: string): string {
   const type = fieldType.toLowerCase();
+  if (isContainerType(type)) return 'amber';
   if (
     type.includes('int') ||
     type.includes('long') ||
@@ -1213,13 +1263,6 @@ function getTypeColor(fieldType: string): string {
   if (type.includes('date') || type.includes('time') || type.includes('timestamp')) return 'purple';
   if (type.includes('binary') || type.includes('bytes')) return 'grey';
   if (type.includes('uuid')) return 'indigo';
-  if (
-    type.includes('struct') ||
-    type.includes('map') ||
-    type.includes('list') ||
-    type.includes('array')
-  )
-    return 'amber';
   return 'grey';
 }
 
@@ -1241,7 +1284,9 @@ function handleInsertField(item: TreeItem) {
     warehouseId: item.warehouseId,
     warehouseName: item.warehouseName || '',
     namespaceId: item.namespaceId,
-    name: item.name,
+    // Nested fields insert their dotted path — `address.street` is what a query
+    // needs, where `street` alone would not resolve.
+    name: item.fieldPath || item.name,
   });
 }
 

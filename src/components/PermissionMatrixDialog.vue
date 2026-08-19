@@ -416,6 +416,7 @@
 import { ref, computed, inject, watch } from 'vue';
 import type { User, Role } from '@/gen/management/types.gen';
 import { permissionActions } from '@/common/permissionActions';
+import { toPrincipal } from '@/common/principal';
 
 const functions = inject<any>('functions');
 
@@ -753,8 +754,7 @@ async function loadMatrix() {
         for (const action of selectedActions.value) {
           const check: any = {
             id: `check-${checkId++}`,
-            identity:
-              selectedIdentityType.value === 'user' ? { user: identity.id } : { role: identity.id },
+            identity: toPrincipal(selectedIdentityType.value, identity.id),
           };
 
           // Convert action string to action object format

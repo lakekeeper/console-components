@@ -13,6 +13,13 @@ import RoleDialog from './components/RoleDialog.vue';
 import RoleManager from './components/RoleManager.vue';
 import TagDefinitionManager from './components/TagDefinitionManager.vue';
 import PermissionExplorer from './components/PermissionExplorer.vue';
+import GrantsPanel from './components/GrantsPanel.vue';
+import GrantPrivilegeReference from './components/GrantPrivilegeReference.vue';
+import PrincipalGrantsPanel from './components/PrincipalGrantsPanel.vue';
+import GrantAssignDialog from './components/GrantAssignDialog.vue';
+import EntityGrantsTab from './components/EntityGrantsTab.vue';
+import GrantsDialog from './components/GrantsDialog.vue';
+import GrantsExplorer from './components/GrantsExplorer.vue';
 import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
 import TagPermissionsPanel from './components/TagPermissionsPanel.vue';
@@ -58,6 +65,7 @@ import NamespaceHeader from './components/NamespaceHeader.vue';
 import NamespaceDetails from './components/NamespaceDetails.vue';
 import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
+import MoveNamespaceDialog from './components/MoveNamespaceDialog.vue';
 import TableHeader from './components/TableHeader.vue';
 import TableActionsMenu from './components/TableActionsMenu.vue';
 import GenericTableHeader from './components/GenericTableHeader.vue';
@@ -107,6 +115,8 @@ import ServerOverview from './components/ServerOverview.vue';
 import SupportBundleDialog from './components/SupportBundleDialog.vue';
 import UsageDatumDialog from './components/UsageDatumDialog.vue';
 import FeedbackDialog from './components/FeedbackDialog.vue';
+import ContactVakamoDialog from './components/ContactVakamoDialog.vue';
+import PlusFeatureDialog from './components/PlusFeatureDialog.vue';
 import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
@@ -129,6 +139,13 @@ export {
   RoleManager,
   TagDefinitionManager,
   PermissionExplorer,
+  GrantsPanel,
+  GrantPrivilegeReference,
+  PrincipalGrantsPanel,
+  GrantAssignDialog,
+  EntityGrantsTab,
+  GrantsDialog,
+  GrantsExplorer,
   TagDefinitionDialog,
   TagAttachmentsPanel,
   TagPermissionsPanel,
@@ -158,6 +175,8 @@ export {
   SupportBundleDialog,
   UsageDatumDialog,
   FeedbackDialog,
+  ContactVakamoDialog,
+  PlusFeatureDialog,
   UserManager,
   ProjectNameAddOrEditDialog,
   AuthenticationDisabledWarningBanner,
@@ -194,6 +213,7 @@ export {
   NamespaceHeader,
   NamespaceDetails,
   NamespaceActionsMenu,
+  MoveNamespaceDialog,
   NamespacePropertiesDialog,
   TableHeader,
   TableActionsMenu,
@@ -259,6 +279,54 @@ export {
 
 // Auth composables
 export * from './composables/useAuth';
+
+// Session-wide internet reachability — surfaces gate external links on this so
+// air-gapped deployments fall back to offline-safe paths.
+export { useConnectivity, type ConnectivityStatus } from './composables/useConnectivity';
+
+// What the configured authorizer lets the console do, beyond per-object rights.
+export {
+  useRoleLifecycleSupported,
+  isExternalRoleBackend,
+  EXTERNAL_ROLE_AUTHZ_BACKENDS,
+} from './composables/useAuthzCapabilities';
+
+// Build-time switches for UI on its way in or out.
+export { PERMISSIONS_UI_ENABLED } from './common/featureFlags';
+
+// The `UserOrRole` invariant the management schema stopped expressing: read a
+// principal with `principalRef`, build one with `toPrincipal`.
+export { principalRef, toPrincipal } from './common/principal';
+export type { PrincipalRef } from './common/principal';
+
+// Grants [Preview] — the resource-addressed view of the grants API, plus the
+// helpers components need to lay a vocabulary out and classify its errors.
+export {
+  useGrants,
+  useGrantsSupported,
+  useGrantPrincipalListingSupported,
+  resetGrantVocabulary,
+  isGrantEnabledBackend,
+  GRANT_ENABLED_AUTHZ_BACKENDS,
+  supportsPrincipalGrantListing,
+  GRANT_PRINCIPAL_LISTING_BACKENDS,
+  isGrantListingNotImplemented,
+  isMissingGrantPrincipal,
+  isAuthorizationBackendUnavailable,
+  principalKey,
+  grantKey,
+  resourceKey,
+  refFromResponse,
+  resourceLabel,
+  resourceIcon,
+  GRANT_APPLY_LIMIT,
+  PRIVILEGE_CATEGORY_ORDER,
+  RESOURCE_TYPE_ORDER,
+  privilegeCategoryRank,
+  derivePrivilegeCategory,
+  groupPrivileges,
+  formatGrantedSummary,
+} from './composables/useGrants';
 
 // Export stores
 export { useVisualStore, type PolicyBuilderState, type OfflineReason } from './stores/visual';
@@ -365,6 +433,13 @@ const components = {
   RoleManager,
   TagDefinitionManager,
   PermissionExplorer,
+  GrantsPanel,
+  GrantPrivilegeReference,
+  PrincipalGrantsPanel,
+  GrantAssignDialog,
+  EntityGrantsTab,
+  GrantsDialog,
+  GrantsExplorer,
   TagDefinitionDialog,
   TagAttachmentsPanel,
   TagPermissionsPanel,
@@ -394,6 +469,8 @@ const components = {
   SupportBundleDialog,
   UsageDatumDialog,
   FeedbackDialog,
+  ContactVakamoDialog,
+  PlusFeatureDialog,
   UserManager,
   AuthenticationDisabledWarningBanner,
   WarehouseRenameDialog,
@@ -430,6 +507,7 @@ const components = {
   NamespaceHeader,
   NamespaceDetails,
   NamespaceActionsMenu,
+  MoveNamespaceDialog,
   NamespacePropertiesDialog,
   TableHeader,
   TableActionsMenu,

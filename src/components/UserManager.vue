@@ -29,6 +29,16 @@
       </v-toolbar>
     </template>
     <template #item.actions="{ item }">
+      <!-- Users have no detail page, so what a user can do is answered from
+           their row rather than somewhere else. -->
+      <v-btn
+        v-if="grantsSupported"
+        class="mr-2"
+        size="small"
+        variant="text"
+        prepend-icon="mdi-shield-key-outline"
+        text="Grants"
+        @click="openGrants(item)"></v-btn>
       <span v-for="(action, i) in item.actions" :key="i" class="mr-2">
         <user-rename-dialog
           v-if="action == 'rename'"
@@ -83,6 +93,35 @@
       <v-empty-state icon="mdi-account-off-outline" title="No users found"></v-empty-state>
     </template>
   </v-data-table>
+
+  <!-- Wide enough for the privilege chips to lay out instead of wrapping into a
+       cramped column, and tall enough to use the viewport it is given. -->
+  <v-dialog v-model="grantsOpen" max-width="1100" scrollable>
+    <v-card style="display: flex; flex-direction: column; max-height: 90vh">
+      <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3 flex-grow-0">
+        <v-icon>mdi-shield-key-outline</v-icon>
+        Grants
+        <span class="font-weight-medium">— {{ grantsUser?.name }}</span>
+        <v-spacer></v-spacer>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text style="flex: 1 1 auto; min-height: 0; overflow-y: auto">
+        <PrincipalGrantsPanel
+          v-if="grantsOpen && grantsUser"
+          :key="grantsUser.id"
+          :principal-id="grantsUser.id"
+          principal-type="user"
+          :principal-name="grantsUser.name"
+          allow-edit
+          allow-open />
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions class="flex-grow-0">
+        <v-spacer></v-spacer>
+        <v-btn variant="text" @click="grantsOpen = false">Close</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script lang="ts" setup>
@@ -92,9 +131,24 @@ import { Header } from '../common/interfaces';
 import { StatusIntent } from '../common/enums';
 import { useServerPermissions } from '../composables/useCatalogPermissions';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
+import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
+import { useGrantPrincipalListingSupported } from '../composables/useGrants';
 import UserRenameDialog from './UserRenameDialog.vue';
 
 const functions = inject<any>('functions')!;
+
+// Hidden where the authorizer manages no grants at all.
+// Principal-scoped: this asks what one principal holds everywhere, which not
+// every authorizer indexes for. OpenFGA cannot, so the surface is not offered
+// there rather than offered and then explaining itself.
+const grantsSupported = useGrantPrincipalListingSupported();
+const grantsOpen = ref(false);
+const grantsUser = ref<{ id: string; name: string } | null>(null);
+
+function openGrants(item: { id: string; name: string }) {
+  grantsUser.value = { id: item.id, name: item.name };
+  grantsOpen.value = true;
+}
 
 // Get server ID and permissions
 const serverId = ref('');

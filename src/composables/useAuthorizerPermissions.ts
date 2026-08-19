@@ -11,6 +11,7 @@ import type {
 } from '@/gen/management/types.gen';
 import type { Ref } from 'vue';
 import { useVisualStore } from '@/stores/visual';
+import { PERMISSIONS_UI_ENABLED } from '@/common/featureFlags';
 
 // Helper to get config values
 function usePermissionsConfig() {
@@ -81,6 +82,7 @@ export function useServerAuthorizerPermissions(serverId: Ref<string> | string) {
   // UI visibility helpers
   const showPermissionsTab = computed(
     () =>
+      PERMISSIONS_UI_ENABLED &&
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
@@ -161,6 +163,7 @@ export function useRoleAuthorizerPermissions(roleId: Ref<string> | string) {
   // UI visibility helpers
   const showPermissionsTab = computed(
     () =>
+      PERMISSIONS_UI_ENABLED &&
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
@@ -263,6 +266,7 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
   // UI visibility helpers
   const showPermissionsTab = computed(
     () =>
+      PERMISSIONS_UI_ENABLED &&
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
@@ -343,6 +347,7 @@ export function useWarehouseAuthorizerPermissions(warehouseId: Ref<string> | str
   // UI visibility helpers
   const showPermissionsTab = computed(
     () =>
+      PERMISSIONS_UI_ENABLED &&
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
@@ -441,6 +446,7 @@ export function useNamespaceAuthorizerPermissions(
   // UI visibility helpers
   const showPermissionsTab = computed(
     () =>
+      PERMISSIONS_UI_ENABLED &&
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
@@ -537,6 +543,7 @@ export function useTableAuthorizerPermissions(
   // UI visibility helpers
   const showPermissionsTab = computed(
     () =>
+      PERMISSIONS_UI_ENABLED &&
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
@@ -632,6 +639,7 @@ export function useViewAuthorizerPermissions(
   // UI visibility helpers
   const showPermissionsTab = computed(
     () =>
+      PERMISSIONS_UI_ENABLED &&
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,
@@ -728,6 +736,7 @@ export function useGenericTableAuthorizerPermissions(
 
   const showPermissionsTab = computed(
     () =>
+      PERMISSIONS_UI_ENABLED &&
       canReadAssignments.value &&
       config.enabledAuthentication.value &&
       config.enabledPermissions.value,

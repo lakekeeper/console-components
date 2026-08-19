@@ -1,5 +1,5 @@
 <template>
-  <v-dialog v-model="isDialogActive" max-width="600">
+  <v-dialog v-model="isDialogActive" max-width="760">
     <template #activator="{ props: activatorProps }">
       <slot name="activator" :props="activatorProps">
         <v-btn
@@ -47,24 +47,50 @@
           :persistent-hint="actionType === 'edit'"
           no-data-text="No value kinds available"></v-select>
 
-        <v-select
-          v-model="data.scope"
-          class="mt-2"
-          label="Scope"
-          :items="scopeOptions"
-          multiple
-          chips
-          no-data-text="No scopes available"
-          :rules="[(v: string[]) => v.length > 0 || 'Select at least one scope']">
-          <template #chip="{ item, props: chipProps }">
-            <v-chip
-              v-bind="chipProps"
-              :closable="!lockedScopes.includes(item.value)"
-              :text="item.title"></v-chip>
-          </template>
-        </v-select>
-        <div v-if="actionType === 'edit'" class="text-caption text-disabled mb-2">
-          Scope can only be widened — existing scopes cannot be removed.
+        <!-- A closed set of six, every one of which matters to the decision, so
+             they are all on screen rather than behind a menu — the same picker
+             shape the grant dialog uses for privileges. -->
+        <div class="mt-4">
+          <div class="d-flex align-center flex-wrap ga-2 mb-1">
+            <span class="text-body-2 font-weight-medium">Scope</span>
+            <v-chip size="x-small" variant="tonal">{{ data.scope.length }} selected</v-chip>
+            <v-spacer></v-spacer>
+            <v-btn
+              size="x-small"
+              variant="text"
+              :disabled="allScopesSelected"
+              @click="selectAllScopes">
+              Select all
+            </v-btn>
+            <v-btn size="x-small" variant="text" :disabled="!canClearScopes" @click="clearScopes">
+              Clear
+            </v-btn>
+          </div>
+          <v-row no-gutters>
+            <v-col v-for="opt in scopeOptions" :key="opt.value" cols="12" sm="6" md="4">
+              <v-tooltip location="top" :disabled="!lockedScopes.includes(opt.value)">
+                <template #activator="{ props: tp }">
+                  <div v-bind="tp">
+                    <v-checkbox
+                      v-model="data.scope"
+                      :value="opt.value"
+                      :label="opt.title"
+                      :disabled="lockedScopes.includes(opt.value)"
+                      density="compact"
+                      color="primary"
+                      hide-details></v-checkbox>
+                  </div>
+                </template>
+                Already in use — scope can only be widened.
+              </v-tooltip>
+            </v-col>
+          </v-row>
+          <div v-if="!data.scope.length" class="text-caption text-error mt-1">
+            Select at least one scope
+          </div>
+          <div v-else-if="actionType === 'edit'" class="text-caption text-disabled mt-1">
+            Scope can only be widened — existing scopes cannot be removed.
+          </div>
         </div>
 
         <template v-if="data.valueKind === 'enumerated'">
@@ -151,6 +177,16 @@ const data = reactive<{
 
 // Scopes present at open time (edit) may not be removed.
 const lockedScopes = ref<TagScope[]>([]);
+
+const allScopesSelected = computed(() => scopeOptions.every((o) => data.scope.includes(o.value)));
+// Locked scopes are already in use and cannot be withdrawn, so Clear leaves them.
+const canClearScopes = computed(() => data.scope.some((sc) => !lockedScopes.value.includes(sc)));
+function selectAllScopes() {
+  data.scope = scopeOptions.map((o) => o.value);
+}
+function clearScopes() {
+  data.scope = data.scope.filter((sc) => lockedScopes.value.includes(sc));
+}
 const existingAllowedValues = ref<string[]>([]);
 
 const nameRule = (value: string) => {

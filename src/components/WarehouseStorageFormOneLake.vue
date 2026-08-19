@@ -143,7 +143,7 @@
     <v-text-field
       v-if="clientAccess === 'sas'"
       density="compact"
-      v-model.number="profile['sas-token-validity-seconds']"
+      v-model="profile['sas-token-validity-seconds']"
       label="Token validity (seconds)"
       type="number"
       placeholder="3600"
@@ -347,11 +347,23 @@ watch(
   { deep: true },
 );
 
+// v-model on a Vuetify field always yields a string, so numeric fields have to be
+// coerced before they go to the API — the backend rejects "3600" for a u64.
+function toNumberOrUndefined(value: unknown) {
+  if (value === undefined || value === null || value === '') return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : undefined;
+}
+
 // Drop keys that do not belong to the selected mode.
 function getData() {
   const cleanProfile: Record<string, any> = { ...profile };
   cleanProfile['storage-layout'] = buildLayout();
   if (clientAccess.value !== 'sas') delete cleanProfile['sas-token-validity-seconds'];
+  else
+    cleanProfile['sas-token-validity-seconds'] = toNumberOrUndefined(
+      cleanProfile['sas-token-validity-seconds'],
+    );
 
   const type = credential['credential-type'];
   const keep: Record<string, string[]> = {

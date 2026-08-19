@@ -136,3 +136,45 @@ export interface QueueOption {
 export interface SoftDeletionQueueConfig {
   [key: string]: any;
 }
+
+// ---------------------------------------------------------------------------
+// Grants [Preview]
+// ---------------------------------------------------------------------------
+
+/**
+ * Narrows a grant listing to a single principal. Exactly one of the two may be
+ * set: the API rejects both, and the project-wide listing rejects neither.
+ */
+export interface GrantPrincipalFilter {
+  principalUser?: string;
+  principalRole?: string;
+}
+
+/** A page request against one of the grant listings. */
+export interface GrantListOptions extends GrantPrincipalFilter {
+  pageToken?: string;
+  pageSize?: number;
+}
+
+/**
+ * A resource a grant can be held on, in the shape the console addresses it.
+ *
+ * Mirrors the API's `GrantResourceResponse` but in camelCase, because it is
+ * built by callers rather than parsed from a response. `type` carries the same
+ * spelling the API uses, so it doubles as the key into the grantable-privilege
+ * vocabulary.
+ */
+export type GrantResourceRef =
+  | { type: 'server' }
+  /**
+   * The project endpoints carry no path segment — `x-project-id` is what
+   * addresses them — so this is sent as that header. Omit it to read whichever
+   * project is currently selected.
+   */
+  | { type: 'project'; projectId?: string }
+  | { type: 'warehouse'; warehouseId: string }
+  | { type: 'namespace'; warehouseId: string; namespaceId: string }
+  | { type: 'table'; warehouseId: string; tableId: string }
+  | { type: 'view'; warehouseId: string; viewId: string }
+  | { type: 'generic-table'; warehouseId: string; genericTableId: string }
+  | { type: 'tag-definition'; tagDefinitionId: string };

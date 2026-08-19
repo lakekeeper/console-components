@@ -19,6 +19,36 @@
         <v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog"></v-btn>
       </v-card-title>
 
+      <!-- Creating through the catalog means the version is ours to send, so it
+           is a choice among what the warehouse permits rather than a prediction. -->
+      <div v-if="warehouseName" class="d-flex align-center ga-3 px-4 pt-2 flex-wrap">
+        <v-select
+          v-if="selectableFormatVersions.length > 1"
+          v-model="formatVersion"
+          :items="selectableFormatVersions"
+          label="Format version"
+          variant="outlined"
+          density="compact"
+          hide-details
+          style="max-width: 190px">
+          <template #selection="{ item }">Iceberg v{{ item.value }}</template>
+          <template #item="{ item, props: itemProps }">
+            <v-list-item v-bind="itemProps" :title="`Iceberg v${item.value}`" />
+          </template>
+        </v-select>
+        <v-chip v-else size="x-small" variant="tonal">Iceberg v{{ formatVersion }}</v-chip>
+
+        <span class="text-caption text-medium-emphasis">
+          <template v-if="selectableFormatVersions.length > 1">
+            allowed by the warehouse policy
+          </template>
+          <template v-else>set by the warehouse policy</template>
+          <template v-if="formatVersion < 3">
+            · v3 types ({{ V3_PRIMITIVE_TYPES.join(', ') }}) need v3
+          </template>
+        </span>
+      </div>
+
       <v-tabs v-model="formatTab" align-tabs="start" density="compact" color="primary">
         <v-tab value="iceberg">
           <v-img :src="icebergIcon" width="16" height="16" class="mr-2" />
@@ -42,34 +72,8 @@
               class="mb-4"
               autofocus></v-text-field>
 
-            <!-- S3/GCS + HTTP Warning -->
-            <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
-              <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
-              <div class="text-body-2">
-                {{ storageValidation.httpWarningMessage }}
-              </div>
-            </v-alert>
-
-            <!-- Table Creation Not Available Warning -->
-            <v-alert
-              v-if="!isCreateAvailable.available"
-              type="warning"
-              variant="tonal"
-              prominent
-              class="mb-4">
-              <div class="text-body-1 font-weight-bold mb-2">
-                <v-icon class="mr-2">mdi-alert</v-icon>
-                Table Creation Not Available
-              </div>
-              <div class="text-body-2">{{ isCreateAvailable.reason }}</div>
-              <div class="text-body-2 mt-3">
-                <strong>Requirements for DuckDB WASM:</strong>
-                <ul class="mt-2">
-                  <li>{{ storageValidation.requirementsText.value.storageRequirement }}</li>
-                  <li>{{ storageValidation.requirementsText.value.protocolRequirement }}</li>
-                </ul>
-              </div>
-            </v-alert>
+            <!-- No storage warnings here any more: the catalog writes the
+                 metadata, so creation needs no browser-side storage access. -->
             <!-- Namespace Info -->
             <v-alert type="info" variant="tonal" class="mb-4">
               <div class="text-body-2">
@@ -95,6 +99,23 @@
                 </v-btn>
               </div>
 
+              <div class="text-caption text-medium-emphasis mb-3">
+                Set a field's
+                <strong>Kind</strong>
+                to Struct, List or Map to nest — each nested member gets its own type and nullable
+                flag, to any depth.
+              </div>
+
+              <v-alert
+                v-if="unsupportedForVersion.length"
+                type="warning"
+                variant="tonal"
+                class="mb-3">
+                {{ unsupportedForVersion.join(', ') }}
+                {{ unsupportedForVersion.length === 1 ? 'requires' : 'require' }} format version 3.
+                Raise the version, or change those fields.
+              </v-alert>
+
               <v-alert v-if="fields.length === 0" type="warning" variant="tonal">
                 No fields defined. Add at least one field to create the table.
               </v-alert>
@@ -117,21 +138,8 @@
                         hide-details="auto"></v-text-field>
                     </v-col>
 
-                    <!-- Field Type -->
-                    <v-col cols="12" sm="4">
-                      <v-select
-                        v-model="field.type"
-                        :items="icebergDataTypes"
-                        label="Data Type"
-                        variant="outlined"
-                        density="compact"
-                        :rules="[rules.required]"
-                        no-data-text="No data types available"
-                        hide-details="auto"></v-select>
-                    </v-col>
-
                     <!-- Nullable + Delete -->
-                    <v-col cols="12" sm="4" class="d-flex align-center">
+                    <v-col cols="12" sm="8" class="d-flex align-center">
                       <v-checkbox
                         v-model="field.nullable"
                         label="Nullable"
@@ -145,20 +153,37 @@
                         variant="text"
                         @click="removeField(index)"></v-btn>
                     </v-col>
+
+                    <!-- Column documentation, stored as the field's `doc`. -->
+                    <v-col cols="12" class="pb-2">
+                      <v-text-field
+                        v-model="field.doc"
+                        label="Description (optional)"
+                        placeholder="What this column holds"
+                        variant="outlined"
+                        density="compact"
+                        hide-details="auto"></v-text-field>
+                    </v-col>
+
+                    <!-- Type, built rather than typed. Recurses for struct,
+                         list and map. -->
+                    <v-col cols="12" class="pb-3">
+                      <SchemaTypeEditor v-model="field.type" :available-types="icebergDataTypes" />
+                    </v-col>
                   </v-row>
                 </v-list-item>
               </v-list>
             </div>
 
-            <!-- SQL Preview -->
-            <v-expansion-panels v-if="sqlPreview" class="mb-4">
+            <!-- Request Preview: what actually goes to the catalog. -->
+            <v-expansion-panels v-if="requestPreview" class="mb-4">
               <v-expansion-panel>
                 <v-expansion-panel-title>
                   <v-icon class="mr-2">mdi-code-braces</v-icon>
-                  SQL Preview
+                  Request Preview
                 </v-expansion-panel-title>
                 <v-expansion-panel-text>
-                  <pre class="bg-surface-light pa-3 rounded text-caption">{{ sqlPreview }}</pre>
+                  <pre class="bg-surface-light pa-3 rounded text-caption">{{ requestPreview }}</pre>
                 </v-expansion-panel-text>
               </v-expansion-panel>
             </v-expansion-panels>
@@ -217,70 +242,95 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, toRef, inject, nextTick } from 'vue';
+import { ref, computed, watch, inject, nextTick } from 'vue';
 import { useFunctions } from '@/plugins/functions';
-import { useUserStore } from '@/stores/user';
 import { useLoQE } from '@/composables/useLoQE';
-import { useStorageValidation } from '@/composables/useStorageValidation';
 import icebergIcon from '@/assets/iceberg.svg';
+import {
+  V2_PRIMITIVE_TYPES,
+  V3_PRIMITIVE_TYPES,
+  buildSchema,
+  newSchemaField,
+  unsupportedPrimitives,
+  type SchemaField,
+  type TypeNode,
+} from '@/common/icebergTypes';
+import SchemaTypeEditor from './SchemaTypeEditor.vue';
 
 const props = defineProps<{
   warehouseId: string;
   namespaceId: string;
-  catalogUrl: string;
-  storageType?: string; // Storage type: s3, adls, gcs, etc.
+  // Both are unused since creation moved to the catalog: no browser-side
+  // storage access means no storage validation. Kept so existing callers keep
+  // type-checking.
+  catalogUrl?: string;
+  storageType?: string;
 }>();
 
-interface Field {
-  name: string;
-  type: string;
-  nullable: boolean;
-}
 const emit = defineEmits<{
   (e: 'created', tableName: string): void;
 }>();
 
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const functions = useFunctions();
-const userStore = useUserStore();
+// Only to invalidate DuckDB's cached metadata after a create — creation itself
+// no longer goes through the engine.
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
-const storageValidation = useStorageValidation(
-  toRef(() => props.storageType),
-  toRef(() => props.catalogUrl),
-);
-
-// Namespace display: convert \x1F separators to dots for DuckDB SQL
-const namespaceDisplay = computed(() => {
-  const ns = props.namespaceId;
-  if (ns.includes('\x1F')) return ns.split('\x1F').join('.');
-  return ns;
-});
-
-// Iceberg primitive types
-const icebergDataTypes = [
-  'boolean',
-  'int',
-  'long',
-  'float',
-  'double',
-  'decimal(10,2)',
-  'date',
-  'time',
-  'timestamp',
-  'timestamptz',
-  'timestamp_ns',
-  'timestamptz_ns',
-  'string',
-  'uuid',
-  'fixed(16)',
-  'binary',
-];
 
 const dialog = ref(false);
 const formatTab = ref<'iceberg' | 'generic'>('iceberg');
 const tableName = ref('');
 const warehouseName = ref<string>('');
-const fields = ref<Field[]>([]);
+const allowedFormatVersions = ref<number[]>([]);
+const defaultFormatVersion = ref<number | null>(null);
+
+/** The version chosen for this table; sent as the `format-version` property. */
+const formatVersion = ref<number>(2);
+
+/** What the warehouse permits. Empty means it never said, so don't offer a choice. */
+const selectableFormatVersions = computed(() => [...allowedFormatVersions.value].sort());
+
+/**
+ * The version to preselect: the warehouse default, else v2 when allowed, else
+ * the highest allowed. Mirrors the server's own resolution, so the preselected
+ * value matches what a table would have got before this picker existed.
+ */
+function resolveDefaultVersion(): number {
+  if (defaultFormatVersion.value) return defaultFormatVersion.value;
+  const allowed = allowedFormatVersions.value;
+  if (!allowed.length) return 2;
+  return allowed.includes(2) ? 2 : Math.max(...allowed);
+}
+
+const icebergDataTypes = computed(() => [
+  ...V2_PRIMITIVE_TYPES,
+  ...(formatVersion.value >= 3 ? V3_PRIMITIVE_TYPES : []),
+]);
+
+/**
+ * v3-only primitives left somewhere in the tree after the version was lowered.
+ * Reported rather than rewritten, so lowering the version cannot quietly change
+ * a column's type.
+ */
+const unsupportedForVersion = computed(() =>
+  unsupportedPrimitives(fields.value, formatVersion.value),
+);
+
+/** Every field needs a name, including nested ones. */
+function fieldsNamed(list: SchemaField[]): boolean {
+  return list.every((f) => {
+    if (!f.name.trim()) return false;
+    return typeNamed(f.type);
+  });
+}
+
+function typeNamed(node: TypeNode): boolean {
+  if (node.kind === 'struct') return node.fields.length > 0 && fieldsNamed(node.fields);
+  if (node.kind === 'list') return typeNamed(node.element);
+  if (node.kind === 'map') return typeNamed(node.key) && typeNamed(node.value);
+  return true;
+}
+const fields = ref<SchemaField[]>([]);
 const isCreating = ref(false);
 const error = ref<string | null>(null);
 const success = ref(false);
@@ -291,53 +341,37 @@ const rules = {
   validIdentifier: (v: string) => v.trim().length > 0 || 'Identifier cannot be empty',
 };
 
-// Computed properties
+// Creation no longer touches storage from the browser, so the only bar is a
+// valid schema.
 const canCreate = computed(() => {
   return (
-    isCreateAvailable.value.available &&
     tableName.value.trim() !== '' &&
     fields.value.length > 0 &&
-    fields.value.every((f) => f.name.trim() !== '' && f.type.trim() !== '')
+    fieldsNamed(fields.value) &&
+    unsupportedForVersion.value.length === 0
   );
 });
 
-const isCreateAvailable = computed(() => ({
-  available: storageValidation.isOperationAvailable.value.available,
-  reason: storageValidation.isOperationAvailable.value.reason,
-}));
-
-// Check if we should show S3/GCS + HTTP warning
-const showS3HttpWarning = storageValidation.shouldShowHttpWarning;
-
-const sqlPreview = computed(() => {
+const requestPreview = computed(() => {
   if (!tableName.value || fields.value.length === 0) return '';
-
-  const fieldDefinitions = fields.value
-    .map((f) => {
-      const nullable = f.nullable ? '' : ' NOT NULL';
-      return `  ${f.name} ${f.type}${nullable}`;
-    })
-    .join(',\n');
-
-  // For Iceberg, DuckDB expects the full namespace as a single quoted identifier
-  // DuckDB Iceberg expects: "catalog"."namespace.with.dots"."table"
-  const fullTablePath = `"${warehouseName.value}"."${namespaceDisplay.value}"."${tableName.value}"`;
-
-  return `CREATE TABLE ${fullTablePath} (
-${fieldDefinitions}
-);`;
+  return JSON.stringify(buildCreateRequest(), null, 2);
 });
+
+function buildCreateRequest() {
+  return {
+    name: tableName.value.trim(),
+    schema: buildSchema(fields.value),
+    // No `location`: let the warehouse apply its own layout rules.
+    properties: { 'format-version': String(formatVersion.value) },
+  };
+}
 // Methods
 // The body scrolls now, so a field appended below the fold would otherwise be
 // added out of sight.
 const icebergBodyRef = ref<{ $el?: HTMLElement } | null>(null);
 
 async function addField() {
-  fields.value.push({
-    name: '',
-    type: 'string',
-    nullable: true,
-  });
+  fields.value.push(newSchemaField());
   await nextTick();
   const body = icebergBodyRef.value?.$el;
   if (body) body.scrollTop = body.scrollHeight;
@@ -370,20 +404,14 @@ async function createTable() {
   success.value = false;
 
   try {
-    // Load warehouse to get name
-    const wh = await functions.getWarehouse(props.warehouseId);
-    warehouseName.value = wh.name;
+    await functions.createIcebergTable(props.warehouseId, props.namespaceId, buildCreateRequest());
 
-    // Attach Iceberg catalog via LoQE (handles secret + ATTACH)
-    await loqe.attachCatalog({
-      catalogName: warehouseName.value,
-      projectId: wh['project-id'],
-      restUri: props.catalogUrl,
-      accessToken: userStore.user.access_token,
+    // DuckDB caches Iceberg metadata, and attach is idempotent — so a session
+    // that already holds this catalog would not see the new table. No-ops when
+    // the engine was never initialised.
+    await loqe.refreshMetadata().catch(() => {
+      /* a stale query cache must not fail the create */
     });
-
-    // Create the table
-    await loqe.query(sqlPreview.value);
 
     success.value = true;
     emit('created', tableName.value);
@@ -404,8 +432,11 @@ async function createTable() {
 watch(dialog, async (newVal) => {
   if (newVal) {
     try {
-      const wh = await functions.getWarehouse(props.warehouseId);
+      const wh: any = await functions.getWarehouse(props.warehouseId);
       warehouseName.value = wh.name;
+      allowedFormatVersions.value = wh['allowed-format-versions'] ?? [];
+      defaultFormatVersion.value = wh['default-format-version'] ?? null;
+      formatVersion.value = resolveDefaultVersion();
     } catch (err) {
       console.error('Failed to load warehouse:', err);
     }

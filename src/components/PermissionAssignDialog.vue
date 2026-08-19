@@ -222,6 +222,7 @@ import { AssignmentCollection, RelationType } from '@/common/interfaces';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { StatusIntent } from '@/common/enums';
+import { principalRef } from '@/common/principal';
 
 const functions = useFunctions();
 const visualStore = useVisualStore();
@@ -608,7 +609,9 @@ async function init() {
         (a: any) => a.user === props.assignee || a.role === props.assignee,
       );
 
-      searchForType.value = 'user' in assignee ? 'user' : 'role';
+      // `'user' in assignee` no longer implies a value: the schema makes both
+      // properties optional, so the presence of the key says nothing.
+      searchForType.value = principalRef(assignee)?.kind ?? 'user';
 
       const assignments: any = props.assignments.filter(
         (a: any) => a.user === props.assignee || a.role === props.assignee,

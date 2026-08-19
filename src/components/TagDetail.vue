@@ -26,6 +26,7 @@
     <v-tabs v-model="tab" color="primary">
       <v-tab value="details">Details</v-tab>
       <v-tab v-if="isOpenFga && !isSystem" value="permissions">Permissions</v-tab>
+      <v-tab v-if="grantsSupported && !isSystem" value="grants">Grants</v-tab>
       <v-tab value="attachments">Attachments</v-tab>
     </v-tabs>
     <v-divider></v-divider>
@@ -137,6 +138,17 @@
           :tag-name="full.name" />
       </v-tabs-window-item>
 
+      <!-- Grants. Sits beside Permissions rather than replacing it: the two
+           are different models over the same intent, and a deployment can be
+           moving from one to the other. -->
+      <v-tabs-window-item v-if="grantsSupported && !isSystem" value="grants">
+        <div class="pa-4" style="height: calc(100vh - 300px); min-height: 360px">
+          <GrantsPanel
+            v-if="tab === 'grants' && full.id"
+            :resource="{ type: 'tag-definition', tagDefinitionId: full.id }" />
+        </div>
+      </v-tabs-window-item>
+
       <!-- Attachments -->
       <v-tabs-window-item value="attachments">
         <TagAttachmentsPanel v-if="tab === 'attachments' && full.id" :tag-definition-id="full.id" />
@@ -200,6 +212,9 @@ import { useProjectPermissions } from '../composables/useCatalogPermissions';
 import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.vue';
 import TagPermissionsPanel from './TagPermissionsPanel.vue';
 import TagAttachmentsPanel from './TagAttachmentsPanel.vue';
+import GrantsPanel from './GrantsPanel.vue';
+import { useGrantsSupported } from '../composables/useGrants';
+import { PERMISSIONS_UI_ENABLED } from '../common/featureFlags';
 import {
   TagAttachment,
   TagDefinition,
@@ -215,7 +230,17 @@ const route = useRoute();
 
 const projectId = computed(() => visual.projectSelected['project-id']);
 const { canCreateTag } = useProjectPermissions(projectId);
-const isOpenFga = computed(() => visual.getServerInfo()?.['authz-backend'] === 'openfga');
+// Permission assignments are an OpenFGA concept, and the whole surface is hidden
+// for now behind the deprecation flag: grants restate the same intent.
+const isOpenFga = computed(
+  () => PERMISSIONS_UI_ENABLED && visual.getServerInfo()?.['authz-backend'] === 'openfga',
+);
+// Hidden where the authorizer manages no grants — under `allow-all` every
+// vocabulary comes back empty, and an empty matrix would say nothing.
+// Null while the server is still being asked, which is not the same as no:
+// nothing renders until the answer is a definite yes.
+const serverGrantsSupported = useGrantsSupported();
+const grantsSupported = computed(() => serverGrantsSupported.value === true);
 
 const full = ref<TagDefinition>({ id: '', name: '' } as TagDefinition);
 const isSystem = computed(() => (full.value.name ?? '').startsWith('system.'));

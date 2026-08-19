@@ -1,5 +1,5 @@
 <template>
-  <v-card variant="outlined">
+  <v-card :variant="embedded ? 'flat' : 'outlined'">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title class="text-subtitle-1">
         <v-icon class="mr-2" color="primary">mdi-card-account-details-outline</v-icon>
@@ -102,6 +102,8 @@ import type { Role } from '../gen/management/types.gen';
 
 const props = defineProps<{
   roleId: string;
+  /** Drop the outer card chrome when a host already provides it (e.g. a tab). */
+  embedded?: boolean;
 }>();
 
 const emit = defineEmits<{
