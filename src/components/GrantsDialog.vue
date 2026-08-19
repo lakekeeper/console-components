@@ -346,6 +346,7 @@ import type { GrantEntry, GrantablePrivilege } from '../gen/management/types.gen
 import type { Header } from '../common/interfaces';
 import type { GrantResourceRef } from '../common/interfaces';
 import type { GetNamespaceResponse } from '../gen/iceberg/types.gen';
+import { toPrincipal } from '../common/principal';
 
 const props = defineProps<{
   /** The entity the caller opened this from — the deepest level in the rail. */
@@ -543,7 +544,7 @@ async function doRevokeAll() {
   revoking.value = row.key;
   revokeError.value = null;
   try {
-    const principal = row.kind === 'user' ? { user: row.principalId } : { role: row.principalId };
+    const principal = toPrincipal(row.kind, row.principalId);
     const locked = new Set(revokeLocked.value);
     // Stale privileges go too: they enforce nothing, but a "revoke all" that
     // left some behind would be a lie.
@@ -575,10 +576,7 @@ async function applyEdit(payload: { principal: GrantPrincipalRow; privileges: st
     editPrivileges.value.filter((p) => p.allowed).map((p) => p.privilege.name),
   );
   const entry = (privilege: string): GrantEntry => ({
-    principal:
-      payload.principal.kind === 'user'
-        ? { user: payload.principal.id }
-        : { role: payload.principal.id },
+    principal: toPrincipal(payload.principal.kind, payload.principal.id),
     privilege,
   });
   // Only what this caller may change on either side — a revoke they are not

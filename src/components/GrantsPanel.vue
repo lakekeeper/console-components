@@ -323,6 +323,7 @@ import {
 import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.vue';
 import type { GrantResourceRef, Header } from '../common/interfaces';
 import type { GrantEntry, GrantablePrivilege } from '../gen/management/types.gen';
+import { toPrincipal } from '../common/principal';
 
 // Registers the <l-helix> custom element. Idempotent.
 helix.register();
@@ -620,7 +621,7 @@ async function applyAssignment(payload: { principal: GrantPrincipalRow; privileg
   const before = new Set(heldFor(principal.key));
   const after = new Set(desired);
   const entry = (privilege: string): GrantEntry => ({
-    principal: principal.kind === 'user' ? { user: principal.id } : { role: principal.id },
+    principal: toPrincipal(principal.kind, principal.id),
     privilege,
   });
 
@@ -665,7 +666,7 @@ async function doRevokeAll() {
   if (!row) return;
   saving.value = true;
   try {
-    const principal = row.kind === 'user' ? { user: row.id } : { role: row.id };
+    const principal = toPrincipal(row.kind, row.id);
     // Stale privileges go too: they enforce nothing, but a "revoke all" that
     // left some behind would be a lie.
     const deletes: GrantEntry[] = [

@@ -110,6 +110,7 @@ import { AssignmentCollection, Header, RelationType } from '../common/interfaces
 import { StatusIntent } from '../common/enums';
 import PermissionAssignDialog from './PermissionAssignDialog.vue';
 import { TagAssignment, TagRelation } from '../gen/management/types.gen';
+import { principalRef } from '../common/principal';
 
 const props = defineProps<{ tagDefinitionId: string; tagName?: string }>();
 
@@ -145,11 +146,14 @@ function relIcon(rel: TagRelation): string {
   return rel === 'ownership' ? 'mdi-crown-outline' : 'mdi-tag-plus-outline';
 }
 
+// Both properties are optional on the wire now, so a row that names neither is
+// schema-valid and has to resolve to something. It is dropped from the table
+// rather than rendered as a principal with no id.
 function principalId(a: TagAssignment): string {
-  return 'user' in a ? a.user : a.role;
+  return principalRef(a)?.id ?? '';
 }
 function principalKind(a: TagAssignment): 'user' | 'role' {
-  return 'user' in a ? 'user' : 'role';
+  return principalRef(a)?.kind ?? 'user';
 }
 
 interface PrincipalRow {
