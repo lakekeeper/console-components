@@ -366,6 +366,11 @@ watch(open, async (isOpen) => {
     }
     destOpened.value = openKeys;
     destActivated.value = [ancestors.length ? ancestors.join(SEP) : ROOT_KEY];
+  } catch (e: any) {
+    // Seeding the tree is several requests; a rejection here would otherwise be
+    // unhandled and leave an empty tree with no explanation for why.
+    blocker.value =
+      e?.error?.message || e?.message || 'Could not load the namespaces of this warehouse.';
   } finally {
     checking.value = false;
   }

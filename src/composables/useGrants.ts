@@ -1,4 +1,4 @@
-import { computed, ref, watch } from 'vue';
+import { computed, effectScope, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
@@ -243,6 +243,9 @@ export function resetGrantVocabulary() {
   vocabularyCache = null;
   vocabularyInFlight = null;
   warehouseIndexCache.clear();
+  principalNameCache.clear();
+  grantsSupportedScope?.stop();
+  grantsSupportedScope = null;
   supportedResolved = false;
   supportedRef.value = null;
 }
@@ -388,6 +391,7 @@ export function resourceIcon(type: ResourceType | string): string {
 // tab, say — would act on an answer that has not arrived yet.
 const supportedRef = ref<boolean | null>(null);
 let supportedResolved = false;
+let grantsSupportedScope: ReturnType<typeof effectScope> | null = null;
 
 /**
  * Whether this deployment manages grants, as a ref a menu can bind to directly.
@@ -403,41 +407,49 @@ let supportedResolved = false;
 export function useGrantsSupported() {
   if (!supportedResolved) {
     supportedResolved = true;
-    const visual = useVisualStore();
-    const user = useUserStore();
-    const grants = useGrants();
+    // Detached on purpose. The watch below is created during whichever
+    // component happens to ask first, and a scoped effect dies with that
+    // component — while `supportedResolved` would stop any later caller from
+    // creating another. The shared answer would then freeze at whatever it held
+    // when that first component unmounted.
+    grantsSupportedScope = effectScope(true);
+    grantsSupportedScope.run(() => {
+      const visual = useVisualStore();
+      const user = useUserStore();
+      const grants = useGrants();
 
-    // This runs wherever a gated control might appear — including the app bar,
-    // which the login and bootstrap pages also render. Asking the server
-    // anything there costs a 401 (management calls are refused before
-    // bootstrap) and the global handler turns that into a redirect to login, so
-    // the question waits until there is someone to ask for and a server willing
-    // to be asked.
-    //
-    // Unknown is not the same answer as unsupported: staying null keeps a
-    // bookmarked ?tab=grants alive until the real answer lands.
-    watch(
-      () => [
-        visual.getServerInfo()?.['authz-backend'],
-        visual.getServerInfo()?.bootstrapped,
-        user.isAuthenticated,
-      ],
-      ([backend, bootstrapped, authenticated]) => {
-        if (!backend || !bootstrapped || !authenticated) {
-          supportedRef.value = null;
-          return;
-        }
-        if (!isGrantEnabledBackend(backend as string)) {
-          supportedRef.value = false;
-          return;
-        }
-        grants
-          .grantsSupported()
-          .then((ok) => (supportedRef.value = ok))
-          .catch(() => (supportedRef.value = false));
-      },
-      { immediate: true },
-    );
+      // This runs wherever a gated control might appear — including the app bar,
+      // which the login and bootstrap pages also render. Asking the server
+      // anything there costs a 401 (management calls are refused before
+      // bootstrap) and the global handler turns that into a redirect to login, so
+      // the question waits until there is someone to ask for and a server willing
+      // to be asked.
+      //
+      // Unknown is not the same answer as unsupported: staying null keeps a
+      // bookmarked ?tab=grants alive until the real answer lands.
+      watch(
+        () => [
+          visual.getServerInfo()?.['authz-backend'],
+          visual.getServerInfo()?.bootstrapped,
+          user.isAuthenticated,
+        ],
+        ([backend, bootstrapped, authenticated]) => {
+          if (!backend || !bootstrapped || !authenticated) {
+            supportedRef.value = null;
+            return;
+          }
+          if (!isGrantEnabledBackend(backend as string)) {
+            supportedRef.value = false;
+            return;
+          }
+          grants
+            .grantsSupported()
+            .then((ok) => (supportedRef.value = ok))
+            .catch(() => (supportedRef.value = false));
+        },
+        { immediate: true },
+      );
+    });
   }
   return supportedRef;
 }

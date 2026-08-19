@@ -6246,7 +6246,11 @@ async function listViewUuids(
     const result = data as any;
     return {
       names: (result.identifiers ?? []).map((i: any) => i.name),
-      uuids: (result['view-uuids'] ?? []) as string[],
+      // `listViews` answers with `ListTablesResponse`, whose uuid field is
+      // `table-uuids` — there is no `view-uuids` in the contract, so reading it
+      // yielded an empty list and every view lost its grant identity. The
+      // fallback covers a server that spells it the other way.
+      uuids: (result['table-uuids'] ?? result['view-uuids'] ?? []) as string[],
     };
   } catch (error: any) {
     handleError(error, 'listViewUuids', notify);

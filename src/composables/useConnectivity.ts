@@ -30,7 +30,15 @@ async function runProbe(): Promise<Record<string, any> | null> {
     // A non-ok response (rate limit, proxy error page) still means the network
     // is up, which is all the link-rendering decision depends on.
     status.value = 'online';
-    return res.ok ? await res.json() : null;
+    if (!res.ok) return null;
+    // The status is already decided: the network answered. A body we cannot
+    // parse says nothing about reachability, so it must not fall through to the
+    // outer catch and demote a live connection to offline.
+    try {
+      return await res.json();
+    } catch {
+      return null;
+    }
   } catch {
     status.value = 'offline';
     return null;

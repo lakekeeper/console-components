@@ -152,6 +152,12 @@ function relIcon(rel: TagRelation): string {
 function principalId(a: TagAssignment): string {
   return principalRef(a)?.id ?? '';
 }
+/** Both properties are optional on the wire, so a row can name no principal at
+ *  all. Such a row has nothing to group under and nothing to look up — keeping
+ *  it would put a nameless entry in the table and send `getUser('')`. */
+function namesAPrincipal(a: TagAssignment): boolean {
+  return principalRef(a) !== null;
+}
 function principalKind(a: TagAssignment): 'user' | 'role' {
   return principalRef(a)?.kind ?? 'user';
 }
@@ -166,7 +172,7 @@ interface PrincipalRow {
 
 const principalRows = computed<PrincipalRow[]>(() => {
   const byId = new Map<string, PrincipalRow>();
-  for (const a of assignments.value) {
+  for (const a of assignments.value.filter(namesAPrincipal)) {
     const id = principalId(a);
     let row = byId.get(id);
     if (!row) {
@@ -188,7 +194,7 @@ const principalRows = computed<PrincipalRow[]>(() => {
 
 async function resolveNames() {
   const ids = new Set<string>();
-  for (const a of assignments.value) ids.add(principalId(a));
+  for (const a of assignments.value.filter(namesAPrincipal)) ids.add(principalId(a));
   await Promise.all(
     [...ids]
       .filter((id) => !(id in nameCache.value))
