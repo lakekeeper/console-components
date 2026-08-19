@@ -118,16 +118,28 @@ export type ApplyGrantsRequest = {
     writes?: Array<GrantEntry>;
 };
 
-export type AzCredential = {
+export type AzCredential = ({
+    'credential-type': 'client-credentials';
+} & AzCredentialClientCredentials) | ({
+    'credential-type': 'shared-access-key';
+} & AzCredentialSharedAccessKey) | ({
+    'credential-type': 'azure-system-identity';
+} & AzCredentialManagedIdentity);
+
+export type AzCredentialClientCredentials = {
     'client-id': string;
     'client-secret': string;
     'credential-type': 'client-credentials';
     'tenant-id': string;
-} | {
+};
+
+export type AzCredentialManagedIdentity = {
+    'credential-type': 'azure-system-identity';
+};
+
+export type AzCredentialSharedAccessKey = {
     'credential-type': 'shared-access-key';
     key: string;
-} | {
-    'credential-type': 'azure-system-identity';
 };
 
 /**
@@ -322,18 +334,49 @@ export type ConsoleInfo = {
     version: string;
 };
 
-export type ControlTaskAction = {
+export type ControlTaskAction = ({
     'action-type': 'stop';
-} | {
+} & ControlTaskActionStop) | ({
     'action-type': 'cancel';
-} | {
+} & ControlTaskActionCancel) | ({
     'action-type': 'run-now';
-} | {
+} & ControlTaskActionRunNow) | ({
+    'action-type': 'run-at';
+} & ControlTaskActionRunAt);
+
+/**
+ * Cancel the task permanently. The task is not retried.
+ */
+export type ControlTaskActionCancel = {
+    'action-type': 'cancel';
+};
+
+/**
+ * Run the task at the specified time, moving the `scheduled_for` time to the provided timestamp.
+ * Affects only tasks in `Scheduled` or `Stopping` state.
+ * Timestamps must be in RFC 3339 format.
+ */
+export type ControlTaskActionRunAt = {
     'action-type': 'run-at';
     /**
      * The time to run the task at
      */
     'scheduled-for': string;
+};
+
+/**
+ * Run the task immediately, moving the `scheduled_for` time to now.
+ * Affects only tasks in `Scheduled` or `Stopping` state.
+ */
+export type ControlTaskActionRunNow = {
+    'action-type': 'run-now';
+};
+
+/**
+ * Stop the task gracefully. The task will be retried.
+ */
+export type ControlTaskActionStop = {
+    'action-type': 'stop';
 };
 
 export type ControlTasksRequest = {
@@ -541,9 +584,30 @@ export type DeletedTabularResponse = {
  * workspace-scoped PE. Lakekeeper needs to build that FQDN — use
  * [`WorkspacePrivateLink`].
  */
-export type EndpointMode = {
+export type EndpointMode = ({
     type: 'default';
-} | {
+} & EndpointModeDefault) | ({
+    type: 'regional';
+} & EndpointModeRegional) | ({
+    type: 'workspace-private-link';
+} & EndpointModeWorkspacePrivateLink);
+
+/**
+ * Use the global `OneLake` endpoint `onelake.dfs.fabric.microsoft.com`. Default.
+ *
+ * Also the correct choice for tenant-level private link — tenant PE
+ * only changes DNS resolution, not the URL Lakekeeper constructs.
+ */
+export type EndpointModeDefault = {
+    type: 'default';
+};
+
+/**
+ * Use a region-pinned endpoint `<region>-onelake.dfs.fabric.microsoft.com`.
+ * Use this when data residency requires the request to stay within a
+ * specific Azure region.
+ */
+export type EndpointModeRegional = {
     /**
      * Azure region slug, e.g. `westus`, `centralus`, `northeurope`.
      * Trimmed and lowercased at validation time, then pattern-checked to
@@ -555,7 +619,17 @@ export type EndpointMode = {
      */
     region: string;
     type: 'regional';
-} | {
+};
+
+/**
+ * Use a workspace-scoped private-link endpoint
+ * `<workspaceId>.z<xy>.dfs.fabric.microsoft.com`. The host is computed
+ * from the workspace ID at runtime; users only opt in via this variant.
+ *
+ * For *tenant*-level private link, stay on [`Default`] — the global
+ * onelake FQDN is what gets routed through a tenant PE.
+ */
+export type EndpointModeWorkspacePrivateLink = {
     type: 'workspace-private-link';
 };
 
@@ -679,10 +753,29 @@ export type ErrorModel = {
  * }
  * ```
  */
-export type GcsCredential = {
+export type GcsCredential = ({
+    'credential-type': 'service-account-key';
+} & GcsCredentialServiceAccountKey) | ({
+    'credential-type': 'gcp-system-identity';
+} & GcsCredentialSystemIdentity);
+
+/**
+ * Service Account Key
+ *
+ * The key is the JSON object obtained when creating a service account key in the GCP console.
+ */
+export type GcsCredentialServiceAccountKey = {
     'credential-type': 'service-account-key';
     key: GcsServiceKey;
-} | {
+};
+
+/**
+ * GCP System Identity
+ *
+ * Use the service account that the application is running as.
+ * This can be a Compute Engine default service account or a user-assigned service account.
+ */
+export type GcsCredentialSystemIdentity = {
     'credential-type': 'gcp-system-identity';
 };
 
@@ -725,21 +818,49 @@ export type GcsServiceKey = {
 
 export type GenericTableAction = 'drop' | 'undrop' | 'write_data' | 'read_data' | 'get_metadata' | 'rename' | 'include_in_list' | 'get_tasks' | 'control_tasks' | 'set_protection' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
-export type GenericTableAssignment = (UserOrRole & {
+export type GenericTableAssignment = ({
     type: 'ownership';
-}) | (UserOrRole & {
+} & GenericTableAssignmentOwnership) | ({
     type: 'pass_grants';
-}) | (UserOrRole & {
+} & GenericTableAssignmentPassGrants) | ({
     type: 'manage_grants';
-}) | (UserOrRole & {
+} & GenericTableAssignmentManageGrants) | ({
     type: 'describe';
-}) | (UserOrRole & {
+} & GenericTableAssignmentDescribe) | ({
     type: 'select';
-}) | (UserOrRole & {
+} & GenericTableAssignmentSelect) | ({
     type: 'modify';
-}) | (UserOrRole & {
+} & GenericTableAssignmentModify) | ({
     type: 'manage_tags';
-});
+} & GenericTableAssignmentManageTags);
+
+export type GenericTableAssignmentDescribe = UserOrRole & {
+    type: 'describe';
+};
+
+export type GenericTableAssignmentManageGrants = UserOrRole & {
+    type: 'manage_grants';
+};
+
+export type GenericTableAssignmentManageTags = UserOrRole & {
+    type: 'manage_tags';
+};
+
+export type GenericTableAssignmentModify = UserOrRole & {
+    type: 'modify';
+};
+
+export type GenericTableAssignmentOwnership = UserOrRole & {
+    type: 'ownership';
+};
+
+export type GenericTableAssignmentPassGrants = UserOrRole & {
+    type: 'pass_grants';
+};
+
+export type GenericTableAssignmentSelect = UserOrRole & {
+    type: 'select';
+};
 
 export type GenericTableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
 
@@ -1056,6 +1177,23 @@ export type GrantEntry = {
     privilege: string;
 };
 
+export type GrantResourceGenericTable = {
+    'generic-table-id': string;
+    type: 'generic-table';
+    'warehouse-id': string;
+};
+
+export type GrantResourceNamespace = {
+    'namespace-id': string;
+    type: 'namespace';
+    'warehouse-id': string;
+};
+
+export type GrantResourceProject = {
+    'project-id': string;
+    type: 'project';
+};
+
 /**
  * The resource a grant is held on, as it appears in a response.
  *
@@ -1063,33 +1201,52 @@ export type GrantEntry = {
  * that addresses the resource — so a client can look a listed grant up in the
  * vocabulary, or build a request path from it, without a translation table.
  */
-export type GrantResourceResponse = {
+export type GrantResourceResponse = ({
     type: 'server';
-} | {
-    'project-id': string;
+} & GrantResourceServer) | ({
     type: 'project';
-} | {
+} & GrantResourceProject) | ({
     type: 'warehouse';
-    'warehouse-id': string;
-} | {
-    'namespace-id': string;
+} & GrantResourceWarehouse) | ({
     type: 'namespace';
-    'warehouse-id': string;
-} | {
+} & GrantResourceNamespace) | ({
+    type: 'table';
+} & GrantResourceTable) | ({
+    type: 'view';
+} & GrantResourceView) | ({
+    type: 'generic-table';
+} & GrantResourceGenericTable) | ({
+    type: 'tag-definition';
+} & GrantResourceTag);
+
+export type GrantResourceServer = {
+    type: 'server';
+};
+
+export type GrantResourceTable = {
     'table-id': string;
     type: 'table';
     'warehouse-id': string;
-} | {
+};
+
+/**
+ * Spelled `tag-definition`, as everywhere else. `kebab-case` alone would render it
+ * `tag`, which matches neither `ResourceType` nor the URL segment.
+ */
+export type GrantResourceTag = {
+    'tag-definition-id': string;
+    type: 'tag-definition';
+};
+
+export type GrantResourceView = {
     type: 'view';
     'view-id': string;
     'warehouse-id': string;
-} | {
-    'generic-table-id': string;
-    type: 'generic-table';
+};
+
+export type GrantResourceWarehouse = {
+    type: 'warehouse';
     'warehouse-id': string;
-} | {
-    'tag-definition-id': string;
-    type: 'tag-definition';
 };
 
 /**
@@ -1111,11 +1268,12 @@ export type GrantResponse = {
 };
 
 /**
- * One privilege of a resource's vocabulary, and whether the principal may grant it.
+ * One privilege of a resource's vocabulary, and whether the principal may administer it.
  */
 export type GrantablePrivilege = {
     /**
-     * Whether the principal may grant and revoke this privilege on this resource.
+     * Whether the principal may administer this privilege here — grant it, revoke it, or
+     * both. Advisory: an apply checks each of its entries on its own.
      */
     allowed: boolean;
     /**
@@ -1152,101 +1310,137 @@ export type IcebergErrorResponse = {
     error: ErrorModel;
 };
 
-export type LakekeeperGenericTableAction = {
+export type LakekeeperGenericTableAction = ({
     action: 'drop';
-} | {
+} & LakekeeperGenericTableActionDrop) | ({
     action: 'read_data';
-} | {
+} & LakekeeperGenericTableActionReadData) | ({
     action: 'write_data';
-} | {
+} & LakekeeperGenericTableActionWriteData) | ({
     action: 'get_metadata';
-} | {
+} & LakekeeperGenericTableActionGetMetadata) | ({
     action: 'rename';
-} | {
+} & LakekeeperGenericTableActionRename) | ({
     action: 'include_in_list';
-} | {
+} & LakekeeperGenericTableActionIncludeInList) | ({
     action: 'undrop';
-} | {
+} & LakekeeperGenericTableActionUndrop) | ({
     action: 'get_tasks';
-} | {
+} & LakekeeperGenericTableActionGetTasks) | ({
     action: 'control_tasks';
-} | {
+} & LakekeeperGenericTableActionControlTasks) | ({
     action: 'set_protection';
-} | {
+} & LakekeeperGenericTableActionSetProtection) | ({
     action: 'manage_tags';
-} | {
+} & LakekeeperGenericTableActionManageTags) | ({
+    action: 'read_grants';
+} & LakekeeperGenericTableActionReadGrants);
+
+export type LakekeeperGenericTableActionControlTasks = {
+    action: 'control_tasks';
+};
+
+export type LakekeeperGenericTableActionDrop = {
+    action: 'drop';
+};
+
+export type LakekeeperGenericTableActionGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperGenericTableActionGetTasks = {
+    action: 'get_tasks';
+};
+
+export type LakekeeperGenericTableActionIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperGenericTableActionManageTags = {
+    action: 'manage_tags';
+};
+
+export type LakekeeperGenericTableActionReadData = {
+    action: 'read_data';
+};
+
+export type LakekeeperGenericTableActionReadGrants = {
     action: 'read_grants';
 };
 
-export type LakekeeperNamespaceAction = {
-    action: 'create_table';
-    /**
-     * Name of the table to create.
-     */
-    name?: string | null;
-    properties?: {
-        [key: string]: string;
-    };
-    /**
-     * Table ID, if externally provided (e.g. via register).
-     */
-    table_id?: string | null;
-} | {
-    action: 'create_view';
-    /**
-     * Name of the view to create.
-     */
-    name?: string | null;
-    properties?: {
-        [key: string]: string;
-    };
-} | {
-    action: 'create_namespace';
-    /**
-     * Name of the namespace to create.
-     */
-    name?: string | null;
-    properties?: {
-        [key: string]: string;
-    };
-} | {
-    action: 'delete';
-    /**
-     * Whether the warehouse-configured soft-deletion is bypassed, i.e.
-     * contained tabulars are hard-deleted immediately instead of being
-     * recoverable for the configured grace period.
-     */
-    force?: boolean;
-    /**
-     * Whether the underlying data/metadata files are physically purged.
-     */
-    purge?: boolean;
-    /**
-     * Whether the drop recurses into child namespaces, tables and views,
-     * deleting the entire subtree rooted at this namespace.
-     */
-    recursive?: boolean;
-} | {
-    action: 'update_properties';
-    removed_properties?: Array<string>;
-    updated_properties?: {
-        [key: string]: string;
-    };
-} | {
-    action: 'get_metadata';
-} | {
-    action: 'list_tables';
-} | {
-    action: 'list_views';
-} | {
-    action: 'list_namespaces';
-} | {
-    action: 'list_everything';
-} | {
+export type LakekeeperGenericTableActionRename = {
+    action: 'rename';
+};
+
+export type LakekeeperGenericTableActionSetProtection = {
     action: 'set_protection';
-} | {
+};
+
+export type LakekeeperGenericTableActionUndrop = {
+    action: 'undrop';
+};
+
+export type LakekeeperGenericTableActionWriteData = {
+    action: 'write_data';
+};
+
+export type LakekeeperNamespaceAction = ({
+    action: 'create_table';
+} & LakekeeperNamespaceActionCreateTable) | ({
+    action: 'create_view';
+} & LakekeeperNamespaceActionCreateView) | ({
+    action: 'create_namespace';
+} & LakekeeperNamespaceActionCreateNamespace) | ({
+    action: 'delete';
+} & LakekeeperNamespaceActionDelete) | ({
+    action: 'update_properties';
+} & LakekeeperNamespaceActionUpdateProperties) | ({
+    action: 'get_metadata';
+} & LakekeeperNamespaceActionGetMetadata) | ({
+    action: 'list_tables';
+} & LakekeeperNamespaceActionListTables) | ({
+    action: 'list_views';
+} & LakekeeperNamespaceActionListViews) | ({
+    action: 'list_namespaces';
+} & LakekeeperNamespaceActionListNamespaces) | ({
+    action: 'list_everything';
+} & LakekeeperNamespaceActionListEverything) | ({
+    action: 'set_protection';
+} & LakekeeperNamespaceActionSetProtection) | ({
     action: 'include_in_list';
-} | {
+} & LakekeeperNamespaceActionIncludeInList) | ({
+    action: 'create_generic_table';
+} & LakekeeperNamespaceActionCreateGenericTable) | ({
+    action: 'list_generic_tables';
+} & LakekeeperNamespaceActionListGenericTables) | ({
+    action: 'manage_tags';
+} & LakekeeperNamespaceActionManageTags) | ({
+    action: 'move';
+} & LakekeeperNamespaceActionMove) | ({
+    action: 'accept_moved_namespace';
+} & LakekeeperNamespaceActionAcceptMovedNamespace) | ({
+    action: 'read_grants';
+} & LakekeeperNamespaceActionReadGrants);
+
+/**
+ * Accept a namespace being moved in from elsewhere as a child of this entity.
+ *
+ * Distinct from `CreateNamespace`: creating adds an *empty* child, so exposing it to
+ * this subtree's grantees exposes nothing. A move arrives carrying existing contents
+ * and their direct grants, which is why this is gated on grant authority in addition to
+ * `create` — without it, a namespace could be populated and granted somewhere
+ * permissive and then moved into a `managed_access` subtree, smuggling grants past the
+ * control that subtree exists to enforce.
+ */
+export type LakekeeperNamespaceActionAcceptMovedNamespace = {
+    action: 'accept_moved_namespace';
+    /**
+     * Path the namespace is being moved from.
+     */
+    source?: Array<string>;
+};
+
+export type LakekeeperNamespaceActionCreateGenericTable = {
     action: 'create_generic_table';
     /**
      * User-supplied base location override — primary lever for
@@ -1269,149 +1463,544 @@ export type LakekeeperNamespaceAction = {
     properties?: {
         [key: string]: string;
     };
-} | {
-    action: 'list_generic_tables';
-} | {
-    action: 'manage_tags';
-} | {
-    action: 'read_grants';
 };
 
-export type LakekeeperNamespaceActionKind = {
-    action: 'create_table';
-} | {
-    action: 'create_view';
-} | {
+export type LakekeeperNamespaceActionCreateNamespace = {
     action: 'create_namespace';
-} | {
-    action: 'delete';
-} | {
-    action: 'update_properties';
-} | {
-    action: 'get_metadata';
-} | {
-    action: 'list_tables';
-} | {
-    action: 'list_views';
-} | {
-    action: 'list_namespaces';
-} | {
-    action: 'list_everything';
-} | {
-    action: 'set_protection';
-} | {
-    action: 'include_in_list';
-} | {
-    action: 'create_generic_table';
-} | {
-    action: 'list_generic_tables';
-} | {
-    action: 'manage_tags';
-} | {
-    action: 'read_grants';
-};
-
-export type LakekeeperProjectAction = {
-    action: 'create_warehouse';
     /**
-     * Name of the warehouse to create.
+     * Name of the namespace to create.
      */
     name?: string | null;
-} | {
+    properties?: {
+        [key: string]: string;
+    };
+};
+
+export type LakekeeperNamespaceActionCreateTable = {
+    action: 'create_table';
+    /**
+     * Name of the table to create.
+     */
+    name?: string | null;
+    properties?: {
+        [key: string]: string;
+    };
+    /**
+     * Table ID, if externally provided (e.g. via register).
+     */
+    table_id?: string | null;
+};
+
+export type LakekeeperNamespaceActionCreateView = {
+    action: 'create_view';
+    /**
+     * Name of the view to create.
+     */
+    name?: string | null;
+    properties?: {
+        [key: string]: string;
+    };
+};
+
+export type LakekeeperNamespaceActionDelete = {
     action: 'delete';
-} | {
-    action: 'rename';
-} | {
+    /**
+     * Whether the warehouse-configured soft-deletion is bypassed, i.e.
+     * contained tabulars are hard-deleted immediately instead of being
+     * recoverable for the configured grace period.
+     */
+    force?: boolean;
+    /**
+     * Whether the underlying data/metadata files are physically purged.
+     */
+    purge?: boolean;
+    /**
+     * Whether the drop recurses into child namespaces, tables and views,
+     * deleting the entire subtree rooted at this namespace.
+     */
+    recursive?: boolean;
+};
+
+export type LakekeeperNamespaceActionGetMetadata = {
     action: 'get_metadata';
-} | {
-    action: 'list_warehouses';
-} | {
+};
+
+export type LakekeeperNamespaceActionIncludeInList = {
     action: 'include_in_list';
-} | {
+};
+
+export type LakekeeperNamespaceActionKind = ({
+    action: 'create_table';
+} & LakekeeperNamespaceActionKindCreateTable) | ({
+    action: 'create_view';
+} & LakekeeperNamespaceActionKindCreateView) | ({
+    action: 'create_namespace';
+} & LakekeeperNamespaceActionKindCreateNamespace) | ({
+    action: 'delete';
+} & LakekeeperNamespaceActionKindDelete) | ({
+    action: 'update_properties';
+} & LakekeeperNamespaceActionKindUpdateProperties) | ({
+    action: 'get_metadata';
+} & LakekeeperNamespaceActionKindGetMetadata) | ({
+    action: 'list_tables';
+} & LakekeeperNamespaceActionKindListTables) | ({
+    action: 'list_views';
+} & LakekeeperNamespaceActionKindListViews) | ({
+    action: 'list_namespaces';
+} & LakekeeperNamespaceActionKindListNamespaces) | ({
+    action: 'list_everything';
+} & LakekeeperNamespaceActionKindListEverything) | ({
+    action: 'set_protection';
+} & LakekeeperNamespaceActionKindSetProtection) | ({
+    action: 'include_in_list';
+} & LakekeeperNamespaceActionKindIncludeInList) | ({
+    action: 'create_generic_table';
+} & LakekeeperNamespaceActionKindCreateGenericTable) | ({
+    action: 'list_generic_tables';
+} & LakekeeperNamespaceActionKindListGenericTables) | ({
+    action: 'manage_tags';
+} & LakekeeperNamespaceActionKindManageTags) | ({
+    action: 'move';
+} & LakekeeperNamespaceActionKindMove) | ({
+    action: 'accept_moved_namespace';
+} & LakekeeperNamespaceActionKindAcceptMovedNamespace) | ({
+    action: 'read_grants';
+} & LakekeeperNamespaceActionKindReadGrants);
+
+export type LakekeeperNamespaceActionKindAcceptMovedNamespace = {
+    action: 'accept_moved_namespace';
+};
+
+export type LakekeeperNamespaceActionKindCreateGenericTable = {
+    action: 'create_generic_table';
+};
+
+export type LakekeeperNamespaceActionKindCreateNamespace = {
+    action: 'create_namespace';
+};
+
+export type LakekeeperNamespaceActionKindCreateTable = {
+    action: 'create_table';
+};
+
+export type LakekeeperNamespaceActionKindCreateView = {
+    action: 'create_view';
+};
+
+export type LakekeeperNamespaceActionKindDelete = {
+    action: 'delete';
+};
+
+export type LakekeeperNamespaceActionKindGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperNamespaceActionKindIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperNamespaceActionKindListEverything = {
+    action: 'list_everything';
+};
+
+export type LakekeeperNamespaceActionKindListGenericTables = {
+    action: 'list_generic_tables';
+};
+
+export type LakekeeperNamespaceActionKindListNamespaces = {
+    action: 'list_namespaces';
+};
+
+export type LakekeeperNamespaceActionKindListTables = {
+    action: 'list_tables';
+};
+
+export type LakekeeperNamespaceActionKindListViews = {
+    action: 'list_views';
+};
+
+export type LakekeeperNamespaceActionKindManageTags = {
+    action: 'manage_tags';
+};
+
+export type LakekeeperNamespaceActionKindMove = {
+    action: 'move';
+};
+
+export type LakekeeperNamespaceActionKindReadGrants = {
+    action: 'read_grants';
+};
+
+export type LakekeeperNamespaceActionKindSetProtection = {
+    action: 'set_protection';
+};
+
+export type LakekeeperNamespaceActionKindUpdateProperties = {
+    action: 'update_properties';
+};
+
+export type LakekeeperNamespaceActionListEverything = {
+    action: 'list_everything';
+};
+
+export type LakekeeperNamespaceActionListGenericTables = {
+    action: 'list_generic_tables';
+};
+
+export type LakekeeperNamespaceActionListNamespaces = {
+    action: 'list_namespaces';
+};
+
+export type LakekeeperNamespaceActionListTables = {
+    action: 'list_tables';
+};
+
+export type LakekeeperNamespaceActionListViews = {
+    action: 'list_views';
+};
+
+/**
+ * Attach/detach governance tags on this namespace.
+ */
+export type LakekeeperNamespaceActionManageTags = {
+    action: 'manage_tags';
+};
+
+/**
+ * Move this namespace to a new path, re-parenting and/or renaming it.
+ *
+ * Gated on grant-level authority *in addition to* plain write access. Re-parenting a
+ * namespace re-issues every privilege the destination subtree confers onto the
+ * namespace's contents, with no assignment record anywhere — so the actor must
+ * already be able to grant on the namespace being moved. Inside a `managed_access`
+ * subtree ownership does not confer that, which is precisely the case where moving
+ * out would otherwise defeat the control.
+ *
+ * Only the source half of a move's authorization; the destination is gated by
+ * `CreateNamespace` plus `AcceptMovedNamespace`.
+ */
+export type LakekeeperNamespaceActionMove = {
+    action: 'move';
+    /**
+     * Full destination path, including the new leaf name.
+     */
+    destination: Array<string>;
+    /**
+     * Whether protection is overridden, as for `Delete`.
+     */
+    force?: boolean;
+};
+
+/**
+ * Can list the grants held on this namespace.
+ */
+export type LakekeeperNamespaceActionReadGrants = {
+    action: 'read_grants';
+};
+
+export type LakekeeperNamespaceActionSetProtection = {
+    action: 'set_protection';
+};
+
+export type LakekeeperNamespaceActionUpdateProperties = {
+    action: 'update_properties';
+    removed_properties?: Array<string>;
+    updated_properties?: {
+        [key: string]: string;
+    };
+};
+
+export type LakekeeperProjectAction = ({
+    action: 'create_warehouse';
+} & LakekeeperProjectActionCreateWarehouse) | ({
+    action: 'delete';
+} & LakekeeperProjectActionDelete) | ({
+    action: 'rename';
+} & LakekeeperProjectActionRename) | ({
+    action: 'get_metadata';
+} & LakekeeperProjectActionGetMetadata) | ({
+    action: 'list_warehouses';
+} & LakekeeperProjectActionListWarehouses) | ({
+    action: 'include_in_list';
+} & LakekeeperProjectActionIncludeInList) | ({
+    action: 'create_role';
+} & LakekeeperProjectActionCreateRole) | ({
+    action: 'list_roles';
+} & LakekeeperProjectActionListRoles) | ({
+    action: 'search_roles';
+} & LakekeeperProjectActionSearchRoles) | ({
+    action: 'get_endpoint_statistics';
+} & LakekeeperProjectActionGetEndpointStatistics) | ({
+    action: 'modify_task_queue_config';
+} & LakekeeperProjectActionModifyTaskQueueConfig) | ({
+    action: 'get_task_queue_config';
+} & LakekeeperProjectActionGetTaskQueueConfig) | ({
+    action: 'get_project_tasks';
+} & LakekeeperProjectActionGetProjectTasks) | ({
+    action: 'control_project_tasks';
+} & LakekeeperProjectActionControlProjectTasks) | ({
+    action: 'create_tag';
+} & LakekeeperProjectActionCreateTag) | ({
+    action: 'list_tags';
+} & LakekeeperProjectActionListTags) | ({
+    action: 'read_grants';
+} & LakekeeperProjectActionReadGrants);
+
+export type LakekeeperProjectActionControlProjectTasks = {
+    action: 'control_project_tasks';
+};
+
+export type LakekeeperProjectActionCreateRole = {
     action: 'create_role';
     /**
      * Name of the role to create.
      */
     name?: string | null;
-} | {
-    action: 'list_roles';
-} | {
-    action: 'search_roles';
-} | {
-    action: 'get_endpoint_statistics';
-} | {
-    action: 'modify_task_queue_config';
-} | {
-    action: 'get_task_queue_config';
-} | {
-    action: 'get_project_tasks';
-} | {
-    action: 'control_project_tasks';
-} | {
+};
+
+/**
+ * Create a new governance tag definition in this project.
+ */
+export type LakekeeperProjectActionCreateTag = {
     action: 'create_tag';
     /**
      * Name of the tag to create.
      */
     name?: string | null;
-} | {
-    action: 'list_tags';
-} | {
-    action: 'read_grants';
 };
 
-export type LakekeeperProjectActionKind = {
+export type LakekeeperProjectActionCreateWarehouse = {
     action: 'create_warehouse';
-} | {
+    /**
+     * Name of the warehouse to create.
+     */
+    name?: string | null;
+};
+
+export type LakekeeperProjectActionDelete = {
     action: 'delete';
-} | {
-    action: 'rename';
-} | {
-    action: 'get_metadata';
-} | {
-    action: 'list_warehouses';
-} | {
-    action: 'include_in_list';
-} | {
-    action: 'create_role';
-} | {
-    action: 'list_roles';
-} | {
-    action: 'search_roles';
-} | {
+};
+
+export type LakekeeperProjectActionGetEndpointStatistics = {
     action: 'get_endpoint_statistics';
-} | {
-    action: 'modify_task_queue_config';
-} | {
-    action: 'get_task_queue_config';
-} | {
+};
+
+export type LakekeeperProjectActionGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperProjectActionGetProjectTasks = {
     action: 'get_project_tasks';
-} | {
+};
+
+export type LakekeeperProjectActionGetTaskQueueConfig = {
+    action: 'get_task_queue_config';
+};
+
+export type LakekeeperProjectActionIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperProjectActionKind = ({
+    action: 'create_warehouse';
+} & LakekeeperProjectActionKindCreateWarehouse) | ({
+    action: 'delete';
+} & LakekeeperProjectActionKindDelete) | ({
+    action: 'rename';
+} & LakekeeperProjectActionKindRename) | ({
+    action: 'get_metadata';
+} & LakekeeperProjectActionKindGetMetadata) | ({
+    action: 'list_warehouses';
+} & LakekeeperProjectActionKindListWarehouses) | ({
+    action: 'include_in_list';
+} & LakekeeperProjectActionKindIncludeInList) | ({
+    action: 'create_role';
+} & LakekeeperProjectActionKindCreateRole) | ({
+    action: 'list_roles';
+} & LakekeeperProjectActionKindListRoles) | ({
+    action: 'search_roles';
+} & LakekeeperProjectActionKindSearchRoles) | ({
+    action: 'get_endpoint_statistics';
+} & LakekeeperProjectActionKindGetEndpointStatistics) | ({
+    action: 'modify_task_queue_config';
+} & LakekeeperProjectActionKindModifyTaskQueueConfig) | ({
+    action: 'get_task_queue_config';
+} & LakekeeperProjectActionKindGetTaskQueueConfig) | ({
+    action: 'get_project_tasks';
+} & LakekeeperProjectActionKindGetProjectTasks) | ({
     action: 'control_project_tasks';
-} | {
+} & LakekeeperProjectActionKindControlProjectTasks) | ({
     action: 'create_tag';
-} | {
+} & LakekeeperProjectActionKindCreateTag) | ({
     action: 'list_tags';
-} | {
+} & LakekeeperProjectActionKindListTags) | ({
+    action: 'read_grants';
+} & LakekeeperProjectActionKindReadGrants);
+
+export type LakekeeperProjectActionKindControlProjectTasks = {
+    action: 'control_project_tasks';
+};
+
+export type LakekeeperProjectActionKindCreateRole = {
+    action: 'create_role';
+};
+
+export type LakekeeperProjectActionKindCreateTag = {
+    action: 'create_tag';
+};
+
+export type LakekeeperProjectActionKindCreateWarehouse = {
+    action: 'create_warehouse';
+};
+
+export type LakekeeperProjectActionKindDelete = {
+    action: 'delete';
+};
+
+export type LakekeeperProjectActionKindGetEndpointStatistics = {
+    action: 'get_endpoint_statistics';
+};
+
+export type LakekeeperProjectActionKindGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperProjectActionKindGetProjectTasks = {
+    action: 'get_project_tasks';
+};
+
+export type LakekeeperProjectActionKindGetTaskQueueConfig = {
+    action: 'get_task_queue_config';
+};
+
+export type LakekeeperProjectActionKindIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperProjectActionKindListRoles = {
+    action: 'list_roles';
+};
+
+export type LakekeeperProjectActionKindListTags = {
+    action: 'list_tags';
+};
+
+export type LakekeeperProjectActionKindListWarehouses = {
+    action: 'list_warehouses';
+};
+
+export type LakekeeperProjectActionKindModifyTaskQueueConfig = {
+    action: 'modify_task_queue_config';
+};
+
+export type LakekeeperProjectActionKindReadGrants = {
     action: 'read_grants';
 };
 
-export type LakekeeperRoleActionKind = {
+export type LakekeeperProjectActionKindRename = {
+    action: 'rename';
+};
+
+export type LakekeeperProjectActionKindSearchRoles = {
+    action: 'search_roles';
+};
+
+export type LakekeeperProjectActionListRoles = {
+    action: 'list_roles';
+};
+
+/**
+ * List tag definitions in this project.
+ */
+export type LakekeeperProjectActionListTags = {
+    action: 'list_tags';
+};
+
+export type LakekeeperProjectActionListWarehouses = {
+    action: 'list_warehouses';
+};
+
+export type LakekeeperProjectActionModifyTaskQueueConfig = {
+    action: 'modify_task_queue_config';
+};
+
+/**
+ * Can list the grants held on this project.
+ */
+export type LakekeeperProjectActionReadGrants = {
+    action: 'read_grants';
+};
+
+export type LakekeeperProjectActionRename = {
+    action: 'rename';
+};
+
+export type LakekeeperProjectActionSearchRoles = {
+    action: 'search_roles';
+};
+
+export type LakekeeperRoleActionKind = ({
     action: 'read';
-} | {
+} & LakekeeperRoleActionKindRead) | ({
     action: 'read_metadata';
-} | {
+} & LakekeeperRoleActionKindReadMetadata) | ({
     action: 'delete';
-} | {
+} & LakekeeperRoleActionKindDelete) | ({
     action: 'update';
-} | {
+} & LakekeeperRoleActionKindUpdate) | ({
     action: 'manage_role_assignments';
-} | {
+} & LakekeeperRoleActionKindManageRoleAssignments) | ({
     action: 'read_role_assignments';
-} | {
+} & LakekeeperRoleActionKindReadRoleAssignments) | ({
+    action: 'update_source_system';
+} & LakekeeperRoleActionKindUpdateSourceSystem);
+
+export type LakekeeperRoleActionKindDelete = {
+    action: 'delete';
+};
+
+export type LakekeeperRoleActionKindManageRoleAssignments = {
+    action: 'manage_role_assignments';
+};
+
+export type LakekeeperRoleActionKindRead = {
+    action: 'read';
+};
+
+export type LakekeeperRoleActionKindReadMetadata = {
+    action: 'read_metadata';
+};
+
+export type LakekeeperRoleActionKindReadRoleAssignments = {
+    action: 'read_role_assignments';
+};
+
+export type LakekeeperRoleActionKindUpdate = {
+    action: 'update';
+};
+
+export type LakekeeperRoleActionKindUpdateSourceSystem = {
     action: 'update_source_system';
 };
 
-export type LakekeeperServerAction = {
+export type LakekeeperServerAction = ({
+    action: 'create_project';
+} & LakekeeperServerActionCreateProject) | ({
+    action: 'update_users';
+} & LakekeeperServerActionUpdateUsers) | ({
+    action: 'delete_users';
+} & LakekeeperServerActionDeleteUsers) | ({
+    action: 'list_users';
+} & LakekeeperServerActionListUsers) | ({
+    action: 'provision_users';
+} & LakekeeperServerActionProvisionUsers) | ({
+    action: 'read_grants';
+} & LakekeeperServerActionReadGrants);
+
+/**
+ * Can create items inside the server (can create Warehouses).
+ */
+export type LakekeeperServerActionCreateProject = {
     action: 'create_project';
     /**
      * Name of the project to create.
@@ -1421,51 +2010,110 @@ export type LakekeeperServerAction = {
      * Project ID, if externally provided.
      */
     project_id?: string | null;
-} | {
-    action: 'update_users';
-} | {
-    action: 'delete_users';
-} | {
-    action: 'list_users';
-} | {
-    action: 'provision_users';
-} | {
-    action: 'read_grants';
 };
 
-export type LakekeeperServerActionKind = {
+/**
+ * Can delete all users on this server.
+ */
+export type LakekeeperServerActionDeleteUsers = {
+    action: 'delete_users';
+};
+
+export type LakekeeperServerActionKind = ({
     action: 'create_project';
-} | {
+} & LakekeeperServerActionKindCreateProject) | ({
     action: 'update_users';
-} | {
+} & LakekeeperServerActionKindUpdateUsers) | ({
     action: 'delete_users';
-} | {
+} & LakekeeperServerActionKindDeleteUsers) | ({
     action: 'list_users';
-} | {
+} & LakekeeperServerActionKindListUsers) | ({
     action: 'provision_users';
-} | {
+} & LakekeeperServerActionKindProvisionUsers) | ({
+    action: 'read_grants';
+} & LakekeeperServerActionKindReadGrants);
+
+export type LakekeeperServerActionKindCreateProject = {
+    action: 'create_project';
+};
+
+export type LakekeeperServerActionKindDeleteUsers = {
+    action: 'delete_users';
+};
+
+export type LakekeeperServerActionKindListUsers = {
+    action: 'list_users';
+};
+
+export type LakekeeperServerActionKindProvisionUsers = {
+    action: 'provision_users';
+};
+
+export type LakekeeperServerActionKindReadGrants = {
     action: 'read_grants';
 };
 
-export type LakekeeperTableAction = {
+export type LakekeeperServerActionKindUpdateUsers = {
+    action: 'update_users';
+};
+
+/**
+ * Can List all users on this server.
+ */
+export type LakekeeperServerActionListUsers = {
+    action: 'list_users';
+};
+
+/**
+ * Can provision user
+ */
+export type LakekeeperServerActionProvisionUsers = {
+    action: 'provision_users';
+};
+
+/**
+ * Can list the grants held on this server.
+ */
+export type LakekeeperServerActionReadGrants = {
+    action: 'read_grants';
+};
+
+/**
+ * Can update all users on this server.
+ */
+export type LakekeeperServerActionUpdateUsers = {
+    action: 'update_users';
+};
+
+export type LakekeeperTableAction = ({
     action: 'drop';
-    /**
-     * Whether the warehouse-configured soft-deletion is bypassed, i.e. the
-     * table is hard-deleted immediately instead of being recoverable for the
-     * configured grace period. Extra destructive — irreversible right away.
-     */
-    force?: boolean;
-    /**
-     * Whether the underlying data files are physically purged from storage.
-     */
-    purge?: boolean;
-} | {
+} & LakekeeperTableActionDrop) | ({
     action: 'write_data';
-} | {
+} & LakekeeperTableActionWriteData) | ({
     action: 'read_data';
-} | {
+} & LakekeeperTableActionReadData) | ({
     action: 'get_metadata';
-} | {
+} & LakekeeperTableActionGetMetadata) | ({
+    action: 'commit';
+} & LakekeeperTableActionCommit) | ({
+    action: 'rename';
+} & LakekeeperTableActionRename) | ({
+    action: 'include_in_list';
+} & LakekeeperTableActionIncludeInList) | ({
+    action: 'undrop';
+} & LakekeeperTableActionUndrop) | ({
+    action: 'get_tasks';
+} & LakekeeperTableActionGetTasks) | ({
+    action: 'control_tasks';
+} & LakekeeperTableActionControlTasks) | ({
+    action: 'set_protection';
+} & LakekeeperTableActionSetProtection) | ({
+    action: 'manage_tags';
+} & LakekeeperTableActionManageTags) | ({
+    action: 'read_grants';
+} & LakekeeperTableActionReadGrants);
+
+export type LakekeeperTableActionCommit = {
     action: 'commit';
     removed_properties?: Array<string>;
     /**
@@ -1480,79 +2128,261 @@ export type LakekeeperTableAction = {
     updated_properties?: {
         [key: string]: string;
     };
-} | {
-    action: 'rename';
-} | {
-    action: 'include_in_list';
-} | {
-    action: 'undrop';
-} | {
-    action: 'get_tasks';
-} | {
-    action: 'control_tasks';
-} | {
-    action: 'set_protection';
-} | {
-    action: 'manage_tags';
-} | {
-    action: 'read_grants';
 };
 
-export type LakekeeperTableActionKind = {
+export type LakekeeperTableActionControlTasks = {
+    action: 'control_tasks';
+};
+
+export type LakekeeperTableActionDrop = {
     action: 'drop';
-} | {
-    action: 'write_data';
-} | {
-    action: 'read_data';
-} | {
+    /**
+     * Whether the warehouse-configured soft-deletion is bypassed, i.e. the
+     * table is hard-deleted immediately instead of being recoverable for the
+     * configured grace period. Extra destructive — irreversible right away.
+     */
+    force?: boolean;
+    /**
+     * Whether the underlying data files are physically purged from storage.
+     */
+    purge?: boolean;
+};
+
+export type LakekeeperTableActionGetMetadata = {
     action: 'get_metadata';
-} | {
-    action: 'commit';
-} | {
-    action: 'rename';
-} | {
-    action: 'include_in_list';
-} | {
-    action: 'undrop';
-} | {
+};
+
+export type LakekeeperTableActionGetTasks = {
     action: 'get_tasks';
-} | {
+};
+
+export type LakekeeperTableActionIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperTableActionKind = ({
+    action: 'drop';
+} & LakekeeperTableActionKindDrop) | ({
+    action: 'write_data';
+} & LakekeeperTableActionKindWriteData) | ({
+    action: 'read_data';
+} & LakekeeperTableActionKindReadData) | ({
+    action: 'get_metadata';
+} & LakekeeperTableActionKindGetMetadata) | ({
+    action: 'commit';
+} & LakekeeperTableActionKindCommit) | ({
+    action: 'rename';
+} & LakekeeperTableActionKindRename) | ({
+    action: 'include_in_list';
+} & LakekeeperTableActionKindIncludeInList) | ({
+    action: 'undrop';
+} & LakekeeperTableActionKindUndrop) | ({
+    action: 'get_tasks';
+} & LakekeeperTableActionKindGetTasks) | ({
     action: 'control_tasks';
-} | {
+} & LakekeeperTableActionKindControlTasks) | ({
     action: 'set_protection';
-} | {
+} & LakekeeperTableActionKindSetProtection) | ({
     action: 'manage_tags';
-} | {
+} & LakekeeperTableActionKindManageTags) | ({
+    action: 'read_grants';
+} & LakekeeperTableActionKindReadGrants);
+
+export type LakekeeperTableActionKindCommit = {
+    action: 'commit';
+};
+
+export type LakekeeperTableActionKindControlTasks = {
+    action: 'control_tasks';
+};
+
+export type LakekeeperTableActionKindDrop = {
+    action: 'drop';
+};
+
+export type LakekeeperTableActionKindGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperTableActionKindGetTasks = {
+    action: 'get_tasks';
+};
+
+export type LakekeeperTableActionKindIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperTableActionKindManageTags = {
+    action: 'manage_tags';
+};
+
+export type LakekeeperTableActionKindReadData = {
+    action: 'read_data';
+};
+
+export type LakekeeperTableActionKindReadGrants = {
     action: 'read_grants';
 };
 
-export type LakekeeperTagAction = {
+export type LakekeeperTableActionKindRename = {
+    action: 'rename';
+};
+
+export type LakekeeperTableActionKindSetProtection = {
+    action: 'set_protection';
+};
+
+export type LakekeeperTableActionKindUndrop = {
+    action: 'undrop';
+};
+
+export type LakekeeperTableActionKindWriteData = {
+    action: 'write_data';
+};
+
+/**
+ * Attach/detach governance tags on this table.
+ */
+export type LakekeeperTableActionManageTags = {
+    action: 'manage_tags';
+};
+
+export type LakekeeperTableActionReadData = {
+    action: 'read_data';
+};
+
+/**
+ * Can list the grants held on this table.
+ */
+export type LakekeeperTableActionReadGrants = {
+    action: 'read_grants';
+};
+
+export type LakekeeperTableActionRename = {
+    action: 'rename';
+};
+
+export type LakekeeperTableActionSetProtection = {
+    action: 'set_protection';
+};
+
+export type LakekeeperTableActionUndrop = {
+    action: 'undrop';
+};
+
+export type LakekeeperTableActionWriteData = {
+    action: 'write_data';
+};
+
+export type LakekeeperTagAction = ({
     action: 'read';
-} | {
+} & LakekeeperTagActionRead) | ({
     action: 'update';
-} | {
+} & LakekeeperTagActionUpdate) | ({
     action: 'delete';
-} | {
+} & LakekeeperTagActionDelete) | ({
     action: 'apply';
-} | {
+} & LakekeeperTagActionApply) | ({
     action: 'remove';
-} | {
+} & LakekeeperTagActionRemove) | ({
     action: 'read_attachments';
-} | {
+} & LakekeeperTagActionReadAttachments) | ({
+    action: 'read_grants';
+} & LakekeeperTagActionReadGrants);
+
+export type LakekeeperTagActionApply = {
+    action: 'apply';
+};
+
+export type LakekeeperTagActionDelete = {
+    action: 'delete';
+};
+
+export type LakekeeperTagActionRead = {
+    action: 'read';
+};
+
+export type LakekeeperTagActionReadAttachments = {
+    action: 'read_attachments';
+};
+
+export type LakekeeperTagActionReadGrants = {
     action: 'read_grants';
 };
 
-export type LakekeeperUserAction = {
-    action: 'read';
-} | {
+export type LakekeeperTagActionRemove = {
+    action: 'remove';
+};
+
+export type LakekeeperTagActionUpdate = {
     action: 'update';
-} | {
+};
+
+export type LakekeeperUserAction = ({
+    action: 'read';
+} & LakekeeperUserActionRead) | ({
+    action: 'update';
+} & LakekeeperUserActionUpdate) | ({
     action: 'delete';
-} | {
+} & LakekeeperUserActionDelete) | ({
+    action: 'read_role_assignments';
+} & LakekeeperUserActionReadRoleAssignments);
+
+export type LakekeeperUserActionDelete = {
+    action: 'delete';
+};
+
+export type LakekeeperUserActionRead = {
+    action: 'read';
+};
+
+export type LakekeeperUserActionReadRoleAssignments = {
     action: 'read_role_assignments';
 };
 
-export type LakekeeperViewAction = {
+export type LakekeeperUserActionUpdate = {
+    action: 'update';
+};
+
+export type LakekeeperViewAction = ({
+    action: 'drop';
+} & LakekeeperViewActionDrop) | ({
+    action: 'get_metadata';
+} & LakekeeperViewActionGetMetadata) | ({
+    action: 'select';
+} & LakekeeperViewActionSelect) | ({
+    action: 'commit';
+} & LakekeeperViewActionCommit) | ({
+    action: 'include_in_list';
+} & LakekeeperViewActionIncludeInList) | ({
+    action: 'rename';
+} & LakekeeperViewActionRename) | ({
+    action: 'undrop';
+} & LakekeeperViewActionUndrop) | ({
+    action: 'get_tasks';
+} & LakekeeperViewActionGetTasks) | ({
+    action: 'control_tasks';
+} & LakekeeperViewActionControlTasks) | ({
+    action: 'set_protection';
+} & LakekeeperViewActionSetProtection) | ({
+    action: 'manage_tags';
+} & LakekeeperViewActionManageTags) | ({
+    action: 'read_grants';
+} & LakekeeperViewActionReadGrants);
+
+export type LakekeeperViewActionCommit = {
+    action: 'commit';
+    removed_properties?: Array<string>;
+    updated_properties?: {
+        [key: string]: string;
+    };
+};
+
+export type LakekeeperViewActionControlTasks = {
+    action: 'control_tasks';
+};
+
+export type LakekeeperViewActionDrop = {
     action: 'drop';
     /**
      * Whether the warehouse-configured soft-deletion is bypassed, i.e. the
@@ -1564,61 +2394,201 @@ export type LakekeeperViewAction = {
      * Whether the underlying metadata files are physically purged from storage.
      */
     purge?: boolean;
-} | {
-    action: 'get_metadata';
-} | {
-    action: 'select';
-} | {
-    action: 'commit';
-    removed_properties?: Array<string>;
-    updated_properties?: {
-        [key: string]: string;
-    };
-} | {
-    action: 'include_in_list';
-} | {
-    action: 'rename';
-} | {
-    action: 'undrop';
-} | {
-    action: 'get_tasks';
-} | {
-    action: 'control_tasks';
-} | {
-    action: 'set_protection';
-} | {
-    action: 'manage_tags';
-} | {
-    action: 'read_grants';
 };
 
-export type LakekeeperViewActionKind = {
+export type LakekeeperViewActionGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperViewActionGetTasks = {
+    action: 'get_tasks';
+};
+
+export type LakekeeperViewActionIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperViewActionKind = ({
     action: 'drop';
-} | {
+} & LakekeeperViewActionKindDrop) | ({
     action: 'get_metadata';
-} | {
+} & LakekeeperViewActionKindGetMetadata) | ({
     action: 'select';
-} | {
+} & LakekeeperViewActionKindSelect) | ({
     action: 'commit';
-} | {
+} & LakekeeperViewActionKindCommit) | ({
     action: 'include_in_list';
-} | {
+} & LakekeeperViewActionKindIncludeInList) | ({
     action: 'rename';
-} | {
+} & LakekeeperViewActionKindRename) | ({
     action: 'undrop';
-} | {
+} & LakekeeperViewActionKindUndrop) | ({
     action: 'get_tasks';
-} | {
+} & LakekeeperViewActionKindGetTasks) | ({
     action: 'control_tasks';
-} | {
+} & LakekeeperViewActionKindControlTasks) | ({
     action: 'set_protection';
-} | {
+} & LakekeeperViewActionKindSetProtection) | ({
     action: 'manage_tags';
-} | {
+} & LakekeeperViewActionKindManageTags) | ({
+    action: 'read_grants';
+} & LakekeeperViewActionKindReadGrants);
+
+export type LakekeeperViewActionKindCommit = {
+    action: 'commit';
+};
+
+export type LakekeeperViewActionKindControlTasks = {
+    action: 'control_tasks';
+};
+
+export type LakekeeperViewActionKindDrop = {
+    action: 'drop';
+};
+
+export type LakekeeperViewActionKindGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperViewActionKindGetTasks = {
+    action: 'get_tasks';
+};
+
+export type LakekeeperViewActionKindIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperViewActionKindManageTags = {
+    action: 'manage_tags';
+};
+
+export type LakekeeperViewActionKindReadGrants = {
     action: 'read_grants';
 };
 
-export type LakekeeperWarehouseAction = {
+export type LakekeeperViewActionKindRename = {
+    action: 'rename';
+};
+
+export type LakekeeperViewActionKindSelect = {
+    action: 'select';
+};
+
+export type LakekeeperViewActionKindSetProtection = {
+    action: 'set_protection';
+};
+
+export type LakekeeperViewActionKindUndrop = {
+    action: 'undrop';
+};
+
+/**
+ * Attach/detach governance tags on this view.
+ */
+export type LakekeeperViewActionManageTags = {
+    action: 'manage_tags';
+};
+
+/**
+ * Can list the grants held on this view.
+ */
+export type LakekeeperViewActionReadGrants = {
+    action: 'read_grants';
+};
+
+export type LakekeeperViewActionRename = {
+    action: 'rename';
+};
+
+export type LakekeeperViewActionSelect = {
+    action: 'select';
+};
+
+export type LakekeeperViewActionSetProtection = {
+    action: 'set_protection';
+};
+
+export type LakekeeperViewActionUndrop = {
+    action: 'undrop';
+};
+
+export type LakekeeperWarehouseAction = ({
+    action: 'create_namespace';
+} & LakekeeperWarehouseActionCreateNamespace) | ({
+    action: 'delete';
+} & LakekeeperWarehouseActionDelete) | ({
+    action: 'update_storage';
+} & LakekeeperWarehouseActionUpdateStorage) | ({
+    action: 'get_metadata';
+} & LakekeeperWarehouseActionGetMetadata) | ({
+    action: 'get_config';
+} & LakekeeperWarehouseActionGetConfig) | ({
+    action: 'list_namespaces';
+} & LakekeeperWarehouseActionListNamespaces) | ({
+    action: 'list_everything';
+} & LakekeeperWarehouseActionListEverything) | ({
+    action: 'use';
+} & LakekeeperWarehouseActionUse) | ({
+    action: 'include_in_list';
+} & LakekeeperWarehouseActionIncludeInList) | ({
+    action: 'deactivate';
+} & LakekeeperWarehouseActionDeactivate) | ({
+    action: 'activate';
+} & LakekeeperWarehouseActionActivate) | ({
+    action: 'rename';
+} & LakekeeperWarehouseActionRename) | ({
+    action: 'list_deleted_tabulars';
+} & LakekeeperWarehouseActionListDeletedTabulars) | ({
+    action: 'modify_soft_deletion';
+} & LakekeeperWarehouseActionModifySoftDeletion) | ({
+    action: 'get_task_queue_config';
+} & LakekeeperWarehouseActionGetTaskQueueConfig) | ({
+    action: 'modify_task_queue_config';
+} & LakekeeperWarehouseActionModifyTaskQueueConfig) | ({
+    action: 'get_all_tasks';
+} & LakekeeperWarehouseActionGetAllTasks) | ({
+    action: 'control_all_tasks';
+} & LakekeeperWarehouseActionControlAllTasks) | ({
+    action: 'set_protection';
+} & LakekeeperWarehouseActionSetProtection) | ({
+    action: 'set_format_version_policy';
+} & LakekeeperWarehouseActionSetFormatVersionPolicy) | ({
+    action: 'get_endpoint_statistics';
+} & LakekeeperWarehouseActionGetEndpointStatistics) | ({
+    action: 'manage_tags';
+} & LakekeeperWarehouseActionManageTags) | ({
+    action: 'accept_moved_namespace';
+} & LakekeeperWarehouseActionAcceptMovedNamespace) | ({
+    action: 'read_grants';
+} & LakekeeperWarehouseActionReadGrants);
+
+/**
+ * Accept a namespace being moved in from elsewhere as a child of this entity.
+ *
+ * Distinct from `CreateNamespace`: creating adds an *empty* child, so exposing it to
+ * this subtree's grantees exposes nothing. A move arrives carrying existing contents
+ * and their direct grants, which is why this is gated on grant authority in addition to
+ * `create` — without it, a namespace could be populated and granted somewhere
+ * permissive and then moved into a `managed_access` subtree, smuggling grants past the
+ * control that subtree exists to enforce.
+ */
+export type LakekeeperWarehouseActionAcceptMovedNamespace = {
+    action: 'accept_moved_namespace';
+    /**
+     * Path the namespace is being moved from.
+     */
+    source?: Array<string>;
+};
+
+export type LakekeeperWarehouseActionActivate = {
+    action: 'activate';
+};
+
+export type LakekeeperWarehouseActionControlAllTasks = {
+    action: 'control_all_tasks';
+};
+
+export type LakekeeperWarehouseActionCreateNamespace = {
     action: 'create_namespace';
     /**
      * Name of the namespace to create.
@@ -1627,98 +2597,238 @@ export type LakekeeperWarehouseAction = {
     properties?: {
         [key: string]: string;
     };
-} | {
-    action: 'delete';
-} | {
-    action: 'update_storage';
-} | {
-    action: 'get_metadata';
-} | {
-    action: 'get_config';
-} | {
-    action: 'list_namespaces';
-} | {
-    action: 'list_everything';
-} | {
-    action: 'use';
-} | {
-    action: 'include_in_list';
-} | {
+};
+
+export type LakekeeperWarehouseActionDeactivate = {
     action: 'deactivate';
-} | {
-    action: 'activate';
-} | {
-    action: 'rename';
-} | {
-    action: 'list_deleted_tabulars';
-} | {
-    action: 'modify_soft_deletion';
-} | {
-    action: 'get_task_queue_config';
-} | {
-    action: 'modify_task_queue_config';
-} | {
+};
+
+export type LakekeeperWarehouseActionDelete = {
+    action: 'delete';
+};
+
+export type LakekeeperWarehouseActionGetAllTasks = {
     action: 'get_all_tasks';
-} | {
-    action: 'control_all_tasks';
-} | {
-    action: 'set_protection';
-} | {
-    action: 'set_format_version_policy';
-} | {
+};
+
+export type LakekeeperWarehouseActionGetConfig = {
+    action: 'get_config';
+};
+
+export type LakekeeperWarehouseActionGetEndpointStatistics = {
     action: 'get_endpoint_statistics';
-} | {
+};
+
+export type LakekeeperWarehouseActionGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperWarehouseActionGetTaskQueueConfig = {
+    action: 'get_task_queue_config';
+};
+
+export type LakekeeperWarehouseActionIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperWarehouseActionKind = ({
+    action: 'create_namespace';
+} & LakekeeperWarehouseActionKindCreateNamespace) | ({
+    action: 'delete';
+} & LakekeeperWarehouseActionKindDelete) | ({
+    action: 'update_storage';
+} & LakekeeperWarehouseActionKindUpdateStorage) | ({
+    action: 'get_metadata';
+} & LakekeeperWarehouseActionKindGetMetadata) | ({
+    action: 'get_config';
+} & LakekeeperWarehouseActionKindGetConfig) | ({
+    action: 'list_namespaces';
+} & LakekeeperWarehouseActionKindListNamespaces) | ({
+    action: 'list_everything';
+} & LakekeeperWarehouseActionKindListEverything) | ({
+    action: 'use';
+} & LakekeeperWarehouseActionKindUse) | ({
+    action: 'include_in_list';
+} & LakekeeperWarehouseActionKindIncludeInList) | ({
+    action: 'deactivate';
+} & LakekeeperWarehouseActionKindDeactivate) | ({
+    action: 'activate';
+} & LakekeeperWarehouseActionKindActivate) | ({
+    action: 'rename';
+} & LakekeeperWarehouseActionKindRename) | ({
+    action: 'list_deleted_tabulars';
+} & LakekeeperWarehouseActionKindListDeletedTabulars) | ({
+    action: 'modify_soft_deletion';
+} & LakekeeperWarehouseActionKindModifySoftDeletion) | ({
+    action: 'get_task_queue_config';
+} & LakekeeperWarehouseActionKindGetTaskQueueConfig) | ({
+    action: 'modify_task_queue_config';
+} & LakekeeperWarehouseActionKindModifyTaskQueueConfig) | ({
+    action: 'get_all_tasks';
+} & LakekeeperWarehouseActionKindGetAllTasks) | ({
+    action: 'control_all_tasks';
+} & LakekeeperWarehouseActionKindControlAllTasks) | ({
+    action: 'set_protection';
+} & LakekeeperWarehouseActionKindSetProtection) | ({
+    action: 'set_format_version_policy';
+} & LakekeeperWarehouseActionKindSetFormatVersionPolicy) | ({
+    action: 'get_endpoint_statistics';
+} & LakekeeperWarehouseActionKindGetEndpointStatistics) | ({
     action: 'manage_tags';
-} | {
+} & LakekeeperWarehouseActionKindManageTags) | ({
+    action: 'accept_moved_namespace';
+} & LakekeeperWarehouseActionKindAcceptMovedNamespace) | ({
+    action: 'read_grants';
+} & LakekeeperWarehouseActionKindReadGrants);
+
+export type LakekeeperWarehouseActionKindAcceptMovedNamespace = {
+    action: 'accept_moved_namespace';
+};
+
+export type LakekeeperWarehouseActionKindActivate = {
+    action: 'activate';
+};
+
+export type LakekeeperWarehouseActionKindControlAllTasks = {
+    action: 'control_all_tasks';
+};
+
+export type LakekeeperWarehouseActionKindCreateNamespace = {
+    action: 'create_namespace';
+};
+
+export type LakekeeperWarehouseActionKindDeactivate = {
+    action: 'deactivate';
+};
+
+export type LakekeeperWarehouseActionKindDelete = {
+    action: 'delete';
+};
+
+export type LakekeeperWarehouseActionKindGetAllTasks = {
+    action: 'get_all_tasks';
+};
+
+export type LakekeeperWarehouseActionKindGetConfig = {
+    action: 'get_config';
+};
+
+export type LakekeeperWarehouseActionKindGetEndpointStatistics = {
+    action: 'get_endpoint_statistics';
+};
+
+export type LakekeeperWarehouseActionKindGetMetadata = {
+    action: 'get_metadata';
+};
+
+export type LakekeeperWarehouseActionKindGetTaskQueueConfig = {
+    action: 'get_task_queue_config';
+};
+
+export type LakekeeperWarehouseActionKindIncludeInList = {
+    action: 'include_in_list';
+};
+
+export type LakekeeperWarehouseActionKindListDeletedTabulars = {
+    action: 'list_deleted_tabulars';
+};
+
+export type LakekeeperWarehouseActionKindListEverything = {
+    action: 'list_everything';
+};
+
+export type LakekeeperWarehouseActionKindListNamespaces = {
+    action: 'list_namespaces';
+};
+
+export type LakekeeperWarehouseActionKindManageTags = {
+    action: 'manage_tags';
+};
+
+export type LakekeeperWarehouseActionKindModifySoftDeletion = {
+    action: 'modify_soft_deletion';
+};
+
+export type LakekeeperWarehouseActionKindModifyTaskQueueConfig = {
+    action: 'modify_task_queue_config';
+};
+
+export type LakekeeperWarehouseActionKindReadGrants = {
     action: 'read_grants';
 };
 
-export type LakekeeperWarehouseActionKind = {
-    action: 'create_namespace';
-} | {
-    action: 'delete';
-} | {
-    action: 'update_storage';
-} | {
-    action: 'get_metadata';
-} | {
-    action: 'get_config';
-} | {
-    action: 'list_namespaces';
-} | {
-    action: 'list_everything';
-} | {
-    action: 'use';
-} | {
-    action: 'include_in_list';
-} | {
-    action: 'deactivate';
-} | {
-    action: 'activate';
-} | {
+export type LakekeeperWarehouseActionKindRename = {
     action: 'rename';
-} | {
-    action: 'list_deleted_tabulars';
-} | {
-    action: 'modify_soft_deletion';
-} | {
-    action: 'get_task_queue_config';
-} | {
-    action: 'modify_task_queue_config';
-} | {
-    action: 'get_all_tasks';
-} | {
-    action: 'control_all_tasks';
-} | {
-    action: 'set_protection';
-} | {
+};
+
+export type LakekeeperWarehouseActionKindSetFormatVersionPolicy = {
     action: 'set_format_version_policy';
-} | {
-    action: 'get_endpoint_statistics';
-} | {
+};
+
+export type LakekeeperWarehouseActionKindSetProtection = {
+    action: 'set_protection';
+};
+
+export type LakekeeperWarehouseActionKindUpdateStorage = {
+    action: 'update_storage';
+};
+
+export type LakekeeperWarehouseActionKindUse = {
+    action: 'use';
+};
+
+export type LakekeeperWarehouseActionListDeletedTabulars = {
+    action: 'list_deleted_tabulars';
+};
+
+export type LakekeeperWarehouseActionListEverything = {
+    action: 'list_everything';
+};
+
+export type LakekeeperWarehouseActionListNamespaces = {
+    action: 'list_namespaces';
+};
+
+/**
+ * Attach/detach governance tags on this warehouse.
+ */
+export type LakekeeperWarehouseActionManageTags = {
     action: 'manage_tags';
-} | {
+};
+
+export type LakekeeperWarehouseActionModifySoftDeletion = {
+    action: 'modify_soft_deletion';
+};
+
+export type LakekeeperWarehouseActionModifyTaskQueueConfig = {
+    action: 'modify_task_queue_config';
+};
+
+/**
+ * Can list the grants held on this warehouse.
+ */
+export type LakekeeperWarehouseActionReadGrants = {
     action: 'read_grants';
+};
+
+export type LakekeeperWarehouseActionRename = {
+    action: 'rename';
+};
+
+export type LakekeeperWarehouseActionSetFormatVersionPolicy = {
+    action: 'set_format_version_policy';
+};
+
+export type LakekeeperWarehouseActionSetProtection = {
+    action: 'set_protection';
+};
+
+export type LakekeeperWarehouseActionUpdateStorage = {
+    action: 'update_storage';
+};
+
+export type LakekeeperWarehouseActionUse = {
+    action: 'use';
 };
 
 /**
@@ -1969,25 +3079,97 @@ export type ListWarehousesResponse = {
  */
 export type ManagedBy = 'self-managed' | 'instance-admin';
 
-export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'set_protection';
+/**
+ * Request to move a namespace to a new location in the hierarchy.
+ */
+export type MoveNamespaceRequest = {
+    /**
+     * Full new path of the namespace, including its new name as the last element.
+     *
+     * The preceding elements identify the new parent; a single-element destination moves the
+     * namespace to the warehouse root. Must not be empty. Renaming in place is expressed by
+     * keeping the same parent and changing only the last element. Mirrors the `destination`
+     * of Iceberg REST rename-table request.
+     *
+     * A destination equal to the namespace's current path succeeds without changing
+     * anything, so retrying a request that already went through is safe.
+     */
+    destination: Array<string>;
+    /**
+     * Move the namespace even if it is protected.
+     */
+    force?: boolean;
+};
 
-export type NamespaceAssignment = (UserOrRole & {
+/**
+ * The namespace after a successful move.
+ */
+export type MoveNamespaceResponse = {
+    /**
+     * The namespace's new path.
+     */
+    namespace: Array<string>;
+    /**
+     * Unchanged by the move; returned so callers can confirm identity.
+     */
+    'namespace-id': string;
+    /**
+     * Id of the new parent namespace, or `null` if the namespace is now top-level.
+     */
+    'parent-namespace-id'?: string | null;
+};
+
+export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'move' | 'accept_moved_namespace' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'set_protection';
+
+export type NamespaceAssignment = ({
     type: 'ownership';
-}) | (UserOrRole & {
+} & NamespaceAssignmentOwnership) | ({
     type: 'pass_grants';
-}) | (UserOrRole & {
+} & NamespaceAssignmentPassGrants) | ({
     type: 'manage_grants';
-}) | (UserOrRole & {
+} & NamespaceAssignmentManageGrants) | ({
     type: 'describe';
-}) | (UserOrRole & {
+} & NamespaceAssignmentDescribe) | ({
     type: 'select';
-}) | (UserOrRole & {
+} & NamespaceAssignmentSelect) | ({
     type: 'create';
-}) | (UserOrRole & {
+} & NamespaceAssignmentCreate) | ({
     type: 'modify';
-}) | (UserOrRole & {
+} & NamespaceAssignmentModify) | ({
     type: 'manage_tags';
-});
+} & NamespaceAssignmentManageTags);
+
+export type NamespaceAssignmentCreate = UserOrRole & {
+    type: 'create';
+};
+
+export type NamespaceAssignmentDescribe = UserOrRole & {
+    type: 'describe';
+};
+
+export type NamespaceAssignmentManageGrants = UserOrRole & {
+    type: 'manage_grants';
+};
+
+export type NamespaceAssignmentManageTags = UserOrRole & {
+    type: 'manage_tags';
+};
+
+export type NamespaceAssignmentModify = UserOrRole & {
+    type: 'modify';
+};
+
+export type NamespaceAssignmentOwnership = UserOrRole & {
+    type: 'ownership';
+};
+
+export type NamespaceAssignmentPassGrants = UserOrRole & {
+    type: 'pass_grants';
+};
+
+export type NamespaceAssignmentSelect = UserOrRole & {
+    type: 'select';
+};
 
 /**
  * Identifier for a namespace, either a UUID or its name and warehouse ID
@@ -2098,25 +3280,61 @@ export type PrivilegeDescriptor = {
 
 export type ProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'list_warehouses' | 'create_role' | 'list_roles' | 'search_roles' | 'read_assignments' | 'grant_role_creator' | 'grant_tag_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin' | 'get_endpoint_statistics';
 
-export type ProjectAssignment = (UserOrRole & {
+export type ProjectAssignment = ({
     type: 'project_admin';
-}) | (UserOrRole & {
+} & ProjectAssignmentProjectAdmin) | ({
     type: 'security_admin';
-}) | (UserOrRole & {
+} & ProjectAssignmentSecurityAdmin) | ({
     type: 'data_admin';
-}) | (UserOrRole & {
+} & ProjectAssignmentDataAdmin) | ({
     type: 'role_creator';
-}) | (UserOrRole & {
+} & ProjectAssignmentRoleCreator) | ({
     type: 'tag_creator';
-}) | (UserOrRole & {
+} & ProjectAssignmentTagCreator) | ({
     type: 'describe';
-}) | (UserOrRole & {
+} & ProjectAssignmentDescribe) | ({
     type: 'select';
-}) | (UserOrRole & {
+} & ProjectAssignmentSelect) | ({
     type: 'create';
-}) | (UserOrRole & {
+} & ProjectAssignmentCreate) | ({
     type: 'modify';
-});
+} & ProjectAssignmentModify);
+
+export type ProjectAssignmentCreate = UserOrRole & {
+    type: 'create';
+};
+
+export type ProjectAssignmentDataAdmin = UserOrRole & {
+    type: 'data_admin';
+};
+
+export type ProjectAssignmentDescribe = UserOrRole & {
+    type: 'describe';
+};
+
+export type ProjectAssignmentModify = UserOrRole & {
+    type: 'modify';
+};
+
+export type ProjectAssignmentProjectAdmin = UserOrRole & {
+    type: 'project_admin';
+};
+
+export type ProjectAssignmentRoleCreator = UserOrRole & {
+    type: 'role_creator';
+};
+
+export type ProjectAssignmentSecurityAdmin = UserOrRole & {
+    type: 'security_admin';
+};
+
+export type ProjectAssignmentSelect = UserOrRole & {
+    type: 'select';
+};
+
+export type ProjectAssignmentTagCreator = UserOrRole & {
+    type: 'tag_creator';
+};
 
 export type ProjectRelation = 'project_admin' | 'security_admin' | 'data_admin' | 'role_creator' | 'tag_creator' | 'describe' | 'select' | 'create' | 'modify';
 
@@ -2208,7 +3426,7 @@ export type RenameWarehouseRequest = {
 
 /**
  * This resource's whole vocabulary, each entry marked with whether the principal may
- * grant it.
+ * administer it — grant it, revoke it, or both.
  *
  * The deployment-wide vocabulary answers "what does this server understand"; this
  * answers "what may I do here", which is the question a grant dialog asks. Grant
@@ -2286,11 +3504,19 @@ export type Role = {
 
 export type RoleAction = 'assume' | 'can_grant_assignee' | 'can_change_ownership' | 'delete' | 'update' | 'read' | 'read_assignments';
 
-export type RoleAssignment = (UserOrRole & {
+export type RoleAssignment = ({
     type: 'assignee';
-}) | (UserOrRole & {
+} & RoleAssignmentAssignee) | ({
     type: 'ownership';
-});
+} & RoleAssignmentOwnership);
+
+export type RoleAssignmentAssignee = UserOrRole & {
+    type: 'assignee';
+};
+
+export type RoleAssignmentOwnership = UserOrRole & {
+    type: 'ownership';
+};
 
 /**
  * A member of a role, returned by `GET /role/{id}/members`. Discriminated by
@@ -2298,11 +3524,11 @@ export type RoleAssignment = (UserOrRole & {
  * Identity is hydrated; for requests and add confirmations use the
  * un-hydrated [`RoleMemberRef`] instead.
  */
-export type RoleMember = (UserMembership & {
+export type RoleMember = ({
     type: 'user';
-}) | (RoleMembership & {
+} & RoleMemberUser) | ({
     type: 'role';
-});
+} & RoleMemberRole);
 
 /**
  * An identity reference to a role member — a `user` or a `role`, by typed id.
@@ -2310,11 +3536,32 @@ export type RoleMember = (UserMembership & {
  * (remove returns `204` with no body). Unlike [`RoleMember`] it is never hydrated
  * (no display name): it names *which* principal, not its display identity.
  */
-export type RoleMemberRef = {
+export type RoleMemberRef = ({
+    type: 'user';
+} & RoleMemberRefUser) | ({
+    type: 'role';
+} & RoleMemberRefRole);
+
+/**
+ * A role, by id.
+ */
+export type RoleMemberRefRole = {
+    id: string;
+    type: 'role';
+};
+
+/**
+ * A user, by `IdP` subject id.
+ */
+export type RoleMemberRefUser = {
     id: string;
     type: 'user';
-} | {
-    id: string;
+};
+
+/**
+ * Another role that is a member of the role.
+ */
+export type RoleMemberRole = RoleMembership & {
     type: 'role';
 };
 
@@ -2322,6 +3569,13 @@ export type RoleMemberRef = {
  * Kind of a role member. Serializes as `"user"` / `"role"`.
  */
 export type RoleMemberType = 'user' | 'role';
+
+/**
+ * A user assigned to the role.
+ */
+export type RoleMemberUser = UserMembership & {
+    type: 'user';
+};
 
 /**
  * A role's display identity in a membership listing: the role-member variant of
@@ -2409,15 +3663,45 @@ export type S3CloudflareR2Credential = {
     token: string;
 };
 
-export type S3Credential = (S3AccessKeyCredential & {
+export type S3Credential = ({
     'credential-type': 'access-key';
-}) | (S3AwsSystemIdentityCredential & {
+} & S3CredentialAccessKey) | ({
     'credential-type': 'aws-system-identity';
-}) | (S3CloudflareR2Credential & {
+} & S3CredentialAwsSystemIdentity) | ({
     'credential-type': 'cloudflare-r2';
-}) | (S3AccessKeyCredential & {
+} & S3CredentialCloudflareR2) | ({
     'credential-type': 'aliyun-oss';
-});
+} & S3CredentialAliyunOss);
+
+/**
+ * Authenticate to AWS using access-key and secret-key.
+ */
+export type S3CredentialAccessKey = S3AccessKeyCredential & {
+    'credential-type': 'access-key';
+};
+
+/**
+ * **Beta:** Alibaba Cloud OSS support is in beta. The API and behavior may change in a
+ * future release.
+ *
+ * Authenticate to Alibaba Cloud OSS using access-key and secret-key.
+ * Temporary credentials are vended via the Alibaba Cloud STS `AssumeRole` API.
+ */
+export type S3CredentialAliyunOss = S3AccessKeyCredential & {
+    'credential-type': 'aliyun-oss';
+};
+
+/**
+ * Authenticate to AWS using the identity configured on the system
+ * that runs lakekeeper. The AWS SDK is used to load the credentials.
+ */
+export type S3CredentialAwsSystemIdentity = S3AwsSystemIdentityCredential & {
+    'credential-type': 'aws-system-identity';
+};
+
+export type S3CredentialCloudflareR2 = S3CloudflareR2Credential & {
+    'credential-type': 'cloudflare-r2';
+};
 
 /**
  * The type of S3 credential.
@@ -2655,11 +3939,19 @@ export type SearchUserResponse = {
 
 export type ServerAction = 'create_project' | 'update_users' | 'delete_users' | 'list_users' | 'grant_admin' | 'provision_users' | 'read_assignments';
 
-export type ServerAssignment = (UserOrRole & {
+export type ServerAssignment = ({
     type: 'admin';
-}) | (UserOrRole & {
+} & ServerAssignmentAdmin) | ({
     type: 'operator';
-});
+} & ServerAssignmentOperator);
+
+export type ServerAssignmentAdmin = UserOrRole & {
+    type: 'admin';
+};
+
+export type ServerAssignmentOperator = UserOrRole & {
+    type: 'operator';
+};
 
 export type ServerInfo = {
     /**
@@ -2783,13 +4075,84 @@ export type SoftDeletionQueueConfig = {
 /**
  * Storage secret for a warehouse.
  */
-export type StorageCredential = (S3Credential & {
+export type StorageCredential = ({
+    'credential-type': 'access-key';
+} & StorageCredentialAccessKey) | ({
+    'credential-type': 'aws-system-identity';
+} & StorageCredentialAwsSystemIdentity) | ({
+    'credential-type': 'cloudflare-r2';
+} & StorageCredentialCloudflareR2) | ({
+    'credential-type': 'aliyun-oss';
+} & StorageCredentialAliyunOss) | ({
+    'credential-type': 'client-credentials';
+} & StorageCredentialClientCredentials) | ({
+    'credential-type': 'shared-access-key';
+} & StorageCredentialSharedAccessKey) | ({
+    'credential-type': 'azure-system-identity';
+} & StorageCredentialAzureSystemIdentity) | ({
+    'credential-type': 'service-account-key';
+} & StorageCredentialServiceAccountKey) | ({
+    'credential-type': 'gcp-system-identity';
+} & StorageCredentialGcpSystemIdentity);
+
+export type StorageCredentialAccessKey = S3AccessKeyCredential & {
+    'credential-type': 'access-key';
+} & {
     type: 's3';
-}) | (AzCredential & {
+};
+
+export type StorageCredentialAliyunOss = S3AccessKeyCredential & {
+    'credential-type': 'aliyun-oss';
+} & {
+    type: 's3';
+};
+
+export type StorageCredentialAwsSystemIdentity = S3AwsSystemIdentityCredential & {
+    'credential-type': 'aws-system-identity';
+} & {
+    type: 's3';
+};
+
+export type StorageCredentialAzureSystemIdentity = {
+    'credential-type': 'azure-system-identity';
+} & {
     type: 'az';
-}) | (GcsCredential & {
+};
+
+export type StorageCredentialClientCredentials = {
+    'client-id': string;
+    'client-secret': string;
+    'credential-type': 'client-credentials';
+    'tenant-id': string;
+} & {
+    type: 'az';
+};
+
+export type StorageCredentialCloudflareR2 = S3CloudflareR2Credential & {
+    'credential-type': 'cloudflare-r2';
+} & {
+    type: 's3';
+};
+
+export type StorageCredentialGcpSystemIdentity = {
+    'credential-type': 'gcp-system-identity';
+} & {
     type: 'gcs';
-});
+};
+
+export type StorageCredentialServiceAccountKey = {
+    'credential-type': 'service-account-key';
+    key: GcsServiceKey;
+} & {
+    type: 'gcs';
+};
+
+export type StorageCredentialSharedAccessKey = {
+    'credential-type': 'shared-access-key';
+    key: string;
+} & {
+    type: 'az';
+};
 
 /**
  * The type of storage credential configured for a warehouse, without secret values.
@@ -2797,24 +4160,45 @@ export type StorageCredential = (S3Credential & {
  * This is returned in API responses so clients know which credential type
  * was selected (e.g. to restore radio button state in the UI).
  */
-export type StorageCredentialType = {
-    /**
-     * S3 credential type
-     */
-    'credential-type': S3CredentialType;
+export type StorageCredentialType = ({
     type: 's3';
-} | {
+} & StorageCredentialTypeS3) | ({
+    type: 'az';
+} & StorageCredentialTypeAz) | ({
+    type: 'gcs';
+} & StorageCredentialTypeGcs);
+
+/**
+ * Azure credential type
+ */
+export type StorageCredentialTypeAz = {
     /**
      * Azure credential type
      */
     'credential-type': AzCredentialType;
     type: 'az';
-} | {
+};
+
+/**
+ * GCS credential type
+ */
+export type StorageCredentialTypeGcs = {
     /**
      * GCS credential type
      */
     'credential-type': GcsCredentialType;
     type: 'gcs';
+};
+
+/**
+ * S3 credential type
+ */
+export type StorageCredentialTypeS3 = {
+    /**
+     * S3 credential type
+     */
+    'credential-type': S3CredentialType;
+    type: 's3';
 };
 
 /**
@@ -2831,13 +4215,17 @@ export type StorageCredentialType = {
  *
  * Segment templates may use `{uuid}` and `{name}` as placeholders.
  */
-export type StorageLayout = {
+export type StorageLayout = ({
     type: 'default';
-} | (StorageLayoutFlat & {
+} & StorageLayoutDefault) | ({
     type: 'tabular-only';
-}) | (StorageLayoutFullHierarchy & {
+} & StorageLayoutTabularOnly) | ({
     type: 'full-hierarchy';
-});
+} & StorageLayoutFullHierarchyVariant);
+
+export type StorageLayoutDefault = {
+    type: 'default';
+};
 
 /**
  * No namespace directories; all tabulars are placed directly under the base location.
@@ -2860,10 +4248,18 @@ export type StorageLayoutFullHierarchy = {
     tabular: StorageLayoutTabularTemplate;
 };
 
+export type StorageLayoutFullHierarchyVariant = StorageLayoutFullHierarchy & {
+    type: 'full-hierarchy';
+};
+
 /**
  * Template string for namespace path segments. Placeholders {uuid} and {name} (with curly braces) will be replaced with the actual namespace UUID and name respectively. The {name} value is percent-encoded (URL percent-encoding) so spaces and special characters are escaped (e.g. "my name" becomes "my%20name"). The {uuid} value is inserted as-is without encoding. Example: "{name}-{uuid}" for a namespace named "my ns" renders to "my%20ns-550e8400-e29b-41d4-a716-446655440001".
  */
 export type StorageLayoutNamespaceTemplate = string;
+
+export type StorageLayoutTabularOnly = StorageLayoutFlat & {
+    type: 'tabular-only';
+};
 
 /**
  * Template string for tabular names. Placeholders {uuid} and {name} (with curly braces) will be replaced with the actual tabular UUID and name respectively. The {name} value is percent-encoded (URL percent-encoding) so spaces and special characters are escaped (e.g. "my tabular" becomes "my%20tabular"). The {uuid} value is inserted as-is without encoding. Example: "{name}-{uuid}" for a tabular named "my tabular" renders to "my%20tabular-550e8400-e29b-41d4-a716-446655440002".
@@ -2873,33 +4269,89 @@ export type StorageLayoutTabularTemplate = string;
 /**
  * Storage profile for a warehouse.
  */
-export type StorageProfile = (AdlsProfile & {
+export type StorageProfile = ({
     type: 'adls';
-}) | (OneLakeProfile & {
+} & StorageProfileAdls) | ({
     type: 'onelake';
-}) | (S3Profile & {
+} & StorageProfileOneLake) | ({
     type: 's3';
-}) | (GcsProfile & {
+} & StorageProfileS3) | ({
     type: 'gcs';
-});
+} & StorageProfileGcs);
+
+/**
+ * Generic Azure Data Lake Storage Gen2 profile. Speaks ADLS Gen2 against
+ * any storage account.
+ */
+export type StorageProfileAdls = AdlsProfile & {
+    type: 'adls';
+};
+
+export type StorageProfileGcs = GcsProfile & {
+    type: 'gcs';
+};
+
+/**
+ * `OneLake` (Microsoft Fabric) profile. Knows how to construct `OneLake`
+ * URLs from workspace + lakehouse IDs and how to derive the
+ * workspace-private-link endpoint host.
+ */
+export type StorageProfileOneLake = OneLakeProfile & {
+    type: 'onelake';
+};
+
+/**
+ * S3 storage profile
+ */
+export type StorageProfileS3 = S3Profile & {
+    type: 's3';
+};
 
 export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
-export type TableAssignment = (UserOrRole & {
+export type TableAssignment = ({
     type: 'ownership';
-}) | (UserOrRole & {
+} & TableAssignmentOwnership) | ({
     type: 'pass_grants';
-}) | (UserOrRole & {
+} & TableAssignmentPassGrants) | ({
     type: 'manage_grants';
-}) | (UserOrRole & {
+} & TableAssignmentManageGrants) | ({
     type: 'describe';
-}) | (UserOrRole & {
+} & TableAssignmentDescribe) | ({
     type: 'select';
-}) | (UserOrRole & {
+} & TableAssignmentSelect) | ({
     type: 'modify';
-}) | (UserOrRole & {
+} & TableAssignmentModify) | ({
     type: 'manage_tags';
-});
+} & TableAssignmentManageTags);
+
+export type TableAssignmentDescribe = UserOrRole & {
+    type: 'describe';
+};
+
+export type TableAssignmentManageGrants = UserOrRole & {
+    type: 'manage_grants';
+};
+
+export type TableAssignmentManageTags = UserOrRole & {
+    type: 'manage_tags';
+};
+
+export type TableAssignmentModify = UserOrRole & {
+    type: 'modify';
+};
+
+export type TableAssignmentOwnership = UserOrRole & {
+    type: 'ownership';
+};
+
+export type TableAssignmentPassGrants = UserOrRole & {
+    type: 'pass_grants';
+};
+
+export type TableAssignmentSelect = UserOrRole & {
+    type: 'select';
+};
 
 export type TableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
 
@@ -2909,9 +4361,17 @@ export type TableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'des
  */
 export type TableUpdateKind = 'upgrade-format-version' | 'assign-uuid' | 'add-schema' | 'set-current-schema' | 'add-spec' | 'set-default-spec' | 'add-sort-order' | 'set-default-sort-order' | 'add-snapshot' | 'set-snapshot-ref' | 'remove-snapshots' | 'remove-snapshot-ref' | 'set-location' | 'set-properties' | 'remove-properties' | 'remove-partition-specs' | 'set-statistics' | 'remove-statistics' | 'set-partition-statistics' | 'remove-partition-statistics' | 'remove-schemas' | 'add-encryption-key' | 'remove-encryption-key';
 
-export type TabularDeleteProfile = {
+export type TabularDeleteProfile = ({
     type: 'hard';
-} | {
+} & TabularDeleteProfileHard) | ({
+    type: 'soft';
+} & TabularDeleteProfileSoft);
+
+export type TabularDeleteProfileHard = {
+    type: 'hard';
+};
+
+export type TabularDeleteProfileSoft = {
     'expiration-seconds': number;
     type: 'soft';
 };
@@ -2934,15 +4394,27 @@ export type TabularIdentOrUuid = {
     'warehouse-id': string;
 };
 
-export type TabularIdentUuid = {
-    id: string;
+export type TabularIdentUuid = ({
     type: 'table';
-} | {
-    id: string;
+} & TabularIdentUuidTable) | ({
     type: 'view';
-} | {
+} & TabularIdentUuidView) | ({
+    type: 'generic-table';
+} & TabularIdentUuidGenericTable);
+
+export type TabularIdentUuidGenericTable = {
     id: string;
     type: 'generic-table';
+};
+
+export type TabularIdentUuidTable = {
+    id: string;
+    type: 'table';
+};
+
+export type TabularIdentUuidView = {
+    id: string;
+    type: 'view';
 };
 
 /**
@@ -2950,11 +4422,19 @@ export type TabularIdentUuid = {
  */
 export type TabularType = 'table' | 'view' | 'generic-table';
 
-export type TagAssignment = (UserOrRole & {
+export type TagAssignment = ({
     type: 'ownership';
-}) | (UserOrRole & {
+} & TagAssignmentOwnership) | ({
     type: 'apply';
-});
+} & TagAssignmentApply);
+
+export type TagAssignmentApply = UserOrRole & {
+    type: 'apply';
+};
+
+export type TagAssignmentOwnership = UserOrRole & {
+    type: 'ownership';
+};
 
 /**
  * One target a tag definition is attached to (reverse lookup).
@@ -2986,32 +4466,56 @@ export type TagAttachment = {
  * The object a tag is attached to in a reverse-lookup listing. `type`
  * discriminates the target kind; columns are addressed by Iceberg field-id.
  */
-export type TagAttachmentTarget = {
+export type TagAttachmentTarget = ({
     type: 'warehouse';
-    'warehouse-id': string;
-} | {
-    'namespace-id': string;
+} & TagAttachmentTargetWarehouse) | ({
     type: 'namespace';
-    'warehouse-id': string;
-} | {
-    'table-id': string;
+} & TagAttachmentTargetNamespace) | ({
     type: 'table';
-    'warehouse-id': string;
-} | {
+} & TagAttachmentTargetTable) | ({
     type: 'view';
-    'view-id': string;
-    'warehouse-id': string;
-} | {
-    'generic-table-id': string;
+} & TagAttachmentTargetView) | ({
     type: 'generic-table';
-    'warehouse-id': string;
-} | {
+} & TagAttachmentTargetGenericTable) | ({
+    type: 'column';
+} & TagAttachmentTargetColumn);
+
+export type TagAttachmentTargetColumn = {
     /**
      * Iceberg field-id of the column within the table's schema.
      */
     'field-id': number;
     'table-id': string;
     type: 'column';
+    'warehouse-id': string;
+};
+
+export type TagAttachmentTargetGenericTable = {
+    'generic-table-id': string;
+    type: 'generic-table';
+    'warehouse-id': string;
+};
+
+export type TagAttachmentTargetNamespace = {
+    'namespace-id': string;
+    type: 'namespace';
+    'warehouse-id': string;
+};
+
+export type TagAttachmentTargetTable = {
+    'table-id': string;
+    type: 'table';
+    'warehouse-id': string;
+};
+
+export type TagAttachmentTargetView = {
+    type: 'view';
+    'view-id': string;
+    'warehouse-id': string;
+};
+
+export type TagAttachmentTargetWarehouse = {
+    type: 'warehouse';
     'warehouse-id': string;
 };
 
@@ -3055,12 +4559,20 @@ export type TagDefinition = {
  * The ancestor an inherited effective tag is attached to. Restricted to the levels
  * that can actually be ancestors (warehouse / namespace).
  */
-export type TagInheritanceSource = {
+export type TagInheritanceSource = ({
     type: 'warehouse';
-    'warehouse-id': string;
-} | {
+} & TagInheritanceSourceWarehouse) | ({
+    type: 'namespace';
+} & TagInheritanceSourceNamespace);
+
+export type TagInheritanceSourceNamespace = {
     'namespace-id': string;
     type: 'namespace';
+    'warehouse-id': string;
+};
+
+export type TagInheritanceSourceWarehouse = {
+    type: 'warehouse';
     'warehouse-id': string;
 };
 
@@ -3176,7 +4688,23 @@ export type TaskLogCleanupConfig = {
 
 export type TaskStatus = 'RUNNING' | 'SCHEDULED' | 'STOPPING' | 'CANCELLED' | 'SUCCESS' | 'FAILED';
 
-export type TimeWindowSelector = {
+export type TimeWindowSelector = ({
+    type: 'window';
+} & TimeWindowSelectorWindow) | ({
+    type: 'page-token';
+} & TimeWindowSelectorPageToken);
+
+export type TimeWindowSelectorPageToken = {
+    /**
+     * Opaque Token from previous response for paginating through time windows
+     *
+     * Use the `next_page_token` or `previous_page_token` from a previous response
+     */
+    token: string;
+    type: 'page-token';
+};
+
+export type TimeWindowSelectorWindow = {
     /**
      * End timestamp of the time window
      * Specify
@@ -3190,14 +4718,6 @@ export type TimeWindowSelector = {
      */
     interval: string;
     type: 'window';
-} | {
-    /**
-     * Opaque Token from previous response for paginating through time windows
-     *
-     * Use the `next_page_token` or `previous_page_token` from a previous response
-     */
-    token: string;
-    type: 'page-token';
 };
 
 /**
@@ -3411,21 +4931,25 @@ export type UserMembership = {
 /**
  * Identifies a user or a role
  *
- * Exactly one of `user` and `role` is present. Naming both is rejected by the schema as
- * well as by the server: it matches both `oneOf` branches, and `oneOf` admits exactly
- * one. Leave the branches open — this type is flattened into the assignment schemas, so
- * an `additionalProperties: false` on a branch would reject their own properties.
+ * Exactly one of `user` and `role` must be set. The server rejects a payload that names
+ * both, and one that names neither.
+ *
+ * The schema does not express that: both properties are optional on a single object, so
+ * `{}` and `{"user": ..., "role": ...}` are schema-valid and are refused at runtime
+ * instead. Clients must enforce the choice themselves. The shape is deliberate — a
+ * `oneOf` here cannot be composed by code generators, because the `*Assignment` schemas
+ * embed this type and generators flatten the union into a struct that requires both
+ * properties.
  */
 export type UserOrRole = {
     /**
-     * Id of the user
-     */
-    user: string;
-} | {
-    /**
      * Id of the role
      */
-    role: string;
+    role?: string;
+    /**
+     * Id of the user
+     */
+    user?: string;
 };
 
 /**
@@ -3494,51 +5018,132 @@ export type ValidationCheckStatus = 'passed' | 'failed' | 'skipped';
 
 export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
-export type ViewAssignment = (UserOrRole & {
+export type ViewAssignment = ({
     type: 'ownership';
-}) | (UserOrRole & {
+} & ViewAssignmentOwnership) | ({
     type: 'pass_grants';
-}) | (UserOrRole & {
+} & ViewAssignmentPassGrants) | ({
     type: 'manage_grants';
-}) | (UserOrRole & {
+} & ViewAssignmentManageGrants) | ({
     type: 'describe';
-}) | (UserOrRole & {
+} & ViewAssignmentDescribe) | ({
     type: 'select';
-}) | (UserOrRole & {
+} & ViewAssignmentSelect) | ({
     type: 'modify';
-}) | (UserOrRole & {
+} & ViewAssignmentModify) | ({
     type: 'manage_tags';
-});
+} & ViewAssignmentManageTags);
+
+export type ViewAssignmentDescribe = UserOrRole & {
+    type: 'describe';
+};
+
+export type ViewAssignmentManageGrants = UserOrRole & {
+    type: 'manage_grants';
+};
+
+export type ViewAssignmentManageTags = UserOrRole & {
+    type: 'manage_tags';
+};
+
+export type ViewAssignmentModify = UserOrRole & {
+    type: 'modify';
+};
+
+export type ViewAssignmentOwnership = UserOrRole & {
+    type: 'ownership';
+};
+
+export type ViewAssignmentPassGrants = UserOrRole & {
+    type: 'pass_grants';
+};
+
+export type ViewAssignmentSelect = UserOrRole & {
+    type: 'select';
+};
 
 export type ViewRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
 
-export type WarehouseAction = 'create_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'set_format_version_policy' | 'get_endpoint_statistics';
+export type WarehouseAction = 'create_namespace' | 'accept_moved_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'set_format_version_policy' | 'get_endpoint_statistics';
 
-export type WarehouseAssignment = (UserOrRole & {
+export type WarehouseAssignment = ({
     type: 'ownership';
-}) | (UserOrRole & {
+} & WarehouseAssignmentOwnership) | ({
     type: 'pass_grants';
-}) | (UserOrRole & {
+} & WarehouseAssignmentPassGrants) | ({
     type: 'manage_grants';
-}) | (UserOrRole & {
+} & WarehouseAssignmentManageGrants) | ({
     type: 'describe';
-}) | (UserOrRole & {
+} & WarehouseAssignmentDescribe) | ({
     type: 'select';
-}) | (UserOrRole & {
+} & WarehouseAssignmentSelect) | ({
     type: 'create';
-}) | (UserOrRole & {
+} & WarehouseAssignmentCreate) | ({
     type: 'modify';
-}) | (UserOrRole & {
+} & WarehouseAssignmentModify) | ({
     type: 'manage_tags';
-});
+} & WarehouseAssignmentManageTags);
 
-export type WarehouseFilter = {
+export type WarehouseAssignmentCreate = UserOrRole & {
+    type: 'create';
+};
+
+export type WarehouseAssignmentDescribe = UserOrRole & {
+    type: 'describe';
+};
+
+export type WarehouseAssignmentManageGrants = UserOrRole & {
+    type: 'manage_grants';
+};
+
+export type WarehouseAssignmentManageTags = UserOrRole & {
+    type: 'manage_tags';
+};
+
+export type WarehouseAssignmentModify = UserOrRole & {
+    type: 'modify';
+};
+
+export type WarehouseAssignmentOwnership = UserOrRole & {
+    type: 'ownership';
+};
+
+export type WarehouseAssignmentPassGrants = UserOrRole & {
+    type: 'pass_grants';
+};
+
+export type WarehouseAssignmentSelect = UserOrRole & {
+    type: 'select';
+};
+
+export type WarehouseFilter = ({
+    type: 'warehouse-id';
+} & WarehouseFilterWarehouseId) | ({
+    type: 'unmapped';
+} & WarehouseFilterUnmapped) | ({
+    type: 'all';
+} & WarehouseFilterAll);
+
+/**
+ * Return all items in the current project, regardless of warehouse association
+ */
+export type WarehouseFilterAll = {
+    type: 'all';
+};
+
+/**
+ * Filter for items that are not associated with a warehouse
+ */
+export type WarehouseFilterUnmapped = {
+    type: 'unmapped';
+};
+
+/**
+ * Filter for a specific warehouse
+ */
+export type WarehouseFilterWarehouseId = {
     id: string;
     type: 'warehouse-id';
-} | {
-    type: 'unmapped';
-} | {
-    type: 'all';
 };
 
 export type WarehouseRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify' | 'manage_tags';
@@ -3586,28 +5191,69 @@ export type WarehouseStatisticsResponse = {
  */
 export type WarehouseStatus = 'active' | 'inactive';
 
-export type WarehouseTaskEntityFilter = {
-    'table-id': string;
+export type WarehouseTaskEntityFilter = ({
     type: 'table';
-} | {
+} & WarehouseTaskEntityFilterTable) | ({
     type: 'view';
-    'view-id': string;
-} | {
+} & WarehouseTaskEntityFilterView) | ({
+    type: 'generic-table';
+} & WarehouseTaskEntityFilterGenericTable) | ({
+    type: 'warehouse';
+} & WarehouseTaskEntityFilterWarehouse);
+
+/**
+ * Get tasks for a specific generic table
+ */
+export type WarehouseTaskEntityFilterGenericTable = {
     'generic-table-id': string;
     type: 'generic-table';
-} | {
+};
+
+/**
+ * Get tasks for a specific table
+ */
+export type WarehouseTaskEntityFilterTable = {
+    'table-id': string;
+    type: 'table';
+};
+
+/**
+ * Get tasks for a specific view
+ */
+export type WarehouseTaskEntityFilterView = {
+    type: 'view';
+    'view-id': string;
+};
+
+/**
+ * Get Warehouse-level tasks which are not associated with a specific entity
+ * inside the warehouse
+ */
+export type WarehouseTaskEntityFilterWarehouse = {
     type: 'warehouse';
 };
 
-export type WarehouseTaskEntityId = {
-    'table-id': string;
+export type WarehouseTaskEntityId = ({
     type: 'table';
-} | {
+} & WarehouseTaskEntityIdTable) | ({
     type: 'view';
-    'view-id': string;
-} | {
+} & WarehouseTaskEntityIdView) | ({
+    type: 'generic-table';
+} & WarehouseTaskEntityIdGenericTable);
+
+export type WarehouseTaskEntityIdGenericTable = {
     'generic-table-id': string;
     type: 'generic-table';
+};
+
+export type WarehouseTaskEntityIdTable = {
+    'table-id': string;
+    type: 'table';
+};
+
+export type WarehouseTaskEntityIdView = {
+    type: 'view';
+    'view-id': string;
 };
 
 export type WarehouseTaskInfo = {
@@ -5101,13 +6747,13 @@ export type GetProjectGrantablePrivilegesData = {
     path?: never;
     query?: {
         /**
-         * Report which privileges this user may grant, instead of the caller. Requires
+         * Report which privileges this user may administer, instead of the caller. Requires
          * authority to read the resource's grants, since it discloses another principal's
          * access. Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
-         * Report which privileges this role may grant, instead of the caller. Same
+         * Report which privileges this role may administer, instead of the caller. Same
          * authority requirement as `principalUser`, and mutually exclusive with it.
          */
         principalRole?: string | null;
@@ -6046,13 +7692,13 @@ export type GetServerGrantablePrivilegesData = {
     path?: never;
     query?: {
         /**
-         * Report which privileges this user may grant, instead of the caller. Requires
+         * Report which privileges this user may administer, instead of the caller. Requires
          * authority to read the resource's grants, since it discloses another principal's
          * access. Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
-         * Report which privileges this role may grant, instead of the caller. Same
+         * Report which privileges this role may administer, instead of the caller. Same
          * authority requirement as `principalUser`, and mutually exclusive with it.
          */
         principalRole?: string | null;
@@ -6444,13 +8090,13 @@ export type GetTagGrantablePrivilegesData = {
     };
     query?: {
         /**
-         * Report which privileges this user may grant, instead of the caller. Requires
+         * Report which privileges this user may administer, instead of the caller. Requires
          * authority to read the resource's grants, since it discloses another principal's
          * access. Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
-         * Report which privileges this role may grant, instead of the caller. Same
+         * Report which privileges this role may administer, instead of the caller. Same
          * authority requirement as `principalUser`, and mutually exclusive with it.
          */
         principalRole?: string | null;
@@ -7185,13 +8831,13 @@ export type GetGenericTableGrantablePrivilegesData = {
     };
     query?: {
         /**
-         * Report which privileges this user may grant, instead of the caller. Requires
+         * Report which privileges this user may administer, instead of the caller. Requires
          * authority to read the resource's grants, since it discloses another principal's
          * access. Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
-         * Report which privileges this role may grant, instead of the caller. Same
+         * Report which privileges this role may administer, instead of the caller. Same
          * authority requirement as `principalUser`, and mutually exclusive with it.
          */
         principalRole?: string | null;
@@ -7491,13 +9137,13 @@ export type GetWarehouseGrantablePrivilegesData = {
     };
     query?: {
         /**
-         * Report which privileges this user may grant, instead of the caller. Requires
+         * Report which privileges this user may administer, instead of the caller. Requires
          * authority to read the resource's grants, since it discloses another principal's
          * access. Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
-         * Report which privileges this role may grant, instead of the caller. Same
+         * Report which privileges this role may administer, instead of the caller. Same
          * authority requirement as `principalUser`, and mutually exclusive with it.
          */
         principalRole?: string | null;
@@ -7689,13 +9335,13 @@ export type GetNamespaceGrantablePrivilegesData = {
     };
     query?: {
         /**
-         * Report which privileges this user may grant, instead of the caller. Requires
+         * Report which privileges this user may administer, instead of the caller. Requires
          * authority to read the resource's grants, since it discloses another principal's
          * access. Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
-         * Report which privileges this role may grant, instead of the caller. Same
+         * Report which privileges this role may administer, instead of the caller. Same
          * authority requirement as `principalUser`, and mutually exclusive with it.
          */
         principalRole?: string | null;
@@ -7717,6 +9363,31 @@ export type GetNamespaceGrantablePrivilegesResponses = {
 };
 
 export type GetNamespaceGrantablePrivilegesResponse = GetNamespaceGrantablePrivilegesResponses[keyof GetNamespaceGrantablePrivilegesResponses];
+
+export type MoveNamespaceData = {
+    body: MoveNamespaceRequest;
+    path: {
+        warehouse_id: string;
+        namespace_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/move';
+};
+
+export type MoveNamespaceErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type MoveNamespaceError = MoveNamespaceErrors[keyof MoveNamespaceErrors];
+
+export type MoveNamespaceResponses = {
+    /**
+     * Namespace moved successfully
+     */
+    200: MoveNamespaceResponse;
+};
+
+export type MoveNamespaceResponse2 = MoveNamespaceResponses[keyof MoveNamespaceResponses];
 
 export type GetNamespaceProtectionData = {
     body?: never;
@@ -8438,13 +10109,13 @@ export type GetTableGrantablePrivilegesData = {
     };
     query?: {
         /**
-         * Report which privileges this user may grant, instead of the caller. Requires
+         * Report which privileges this user may administer, instead of the caller. Requires
          * authority to read the resource's grants, since it discloses another principal's
          * access. Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
-         * Report which privileges this role may grant, instead of the caller. Same
+         * Report which privileges this role may administer, instead of the caller. Same
          * authority requirement as `principalUser`, and mutually exclusive with it.
          */
         principalRole?: string | null;
@@ -9063,13 +10734,13 @@ export type GetViewGrantablePrivilegesData = {
     };
     query?: {
         /**
-         * Report which privileges this user may grant, instead of the caller. Requires
+         * Report which privileges this user may administer, instead of the caller. Requires
          * authority to read the resource's grants, since it discloses another principal's
          * access. Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
-         * Report which privileges this role may grant, instead of the caller. Same
+         * Report which privileges this role may administer, instead of the caller. Same
          * authority requirement as `principalUser`, and mutually exclusive with it.
          */
         principalRole?: string | null;
