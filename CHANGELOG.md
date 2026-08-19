@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.22.0](https://github.com/lakekeeper/console-components/compare/v0.21.0...v0.22.0) (2026-08-19)
+
+
+### Features
+
+* **ui:** move and rename namespaces ([94d1d38](https://github.com/lakekeeper/console-components/commit/94d1d386a98f2fefa6a84a9586260924f598dbff))
+
+
+### Bug Fixes
+
+* **ui:** enforce the UserOrRole invariant the schema stopped expressing ([94d1d38](https://github.com/lakekeeper/console-components/commit/94d1d386a98f2fefa6a84a9586260924f598dbff))
+* **ui:** show the storage layout in warehouse details, and let the tab scroll ([94d1d38](https://github.com/lakekeeper/console-components/commit/94d1d386a98f2fefa6a84a9586260924f598dbff))
+
 ## [0.21.0](https://github.com/lakekeeper/console-components/compare/v0.20.0...v0.21.0) (2026-08-13)
 
 
