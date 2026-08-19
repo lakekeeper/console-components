@@ -65,6 +65,7 @@ import NamespaceHeader from './components/NamespaceHeader.vue';
 import NamespaceDetails from './components/NamespaceDetails.vue';
 import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
+import MoveNamespaceDialog from './components/MoveNamespaceDialog.vue';
 import TableHeader from './components/TableHeader.vue';
 import TableActionsMenu from './components/TableActionsMenu.vue';
 import GenericTableHeader from './components/GenericTableHeader.vue';
@@ -212,6 +213,7 @@ export {
   NamespaceHeader,
   NamespaceDetails,
   NamespaceActionsMenu,
+  MoveNamespaceDialog,
   NamespacePropertiesDialog,
   TableHeader,
   TableActionsMenu,
@@ -291,6 +293,11 @@ export {
 
 // Build-time switches for UI on its way in or out.
 export { PERMISSIONS_UI_ENABLED } from './common/featureFlags';
+
+// The `UserOrRole` invariant the management schema stopped expressing: read a
+// principal with `principalRef`, build one with `toPrincipal`.
+export { principalRef, toPrincipal } from './common/principal';
+export type { PrincipalRef } from './common/principal';
 
 // Grants [Preview] — the resource-addressed view of the grants API, plus the
 // helpers components need to lay a vocabulary out and classify its errors.
@@ -500,6 +507,7 @@ const components = {
   NamespaceHeader,
   NamespaceDetails,
   NamespaceActionsMenu,
+  MoveNamespaceDialog,
   NamespacePropertiesDialog,
   TableHeader,
   TableActionsMenu,
