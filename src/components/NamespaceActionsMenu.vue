@@ -45,6 +45,24 @@
         </EntityTagsManageDialog>
       </template>
 
+      <template v-if="canMove && namespaceId">
+        <v-divider class="my-1"></v-divider>
+        <MoveNamespaceDialog
+          :warehouse-id="warehouseId"
+          :namespace-id="namespaceId"
+          :namespace-path="namespacePath"
+          :protected-state="protectedState"
+          @moved="onMoved">
+          <template #activator="{ props: aProps }">
+            <v-list-item
+              v-bind="aProps"
+              prepend-icon="mdi-folder-move-outline"
+              title="Move namespace"
+              subtitle="Re-parent or rename" />
+          </template>
+        </MoveNamespaceDialog>
+      </template>
+
       <template v-if="canDelete">
         <v-divider class="my-1"></v-divider>
         <v-list-item
@@ -124,6 +142,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
 import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
+import MoveNamespaceDialog from './MoveNamespaceDialog.vue';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -158,6 +177,11 @@ const { canUpdateProperties, canSetProtection, hasPermission, canManageTags } =
   );
 const canDelete = computed(
   () => hasPermission('delete') || !config.enabledAuthentication || !config.enabledPermissions,
+);
+// `move` arrived with the move endpoint, so a server that predates it reports no
+// such action and the entry stays hidden — which is what we want.
+const canMove = computed(
+  () => hasPermission('move') || !config.enabledAuthentication || !config.enabledPermissions,
 );
 
 const displayName = computed(() => props.namespacePath.split('\x1F').join('.'));
@@ -205,6 +229,14 @@ function openDelete() {
   force.value = false;
   confirmName.value = '';
   deleteOpen.value = true;
+}
+
+// The route addresses a namespace by path, so a move invalidates the URL the
+// user is standing on. Navigating to the new one keeps the page pointing at the
+// same namespace instead of 404-ing on its old name.
+async function onMoved(destination: string[]) {
+  menuOpen.value = false;
+  await router.replace(`/warehouse/${props.warehouseId}/namespace/${destination.join('\x1F')}`);
 }
 
 async function confirmDelete() {

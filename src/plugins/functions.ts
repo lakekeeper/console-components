@@ -70,6 +70,7 @@ import {
   NamespaceAction,
   NamespaceAssignment,
   ProjectAssignment,
+  MoveNamespaceResponse,
   ProtectionResponse,
   RoleMetadata,
   // New action types
@@ -2849,6 +2850,56 @@ async function setNamespaceProtection(
     return data;
   } catch (error) {
     handleError(error, 'setNamespaceProtection', notify);
+    throw error;
+  }
+}
+
+/**
+ * Re-parents and/or renames a namespace in one call.
+ *
+ * `destination` is the full new path, its last element the new name, so moving
+ * to the warehouse root is a single-element array. A destination equal to the
+ * current path is a no-op the server answers 200, which makes a retry safe.
+ *
+ * Refused for namespaces that contain child namespaces, across warehouses, and
+ * for storage layouts that derive physical paths from namespace names or from
+ * the hierarchy — not because existing data would move (a namespace's location
+ * is frozen at creation) but because namespaces created afterwards would render
+ * their path from the new chain and land outside this one.
+ * `force` covers only the protected-namespace case.
+ */
+async function moveNamespace(
+  warehouseId: string,
+  namespaceId: string,
+  destination: string[],
+  force?: boolean,
+  notify?: boolean,
+): Promise<MoveNamespaceResponse> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.moveNamespace({
+      client,
+
+      path: {
+        warehouse_id: warehouseId,
+        namespace_id: namespaceId,
+      },
+      body: {
+        destination,
+        ...(force ? { force: true } : {}),
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('moveNamespace', `Namespace moved to ${destination.join('.')}`, notify);
+    }
+    return data as MoveNamespaceResponse;
+  } catch (error) {
+    handleError(error, 'moveNamespace', notify);
     throw error;
   }
 }
@@ -6949,6 +7000,7 @@ export function useFunctions(config?: any) {
     setTableColumnTagSilent,
     deleteTableColumnTagSilent,
     setWarehouseFormatVersionPolicy,
+    moveNamespace,
     setNamespaceProtection,
     getNamespaceProtection,
     getTableProtection,
