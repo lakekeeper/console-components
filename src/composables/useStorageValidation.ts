@@ -13,8 +13,10 @@ export function useStorageValidation(
   storageType: Ref<string | undefined>,
   catalogUrl: Ref<string>,
 ) {
-  // List of supported storage types for DuckDB WASM
-  const supportedStorageTypes = ['s3', 'gcs']; //, 'gcs'
+  // List of supported storage types for DuckDB WASM.
+  // 'adls' works through the azure_wasm community extension (abfss:// + the SAS
+  // token vended by loadTable) — see LoQEEngine.attachCatalog.
+  const supportedStorageTypes = ['s3', 'gcs', 'adls'];
 
   // List of supported protocols for DuckDB WASM
   const supportedProtocols = ['https:', 'http:']; // 'http:' disabled since duckdb is not supporting it well
