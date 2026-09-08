@@ -1001,6 +1001,10 @@ export const listRoleMembers = <ThrowOnError extends boolean = false>(options: O
  * exist first and otherwise returns `404` — provision the user (via
  * `POST /user`) or create the role before assigning. Behavior is consistent
  * within a deployment.
+ *
+ * Roles from the `system` provider are provisioned, not self-service: adding a
+ * member requires an instance admin (`403`), and a role may not be added as a
+ * member of one (`400`) — they hold users directly.
  */
 export const addRoleMembers = <ThrowOnError extends boolean = false>(options: Options<AddRoleMembersData, ThrowOnError>): RequestResult<AddRoleMembersResponses, AddRoleMembersErrors, ThrowOnError> => (options.client ?? client).post<AddRoleMembersResponses, AddRoleMembersErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
@@ -1032,6 +1036,10 @@ export const listRoleTransitiveMembers = <ThrowOnError extends boolean = false>(
  *
  * Removes a single member (a user or a role) from a role. Idempotent — removing
  * an absent member is a no-op and still returns `204`.
+ *
+ * Removing a member of a `system`-provider role requires an instance admin
+ * (`403`). Unlike adding, removing a role-type member is permitted, so an
+ * existing nesting can be cleaned up.
  */
 export const removeRoleMember = <ThrowOnError extends boolean = false>(options: Options<RemoveRoleMemberData, ThrowOnError>): RequestResult<RemoveRoleMemberResponses, RemoveRoleMemberErrors, ThrowOnError> => (options.client ?? client).delete<RemoveRoleMemberResponses, RemoveRoleMemberErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
@@ -1432,13 +1440,19 @@ export const createWarehouse = <ThrowOnError extends boolean = false>(options: O
 /**
  * Validate Warehouse Configuration
  *
- * Runs the checks `Create Warehouse` runs — profile syntax, name
+ * Runs the checks `Create Warehouse` runs — profile syntax, name and ID
  * availability, location overlap, format-version policy, `managed-by`, and
  * physical storage access including credential vending — without creating
  * anything. No warehouse is persisted and no credential is stored.
  *
  * Returns 200 whether or not the configuration is usable; inspect `valid` and
  * the per-check results. Requires the same permission as creating a warehouse.
+ *
+ * Results are advisory and reserve nothing: a concurrent request can take a
+ * name or ID between this call and the create. `warehouse-id-available` in
+ * particular examines only the caller's own project, while warehouse IDs are
+ * unique across the whole instance — so an ID it reports as available can
+ * still be refused with `409 WarehouseIdAlreadyExists` on create.
  */
 export const validateWarehouse = <ThrowOnError extends boolean = false>(options: Options<ValidateWarehouseData, ThrowOnError>): RequestResult<ValidateWarehouseResponses, ValidateWarehouseErrors, ThrowOnError> => (options.client ?? client).post<ValidateWarehouseResponses, ValidateWarehouseErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

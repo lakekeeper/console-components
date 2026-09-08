@@ -140,6 +140,9 @@ export const useVisualStore = defineStore(
       'aws-system-identities-enabled': false,
       'azure-system-identities-enabled': false,
       'gcp-system-identities-enabled': false,
+      // Role provider namespaces whose roles are maintained by sync. Empty
+      // until `/info` answers, and empty on OSS, which ships no providers.
+      'managed-role-providers': [],
       'license-status': {
         valid: false,
         'license-type': '',

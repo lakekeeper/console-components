@@ -5,6 +5,18 @@
         <v-icon class="mr-2" color="primary">mdi-account-multiple</v-icon>
         Members
         <v-chip size="x-small" variant="tonal" class="ml-2">{{ members.length }}</v-chip>
+        <!-- Who owns the list, next to the count it qualifies. The section
+             keeps its name for every role; only this says the number is a
+             floor rather than the group's size. -->
+        <v-chip
+          v-if="providerOwned"
+          size="x-small"
+          variant="tonal"
+          color="purple"
+          class="ml-1"
+          prepend-icon="mdi-sync">
+          Synced from {{ providerId }}
+        </v-chip>
       </v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn-toggle
@@ -18,7 +30,7 @@
         <v-btn value="role" size="small" prepend-icon="mdi-account-group">Roles</v-btn>
       </v-btn-toggle>
       <v-btn
-        v-if="canEdit && selected.length"
+        v-if="canWrite && selected.length"
         color="error"
         variant="text"
         size="small"
@@ -28,7 +40,7 @@
         Remove ({{ selected.length }})
       </v-btn>
       <v-btn
-        v-if="canEdit"
+        v-if="canWrite"
         color="primary"
         variant="flat"
         size="small"
@@ -38,12 +50,18 @@
       </v-btn>
     </v-toolbar>
     <v-divider></v-divider>
+    <!-- Spelled out rather than left to a tooltip on the chip: a member count
+         reads as complete unless something says otherwise. -->
+    <div v-if="providerOwned" class="px-4 py-2 text-caption text-medium-emphasis">
+      <v-icon size="14" class="mr-1">mdi-information-outline</v-icon>
+      {{ lazyMembershipHint }}
+    </div>
     <v-data-table
       v-model="selected"
       :headers="memberHeaders"
       :items="filteredMembers"
       :loading="loading"
-      :show-select="canEdit"
+      :show-select="canWrite"
       density="compact"
       item-value="id">
       <template #item.type="{ item }">
@@ -76,7 +94,7 @@
       </template>
       <template #item.actions="{ item }">
         <v-btn
-          v-if="canEdit"
+          v-if="canWrite"
           icon="mdi-close"
           size="x-small"
           variant="text"
@@ -85,7 +103,7 @@
       <template #no-data>
         <v-empty-state
           icon="mdi-account-off-outline"
-          title="No members"
+          :title="providerOwned ? 'No members have signed in yet' : 'No members'"
           size="small"></v-empty-state>
       </template>
     </v-data-table>
@@ -145,10 +163,21 @@ import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import type { RoleMember } from '../gen/management/types.gen';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
+import {
+  isMembershipEditableRole,
+  isProviderOwnedRole,
+  useRoleProviderStillSynced,
+} from '../composables/useRoleProviders';
 
 const props = defineProps<{
   roleId: string;
   canEdit?: boolean;
+  /**
+   * The role's `provider-id`. Anything other than `lakekeeper`/`system` means a
+   * role provider owns the membership, which changes both what this list is and
+   * whether it can be edited.
+   */
+  providerId?: string;
   /** Drop the outer card chrome when a host already provides it (e.g. a tab). */
   embedded?: boolean;
 }>();
@@ -156,6 +185,19 @@ const props = defineProps<{
 const functions = useFunctions();
 const visual = useVisualStore();
 const currentProjectId = computed(() => visual.projectSelected['project-id'] || '');
+
+// Provider-owned membership is read-only here whatever the caller's rights: the
+// API refuses it with `RoleNotManuallyAssignable`, so the controls are not
+// offered rather than offered and then failing.
+const providerOwned = computed(() => isProviderOwnedRole(props.providerId));
+const canWrite = computed(() => !!props.canEdit && isMembershipEditableRole(props.providerId));
+
+const providerStillSynced = useRoleProviderStillSynced(() => props.providerId);
+const lazyMembershipHint = computed(() =>
+  providerStillSynced.value
+    ? `Membership is maintained by the ${props.providerId} provider and synced lazily: a principal appears here only once it has signed in to Lakekeeper, so the group may have more members than this list shows.`
+    : `Membership was maintained by the ${props.providerId} provider, which is no longer configured. Members were only ever recorded once they had signed in to Lakekeeper, so this list is a partial snapshot and is no longer updated.`,
+);
 
 const loading = ref(false);
 const members = ref<

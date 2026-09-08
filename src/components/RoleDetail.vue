@@ -9,14 +9,13 @@
          itself. No role icon either: the page is only ever about a role, so it
          marks nothing. -->
     <div class="d-flex align-center ga-3 px-1 py-3">
-      <v-btn
-        icon="mdi-arrow-left"
-        variant="text"
-        size="small"
-        title="Back to roles"
-        @click="backToRoles"></v-btn>
       <div style="min-width: 0">
-        <div class="text-h6 text-truncate" :title="roleName">{{ roleName || '—' }}</div>
+        <div class="d-flex align-center ga-2" style="min-width: 0">
+          <div class="text-h6 text-truncate" :title="roleName">{{ roleName || '—' }}</div>
+          <!-- Who owns this role travels with its name, so it is answered
+               before any tab is opened. -->
+          <RoleProviderChip v-if="providerId" :provider-id="providerId" size="x-small" />
+        </div>
         <div class="text-caption text-medium-emphasis d-flex align-center ga-1">
           {{ roleId }}
           <v-btn
@@ -30,37 +29,53 @@
     </div>
 
     <div class="d-flex align-stretch" style="height: calc(100vh - 300px); min-height: 380px">
-      <v-tabs
-        v-model="tab"
-        direction="vertical"
-        color="primary"
-        class="flex-shrink-0"
-        style="min-width: 200px; align-self: stretch; overflow-y: auto">
-        <v-tab value="details">
-          <v-icon size="20" class="mr-3">mdi-card-account-details-outline</v-icon>
-          Details
-        </v-tab>
-        <v-tab value="owners">
-          <v-icon size="20" class="mr-3">mdi-shield-account</v-icon>
-          Owners
-        </v-tab>
-        <v-tab value="members">
-          <v-icon size="20" class="mr-3">mdi-account-multiple</v-icon>
-          Members
-        </v-tab>
-        <v-tab v-if="grantsSupported" value="grants">
-          <v-icon size="20" class="mr-3">mdi-shield-key-outline</v-icon>
-          Grants
-          <v-chip v-if="grantCount !== null" size="x-small" variant="tonal" class="ml-2">
-            {{ grantCount }}
-          </v-chip>
-        </v-tab>
-        <v-tab value="member-of">
-          <v-icon size="20" class="mr-3">mdi-account-arrow-up</v-icon>
-          Member of
-          <v-chip size="x-small" variant="tonal" class="ml-2">{{ memberOf.length }}</v-chip>
-        </v-tab>
-      </v-tabs>
+      <!-- The rail leads with the way out, which puts it in the same band as
+           each section's own action (Edit role, Add member) across the divider
+           rather than on a line of its own above the title. Outlined like
+           those, but not primary: leaving is not the thing to do here. -->
+      <div class="d-flex flex-column flex-shrink-0" style="min-width: 200px">
+        <div class="px-2 py-2">
+          <v-btn
+            block
+            variant="outlined"
+            color="medium-emphasis"
+            size="small"
+            prepend-icon="mdi-arrow-left"
+            text="All roles"
+            @click="backToRoles"></v-btn>
+        </div>
+        <v-tabs
+          v-model="tab"
+          direction="vertical"
+          color="primary"
+          class="flex-grow-1"
+          style="min-height: 0; overflow-y: auto">
+          <v-tab value="details">
+            <v-icon size="20" class="mr-3">mdi-card-account-details-outline</v-icon>
+            Details
+          </v-tab>
+          <v-tab value="owners">
+            <v-icon size="20" class="mr-3">mdi-shield-account</v-icon>
+            Owners
+          </v-tab>
+          <v-tab value="members">
+            <v-icon size="20" class="mr-3">mdi-account-multiple</v-icon>
+            Members
+          </v-tab>
+          <v-tab v-if="grantsSupported" value="grants">
+            <v-icon size="20" class="mr-3">mdi-shield-key-outline</v-icon>
+            Grants
+            <v-chip v-if="grantCount !== null" size="x-small" variant="tonal" class="ml-2">
+              {{ grantCount }}
+            </v-chip>
+          </v-tab>
+          <v-tab value="member-of">
+            <v-icon size="20" class="mr-3">mdi-account-arrow-up</v-icon>
+            Member of
+            <v-chip size="x-small" variant="tonal" class="ml-2">{{ memberOf.length }}</v-chip>
+          </v-tab>
+        </v-tabs>
+      </div>
       <v-divider vertical></v-divider>
 
       <!-- The scroller is the wrapper, not each section: every flex ancestor
@@ -85,6 +100,7 @@
             v-if="visited.has('members')"
             :role-id="roleId"
             :can-edit="canEdit"
+            :provider-id="providerId"
             embedded />
         </div>
 
@@ -129,6 +145,7 @@ import type { RoleMembership } from '../gen/management/types.gen';
 import RoleOverviewEdit from './RoleOverviewEdit.vue';
 import RoleMembers from './RoleMembers.vue';
 import RoleOwners from './RoleOwners.vue';
+import RoleProviderChip from './RoleProviderChip.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
 import { useGrantPrincipalListingSupported } from '../composables/useGrants';
 
@@ -138,6 +155,11 @@ const functions = useFunctions();
 const router = useRouter();
 const route = useRoute();
 const roleName = ref('');
+// A role provider owns membership for every namespace but `lakekeeper` and
+// `system`, and syncs it lazily. The tab keeps its name regardless — it would
+// otherwise rename itself as you move between roles — and the members panel
+// qualifies the list where the list actually is.
+const providerId = ref('');
 
 const tab = ref('details');
 // Sections mount on first visit and stay mounted, so switching back does not
@@ -145,16 +167,23 @@ const tab = ref('details');
 const visited = ref(new Set([tab.value]));
 watch(tab, (t) => visited.value.add(t));
 
-// Drops the ?role= that selected this role, keeping the rest of the query so the
-// Roles tab stays put rather than the page reopening on Users.
+// Two hosts, two ways back: on the Identities page the role is selected by a
+// ?role= param, so dropping it restores the list with the Roles tab still
+// active. On the standalone /roles/:id page there is no such param — deleting
+// it there pushed the same route and the button did nothing — so navigate.
 function backToRoles() {
-  const query = { ...route.query };
-  delete query.role;
-  router.push({ query });
+  if (route.query.role) {
+    const query = { ...route.query };
+    delete query.role;
+    router.push({ query });
+    return;
+  }
+  router.push('/roles');
 }
 
 function onRoleLoaded(role: any) {
   if (role?.name) roleName.value = role.name;
+  if (role?.['provider-id']) providerId.value = role['provider-id'];
 }
 // Hidden where the authorizer manages no grants at all.
 // Principal-scoped: this asks what one principal holds everywhere, which not
@@ -171,6 +200,7 @@ async function load() {
       functions.listRoleMemberOf(props.roleId).catch(() => ({ roles: [] })),
     ]);
     roleName.value = (meta as any)?.name ?? '';
+    providerId.value = (meta as any)?.['provider-id'] ?? '';
     memberOf.value = ((mo as any)?.roles ?? []) as RoleMembership[];
   } catch {
     /* surfaced by the functions plugin */
@@ -186,6 +216,7 @@ watch(
     tab.value = 'details';
     visited.value = new Set(['details']);
     grantCount.value = null;
+    providerId.value = '';
     load();
   },
 );

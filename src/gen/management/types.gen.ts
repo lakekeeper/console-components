@@ -118,28 +118,16 @@ export type ApplyGrantsRequest = {
     writes?: Array<GrantEntry>;
 };
 
-export type AzCredential = ({
-    'credential-type': 'client-credentials';
-} & AzCredentialClientCredentials) | ({
-    'credential-type': 'shared-access-key';
-} & AzCredentialSharedAccessKey) | ({
-    'credential-type': 'azure-system-identity';
-} & AzCredentialManagedIdentity);
-
-export type AzCredentialClientCredentials = {
+export type AzCredential = {
     'client-id': string;
     'client-secret': string;
     'credential-type': 'client-credentials';
     'tenant-id': string;
-};
-
-export type AzCredentialManagedIdentity = {
-    'credential-type': 'azure-system-identity';
-};
-
-export type AzCredentialSharedAccessKey = {
+} | {
     'credential-type': 'shared-access-key';
     key: string;
+} | {
+    'credential-type': 'azure-system-identity';
 };
 
 /**
@@ -240,7 +228,22 @@ export type CatalogActionsBatchCheckResponse = {
 };
 
 export type CatalogActionsBatchCheckResult = {
+    /**
+     * Whether the checked identity may perform the operation.
+     */
     allowed: boolean;
+    /**
+     * What determined this decision: the policies that matched, each with its
+     * identifier, optional name and source, or a system-authority override.
+     *
+     * Absent when the configured authorizer produces no per-decision
+     * diagnostics.
+     */
+    'determined-by'?: Array<DeterminingFactor>;
+    /**
+     * Echoes the `id` of the corresponding request item. Absent when the
+     * request item carried none — match by position instead.
+     */
     id?: string | null;
 };
 
@@ -524,6 +527,14 @@ export type CreateWarehouseRequest = {
      */
     'storage-profile': StorageProfile;
     /**
+     * Request a specific warehouse ID - optional.
+     * If not provided, a new warehouse ID will be generated (recommended).
+     * Warehouse IDs are unique across the whole Lakekeeper instance, not just
+     * within a project. If you do provide one, prefer a UUIDv7, so that IDs
+     * sort by creation time.
+     */
+    'warehouse-id'?: string | null;
+    /**
      * Name of the warehouse to create. Must be unique
      * within a project and may not contain "/"
      */
@@ -565,6 +576,69 @@ export type DeletedTabularResponse = {
      * Warehouse ID where the tabular is stored
      */
     'warehouse-id': string;
+};
+
+/**
+ * A single factor that contributed to an authorization decision.
+ *
+ * Discriminated by `type`: `policy` names a policy the authorizer matched,
+ * `system-authority` records that a built-in authority tier decided the
+ * request. Further kinds may be added, so treat an unrecognised `type` as an
+ * opaque factor rather than an error.
+ */
+export type DeterminingFactor = ({
+    type: 'policy';
+} & DeterminingFactorPolicy) | ({
+    type: 'system-authority';
+} & DeterminingFactorSystemAuthority);
+
+/**
+ * A policy that determined the decision, surfaced by a policy-based
+ * authorizer.
+ */
+export type DeterminingFactorPolicy = {
+    /**
+     * Whether the policy permits or forbids.
+     */
+    effect: PolicyEffect;
+    /**
+     * Human-facing name the author gave the policy (e.g. a `@name` or
+     * `@id` annotation). Neither required nor guaranteed unique; absent
+     * when the author provided none.
+     */
+    name?: string | null;
+    /**
+     * Stable, authorizer-assigned identifier of the policy (e.g. the Cedar
+     * `PolicyId`). Always present.
+     */
+    'policy-id': string;
+    /**
+     * Opaque origin of the policy (e.g. a policy-source identifier).
+     * Absent when the authorizer cannot attribute a source.
+     */
+    source?: string | null;
+    type: 'policy';
+};
+
+/**
+ * An allow contributed by a built-in/system authority tier that takes
+ * precedence over normal authored policy — e.g. a recovery mechanism that
+ * lets a privileged system role act despite a policy that would otherwise
+ * forbid it. Its presence means the verdict rested on built-in authority
+ * rather than on a configured policy.
+ */
+export type DeterminingFactorSystemAuthority = {
+    /**
+     * Human-facing reason the tier applied (e.g. an administrator
+     * lockout-recovery grant). Absent when the authorizer gives none.
+     */
+    reason?: string | null;
+    /**
+     * Opaque, authorizer-assigned identifier of the built-in authority
+     * tier that granted the action. Absent when none can be attributed.
+     */
+    source?: string | null;
+    type: 'system-authority';
 };
 
 /**
@@ -753,29 +827,10 @@ export type ErrorModel = {
  * }
  * ```
  */
-export type GcsCredential = ({
-    'credential-type': 'service-account-key';
-} & GcsCredentialServiceAccountKey) | ({
-    'credential-type': 'gcp-system-identity';
-} & GcsCredentialSystemIdentity);
-
-/**
- * Service Account Key
- *
- * The key is the JSON object obtained when creating a service account key in the GCP console.
- */
-export type GcsCredentialServiceAccountKey = {
+export type GcsCredential = {
     'credential-type': 'service-account-key';
     key: GcsServiceKey;
-};
-
-/**
- * GCP System Identity
- *
- * Use the service account that the application is running as.
- * This can be a Compute Engine default service account or a user-assigned service account.
- */
-export type GcsCredentialSystemIdentity = {
+} | {
     'credential-type': 'gcp-system-identity';
 };
 
@@ -1268,12 +1323,18 @@ export type GrantResponse = {
 };
 
 /**
- * One privilege of a resource's vocabulary, and whether the principal may administer it.
+ * One privilege of a resource's vocabulary, and whether the principal may grant it.
  */
 export type GrantablePrivilege = {
     /**
-     * Whether the principal may administer this privilege here — grant it, revoke it, or
-     * both. Advisory: an apply checks each of its entries on its own.
+     * Whether the principal may grant this privilege here. Advisory: an apply checks
+     * each of its entries on its own.
+     *
+     * Granting only. Revoking is authorized separately and may be refused where this
+     * says `true` — under the OpenFGA authorizer, delegated grant authority
+     * (`pass_grants`) hands a privilege out without taking it back. There is no
+     * discovery question for the revoke direction; a removal is authorized as it is
+     * applied.
      */
     allowed: boolean;
     /**
@@ -3247,6 +3308,11 @@ export type OpenFgaViewAction = 'read_assignments' | 'grant_pass_grants' | 'gran
 export type OpenFgaWarehouseAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership';
 
 /**
+ * Whether a determining policy permits or forbids.
+ */
+export type PolicyEffect = 'permit' | 'forbid';
+
+/**
  * One grantable privilege, as published by an authorizer for discovery.
  */
 export type PrivilegeDescriptor = {
@@ -3426,7 +3492,7 @@ export type RenameWarehouseRequest = {
 
 /**
  * This resource's whole vocabulary, each entry marked with whether the principal may
- * administer it — grant it, revoke it, or both.
+ * grant it.
  *
  * The deployment-wide vocabulary answers "what does this server understand"; this
  * answers "what may I do here", which is the question a grant dialog asks. Grant
@@ -3663,45 +3729,15 @@ export type S3CloudflareR2Credential = {
     token: string;
 };
 
-export type S3Credential = ({
+export type S3Credential = (S3AccessKeyCredential & {
     'credential-type': 'access-key';
-} & S3CredentialAccessKey) | ({
+}) | (S3AwsSystemIdentityCredential & {
     'credential-type': 'aws-system-identity';
-} & S3CredentialAwsSystemIdentity) | ({
+}) | (S3CloudflareR2Credential & {
     'credential-type': 'cloudflare-r2';
-} & S3CredentialCloudflareR2) | ({
+}) | (S3AccessKeyCredential & {
     'credential-type': 'aliyun-oss';
-} & S3CredentialAliyunOss);
-
-/**
- * Authenticate to AWS using access-key and secret-key.
- */
-export type S3CredentialAccessKey = S3AccessKeyCredential & {
-    'credential-type': 'access-key';
-};
-
-/**
- * **Beta:** Alibaba Cloud OSS support is in beta. The API and behavior may change in a
- * future release.
- *
- * Authenticate to Alibaba Cloud OSS using access-key and secret-key.
- * Temporary credentials are vended via the Alibaba Cloud STS `AssumeRole` API.
- */
-export type S3CredentialAliyunOss = S3AccessKeyCredential & {
-    'credential-type': 'aliyun-oss';
-};
-
-/**
- * Authenticate to AWS using the identity configured on the system
- * that runs lakekeeper. The AWS SDK is used to load the credentials.
- */
-export type S3CredentialAwsSystemIdentity = S3AwsSystemIdentityCredential & {
-    'credential-type': 'aws-system-identity';
-};
-
-export type S3CredentialCloudflareR2 = S3CloudflareR2Credential & {
-    'credential-type': 'cloudflare-r2';
-};
+});
 
 /**
  * The type of S3 credential.
@@ -4003,6 +4039,32 @@ export type ServerInfo = {
      */
     'license-status': LicenseStatus;
     /**
+     * Role-provider namespaces whose roles are maintained by a configured role
+     * provider (LDAP/Entra/Okta/token), sorted. Roles whose `provider-id`
+     * appears here are the provider's to maintain: creating one, or renaming,
+     * re-describing, rebinding, or deleting an existing one, is rejected with
+     * `ManagedRoleImmutable` so provider sync cannot be clobbered.
+     *
+     * This is live server configuration, not a property of the namespace
+     * string. A provider removed from config drops out of the list, and the
+     * roles it left behind become renamable and deletable again so they can be
+     * cleaned up.
+     *
+     * Empty when no role provider is configured. Two namespaces never appear,
+     * and a client gating on this list must handle both itself: `lakekeeper`,
+     * which is always writable, and the reserved `system`, whose roles reject
+     * the same mutations with `SystemRoleImmutable`.
+     *
+     * **Membership is gated differently — do not derive it from this list.**
+     * Adding or removing a role's members requires the `lakekeeper` namespace
+     * (or `system`, for an instance admin); every other namespace is refused
+     * with `RoleNotManuallyAssignable` whether or not it appears here. So an
+     * orphaned role from a since-removed provider is renamable and deletable
+     * but still not assignable — gate member editing on
+     * `provider-id == "lakekeeper"`, not on absence from this list.
+     */
+    'managed-role-providers': Array<string>;
+    /**
      * List of queues that are registered for the server.
      */
     queues: Array<string>;
@@ -4073,86 +4135,108 @@ export type SoftDeletionQueueConfig = {
 };
 
 /**
+ * StackitCredentialAccessKey
+ */
+export type StackitAccessKeyCredential = {
+    /**
+     * Access key ID of a key created in the STACKIT credentials group.
+     */
+    'access-key-id': string;
+    /**
+     * Secret shown once when the access key was created.
+     */
+    'secret-access-key': string;
+};
+
+/**
+ * StackitCredentialAccessKey
+ *
+ * Access key and secret, created inside a STACKIT credentials group.
+ */
+export type StackitCredential = StackitAccessKeyCredential & {
+    'credential-type': 'access-key';
+};
+
+/**
+ * The type of STACKIT credential.
+ */
+export type StackitCredentialType = 'access-key';
+
+/**
+ * Storage profile for STACKIT Object Storage.
+ */
+export type StackitProfile = {
+    /**
+     * Name of the STACKIT bucket.
+     *
+     * Must not contain `.`: STACKIT addresses buckets as a subdomain of the
+     * endpoint, and its wildcard certificate covers only a single label.
+     */
+    bucket: string;
+    /**
+     * URN of the STACKIT credentials group to assume when vending credentials,
+     * e.g. `urn:sgws:identity::87066461224079950546:group/credentials-group-a1b2c3`.
+     *
+     * Copy it verbatim from the credentials group; it is not derivable.
+     * Required when `sts-enabled` is true, optional otherwise — but validated
+     * whenever it is present.
+     */
+    'credentials-group-urn'?: string | null;
+    /**
+     * Endpoint override. Normally omitted — the endpoint is derived from
+     * `region`.
+     *
+     * Set this only for a STACKIT endpoint outside the public naming scheme,
+     * which STACKIT hands out per customer. Such an endpoint is a distinct
+     * storage tenant, not another route to the same bucket, so it is immutable
+     * once the warehouse exists.
+     */
+    endpoint?: string | null;
+    /**
+     * Subpath within the bucket to use.
+     */
+    'key-prefix'?: string | null;
+    /**
+     * Push `s3.delete-enabled=false` to clients, discouraging Spark from
+     * deleting files directly and bypassing soft-deletion. Defaults to true.
+     */
+    'push-s3-delete-disabled'?: boolean;
+    /**
+     * STACKIT region, e.g. `eu01`.
+     */
+    region: string;
+    /**
+     * Allow clients to have Lakekeeper sign their S3 requests. Defaults to
+     * enabled, and is the only client path when `sts-enabled` is false.
+     */
+    'remote-signing-enabled'?: boolean;
+    'storage-layout'?: null | StorageLayout;
+    /**
+     * Vend temporary downscoped credentials via STS. Defaults to enabled.
+     *
+     * Requires `credentials-group-urn`, and requires the credentials group to
+     * carry a trust policy allowing `sts:AssumeRole`. Disable it to fall back
+     * to remote signing on storage that predates `StorageGRID` 12.0.
+     */
+    'sts-enabled'?: boolean;
+    /**
+     * Validity of vended credentials in seconds. Defaults to 3600.
+     */
+    'sts-token-validity-seconds'?: number;
+};
+
+/**
  * Storage secret for a warehouse.
  */
-export type StorageCredential = ({
-    'credential-type': 'access-key';
-} & StorageCredentialAccessKey) | ({
-    'credential-type': 'aws-system-identity';
-} & StorageCredentialAwsSystemIdentity) | ({
-    'credential-type': 'cloudflare-r2';
-} & StorageCredentialCloudflareR2) | ({
-    'credential-type': 'aliyun-oss';
-} & StorageCredentialAliyunOss) | ({
-    'credential-type': 'client-credentials';
-} & StorageCredentialClientCredentials) | ({
-    'credential-type': 'shared-access-key';
-} & StorageCredentialSharedAccessKey) | ({
-    'credential-type': 'azure-system-identity';
-} & StorageCredentialAzureSystemIdentity) | ({
-    'credential-type': 'service-account-key';
-} & StorageCredentialServiceAccountKey) | ({
-    'credential-type': 'gcp-system-identity';
-} & StorageCredentialGcpSystemIdentity);
-
-export type StorageCredentialAccessKey = S3AccessKeyCredential & {
-    'credential-type': 'access-key';
-} & {
+export type StorageCredential = (S3Credential & {
     type: 's3';
-};
-
-export type StorageCredentialAliyunOss = S3AccessKeyCredential & {
-    'credential-type': 'aliyun-oss';
-} & {
-    type: 's3';
-};
-
-export type StorageCredentialAwsSystemIdentity = S3AwsSystemIdentityCredential & {
-    'credential-type': 'aws-system-identity';
-} & {
-    type: 's3';
-};
-
-export type StorageCredentialAzureSystemIdentity = {
-    'credential-type': 'azure-system-identity';
-} & {
+}) | (StackitCredential & {
+    type: 'stackit';
+}) | (AzCredential & {
     type: 'az';
-};
-
-export type StorageCredentialClientCredentials = {
-    'client-id': string;
-    'client-secret': string;
-    'credential-type': 'client-credentials';
-    'tenant-id': string;
-} & {
-    type: 'az';
-};
-
-export type StorageCredentialCloudflareR2 = S3CloudflareR2Credential & {
-    'credential-type': 'cloudflare-r2';
-} & {
-    type: 's3';
-};
-
-export type StorageCredentialGcpSystemIdentity = {
-    'credential-type': 'gcp-system-identity';
-} & {
+}) | (GcsCredential & {
     type: 'gcs';
-};
-
-export type StorageCredentialServiceAccountKey = {
-    'credential-type': 'service-account-key';
-    key: GcsServiceKey;
-} & {
-    type: 'gcs';
-};
-
-export type StorageCredentialSharedAccessKey = {
-    'credential-type': 'shared-access-key';
-    key: string;
-} & {
-    type: 'az';
-};
+});
 
 /**
  * The type of storage credential configured for a warehouse, without secret values.
@@ -4166,7 +4250,9 @@ export type StorageCredentialType = ({
     type: 'az';
 } & StorageCredentialTypeAz) | ({
     type: 'gcs';
-} & StorageCredentialTypeGcs);
+} & StorageCredentialTypeGcs) | ({
+    type: 'stackit';
+} & StorageCredentialTypeStackit);
 
 /**
  * Azure credential type
@@ -4199,6 +4285,17 @@ export type StorageCredentialTypeS3 = {
      */
     'credential-type': S3CredentialType;
     type: 's3';
+};
+
+/**
+ * STACKIT credential type
+ */
+export type StorageCredentialTypeStackit = {
+    /**
+     * STACKIT credential type
+     */
+    'credential-type': StackitCredentialType;
+    type: 'stackit';
 };
 
 /**
@@ -4276,6 +4373,8 @@ export type StorageProfile = ({
 } & StorageProfileOneLake) | ({
     type: 's3';
 } & StorageProfileS3) | ({
+    type: 'stackit';
+} & StorageProfileStackit) | ({
     type: 'gcs';
 } & StorageProfileGcs);
 
@@ -4305,6 +4404,14 @@ export type StorageProfileOneLake = OneLakeProfile & {
  */
 export type StorageProfileS3 = S3Profile & {
     type: 's3';
+};
+
+/**
+ * STACKIT Object Storage. S3 over `NetApp` `StorageGRID`, with a reduced knob
+ * set and STACKIT's own endpoint derivation and credentials-group STS.
+ */
+export type StorageProfileStackit = StackitProfile & {
+    type: 'stackit';
 };
 
 export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
@@ -5004,7 +5111,7 @@ export type ValidationCheck = {
  * generated clients, which reject unknown enum values, so new checks ship in a
  * release that clients must upgrade to.
  */
-export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' | 'warehouse-name-valid' | 'location-exclusive' | 'spec-mutable' | 'format-version-policy-consistent' | 'managed-by-allowed' | 'storage-client-initialized' | 'lakekeeper-read-write' | 'vended-credentials-issued' | 'vended-credentials-read-write' | 'vended-credentials-scope-enforced' | 'cleanup';
+export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' | 'warehouse-name-valid' | 'warehouse-id-available' | 'location-exclusive' | 'spec-mutable' | 'format-version-policy-consistent' | 'managed-by-allowed' | 'storage-client-initialized' | 'lakekeeper-read-write' | 'vended-credentials-issued' | 'vended-credentials-read-write' | 'vended-credentials-scope-enforced' | 'cleanup';
 
 /**
  * The outcome of a single check.
@@ -5345,7 +5452,7 @@ export type BatchCheckActionsError = BatchCheckActionsErrors[keyof BatchCheckAct
 
 export type BatchCheckActionsResponses = {
     /**
-     * Batch check results
+     * Batch check results, one per request item and in request order
      */
     200: CatalogActionsBatchCheckResponse;
 };
