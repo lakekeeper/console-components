@@ -151,13 +151,31 @@
           v-if="grantsSupported && userStorage.isAuthenticated"
           value="grants"
           style="height: 100%">
-          <!-- This project's own grants, beside its Permissions tab. Other levels
-               are reached from Governance, which carries the full scope rail. -->
+          <!-- This project's own grants, beside its Permissions tab. -->
           <div class="pa-4" style="height: calc(100vh - 220px); min-height: 0">
             <GrantsPanel
               v-if="tab === 'grants'"
               :resource="{ type: 'project' }"
-              :resource-name="project['project-name']" />
+              :resource-name="project['project-name']">
+              <!-- Only the server sits above a project, but a grant held there
+                   reaches it without appearing in the pane below — so the rail
+                   is two levels and both of them matter. -->
+              <template #toolbar-actions>
+                <GrantsDialog
+                  :resource="{ type: 'project' }"
+                  :entity-name="project['project-name']">
+                  <template #activator="{ props: aProps }">
+                    <v-btn
+                      v-bind="aProps"
+                      size="small"
+                      variant="outlined"
+                      prepend-icon="mdi-file-tree-outline">
+                      Grant hierarchy
+                    </v-btn>
+                  </template>
+                </GrantsDialog>
+              </template>
+            </GrantsPanel>
           </div>
         </v-tabs-window-item>
 
@@ -187,6 +205,7 @@ import { useRouter } from 'vue-router';
 import ProjectTaskManager from './ProjectTaskManager.vue';
 import ProjectStatistics from './ProjectStatistics.vue';
 import GrantsPanel from './GrantsPanel.vue';
+import GrantsDialog from './GrantsDialog.vue';
 import { useGrantsSupported } from '../composables/useGrants';
 
 const dialog = ref(false);

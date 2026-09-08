@@ -9,13 +9,17 @@
     </div>
 
     <!-- Reading grants is its own right, so a caller who can see the resource
-         may still not be allowed to see who holds what on it. -->
-    <div
-      v-else-if="forbidden"
-      class="pa-8 text-medium-emphasis d-flex align-center ga-2 justify-center">
-      <v-icon>mdi-lock-outline</v-icon>
-      You don't have permission to read the grants on this
-      {{ resourceLabel(resource.type).toLowerCase() }}.
+         may still not be allowed to see who holds what on it.
+         The host's actions stay reachable here: refused on this resource does
+         not mean refused above it, and the hierarchy is the one view that can
+         still show something — the levels it cannot read are marked there. -->
+    <div v-else-if="forbidden" class="pa-8 d-flex flex-column align-center ga-3">
+      <div class="text-medium-emphasis d-flex align-center ga-2">
+        <v-icon>mdi-lock-outline</v-icon>
+        You don't have permission to read the grants on this
+        {{ resourceLabel(resource.type).toLowerCase() }}.
+      </div>
+      <slot name="toolbar-actions"></slot>
     </div>
 
     <!-- The authorizer itself is unreachable. Nothing is wrong with the request

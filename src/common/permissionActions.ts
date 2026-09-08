@@ -104,7 +104,10 @@ const catalogNamespaceActions: LakekeeperNamespaceAction[] = [
   { action: 'include_in_list' },
   { action: 'read_grants' },
   { action: 'manage_tags' },
-  { action: 'move' },
+  // `move` is deliberately absent: the schema requires a `destination` with it,
+  // so it asks "may I move this namespace *there*" rather than naming a
+  // capability, and it cannot be answered by a blanket list. The move menu entry
+  // has its own authentication-disabled fallback.
   { action: 'accept_moved_namespace' },
 ];
 

@@ -20,12 +20,50 @@ import { permissionActions } from './permissionActions';
 const typesPath = resolve(process.cwd(), 'src/gen/management/types.gen.ts');
 const types = readFileSync(typesPath, 'utf8');
 
-/** Action names in one `export type X = …` union from the generated client. */
+const declarations = new Map(
+  [...types.matchAll(/^export type (\w+) = ([\s\S]*?)(?=^export |$(?![\s\S]))/gm)].map((m) => [
+    m[1],
+    m[2],
+  ]),
+);
+
+function declaration(typeName: string): string {
+  const body = declarations.get(typeName);
+  if (!body) throw new Error(`${typeName} not found in types.gen.ts`);
+  return body;
+}
+
+/**
+ * Whether an action carries required arguments of its own — `move` needs a
+ * `destination`, for instance.
+ *
+ * Those are not capabilities but questions about one specific operation ("may I
+ * move this namespace *there*"), so a blanket list cannot answer them and must
+ * not claim to. Derived rather than listed by name, so an action that gains
+ * arguments in a later schema does not fail this test spuriously.
+ */
+function isParameterised(actionTypeName: string): boolean {
+  const body = declarations.get(actionTypeName);
+  if (!body) return false;
+  return [...body.matchAll(/^\s{4}'?([a-z-]+)'?(\??):/gm)].some(
+    ([, name, optional]) => name !== 'action' && optional !== '?',
+  );
+}
+
+/**
+ * Action names in one `export type X = …` union from the generated client,
+ * excluding the parameterised ones.
+ */
 function schemaActions(typeName: string): string[] {
-  const decls = [...types.matchAll(/^export type (\w+) = ([\s\S]*?)(?=^export |$(?![\s\S]))/gm)];
-  const decl = decls.find(([, name]) => name === typeName);
-  if (!decl) throw new Error(`${typeName} not found in types.gen.ts`);
-  return [...new Set([...decl[2].matchAll(/action: '([a-z_]+)'/g)].map((m) => m[1]))].sort();
+  const body = declaration(typeName);
+  // Each union member is `({ action: 'name' } & TypeName)`, and the member type
+  // is what says whether the action takes arguments.
+  const members = [...body.matchAll(/action: '([a-z_]+)';\s*\}\s*&\s*(\w+)/g)];
+  const bare = [...body.matchAll(/action: '([a-z_]+)'/g)].map((m) => m[1]);
+  const parameterised = new Set(
+    members.filter(([, , typeRef]) => isParameterised(typeRef)).map(([, action]) => action),
+  );
+  return [...new Set(bare.filter((action) => !parameterised.has(action)))].sort();
 }
 
 const CATALOG_LISTS: Array<[string, string, { action: string }[]]> = [

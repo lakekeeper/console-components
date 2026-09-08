@@ -6280,6 +6280,12 @@ async function listViewUuids(
  * 501 `GrantListingNotImplemented` rather than reading its whole store — so
  * callers must be ready to fall back to the per-resource listings.
  */
+// Grant reads are speculative by design: the hierarchy asks every level from the
+// server down, and a caller who may read grants on a namespace but not on the
+// server is the normal case, not an error. Each surface already renders the
+// refusal in place (a lock on the level, or an empty pane), so a 403 here must
+// not also raise a snackbar — that is the "ServerActionForbidden" popup on the
+// hierarchy page. Every other status still notifies.
 async function listGrantsForPrincipal(
   options: GrantListOptions,
   projectId?: string,
@@ -6296,7 +6302,7 @@ async function listGrantsForPrincipal(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listGrantsForPrincipal', notify);
+    handleError(error, 'listGrantsForPrincipal', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6318,7 +6324,11 @@ async function getGrantablePrivilegesVocabulary(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getGrantablePrivilegesVocabulary', notify);
+    handleError(
+      error,
+      'getGrantablePrivilegesVocabulary',
+      isForbiddenError(error) ? false : notify,
+    );
     throw error;
   }
 }
@@ -6336,7 +6346,7 @@ async function listServerGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listServerGrants', notify);
+    handleError(error, 'listServerGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6367,7 +6377,7 @@ async function getServerGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getServerGrantablePrivileges', notify);
+    handleError(error, 'getServerGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6393,7 +6403,7 @@ async function listProjectGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listProjectGrants', notify);
+    handleError(error, 'listProjectGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6434,7 +6444,7 @@ async function getProjectGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getProjectGrantablePrivileges', notify);
+    handleError(error, 'getProjectGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6457,7 +6467,7 @@ async function listWarehouseGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listWarehouseGrants', notify);
+    handleError(error, 'listWarehouseGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6498,7 +6508,7 @@ async function getWarehouseGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getWarehouseGrantablePrivileges', notify);
+    handleError(error, 'getWarehouseGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6522,7 +6532,7 @@ async function listNamespaceGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listNamespaceGrants', notify);
+    handleError(error, 'listNamespaceGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6565,7 +6575,7 @@ async function getNamespaceGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getNamespaceGrantablePrivileges', notify);
+    handleError(error, 'getNamespaceGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6589,7 +6599,7 @@ async function listTableGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listTableGrants', notify);
+    handleError(error, 'listTableGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6632,7 +6642,7 @@ async function getTableGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getTableGrantablePrivileges', notify);
+    handleError(error, 'getTableGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6656,7 +6666,7 @@ async function listViewGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listViewGrants', notify);
+    handleError(error, 'listViewGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6699,7 +6709,7 @@ async function getViewGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getViewGrantablePrivileges', notify);
+    handleError(error, 'getViewGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6723,7 +6733,7 @@ async function listGenericTableGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listGenericTableGrants', notify);
+    handleError(error, 'listGenericTableGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6766,7 +6776,11 @@ async function getGenericTableGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getGenericTableGrantablePrivileges', notify);
+    handleError(
+      error,
+      'getGenericTableGrantablePrivileges',
+      isForbiddenError(error) ? false : notify,
+    );
     throw error;
   }
 }
@@ -6789,7 +6803,7 @@ async function listTagGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listTagGrants', notify);
+    handleError(error, 'listTagGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6830,7 +6844,7 @@ async function getTagGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getTagGrantablePrivileges', notify);
+    handleError(error, 'getTagGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
