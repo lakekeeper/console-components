@@ -20,12 +20,24 @@ import {
 
 // Catalog Actions - Operational permissions (what you can DO with resources)
 // These work with ALL authorization backends (allow-all, openfga, future)
+//
+// With authentication disabled these lists ARE the answer: `functions.ts` returns
+// them instead of asking the API, since there is no principal to ask about. So a
+// missing entry is not a cosmetic gap — it removes the feature from the UI for
+// every no-auth deployment, which is how tag definitions came to be invisible
+// there while tag *attachment* worked (that check has its own authn fallback).
+//
+// They are hand-maintained because the generated client exposes these unions as
+// types only, with no runtime value to enumerate. `permissionActions.test.ts`
+// parses `types.gen.ts` and fails when a list drifts from the schema, so a
+// regenerated client cannot silently leave a new action out.
 const catalogServerActions: LakekeeperServerAction[] = [
   { action: 'create_project' },
   { action: 'update_users' },
   { action: 'delete_users' },
   { action: 'list_users' },
   { action: 'provision_users' },
+  { action: 'read_grants' },
 ];
 
 const catalogProjectActions: LakekeeperProjectAction[] = [
@@ -41,6 +53,11 @@ const catalogProjectActions: LakekeeperProjectAction[] = [
   { action: 'get_endpoint_statistics' },
   { action: 'get_project_tasks' },
   { action: 'control_project_tasks' },
+  { action: 'read_grants' },
+  { action: 'create_tag' },
+  { action: 'list_tags' },
+  { action: 'get_task_queue_config' },
+  { action: 'modify_task_queue_config' },
 ];
 
 const catalogWarehouseActions: LakekeeperWarehouseAction[] = [
@@ -65,6 +82,9 @@ const catalogWarehouseActions: LakekeeperWarehouseAction[] = [
   { action: 'set_protection' },
   { action: 'set_format_version_policy' },
   { action: 'get_endpoint_statistics' },
+  { action: 'read_grants' },
+  { action: 'manage_tags' },
+  { action: 'accept_moved_namespace' },
 ];
 
 const catalogNamespaceActions: LakekeeperNamespaceAction[] = [
@@ -82,6 +102,10 @@ const catalogNamespaceActions: LakekeeperNamespaceAction[] = [
   { action: 'list_everything' },
   { action: 'set_protection' },
   { action: 'include_in_list' },
+  { action: 'read_grants' },
+  { action: 'manage_tags' },
+  { action: 'move' },
+  { action: 'accept_moved_namespace' },
 ];
 
 const catalogTableActions: LakekeeperTableAction[] = [
@@ -96,6 +120,8 @@ const catalogTableActions: LakekeeperTableAction[] = [
   { action: 'get_tasks' },
   { action: 'control_tasks' },
   { action: 'set_protection' },
+  { action: 'read_grants' },
+  { action: 'manage_tags' },
 ];
 
 const catalogViewActions: LakekeeperViewAction[] = [
@@ -109,6 +135,8 @@ const catalogViewActions: LakekeeperViewAction[] = [
   { action: 'get_tasks' },
   { action: 'control_tasks' },
   { action: 'set_protection' },
+  { action: 'read_grants' },
+  { action: 'manage_tags' },
 ];
 
 const catalogGenericTableActions: LakekeeperGenericTableAction[] = [
@@ -122,18 +150,25 @@ const catalogGenericTableActions: LakekeeperGenericTableAction[] = [
   { action: 'get_tasks' },
   { action: 'control_tasks' },
   { action: 'set_protection' },
+  { action: 'read_grants' },
+  { action: 'manage_tags' },
 ];
 
 const catalogRoleActions: LakekeeperRoleActionKind[] = [
   { action: 'read' },
   { action: 'delete' },
   { action: 'update' },
+  { action: 'read_metadata' },
+  { action: 'read_role_assignments' },
+  { action: 'manage_role_assignments' },
+  { action: 'update_source_system' },
 ];
 
 const catalogUserActions: LakekeeperUserAction[] = [
   { action: 'read' },
   { action: 'update' },
   { action: 'delete' },
+  { action: 'read_role_assignments' },
 ];
 
 // Authorizer Actions - OpenFGA relations for permission delegation
