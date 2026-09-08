@@ -420,6 +420,11 @@ function bucketPrefixFromProfile(profile: StorageProfile): string {
     const base = profile.filesystem;
     return profile['key-prefix'] ? `${base}/${profile['key-prefix']}` : base;
   }
+  // STACKIT is S3 on the wire, so its data is addressed the same way.
+  if (profile.type === 'stackit') {
+    const base = `s3://${profile.bucket}`;
+    return profile['key-prefix'] ? `${base}/${profile['key-prefix']}` : base;
+  }
   if (profile.type === 'onelake') {
     const parts = [profile['workspace-id'], profile['lakehouse-id']];
     if (profile['top-level-folder']) parts.push(profile['top-level-folder']);
@@ -431,6 +436,9 @@ function bucketPrefixFromProfile(profile: StorageProfile): string {
 
 function endpointFromProfile(profile: StorageProfile): string {
   if (profile.type === 's3' && profile.endpoint) return profile.endpoint;
+  // STACKIT normally derives its endpoint from the region, so this is only set
+  // for the per-customer override.
+  if (profile.type === 'stackit' && profile.endpoint) return profile.endpoint;
   return '';
 }
 

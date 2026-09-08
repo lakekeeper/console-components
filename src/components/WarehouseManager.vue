@@ -122,6 +122,8 @@ import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 // Import SVG assets
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
+import stackitLightIcon from '@/assets/stackit-mark.svg';
+import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 import aliyunIcon from '@/assets/aliyun.svg';
 import { isAliyunOssEndpoint } from '@/common/storageIcon';
 
@@ -231,6 +233,14 @@ function getStorageIcon(item: GetWarehouseResponseExtended) {
 
   if (profile.type === 'gcs') {
     return h(VIcon, { class: 'mr-2', color: 'info', size: 'large' }, () => 'mdi-google-cloud');
+  }
+
+  if (profile.type === 'stackit') {
+    return h(VImg, {
+      class: 'mb-2 mr-2',
+      src: visual.themeLight ? stackitLightIcon : stackitDarkIcon,
+      width: 24,
+    });
   }
 
   return null;

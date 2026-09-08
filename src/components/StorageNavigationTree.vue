@@ -74,6 +74,11 @@
             size="small">
             <v-img :src="oneLakeIcon" width="18" height="18" />
           </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'stackit'"
+            size="small">
+            <v-img :src="stackitIcon" width="18" height="14" />
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'dataset'" color="amber-darken-2">
@@ -139,6 +144,8 @@ import { logError } from '@/common/errorUtils';
 import s3Icon from '@/assets/s3.svg';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
+import stackitLightIcon from '@/assets/stackit-mark.svg';
+import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 import aliyunIcon from '@/assets/aliyun.svg';
 import { isAliyunOssEndpoint } from '@/common/storageIcon';
 
@@ -148,6 +155,8 @@ const props = defineProps<{
 
 const functions = useFunctions();
 const visualStore = useVisualStore();
+// The STACKIT mark is ink-on-transparent, so it needs the light/dark pair.
+const stackitIcon = computed(() => (visualStore.themeLight ? stackitLightIcon : stackitDarkIcon));
 
 const emit = defineEmits<{
   (
@@ -170,7 +179,7 @@ interface TreeItem {
   warehouseId: string;
   namespaceId?: string;
   loaded?: boolean;
-  storageType?: 's3' | 'adls' | 'gcs' | 'onelake';
+  storageType?: 's3' | 'adls' | 'gcs' | 'onelake' | 'stackit';
   storageFlavor?: string;
   storageEndpoint?: string;
   loadMoreTypes?: ('namespace' | 'dataset')[];

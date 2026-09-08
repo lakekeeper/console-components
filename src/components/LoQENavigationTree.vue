@@ -249,6 +249,11 @@
             size="small">
             <v-img :src="oneLakeIcon" width="18" height="18" />
           </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'stackit'"
+            size="small">
+            <v-img :src="stackitIcon" width="18" height="14" />
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'" color="blue-grey">
             mdi-database
           </v-icon>
@@ -376,6 +381,8 @@ import type { AttachedCatalog } from '../composables/loqe/types';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
+import stackitLightIcon from '@/assets/stackit-mark.svg';
+import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 import aliyunIcon from '@/assets/aliyun.svg';
 import { isAliyunOssEndpoint } from '@/common/storageIcon';
 import { formatIcebergType } from '@/common/icebergTypes';
@@ -443,6 +450,9 @@ const emit = defineEmits<{
 
 const functions = useFunctions();
 const visualStore = useVisualStore();
+// The STACKIT mark is ink-on-transparent, so it needs the light/dark pair.
+const stackitIcon = computed(() => (visualStore.themeLight ? stackitLightIcon : stackitDarkIcon));
+
 // const appConfig = inject<any>('appConfig', {});
 
 // ── Types ─────────────────────────────────────────────────────────────
@@ -462,7 +472,7 @@ interface TreeItem {
   parentType?: 'table' | 'view';
   parentName?: string;
   /** Storage profile type — only set on warehouse nodes. */
-  storageType?: 's3' | 'adls' | 'gcs' | 'onelake';
+  storageType?: 's3' | 'adls' | 'gcs' | 'onelake' | 'stackit';
   storageFlavor?: string;
   storageEndpoint?: string;
   /** Which resource types still have pages to load (only on load-more nodes). */

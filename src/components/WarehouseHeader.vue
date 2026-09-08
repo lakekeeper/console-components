@@ -86,7 +86,7 @@ const warehouse = reactive<GetWarehouseResponse>({
 });
 
 // Provider icon (AWS / Azure / GCS / OneLake / …) shown next to the name.
-const storageIcon = computed(() => storageProviderIcon(warehouse));
+const storageIcon = computed(() => storageProviderIcon(warehouse, visual.themeLight));
 
 const isNavigationCollapsed = computed({
   get: () => visual.isNavigationCollapsed,

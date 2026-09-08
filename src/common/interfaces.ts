@@ -11,6 +11,8 @@ import {
   S3Credential,
   S3Profile,
   ServerAssignment,
+  StackitCredential,
+  StackitProfile,
   TableAssignment,
   ViewAssignment,
   GenericTableAssignment,
@@ -98,11 +100,13 @@ export interface WarehousObject {
     | (S3Profile & { type: string })
     | (AdlsProfile & { type: string })
     | (OneLakeProfile & { type: string })
-    | (GcsProfile & { type: string });
+    | (GcsProfile & { type: string })
+    | (StackitProfile & { type: string });
   'storage-credential':
     | (S3Credential & { type: string })
     | (AzCredential & { type: string })
-    | (GcsCredential & { type: string });
+    | (GcsCredential & { type: string })
+    | (StackitCredential & { type: string });
 }
 
 export type Options = {

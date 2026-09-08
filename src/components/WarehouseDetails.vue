@@ -179,6 +179,10 @@
               <v-icon icon="mdi-google-cloud" class="mr-2" color="info"></v-icon>
               Google Cloud Storage Configuration
             </template>
+            <template v-else-if="storageType === 'stackit'">
+              <v-img :src="stackitIcon" width="90" height="15" class="mr-2" />
+              Object Storage Configuration
+            </template>
           </v-card-title>
           <v-card-text>
             <v-row dense>
@@ -356,6 +360,84 @@
                   </div>
                 </v-col>
               </template>
+              <template v-else-if="storageType === 'stackit'">
+                <v-col cols="12" sm="6" md="4">
+                  <div class="text-overline text-medium-emphasis">Bucket</div>
+                  <div class="text-body-1 text-mono mt-2">
+                    {{ warehouse['storage-profile'].bucket }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="4">
+                  <div class="text-overline text-medium-emphasis">Key Prefix</div>
+                  <div class="text-body-1 text-mono mt-2">
+                    {{ warehouse['storage-profile']['key-prefix'] || '-' }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="4">
+                  <div class="text-overline text-medium-emphasis">Region</div>
+                  <div class="mt-2">
+                    <v-chip size="small" variant="outlined">
+                      {{ warehouse['storage-profile'].region }}
+                    </v-chip>
+                  </div>
+                </v-col>
+                <!-- Absent is the normal case: the endpoint is derived from the
+                     region, so showing it only when overridden says something. -->
+                <v-col cols="12" sm="6" md="4" v-if="warehouse['storage-profile'].endpoint">
+                  <div class="text-overline text-medium-emphasis">Endpoint Override</div>
+                  <div class="text-body-1 text-mono mt-2">
+                    {{ warehouse['storage-profile'].endpoint }}
+                  </div>
+                </v-col>
+                <v-col
+                  cols="12"
+                  sm="6"
+                  md="4"
+                  v-if="warehouse['storage-profile']['credentials-group-urn']">
+                  <div class="text-overline text-medium-emphasis">Credentials Group</div>
+                  <div class="text-body-2 text-mono mt-2">
+                    {{ warehouse['storage-profile']['credentials-group-urn'] }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="4">
+                  <div class="text-overline text-medium-emphasis">Vended Credentials (STS)</div>
+                  <div class="mt-2">
+                    <v-chip
+                      size="small"
+                      :variant="warehouse['storage-profile']['sts-enabled'] ? 'flat' : 'outlined'"
+                      :color="warehouse['storage-profile']['sts-enabled'] ? 'success' : 'default'">
+                      {{ warehouse['storage-profile']['sts-enabled'] ? 'Enabled' : 'Disabled' }}
+                    </v-chip>
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="4">
+                  <div class="text-overline text-medium-emphasis">Remote Signing</div>
+                  <div class="mt-2">
+                    <v-chip
+                      size="small"
+                      :variant="
+                        warehouse['storage-profile']['remote-signing-enabled'] ? 'flat' : 'outlined'
+                      "
+                      :color="
+                        warehouse['storage-profile']['remote-signing-enabled']
+                          ? 'success'
+                          : 'default'
+                      ">
+                      {{
+                        warehouse['storage-profile']['remote-signing-enabled']
+                          ? 'Enabled'
+                          : 'Disabled'
+                      }}
+                    </v-chip>
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="6" md="4" v-if="warehouse['storage-profile']['sts-enabled']">
+                  <div class="text-overline text-medium-emphasis">Token Validity</div>
+                  <div class="text-body-1 mt-2">
+                    {{ warehouse['storage-profile']['sts-token-validity-seconds'] || 3600 }}s
+                  </div>
+                </v-col>
+              </template>
             </v-row>
 
             <v-divider class="my-5"></v-divider>
@@ -389,6 +471,8 @@
 import { reactive, computed, onMounted, inject } from 'vue';
 import { logError } from '@/common/errorUtils';
 import oneLakeIcon from '@/assets/onelake.png';
+import stackitLightIcon from '@/assets/stackit-logo.svg';
+import stackitDarkIcon from '@/assets/stackit-logo-dark.svg';
 import { useUserStore } from '@/stores/user';
 import EntityTagsChips from './EntityTagsChips.vue';
 
@@ -414,6 +498,9 @@ const layout = computed(
 );
 
 const storageType = computed(() => (warehouse['storage-profile'] as any)?.type as string);
+
+// The STACKIT wordmark is ink-on-transparent, so it needs the light/dark pair.
+const stackitIcon = computed(() => (visual.themeLight ? stackitLightIcon : stackitDarkIcon));
 
 const LAYOUT_LABELS: Record<string, string> = {
   default: 'Default (flat)',

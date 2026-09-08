@@ -4,6 +4,8 @@ import type { GetWarehouseResponse } from '@/gen/management/types.gen';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import aliyunIcon from '@/assets/aliyun.svg';
+import stackitLightIcon from '@/assets/stackit-mark.svg';
+import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 
 /**
  * True when an S3 endpoint is an Alibaba Cloud OSS host. Matches the documented
@@ -24,11 +26,16 @@ export function isAliyunOssEndpoint(endpoint: string | null | undefined): boolea
 
 /**
  * Render the storage-provider icon (AWS / Azure / GCS / OneLake / Cloudflare R2
- * / Aliyun OSS / generic S3) for a warehouse, based on its storage profile.
- * Returns `null` when the provider can't be determined so callers can fall back.
+ * / Aliyun OSS / STACKIT / generic S3) for a warehouse, based on its storage
+ * profile. Returns `null` when the provider can't be determined so callers can
+ * fall back.
+ *
+ * `themeLight` only matters for the ink-on-transparent marks; it is a parameter
+ * rather than a store read so this stays a plain function callers can unit-test.
  */
 export function storageProviderIcon(
   warehouse: Pick<GetWarehouseResponse, 'storage-profile'> | null | undefined,
+  themeLight = true,
 ): VNode | null {
   const profile = warehouse?.['storage-profile'];
   if (!profile) return null;
@@ -53,6 +60,9 @@ export function storageProviderIcon(
   }
   if (profile.type === 'gcs') {
     return h(VIcon, { color: 'info' }, () => 'mdi-google-cloud');
+  }
+  if (profile.type === 'stackit') {
+    return h(VImg, { src: themeLight ? stackitLightIcon : stackitDarkIcon, width: 24 });
   }
   return null;
 }

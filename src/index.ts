@@ -45,6 +45,7 @@ import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
 import WarehouseStorageFormS3 from './components/WarehouseStorageFormS3.vue';
 import WarehouseStorageFormAzure from './components/WarehouseStorageFormAzure.vue';
 import WarehouseStorageFormOneLake from './components/WarehouseStorageFormOneLake.vue';
+import WarehouseStorageFormStackit from './components/WarehouseStorageFormStackit.vue';
 import WarehouseStorageFormGCS from './components/WarehouseStorageFormGCS.vue';
 import WarehouseStorageJSON from './components/WarehouseStorageJSON.vue';
 import WarehouseValidationReport from './components/WarehouseValidationReport.vue';
@@ -188,6 +189,7 @@ export {
   WarehouseStorageFormS3,
   WarehouseStorageFormAzure,
   WarehouseStorageFormOneLake,
+  WarehouseStorageFormStackit,
   WarehouseStorageFormGCS,
   WarehouseStorageJSON,
   WarehouseValidationReport,
@@ -496,6 +498,7 @@ const components = {
   WarehouseStorageFormS3,
   WarehouseStorageFormAzure,
   WarehouseStorageFormOneLake,
+  WarehouseStorageFormStackit,
   WarehouseStorageFormGCS,
   WarehouseStorageJSON,
   WarehouseValidationReport,
