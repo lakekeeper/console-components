@@ -6,6 +6,9 @@
         Details
       </v-toolbar-title>
       <v-spacer></v-spacer>
+      <!-- The host's own actions sit beside this pane's, so "leave" and "edit"
+           read as one group rather than living in two different places. -->
+      <slot name="toolbar-actions"></slot>
       <!-- `canUpdate` is the authorizer's answer; provider sync owns the name and
            description regardless, and the API refuses both with
            `ManagedRoleImmutable`. Say so instead of offering a failing edit. -->

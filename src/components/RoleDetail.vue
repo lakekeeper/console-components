@@ -29,21 +29,7 @@
     </div>
 
     <div class="d-flex align-stretch" style="height: calc(100vh - 300px); min-height: 380px">
-      <!-- The rail leads with the way out, which puts it in the same band as
-           each section's own action (Edit role, Add member) across the divider
-           rather than on a line of its own above the title. Outlined like
-           those, but not primary: leaving is not the thing to do here. -->
       <div class="d-flex flex-column flex-shrink-0" style="min-width: 200px">
-        <div class="px-2 py-2">
-          <v-btn
-            block
-            variant="outlined"
-            color="medium-emphasis"
-            size="small"
-            prepend-icon="mdi-arrow-left"
-            text="All roles"
-            @click="backToRoles"></v-btn>
-        </div>
         <v-tabs
           v-model="tab"
           direction="vertical"
@@ -88,7 +74,19 @@
             v-if="visited.has('details')"
             :role-id="roleId"
             embedded
-            @role-loaded="onRoleLoaded" />
+            @role-loaded="onRoleLoaded">
+            <!-- Beside Edit role, which is where the eye already is. Outlined
+                 like it but not primary: leaving is not the action to push. -->
+            <template #toolbar-actions>
+              <v-btn
+                class="mr-2"
+                variant="outlined"
+                size="small"
+                prepend-icon="mdi-arrow-left"
+                text="All roles"
+                @click="backToRoles"></v-btn>
+            </template>
+          </RoleOverviewEdit>
         </div>
 
         <div v-show="tab === 'owners'">
@@ -118,19 +116,77 @@
         </div>
 
         <div v-show="tab === 'member-of'" class="pa-4">
-          <div v-if="memberOf.length" class="d-flex flex-wrap" style="gap: 6px">
-            <v-chip
-              v-for="r in memberOf"
-              :key="r.id"
-              size="small"
-              variant="tonal"
-              prepend-icon="mdi-account-group">
-              {{ r.name || r.ident }}
-            </v-chip>
+          <!-- Direct membership is what can be changed; the closure is what
+               actually grants this role its reach. Both are worth asking for, so
+               the scope is a toggle rather than a choice made for the reader. -->
+          <div
+            v-if="memberOfTransitiveSupported !== false"
+            class="d-flex align-center flex-wrap ga-3 mb-4">
+            <v-btn-toggle v-model="memberOfScope" mandatory density="compact" variant="outlined">
+              <v-btn value="direct" size="small">Direct</v-btn>
+              <v-btn
+                value="transitive"
+                size="small"
+                prepend-icon="mdi-file-tree-outline"
+                :disabled="memberOfTransitiveSupported === null">
+                Incl. nested
+              </v-btn>
+            </v-btn-toggle>
+            <span
+              v-if="memberOfTransitiveSupported === null"
+              class="text-caption text-medium-emphasis">
+              {{ TRANSITIVE_UNSUPPORTED }}
+            </span>
           </div>
-          <div v-else class="text-medium-emphasis">
-            This role is not a member of any other role.
-          </div>
+
+          <!-- A table, not chips: the id is as much the answer as the name here
+               (roles can share a display name across providers), and it has to be
+               readable and copyable rather than squeezed into a pill. -->
+          <v-data-table
+            :headers="memberOfHeaders"
+            :items="memberOf"
+            :items-per-page="25"
+            density="compact"
+            item-value="id">
+            <template #item.name="{ item }">
+              <a
+                class="text-primary"
+                style="cursor: pointer; text-decoration: none"
+                @click="openRole(item.id)">
+                <v-icon size="small" class="mr-2">mdi-account-group</v-icon>
+                {{ item.name || item.ident || item.id }}
+              </a>
+            </template>
+            <template #item.id="{ item }">
+              <span class="d-flex align-center">
+                <span class="font-monospace text-caption">{{ item.id }}</span>
+                <v-btn
+                  icon="mdi-content-copy"
+                  size="x-small"
+                  variant="text"
+                  :title="`Copy role id ${item.id}`"
+                  @click.stop="functions.copyToClipboard(item.id)"></v-btn>
+              </span>
+            </template>
+            <template #item.via="{ item }">
+              <v-chip
+                v-if="memberOfScope === 'transitive' && !directMemberOfIds.has(item.id)"
+                size="x-small"
+                variant="tonal">
+                nested
+              </v-chip>
+              <span v-else class="text-caption text-medium-emphasis">direct</span>
+            </template>
+            <template #no-data>
+              <div class="text-medium-emphasis py-4">
+                {{
+                  memberOfScope === 'transitive'
+                    ? 'This role reaches no other role, directly or through a nested one.'
+                    : 'This role is not a member of any other role.'
+                }}
+              </div>
+            </template>
+          </v-data-table>
         </div>
       </div>
     </div>
@@ -148,12 +204,21 @@ import RoleOwners from './RoleOwners.vue';
 import RoleProviderChip from './RoleProviderChip.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
 import { useGrantPrincipalListingSupported } from '../composables/useGrants';
+import { isNotImplementedError } from '../common/errorUtils';
+import { useRoleNavigation } from '../composables/useRoleNavigation';
+import {
+  TRANSITIVE_UNSUPPORTED,
+  markTransitiveMembershipSupported,
+  markTransitiveMembershipUnsupported,
+  useTransitiveMembershipSupported,
+} from '../common/transitiveMembership';
 
 const props = defineProps<{ roleId: string; canEdit?: boolean }>();
 
 const functions = useFunctions();
 const router = useRouter();
 const route = useRoute();
+const { openRole } = useRoleNavigation();
 const roleName = ref('');
 // A role provider owns membership for every namespace but `lakekeeper` and
 // `system`, and syncs it lazily. The tab keeps its name regardless — it would
@@ -192,6 +257,19 @@ function onRoleLoaded(role: any) {
 const grantsSupported = useGrantPrincipalListingSupported();
 const grantCount = ref<number | null>(null);
 const memberOf = ref<RoleMembership[]>([]);
+// The tab's chip count follows the chosen scope, and the direct ids stay around
+// so the transitive view can mark what is only reached through another role.
+const memberOfScope = ref<'direct' | 'transitive'>('direct');
+const memberOfTransitiveSupported = useTransitiveMembershipSupported();
+const directMemberOfIds = ref<Set<string>>(new Set());
+
+const memberOfHeaders = [
+  { title: 'Role', key: 'name', sortable: false },
+  { title: 'Role ID', key: 'id', sortable: false },
+  // Only meaningful in the transitive scope, but kept in both so the columns do
+  // not shift when the scope changes.
+  { title: 'Via', key: 'via', sortable: false, align: 'end' as const, width: 90 },
+];
 
 async function load() {
   try {
@@ -202,10 +280,34 @@ async function load() {
     roleName.value = (meta as any)?.name ?? '';
     providerId.value = (meta as any)?.['provider-id'] ?? '';
     memberOf.value = ((mo as any)?.roles ?? []) as RoleMembership[];
+    directMemberOfIds.value = new Set(memberOf.value.map((r) => r.id));
   } catch {
     /* surfaced by the functions plugin */
   }
 }
+
+// Only the transitive answer needs a second request; the direct one is already
+// loaded with the page.
+watch(memberOfScope, async (value) => {
+  if (value === 'direct') {
+    memberOf.value = await functions
+      .listRoleMemberOf(props.roleId)
+      .then((r: any) => (r?.roles ?? []) as RoleMembership[])
+      .catch(() => memberOf.value);
+    return;
+  }
+  try {
+    const res: any = await functions.listRoleTransitiveMemberOf(props.roleId);
+    markTransitiveMembershipSupported();
+    memberOf.value = (res?.roles ?? []) as RoleMembership[];
+  } catch (e) {
+    // Not answerable on this authorizer — withdraw the offer and stay put.
+    if (isNotImplementedError(e)) {
+      markTransitiveMembershipUnsupported();
+      memberOfScope.value = 'direct';
+    }
+  }
+});
 
 onMounted(load);
 watch(
@@ -217,6 +319,7 @@ watch(
     visited.value = new Set(['details']);
     grantCount.value = null;
     providerId.value = '';
+    memberOfScope.value = 'direct';
     load();
   },
 );

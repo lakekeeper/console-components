@@ -39,6 +39,13 @@
         prepend-icon="mdi-shield-key-outline"
         text="Grants"
         @click="openGrants(item)"></v-btn>
+      <v-btn
+        class="mr-2"
+        size="small"
+        variant="text"
+        prepend-icon="mdi-account-group-outline"
+        text="Roles"
+        @click="openRoles(item)"></v-btn>
       <span v-for="(action, i) in item.actions" :key="i" class="mr-2">
         <user-rename-dialog
           v-if="action == 'rename'"
@@ -122,12 +129,114 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+  <!-- Which roles a user holds is asked from their row for the same reason
+       grants are: users have no detail page of their own. -->
+  <!-- Sized like the Grants dialog beside it: a role id is 36 monospace
+       characters, so the three columns need the width, and a long role list
+       should use the viewport rather than growing the dialog off-screen. -->
+  <v-dialog v-model="rolesOpen" max-width="1100" scrollable>
+    <v-card style="display: flex; flex-direction: column; max-height: 90vh">
+      <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3 flex-grow-0">
+        <v-icon>mdi-account-group-outline</v-icon>
+        Roles
+        <span class="font-weight-medium">— {{ rolesUser?.name }}</span>
+      </v-card-title>
+      <v-divider></v-divider>
+      <v-card-text style="flex: 1 1 auto; min-height: 0; overflow-y: auto">
+        <!-- Direct assignment is what can be changed on the role; the closure is
+             what the user's access actually comes from. -->
+        <div
+          v-if="rolesTransitiveSupported !== false"
+          class="d-flex align-center flex-wrap ga-3 mb-4">
+          <v-btn-toggle v-model="rolesScope" mandatory density="compact" variant="outlined">
+            <v-btn value="direct" size="small">Direct</v-btn>
+            <v-btn
+              value="transitive"
+              size="small"
+              prepend-icon="mdi-file-tree-outline"
+              :disabled="rolesTransitiveSupported === null">
+              Incl. nested
+            </v-btn>
+          </v-btn-toggle>
+          <span v-if="rolesTransitiveSupported === null" class="text-caption text-medium-emphasis">
+            {{ TRANSITIVE_UNSUPPORTED }}
+          </span>
+        </div>
+
+        <div v-if="rolesLoading" class="d-flex align-center ga-2 py-4">
+          <v-progress-circular indeterminate size="18" width="2"></v-progress-circular>
+          <span class="text-caption text-medium-emphasis">Reading roles…</span>
+        </div>
+        <!-- Same table as the role page's Member of tab: the id is part of the
+             answer, and a row is clickable through to that role. -->
+        <v-data-table
+          v-else
+          :headers="roleHeaders"
+          :items="userRoles"
+          :items-per-page="25"
+          density="compact"
+          item-value="id">
+          <template #item.name="{ item }">
+            <a
+              class="text-primary"
+              style="cursor: pointer; text-decoration: none"
+              @click="jumpToRole(item.id)">
+              <v-icon size="small" class="mr-2">mdi-account-group</v-icon>
+              {{ item.name || item.ident || item.id }}
+            </a>
+          </template>
+          <template #item.id="{ item }">
+            <span class="d-flex align-center">
+              <span class="font-monospace text-caption">{{ item.id }}</span>
+              <v-btn
+                icon="mdi-content-copy"
+                size="x-small"
+                variant="text"
+                :title="`Copy role id ${item.id}`"
+                @click.stop="functions.copyToClipboard(item.id)"></v-btn>
+            </span>
+          </template>
+          <template #item.via="{ item }">
+            <v-chip
+              v-if="rolesScope === 'transitive' && !directRoleIds.has(item.id)"
+              size="x-small"
+              variant="tonal">
+              nested
+            </v-chip>
+            <span v-else class="text-caption text-medium-emphasis">direct</span>
+          </template>
+          <template #no-data>
+            <div class="text-medium-emphasis py-4">
+              {{
+                rolesScope === 'transitive'
+                  ? 'This user holds no role, directly or through a nested one.'
+                  : 'This user is not assigned to any role.'
+              }}
+            </div>
+          </template>
+        </v-data-table>
+      </v-card-text>
+      <v-divider></v-divider>
+      <v-card-actions class="flex-grow-0">
+        <v-spacer></v-spacer>
+        <v-btn variant="text" @click="rolesOpen = false">Close</v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <script lang="ts" setup>
 import { User } from '../gen/management/types.gen';
 import { reactive, ref, onMounted, watch, inject } from 'vue';
 import { Header } from '../common/interfaces';
+import { isNotImplementedError } from '../common/errorUtils';
+import { useRoleNavigation } from '../composables/useRoleNavigation';
+import {
+  TRANSITIVE_UNSUPPORTED,
+  markTransitiveMembershipSupported,
+  markTransitiveMembershipUnsupported,
+  useTransitiveMembershipSupported,
+} from '../common/transitiveMembership';
 import { StatusIntent } from '../common/enums';
 import { useServerPermissions } from '../composables/useCatalogPermissions';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
@@ -149,6 +258,75 @@ function openGrants(item: { id: string; name: string }) {
   grantsUser.value = { id: item.id, name: item.name };
   grantsOpen.value = true;
 }
+
+const { openRole } = useRoleNavigation();
+
+function jumpToRole(roleId: string) {
+  rolesOpen.value = false;
+  openRole(roleId);
+}
+
+const rolesOpen = ref(false);
+const rolesUser = ref<{ id: string; name: string } | null>(null);
+const rolesScope = ref<'direct' | 'transitive'>('direct');
+// Only an explicit 501 withdraws the transitive offer: it needs catalog-managed
+// assignments, which an authorizer that owns them cannot provide. Shared, so the
+// answer is learned once per session rather than per user opened.
+const rolesTransitiveSupported = useTransitiveMembershipSupported();
+const rolesLoading = ref(false);
+const userRoles = ref<Array<{ id: string; name?: string; ident?: string }>>([]);
+const directRoleIds = ref<Set<string>>(new Set());
+
+const roleHeaders = [
+  { title: 'Role', key: 'name', sortable: false },
+  { title: 'Role ID', key: 'id', sortable: false },
+  { title: 'Via', key: 'via', sortable: false, align: 'end' as const, width: 90 },
+];
+
+function openRoles(item: { id: string; name: string }) {
+  rolesUser.value = { id: item.id, name: item.name };
+  rolesScope.value = 'direct';
+  userRoles.value = [];
+  directRoleIds.value = new Set();
+  rolesOpen.value = true;
+  loadUserRoles();
+}
+
+async function loadUserRoles() {
+  const user = rolesUser.value;
+  if (!user) return;
+  rolesLoading.value = true;
+  try {
+    if (rolesScope.value === 'transitive') {
+      // The direct listing comes too, so the closure can mark what is only
+      // reached through another role.
+      const [transitive, direct] = await Promise.all([
+        functions.listUserTransitiveRoles(user.id),
+        functions.listUserRoles(user.id),
+      ]);
+      markTransitiveMembershipSupported();
+      directRoleIds.value = new Set(((direct as any)?.roles ?? []).map((r: any) => r.id));
+      userRoles.value = ((transitive as any)?.roles ?? []) as any[];
+    } else {
+      const res: any = await functions.listUserRoles(user.id);
+      userRoles.value = (res?.roles ?? []) as any[];
+      directRoleIds.value = new Set(userRoles.value.map((r) => r.id));
+    }
+  } catch (e) {
+    if (rolesScope.value === 'transitive' && isNotImplementedError(e)) {
+      markTransitiveMembershipUnsupported();
+      rolesScope.value = 'direct';
+      return;
+    }
+    /* otherwise surfaced by the functions plugin */
+  } finally {
+    rolesLoading.value = false;
+  }
+}
+
+watch(rolesScope, () => {
+  if (rolesOpen.value) loadUserRoles();
+});
 
 // Get server ID and permissions
 const serverId = ref('');

@@ -1,6 +1,12 @@
 import { inject } from 'vue';
 import { permissionActions } from '@/common/permissionActions';
-import { logError, isClientError, isNotFoundError, isForbiddenError } from '@/common/errorUtils';
+import {
+  logError,
+  isClientError,
+  isNotFoundError,
+  isForbiddenError,
+  isNotImplementedError,
+} from '@/common/errorUtils';
 import {
   NamespaceResponse,
   SearchTabularRequest,
@@ -4811,6 +4817,76 @@ async function listRoleMemberOf(roleId: string): Promise<ListRoleMemberOfRespons
   }
 }
 
+/**
+ * The role's members *and* the members of every role beneath it.
+ *
+ * The direct listing answers "who was assigned here"; this answers "who does
+ * this role actually cover", which is the question a nested role hierarchy makes
+ * hard. Catalog-managed assignments only: an authorizer that owns assignments
+ * (OpenFGA) answers 501, so the refusal is not notified — the caller withdraws
+ * the offer instead.
+ */
+async function listRoleTransitiveMembers(
+  roleId: string,
+  type?: 'user' | 'role',
+): Promise<ListRoleMembersResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listRoleTransitiveMembers({
+      client: mngClient.client,
+      path: { role_id: roleId },
+      query: { ...(type ? { type } : {}), pageSize: 1000 },
+    });
+    if (error) throw error;
+    return (data as ListRoleMembersResponse) ?? { members: [] };
+  } catch (error: any) {
+    handleError(
+      error,
+      'listRoleTransitiveMembers',
+      isNotImplementedError(error) ? false : undefined,
+    );
+    throw error;
+  }
+}
+
+/** Every role this role belongs to, directly or through another role. */
+async function listRoleTransitiveMemberOf(roleId: string): Promise<ListRoleMemberOfResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listRoleTransitiveMemberOf({
+      client: mngClient.client,
+      path: { role_id: roleId },
+      query: { pageSize: 1000 },
+    });
+    if (error) throw error;
+    return data as ListRoleMemberOfResponse;
+  } catch (error: any) {
+    handleError(
+      error,
+      'listRoleTransitiveMemberOf',
+      isNotImplementedError(error) ? false : undefined,
+    );
+    throw error;
+  }
+}
+
+/** Every role this user holds, directly or through another role. */
+async function listUserTransitiveRoles(userId: string): Promise<ListUserRolesResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listUserTransitiveRoles({
+      client: mngClient.client,
+      path: { user_id: userId },
+      query: { pageSize: 1000 },
+    });
+    if (error) throw error;
+    return data as ListUserRolesResponse;
+  } catch (error: any) {
+    handleError(error, 'listUserTransitiveRoles', isNotImplementedError(error) ? false : undefined);
+    throw error;
+  }
+}
+
 async function listUserRoles(userId: string): Promise<ListUserRolesResponse> {
   try {
     init();
@@ -6889,6 +6965,9 @@ export function useFunctions(config?: any) {
     addRoleMembers,
     removeRoleMember,
     listRoleMemberOf,
+    listRoleTransitiveMembers,
+    listRoleTransitiveMemberOf,
+    listUserTransitiveRoles,
     listUserRoles,
     setWarehouseManagedBy,
     deleteRole,
