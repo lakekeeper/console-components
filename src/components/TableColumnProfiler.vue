@@ -373,6 +373,7 @@ import * as d3 from 'd3';
 import VueJsonPretty from 'vue-json-pretty';
 import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '../plugins/functions';
+import { loqeVendingReason } from '../common/vendedCredentials';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
@@ -750,6 +751,11 @@ function fmtNum(v: any): string {
 async function resolveTablePath(): Promise<string> {
   await loqe.initialize();
   const wh = await functions.getWarehouse(props.warehouseId!);
+  // Profiling reads the data files in the browser, so a warehouse that vends no
+  // credentials cannot be profiled at all. Refused here with the reason: past
+  // this point the failure is an opaque DuckDB download error that reads as CORS.
+  const vendingReason = loqeVendingReason(wh['storage-profile'] as Record<string, any>);
+  if (vendingReason) throw new Error(vendingReason);
   const warehouseName = wh.name;
   if (!loqe.attachedCatalogs.value.some((c) => c.catalogName === warehouseName)) {
     await loqe.attachCatalog({

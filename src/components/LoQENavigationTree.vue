@@ -257,6 +257,18 @@
           <v-icon size="small" v-else-if="item.type === 'warehouse'" color="blue-grey">
             mdi-database
           </v-icon>
+          <!-- Not an error state: the catalog side of this warehouse browses
+               fine, only its data files are unreachable from the browser. -->
+          <v-icon
+            v-if="item.type === 'warehouse' && item.stsOff"
+            size="x-small"
+            color="warning"
+            class="ml-1">
+            mdi-flash-off-outline
+            <v-tooltip activator="parent" location="right" max-width="360">
+              {{ item.vendingReason }}
+            </v-tooltip>
+          </v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'table'">mdi-table</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
@@ -373,6 +385,7 @@
 <script setup lang="ts">
 import { ref, onMounted, watch, computed, nextTick } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { stsDisabled, loqeVendingReason } from '@/common/vendedCredentials';
 import { useVisualStore } from '@/stores/visual';
 // import { useUserStore } from '@/stores/user';
 import { Type } from '@/common/enums';
@@ -473,6 +486,14 @@ interface TreeItem {
   parentName?: string;
   /** Storage profile type — only set on warehouse nodes. */
   storageType?: 's3' | 'adls' | 'gcs' | 'onelake' | 'stackit';
+  /**
+   * Warehouse nodes only: STS is off, so DuckDB cannot read this warehouse at
+   * all. The node is left unattached and says why, instead of failing later as
+   * an opaque download error.
+   */
+  stsOff?: boolean;
+  /** Why it cannot be queried, when `stsOff` is true. */
+  vendingReason?: string | null;
   storageFlavor?: string;
   storageEndpoint?: string;
   /** Which resource types still have pages to load (only on load-more nodes). */
@@ -714,6 +735,8 @@ async function loadWarehouses() {
           storageType: sp?.type,
           storageFlavor: sp?.flavor,
           storageEndpoint: sp?.endpoint,
+          stsOff: stsDisabled(sp),
+          vendingReason: loqeVendingReason(sp),
         };
       });
 
@@ -721,6 +744,9 @@ async function loadWarehouses() {
       // the user can query any catalog immediately without clicking.
       const catalogUrl = getCatalogUrl();
       for (const item of treeItems.value) {
+        // Attaching a warehouse that vends nothing buys a failed ATTACH and an
+        // error blaming the bucket; the node carries the real reason instead.
+        if (item.stsOff) continue;
         if (!isWarehouseAttached(item.warehouseId)) {
           emit('attach-warehouse', {
             warehouseId: item.warehouseId,
@@ -789,8 +815,10 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
     item.loaded = true;
     treeItems.value = [...treeItems.value]; // force reactivity
 
-    // Emit attach-warehouse if not already attached
-    if (!isWarehouseAttached(item.warehouseId)) {
+    // Emit attach-warehouse if not already attached. Browsing the namespaces of a
+    // non-vending warehouse still works — that is catalog metadata; only its data
+    // is out of reach — so expanding is allowed and just does not attach.
+    if (!item.stsOff && !isWarehouseAttached(item.warehouseId)) {
       emit('attach-warehouse', {
         warehouseId: item.warehouseId,
         warehouseName: item.warehouseName || item.name,

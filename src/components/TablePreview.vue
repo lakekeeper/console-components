@@ -25,6 +25,7 @@
         <ul class="mt-2">
           <li>{{ storageValidation.storageRequirement }}</li>
           <li>{{ storageValidation.protocolRequirement }}</li>
+          <li>Warehouse must have vended credentials (STS) enabled</li>
         </ul>
       </div>
     </v-alert>
@@ -185,9 +186,15 @@ const namespaceDisplay = computed(() => {
   return ns;
 });
 
+// The warehouse's profile, loaded before the first preview attempt: whether the
+// warehouse vends credentials at all is not derivable from `storageType`, and it
+// decides between "STS is off" and a CORS diagnosis.
+const storageProfile = ref<Record<string, any> | null>(null);
+
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl),
+  storageProfile,
 );
 
 const isLoading = ref(true);
@@ -323,12 +330,20 @@ async function loadPreview() {
   try {
     // Load warehouse — snapshot name immediately so later async steps use a stable value
     const wh = await functions.getWarehouse(props.warehouseId);
+    storageProfile.value = (wh['storage-profile'] as Record<string, any>) ?? null;
     const warehouseName = wh.name;
     if (!warehouseName) {
       error.value = 'Warehouse name is unavailable.';
       return;
     }
     resolvedWarehouseName.value = warehouseName;
+
+    // Asked again now the profile is known: the check above ran without it, and a
+    // warehouse that vends nothing must not reach DuckDB — it would fail as an
+    // opaque download error and be reported as a CORS problem.
+    if (storageValidation.vendedCredentialsReason.value) {
+      return;
+    }
 
     // Load table metadata via loadTableCustomized (uses json-bigint to preserve snapshot IDs)
     if (!loadedTable.value) {
@@ -374,6 +389,13 @@ async function loadPreview() {
     // loqe.error.value already contains the humanized error message
     // from useLoQE, so prefer it over the raw DuckDB error
     const errorMsg = loqe.error.value || err.message || 'Unknown error occurred';
+
+    // A warehouse with STS off cannot have produced a CORS failure: nothing was
+    // ever authorised to fetch. Its own reason wins over the signature match.
+    if (storageValidation.vendedCredentialsReason.value) {
+      error.value = storageValidation.vendedCredentialsReason.value;
+      return;
+    }
 
     // Detect CORS errors that manifest as DuckDB read/download errors
     if (
