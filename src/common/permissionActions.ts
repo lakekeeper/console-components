@@ -7,6 +7,7 @@ import {
   LakekeeperViewAction,
   LakekeeperGenericTableAction,
   LakekeeperRoleActionKind,
+  LakekeeperTagAction,
   LakekeeperUserAction,
   OpenFgaServerAction,
   OpenFgaProjectAction,
@@ -167,6 +168,16 @@ const catalogRoleActions: LakekeeperRoleActionKind[] = [
   { action: 'update_source_system' },
 ];
 
+const catalogTagActions: LakekeeperTagAction[] = [
+  { action: 'read' },
+  { action: 'update' },
+  { action: 'delete' },
+  { action: 'apply' },
+  { action: 'remove' },
+  { action: 'read_attachments' },
+  { action: 'read_grants' },
+];
+
 const catalogUserActions: LakekeeperUserAction[] = [
   { action: 'read' },
   { action: 'update' },
@@ -257,6 +268,7 @@ export const permissionActions = {
   catalogViewActions,
   catalogGenericTableActions,
   catalogRoleActions,
+  catalogTagActions,
   catalogUserActions,
   // Authorizer actions (permission delegation)
   authorizerServerActions,

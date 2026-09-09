@@ -267,6 +267,7 @@ export {
   useViewPermissions,
   useGenericTablePermissions,
   useRolePermissions,
+  useTagPermissions,
 } from './composables/useCatalogPermissions';
 
 // Authorizer Permissions (OpenFGA delegation/grant permissions)

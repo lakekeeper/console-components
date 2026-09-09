@@ -97,6 +97,7 @@ import {
   LakekeeperGenericTableAction,
   LakekeeperRoleActionKind,
   LakekeeperUserAction,
+  LakekeeperTagAction,
   PurgeQueueConfig,
   RenameProjectRequest,
   Role,
@@ -5964,6 +5965,38 @@ async function getAuthorizerRoleActions(
   }
 }
 
+/**
+ * What this caller may do to one tag definition.
+ *
+ * Per-tag, unlike the project-scoped `create_tag`/`list_tags`: rights on the
+ * project say who may add definitions, not who may rename or delete an existing
+ * one. Reading grants on a tag is in here too, which is why a caller can hold
+ * `read` and still be refused the Grants pane.
+ */
+async function getTagCatalogActions(
+  tagDefinitionId: string,
+  notify?: boolean,
+): Promise<LakekeeperTagAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogTagActions;
+    }
+
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTagActions({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+    });
+    if (error) throw error;
+    return ((data ?? {})['allowed-actions'] ?? []) as LakekeeperTagAction[];
+  } catch (error: any) {
+    // A refusal here is an answer, not a failure: the surfaces gate on it.
+    handleError(error, 'getTagCatalogActions', isForbiddenError(error) ? false : notify);
+    throw error;
+  }
+}
+
 async function getRoleCatalogActions(
   roleId: string,
   projectId?: string,
@@ -7001,6 +7034,7 @@ export function useFunctions(config?: any) {
     getTableCatalogActions,
     getViewCatalogActions,
     getGenericTableCatalogActions,
+    getTagCatalogActions,
     getRoleCatalogActions,
     getUserCatalogActions,
     getNamespaceAssignmentsById,

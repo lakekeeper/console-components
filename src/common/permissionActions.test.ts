@@ -87,6 +87,7 @@ const CATALOG_LISTS: Array<[string, string, { action: string }[]]> = [
     permissionActions.catalogGenericTableActions,
   ],
   ['LakekeeperRoleActionKind', 'catalogRoleActions', permissionActions.catalogRoleActions],
+  ['LakekeeperTagAction', 'catalogTagActions', permissionActions.catalogTagActions],
   ['LakekeeperUserAction', 'catalogUserActions', permissionActions.catalogUserActions],
 ];
 

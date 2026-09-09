@@ -27,7 +27,7 @@
       <v-tab value="details">Details</v-tab>
       <v-tab v-if="isOpenFga && !isSystem" value="permissions">Permissions</v-tab>
       <v-tab v-if="grantsSupported && !isSystem" value="grants">Grants</v-tab>
-      <v-tab value="attachments">Attachments</v-tab>
+      <v-tab v-if="showAttachments" value="attachments">Attachments</v-tab>
     </v-tabs>
     <v-divider></v-divider>
 
@@ -104,8 +104,18 @@
             </v-table>
           </v-sheet>
 
-          <div v-if="canCreateTag && !isSystem" class="d-flex ga-2 mt-4 align-center justify-end">
-            <TagDefinitionDialog action-type="edit" :definition="full" @submit="onEdit">
+          <!-- One right per control. Both used to hang off the project's
+               `create_tag`, which answers neither question: it was offered to
+               anyone who could add a definition and withheld from anyone who
+               could only rename this one. -->
+          <div
+            v-if="(canUpdate || canDelete) && !isSystem"
+            class="d-flex ga-2 mt-4 align-center justify-end">
+            <TagDefinitionDialog
+              v-if="canUpdate"
+              action-type="edit"
+              :definition="full"
+              @submit="onEdit">
               <template #activator="{ props: aProps }">
                 <v-btn
                   v-bind="aProps"
@@ -118,6 +128,7 @@
               </template>
             </TagDefinitionDialog>
             <v-btn
+              v-if="canDelete"
               color="error"
               variant="outlined"
               size="small"
@@ -170,7 +181,7 @@
       </v-tabs-window-item>
 
       <!-- Attachments -->
-      <v-tabs-window-item value="attachments">
+      <v-tabs-window-item v-if="showAttachments" value="attachments">
         <TagAttachmentsPanel v-if="tab === 'attachments' && full.id" :tag-definition-id="full.id" />
       </v-tabs-window-item>
     </v-tabs-window>
@@ -228,7 +239,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
-import { useProjectPermissions } from '../composables/useCatalogPermissions';
+import { useTagPermissions } from '../composables/useCatalogPermissions';
 import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.vue';
 import TagPermissionsPanel from './TagPermissionsPanel.vue';
 import TagAttachmentsPanel from './TagAttachmentsPanel.vue';
@@ -249,8 +260,6 @@ const visual = useVisualStore();
 const router = useRouter();
 const route = useRoute();
 
-const projectId = computed(() => visual.projectSelected['project-id']);
-const { canCreateTag } = useProjectPermissions(projectId);
 // Permission assignments are an OpenFGA concept, and the whole surface is hidden
 // for now behind the deprecation flag: grants restate the same intent.
 const isOpenFga = computed(
@@ -264,6 +273,23 @@ const serverGrantsSupported = useGrantsSupported();
 const grantsSupported = computed(() => serverGrantsSupported.value === true);
 
 const full = ref<TagDefinition>({ id: '', name: '' } as TagDefinition);
+
+// Per-tag rights: what may be done to *this* definition, which the project's
+// create/list actions do not answer. Declared after `full` on purpose — the
+// composable's watcher evaluates this getter during setup, so reading the ref
+// from above its declaration is a temporal-dead-zone crash, not a lazy read.
+const {
+  canUpdate,
+  canDelete,
+  canReadAttachments,
+  answered: tagActionsAnswered,
+} = useTagPermissions(computed(() => full.value.id ?? ''));
+
+// Shown until the server says otherwise: the tag id arrives with the definition,
+// so the actions answer lands after the first render, and hiding the tab in the
+// meantime would pull it out from under whoever is allowed it.
+const showAttachments = computed(() => !tagActionsAnswered.value || canReadAttachments.value);
+
 const isSystem = computed(() => (full.value.name ?? '').startsWith('system.'));
 const nameSegments = computed(() => (full.value.name ?? '').split('.').filter(Boolean));
 
