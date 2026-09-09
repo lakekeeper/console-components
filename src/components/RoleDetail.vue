@@ -26,6 +26,16 @@
             @click="functions.copyToClipboard(roleId)"></v-btn>
         </div>
       </div>
+      <v-spacer></v-spacer>
+      <!-- Leaving is about the role, not about a section of it, so it sits with
+           the name and stays reachable from every tab. Editing stays in the
+           Details pane, beside the fields it changes. -->
+      <v-btn
+        variant="outlined"
+        size="small"
+        prepend-icon="mdi-arrow-left"
+        text="All roles"
+        @click="backToRoles"></v-btn>
     </div>
 
     <div class="d-flex align-stretch" style="height: calc(100vh - 300px); min-height: 380px">
@@ -74,19 +84,7 @@
             v-if="visited.has('details')"
             :role-id="roleId"
             embedded
-            @role-loaded="onRoleLoaded">
-            <!-- Beside Edit role, which is where the eye already is. Outlined
-                 like it but not primary: leaving is not the action to push. -->
-            <template #toolbar-actions>
-              <v-btn
-                class="mr-2"
-                variant="outlined"
-                size="small"
-                prepend-icon="mdi-arrow-left"
-                text="All roles"
-                @click="backToRoles"></v-btn>
-            </template>
-          </RoleOverviewEdit>
+            @role-loaded="onRoleLoaded" />
         </div>
 
         <div v-show="tab === 'owners'">
@@ -115,78 +113,96 @@
             @loaded="grantCount = $event" />
         </div>
 
-        <div v-show="tab === 'member-of'" class="pa-4">
-          <!-- Direct membership is what can be changed; the closure is what
-               actually grants this role its reach. Both are worth asking for, so
-               the scope is a toggle rather than a choice made for the reader. -->
-          <div
-            v-if="memberOfTransitiveSupported !== false"
-            class="d-flex align-center flex-wrap ga-3 mb-4">
-            <v-btn-toggle v-model="memberOfScope" mandatory density="compact" variant="outlined">
-              <v-btn value="direct" size="small">Direct</v-btn>
-              <v-btn
-                value="transitive"
-                size="small"
-                prepend-icon="mdi-file-tree-outline"
-                :disabled="memberOfTransitiveSupported === null">
-                Incl. nested
-              </v-btn>
-            </v-btn-toggle>
-            <span
-              v-if="memberOfTransitiveSupported === null"
-              class="text-caption text-medium-emphasis">
-              {{ TRANSITIVE_UNSUPPORTED }}
-            </span>
-          </div>
-
-          <!-- A table, not chips: the id is as much the answer as the name here
-               (roles can share a display name across providers), and it has to be
-               readable and copyable rather than squeezed into a pill. -->
-          <v-data-table
-            :headers="memberOfHeaders"
-            :items="memberOf"
-            :items-per-page="25"
-            density="compact"
-            item-value="id">
-            <template #item.name="{ item }">
-              <a
-                class="text-primary"
-                style="cursor: pointer; text-decoration: none"
-                @click="openRole(item.id)">
-                <v-icon size="small" class="mr-2">mdi-account-group</v-icon>
-                {{ item.name || item.ident || item.id }}
-              </a>
-            </template>
-            <template #item.id="{ item }">
-              <span class="d-flex align-center">
-                <span class="font-monospace text-caption">{{ item.id }}</span>
-                <v-btn
-                  icon="mdi-content-copy"
+        <div v-show="tab === 'member-of'">
+          <!-- Card, toolbar, count chip, table: the same shape the Members and
+               Owners panes use, so the three read as one family rather than this
+               one being a loose table under a stray toggle. -->
+          <v-card variant="flat">
+            <v-toolbar color="transparent" density="compact" flat>
+              <v-toolbar-title class="text-subtitle-1">
+                <v-icon class="mr-2" color="primary">mdi-account-arrow-up</v-icon>
+                Member of
+                <v-chip size="x-small" variant="tonal" class="ml-2">
+                  {{ memberOf.length }}
+                </v-chip>
+              </v-toolbar-title>
+              <v-spacer></v-spacer>
+              <!-- Direct membership is what can be changed; the closure is what
+                   actually gives this role its reach. Both are worth asking for,
+                   so the scope is a toggle rather than a choice made for the
+                   reader — and it sits where the panes beside it keep theirs. -->
+              <template v-if="memberOfTransitiveSupported !== false">
+                <span
+                  v-if="memberOfTransitiveSupported === null"
+                  class="text-caption text-medium-emphasis mr-2">
+                  {{ TRANSITIVE_UNSUPPORTED }}
+                </span>
+                <v-btn-toggle
+                  v-model="memberOfScope"
+                  mandatory
+                  density="compact"
+                  variant="outlined">
+                  <v-btn value="direct" size="small">Direct</v-btn>
+                  <v-btn
+                    value="transitive"
+                    size="small"
+                    prepend-icon="mdi-file-tree-outline"
+                    :disabled="memberOfTransitiveSupported === null">
+                    Incl. nested
+                  </v-btn>
+                </v-btn-toggle>
+              </template>
+            </v-toolbar>
+            <v-divider></v-divider>
+            <!-- A table, not chips: the id is as much the answer as the name here
+                 (roles can share a display name across providers), and it has to
+                 be readable and copyable rather than squeezed into a pill. -->
+            <v-data-table
+              :headers="memberOfHeaders"
+              :items="memberOf"
+              :items-per-page="25"
+              density="compact"
+              item-value="id">
+              <template #item.name="{ item }">
+                <a
+                  class="text-primary"
+                  style="cursor: pointer; text-decoration: none"
+                  @click="openRole(item.id)">
+                  <v-icon size="small" class="mr-2">mdi-account-group</v-icon>
+                  {{ item.name || item.ident || item.id }}
+                </a>
+              </template>
+              <template #item.id="{ item }">
+                <span class="d-flex align-center">
+                  <span class="font-monospace text-caption">{{ item.id }}</span>
+                  <v-btn
+                    icon="mdi-content-copy"
+                    size="x-small"
+                    variant="text"
+                    :title="`Copy role id ${item.id}`"
+                    @click.stop="functions.copyToClipboard(item.id)"></v-btn>
+                </span>
+              </template>
+              <template #item.via="{ item }">
+                <v-chip
+                  v-if="memberOfScope === 'transitive' && !directMemberOfIds.has(item.id)"
                   size="x-small"
-                  variant="text"
-                  :title="`Copy role id ${item.id}`"
-                  @click.stop="functions.copyToClipboard(item.id)"></v-btn>
-              </span>
-            </template>
-            <template #item.via="{ item }">
-              <v-chip
-                v-if="memberOfScope === 'transitive' && !directMemberOfIds.has(item.id)"
-                size="x-small"
-                variant="tonal">
-                nested
-              </v-chip>
-              <span v-else class="text-caption text-medium-emphasis">direct</span>
-            </template>
-            <template #no-data>
-              <div class="text-medium-emphasis py-4">
-                {{
-                  memberOfScope === 'transitive'
-                    ? 'This role reaches no other role, directly or through a nested one.'
-                    : 'This role is not a member of any other role.'
-                }}
-              </div>
-            </template>
-          </v-data-table>
+                  variant="tonal">
+                  nested
+                </v-chip>
+                <span v-else class="text-caption text-medium-emphasis">direct</span>
+              </template>
+              <template #no-data>
+                <div class="text-medium-emphasis py-4">
+                  {{
+                    memberOfScope === 'transitive'
+                      ? 'This role reaches no other role, directly or through a nested one.'
+                      : 'This role is not a member of any other role.'
+                  }}
+                </div>
+              </template>
+            </v-data-table>
+          </v-card>
         </div>
       </div>
     </div>
