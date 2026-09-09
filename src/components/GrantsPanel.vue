@@ -57,6 +57,23 @@
     </div>
 
     <template v-else>
+      <!-- Above the table, not inside its `#top` slot: that slot stretches to
+           fill a table with a fixed height and few rows, which turned a
+           two-line warning into a banner the height of the pane.
+           For a host that knows something this panel cannot — whether a grant
+           made here will have any effect. Grants are stored either way, so an
+           authorizer that reads them through switchable policies can leave a
+           valid grant inert, and only the host (Plus, for Cedar) can see that.
+           Empty by default; nothing OSS renders here. -->
+      <slot name="notice">
+        <!-- Fallback: a component the app registered for every grants pane. The
+             panel has four hosts (entity tabs, the Governance explorer, the
+             project dialog, tag definitions) and threading a slot through each
+             one misses whichever is added next — so the extension point is an
+             injection, and a host that wants something specific still overrides
+             it with the slot. Absent in OSS: nothing provides it. -->
+        <component :is="grantsNotice" v-if="grantsNotice" :resource="resource" />
+      </slot>
       <v-data-table
         fixed-header
         hover
@@ -309,11 +326,12 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, inject, onMounted, ref, watch } from 'vue';
 import { helix } from 'ldrs';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import { isForbiddenError } from '../common/errorUtils';
+import { GrantsNoticeKey } from '../common/grantsNotice';
 import {
   useGrants,
   isAuthorizationBackendUnavailable,
@@ -351,6 +369,14 @@ const emit = defineEmits<{ (e: 'saved'): void }>();
 const functions = useFunctions();
 const grants = useGrants();
 const visual = useVisualStore();
+
+/**
+ * An optional per-deployment notice about whether grants here take effect.
+ *
+ * Provided by the app (Plus registers a Cedar one); `null` everywhere else, so
+ * OSS renders nothing and this file needs no knowledge of what it would say.
+ */
+const grantsNotice = inject<unknown>(GrantsNoticeKey, null);
 
 /**
  * The project this resource sits in. Everything except the server is addressed

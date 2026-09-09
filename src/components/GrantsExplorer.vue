@@ -201,6 +201,13 @@
                 :key="resourceKey(activeResource)"
                 :resource="activeResource"
                 :resource-name="activeResourceName">
+                <!-- Forwarded with the picked resource, because the scope here
+                     changes as the rail is used: a host that wants to say
+                     something about *this* scope needs to know which one it is.
+                     -->
+                <template v-if="$slots.notice" #notice>
+                  <slot name="notice" :resource="activeResource"></slot>
+                </template>
                 <!-- Same action the entity pages carry, which is where this rail
                      sends people for "the levels above". Withheld for the server
                      scope alone: it is the root, so its chain would be itself. -->

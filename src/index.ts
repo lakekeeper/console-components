@@ -310,6 +310,10 @@ export {
 } from './composables/useRoleProviders';
 export type { RoleOwnership } from './composables/useRoleProviders';
 
+// Extension point: a component the app registers to annotate every grants pane
+// with whether grants there take effect. See `common/grantsNotice.ts`.
+export { GrantsNoticeKey } from './common/grantsNotice';
+
 // Build-time switches for UI on its way in or out.
 export { PERMISSIONS_UI_ENABLED } from './common/featureFlags';
 

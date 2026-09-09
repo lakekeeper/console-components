@@ -6,6 +6,11 @@
   <div class="d-flex flex-column" style="height: calc(100vh - 260px); min-height: 380px">
     <div class="px-4 py-3" style="flex: 1 1 auto; min-height: 0">
       <GrantsPanel :resource="resource" @saved="emit('saved')">
+        <!-- Forwarded so the app can pass an authorizer-specific notice through
+             this tab without this component knowing what it says. -->
+        <template v-if="$slots.notice" #notice>
+          <slot name="notice"></slot>
+        </template>
         <!-- Inline with Grant and the filters rather than on a row above: it is
              another action on this entity's grants, not a header. -->
         <template #toolbar-actions>

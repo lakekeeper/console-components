@@ -188,7 +188,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, ref, reactive, computed } from 'vue';
+import { onMounted, ref, reactive, computed, watch } from 'vue';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '../plugins/functions';
@@ -201,7 +201,7 @@ import {
   RenameProjectRequest,
 } from '../gen/management/types.gen';
 import { Header, RelationType } from '../common/interfaces';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import ProjectTaskManager from './ProjectTaskManager.vue';
 import ProjectStatistics from './ProjectStatistics.vue';
 import GrantsPanel from './GrantsPanel.vue';
@@ -219,6 +219,17 @@ const functions = useFunctions();
 const notify = true;
 
 const router = useRouter();
+const route = useRoute();
+
+// A fullscreen dialog has no business surviving a route change: anything inside
+// it that navigates (a link in the grants pane, for instance) would otherwise
+// leave this hanging over the page it went to.
+watch(
+  () => route.fullPath,
+  () => {
+    dialog.value = false;
+  },
+);
 
 const permissionType = RelationType.Project;
 
