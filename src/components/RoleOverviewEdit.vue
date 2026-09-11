@@ -6,8 +6,17 @@
         Details
       </v-toolbar-title>
       <v-spacer></v-spacer>
+      <!-- The host's own actions sit beside this pane's, so "leave" and "edit"
+           read as one group rather than living in two different places. -->
+      <slot name="toolbar-actions"></slot>
+      <!-- `canUpdate` is the authorizer's answer; provider sync owns the name and
+           description regardless, and the API refuses both with
+           `ManagedRoleImmutable`. Say so instead of offering a failing edit. -->
+      <span v-if="syncManaged" class="text-caption text-medium-emphasis">
+        Maintained by the {{ role['provider-id'] }} provider
+      </span>
       <RoleDialog
-        v-if="role.name && canUpdate"
+        v-else-if="role.name && canUpdate"
         :action-type="'edit'"
         :role="role"
         @role-input="editRole" />
@@ -32,17 +41,24 @@
         </v-col>
         <v-col cols="12" md="6">
           <div class="text-overline text-medium-emphasis">Provider</div>
-          <div class="mt-1">
-            <v-chip
-              v-if="role['provider-id']"
-              size="small"
-              variant="tonal"
-              color="purple"
-              class="mr-1">
-              <v-icon start size="x-small">mdi-source-branch</v-icon>
-              {{ role['provider-id'] }}
-            </v-chip>
+          <div class="mt-1 d-flex align-center flex-wrap ga-1">
+            <template v-if="role['provider-id']">
+              <v-chip size="small" variant="outlined" label class="font-monospace">
+                {{ role['provider-id'] }}
+              </v-chip>
+              <!-- The overview is where the id gets explained. Elsewhere the
+                   chip only has room to carry it. -->
+              <v-chip
+                size="small"
+                variant="tonal"
+                :color="ownership.kind === 'external' ? 'purple' : undefined">
+                {{ ownership.label }}
+              </v-chip>
+            </template>
             <span v-else class="text-medium-emphasis">—</span>
+          </div>
+          <div v-if="role['provider-id']" class="text-caption text-medium-emphasis mt-1">
+            {{ ownership.description }}
           </div>
 
           <div class="text-overline text-medium-emphasis mt-3">Identifier</div>
@@ -95,9 +111,10 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, reactive } from 'vue';
+import { computed, onMounted, reactive } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useRolePermissions } from '../composables/useCatalogPermissions';
+import { useIsSyncManagedRole, useRoleOwnership } from '../composables/useRoleProviders';
 import type { Role } from '../gen/management/types.gen';
 
 const props = defineProps<{
@@ -126,6 +143,10 @@ const role = reactive<Role>({
   'provider-id': '',
   'source-id': '',
 });
+
+const isSyncManagedRole = useIsSyncManagedRole();
+const syncManaged = computed(() => isSyncManagedRole.value(role['provider-id']));
+const ownership = useRoleOwnership(() => role['provider-id']);
 
 onMounted(async () => {
   await loadRole();

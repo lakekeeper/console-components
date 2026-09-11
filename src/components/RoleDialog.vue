@@ -1,16 +1,21 @@
 <template>
   <v-dialog v-model="isDialogActive" max-width="600">
     <template #activator="{ props: activatorProps }">
+      <!-- Filled, and with no trailing margin in edit mode: it sits at the end of
+           a section toolbar, where Add member / Add owner are filled primary and
+           end flush with the toolbar's own padding — `me-5` pushed this one 20px
+           further left than those, and outlined made it read as secondary to
+           them. -->
       <v-btn
-        class="me-5"
+        :class="actionType == 'add' ? 'me-5' : ''"
         v-bind="activatorProps"
         color="primary"
         size="small"
-        :text="actionType == 'add' ? 'Add Role' : 'Edit Role'"
-        :variant="actionType == 'add' ? 'flat' : 'outlined'"></v-btn>
+        :text="actionType == 'add' ? 'Add Role' : 'Edit details'"
+        variant="flat"></v-btn>
     </template>
 
-    <v-card :title="$props.actionType == 'add' ? 'New Role' : 'Edit Role'">
+    <v-card :title="$props.actionType == 'add' ? 'New Role' : 'Edit role details'">
       <v-card-text>
         <v-text-field
           v-model="roleData.name"

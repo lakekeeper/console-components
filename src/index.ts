@@ -36,6 +36,7 @@ import RoleMembers from './components/RoleMembers.vue';
 import RoleOwners from './components/RoleOwners.vue';
 import RoleDetail from './components/RoleDetail.vue';
 import RoleOverviewEdit from './components/RoleOverviewEdit.vue';
+import RoleProviderChip from './components/RoleProviderChip.vue';
 import ProjectNameAddOrEditDialog from './components/ProjectNameAddOrEditDialog.vue';
 import AuthenticationDisabledWarningBanner from './components/AuthenticationDisabledWarningBanner.vue';
 import WarehouseRenameDialog from './components/WarehouseRenameDialog.vue';
@@ -44,6 +45,7 @@ import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
 import WarehouseStorageFormS3 from './components/WarehouseStorageFormS3.vue';
 import WarehouseStorageFormAzure from './components/WarehouseStorageFormAzure.vue';
 import WarehouseStorageFormOneLake from './components/WarehouseStorageFormOneLake.vue';
+import WarehouseStorageFormStackit from './components/WarehouseStorageFormStackit.vue';
 import WarehouseStorageFormGCS from './components/WarehouseStorageFormGCS.vue';
 import WarehouseStorageJSON from './components/WarehouseStorageJSON.vue';
 import WarehouseValidationReport from './components/WarehouseValidationReport.vue';
@@ -162,6 +164,7 @@ export {
   RoleOwners,
   RoleDetail,
   RoleOverviewEdit,
+  RoleProviderChip,
   AppBar,
   WarningBanner,
   SnackbarMessage,
@@ -186,6 +189,7 @@ export {
   WarehouseStorageFormS3,
   WarehouseStorageFormAzure,
   WarehouseStorageFormOneLake,
+  WarehouseStorageFormStackit,
   WarehouseStorageFormGCS,
   WarehouseStorageJSON,
   WarehouseValidationReport,
@@ -263,6 +267,7 @@ export {
   useViewPermissions,
   useGenericTablePermissions,
   useRolePermissions,
+  useTagPermissions,
 } from './composables/useCatalogPermissions';
 
 // Authorizer Permissions (OpenFGA delegation/grant permissions)
@@ -290,6 +295,24 @@ export {
   isExternalRoleBackend,
   EXTERNAL_ROLE_AUTHZ_BACKENDS,
 } from './composables/useAuthzCapabilities';
+
+// Who owns a role's membership: the catalog, or a role provider that syncs it
+// lazily (so the member list is only who has signed in so far).
+export {
+  isProviderOwnedRole,
+  isMembershipEditableRole,
+  useIsSyncManagedRole,
+  useRoleOwnership,
+  useManagedRoleProviders,
+  useRoleProviderStillSynced,
+  LOCAL_ROLE_PROVIDER_ID,
+  SYSTEM_ROLE_PROVIDER_ID,
+} from './composables/useRoleProviders';
+export type { RoleOwnership } from './composables/useRoleProviders';
+
+// Extension point: a component the app registers to annotate every grants pane
+// with whether grants there take effect. See `common/grantsNotice.ts`.
+export { GrantsNoticeKey } from './common/grantsNotice';
 
 // Build-time switches for UI on its way in or out.
 export { PERMISSIONS_UI_ENABLED } from './common/featureFlags';
@@ -456,6 +479,7 @@ const components = {
   RoleOwners,
   RoleDetail,
   RoleOverviewEdit,
+  RoleProviderChip,
   AppBar,
   WarningBanner,
   SnackbarMessage,
@@ -479,6 +503,7 @@ const components = {
   WarehouseStorageFormS3,
   WarehouseStorageFormAzure,
   WarehouseStorageFormOneLake,
+  WarehouseStorageFormStackit,
   WarehouseStorageFormGCS,
   WarehouseStorageJSON,
   WarehouseValidationReport,

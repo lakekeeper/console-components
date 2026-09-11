@@ -72,7 +72,18 @@
                   </div>
                 </div>
                 <v-spacer></v-spacer>
-                <span class="text-caption text-medium-emphasis flex-shrink-0">
+                <v-icon
+                  v-if="unreadableLevels.has(level.key)"
+                  size="14"
+                  color="medium-emphasis"
+                  class="flex-shrink-0">
+                  mdi-eye-off-outline
+                  <v-tooltip activator="parent" location="bottom" max-width="300">
+                    You do not have permission to list grants at this level. Grants held here can
+                    still reach the levels below.
+                  </v-tooltip>
+                </v-icon>
+                <span v-else class="text-caption text-medium-emphasis flex-shrink-0">
                   {{ countFor(level.key) }}
                 </span>
               </div>
@@ -80,6 +91,13 @@
           </v-list>
 
           <div v-if="chainError" class="text-caption text-warning px-4 pb-3">{{ chainError }}</div>
+          <div
+            v-else-if="unreadableLevels.size"
+            class="text-caption text-medium-emphasis px-4 pb-3">
+            {{ unreadableLevels.size }}
+            {{ unreadableLevels.size === 1 ? 'level is' : 'levels are' }}
+            hidden by permissions. Everything you may read is shown.
+          </div>
         </div>
 
         <!-- RIGHT: one table, always. The level is a column, so "all levels"
@@ -344,6 +362,7 @@ import {
 import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.vue';
 import type { GrantEntry, GrantablePrivilege } from '../gen/management/types.gen';
 import type { Header } from '../common/interfaces';
+import { isForbiddenError } from '../common/errorUtils';
 import type { GrantResourceRef } from '../common/interfaces';
 import type { GetNamespaceResponse } from '../gen/iceberg/types.gen';
 import { toPrincipal } from '../common/principal';
@@ -612,13 +631,20 @@ async function applyEdit(payload: { principal: GrantPrincipalRow; privileges: st
 async function loadAllLevels() {
   loading.value = true;
   const next: Row[] = [];
+  const refused = new Set<string>();
   try {
     await Promise.all(
       chain.value.map(async (level, depth) => {
         let listed;
         try {
           listed = await grants.listGrants(level.resource);
-        } catch {
+        } catch (e) {
+          // A level this caller may not read is expected here — reading grants
+          // on a namespace does not imply reading them on the server above it.
+          // Recorded so the rail can say "not visible to you", which an empty
+          // level would otherwise be indistinguishable from. Anything that is
+          // not a refusal stays silent as before, but is not claimed as empty.
+          if (isForbiddenError(e)) refused.add(level.key);
           return;
         }
         const byPrincipal = new Map<string, any[]>();
@@ -660,10 +686,21 @@ async function loadAllLevels() {
       }),
     );
     rows.value = next;
+    unreadableLevels.value = refused;
   } finally {
     loading.value = false;
   }
 }
+
+/**
+ * Levels whose grants this caller may not list.
+ *
+ * The hierarchy is still worth showing: someone with `read_grants` on a table
+ * and its namespace sees both, and the levels above are marked rather than
+ * omitted — dropping them would misrepresent where their access could come
+ * from as much as failing the whole dialog would.
+ */
+const unreadableLevels = ref<Set<string>>(new Set());
 const buildingChain = ref(false);
 const chainError = ref<string | null>(null);
 

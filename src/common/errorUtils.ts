@@ -28,6 +28,18 @@ export function isForbiddenError(error: any): boolean {
 }
 
 /**
+ * Check if an error represents a 501 Not Implemented response.
+ *
+ * The management API answers this for questions its configured backend cannot
+ * answer at all — transitive membership under an assignment-managing authorizer,
+ * for instance. Not a failure to report: the surface that asked is expected to
+ * withdraw the offer instead.
+ */
+export function isNotImplementedError(error: any): boolean {
+  return getErrorCode(error) === 501;
+}
+
+/**
  * Check if an error represents a 404 Not Found response.
  */
 export function isNotFoundError(error: any): boolean {

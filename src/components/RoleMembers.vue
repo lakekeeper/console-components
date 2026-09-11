@@ -5,8 +5,40 @@
         <v-icon class="mr-2" color="primary">mdi-account-multiple</v-icon>
         Members
         <v-chip size="x-small" variant="tonal" class="ml-2">{{ members.length }}</v-chip>
+        <!-- Who owns the list, next to the count it qualifies. The section
+             keeps its name for every role; only this says the number is a
+             floor rather than the group's size. -->
+        <v-chip
+          v-if="providerOwned"
+          size="x-small"
+          variant="tonal"
+          color="purple"
+          class="ml-1"
+          prepend-icon="mdi-sync">
+          Synced from {{ providerId }}
+        </v-chip>
       </v-toolbar-title>
       <v-spacer></v-spacer>
+      <!-- Two different questions, so a scope rather than a filter: "who was
+           assigned here" and "who does this role actually cover". Withheld where
+           the authorizer owns the assignments — known from `authz-backend`, so it
+           is never offered there — and only disabled-with-a-reason if some other
+           backend refuses at runtime, since by then it is already on screen. -->
+      <template v-if="transitiveSupported !== false">
+        <v-btn-toggle v-model="scope" mandatory density="compact" variant="outlined" class="mr-2">
+          <v-btn value="direct" size="small">Direct</v-btn>
+          <v-btn
+            value="transitive"
+            size="small"
+            prepend-icon="mdi-file-tree-outline"
+            :disabled="transitiveSupported === null">
+            Incl. nested
+          </v-btn>
+        </v-btn-toggle>
+        <span v-if="transitiveSupported === null" class="text-caption text-medium-emphasis mr-2">
+          {{ TRANSITIVE_UNSUPPORTED }}
+        </span>
+      </template>
       <v-btn-toggle
         v-model="memberFilter"
         mandatory
@@ -18,7 +50,7 @@
         <v-btn value="role" size="small" prepend-icon="mdi-account-group">Roles</v-btn>
       </v-btn-toggle>
       <v-btn
-        v-if="canEdit && selected.length"
+        v-if="canWrite && selected.length"
         color="error"
         variant="text"
         size="small"
@@ -28,7 +60,7 @@
         Remove ({{ selected.length }})
       </v-btn>
       <v-btn
-        v-if="canEdit"
+        v-if="canWrite"
         color="primary"
         variant="flat"
         size="small"
@@ -38,12 +70,19 @@
       </v-btn>
     </v-toolbar>
     <v-divider></v-divider>
+    <!-- Spelled out rather than left to a tooltip on the chip: a member count
+         reads as complete unless something says otherwise. -->
+    <div v-if="providerOwned" class="px-4 py-2 text-caption text-medium-emphasis">
+      <v-icon size="14" class="mr-1">mdi-information-outline</v-icon>
+      {{ lazyMembershipHint }}
+    </div>
     <v-data-table
       v-model="selected"
       :headers="memberHeaders"
       :items="filteredMembers"
       :loading="loading"
-      :show-select="canEdit"
+      :show-select="canWrite"
+      :item-selectable="selectableMember"
       density="compact"
       item-value="id">
       <template #item.type="{ item }">
@@ -54,7 +93,29 @@
           {{ item.type }}
         </v-chip>
       </template>
-      <template #item.name="{ item }">{{ item.name || item.ident || item.id }}</template>
+      <template #item.name="{ item }">
+        <!-- A nested role is a role: it has a page of its own, and reading it is
+             usually the next question. Users have no such page, so they stay
+             plain text rather than pretending to be links. -->
+        <a
+          v-if="item.type === 'role'"
+          class="text-primary"
+          style="cursor: pointer; text-decoration: none"
+          @click.stop="openRole(item.id)">
+          {{ item.name || item.ident || item.id }}
+        </a>
+        <template v-else>{{ item.name || item.ident || item.id }}</template>
+        <!-- Says why this row cannot be removed here: the assignment lives on a
+             role beneath this one, and that is where it can be undone. -->
+        <v-chip v-if="item.inherited" size="x-small" variant="tonal" class="ml-2">
+          <v-icon start size="x-small">mdi-file-tree-outline</v-icon>
+          nested
+          <v-tooltip activator="parent" location="bottom" max-width="320">
+            Not assigned to this role directly — it comes from a role in this role's membership
+            closure, and can only be changed there.
+          </v-tooltip>
+        </v-chip>
+      </template>
       <template #item.detail="{ item }">
         <span class="text-caption text-medium-emphasis">
           {{ item.type === 'user' ? item.email || item.id : item.ident }}
@@ -76,7 +137,7 @@
       </template>
       <template #item.actions="{ item }">
         <v-btn
-          v-if="canEdit"
+          v-if="canWrite && !item.inherited"
           icon="mdi-close"
           size="x-small"
           variant="text"
@@ -85,7 +146,7 @@
       <template #no-data>
         <v-empty-state
           icon="mdi-account-off-outline"
-          title="No members"
+          :title="providerOwned ? 'No members have signed in yet' : 'No members'"
           size="small"></v-empty-state>
       </template>
     </v-data-table>
@@ -145,24 +206,76 @@ import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import type { RoleMember } from '../gen/management/types.gen';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
+import { isNotImplementedError } from '../common/errorUtils';
+import { useRoleNavigation } from '../composables/useRoleNavigation';
+import {
+  TRANSITIVE_UNSUPPORTED,
+  markTransitiveMembershipSupported,
+  markTransitiveMembershipUnsupported,
+  useTransitiveMembershipSupported,
+} from '../common/transitiveMembership';
+import {
+  isMembershipEditableRole,
+  isProviderOwnedRole,
+  useRoleProviderStillSynced,
+} from '../composables/useRoleProviders';
 
 const props = defineProps<{
   roleId: string;
   canEdit?: boolean;
+  /**
+   * The role's `provider-id`. Anything other than `lakekeeper`/`system` means a
+   * role provider owns the membership, which changes both what this list is and
+   * whether it can be edited.
+   */
+  providerId?: string;
   /** Drop the outer card chrome when a host already provides it (e.g. a tab). */
   embedded?: boolean;
 }>();
 
 const functions = useFunctions();
 const visual = useVisualStore();
+const { openRole } = useRoleNavigation();
 const currentProjectId = computed(() => visual.projectSelected['project-id'] || '');
 
+// Provider-owned membership is read-only here whatever the caller's rights: the
+// API refuses it with `RoleNotManuallyAssignable`, so the controls are not
+// offered rather than offered and then failing.
+const providerOwned = computed(() => isProviderOwnedRole(props.providerId));
+const canWrite = computed(() => !!props.canEdit && isMembershipEditableRole(props.providerId));
+
+const providerStillSynced = useRoleProviderStillSynced(() => props.providerId);
+const lazyMembershipHint = computed(() =>
+  providerStillSynced.value
+    ? `Membership is maintained by the ${props.providerId} provider and synced lazily: a principal appears here only once it has signed in to Lakekeeper, so the group may have more members than this list shows.`
+    : `Membership was maintained by the ${props.providerId} provider, which is no longer configured. Members were only ever recorded once they had signed in to Lakekeeper, so this list is a partial snapshot and is no longer updated.`,
+);
+
 const loading = ref(false);
-const members = ref<
-  Array<
-    RoleMember & { id: string; name?: string; ident?: string; email?: string; projectId?: string }
-  >
->([]);
+type MemberRow = RoleMember & {
+  id: string;
+  name?: string;
+  ident?: string;
+  email?: string;
+  projectId?: string;
+  /** Reached through a nested role rather than assigned here. */
+  inherited?: boolean;
+};
+const members = ref<MemberRow[]>([]);
+
+/**
+ * Which question the list answers: the direct assignments, or everyone this role
+ * covers once nested roles are followed.
+ *
+ * `null` support means "not asked yet" and the toggle stays visible; only an
+ * explicit 501 withdraws it — transitive membership needs catalog-managed
+ * assignments, and an authorizer that owns them cannot answer.
+ */
+const scope = ref<'direct' | 'transitive'>('direct');
+const transitiveSupported = useTransitiveMembershipSupported();
+
+// Inherited rows are not removable here, so they are not selectable either.
+const selectableMember = (item: MemberRow) => !item.inherited;
 
 // Selection + type filter + remove-confirm state
 const selected = ref<string[]>([]);
@@ -187,8 +300,24 @@ const memberHeaders = [
 async function load() {
   loading.value = true;
   try {
-    const m = await functions.listRoleMembers(props.roleId);
-    const list = (m?.members ?? []) as any[];
+    let list: any[];
+    if (scope.value === 'transitive') {
+      // The direct listing comes too: the transitive answer does not say which
+      // members are assigned here, and that is what decides removability.
+      const [transitive, direct] = await Promise.all([
+        functions.listRoleTransitiveMembers(props.roleId),
+        functions.listRoleMembers(props.roleId),
+      ]);
+      markTransitiveMembershipSupported();
+      const directIds = new Set((direct?.members ?? []).map((x: any) => x.id));
+      list = (transitive?.members ?? []).map((x: any) => ({
+        ...x,
+        inherited: !directIds.has(x.id),
+      }));
+    } else {
+      const m = await functions.listRoleMembers(props.roleId);
+      list = (m?.members ?? []) as any[];
+    }
     // RoleMembership carries no project-id, so resolve it for role members
     // (lets the list flag nested roles from another project).
     await Promise.all(
@@ -199,13 +328,27 @@ async function load() {
           x.projectId = meta?.['project-id'];
         }),
     );
-    members.value = list as any;
-  } catch {
-    /* surfaced by the functions plugin */
+    members.value = list as MemberRow[];
+  } catch (e) {
+    // A server that cannot answer transitively drops the offer and falls back to
+    // the direct listing, rather than leaving the pane empty.
+    if (scope.value === 'transitive' && isNotImplementedError(e)) {
+      markTransitiveMembershipUnsupported();
+      scope.value = 'direct';
+      return;
+    }
+    /* otherwise surfaced by the functions plugin */
   } finally {
     loading.value = false;
   }
 }
+
+// Switching scope re-reads: the two listings are separate questions to the
+// server, not a filter over one answer.
+watch(scope, () => {
+  selected.value = [];
+  load();
+});
 
 function requestRemove(items: Array<{ id: string; type: 'user' | 'role'; name?: string }>) {
   if (!items.length) return;

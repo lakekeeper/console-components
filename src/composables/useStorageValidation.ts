@@ -1,4 +1,5 @@
 import { computed, type Ref } from 'vue';
+import { loqeVendingReason } from '@/common/vendedCredentials';
 
 /**
  * Composable for validating storage type  const shouldShowUnsupportedWarning = computed(() => {
@@ -12,6 +13,11 @@ import { computed, type Ref } from 'vue';
 export function useStorageValidation(
   storageType: Ref<string | undefined>,
   catalogUrl: Ref<string>,
+  /**
+   * The warehouse's storage profile, when the caller has it. Without it the
+   * vended-credentials check cannot run and is skipped rather than guessed.
+   */
+  storageProfile?: Ref<Record<string, any> | null | undefined>,
 ) {
   // List of supported storage types for DuckDB WASM
   const supportedStorageTypes = ['s3', 'gcs']; //, 'gcs'
@@ -40,6 +46,15 @@ export function useStorageValidation(
 
     return { supported: true, reason: null };
   });
+
+  /**
+   * Whether the warehouse vends credentials at all.
+   *
+   * This is asked before any transport question: with STS off, the request never
+   * gets far enough for CORS to matter, and reporting a CORS failure sends the
+   * operator to re-check a bucket configuration that is already correct.
+   */
+  const vendedCredentialsReason = computed(() => loqeVendingReason(storageProfile?.value));
 
   /**
    * Check if we should show HTTP security warning for cloud storage
@@ -131,6 +146,16 @@ export function useStorageValidation(
       };
     }
 
+    // Then whether the warehouse can hand credentials to the browser at all.
+    // Ordered ahead of the transport checks: without a credential there is no
+    // request to be blocked, so a CORS answer here would be wrong.
+    if (vendedCredentialsReason.value) {
+      return {
+        available: false,
+        reason: vendedCredentialsReason.value,
+      };
+    }
+
     // Then check for HTTP security issue
     if (shouldShowHttpWarning.value) {
       return {
@@ -144,6 +169,7 @@ export function useStorageValidation(
 
   return {
     isStorageSupported,
+    vendedCredentialsReason,
     shouldShowHttpWarning,
     shouldShowUnsupportedWarning,
     httpWarningMessage,

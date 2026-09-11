@@ -375,6 +375,13 @@
                     :initial="currentInitial"
                     :lock-location="isSettingsFlow"
                     @dirty="onStorageDirty"></WarehouseStorageFormOneLake>
+                  <WarehouseStorageFormStackit
+                    v-else-if="storageCredentialType === 'STACKIT'"
+                    ref="storageFormRef"
+                    :key="`STACKIT-${importKey}`"
+                    :initial="currentInitial"
+                    :lock-location="isSettingsFlow"
+                    @dirty="onStorageDirty"></WarehouseStorageFormStackit>
 
                   <div
                     v-if="isSettingsFlow"
@@ -602,11 +609,14 @@ import WarehouseStorageFormS3 from './WarehouseStorageFormS3.vue';
 import WarehouseStorageFormAzure from './WarehouseStorageFormAzure.vue';
 import WarehouseStorageFormGCS from './WarehouseStorageFormGCS.vue';
 import WarehouseStorageFormOneLake from './WarehouseStorageFormOneLake.vue';
+import WarehouseStorageFormStackit from './WarehouseStorageFormStackit.vue';
 import WarehouseValidationReport from './WarehouseValidationReport.vue';
 import ComputeConnectPanel from './ComputeConnectPanel.vue';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import aliyunIcon from '@/assets/aliyun.svg';
+import stackitLightIcon from '@/assets/stackit-mark.svg';
+import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 
 import {
   CreateWarehouseRequest,
@@ -778,6 +788,26 @@ const warehouseObjectS3 = reactive<WarehousObject>({
   },
 });
 
+// STACKIT is its own profile type rather than an s3 flavour: the backend derives
+// the endpoint from the region and vends through a credentials group, so it has
+// neither the AWS knobs nor the s3-compat ones.
+const warehouseObjectStackit = reactive<WarehousObject>({
+  'storage-profile': {
+    type: 'stackit',
+    bucket: '',
+    region: 'eu01',
+    'remote-signing-enabled': true,
+    'sts-enabled': true,
+    'push-s3-delete-disabled': true,
+  },
+  'storage-credential': {
+    type: 'stackit',
+    'credential-type': 'access-key',
+    'access-key-id': '',
+    'secret-access-key': '',
+  },
+});
+
 const warehouseObjectR2 = reactive<WarehousObject>({
   'storage-profile': {
     type: 's3',
@@ -909,6 +939,7 @@ const initialWarehouseObjects = {
   gcs: deepClone(warehouseObjectGCS),
   az: deepClone(warehouseObjectAz),
   oneLake: deepClone(warehouseObjectOneLake),
+  stackit: deepClone(warehouseObjectStackit),
 };
 const initialKey = deepClone(key);
 
@@ -929,6 +960,7 @@ function resetCreateForm() {
   Object.assign(warehouseObjectGCS, deepClone(initialWarehouseObjects.gcs));
   Object.assign(warehouseObjectAz, deepClone(initialWarehouseObjects.az));
   Object.assign(warehouseObjectOneLake, deepClone(initialWarehouseObjects.oneLake));
+  Object.assign(warehouseObjectStackit, deepClone(initialWarehouseObjects.stackit));
   Object.assign(key, deepClone(initialKey));
   // Force the storage pane to remount so its own local state resets too.
   storageFormDirty.value = false;
@@ -1013,6 +1045,9 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
     } else if (type === 'onelake') {
       storageCredentialType.value = 'ONELAKE';
       Object.assign(warehouseObjectOneLake, data);
+    } else if (type === 'stackit') {
+      storageCredentialType.value = 'STACKIT';
+      Object.assign(warehouseObjectStackit, data);
     } else if (type === 'gcs') {
       storageCredentialType.value = 'GCS';
       Object.assign(warehouseObjectGCS, data);
@@ -1121,25 +1156,31 @@ function emitCatalogSettings() {
 // ---------------------------------------------------------------------------
 const storageFormRef = ref<{ getData?: () => WarehousObject } | null>(null);
 
+// The rail slot is 20x20, so this is the square mark rather than the wordmark. It
+// is ink-on-transparent, so it needs the light/dark pair the other themed logos
+// use — which is the only reason the rail entries are computed.
+const stackitIcon = computed(() => (visual.themeLight ? stackitLightIcon : stackitDarkIcon));
+
 // Every supported provider stays individually visible — the four s3 flavours are
 // one component under the hood, but collapsing them in the UI would hide half the
 // providers Lakekeeper actually supports.
-const storageProviders = [
+const storageProviders = computed(() => [
   { value: 'S3', title: 'AWS S3', icon: 'mdi-aws', color: 'orange' },
+  { value: 'STACKIT', title: 'STACKIT', img: stackitIcon.value },
   { value: 'AZURE', title: 'Azure ADLS', icon: 'mdi-microsoft-azure', color: 'primary' },
   { value: 'ONELAKE', title: 'OneLake', img: oneLakeIcon },
   { value: 'S3_COMPAT', title: 'S3 Compatible', icon: 'mdi-bucket-outline', color: 'primary' },
   { value: 'GCS', title: 'Google Cloud', icon: 'mdi-google-cloud', color: 'info' },
   { value: 'R2', title: 'Cloudflare R2', img: cfIcon },
   { value: 'ALIYUN_OSS', title: 'Alibaba OSS', img: aliyunIcon },
-];
+]);
 
 // An existing warehouse cannot change storage type, so only its own provider is
 // offered; the create flow advertises all of them.
 const visibleProviders = computed(() =>
   isCreateFlow.value
-    ? storageProviders
-    : storageProviders.filter((p) => p.value === storageCredentialType.value),
+    ? storageProviders.value
+    : storageProviders.value.filter((p) => p.value === storageCredentialType.value),
 );
 
 // Only the settings flow has an existing warehouse to test against; the create
@@ -1147,7 +1188,9 @@ const visibleProviders = computed(() =>
 const verifyTabTitle = computed(() => (isSettingsFlow.value ? 'Verify & test' : 'Verify'));
 
 const currentProviderTitle = computed(
-  () => storageProviders.find((p) => p.value === storageCredentialType.value)?.title ?? 'provider',
+  () =>
+    storageProviders.value.find((p) => p.value === storageCredentialType.value)?.title ??
+    'provider',
 );
 
 const existingNames = ref<string[]>([]);
@@ -1162,9 +1205,9 @@ const nameTaken = computed(() => {
 // The rail doubles as pane navigation: a provider entry both selects the provider
 // and shows its form, while SETTINGS/VERIFY are panes of their own.
 const pane = ref('SETTINGS');
-const isProviderPane = computed(() => storageProviders.some((p) => p.value === pane.value));
+const isProviderPane = computed(() => storageProviders.value.some((p) => p.value === pane.value));
 watch(pane, (value) => {
-  if (storageProviders.some((p) => p.value === value)) storageCredentialType.value = value;
+  if (storageProviders.value.some((p) => p.value === value)) storageCredentialType.value = value;
 });
 
 // Which seed the storage pane reads. Each provider keeps its own object so
@@ -1177,6 +1220,7 @@ const STORAGE_OBJECTS: Record<string, WarehousObject> = {
   GCS: warehouseObjectGCS,
   AZURE: warehouseObjectAz,
   ONELAKE: warehouseObjectOneLake,
+  STACKIT: warehouseObjectStackit,
 };
 
 const currentInitial = computed(() => STORAGE_OBJECTS[storageCredentialType.value] ?? null);
@@ -1466,6 +1510,12 @@ function seedStorageFromWarehouse(wh: GetWarehouseResponse) {
     seed(
       warehouseObjectOneLake,
       credType && credType.type === 'az' ? credType['credential-type'] : null,
+    );
+  } else if (type === 'stackit') {
+    storageCredentialType.value = 'STACKIT';
+    seed(
+      warehouseObjectStackit,
+      credType && credType.type === 'stackit' ? credType['credential-type'] : null,
     );
   } else if (type === 'gcs') {
     storageCredentialType.value = 'GCS';

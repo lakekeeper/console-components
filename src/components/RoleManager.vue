@@ -80,6 +80,9 @@
         </v-tooltip>
         <span v-else>{{ item.description }}</span>
       </template>
+      <template #item.provider-id="{ item }">
+        <RoleProviderChip :provider-id="item['provider-id']" size="x-small" />
+      </template>
       <template #item.actions="{ item }">
         <div class="d-inline-flex align-center ga-2">
           <!-- The name is clickable too, but nothing says so; this is the
@@ -91,7 +94,7 @@
             text="Open"
             @click="getRole(item.id)"></v-btn>
           <DeleteConfirmDialog
-            v-if="item.can_delete && roleLifecycleSupported"
+            v-if="item.can_delete && roleLifecycleSupported && !isSyncManaged(item['provider-id'])"
             type="role"
             :name="item.name"
             @confirmed="deleteRole(item.id)" />
@@ -123,11 +126,17 @@ import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
 import { useProjectPermissions, hasAction } from '../composables/useCatalogPermissions';
 import { useRoleLifecycleSupported } from '../composables/useAuthzCapabilities';
+import { useIsSyncManagedRole } from '../composables/useRoleProviders';
+import RoleProviderChip from './RoleProviderChip.vue';
 
 const functions = useFunctions();
 const visual = useVisualStore();
 // Creating and deleting roles is refused outright by some authorizers.
 const roleLifecycleSupported = useRoleLifecycleSupported();
+// Roles a role provider maintains cannot be deleted here either — the guard is
+// per role rather than per authorizer, and `can_delete` does not cover it.
+const isSyncManagedRole = useIsSyncManagedRole();
+const isSyncManaged = (providerId?: string) => isSyncManagedRole.value(providerId);
 const router = useRouter();
 const notify = true;
 

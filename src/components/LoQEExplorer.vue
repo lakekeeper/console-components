@@ -860,6 +860,7 @@ import { useCellViewer } from '../composables/useCellViewer';
 import { useDuckDBSettingsStore } from '../stores/duckdbSettings';
 import { useLoQEStore } from '../stores/loqe';
 import { useFunctions } from '../plugins/functions';
+import { stsDisabled } from '../common/vendedCredentials';
 import { Type } from '../common/enums';
 import type { LoQEQueryResult } from '../composables/loqe/types';
 import type {
@@ -1631,6 +1632,15 @@ async function handleAutoAttachWarehouse(wh: {
   if (loqe.store.attachedCatalogs[wh.warehouseName]) return;
 
   try {
+    // The tree already skips these; this covers any other caller. With STS off the
+    // ATTACH has nothing to authenticate with, and the download error it produces
+    // would be reported as a bucket CORS problem.
+    const warehouse = await functions.getWarehouse(wh.warehouseId, false);
+    if (stsDisabled(warehouse?.['storage-profile'] as Record<string, any>)) {
+      console.info('[LoQE] Not attaching', wh.warehouseName, '— vended credentials (STS) are off');
+      return;
+    }
+
     const token = appConfig.enabledAuthentication ? userStore.user?.access_token || '' : '';
     const projectId = visualStore.projectSelected['project-id'] || undefined;
     await loqe.attachCatalog({

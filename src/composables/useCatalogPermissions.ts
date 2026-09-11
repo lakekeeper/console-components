@@ -8,6 +8,7 @@ import type {
   LakekeeperTableAction,
   LakekeeperViewAction,
   LakekeeperGenericTableAction,
+  LakekeeperTagAction,
 } from '@/gen/management/types.gen';
 import { usePermissionStore } from '@/stores/permissions';
 
@@ -209,6 +210,95 @@ export function useRolePermissions(roleId: Ref<string> | string) {
     canDelete,
     canUpdate,
     canRead,
+    refresh: loadPermissions,
+  };
+}
+
+/**
+ * What this caller may do to one tag definition.
+ *
+ * Distinct from the project's `create_tag` / `list_tags`, which say who may add
+ * and enumerate definitions — not who may rename or delete one that exists. The
+ * console gated the edit and delete controls on `create_tag` for want of this
+ * listing, so they were offered to anyone who could create a tag and withheld
+ * from anyone who could only edit.
+ *
+ * @param tagDefinitionId - The tag definition ID (ref or static string)
+ */
+export function useTagPermissions(tagDefinitionId: Ref<string> | string) {
+  const functions = useFunctions();
+  const loading = ref(false);
+  const permissions = ref<LakekeeperTagAction[]>([]);
+  /**
+   * Whether the server has answered for the current id.
+   *
+   * The tag id arrives with the definition, so the first render happens before
+   * any answer exists — and an empty action list at that moment is "unknown",
+   * not "refused". Gates that hide a surface must wait for this, or they take a
+   * tab away from the person who is allowed it and put it back a tick later.
+   */
+  const answered = ref(false);
+
+  const tagIdRef = computed(() =>
+    typeof tagDefinitionId === 'string' ? tagDefinitionId : tagDefinitionId.value,
+  );
+
+  async function loadPermissions() {
+    if (!tagIdRef.value) {
+      // Clear stale permissions from a previous (id-bound) target. Not an
+      // answer: nothing was asked.
+      permissions.value = [];
+      answered.value = false;
+      return;
+    }
+    loading.value = true;
+    try {
+      permissions.value = await functions.getTagCatalogActions(tagIdRef.value);
+      answered.value = true;
+    } catch {
+      // A refusal is an answer too: hold nothing, and let each gate decide.
+      permissions.value = [];
+      answered.value = true;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  function hasPermission(action: LakekeeperTagAction | string): boolean {
+    return hasAction(permissions.value, action);
+  }
+
+  // No authentication-disabled fallbacks here: `getTagCatalogActions` already
+  // answers with the full action set in that mode, so a second escape hatch
+  // would only hide a genuine refusal.
+  const canRead = computed(() => hasPermission('read'));
+  const canUpdate = computed(() => hasPermission('update'));
+  const canDelete = computed(() => hasPermission('delete'));
+  const canApply = computed(() => hasPermission('apply'));
+  const canRemove = computed(() => hasPermission('remove'));
+  const canReadAttachments = computed(() => hasPermission('read_attachments'));
+  const canReadGrants = computed(() => hasPermission('read_grants'));
+
+  onMounted(() => {
+    if (tagIdRef.value) loadPermissions();
+  });
+
+  watch(tagIdRef, (newId, oldId) => {
+    if (newId && newId !== oldId) loadPermissions();
+  });
+
+  return {
+    loading,
+    answered,
+    permissions,
+    hasPermission,
+    canRead,
+    canUpdate,
+    canDelete,
+    canApply,
+    canRemove,
+    canReadAttachments,
+    canReadGrants,
     refresh: loadPermissions,
   };
 }

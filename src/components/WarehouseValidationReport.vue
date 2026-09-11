@@ -96,6 +96,9 @@ const checkLabels: Record<ValidationCheckName, string> = {
   'profile-well-formed': 'Storage profile is well-formed',
   'profile-compatible': 'Storage profile is compatible with the existing configuration',
   'warehouse-name-valid': 'Warehouse name is valid and unique',
+  // Advisory only: the check looks at the caller's own project, while warehouse
+  // IDs are unique instance-wide, so create can still refuse one it cleared.
+  'warehouse-id-available': 'Requested warehouse ID is not already taken',
   'location-exclusive': 'Storage location is not used by another warehouse',
   'spec-mutable': 'Requested spec change is allowed',
   'format-version-policy-consistent': 'Format-version policy is consistent',

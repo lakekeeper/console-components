@@ -200,7 +200,35 @@
                 v-else-if="activeResource"
                 :key="resourceKey(activeResource)"
                 :resource="activeResource"
-                :resource-name="activeResourceName" />
+                :resource-name="activeResourceName">
+                <!-- Forwarded with the picked resource, because the scope here
+                     changes as the rail is used: a host that wants to say
+                     something about *this* scope needs to know which one it is.
+                     -->
+                <template v-if="$slots.notice" #notice>
+                  <slot name="notice" :resource="activeResource"></slot>
+                </template>
+                <!-- Same action the entity pages carry, which is where this rail
+                     sends people for "the levels above". Withheld for the server
+                     scope alone: it is the root, so its chain would be itself. -->
+                <template v-if="activeResource.type !== 'server'" #toolbar-actions>
+                  <GrantsDialog
+                    :resource="activeResource"
+                    :entity-name="activeResourceName || resourceLabel(activeResource.type)"
+                    :warehouse-name="hierarchyWarehouseName"
+                    :namespace-path="hierarchyNamespacePath">
+                    <template #activator="{ props: aProps }">
+                      <v-btn
+                        v-bind="aProps"
+                        size="small"
+                        variant="outlined"
+                        prepend-icon="mdi-file-tree-outline">
+                        Grant hierarchy
+                      </v-btn>
+                    </template>
+                  </GrantsDialog>
+                </template>
+              </GrantsPanel>
               <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
                 <v-icon icon="mdi-arrow-left"></v-icon>
                 {{ emptyHint }}
@@ -240,6 +268,7 @@ import {
   useGrantPrincipalListingSupported,
 } from '../composables/useGrants';
 import GrantsPanel from './GrantsPanel.vue';
+import GrantsDialog from './GrantsDialog.vue';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
 import GrantPrivilegeReference from './GrantPrivilegeReference.vue';
@@ -480,6 +509,24 @@ const activeResourceName = computed(() => {
   if (scope.value === 'warehouses') return pickedName.value;
   return '';
 });
+
+/**
+ * The two extra bits the hierarchy needs, which the panel itself does not.
+ *
+ * `pickedNamespace` is dotted for the breadcrumb, while grant resources address
+ * namespaces with the unit separator — and the tree hands back a warehouse id
+ * where the rail wants a name.
+ */
+const hierarchyWarehouseName = computed(() => {
+  const id = (activeResource.value as any)?.warehouseId as string | undefined;
+  return id ? warehouseNames.value[id] || '' : '';
+});
+
+const hierarchyNamespacePath = computed(() =>
+  activeResource.value && 'warehouseId' in activeResource.value
+    ? toApiNs(pickedNamespace.value)
+    : '',
+);
 
 const emptyHint = computed(() => {
   if (scope.value === 'tags') return 'Pick a tag to manage who holds what on it.';

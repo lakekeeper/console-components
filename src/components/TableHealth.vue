@@ -398,6 +398,7 @@
 import { computed, ref, watch, nextTick, onBeforeUnmount, onMounted, inject } from 'vue';
 import * as d3 from 'd3';
 import { useFunctions } from '../plugins/functions';
+import { loqeVendingReason } from '../common/vendedCredentials';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import CorsConfigDialog from './CorsConfigDialog.vue';
@@ -1542,6 +1543,10 @@ async function loadPartitionData() {
 
     // Load warehouse for name + project-id
     const wh = await functions.getWarehouse(props.warehouseId);
+    // Nothing to attach if the warehouse vends no credentials: DuckDB reads the
+    // manifests directly and would fail as a download error reported as CORS.
+    const vendingReason = loqeVendingReason(wh['storage-profile'] as Record<string, any>);
+    if (vendingReason) throw new Error(vendingReason);
     const warehouseName = wh.name;
 
     // Attach catalog if needed

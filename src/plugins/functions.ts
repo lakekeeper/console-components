@@ -1,6 +1,12 @@
 import { inject } from 'vue';
 import { permissionActions } from '@/common/permissionActions';
-import { logError, isClientError, isNotFoundError, isForbiddenError } from '@/common/errorUtils';
+import {
+  logError,
+  isClientError,
+  isNotFoundError,
+  isForbiddenError,
+  isNotImplementedError,
+} from '@/common/errorUtils';
 import {
   NamespaceResponse,
   SearchTabularRequest,
@@ -91,6 +97,7 @@ import {
   LakekeeperGenericTableAction,
   LakekeeperRoleActionKind,
   LakekeeperUserAction,
+  LakekeeperTagAction,
   PurgeQueueConfig,
   RenameProjectRequest,
   Role,
@@ -4811,6 +4818,76 @@ async function listRoleMemberOf(roleId: string): Promise<ListRoleMemberOfRespons
   }
 }
 
+/**
+ * The role's members *and* the members of every role beneath it.
+ *
+ * The direct listing answers "who was assigned here"; this answers "who does
+ * this role actually cover", which is the question a nested role hierarchy makes
+ * hard. Catalog-managed assignments only: an authorizer that owns assignments
+ * (OpenFGA) answers 501, so the refusal is not notified — the caller withdraws
+ * the offer instead.
+ */
+async function listRoleTransitiveMembers(
+  roleId: string,
+  type?: 'user' | 'role',
+): Promise<ListRoleMembersResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listRoleTransitiveMembers({
+      client: mngClient.client,
+      path: { role_id: roleId },
+      query: { ...(type ? { type } : {}), pageSize: 1000 },
+    });
+    if (error) throw error;
+    return (data as ListRoleMembersResponse) ?? { members: [] };
+  } catch (error: any) {
+    handleError(
+      error,
+      'listRoleTransitiveMembers',
+      isNotImplementedError(error) ? false : undefined,
+    );
+    throw error;
+  }
+}
+
+/** Every role this role belongs to, directly or through another role. */
+async function listRoleTransitiveMemberOf(roleId: string): Promise<ListRoleMemberOfResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listRoleTransitiveMemberOf({
+      client: mngClient.client,
+      path: { role_id: roleId },
+      query: { pageSize: 1000 },
+    });
+    if (error) throw error;
+    return data as ListRoleMemberOfResponse;
+  } catch (error: any) {
+    handleError(
+      error,
+      'listRoleTransitiveMemberOf',
+      isNotImplementedError(error) ? false : undefined,
+    );
+    throw error;
+  }
+}
+
+/** Every role this user holds, directly or through another role. */
+async function listUserTransitiveRoles(userId: string): Promise<ListUserRolesResponse> {
+  try {
+    init();
+    const { data, error } = await mng.listUserTransitiveRoles({
+      client: mngClient.client,
+      path: { user_id: userId },
+      query: { pageSize: 1000 },
+    });
+    if (error) throw error;
+    return data as ListUserRolesResponse;
+  } catch (error: any) {
+    handleError(error, 'listUserTransitiveRoles', isNotImplementedError(error) ? false : undefined);
+    throw error;
+  }
+}
+
 async function listUserRoles(userId: string): Promise<ListUserRolesResponse> {
   try {
     init();
@@ -5888,6 +5965,38 @@ async function getAuthorizerRoleActions(
   }
 }
 
+/**
+ * What this caller may do to one tag definition.
+ *
+ * Per-tag, unlike the project-scoped `create_tag`/`list_tags`: rights on the
+ * project say who may add definitions, not who may rename or delete an existing
+ * one. Reading grants on a tag is in here too, which is why a caller can hold
+ * `read` and still be refused the Grants pane.
+ */
+async function getTagCatalogActions(
+  tagDefinitionId: string,
+  notify?: boolean,
+): Promise<LakekeeperTagAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogTagActions;
+    }
+
+    init();
+    const client = mngClient.client;
+    const { data, error } = await mng.getTagActions({
+      client,
+      path: { tag_definition_id: tagDefinitionId },
+    });
+    if (error) throw error;
+    return ((data ?? {})['allowed-actions'] ?? []) as LakekeeperTagAction[];
+  } catch (error: any) {
+    // A refusal here is an answer, not a failure: the surfaces gate on it.
+    handleError(error, 'getTagCatalogActions', isForbiddenError(error) ? false : notify);
+    throw error;
+  }
+}
+
 async function getRoleCatalogActions(
   roleId: string,
   projectId?: string,
@@ -6280,6 +6389,12 @@ async function listViewUuids(
  * 501 `GrantListingNotImplemented` rather than reading its whole store — so
  * callers must be ready to fall back to the per-resource listings.
  */
+// Grant reads are speculative by design: the hierarchy asks every level from the
+// server down, and a caller who may read grants on a namespace but not on the
+// server is the normal case, not an error. Each surface already renders the
+// refusal in place (a lock on the level, or an empty pane), so a 403 here must
+// not also raise a snackbar — that is the "ServerActionForbidden" popup on the
+// hierarchy page. Every other status still notifies.
 async function listGrantsForPrincipal(
   options: GrantListOptions,
   projectId?: string,
@@ -6296,7 +6411,7 @@ async function listGrantsForPrincipal(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listGrantsForPrincipal', notify);
+    handleError(error, 'listGrantsForPrincipal', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6318,7 +6433,11 @@ async function getGrantablePrivilegesVocabulary(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getGrantablePrivilegesVocabulary', notify);
+    handleError(
+      error,
+      'getGrantablePrivilegesVocabulary',
+      isForbiddenError(error) ? false : notify,
+    );
     throw error;
   }
 }
@@ -6336,7 +6455,7 @@ async function listServerGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listServerGrants', notify);
+    handleError(error, 'listServerGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6367,7 +6486,7 @@ async function getServerGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getServerGrantablePrivileges', notify);
+    handleError(error, 'getServerGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6393,7 +6512,7 @@ async function listProjectGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listProjectGrants', notify);
+    handleError(error, 'listProjectGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6434,7 +6553,7 @@ async function getProjectGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getProjectGrantablePrivileges', notify);
+    handleError(error, 'getProjectGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6457,7 +6576,7 @@ async function listWarehouseGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listWarehouseGrants', notify);
+    handleError(error, 'listWarehouseGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6498,7 +6617,7 @@ async function getWarehouseGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getWarehouseGrantablePrivileges', notify);
+    handleError(error, 'getWarehouseGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6522,7 +6641,7 @@ async function listNamespaceGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listNamespaceGrants', notify);
+    handleError(error, 'listNamespaceGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6565,7 +6684,7 @@ async function getNamespaceGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getNamespaceGrantablePrivileges', notify);
+    handleError(error, 'getNamespaceGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6589,7 +6708,7 @@ async function listTableGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listTableGrants', notify);
+    handleError(error, 'listTableGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6632,7 +6751,7 @@ async function getTableGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getTableGrantablePrivileges', notify);
+    handleError(error, 'getTableGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6656,7 +6775,7 @@ async function listViewGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listViewGrants', notify);
+    handleError(error, 'listViewGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6699,7 +6818,7 @@ async function getViewGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getViewGrantablePrivileges', notify);
+    handleError(error, 'getViewGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6723,7 +6842,7 @@ async function listGenericTableGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listGenericTableGrants', notify);
+    handleError(error, 'listGenericTableGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6766,7 +6885,11 @@ async function getGenericTableGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getGenericTableGrantablePrivileges', notify);
+    handleError(
+      error,
+      'getGenericTableGrantablePrivileges',
+      isForbiddenError(error) ? false : notify,
+    );
     throw error;
   }
 }
@@ -6789,7 +6912,7 @@ async function listTagGrants(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'listTagGrants', notify);
+    handleError(error, 'listTagGrants', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6830,7 +6953,7 @@ async function getTagGrantablePrivileges(
     if (error) throw error;
     return data;
   } catch (error) {
-    handleError(error, 'getTagGrantablePrivileges', notify);
+    handleError(error, 'getTagGrantablePrivileges', isForbiddenError(error) ? false : notify);
     throw error;
   }
 }
@@ -6875,6 +6998,9 @@ export function useFunctions(config?: any) {
     addRoleMembers,
     removeRoleMember,
     listRoleMemberOf,
+    listRoleTransitiveMembers,
+    listRoleTransitiveMemberOf,
+    listUserTransitiveRoles,
     listUserRoles,
     setWarehouseManagedBy,
     deleteRole,
@@ -6908,6 +7034,7 @@ export function useFunctions(config?: any) {
     getTableCatalogActions,
     getViewCatalogActions,
     getGenericTableCatalogActions,
+    getTagCatalogActions,
     getRoleCatalogActions,
     getUserCatalogActions,
     getNamespaceAssignmentsById,
