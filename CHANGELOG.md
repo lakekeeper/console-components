@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.23.0](https://github.com/lakekeeper/console-components/compare/v0.22.0...v0.23.0) (2026-09-11)
+
+
+### Features
+
+* **ui:** add STACKIT as a warehouse storage provider ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+* **ui:** let the app annotate every grants pane ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+* **ui:** mark provider-owned roles and gate their writes ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+* **ui:** show transitive role membership, and make roles navigable ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+
+
+### Bug Fixes
+
+* **ui:** don't blame CORS when a warehouse has STS disabled ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+* **ui:** gate tag edit and delete on the tag's own actions ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+* **ui:** make the role page's sections read alike ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+* **ui:** restore tag management when authentication is disabled ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+* **ui:** stop grant refusals raising a snackbar, and survive partial access ([5d3b22d](https://github.com/lakekeeper/console-components/commit/5d3b22d4945f36254d3a70bacb2cf50a37c2c3be))
+
 ## [0.22.0](https://github.com/lakekeeper/console-components/compare/v0.21.0...v0.22.0) (2026-08-19)
 
 
