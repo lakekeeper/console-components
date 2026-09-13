@@ -28,6 +28,7 @@ import {
   readSync,
   closeSync,
 } from 'node:fs';
+import { readdir, rm } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Buffer } from 'node:buffer';
@@ -49,6 +50,29 @@ const COMMUNITY_EXTENSIONS = ['azure_wasm'];
 
 // WASM magic bytes: `\0asm`. Guards against saving a 404 HTML page as a binary.
 const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d]);
+
+async function pruneStaleVersions() {
+  let entries;
+  try {
+    entries = await readdir(OUT_DIR, { withFileTypes: true });
+  } catch (err) {
+    if (err.code === 'ENOENT') return;
+    throw err;
+  }
+
+  for (const entry of entries) {
+    // Only prune version directories owned by this script; keep unrelated files,
+    // directories, and symlinks (which may point outside the extension cache).
+    if (
+      entry.isDirectory() &&
+      /^v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(entry.name) &&
+      !EXTENSION_VERSIONS.includes(entry.name)
+    ) {
+      await rm(resolve(OUT_DIR, entry.name), { recursive: true, force: true });
+      console.log(`[duckdb-ext] removed stale extension version ${entry.name}`);
+    }
+  }
+}
 
 // A cached file counts as valid only if it starts with the WASM magic bytes — a
 // truncated/corrupt cache (non-zero size, wrong content) must be re-downloaded,
@@ -78,6 +102,9 @@ async function download(url, dest) {
 }
 
 async function main() {
+  // Run even for warm caches and skipped downloads so old versions are not shipped.
+  await pruneStaleVersions();
+
   if (process.env.DUCKDB_EXTENSIONS_SKIP_DOWNLOAD === '1') {
     console.log('[duckdb-ext] DUCKDB_EXTENSIONS_SKIP_DOWNLOAD=1 — skipping download');
     return;

@@ -6,6 +6,7 @@ import { TokenManager } from './TokenManager';
 import { CatalogManager } from './CatalogManager';
 import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
 import { friendlyQueryError } from './queryError';
+import { createWorkerBootstrap } from './workerBootstrap';
 import { toPlainCellValue } from './arrowValue';
 
 /**
@@ -205,7 +206,7 @@ export class LoQEEngine {
       // 2. Create Web Worker via Blob URL (avoids CORS issues)
       const workerUrl = bundle.mainWorker!;
       const blobUrl = URL.createObjectURL(
-        new Blob([`importScripts("${workerUrl}");`], { type: 'text/javascript' }),
+        new Blob([createWorkerBootstrap(workerUrl)], { type: 'text/javascript' }),
       );
       this.worker = new Worker(blobUrl);
       URL.revokeObjectURL(blobUrl);

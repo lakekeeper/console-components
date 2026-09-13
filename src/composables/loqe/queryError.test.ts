@@ -1,15 +1,47 @@
 import { describe, it, expect } from 'vitest';
 import { friendlyQueryError } from './queryError';
 
-// friendlyQueryError turns DuckDB-WASM's opaque storage-read failures into an
-// actionable "Configure CORS" message — across browsers (chromium and firefox fail
-// differently). Anything else must pass through unchanged. This is the logic that
-// had a firefox-specific gap (the "memory buffer" signature), so these cases guard it.
+// friendlyQueryError explains unsupported ADLS operations and turns DuckDB-WASM's
+// opaque storage-read failures into an actionable "Configure CORS" message across
+// browsers. Unrelated errors must pass through unchanged.
 
 const FRIENDLY = /Configure CORS/;
 const original = new Error('original duckdb error');
 
 describe('friendlyQueryError', () => {
+  it.each(['DirectoryExists', 'CreateDirectory', 'RemoveFile'])(
+    'explains ADLS is read-only when AzureFileSystem does not implement %s',
+    (operation) => {
+      const err = new Error(
+        `Not implemented Error: AzureFileSystem: ${operation} is not implemented!`,
+      );
+      const result = friendlyQueryError(err, err.message) as Error;
+
+      expect(result).not.toBe(err);
+      expect(result.message).toBe('Azure Data Lake Storage (ADLS) is read-only in LoQE.');
+      expect(result.cause).toBe(err);
+    },
+  );
+
+  it('preserves a non-Error Azure worker failure as the cause', () => {
+    const err = {
+      message: 'Not implemented Error: AzureFileSystem: DirectoryExists is not implemented!',
+      type: 'NotImplementedException',
+    };
+
+    expect((friendlyQueryError(err, err.message) as Error).cause).toBe(err);
+  });
+
+  it.each([
+    'Not implemented Error: LocalFileSystem: DirectoryExists is not implemented!',
+    'IO Error: AzureFileSystem: OpenFile failed: HTTP 403 Forbidden',
+    'Not implemented Error: this SQL operation is not implemented!',
+  ])('passes through errors unrelated to unsupported Azure operations: %s', (msg) => {
+    const err = new Error(msg);
+
+    expect(friendlyQueryError(err, msg)).toBe(err);
+  });
+
   it('chromium: download-block naming a data file → friendly CORS message', () => {
     const msg =
       'Full download failed for HTTP file: .../data/snap-123.avro: 404 (might be potentially a CORS error)';
