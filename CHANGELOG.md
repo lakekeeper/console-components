@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.0](https://github.com/lakekeeper/console-components/compare/v0.23.0...v0.24.0) (2026-09-14)
+
+
+### Features
+
+* **loqe:** read ADLS warehouses via the azure_wasm community extension ([#281](https://github.com/lakekeeper/console-components/issues/281)) ([c6a77b9](https://github.com/lakekeeper/console-components/commit/c6a77b937bb646fb1c449e49fa880043ead0dc97))
+
 ## [0.23.0](https://github.com/lakekeeper/console-components/compare/v0.22.0...v0.23.0) (2026-09-11)
 
 
