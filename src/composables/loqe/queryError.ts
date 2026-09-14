@@ -1,5 +1,5 @@
 /**
- * Translate DuckDB-WASM's opaque download error into an actionable message.
+ * Translate DuckDB-WASM storage failures into actionable messages.
  *
  * DuckDB reports any failed httpfs download as a generic
  * `"Full download failed … : 404 (might be potentially a CORS error)"` — it
@@ -16,6 +16,10 @@
  * DuckDB-WASM runtime. Pure: (err, msg) → friendly Error or the original err.
  */
 export function friendlyQueryError(err: unknown, msg: string): unknown {
+  if (/\bAzureFileSystem:[^\n]*\bnot implemented\b/i.test(msg)) {
+    return new Error('Azure Data Lake Storage (ADLS) is read-only in LoQE.', { cause: err });
+  }
+
   // DuckDB reports a *recognised* httpfs failure with a download/404/CORS message
   // naming the object it couldn't fetch.
   const looksLikeDownloadBlock =

@@ -251,6 +251,28 @@ The library uses OIDC (OpenID Connect) for authentication via `oidc-client-ts`. 
 - Callback handling
 - Token storage in sessionStorage
 
+## Azure Data Lake Storage in LoQE
+
+LoQE and table previews can read Iceberg tables stored in Azure Data Lake Storage Gen2 (ADLS) through the bundled `azure_wasm` DuckDB extension. Enable credential vending for the warehouse so Lakekeeper can supply the SAS tokens needed to read its files.
+
+**ADLS access through LoQE is read-only.** The `azure_wasm` extension does not support writing to ADLS, so SQL operations that write data to ADLS are unsupported in the browser query engine.
+
+### Configure storage CORS
+
+The browser reads files directly from the storage account. In the Azure portal, open the storage account, select **Resource sharing (CORS)**, and add a rule under **Blob service** with these values:
+
+| Setting           | Value                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| Allowed origins   | Your console origin, for example `https://console.example.com` or `http://localhost:5173` |
+| Allowed methods   | `GET`, `HEAD`, `OPTIONS`                                                                  |
+| Allowed headers   | `*`                                                                                       |
+| Exposed headers   | `*`                                                                                       |
+| Max age (seconds) | `3600`                                                                                    |
+
+Use the console's scheme, hostname, and port (if present), without a URL path. Save the rule for each storage account used by your ADLS warehouses.
+
+These CORS rules apply to the Blob service across the storage account, including all its containers. ADLS shares the Blob service CORS settings, so this also enables browser reads through `<account>.dfs.core.windows.net`. See the [Azure Data Lake browser CORS documentation](https://learn.microsoft.com/javascript/api/overview/azure/storage-file-datalake-readme?view=azure-node-latest#cors) and [Azure Storage CORS configuration](https://learn.microsoft.com/rest/api/storageservices/cross-origin-resource-sharing--cors--support-for-the-azure-storage-services#enabling-cors-for-azure-storage).
+
 ## 📦 Building the Library
 
 ````bash

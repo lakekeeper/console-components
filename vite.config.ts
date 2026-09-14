@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
-import { existsSync, mkdirSync, copyFileSync, cpSync } from 'fs';
+import { existsSync, mkdirSync, copyFileSync, cpSync, rmSync } from 'fs';
 
 const duckdbFiles = [
   'duckdb-browser-coi.pthread.worker.js',
@@ -50,8 +50,12 @@ function copyDuckDBFiles() {
             `(prebuild/predev normally do this). Without them LoQE cannot load extensions offline.`,
         );
       }
-      cpSync(extSrc, resolve(destDir, 'extensions'), { recursive: true });
-      console.log('Copied DuckDB extensions (iceberg/httpfs/avro)');
+      // Replace the generated mirror so versions pruned from the download cache
+      // cannot survive in public/ and be copied back into dist/ on the next build.
+      const extDest = resolve(destDir, 'extensions');
+      rmSync(extDest, { recursive: true, force: true });
+      cpSync(extSrc, extDest, { recursive: true });
+      console.log('Copied DuckDB extensions (including azure_wasm)');
     },
   };
 }
