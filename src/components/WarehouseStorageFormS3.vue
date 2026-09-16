@@ -170,79 +170,65 @@
       :type="showSecret ? 'text' : 'password'"
       hint="Optional — required by some role trust policies"></v-text-field>
 
-    <!-- 4. What do query engines get? One exclusive choice, not two switches. -->
+    <!-- 4. What do query engines get? Two independent paths, not one choice:
+         Lakekeeper can vend credentials AND sign requests, and a client picks
+         whichever it supports. Modelling this as an exclusive radio (as #275 did)
+         makes a valid warehouse unreachable from the form.
+         Layout follows the STACKIT pane: one row per path, each path's fields
+         beside its own switch, so nothing reads as belonging to the other toggle.
+         Session tags are the exception — a repeating key/value list needs the full
+         width, so it stays under the STS half it plainly belongs to. -->
     <div class="text-subtitle-2 mt-6 mb-2">Client access</div>
-    <div class="text-caption text-medium-emphasis mb-2">
-      How engines like Spark or Trino reach the data.
+    <div class="text-caption text-medium-emphasis mb-3">
+      How engines like Spark or Trino reach the data. Both may be enabled.
     </div>
-    <v-radio-group v-model="clientAccess" hide-details class="mb-2">
-      <v-radio value="remote-signing" color="primary" class="mb-4">
-        <template #label>
-          <div>
-            <div>Remote signing</div>
-            <div class="text-caption text-medium-emphasis">
-              Lakekeeper signs each request; nothing is handed to the client.
-            </div>
-          </div>
-        </template>
-      </v-radio>
-      <v-radio value="sts" color="primary" class="mb-4">
-        <template #label>
-          <div>
-            <div>Vended credentials (STS)</div>
-            <div class="text-caption text-medium-emphasis">
-              Clients receive short-lived credentials scoped to the table.
-            </div>
-          </div>
-        </template>
-      </v-radio>
-      <v-radio value="none" color="primary">
-        <template #label>
-          <div>
-            <div>None</div>
-            <div class="text-caption text-medium-emphasis">
-              Clients bring their own credentials.
-            </div>
-          </div>
-        </template>
-      </v-radio>
-    </v-radio-group>
+    <v-row dense>
+      <v-col cols="12" md="6">
+        <v-switch
+          v-model="profile['sts-enabled']"
+          color="primary"
+          density="compact"
+          hide-details
+          label="Vended credentials (STS)"></v-switch>
+        <div class="text-caption text-medium-emphasis mt-1">
+          Clients receive short-lived credentials scoped to the table.
+        </div>
+      </v-col>
+      <v-col cols="12" md="6" v-if="profile['sts-enabled']">
+        <v-text-field
+          density="compact"
+          v-model="profile['sts-role-arn']"
+          hint="Role assumed when issuing vended credentials"
+          persistent-hint
+          :label="stsArnRequired ? 'STS role ARN *' : 'STS role ARN'"
+          :error="stsArnRequired && !profile['sts-role-arn']"
+          placeholder="arn:aws:iam::123456789012:role/vending"
+          :rules="stsArnRequired ? [rules.required] : []"></v-text-field>
+        <v-text-field
+          density="compact"
+          class="mt-3"
+          v-model="profile['sts-endpoint']"
+          label="STS endpoint"
+          hint="Defaults to the S3 endpoint"></v-text-field>
+        <v-text-field
+          density="compact"
+          class="mt-3"
+          v-model="profile['sts-token-validity-seconds']"
+          hint="Default 3600 (1 hour)"
+          persistent-hint
+          label="Token validity (seconds)"
+          type="number"
+          placeholder="3600"></v-text-field>
+        <v-text-field
+          density="compact"
+          class="mt-3"
+          v-model="profile['aws-kms-key-arn']"
+          label="KMS key ARN"
+          hint="Optional — encrypt written objects with this key"></v-text-field>
+      </v-col>
+    </v-row>
 
-    <div v-if="clientAccess === 'sts'" class="mt-3">
-      <v-text-field
-        density="compact"
-        v-model="profile['sts-role-arn']"
-        hint="Role assumed when issuing vended credentials"
-        persistent-hint
-        :label="stsArnRequired ? 'STS role ARN *' : 'STS role ARN'"
-        :error="stsArnRequired && !profile['sts-role-arn']"
-        placeholder="arn:aws:iam::123456789012:role/vending"
-        :rules="stsArnRequired ? [rules.required] : []"></v-text-field>
-      <v-row dense class="mb-3">
-        <v-col cols="12" md="6">
-          <v-text-field
-            density="compact"
-            v-model="profile['sts-endpoint']"
-            label="STS endpoint"
-            hint="Defaults to the S3 endpoint"></v-text-field>
-        </v-col>
-        <v-col cols="12" md="6">
-          <v-text-field
-            density="compact"
-            v-model="profile['sts-token-validity-seconds']"
-            hint="Default 3600 (1 hour)"
-            persistent-hint
-            label="Token validity (seconds)"
-            type="number"
-            placeholder="3600"></v-text-field>
-        </v-col>
-      </v-row>
-      <v-text-field
-        density="compact"
-        v-model="profile['aws-kms-key-arn']"
-        label="KMS key ARN"
-        hint="Optional — encrypt written objects with this key"></v-text-field>
-
+    <div v-if="profile['sts-enabled']" class="mt-2">
       <div class="text-caption text-medium-emphasis mt-3 mb-1">
         Session tags — passed when assuming the STS role
       </div>
@@ -272,17 +258,40 @@
       </v-btn>
     </div>
 
-    <v-select
+    <v-row dense class="mt-2">
+      <v-col cols="12" md="6">
+        <v-switch
+          v-model="profile['remote-signing-enabled']"
+          color="primary"
+          density="compact"
+          hide-details
+          label="Remote signing"></v-switch>
+        <div class="text-caption text-medium-emphasis mt-1">
+          Lakekeeper signs each request; nothing is handed to the client.
+        </div>
+      </v-col>
+      <v-col cols="12" md="6" v-if="profile['remote-signing-enabled']">
+        <v-select
+          density="compact"
+          v-model="profile['remote-signing-url-style']"
+          :items="urlStyles"
+          item-title="name"
+          item-value="code"
+          label="Remote signing URL style"
+          clearable
+          placeholder="Auto-detect"></v-select>
+      </v-col>
+    </v-row>
+
+    <v-alert
+      v-if="!profile['sts-enabled'] && !profile['remote-signing-enabled']"
+      type="warning"
+      variant="tonal"
       density="compact"
-      v-if="clientAccess === 'remote-signing'"
-      v-model="profile['remote-signing-url-style']"
-      :items="urlStyles"
-      item-title="name"
-      item-value="code"
-      label="Remote signing URL style"
-      clearable
-      placeholder="Auto-detect"
-      class="mt-3"></v-select>
+      class="mt-3">
+      With both off, clients have to bring their own credentials — Lakekeeper hands out neither
+      signatures nor tokens.
+    </v-alert>
 
     <!-- Everything below has a working default; unlike `endpoint`, none of it is
          required to get connected. -->
@@ -524,7 +533,7 @@ function toNumberOrUndefined(value: unknown) {
 
 function getData() {
   const cleanProfile: Record<string, any> = { ...profile };
-  if (clientAccess.value !== 'sts') {
+  if (!profile['sts-enabled']) {
     for (const k of [
       'sts-role-arn',
       'sts-endpoint',
@@ -534,10 +543,10 @@ function getData() {
     ])
       delete cleanProfile[k];
   }
-  if (clientAccess.value !== 'remote-signing') delete cleanProfile['remote-signing-url-style'];
+  if (!profile['remote-signing-enabled']) delete cleanProfile['remote-signing-url-style'];
 
   cleanProfile['storage-layout'] = buildLayout();
-  if (clientAccess.value === 'sts') {
+  if (profile['sts-enabled']) {
     cleanProfile['sts-token-validity-seconds'] = toNumberOrUndefined(
       cleanProfile['sts-token-validity-seconds'],
     );
@@ -618,31 +627,29 @@ const authMode = computed({
 });
 
 // --- 4. Client access --------------------------------------------------------
-// remote-signing and sts are two booleans on the wire but one decision here.
-const clientAccess = computed({
-  get: () => {
-    if (profile['sts-enabled']) return 'sts';
-    if (profile['remote-signing-enabled']) return 'remote-signing';
-    return 'none';
-  },
-  set: (value: string) => {
-    profile['sts-enabled'] = value === 'sts';
-    profile['remote-signing-enabled'] = value === 'remote-signing';
-  },
-});
+// Two independent booleans on the wire, bound directly: a warehouse may vend
+// credentials and sign requests at the same time.
 
 // s3-compat storage (MinIO etc.) can vend without a role; everything else needs one.
 const stsArnRequired = computed(() => props.flavor !== 's3-compat' && !profile['assume-role-arn']);
 
 // Clearing STS-only fields keeps them out of the submitted payload.
-watch(clientAccess, (value) => {
-  if (value !== 'sts') {
-    profile['sts-role-arn'] = undefined;
-    profile['sts-endpoint'] = undefined;
-    profile['sts-session-tags'] = undefined;
-  }
-  if (value !== 'remote-signing') profile['remote-signing-url-style'] = undefined;
-});
+watch(
+  () => profile['sts-enabled'],
+  (enabled) => {
+    if (!enabled) {
+      profile['sts-role-arn'] = undefined;
+      profile['sts-endpoint'] = undefined;
+      profile['sts-session-tags'] = undefined;
+    }
+  },
+);
+watch(
+  () => profile['remote-signing-enabled'],
+  (enabled) => {
+    if (!enabled) profile['remote-signing-url-style'] = undefined;
+  },
+);
 
 const urlStyles = [
   { name: 'Path', code: 'path' },

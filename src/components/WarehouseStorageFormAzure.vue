@@ -125,44 +125,46 @@
       Uses the managed identity configured on the Lakekeeper server. No credentials to enter.
     </v-alert>
 
-    <!-- 3. What do query engines get? Azure vends SAS tokens rather than STS. -->
+    <!-- 3. What do query engines get? Azure vends SAS tokens rather than STS and
+         has no remote-signing option, so this is one boolean — a switch, matching
+         the S3 and STACKIT panes. -->
     <div class="text-subtitle-2 mt-6 mb-2">Client access</div>
-    <div class="text-caption text-medium-emphasis mb-2">
+    <div class="text-caption text-medium-emphasis mb-3">
       How engines like Spark or Trino reach the data.
     </div>
-    <v-radio-group v-model="clientAccess" hide-details class="mb-2">
-      <v-radio value="sas" color="primary" class="mb-4">
-        <template #label>
-          <div>
-            <div>Vended credentials (SAS)</div>
-            <div class="text-caption text-medium-emphasis">
-              Clients receive short-lived SAS tokens scoped to the table.
-            </div>
-          </div>
-        </template>
-      </v-radio>
-      <v-radio value="none" color="primary">
-        <template #label>
-          <div>
-            <div>None</div>
-            <div class="text-caption text-medium-emphasis">
-              Clients bring their own credentials.
-            </div>
-          </div>
-        </template>
-      </v-radio>
-    </v-radio-group>
+    <v-row dense>
+      <v-col cols="12" md="6">
+        <v-switch
+          v-model="profile['sas-enabled']"
+          color="primary"
+          density="compact"
+          hide-details
+          label="Vended credentials (SAS)"></v-switch>
+        <div class="text-caption text-medium-emphasis mt-1">
+          Clients receive short-lived SAS tokens scoped to the table.
+        </div>
+      </v-col>
+      <v-col cols="12" md="6" v-if="profile['sas-enabled']">
+        <v-text-field
+          density="compact"
+          v-model="profile['sas-token-validity-seconds']"
+          label="Token validity (seconds)"
+          type="number"
+          placeholder="3600"
+          hint="Default 3600 (1 hour)"
+          persistent-hint></v-text-field>
+      </v-col>
+    </v-row>
 
-    <v-text-field
-      v-if="clientAccess === 'sas'"
+    <v-alert
+      v-if="!profile['sas-enabled']"
+      type="warning"
+      variant="tonal"
       density="compact"
-      v-model="profile['sas-token-validity-seconds']"
-      label="Token validity (seconds)"
-      type="number"
-      placeholder="3600"
-      hint="Default 3600 (1 hour)"
-      persistent-hint
-      class="mt-3"></v-text-field>
+      class="mt-3">
+      With vending off, clients have to bring their own credentials — Lakekeeper hands out no SAS
+      tokens.
+    </v-alert>
 
     <!-- Everything below has a working default. -->
     <v-expansion-panels variant="accordion" flat class="mt-6">
@@ -300,13 +302,6 @@ watch(
   { immediate: true },
 );
 
-const clientAccess = computed({
-  get: () => (profile['sas-enabled'] ? 'sas' : 'none'),
-  set: (value: string) => {
-    profile['sas-enabled'] = value === 'sas';
-  },
-});
-
 const layoutType = ref<'default' | 'tabular-only' | 'full-hierarchy'>('default');
 const layoutTabular = ref('tabular-{name}-{uuid}');
 const layoutNamespace = ref('ns-{name}-{uuid}');
@@ -382,7 +377,7 @@ function toNumberOrUndefined(value: unknown) {
 function getData() {
   const cleanProfile: Record<string, any> = { ...profile };
   cleanProfile['storage-layout'] = buildLayout();
-  if (clientAccess.value !== 'sas') delete cleanProfile['sas-token-validity-seconds'];
+  if (!profile['sas-enabled']) delete cleanProfile['sas-token-validity-seconds'];
   else
     cleanProfile['sas-token-validity-seconds'] = toNumberOrUndefined(
       cleanProfile['sas-token-validity-seconds'],
