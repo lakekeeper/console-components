@@ -697,7 +697,12 @@ async function openPreview(node: TreeNode) {
     const isParquet = ext === 'parquet';
     const isCsv = ext === 'csv' || ext === 'tsv';
     const isJson = ext === 'json' || paimonJson;
-    const isText = ['txt', 'log', 'yaml', 'yml'].includes(ext) || paimonText;
+    // Plain-text formats rendered as-is in the text viewer. Markdown is shown as
+    // source: a dataset README is worth reading, and rendering it would mean
+    // pulling a markdown parser plus sanitiser into the shared library.
+    const isText =
+      ['txt', 'log', 'yaml', 'yml', 'md', 'markdown', 'sql', 'toml', 'ini', 'conf'].includes(ext) ||
+      paimonText;
     const tabular = isParquet || isCsv || isAvro;
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
     const isPdf = ext === 'pdf';
@@ -840,6 +845,9 @@ function fileIcon(name: string): string {
   if (ext === 'pdf') return 'mdi-file-pdf-box';
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '')) return 'mdi-image-outline';
   if (['csv', 'tsv'].includes(ext || '')) return 'mdi-file-delimited-outline';
+  if (['md', 'markdown'].includes(ext || '')) return 'mdi-language-markdown-outline';
+  if (['txt', 'log', 'yaml', 'yml', 'sql', 'toml', 'ini', 'conf'].includes(ext || ''))
+    return 'mdi-file-document-outline';
   return 'mdi-file-outline';
 }
 
