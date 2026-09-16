@@ -1,5 +1,10 @@
 <template>
-  <v-container fluid class="pa-0">
+  <!-- Bounded height comes from the tab item (the page gives it `height: 100%`),
+       never from the viewport: the table used to size itself with
+       `calc(100vh - <magic>)`, which ignores the chrome actually above it, so on
+       a warehouse page it overflowed the tab window — which clips rather than
+       scrolls — and the scrollbar was nowhere to be found. -->
+  <v-container fluid class="pa-0 d-flex flex-column" style="height: 100%">
     <v-toolbar color="transparent" density="compact" flat>
       <v-toolbar-title>Task Management</v-toolbar-title>
       <v-spacer></v-spacer>
@@ -301,126 +306,130 @@
       </v-btn>
     </div>
 
-    <v-data-table
-      v-if="!hasError"
-      :loading="tasksLoading"
-      :headers="taskHeaders"
-      :items="tasks"
-      :items-per-page="currentPaginationOptions.itemsPerPage"
-      :items-per-page-options="[
-        { title: '25', value: 25 },
-        { title: '50', value: 50 },
-        { title: '100', value: 100 },
-      ]"
-      hover
-      density="compact"
-      fixed-header
-      :height="showFilters ? 'calc(100vh - 610px)' : 'calc(100vh - 380px)'"
-      @update:options="handlePaginationUpdate">
-      <template #item.entity-name="{ item }">
-        <span
-          class="text-wrap"
-          style="
-            word-break: break-all;
-            white-space: normal;
-            line-height: 1.2;
-            max-width: 120px;
-            display: inline-block;
-            overflow-wrap: anywhere;
-          ">
-          {{
-            Array.isArray(item['entity-name']) ? item['entity-name'].join('.') : item['entity-name']
-          }}
-        </span>
-      </template>
-      <template #item.status="{ item }">
-        <v-chip :color="getStatusColor(item.status)" size="x-small" variant="flat">
-          {{ item.status }}
-        </v-chip>
-      </template>
+    <div style="flex: 1; min-height: 0">
+      <v-data-table
+        v-if="!hasError"
+        :loading="tasksLoading"
+        :headers="taskHeaders"
+        :items="tasks"
+        :items-per-page="currentPaginationOptions.itemsPerPage"
+        :items-per-page-options="[
+          { title: '25', value: 25 },
+          { title: '50', value: 50 },
+          { title: '100', value: 100 },
+        ]"
+        hover
+        density="compact"
+        fixed-header
+        height="100%"
+        @update:options="handlePaginationUpdate">
+        <template #item.entity-name="{ item }">
+          <span
+            class="text-wrap"
+            style="
+              word-break: break-all;
+              white-space: normal;
+              line-height: 1.2;
+              max-width: 120px;
+              display: inline-block;
+              overflow-wrap: anywhere;
+            ">
+            {{
+              Array.isArray(item['entity-name'])
+                ? item['entity-name'].join('.')
+                : item['entity-name']
+            }}
+          </span>
+        </template>
+        <template #item.status="{ item }">
+          <v-chip :color="getStatusColor(item.status)" size="x-small" variant="flat">
+            {{ item.status }}
+          </v-chip>
+        </template>
 
-      <template #item.task-id="{ item }">
-        <div class="d-flex align-center" style="gap: 2px">
-          <code class="text-caption" :title="item['task-id']">
-            {{ item['task-id'].slice(0, 8) }}…
-          </code>
+        <template #item.task-id="{ item }">
+          <div class="d-flex align-center" style="gap: 2px">
+            <code class="text-caption" :title="item['task-id']">
+              {{ item['task-id'].slice(0, 8) }}…
+            </code>
+            <v-btn
+              icon="mdi-content-copy"
+              size="x-small"
+              variant="text"
+              density="comfortable"
+              @click="functions.copyToClipboard(item['task-id'])"></v-btn>
+          </div>
+        </template>
+
+        <template #item.queue-name="{ item }">
+          {{ formatQueueName(item['queue-name']) }}
+        </template>
+
+        <template #item.progress="{ item }">
+          <v-progress-linear
+            :model-value="item.progress * 100"
+            :color="getStatusColor(item.status)"
+            height="6"
+            rounded></v-progress-linear>
+          <span class="text-caption">{{ Math.round(item.progress * 100) }}%</span>
+        </template>
+
+        <template #item.created-at="{ item }">
+          {{ formatDateTime(item['created-at']) }}
+        </template>
+
+        <template #item.scheduled-for="{ item }">
+          {{ formatDateTime(item['scheduled-for']) }}
+        </template>
+
+        <template #item.actions="{ item }">
           <v-btn
-            icon="mdi-content-copy"
+            icon="mdi-information"
             size="x-small"
             variant="text"
-            density="comfortable"
-            @click="functions.copyToClipboard(item['task-id'])"></v-btn>
-        </div>
-      </template>
+            @click="viewTaskDetails(item)"></v-btn>
+          <v-btn
+            v-if="item.status === 'RUNNING' && canControlTasks"
+            icon="mdi-stop"
+            size="x-small"
+            variant="text"
+            color="warning"
+            @click="stopTask(item)"></v-btn>
+          <v-btn
+            v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
+            icon="mdi-cancel"
+            size="x-small"
+            variant="text"
+            color="error"
+            @click="cancelTask(item)"></v-btn>
+          <v-btn
+            v-if="item.status === 'SCHEDULED' && canControlTasks"
+            icon="mdi-play"
+            size="x-small"
+            variant="text"
+            color="success"
+            @click="runTaskNow(item)"></v-btn>
+        </template>
 
-      <template #item.queue-name="{ item }">
-        {{ formatQueueName(item['queue-name']) }}
-      </template>
-
-      <template #item.progress="{ item }">
-        <v-progress-linear
-          :model-value="item.progress * 100"
-          :color="getStatusColor(item.status)"
-          height="6"
-          rounded></v-progress-linear>
-        <span class="text-caption">{{ Math.round(item.progress * 100) }}%</span>
-      </template>
-
-      <template #item.created-at="{ item }">
-        {{ formatDateTime(item['created-at']) }}
-      </template>
-
-      <template #item.scheduled-for="{ item }">
-        {{ formatDateTime(item['scheduled-for']) }}
-      </template>
-
-      <template #item.actions="{ item }">
-        <v-btn
-          icon="mdi-information"
-          size="x-small"
-          variant="text"
-          @click="viewTaskDetails(item)"></v-btn>
-        <v-btn
-          v-if="item.status === 'RUNNING' && canControlTasks"
-          icon="mdi-stop"
-          size="x-small"
-          variant="text"
-          color="warning"
-          @click="stopTask(item)"></v-btn>
-        <v-btn
-          v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
-          icon="mdi-cancel"
-          size="x-small"
-          variant="text"
-          color="error"
-          @click="cancelTask(item)"></v-btn>
-        <v-btn
-          v-if="item.status === 'SCHEDULED' && canControlTasks"
-          icon="mdi-play"
-          size="x-small"
-          variant="text"
-          color="success"
-          @click="runTaskNow(item)"></v-btn>
-      </template>
-
-      <template #no-data>
-        <v-empty-state
-          v-if="hasError"
-          icon="mdi-alert-circle-outline"
-          color="warning"
-          title="Unable to load tasks"
-          :text="errorMessage">
-          <template #actions>
-            <v-btn color="primary" variant="outlined" @click="refreshTasks">Try Again</v-btn>
-          </template>
-        </v-empty-state>
-        <v-empty-state
-          v-else
-          icon="mdi-clipboard-list-outline"
-          title="No tasks found"
-          :text="`No tasks have been created for this ${props.entityType || 'warehouse'} yet.`"></v-empty-state>
-      </template>
-    </v-data-table>
+        <template #no-data>
+          <v-empty-state
+            v-if="hasError"
+            icon="mdi-alert-circle-outline"
+            color="warning"
+            title="Unable to load tasks"
+            :text="errorMessage">
+            <template #actions>
+              <v-btn color="primary" variant="outlined" @click="refreshTasks">Try Again</v-btn>
+            </template>
+          </v-empty-state>
+          <v-empty-state
+            v-else
+            icon="mdi-clipboard-list-outline"
+            title="No tasks found"
+            :text="`No tasks have been created for this ${props.entityType || 'warehouse'} yet.`"></v-empty-state>
+        </template>
+      </v-data-table>
+    </div>
 
     <!-- Error state display when data table is hidden -->
     <v-empty-state
