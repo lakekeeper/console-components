@@ -5,7 +5,7 @@ import { ConnectionPool } from './ConnectionPool';
 import { TokenManager } from './TokenManager';
 import { CatalogManager } from './CatalogManager';
 import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
-import { friendlyQueryError } from './queryError';
+import { explainQueryFailure } from './queryError';
 import { createWorkerBootstrap } from './workerBootstrap';
 import { toPlainCellValue } from './arrowValue';
 
@@ -346,7 +346,7 @@ export class LoQEEngine {
         const casted = /unsupported arrow type/i.test(msg)
           ? await this.buildArrowSafeQuery(pooled.connection, sql)
           : null;
-        if (!casted) throw friendlyQueryError(err, msg);
+        if (!casted) throw await explainQueryFailure(err, msg, sql);
         result = await exec(casted);
       }
       const elapsed = performance.now() - start;

@@ -1,3 +1,5 @@
+import { diagnoseReachability, extractUrl } from '@/common/storageReachability';
+
 /**
  * Translate DuckDB-WASM storage failures into actionable messages.
  *
@@ -49,4 +51,42 @@ export function friendlyQueryError(err: unknown, msg: string): unknown {
     );
   }
   return err;
+}
+
+/**
+ * The same translation, but allowed to check before it accuses. DuckDB cannot
+ * tell a blocked port from a missing CORS rule — neither can the browser — so
+ * for failures that name a URL we establish reachability first and only fall
+ * back to the CORS/credentials wording when the host actually answered.
+ *
+ * Async, hence separate from `friendlyQueryError`: callers that cannot await
+ * (or have no URL) keep the synchronous behaviour.
+ */
+export async function explainQueryFailure(
+  err: unknown,
+  msg: string,
+  sql?: string,
+): Promise<unknown> {
+  const url = extractUrl(msg);
+  if (!url) return friendlyQueryError(err, msg);
+
+  const verdict = await diagnoseReachability(url, { operation: isWriteStatement(sql) });
+  // 'blocked' means the endpoint answered and the browser refused the response —
+  // exactly the case the CORS/credentials text was written for.
+  if (verdict.kind === 'blocked' || verdict.kind === 'unknown') {
+    return friendlyQueryError(err, msg);
+  }
+  return new Error(verdict.message, { cause: err });
+}
+
+/**
+ * Whether the statement writes. A failed write narrows the causes — the probe only
+ * proves GET-shaped traffic gets through — so the verdict can be more specific
+ * (lakekeeper/lakekeeper#2011, where INSERT failed while SELECT worked and the
+ * message blamed CORS anyway).
+ */
+export function isWriteStatement(sql: string | undefined): 'read' | 'write' {
+  return /^\s*(insert|update|delete|merge|create|drop|alter|copy|truncate)\b/i.test(sql || '')
+    ? 'write'
+    : 'read';
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { friendlyQueryError } from './queryError';
+import { friendlyQueryError, isWriteStatement } from './queryError';
 
 // friendlyQueryError explains unsupported ADLS operations and turns DuckDB-WASM's
 // opaque storage-read failures into an actionable "Configure CORS" message across
@@ -78,5 +78,19 @@ describe('friendlyQueryError', () => {
   it('a genuine "table does not exist" → passes through (not a storage-access failure)', () => {
     const msg = 'Catalog Error: Table with name demo_tbl does not exist!';
     expect(friendlyQueryError(original, msg)).toBe(original);
+  });
+});
+
+describe('isWriteStatement', () => {
+  it('recognises the statements that write', () => {
+    expect(isWriteStatement("INSERT INTO t VALUES ('x')")).toBe('write');
+    expect(isWriteStatement('  update t set a = 1')).toBe('write');
+    expect(isWriteStatement('CREATE TABLE t (a INT)')).toBe('write');
+    expect(isWriteStatement('MERGE INTO t USING s ON t.id = s.id')).toBe('write');
+  });
+
+  it('treats reads — and anything unknown — as reads', () => {
+    expect(isWriteStatement('SELECT * FROM t')).toBe('read');
+    expect(isWriteStatement(undefined)).toBe('read');
   });
 });
