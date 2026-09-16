@@ -125,6 +125,22 @@
                   </v-chip>
                 </td>
               </tr>
+              <!-- The third-party licence list. Both apps route it at
+                   /dependencies; it sits here rather than in the footer, which is
+                   chrome on every page for something you look up once. -->
+              <tr>
+                <td class="font-weight-medium">Dependencies</td>
+                <td>
+                  <v-btn
+                    to="/dependencies"
+                    prepend-icon="mdi-package-variant"
+                    size="small"
+                    variant="text"
+                    class="px-1">
+                    Third-party licences
+                  </v-btn>
+                </td>
+              </tr>
             </tbody>
           </v-table>
         </v-card>
