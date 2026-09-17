@@ -66,6 +66,27 @@ export function extractUrl(text: string): string | undefined {
   return m ? m[0] : undefined;
 }
 
+/**
+ * How long the opaque probe may take before "unreachable" is the answer. Short
+ * on purpose: this runs while someone waits for an error message, and a host
+ * that has not answered in this long is not going to make the query work.
+ */
+const PROBE_TIMEOUT_MS = 5_000;
+
+/**
+ * The origin to name in a message, for a URL that may not parse. `staticVerdict`
+ * returns null (not a verdict) for an unparseable URL, so one can reach the
+ * messages below; `new URL()` there would throw and reject the whole diagnosis,
+ * replacing a useful message with a crash.
+ */
+function originOf(url: string): string {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return url;
+  }
+}
+
 function portOf(u: URL): number {
   if (u.port) return Number(u.port);
   return u.protocol === 'https:' ? 443 : 80;
@@ -121,12 +142,27 @@ export function staticVerdict(
 export async function probeReachable(
   url: string,
   fetchImpl: typeof fetch = globalThis.fetch,
+  timeoutMs = PROBE_TIMEOUT_MS,
 ): Promise<boolean> {
+  // A refused connection fails fast, but a blackholed host (dropped packets, a
+  // filtering proxy that never answers) leaves the fetch pending — and this
+  // diagnosis runs before the error message is shown, so a hanging probe hangs
+  // the message. A timeout is itself a failure to reach, so it takes the same
+  // path as any other rejection.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    await fetchImpl(url, { method: 'GET', mode: 'no-cors', cache: 'no-store' });
+    await fetchImpl(url, {
+      method: 'GET',
+      mode: 'no-cors',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
     return true;
   } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -197,7 +233,7 @@ export async function diagnoseReachability(
         kind: 'unreachable',
         url,
         message:
-          `The storage endpoint (${new URL(url).origin}) could not be reached from this browser. ` +
+          `The storage endpoint (${originOf(url)}) could not be reached from this browser. ` +
           'The request produced no response at all — check that the host resolves, the port is ' +
           'open to the browser, TLS is valid, and no extension or proxy is filtering it. This is ' +
           'not a CORS problem: a CORS rejection still produces a response.',

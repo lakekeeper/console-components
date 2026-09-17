@@ -706,7 +706,11 @@ async function openPreview(node: TreeNode) {
     const tabular = isParquet || isCsv || isAvro;
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
     const isPdf = ext === 'pdf';
-    if (tabular && node.size != null && node.size > PREVIEW_SIZE_CAP) {
+    // The cap covers text and JSON as well as the tabular formats: the text
+    // viewer only shows the first 200k characters, but it got there by
+    // downloading and decoding the whole object first — which a multi-gigabyte
+    // log or SQL dump makes expensive enough to hang the tab.
+    if ((tabular || isText || isJson) && node.size != null && node.size > PREVIEW_SIZE_CAP) {
       previewKind.value = 'toolarge';
       return;
     }

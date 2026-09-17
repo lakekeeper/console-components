@@ -67,10 +67,43 @@ describe('probeReachable', () => {
       false,
     );
   });
+
+  it('gives up on a host that never answers', async () => {
+    // A blackholed host leaves the fetch pending; the diagnosis runs while
+    // someone waits for an error message, so the timeout has to end it.
+    const f = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => reject(new DOMException('', 'AbortError')));
+        }),
+    );
+    await expect(probeReachable('https://host/x', f as unknown as typeof fetch, 5)).resolves.toBe(
+      false,
+    );
+  });
+
+  it('passes an abort signal so the timer can cancel the request', async () => {
+    const f = vi.fn().mockResolvedValue({ type: 'opaque' });
+    await probeReachable('https://host/x', f as unknown as typeof fetch);
+    expect(f.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+  });
 });
 
 describe('diagnoseReachability', () => {
   const online = true;
+
+  it('still reports a verdict for a URL that does not parse', async () => {
+    // staticVerdict returns null (not a verdict) for an unparseable URL, so one
+    // reaches the messages below — where formatting it must not throw.
+    const f = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
+    const v = await diagnoseReachability('http://[oops', {
+      online,
+      pageProtocol: 'http:',
+      fetchImpl: f as unknown as typeof fetch,
+    });
+    expect(v.kind).toBe('unreachable');
+    expect(v.message).toContain('http://[oops');
+  });
 
   it('never mentions CORS when the request could not leave the browser', async () => {
     const v = await diagnoseReachability('http://host:10080/b/k', {

@@ -633,23 +633,9 @@ const authMode = computed({
 // s3-compat storage (MinIO etc.) can vend without a role; everything else needs one.
 const stsArnRequired = computed(() => props.flavor !== 's3-compat' && !profile['assume-role-arn']);
 
-// Clearing STS-only fields keeps them out of the submitted payload.
-watch(
-  () => profile['sts-enabled'],
-  (enabled) => {
-    if (!enabled) {
-      profile['sts-role-arn'] = undefined;
-      profile['sts-endpoint'] = undefined;
-      profile['sts-session-tags'] = undefined;
-    }
-  },
-);
-watch(
-  () => profile['remote-signing-enabled'],
-  (enabled) => {
-    if (!enabled) profile['remote-signing-url-style'] = undefined;
-  },
-);
+// Disabling a path deliberately leaves its fields alone: `getData` drops them
+// from the payload anyway, and clearing them here loses a typed role ARN the
+// moment someone toggles STS off and on again while comparing the two paths.
 
 const urlStyles = [
   { name: 'Path', code: 'path' },

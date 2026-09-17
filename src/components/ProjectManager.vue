@@ -36,10 +36,11 @@
           Statistics
         </v-tab>
       </v-tabs>
-      <v-tabs-window
-        v-model="tab"
-        crossfade
-        style="max-height: calc(100vh - 140px); overflow-y: auto">
+      <!-- A definite height, not max-height: the task and statistics items below
+           take `height: 100%`, and a percentage against an auto-height parent
+           resolves to auto — which is how the task table ended up sizing itself
+           from its own content instead of from the window. -->
+      <v-tabs-window v-model="tab" crossfade style="height: calc(100vh - 140px); overflow-y: auto">
         <v-tabs-window-item value="overview" v-if="userStorage.isAuthenticated">
           <v-list lines="two" subheader>
             <v-list-subheader>Selected Project</v-list-subheader>
