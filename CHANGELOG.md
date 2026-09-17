@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.24.0](https://github.com/lakekeeper/console-components/compare/v0.23.0...v0.24.0) (2026-09-17)
+
+
+### Features
+
+* **loqe:** read ADLS warehouses via the azure_wasm community extension ([#281](https://github.com/lakekeeper/console-components/issues/281)) ([c6a77b9](https://github.com/lakekeeper/console-components/commit/c6a77b937bb646fb1c449e49fa880043ead0dc97))
+* **ui:** establish why a storage request failed instead of blaming CORS ([31604a5](https://github.com/lakekeeper/console-components/commit/31604a59c446883a76dd8c4d019b2c25f9f48ce4))
+* **ui:** export permissionActions from the package entry ([31604a5](https://github.com/lakekeeper/console-components/commit/31604a59c446883a76dd8c4d019b2c25f9f48ce4))
+* **ui:** link the dependency list from Server Information ([31604a5](https://github.com/lakekeeper/console-components/commit/31604a59c446883a76dd8c4d019b2c25f9f48ce4))
+* **ui:** order and hide storage providers in the Add-Warehouse rail ([e2ea8ab](https://github.com/lakekeeper/console-components/commit/e2ea8aba61034c43a3635742fc927ad9c76248d2))
+* **ui:** preview markdown, SQL and config files in the storage explorer ([31604a5](https://github.com/lakekeeper/console-components/commit/31604a59c446883a76dd8c4d019b2c25f9f48ce4))
+
+
+### Bug Fixes
+
+* **ui:** allow remote signing and vended credentials at the same time ([31604a5](https://github.com/lakekeeper/console-components/commit/31604a59c446883a76dd8c4d019b2c25f9f48ce4))
+* **ui:** size task tables from their container, not the viewport ([31604a5](https://github.com/lakekeeper/console-components/commit/31604a59c446883a76dd8c4d019b2c25f9f48ce4))
+
 ## [0.23.0](https://github.com/lakekeeper/console-components/compare/v0.22.0...v0.23.0) (2026-09-11)
 
 
