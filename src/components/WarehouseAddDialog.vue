@@ -602,7 +602,7 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref, watch, computed, onMounted } from 'vue';
+import { reactive, ref, watch, computed, inject, onMounted } from 'vue';
 import { useFunctions, handleError } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import WarehouseStorageFormS3 from './WarehouseStorageFormS3.vue';
@@ -631,10 +631,25 @@ import {
 } from '../gen/management/types.gen';
 import { Intent, ObjectType, Type } from '../common/enums';
 import { WarehousObject } from '@/common/interfaces';
+import { applyStorageProviderPreferences } from '../common/storageProviderOrder';
 import { useUserStore } from '../stores/user';
 
 const visual = useVisualStore();
 const userStore = useUserStore();
+
+// Deployment hints for the provider rail. Only the enterprise app injects these
+// (from LAKEKEEPER__UI__STORAGE_PROVIDERS_ORDER / _HIDDEN), so they are absent
+// — and the rail is unchanged — in the OSS console.
+const appConfig = inject<{
+  edition?: string;
+  storageProvidersOrder?: string;
+  storageProvidersHidden?: string;
+} | null>('appConfig', null);
+const storageProviderHints = computed(() =>
+  appConfig?.edition === 'enterprise'
+    ? { order: appConfig.storageProvidersOrder, hidden: appConfig.storageProvidersHidden }
+    : {},
+);
 // Managed-by can only be changed by instance admins (lakekeeper#1828).
 const isInstanceAdmin = computed(() => userStore.isInstanceAdmin === true);
 const projectId = computed(() => {
@@ -948,7 +963,7 @@ function resetCreateForm() {
   // Back to the pane and provider the dialog opens on, so re-opening it after a
   // create doesn't land on a provider tab with no form under it.
   pane.value = 'SETTINGS';
-  storageCredentialType.value = 'S3';
+  storageCredentialType.value = defaultStorageProvider.value;
   slider.value = 7;
   delProfileSoftActive.value = false;
   policyAllowed.value = [1, 2, 3];
@@ -1176,12 +1191,33 @@ const storageProviders = computed(() => [
 ]);
 
 // An existing warehouse cannot change storage type, so only its own provider is
-// offered; the create flow advertises all of them.
-const visibleProviders = computed(() =>
-  isCreateFlow.value
-    ? storageProviders.value
-    : storageProviders.value.filter((p) => p.value === storageCredentialType.value),
-);
+// offered; the create flow advertises all of them, reordered and filtered by the
+// deployment's hints. The hints are deliberately not applied in the settings
+// flow: hiding the provider an existing warehouse already uses would leave it
+// with an empty rail and no way to reach its own storage pane.
+const visibleProviders = computed(() => {
+  if (!isCreateFlow.value) {
+    return storageProviders.value.filter((p) => p.value === storageCredentialType.value);
+  }
+  const preferred = applyStorageProviderPreferences(
+    storageProviders.value,
+    storageProviderHints.value.order,
+    storageProviderHints.value.hidden,
+  );
+  // Importing a warehouse config selects whichever provider the file describes,
+  // which may be one the deployment hides. Its form is then on screen, so it
+  // belongs in the rail too — otherwise the pane has no entry marked beside it
+  // and no way back to it.
+  const selected = storageProviders.value.find((p) => p.value === storageCredentialType.value);
+  if (selected && !preferred.includes(selected)) preferred.push(selected);
+  return preferred;
+});
+
+// Which provider the create flow opens on. It has to follow the rail rather than
+// being a fixed 'S3': with an order hint the deployment's own provider is the one
+// to land on, and with a hidden hint a fixed default could select a provider the
+// rail no longer offers — a form with nothing marked in the rail beside it.
+const defaultStorageProvider = computed(() => visibleProviders.value[0]?.value ?? 'S3');
 
 // Only the settings flow has an existing warehouse to test against; the create
 // flow has a configuration and nothing else.
@@ -1611,7 +1647,7 @@ onMounted(() => {
   if (isCreateFlow.value) {
     // A provider is always shown selected, so the create flow needs one up front
     // (the old tab strip opened with none selected and no form beneath it).
-    storageCredentialType.value = 'S3';
+    storageCredentialType.value = defaultStorageProvider.value;
     return;
   }
   if (props.warehouse) {
