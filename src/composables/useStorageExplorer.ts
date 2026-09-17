@@ -12,6 +12,7 @@
  * the UI surfaces verbatim.
  */
 import { AwsClient } from 'aws4fetch';
+import { diagnoseReachability } from '@/common/storageReachability';
 
 export interface StorageEntry {
   /** Leaf display name (no trailing slash). */
@@ -32,7 +33,7 @@ export interface StorageLoadResult {
 export class StorageListError extends Error {
   constructor(
     message: string,
-    public kind: 'cors' | 'forbidden' | 'unsupported' | 'http' | 'config',
+    public kind: 'cors' | 'network' | 'forbidden' | 'unsupported' | 'http' | 'config',
     public status?: number,
   ) {
     super(message);
@@ -97,12 +98,20 @@ const leafName = (path: string) => {
   return i === -1 ? trimmed : trimmed.slice(i + 1);
 };
 
-// Bare network failures from fetch surface as TypeError — almost always CORS.
-function asCors(e: unknown): never {
-  throw new StorageListError(
-    `${(e as Error)?.message || e}. This is almost always a CORS failure — the bucket/account ` +
-      `does not allow this origin. Configure CORS on the storage, or list via the backend.`,
-    'cors',
+// A bare `TypeError: Failed to fetch` says nothing: the browser hides whether the
+// request was rejected, never sent, or never answered. Establish which before
+// naming a cause — blaming CORS by default sends people to reconfigure a bucket
+// that was never asked anything (lakekeeper/lakekeeper#2010).
+async function networkFailure(
+  e: unknown,
+  url: string,
+  operation: 'read' | 'write' = 'read',
+): Promise<StorageListError> {
+  const verdict = await diagnoseReachability(url, { operation });
+  const detail = (e as Error)?.message ? ` (${(e as Error).message})` : '';
+  return new StorageListError(
+    verdict.message + detail,
+    verdict.kind === 'blocked' || verdict.kind === 'write-blocked' ? 'cors' : 'network',
   );
 }
 
@@ -136,7 +145,7 @@ async function listS3(
   try {
     resp = await client.fetch(url, { method: 'GET' });
   } catch (e) {
-    asCors(e);
+    throw await networkFailure(e, url);
   }
   const text = await resp.text();
   if (!resp.ok) {
@@ -189,7 +198,7 @@ async function listAdls(
   try {
     resp = await fetch(url, { method: 'GET' });
   } catch (e) {
-    asCors(e);
+    throw await networkFailure(e, url);
   }
   const text = await resp.text();
   if (!resp.ok) {
@@ -234,7 +243,7 @@ async function listGcs(
   try {
     resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
   } catch (e) {
-    asCors(e);
+    throw await networkFailure(e, url);
   }
   const text = await resp.text();
   if (!resp.ok) {
@@ -293,7 +302,7 @@ async function getObjectBytes(res: StorageLoadResult, absPath: string): Promise<
     try {
       resp = await client.fetch(url, { method: 'GET' });
     } catch (e) {
-      asCors(e);
+      throw await networkFailure(e, url);
     }
   } else if (parsed.kind === 'adls') {
     const sasKey = Object.keys(cfg).find((k) => k.startsWith('adls.sas-token.'));
@@ -304,7 +313,7 @@ async function getObjectBytes(res: StorageLoadResult, absPath: string): Promise<
     try {
       resp = await fetch(url, { method: 'GET' });
     } catch (e) {
-      asCors(e);
+      throw await networkFailure(e, url);
     }
   } else if (parsed.kind === 'gcs') {
     const token = cfg['gcs.oauth2.token'];
@@ -313,7 +322,7 @@ async function getObjectBytes(res: StorageLoadResult, absPath: string): Promise<
     try {
       resp = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
     } catch (e) {
-      asCors(e);
+      throw await networkFailure(e, url);
     }
   } else {
     throw new StorageListError(`Scheme "${parsed.scheme}" not supported`, 'unsupported');
@@ -366,8 +375,9 @@ function xhrPut(
     xhr.onerror = () =>
       reject(
         new StorageListError(
-          'Network error during upload — likely a CORS misconfiguration on the bucket.',
-          'cors',
+          'The upload produced no response. The endpoint may be unreachable from the browser, ' +
+            'or the bucket may not allow this origin — open the file list to run the check.',
+          'network',
         ),
       );
     xhr.send(file);
@@ -443,7 +453,7 @@ async function deleteS3(
   try {
     resp = await client.fetch(url, { method: 'DELETE' });
   } catch (e) {
-    asCors(e);
+    throw await networkFailure(e, url, 'write');
   }
   if (!resp.ok && resp.status !== 204) {
     const t = await resp.text().catch(() => '');
@@ -475,7 +485,7 @@ async function putAdls(
   try {
     resp = await fetch(`${base}?resource=file&overwrite=true&${sasQ}`, { method: 'PUT' });
   } catch (e) {
-    asCors(e);
+    throw await networkFailure(e, base, 'write');
   }
   if (!resp.ok) {
     const t = await resp.text().catch(() => '');
@@ -507,7 +517,14 @@ async function putAdls(
           ),
         );
     };
-    xhr.onerror = () => reject(new StorageListError('Network error during ADLS upload', 'cors'));
+    xhr.onerror = () =>
+      reject(
+        new StorageListError(
+          'The upload produced no response. The endpoint may be unreachable from the browser, ' +
+            'or the bucket may not allow this origin — open the file list to run the check.',
+          'network',
+        ),
+      );
     xhr.send(file);
   });
 
@@ -515,7 +532,7 @@ async function putAdls(
   try {
     resp = await fetch(`${base}?action=flush&position=${file.size}&${sasQ}`, { method: 'PATCH' });
   } catch (e) {
-    asCors(e);
+    throw await networkFailure(e, base, 'write');
   }
   if (!resp.ok) {
     const t = await resp.text().catch(() => '');
@@ -543,7 +560,7 @@ async function deleteAdls(
   try {
     resp = await fetch(url, { method: 'DELETE' });
   } catch (e) {
-    asCors(e);
+    throw await networkFailure(e, url, 'write');
   }
   // 404 is idempotent — file already gone
   if (!resp.ok && resp.status !== 404) {
@@ -590,7 +607,7 @@ async function deleteGcs(
   try {
     resp = await fetch(url, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
   } catch (e) {
-    asCors(e);
+    throw await networkFailure(e, url, 'write');
   }
   // 204 and 404 are both acceptable — object is gone either way
   if (!resp.ok && resp.status !== 204 && resp.status !== 404) {

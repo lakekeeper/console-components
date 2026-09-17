@@ -627,3 +627,8 @@ export type {
   LoQEPersistedCatalog,
   AttachedCatalog,
 } from './composables/loqe/types';
+
+// Runtime action lists (the enums are types only). Exported so panes that let a
+// user pick an action — e.g. the Cedar resolve/check pane in the Plus console —
+// read the same list the permission UI does instead of copying the union.
+export { permissionActions } from './common/permissionActions';
