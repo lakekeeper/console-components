@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.25.0](https://github.com/lakekeeper/console-components/compare/v0.24.0...v0.25.0) (2026-09-23)
+
+
+### Features
+
+* **ui:** check whether the browser itself can reach warehouse storage ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** enable table preview for STACKIT warehouses ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** show Iceberg field docs and tidy the table preview ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+
+
+### Bug Fixes
+
+* **ui:** close the warehouse settings dialog after a storage save ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** correct nav-tree refreshes, doc staleness and the storage probe ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** explain an empty table health tab instead of rendering nothing ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** keep statistics legends on screen when a chart scrolls ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** keep statistics x-axis labels readable ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** keep the navigation trees usable with many warehouses ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** make statistics time axes readable and scrollable ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** make the app bar GitHub link opt-in and lighten the help icon ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** pin async tree work to the selection that started it ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** refresh the navigation tree when tables change ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+* **ui:** stop window panes blending into a light background ([5bc7c0c](https://github.com/lakekeeper/console-components/commit/5bc7c0c7429baf34186b2dddf16dcb918ab91ecc))
+
 ## [0.24.0](https://github.com/lakekeeper/console-components/compare/v0.23.0...v0.24.0) (2026-09-17)
 
 
