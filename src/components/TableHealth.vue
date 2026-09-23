@@ -229,6 +229,15 @@
     </v-col>
   </v-row>
 
+  <!-- Nothing to analyse — say why rather than rendering an empty tab -->
+  <v-alert v-else type="info" variant="tonal" prominent class="mb-4">
+    <div class="text-body-1 font-weight-bold mb-2">
+      <v-icon class="mr-2">mdi-heart-pulse</v-icon>
+      {{ healthEmptyState?.title }}
+    </div>
+    <div class="text-body-2">{{ healthEmptyState?.detail }}</div>
+  </v-alert>
+
   <!-- Snapshot Trends Chart -->
   <v-card
     v-if="healthChecks.length > 0 && healthBranchSnapshots.length > 0"
@@ -1140,6 +1149,52 @@ const healthChecks = computed<HealthCheck[]>(() => {
   return checks;
 });
 
+/**
+ * Why the health tab has nothing to report, or null when it does.
+ *
+ * Every check is derived from the current snapshot's summary, so a table that
+ * has never been written to has nothing to derive from. That is the normal
+ * state of a freshly created table, not a failure — but rendering nothing at
+ * all makes the tab look broken, so the reason is stated instead.
+ */
+const healthEmptyState = computed<{ title: string; detail: string } | null>(() => {
+  if (healthChecks.value.length > 0) return null;
+
+  const metadata = resolvedTable.value?.metadata;
+  if (!metadata) {
+    return {
+      title: 'No table metadata',
+      detail: 'The table metadata could not be read, so no health checks could be run.',
+    };
+  }
+
+  if ((metadata.snapshots?.length ?? 0) === 0) {
+    return {
+      title: 'No health data yet',
+      detail:
+        'This table has no snapshots — nothing has been written to it since it was created. ' +
+        "Health checks are derived from the current snapshot's summary statistics, so they " +
+        'appear after the first write.',
+    };
+  }
+
+  if (!healthBranchSnapshot.value) {
+    return {
+      title: `Branch ‘${selectedBranch.value}’ has no snapshot`,
+      detail:
+        'The table has snapshots, but none on this branch. Switch to a branch that has been ' +
+        'written to in order to see its health.',
+    };
+  }
+
+  return {
+    title: 'No health data for this snapshot',
+    detail:
+      'The current snapshot carries no summary statistics, which health checks are derived ' +
+      'from. The writer that produced it did not record them.',
+  };
+});
+
 const overallHealthColor = computed(() => {
   if (healthChecks.value.some((c) => c.severity === 'Critical')) return 'error';
   if (healthChecks.value.some((c) => c.severity === 'Warning')) return 'warning';
@@ -1519,6 +1574,9 @@ const isTablePartitioned = computed(() => {
 const partitionChartAvailable = computed(() => {
   if (!props.warehouseId || !props.namespaceId || !props.tableName || !props.catalogUrl)
     return false;
+  // iceberg_metadata() reads manifests, of which an unwritten table has none:
+  // querying it would surface a DuckDB error where the honest answer is "empty".
+  if (!healthBranchSnapshot.value) return false;
   return isTablePartitioned.value;
 });
 
