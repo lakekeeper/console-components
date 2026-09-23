@@ -850,10 +850,20 @@ function drawAreaChart() {
     scrollToLatest(scroller);
   }
 
-  // Legend
-  const legend = svg
-    .append('g')
-    .attr('transform', `translate(${width - 180}, -8)`)
+  // Legend. Anchored to the canvas it would sit at x = width - 180, which on a
+  // 194,000px plot means "visible only at the far right"; when the plot scrolls
+  // it goes into a fixed overlay instead.
+  const legendHost = scrolls
+    ? root
+        .append('svg')
+        .attr('class', 'chart-legend chart-legend--top-right')
+        .attr('width', 180)
+        .attr('height', 18)
+        .append('g')
+        .attr('transform', 'translate(0,12)')
+    : svg.append('g').attr('transform', `translate(${width - 180}, -8)`);
+
+  const legend = legendHost
     .selectAll('.leg')
     .data(STATUS_CATEGORIES)
     .join('g')
@@ -1253,9 +1263,17 @@ function drawObjectsChart() {
     { label: 'Views', color: VIEWS_COLOR },
   ];
   const legendWidth = legendData.length * 65;
-  const legend = svg
-    .append('g')
-    .attr('transform', `translate(${(width - legendWidth) / 2}, ${height + 55})`)
+  const objectsLegendHost = scrolls
+    ? root
+        .append('svg')
+        .attr('class', 'chart-legend chart-legend--bottom')
+        .attr('width', legendWidth)
+        .attr('height', 18)
+        .append('g')
+        .attr('transform', 'translate(0,12)')
+    : svg.append('g').attr('transform', `translate(${(width - legendWidth) / 2}, ${height + 55})`);
+
+  const legend = objectsLegendHost
     .selectAll('.leg')
     .data(legendData)
     .join('g')
@@ -1411,6 +1429,24 @@ defineExpose({ loadStatistics });
 .d3-chart :deep(.chart-scroll) {
   overflow-x: auto;
   overflow-y: hidden;
+}
+
+/* Legends follow the viewport, not the canvas, once a plot scrolls. */
+.d3-chart :deep(.chart-legend) {
+  position: absolute;
+  background: rgb(var(--v-theme-surface));
+  pointer-events: none;
+}
+
+.d3-chart :deep(.chart-legend--top-right) {
+  right: 8px;
+  top: 0;
+}
+
+.d3-chart :deep(.chart-legend--bottom) {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
 }
 
 .d3-chart :deep(.chart-gutter) {
