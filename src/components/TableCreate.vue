@@ -58,7 +58,7 @@
       </v-tabs>
       <v-divider></v-divider>
 
-      <v-tabs-window v-model="formatTab" crossfade class="create-table-window">
+      <v-tabs-window v-model="formatTab" class="create-table-window">
         <v-tabs-window-item value="iceberg" class="create-table-pane">
           <v-card-text ref="icebergBodyRef" style="flex: 1 1 auto; overflow-y: auto; min-height: 0">
             <!-- Table Name -->
@@ -256,6 +256,7 @@ import {
   type TypeNode,
 } from '@/common/icebergTypes';
 import SchemaTypeEditor from './SchemaTypeEditor.vue';
+import { useVisualStore } from '@/stores/visual';
 
 const props = defineProps<{
   warehouseId: string;
@@ -273,9 +274,14 @@ const emit = defineEmits<{
 
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const functions = useFunctions();
+const visual = useVisualStore();
 // Only to invalidate DuckDB's cached metadata after a create — creation itself
 // no longer goes through the engine.
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
+
+/** Tree nodes are keyed by the dot-separated path, whatever separator we were handed. */
+// eslint-disable-next-line no-control-regex
+const namespacePathForTree = computed(() => props.namespaceId.replace(/\x1F/g, '.'));
 
 const dialog = ref(false);
 const formatTab = ref<'iceberg' | 'generic'>('iceberg');
@@ -399,12 +405,20 @@ function closeDialog() {
 async function createTable() {
   if (!canCreate.value) return;
 
+  // Read once, up front: the props can move while the create is in flight (the
+  // host page navigating), and a refresh aimed at a different namespace than the
+  // one just written to would reload the wrong node and leave the new table
+  // missing from the tree.
+  const warehouseId = props.warehouseId;
+  const namespaceId = props.namespaceId;
+  const treePath = namespacePathForTree.value;
+
   isCreating.value = true;
   error.value = null;
   success.value = false;
 
   try {
-    await functions.createIcebergTable(props.warehouseId, props.namespaceId, buildCreateRequest());
+    await functions.createIcebergTable(warehouseId, namespaceId, buildCreateRequest());
 
     // DuckDB caches Iceberg metadata, and attach is idempotent — so a session
     // that already holds this catalog would not see the new table. No-ops when
@@ -412,6 +426,11 @@ async function createTable() {
     await loqe.refreshMetadata().catch(() => {
       /* a stale query cache must not fail the create */
     });
+
+    // Refreshed here rather than by the host page: the navigation tree must
+    // show the new table wherever the dialog was opened from, and a caller
+    // that forgets to wire `created` would otherwise leave it stale.
+    visual.refreshNavTree(warehouseId, treePath);
 
     success.value = true;
     emit('created', tableName.value);

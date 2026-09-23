@@ -31,7 +31,7 @@
     </v-tabs>
     <v-divider></v-divider>
 
-    <v-tabs-window v-model="tab" crossfade>
+    <v-tabs-window v-model="tab">
       <!-- Details -->
       <v-tabs-window-item value="details">
         <div class="pa-4">

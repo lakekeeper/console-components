@@ -299,6 +299,11 @@ function formatIcon(format?: string): string | null {
   }
 }
 
+// The tree ids namespaces by their dot-separated path, the API by \x1F — same
+// conversion TableCreate and TableRegister do before refreshing.
+// eslint-disable-next-line no-control-regex
+const namespacePathForTree = computed(() => props.namespacePath.replace(/\x1F/g, '.'));
+
 const filteredRows = computed(() => {
   if (typeFilter.value === 'all') return loadedRows;
   return loadedRows.filter((r) =>
@@ -357,6 +362,9 @@ async function confirmBulkDelete() {
   bulkDone.value = true;
   const ok = bulkResults.value.filter((r) => r.ok).length;
   const failed = bulkResults.value.length - ok;
+  // Once for the batch: the per-table call reloaded the node N times for one
+  // observable change, and there is nothing to refresh if nothing was deleted.
+  if (ok > 0) visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
   visual.setSnackbarMsg({
     function: 'bulkDeleteTables',
     text: `${ok} deleted${failed ? `, ${failed} failed` : ''}.`,
@@ -451,6 +459,7 @@ async function onDelete(e: any, item: TableRow) {
     } else {
       await functions.dropTable(props.warehouseId, props.namespacePath, item.name, e, notify);
     }
+    visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
     await loadAll();
   } catch (error) {
     functions.handleError(error, `Failed to drop ${item.source}-${item.name}`, true);
@@ -505,6 +514,7 @@ async function executeRename() {
       );
     }
     closeRenameDialog();
+    visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
     await loadAll();
   } catch {
     // error handled by functions plugin

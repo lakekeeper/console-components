@@ -429,7 +429,10 @@
                 </div>
 
                 <div v-show="pane === 'VERIFY'">
-                  <div v-if="!validationReport && !validationError && !validationLoading">
+                  <div
+                    v-if="
+                      !validationReport && !validationError && !validationLoading && !browserCheck
+                    ">
                     <!-- Do not invite an action the buttons currently refuse. -->
                     <v-alert
                       v-if="isCreateFlow && !canSubmit"
@@ -470,6 +473,8 @@
                     :report="validationReport"
                     :loading="validationLoading"
                     :error="validationError"
+                    :browser-check="browserCheck"
+                    :browser-check-loading="browserCheckLoading"
                     hide-close></WarehouseValidationReport>
 
                   <!-- Only the button that was clicked spins; the other is merely
@@ -611,6 +616,10 @@ import WarehouseStorageFormGCS from './WarehouseStorageFormGCS.vue';
 import WarehouseStorageFormOneLake from './WarehouseStorageFormOneLake.vue';
 import WarehouseStorageFormStackit from './WarehouseStorageFormStackit.vue';
 import WarehouseValidationReport from './WarehouseValidationReport.vue';
+import {
+  checkBrowserStorageReachability,
+  type BrowserStorageCheck,
+} from '@/common/browserStorageReachability';
 import ComputeConnectPanel from './ComputeConnectPanel.vue';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
@@ -1047,6 +1056,7 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
     resetCreateForm();
     validationReport.value = null;
     validationError.value = null;
+    clearBrowserCheck();
 
     warehouseName.value = wh['warehouse-name'];
     const data = {
@@ -1277,14 +1287,24 @@ const verifySummary = computed(() => {
   const report = validationReport.value;
   if (!report) return null;
   const failed = report.checks.filter((c) => c.status === 'failed').length;
-  return failed > 0
-    ? {
-        color: 'error',
-        icon: 'mdi-close-circle',
-        text: `${failed} check${failed === 1 ? '' : 's'} failed`,
-        short: String(failed),
-      }
-    : { color: 'success', icon: 'mdi-check-circle', text: 'All checks passed', short: '✓' };
+  if (failed > 0)
+    return {
+      color: 'error',
+      icon: 'mdi-close-circle',
+      text: `${failed} check${failed === 1 ? '' : 's'} failed`,
+      short: String(failed),
+    };
+  // Nothing failed, but "All checks passed" would be untrue with an outstanding
+  // advisory. It stays a warning, never an error: the browser path is not
+  // required for a correct warehouse, so it does not gate Create.
+  if (browserCheck.value?.status === 'warning')
+    return {
+      color: 'warning',
+      icon: 'mdi-alert-circle',
+      text: 'Passed with 1 warning',
+      short: '!',
+    };
+  return { color: 'success', icon: 'mdi-check-circle', text: 'All checks passed', short: '✓' };
 });
 
 // A report describes the config as it was when Verify ran. Editing anything after
@@ -1292,9 +1312,12 @@ const verifySummary = computed(() => {
 // the result is dropped as soon as the form changes.
 watch([() => warehouseName.value, storageCredentialType, storageEdits], () => {
   if (validationLoading.value) return;
-  if (validationReport.value || validationError.value) {
+  if (validationReport.value || validationError.value || browserCheck.value) {
     validationReport.value = null;
     validationError.value = null;
+    // Same staleness rule: an edit to the endpoint, bucket or region changes
+    // which URL the verdict was about.
+    clearBrowserCheck();
   }
 });
 
@@ -1328,6 +1351,10 @@ async function runVerify(): Promise<boolean> {
   validationSource.value = 'config';
   validationReport.value = null;
   validationError.value = null;
+  // Runs against the profile the form is about to submit, in parallel with the
+  // API call: it talks only to the storage endpoint, so there is nothing to
+  // serialise, and the backend result should not wait on a foreign host.
+  startBrowserCheck(data['storage-profile'] as Record<string, any>);
   // Straight to the report, which renders its own loading state — the pane used
   // to flick through Settings while the request was in flight.
   pane.value = 'VERIFY';
@@ -1366,6 +1393,8 @@ async function runStoredAccessTest() {
   validationSource.value = 'stored';
   validationReport.value = null;
   validationError.value = null;
+  // The stored profile, to match what this button checks everywhere else.
+  startBrowserCheck(props.warehouse['storage-profile'] as Record<string, any>);
   pane.value = 'VERIFY';
   try {
     validationReport.value = await functions.validateStorageAccess(props.warehouse.id);
@@ -1440,6 +1469,7 @@ function resetProviderPane() {
   storageFormDirty.value = false;
   validationReport.value = null;
   validationError.value = null;
+  clearBrowserCheck();
   importKey.value++;
 }
 
@@ -1462,6 +1492,7 @@ function handleReset() {
   resetCreateForm();
   validationReport.value = null;
   validationError.value = null;
+  clearBrowserCheck();
   storageCredentialType.value = selectedProvider;
   pane.value = selectedPane;
 }
@@ -1504,6 +1535,39 @@ const validationLoading = ref(false);
 const validationSource = ref<'config' | 'stored' | null>(null);
 const validationReport = ref<ValidateWarehouseResponse | null>(null);
 const validationError = ref<string | null>(null);
+
+// The browser-reachability verdict is kept apart from `validationReport`: it is
+// not something the API returns, and it is advisory — it must never reach
+// `verifySummary`'s failure count or gate the create button. See
+// `browserStorageReachability` for why the server cannot answer this.
+const browserCheck = ref<BrowserStorageCheck | null>(null);
+const browserCheckLoading = ref(false);
+// The probe outlives the API call (it waits on a foreign host, with its own
+// timeout), so a second Verify can start while the first is still in flight.
+// Only the newest run may publish a result.
+let browserCheckRun = 0;
+
+function startBrowserCheck(profile: Record<string, any> | null | undefined) {
+  const run = ++browserCheckRun;
+  browserCheck.value = null;
+  browserCheckLoading.value = true;
+  checkBrowserStorageReachability(profile)
+    .then((result) => {
+      if (run === browserCheckRun) browserCheck.value = result;
+    })
+    .catch(() => {
+      if (run === browserCheckRun) browserCheck.value = null;
+    })
+    .finally(() => {
+      if (run === browserCheckRun) browserCheckLoading.value = false;
+    });
+}
+
+function clearBrowserCheck() {
+  browserCheckRun++;
+  browserCheck.value = null;
+  browserCheckLoading.value = false;
+}
 
 // --- Seeding from an existing warehouse --------------------------------------
 function seedStorageFromWarehouse(wh: GetWarehouseResponse) {
@@ -1672,8 +1736,9 @@ watch(
 );
 
 // An update lands as a new warehouse object from the parent. Re-seed from it so
-// the panes show what is now stored and stop reporting themselves as dirty —
-// without closing the dialog, since the other pane may still have work to do.
+// the panes show what is now stored and stop reporting themselves as dirty,
+// then close: a storage save is the end of the flow, and leaving the dialog up
+// after the success snackbar reads as if nothing happened.
 watch(
   () => props.processStatus,
   (status) => {
@@ -1688,6 +1753,9 @@ watch(
       seedSettingsFromWarehouse();
     }
     resetProviderPane();
+    // Re-seeded above, so nothing is dirty and the unsaved-changes guard has
+    // nothing to warn about.
+    cancelDialog();
   },
 );
 </script>

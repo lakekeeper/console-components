@@ -535,8 +535,11 @@ const searchResults = ref<
 >([]);
 
 // Warehouse options for search picker
+// Includes the warehouses still behind "Load more": the selector picks what to
+// search, and a warehouse that exists but has not been paged into the tree yet
+// is still a valid thing to search.
 const warehouseOptions = computed(() =>
-  treeItems.value
+  [...treeItems.value, ...pendingWarehouses.value]
     .filter((item) => item.type === 'warehouse')
     .map((item) => ({ title: item.name, value: item.warehouseId })),
 );
@@ -716,12 +719,46 @@ function handleCopyPathSearchResult(result: (typeof searchResults.value)[0]) {
 
 // ── Load warehouses ───────────────────────────────────────────────────
 
+/** Root-level "Load more": the warehouse list endpoint returns everything. */
+const WAREHOUSE_LOAD_MORE_ID = 'load-more-warehouses';
+
+/**
+ * How many warehouses are attached without being asked for. Every attach is a
+ * REST config call plus a credential vend, so eagerly attaching a project's
+ * whole list stalls the engine for minutes at a few hundred warehouses.
+ * The rest attach on expand, which is already wired in loadNamespacesForWarehouse.
+ */
+const AUTO_ATTACH_LIMIT = 10;
+
+/** Warehouse nodes fetched but not yet rendered. */
+const pendingWarehouses = ref<TreeItem[]>([]);
+
+function warehouseLoadMoreNode(): TreeItem {
+  return {
+    id: WAREHOUSE_LOAD_MORE_ID,
+    name: `Load more… (${pendingWarehouses.value.length} remaining)`,
+    type: 'load-more' as any,
+    warehouseId: '',
+    loaded: true,
+  } as TreeItem;
+}
+
+function appendWarehousePage() {
+  const next = pendingWarehouses.value.splice(0, TREE_PAGE_SIZE);
+  const rendered = treeItems.value.filter((item) => item.id !== WAREHOUSE_LOAD_MORE_ID);
+  treeItems.value = [
+    ...rendered,
+    ...next,
+    ...(pendingWarehouses.value.length > 0 ? [warehouseLoadMoreNode()] : []),
+  ];
+}
+
 async function loadWarehouses() {
   isLoading.value = true;
   try {
     const response = await functions.listWarehouses(false);
     if (response?.warehouses) {
-      treeItems.value = response.warehouses.map((wh: any) => {
+      const allNodes: TreeItem[] = response.warehouses.map((wh: any) => {
         warehouseNames.set(wh['warehouse-id'] || wh.id, wh.name);
         const sp = wh['storage-profile'];
         return {
@@ -740,10 +777,16 @@ async function loadWarehouses() {
         };
       });
 
-      // Auto-attach every warehouse that isn't already attached so
-      // the user can query any catalog immediately without clicking.
+      pendingWarehouses.value = allNodes.slice(TREE_PAGE_SIZE);
+      treeItems.value = [
+        ...allNodes.slice(0, TREE_PAGE_SIZE),
+        ...(pendingWarehouses.value.length > 0 ? [warehouseLoadMoreNode()] : []),
+      ];
+
+      // Auto-attach the first few so a small instance is queryable without
+      // clicking; beyond that, attaching happens when a warehouse is expanded.
       const catalogUrl = getCatalogUrl();
-      for (const item of treeItems.value) {
+      for (const item of allNodes.slice(0, AUTO_ATTACH_LIMIT)) {
         // Attaching a warehouse that vends nothing buys a failed ATTACH and an
         // error blaming the bucket; the node carries the real reason instead.
         if (item.stsOff) continue;
@@ -1042,6 +1085,12 @@ function makeNestedFieldItems(parent: TreeItem, type: any, path: string): TreeIt
 // ── Handle "Load more…" node clicks ──────────────────────────────────
 
 async function handleLoadMore(loadMoreItem: TreeItem) {
+  // Root level: warehouses are paged in memory, the list endpoint has no pages.
+  if (loadMoreItem.id === WAREHOUSE_LOAD_MORE_ID) {
+    appendWarehousePage();
+    return;
+  }
+
   const parentId = loadMoreItem.id.replace('load-more-', '');
   const parent = findItemById(treeItems.value, parentId);
   if (!parent || !parent.children) return;

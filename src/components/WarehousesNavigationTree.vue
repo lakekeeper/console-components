@@ -424,6 +424,9 @@ interface TreeItem {
 /** Max items per API page for tree loads — keeps DOM light. */
 const TREE_PAGE_SIZE = 100;
 
+/** Root-level "Load more" node: the warehouse list endpoint returns everything. */
+const WAREHOUSE_LOAD_MORE_ID = 'load-more-warehouses';
+
 // Per-format brand icon. Anything outside this map renders as `mdi-alpha-g` (generic).
 // Vortex ships dark/light variants — pick by the current theme.
 function formatIcon(format?: string): string | null {
@@ -521,8 +524,11 @@ const headerTitle = computed(() => {
 const searchWarehouseId = computed(() => props.warehouseId || selectedSearchWarehouse.value);
 
 // Warehouse options for the picker (only needed when no warehouseId prop)
+// Includes the warehouses still behind "Load more": the selector picks what to
+// search, and a warehouse that exists but has not been paged into the tree yet
+// is still a valid thing to search.
 const warehouseOptions = computed(() =>
-  treeItems.value
+  [...treeItems.value, ...pendingWarehouses.value]
     .filter((item) => item.type === 'warehouse')
     .map((item) => ({ title: item.name, value: item.warehouseId })),
 );
@@ -578,8 +584,10 @@ function clearSearch() {
 
 // Expand tree to show the full path for a search result (warehouse → ns → subns → item)
 async function expandTreeToPath(warehouseId: string, namespacePath: string) {
-  // 1. Find and expand the warehouse node
+  // 1. Find and expand the warehouse node. On the project-wide tree the target
+  //    may sit past the first rendered page, so page up to it first.
   const warehouseNodeId = `warehouse-${warehouseId}`;
+  await ensureWarehouseRendered(warehouseId);
   let warehouseNode = findItemById(treeItems.value, warehouseNodeId);
 
   if (!warehouseNode) return; // Warehouse not in tree
@@ -621,17 +629,11 @@ function saveWarehouseSubtreeState(warehouseId: string) {
 
   const warehouseSpecificKey = `${projectId.value}-${warehouseId}`;
 
-  // Build the tree with just this warehouse as root
-  const subtree: TreeItem[] = [{ ...warehouseNode }];
-
-  // Collect opened items that belong to this warehouse
-  const subtreeOpenedItems = openedItems.value.filter(
-    (id) => id === warehouseNodeId || id.includes(warehouseId),
-  );
-
+  // Hand the target page only the expansion state; it fetches its own nodes.
   visualStore.warehouseTreeState[warehouseSpecificKey] = {
-    treeItems: subtree,
-    openedItems: subtreeOpenedItems,
+    openedItems: openedItems.value.filter(
+      (id) => id === warehouseNodeId || id.includes(warehouseId),
+    ),
   };
 }
 
@@ -692,42 +694,105 @@ function namespacePathToApiFormat(nsPath: string): string {
 }
 
 // Load all warehouses
+/** Warehouse nodes fetched but not yet rendered — see WAREHOUSE_LOAD_MORE_ID. */
+const pendingWarehouses = ref<TreeItem[]>([]);
+
+function warehouseNode(warehouse: any): TreeItem {
+  const sp = warehouse['storage-profile'];
+  return {
+    id: `warehouse-${warehouse.id}`,
+    name: warehouse.name,
+    type: 'warehouse' as const,
+    warehouseId: warehouse.id,
+    children: [],
+    loaded: false,
+    storageType: sp?.type,
+    storageFlavor: sp?.flavor,
+    storageEndpoint: sp?.endpoint,
+  };
+}
+
+function warehouseLoadMoreNode(): TreeItem {
+  return {
+    id: WAREHOUSE_LOAD_MORE_ID,
+    name: `Load more… (${pendingWarehouses.value.length} remaining)`,
+    type: 'load-more',
+    warehouseId: '',
+    loaded: true,
+  };
+}
+
+/** Render one more page of warehouses. The list endpoint has no paging, so the
+ *  cut is ours: the cost here is DOM nodes, not bytes on the wire. */
+function appendWarehousePage() {
+  const next = pendingWarehouses.value.splice(0, TREE_PAGE_SIZE);
+  const rendered = treeItems.value.filter((item) => item.id !== WAREHOUSE_LOAD_MORE_ID);
+  treeItems.value = [
+    ...rendered,
+    ...next,
+    ...(pendingWarehouses.value.length > 0 ? [warehouseLoadMoreNode()] : []),
+  ];
+}
+
+/**
+ * Which load is current. A project switch and a warehouse-prop change fire
+ * their own reload, so two can be in flight at once — and the one that answers
+ * last wins the tree regardless of which selection it was asked for.
+ */
+let loadRequestId = 0;
+
 async function loadWarehouses() {
+  const requestId = ++loadRequestId;
+  const forWarehouse = props.warehouseId;
+  const forProject = projectId.value;
+  // Still the load everyone is waiting for, and still for the selection that
+  // asked for it.
+  const isCurrent = () =>
+    requestId === loadRequestId &&
+    props.warehouseId === forWarehouse &&
+    projectId.value === forProject;
+
   isLoading.value = true;
   try {
+    // A warehouse-scoped tree shows exactly one node, so ask for that one
+    // warehouse instead of fetching every warehouse in the project to throw
+    // all but one away.
+    if (forWarehouse) {
+      const warehouse: any = await functions.getWarehouse(forWarehouse, false);
+      if (!warehouse || !isCurrent()) return;
+      pendingWarehouses.value = [];
+      treeItems.value = [warehouseNode({ ...warehouse, id: warehouse.id ?? forWarehouse })];
+      openedItems.value = [treeItems.value[0].id];
+      return;
+    }
+
     const response = await functions.listWarehouses(false);
+    if (!isCurrent()) return;
     if (response && response.warehouses) {
-      let warehouses = response.warehouses;
-
-      // Filter to specific warehouse if warehouseId prop is provided
-      if (props.warehouseId) {
-        warehouses = warehouses.filter((wh: any) => wh.id === props.warehouseId);
-      }
-
-      treeItems.value = warehouses.map((warehouse: any) => {
-        const sp = warehouse['storage-profile'];
-        return {
-          id: `warehouse-${warehouse.id}`,
-          name: warehouse.name,
-          type: 'warehouse' as const,
-          warehouseId: warehouse.id,
-          children: [],
-          loaded: false,
-          storageType: sp?.type,
-          storageFlavor: sp?.flavor,
-          storageEndpoint: sp?.endpoint,
-        };
-      });
-
-      // Auto-expand the warehouse if filtering to specific one
-      if (props.warehouseId && treeItems.value.length > 0) {
-        openedItems.value = [treeItems.value[0].id];
-      }
+      const nodes = response.warehouses.map(warehouseNode);
+      pendingWarehouses.value = nodes.slice(TREE_PAGE_SIZE);
+      treeItems.value = [
+        ...nodes.slice(0, TREE_PAGE_SIZE),
+        ...(pendingWarehouses.value.length > 0 ? [warehouseLoadMoreNode()] : []),
+      ];
     }
   } catch (error) {
-    logError('loadWarehouses', error);
+    // A superseded load failing is not news; the load that replaced it reports
+    // its own outcome.
+    if (isCurrent()) logError('loadWarehouses', error);
   } finally {
-    isLoading.value = false;
+    // Only the newest load owns the flag, or the first to finish clears the
+    // spinner while a later one is still running.
+    if (requestId === loadRequestId) isLoading.value = false;
+  }
+}
+
+/** Make sure a warehouse is rendered even when it sits past the first page. */
+async function ensureWarehouseRendered(warehouseId: string) {
+  const nodeId = `warehouse-${warehouseId}`;
+  if (findItemById(treeItems.value, nodeId)) return;
+  while (pendingWarehouses.value.length > 0 && !findItemById(treeItems.value, nodeId)) {
+    appendWarehousePage();
   }
 }
 
@@ -1075,6 +1140,12 @@ async function loadChildrenForNamespace(item: TreeItem) {
 
 // Handle "Load more…" node clicks — fetch next page and append results
 async function handleLoadMore(loadMoreItem: TreeItem) {
+  // Root level: warehouses are paged in memory, not over the wire.
+  if (loadMoreItem.id === WAREHOUSE_LOAD_MORE_ID) {
+    appendWarehousePage();
+    return;
+  }
+
   // Find the parent node (the namespace or warehouse that owns this load-more node)
   const parentId = loadMoreItem.id.replace('load-more-', '');
   const parent = findItemById(treeItems.value, parentId);
@@ -1407,88 +1478,32 @@ function navigateToTab(item: TreeItem, tab: string) {
   });
 }
 
-// Cached trees from before the format-badge change miss `format` on table/generic-table nodes;
-// detect that and discard the cache so the badge resolves correctly on next load.
-function cacheNeedsFormatMigration(items: TreeItem[]): boolean {
-  for (const item of items) {
-    if ((item.type === 'table' || item.type === 'generic-table') && !item.format) return true;
-    if (item.children && cacheNeedsFormatMigration(item.children)) return true;
-  }
-  return false;
-}
-
-// Strip any cached `load-more` children. Tokens that drive load-more live only in the
-// in-memory `pageTokens` ref (not persisted), so a cached load-more node would never
-// have a backing token — drop them, the next fresh expand will re-add if warranted.
-function stripStaleLoadMore(items: TreeItem[]): void {
-  for (const item of items) {
-    if (item.children?.length) {
-      item.children = item.children.filter((c) => c.type !== 'load-more');
-      stripStaleLoadMore(item.children);
-    }
-  }
-}
-
 onMounted(async () => {
-  const savedState = visualStore.warehouseTreeState[storageKey.value];
-
-  if (
-    savedState &&
-    savedState.treeItems.length > 0 &&
-    !cacheNeedsFormatMigration(savedState.treeItems)
-  ) {
-    // Validate cached warehouses against the server to remove stale/deleted ones
-    try {
-      const response = await functions.listWarehouses(false);
-      if (response && response.warehouses) {
-        let serverWarehouses = response.warehouses;
-        if (props.warehouseId) {
-          serverWarehouses = serverWarehouses.filter((wh: any) => wh.id === props.warehouseId);
-        }
-        const validWarehouseIds = new Set(serverWarehouses.map((wh: any) => wh.id));
-
-        // Filter cached tree to only include warehouses that still exist
-        const validTreeItems = savedState.treeItems.filter((item: TreeItem) =>
-          validWarehouseIds.has(item.warehouseId),
-        );
-
-        if (validTreeItems.length > 0) {
-          stripStaleLoadMore(validTreeItems);
-          treeItems.value = validTreeItems;
-          // Filter opened items to those belonging to valid warehouses
-          openedItems.value = (savedState.openedItems || []).filter((id: string) =>
-            validTreeItems.some((wh: TreeItem) => id === wh.id || id.includes(wh.warehouseId)),
-          );
-          // Expand to active namespace path if provided
-          if (props.warehouseId && props.activeNamespacePath) {
-            await expandTreeToPath(props.warehouseId, props.activeNamespacePath);
-          }
-          return;
-        }
-      }
-    } catch {
-      // If validation fails, fall through to fresh load
-    }
-  }
-
-  // No valid cache — load fresh
+  // Always load fresh. The previous cache-restore path re-listed warehouses
+  // anyway to drop deleted ones, so the stored tree saved no request — it only
+  // added a stale copy to reconcile and a large localStorage write per change.
   await loadWarehouses();
 
-  // Expand to active namespace path if provided
+  const savedOpened = visualStore.warehouseTreeState[storageKey.value]?.openedItems ?? [];
+  if (savedOpened.length > 0) {
+    const rendered = new Set(treeItems.value.map((item) => item.id));
+    // Only warehouse nodes exist at this point; deeper ids are re-opened by
+    // expandTreeToPath or by the user, once their children are fetched.
+    openedItems.value = savedOpened.filter((id) => rendered.has(id));
+  }
+
   if (props.warehouseId && props.activeNamespacePath) {
     await expandTreeToPath(props.warehouseId, props.activeNamespacePath);
   }
 });
 
-// Save tree state when it changes
+// Only the opened ids are stored, and only when they change: a deep watch over
+// the whole tree fired on every child load and re-serialised the lot.
 watch(
-  [treeItems, openedItems],
+  openedItems,
   () => {
-    if (storageKey.value && treeItems.value.length > 0) {
-      visualStore.warehouseTreeState[storageKey.value] = {
-        treeItems: treeItems.value,
-        openedItems: openedItems.value,
-      };
+    if (storageKey.value) {
+      visualStore.warehouseTreeState[storageKey.value] = { openedItems: openedItems.value };
     }
   },
   { deep: true },
@@ -1569,12 +1584,8 @@ watch(
 
 // Clean up on unmount
 onBeforeUnmount(() => {
-  // Save final state before unmounting
-  if (storageKey.value && treeItems.value.length > 0) {
-    visualStore.warehouseTreeState[storageKey.value] = {
-      treeItems: treeItems.value,
-      openedItems: openedItems.value,
-    };
+  if (storageKey.value) {
+    visualStore.warehouseTreeState[storageKey.value] = { openedItems: openedItems.value };
   }
 });
 </script>

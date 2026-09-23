@@ -440,6 +440,54 @@
               </template>
             </v-row>
 
+            <!-- Shown only where it is actionable: a storage the browser reads
+                 directly, with vended credentials on. Elsewhere a red chip would
+                 be about a bucket that was never in scope. -->
+            <template v-if="browserCheckApplicable">
+              <v-divider class="my-5"></v-divider>
+
+              <!-- The explanation is long and only wanted once, so it hangs off
+                   an info icon rather than sitting above the control forever. -->
+              <div class="d-flex align-center mb-3" style="gap: 4px">
+                <span class="text-overline text-medium-emphasis">Browser access</span>
+                <v-tooltip location="bottom" max-width="380">
+                  <template #activator="{ props: tipProps }">
+                    <v-icon
+                      v-bind="tipProps"
+                      icon="mdi-information-outline"
+                      size="x-small"
+                      class="text-medium-emphasis"></v-icon>
+                  </template>
+                  <span>
+                    Whether this console's origin ({{ consoleOrigin }}) can read the storage
+                    directly, which the data preview and local query engine need. Warehouse
+                    validation covers the catalog's own access to storage; this is the other path,
+                    and only a browser can answer it. Checked once per session; refresh to re-test
+                    after changing a bucket's CORS rule.
+                  </span>
+                </v-tooltip>
+              </div>
+              <div class="d-flex align-center flex-wrap" style="gap: 8px">
+                <v-chip
+                  size="small"
+                  variant="tonal"
+                  :color="browserChip.color"
+                  :prepend-icon="browserChip.icon">
+                  {{ browserChip.text }}
+                </v-chip>
+                <v-btn
+                  icon="mdi-refresh"
+                  size="x-small"
+                  variant="text"
+                  :loading="browserCheckLoading"
+                  @click="runBrowserCheck"></v-btn>
+                <CorsConfigDialog v-if="browserCheckResult?.corsLikely" />
+              </div>
+              <div v-if="browserCheckResult" class="text-caption text-medium-emphasis mt-2">
+                {{ browserCheckResult.detail }}
+              </div>
+            </template>
+
             <v-divider class="my-5"></v-divider>
 
             <div class="text-overline text-medium-emphasis mb-1">Layout</div>
@@ -475,6 +523,10 @@ import stackitLightIcon from '@/assets/stackit-logo.svg';
 import stackitDarkIcon from '@/assets/stackit-logo-dark.svg';
 import { useUserStore } from '@/stores/user';
 import EntityTagsChips from './EntityTagsChips.vue';
+import CorsConfigDialog from './CorsConfigDialog.vue';
+import { useBrowserStorageCheck } from '@/composables/useBrowserStorageCheck';
+import { storageProbeUrl } from '@/common/storageProbeUrl';
+import { stsDisabled } from '@/common/vendedCredentials';
 
 const props = defineProps<{
   warehouseId: string;
@@ -498,6 +550,44 @@ const layout = computed(
 );
 
 const storageType = computed(() => (warehouse['storage-profile'] as any)?.type as string);
+
+// --- Browser access ---------------------------------------------------------
+// A verdict that validation cannot keep current: it was recorded when the
+// warehouse was configured, under whatever origin ran it, and both the console's
+// origin and the bucket's CORS rule can change afterwards.
+const {
+  result: browserCheckResult,
+  loading: browserCheckLoading,
+  run: runBrowserStorageCheck,
+} = useBrowserStorageCheck();
+
+const consoleOrigin = computed(() =>
+  typeof window !== 'undefined' ? window.location.origin : 'this console',
+);
+
+const browserCheckApplicable = computed(() => {
+  const profile = warehouse['storage-profile'] as any;
+  return !!profile && !stsDisabled(profile) && storageProbeUrl(profile) !== null;
+});
+
+const browserChip = computed(() => {
+  if (browserCheckLoading.value)
+    return { color: 'default', icon: 'mdi-timer-sand', text: 'Checking…' };
+  const result = browserCheckResult.value;
+  // Only before the warehouse has loaded — the check starts itself after that.
+  if (!result) return { color: 'default', icon: 'mdi-help-circle-outline', text: 'Not checked' };
+  if (result.status === 'passed')
+    return { color: 'success', icon: 'mdi-check-circle', text: 'Reachable' };
+  if (result.status === 'warning')
+    return { color: 'warning', icon: 'mdi-alert-circle', text: 'Not reachable' };
+  return { color: 'default', icon: 'mdi-minus-circle-outline', text: 'Not applicable' };
+});
+
+// `force` on every click: the button exists to observe a change made elsewhere,
+// so returning the remembered answer would defeat it.
+function runBrowserCheck() {
+  runBrowserStorageCheck(warehouse.id, warehouse['storage-profile'] as any, { force: true });
+}
 
 // The STACKIT wordmark is ink-on-transparent, so it needs the light/dark pair.
 const stackitIcon = computed(() => (visual.themeLight ? stackitLightIcon : stackitDarkIcon));
@@ -563,6 +653,11 @@ async function loadWarehouse() {
       Object.assign(warehouse, whResponse);
       visual.wahrehouseName = whResponse.name;
       visual.whId = whResponse.id;
+      // Non-blocking and deliberately not awaited: the probe talks to a foreign
+      // host with its own timeout, and nothing on this page depends on it. The
+      // cache means this costs one request per warehouse per session.
+      if (browserCheckApplicable.value)
+        runBrowserStorageCheck(whResponse.id, whResponse['storage-profile']);
     }
   } catch (error) {
     logError('WarehouseDetails.loadWarehouse', error);

@@ -18,7 +18,7 @@
         <div
           class="flex-grow-1 pa-4"
           style="min-width: 0; min-height: 0; height: 100%; overflow-y: auto">
-          <v-tabs-window v-model="section" crossfade>
+          <v-tabs-window v-model="section">
             <!-- ════════════════════════════════════════════════════════════════
                  TAB 1 — Endpoint Statistics
                  ════════════════════════════════════════════════════════════ -->
@@ -505,7 +505,14 @@ function aggregateRows() {
 }
 
 function aggregateObjectsData() {
-  const raw = objectsData.value;
+  // Only the user's own date filter narrows this: it feeds the table and the
+  // CSV, where nothing is unreadable and silently dropping rows would be wrong.
+  const raw = objectsData.value.filter((s) => {
+    const ts = new Date(s.timestamp);
+    if (dateFrom.value && ts < new Date(dateFrom.value)) return false;
+    if (dateTo.value && ts > new Date(dateTo.value)) return false;
+    return true;
+  });
   const map = new Map<number, WarehouseStatistics>();
 
   raw.forEach((s) => {
@@ -571,22 +578,108 @@ function statusColor(code: number): string {
   return STATUS_COLORS[statusCategory(code)] ?? '#607d8b';
 }
 
-function aggTimeInterval(agg: string, dataLen: number): d3.TimeInterval | number {
-  const maxTicks = Math.min(dataLen, 10);
-  switch (agg) {
-    case 'hour':
-      return d3.timeHour.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'day':
-      return d3.timeDay.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'week':
-      return d3.timeWeek.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'month':
-      return d3.timeMonth.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'year':
-      return d3.timeYear.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    default:
-      return maxTicks;
+/**
+ * Horizontal budget for one rotated date-time label. The axis cap uses the
+ * same figure, so a plot sized by it gets a label per bucket without overlap.
+ */
+const PX_PER_POINT = 90;
+/** Hard ceiling on plot width. Width is cheap — node count is not. */
+const MAX_PLOT_WIDTH = 200000;
+/** Above this many points the dots are dropped; the line still carries the shape. */
+const MAX_DOTS = 2000;
+
+/**
+ * Set up a horizontally scrollable plot area.
+ *
+ * The plot gets the width its data needs rather than the width of the pane, so
+ * an hourly series stays legible instead of being compressed. SVG has no
+ * sticky positioning, so when it scrolls the y-axis is drawn a second time
+ * into a fixed gutter element that sits above the scrolling content.
+ */
+function scrollableChart(el: HTMLElement, available: number, dates: Date[]) {
+  // Sized by the DENSEST stretch, not the average. A time scale places points
+  // by timestamp, so a series that is daily for months and hourly for the last
+  // week puts those hourly points into a sliver of the width — sizing by
+  // point count leaves them ~10px apart and the labels collide.
+  let minGap = Infinity;
+  for (let i = 1; i < dates.length; i++) {
+    const gap = dates[i].getTime() - dates[i - 1].getTime();
+    if (gap > 0 && gap < minGap) minGap = gap;
   }
+  const span = dates.length > 1 ? dates[dates.length - 1].getTime() - dates[0].getTime() : 0;
+  const slots = minGap === Infinity || span <= 0 ? dates.length : Math.ceil(span / minGap) + 1;
+
+  const width = Math.max(available, Math.min(slots * PX_PER_POINT, MAX_PLOT_WIDTH));
+  const scrolls = width > available + 1;
+  const root = d3.select(el).classed('d3-chart--scrollable', scrolls);
+  const scroller = root.append('div').attr('class', scrolls ? 'chart-scroll' : 'chart-noscroll');
+  return { width, scrolls, root, scroller };
+}
+
+/** Repeat the y-axis in a fixed gutter, so scrolling never takes it away. */
+function pinYAxis(
+  root: d3.Selection<any, unknown, null, undefined>,
+  y: d3.ScaleLinear<number, number>,
+  margin: { top: number; left: number; bottom: number },
+  height: number,
+  tickFormat: (d: any) => string,
+) {
+  const gutter = root
+    .append('svg')
+    .attr('class', 'chart-gutter')
+    .attr('width', margin.left)
+    .attr('height', height + margin.top + margin.bottom);
+  gutter
+    .append('g')
+    .attr('transform', `translate(${margin.left},${margin.top})`)
+    .call(
+      d3
+        .axisLeft(y)
+        .ticks(5)
+        .tickFormat(tickFormat as any),
+    )
+    .selectAll('text')
+    .style('font-size', '10px');
+}
+
+/** Start at the most recent data, which is what a time series is read from. */
+function scrollToLatest(scroller: d3.Selection<any, unknown, null, undefined>) {
+  const node = scroller.node() as HTMLElement | null;
+  if (node) node.scrollLeft = node.scrollWidth;
+}
+
+/**
+ * Tick positions for a time axis, spaced by the aggregation unit and capped by
+ * the pixels available for labels.
+ *
+ * Uses `interval.range`, not `interval.every`: `every(step)` filters by field
+ * value modulo step, so any step past the field's range degenerates —
+ * `timeHour.every(665)` keeps only hour 0 and yields a tick per day, which is
+ * how a year-long hourly axis ended up with 360 labels.
+ */
+function aggTickValues(agg: string, scale: d3.ScaleTime<number, number>, width: number): Date[] {
+  // ~90px per rotated label before neighbours start to touch.
+  const maxTicks = Math.max(2, Math.floor(width / 90));
+  const [start, end] = scale.domain() as [Date, Date];
+
+  // Countable intervals only: `count`/`range` are what the step needs.
+  const units: Record<string, d3.CountableTimeInterval> = {
+    hour: d3.timeHour,
+    day: d3.timeDay,
+    week: d3.timeWeek,
+    month: d3.timeMonth,
+    year: d3.timeYear,
+  };
+  const unit = units[agg];
+  if (!unit) return scale.ticks(maxTicks);
+
+  // How many buckets of this size the axis covers, not how many we sampled.
+  const spanned = unit.count(start, end);
+  if (spanned <= 0) return scale.ticks(maxTicks);
+
+  const step = Math.max(1, Math.ceil(spanned / maxTicks));
+  const values = unit.range(start, end, step);
+  return values.length > 1 ? values : scale.ticks(maxTicks);
 }
 
 function fmtDate(d: string | Date) {
@@ -628,9 +721,9 @@ function drawAreaChart() {
   d3.select(el).selectAll('*').remove();
 
   const margin = { top: 16, right: 24, bottom: 70, left: 50 };
-  const width = el.clientWidth - margin.left - margin.right;
+  const available = el.clientWidth - margin.left - margin.right;
   const height = 280 - margin.top - margin.bottom;
-  if (width <= 0 || height <= 0) return;
+  if (available <= 0 || height <= 0) return;
 
   const byTime = new Map<number, Record<string, number | Date>>();
 
@@ -656,8 +749,13 @@ function drawAreaChart() {
     year: '%Y',
   };
 
-  const svg = d3
-    .select(el)
+  const { width, scrolls, root, scroller } = scrollableChart(
+    el,
+    available,
+    data.map((d) => d.date),
+  );
+
+  const svg = scroller
     .append('svg')
     .attr('width', width + margin.left + margin.right)
     .attr('height', height + margin.top + margin.bottom)
@@ -722,7 +820,7 @@ function drawAreaChart() {
       .call(
         d3
           .axisBottom(x)
-          .ticks(aggTimeInterval(aggregation.value, data.length))
+          .tickValues(aggTickValues(aggregation.value, x, width))
           .tickFormat((d) => {
             const dt = d as Date;
             return d3.timeFormat(tickFmt[aggregation.value] ?? '%d %b %H:%M')(dt);
@@ -747,10 +845,25 @@ function drawAreaChart() {
 
   svg.append('g').call(d3.axisLeft(y).ticks(5)).selectAll('text').style('font-size', '10px');
 
-  // Legend
-  const legend = svg
-    .append('g')
-    .attr('transform', `translate(${width - 180}, -8)`)
+  if (scrolls) {
+    pinYAxis(root, y, margin, height, (d) => String(d));
+    scrollToLatest(scroller);
+  }
+
+  // Legend. Anchored to the canvas it would sit at x = width - 180, which on a
+  // 194,000px plot means "visible only at the far right"; when the plot scrolls
+  // it goes into a fixed overlay instead.
+  const legendHost = scrolls
+    ? root
+        .append('svg')
+        .attr('class', 'chart-legend chart-legend--top-right')
+        .attr('width', 180)
+        .attr('height', 18)
+        .append('g')
+        .attr('transform', 'translate(0,12)')
+    : svg.append('g').attr('transform', `translate(${width - 180}, -8)`);
+
+  const legend = legendHost
     .selectAll('.leg')
     .data(STATUS_CATEGORIES)
     .join('g')
@@ -1006,9 +1119,9 @@ function drawObjectsChart() {
   d3.select(el).selectAll('*').remove();
 
   const margin = { top: 16, right: 24, bottom: 85, left: 50 };
-  const width = el.clientWidth - margin.left - margin.right;
+  const available = el.clientWidth - margin.left - margin.right;
   const height = 300 - margin.top - margin.bottom;
-  if (width <= 0 || height <= 0) return;
+  if (available <= 0 || height <= 0) return;
 
   const tickFmt: Record<string, string> = {
     hour: '%d %b %H:%M',
@@ -1026,8 +1139,13 @@ function drawObjectsChart() {
 
   if (data.length === 0) return;
 
-  const svg = d3
-    .select(el)
+  const { width, scrolls, root, scroller } = scrollableChart(
+    el,
+    available,
+    data.map((d) => d.date),
+  );
+
+  const svg = scroller
     .append('svg')
     .attr('width', width + margin.left + margin.right)
     .attr('height', height + margin.top + margin.bottom)
@@ -1075,36 +1193,40 @@ function drawObjectsChart() {
     .attr('stroke-width', 2)
     .attr('d', lineView);
 
-  // Dots
-  svg
-    .selectAll('.dot-tables')
-    .data(data)
-    .join('circle')
-    .attr('class', 'dot-tables')
-    .attr('cx', (d) => x(d.date))
-    .attr('cy', (d) => y(d.tables))
-    .attr('r', data.length <= 30 ? 3 : 1.5)
-    .attr('fill', TABLES_COLOR)
-    .each(function (d) {
-      d3.select(this)
-        .append('title')
-        .text(`Tables: ${d.tables}\n${fmtDate(d.date)}`);
-    });
+  // Dots — dropped on dense series, where they merge into the line anyway
+  // and would cost thousands of DOM nodes.
+  const showDots = data.length <= MAX_DOTS;
+  if (showDots)
+    svg
+      .selectAll('.dot-tables')
+      .data(data)
+      .join('circle')
+      .attr('class', 'dot-tables')
+      .attr('cx', (d) => x(d.date))
+      .attr('cy', (d) => y(d.tables))
+      .attr('r', data.length <= 30 ? 3 : 1.5)
+      .attr('fill', TABLES_COLOR)
+      .each(function (d) {
+        d3.select(this)
+          .append('title')
+          .text(`Tables: ${d.tables}\n${fmtDate(d.date)}`);
+      });
 
-  svg
-    .selectAll('.dot-views')
-    .data(data)
-    .join('circle')
-    .attr('class', 'dot-views')
-    .attr('cx', (d) => x(d.date))
-    .attr('cy', (d) => y(d.views))
-    .attr('r', data.length <= 30 ? 3 : 1.5)
-    .attr('fill', VIEWS_COLOR)
-    .each(function (d) {
-      d3.select(this)
-        .append('title')
-        .text(`Views: ${d.views}\n${fmtDate(d.date)}`);
-    });
+  if (showDots)
+    svg
+      .selectAll('.dot-views')
+      .data(data)
+      .join('circle')
+      .attr('class', 'dot-views')
+      .attr('cx', (d) => x(d.date))
+      .attr('cy', (d) => y(d.views))
+      .attr('r', data.length <= 30 ? 3 : 1.5)
+      .attr('fill', VIEWS_COLOR)
+      .each(function (d) {
+        d3.select(this)
+          .append('title')
+          .text(`Views: ${d.views}\n${fmtDate(d.date)}`);
+      });
 
   // x-axis
   svg
@@ -1113,7 +1235,7 @@ function drawObjectsChart() {
     .call(
       d3
         .axisBottom(x)
-        .ticks(aggTimeInterval(objectsAggregation.value, data.length))
+        .tickValues(aggTickValues(objectsAggregation.value, x, width))
         .tickFormat((d) =>
           d3.timeFormat(tickFmt[objectsAggregation.value] ?? '%d %b %Y')(d as Date),
         ),
@@ -1130,15 +1252,28 @@ function drawObjectsChart() {
     .selectAll('text')
     .style('font-size', '10px');
 
+  if (scrolls) {
+    pinYAxis(root, y, margin, height, d3.format('d'));
+    scrollToLatest(scroller);
+  }
+
   // Legend (below x-axis)
   const legendData = [
     { label: 'Tables', color: TABLES_COLOR },
     { label: 'Views', color: VIEWS_COLOR },
   ];
   const legendWidth = legendData.length * 65;
-  const legend = svg
-    .append('g')
-    .attr('transform', `translate(${(width - legendWidth) / 2}, ${height + 55})`)
+  const objectsLegendHost = scrolls
+    ? root
+        .append('svg')
+        .attr('class', 'chart-legend chart-legend--bottom')
+        .attr('width', legendWidth)
+        .attr('height', 18)
+        .append('g')
+        .attr('transform', 'translate(0,12)')
+    : svg.append('g').attr('transform', `translate(${(width - legendWidth) / 2}, ${height + 55})`);
+
+  const legend = objectsLegendHost
     .selectAll('.leg')
     .data(legendData)
     .join('g')
@@ -1256,6 +1391,15 @@ watch(objectsView, async (v) => {
   }
 });
 
+// Dates drive both sections' windows, and the charts are drawn imperatively,
+// so a changed range has to be redrawn rather than re-rendered.
+watch([dateFrom, dateTo], async () => {
+  aggregateObjectsData();
+  await nextTick();
+  if (objectsView.value === 'chart') drawObjectsChart();
+  if (activeView.value === 'charts') drawAllEndpointCharts();
+});
+
 watch(objectsAggregation, async () => {
   aggregateObjectsData();
   await nextTick();
@@ -1273,6 +1417,46 @@ defineExpose({ loadStatistics });
 </script>
 
 <style scoped>
+/* Wide plots scroll sideways rather than compressing. The y-axis is redrawn
+   into .chart-gutter, which sits above the scrolling content — SVG has no
+   sticky positioning, so a second copy is the way to keep it in place.
+   These nodes are created by d3, not by the template, so they carry no
+   scope attribute and must be reached with :deep(). */
+.d3-chart--scrollable {
+  position: relative;
+}
+
+.d3-chart :deep(.chart-scroll) {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+/* Legends follow the viewport, not the canvas, once a plot scrolls. */
+.d3-chart :deep(.chart-legend) {
+  position: absolute;
+  background: rgb(var(--v-theme-surface));
+  pointer-events: none;
+}
+
+.d3-chart :deep(.chart-legend--top-right) {
+  right: 8px;
+  top: 0;
+}
+
+.d3-chart :deep(.chart-legend--bottom) {
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+}
+
+.d3-chart :deep(.chart-gutter) {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: rgb(var(--v-theme-surface));
+  pointer-events: none;
+}
+
 .d3-chart {
   width: 100%;
   min-height: 120px;

@@ -434,6 +434,18 @@
                       <v-icon start size="small">mdi-download</v-icon>
                       CSV
                     </v-btn>
+                    <v-btn
+                      variant="text"
+                      size="x-small"
+                      :disabled="!activeResult"
+                      :loading="docsLoading"
+                      :active="showColumnDocs"
+                      @click="toggleColumnDocs">
+                      <v-icon start size="small">
+                        {{ showColumnDocs ? 'mdi-text-box' : 'mdi-text-box-outline' }}
+                      </v-icon>
+                      Field docs
+                    </v-btn>
                     <v-btn-toggle
                       v-if="activeResult"
                       v-model="activeView"
@@ -527,6 +539,22 @@
                         fixed-header
                         class="text-caption loqe-result-table"
                         item-height="28">
+                        <template
+                          v-for="h in resultHeaders"
+                          :key="`header-${h.key}`"
+                          #[`header.${h.key}`]="{ column }">
+                          <div class="d-flex flex-column column-head">
+                            <span>{{ column.title }}</span>
+                            <template v-if="showColumnDocs">
+                              <span v-if="columnDocs[h.key]" class="column-doc">
+                                {{ columnDocs[h.key] }}
+                              </span>
+                              <span v-else class="column-doc column-doc--empty">
+                                No docs available
+                              </span>
+                            </template>
+                          </div>
+                        </template>
                         <template
                           v-for="h in resultHeaders"
                           :key="h.key"
@@ -1254,6 +1282,8 @@ async function executeQuery() {
   // Clear previous results immediately
   queryResults.value = [];
   activeResultTab.value = 0;
+  columnDocs.value = {};
+  showColumnDocs.value = false;
   loqe.lastResult.value = null;
   loqe.error.value = null;
 
@@ -1717,6 +1747,8 @@ async function copySQL() {
 function dropResults() {
   queryResults.value = [];
   activeResultTab.value = 0;
+  columnDocs.value = {};
+  showColumnDocs.value = false;
   loqe.lastResult.value = null;
   loqe.error.value = null;
 }
@@ -1747,6 +1779,105 @@ const resultHeaders = computed(() => {
     sortable: false,
   }));
 });
+
+// ── Column descriptions (Iceberg field docs) ──────────────────────────
+
+const showColumnDocs = ref(false);
+const columnDocs = ref<Record<string, string>>({});
+const docsLoading = ref(false);
+/** Warehouse name → id, resolved once: SQL names catalogs, the API needs ids. */
+let warehouseIdsByName: Record<string, string> | null = null;
+
+/** The statement behind the active result tab, falling back to the whole script. */
+const activeStatementSql = computed(() => {
+  const entry = queryResults.value[activeResultTab.value];
+  if (!entry || entry.from === entry.to) return lastExecutedSql.value;
+  return lastExecutedSql.value.slice(entry.from, entry.to);
+});
+
+/**
+ * Three-part table references in a statement — `FROM "cat"."ns"."tbl"` and its
+ * JOIN and unquoted forms. Only fully qualified names are of interest: a doc
+ * lives in the catalog, so a name that does not address one has nothing to
+ * look up.
+ */
+function extractTableRefs(sql: string): { catalog: string; namespace: string; table: string }[] {
+  const refs: { catalog: string; namespace: string; table: string }[] = [];
+  const clause =
+    /\b(?:from|join)\s+((?:"[^"]+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][\w$]*)){2})/gi;
+  for (const match of sql.matchAll(clause)) {
+    const parts = [...match[1].matchAll(/"([^"]+)"|([A-Za-z_][\w$]*)/g)].map((p) => p[1] ?? p[2]);
+    if (parts.length === 3) {
+      refs.push({ catalog: parts[0], namespace: parts[1], table: parts[2] });
+    }
+  }
+  return refs;
+}
+
+/** Field docs for every table the active statement reads, keyed by column name. */
+async function resolveColumnDocs(): Promise<Record<string, string>> {
+  const refs = extractTableRefs(activeStatementSql.value);
+  if (refs.length === 0) return {};
+
+  if (!warehouseIdsByName) {
+    const response = await functions.listWarehouses(false);
+    warehouseIdsByName = Object.fromEntries(
+      (response?.warehouses ?? []).map((wh: any) => [wh.name, wh.id]),
+    );
+  }
+
+  const docs: Record<string, string> = {};
+  for (const ref of refs) {
+    const warehouseId = warehouseIdsByName?.[ref.catalog];
+    if (!warehouseId) continue;
+    try {
+      const result: any = await functions.loadTable(warehouseId, ref.namespace, ref.table, false);
+      const schemas = result?.metadata?.schemas ?? [];
+      const schema =
+        schemas.find((sc: any) => sc['schema-id'] === result?.metadata?.['current-schema-id']) ??
+        schemas[schemas.length - 1];
+      for (const field of schema?.fields ?? []) {
+        // First table wins: a column name repeated across joined tables is
+        // ambiguous, and guessing which doc applies is worse than showing none.
+        if (field?.doc && !(field.name in docs)) docs[field.name] = field.doc;
+      }
+    } catch {
+      /* a table we cannot load simply contributes no docs */
+    }
+  }
+  return docs;
+}
+
+/**
+ * Docs are fetched on demand rather than with every result: they cost one
+ * `loadTable` per referenced table, and most queries are run without ever
+ * asking for them.
+ */
+async function toggleColumnDocs() {
+  if (showColumnDocs.value) {
+    showColumnDocs.value = false;
+    return;
+  }
+  // The result the docs are being fetched for. Switching tabs, running a new
+  // query or dropping the results all replace it, and docs resolved for a result
+  // nobody is looking at any more would label the wrong columns.
+  const requestedFor = activeResult.value;
+  docsLoading.value = true;
+  try {
+    const docs = await resolveColumnDocs();
+    if (activeResult.value !== requestedFor) return;
+    columnDocs.value = docs;
+    // Always switched on, even when nothing resolved: each column then says so
+    // under its name, which answers "does this field have a doc?" directly.
+    showColumnDocs.value = true;
+  } catch (error) {
+    // Only the catalog lookups behind the docs failed — the result itself is
+    // fine and stays on screen, so this is a notification, not an error state.
+    functions.handleError(error, 'LoQEExplorer.toggleColumnDocs', true);
+  } finally {
+    docsLoading.value = false;
+  }
+}
 
 /** Row items as objects keyed by column name (lazy — only built once per result) */
 const resultItems = computed(() => {
@@ -1863,6 +1994,28 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* Column description under the header name. Bounded and wrapping, so a long
+   doc cannot push the rows out of a results pane the user is resizing. */
+.column-head {
+  min-width: 0;
+}
+
+.column-doc {
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  font-weight: 400;
+  opacity: 0.7;
+  white-space: normal;
+  max-width: 240px;
+  margin-top: 2px;
+}
+
+/* Quieter still than a real doc: absence should not compete with content */
+.column-doc--empty {
+  opacity: 0.4;
+  font-style: italic;
+}
+
 .font-monospace {
   font-family: 'Courier New', Courier, monospace;
 }

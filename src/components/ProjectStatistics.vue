@@ -449,22 +449,42 @@ function statusColor(code: number): string {
   return STATUS_COLORS[statusCategory(code)] ?? '#607d8b';
 }
 
-function aggTimeInterval(agg: string, dataLen: number): d3.TimeInterval | number {
-  const maxTicks = Math.min(dataLen, 10);
-  switch (agg) {
-    case 'hour':
-      return d3.timeHour.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'day':
-      return d3.timeDay.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'week':
-      return d3.timeWeek.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'month':
-      return d3.timeMonth.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'year':
-      return d3.timeYear.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    default:
-      return maxTicks;
-  }
+/**
+ * Tick positions for a time axis, spaced by the aggregation unit and capped by
+ * the pixels available for labels.
+ *
+ * Uses `interval.range`, not `interval.every`: `every(step)` filters by field
+ * value modulo step, so any step past the field's range degenerates —
+ * `timeHour.every(665)` keeps only hour 0 and yields a tick per day, which is
+ * how a year-long hourly axis ended up with 360 labels.
+ */
+function aggTickValues(agg: string, scale: d3.ScaleTime<number, number>, width: number): Date[] {
+  // ~90px per rotated label before neighbours start to touch.
+  const maxTicks = Math.max(2, Math.floor(width / 90));
+  const [start, end] = scale.domain() as [Date, Date];
+
+  // Countable intervals only: `count`/`range` are what the step needs.
+  const units: Record<string, d3.CountableTimeInterval> = {
+    hour: d3.timeHour,
+    day: d3.timeDay,
+    // Monday, matching `bucketDate`'s week start — d3.timeWeek is Sunday-based,
+    // which put every weekly tick one day off its bucket.
+    week: d3.timeMonday,
+    month: d3.timeMonth,
+    year: d3.timeYear,
+  };
+  const unit = units[agg];
+  if (!unit) return scale.ticks(maxTicks);
+
+  // How many buckets of this size the axis covers, not how many we sampled.
+  const spanned = unit.count(start, end);
+  if (spanned <= 0) return scale.ticks(maxTicks);
+
+  const step = Math.max(1, Math.ceil(spanned / maxTicks));
+  // `range` excludes its stop, so the last bucket — the one the axis ends on —
+  // would go unlabelled. A millisecond past the domain brings it back in.
+  const values = unit.range(start, new Date(end.getTime() + 1), step);
+  return values.length > 1 ? values : scale.ticks(maxTicks);
 }
 
 function fmtDate(d: string | Date) {
@@ -600,7 +620,7 @@ function drawAreaChart() {
       .call(
         d3
           .axisBottom(x)
-          .ticks(aggTimeInterval(aggregation.value, data.length))
+          .tickValues(aggTickValues(aggregation.value, x, width))
           .tickFormat((d) => {
             const dt = d as Date;
             return d3.timeFormat(tickFmt[aggregation.value] ?? '%d %b %H:%M')(dt);

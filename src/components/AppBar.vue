@@ -16,9 +16,12 @@
     </v-list-item>
     <v-spacer></v-spacer>
 
-    <!-- GitHub link — always a clickable icon; the star count only shows when the
-         count could be fetched (e.g. no count in air-gapped/offline deployments). -->
+    <!-- GitHub link — opt-in per app (`show-github`), so an enterprise or
+         white-labelled AppBar carries no link to the OSS repo. The star count
+         additionally needs a count to have been fetched, which an air-gapped or
+         offline deployment will not have. -->
     <v-btn
+      v-if="showGithub"
       href="https://github.com/lakekeeper/lakekeeper"
       target="_blank"
       rel="noopener noreferrer"
@@ -26,8 +29,8 @@
       size="small"
       class="text-none mr-1"
       rounded="lg">
-      <v-icon :start="starCount > 0" size="small">mdi-github</v-icon>
-      <template v-if="starCount > 0">
+      <v-icon :start="showStars" size="small">mdi-github</v-icon>
+      <template v-if="showStars">
         <v-icon size="small" class="mr-1" color="amber">mdi-star</v-icon>
         {{ formatStarCount(starCount) }}
       </template>
@@ -37,7 +40,7 @@
       <!-- Default OSS support menu (fallback if slot not provided) -->
       <v-menu v-if="showUserMenu" open-on-hover>
         <template #activator="{ props }">
-          <v-btn icon="mdi-help-box" variant="text" v-bind="props"></v-btn>
+          <v-btn icon="mdi-help-circle-outline" variant="text" v-bind="props"></v-btn>
         </template>
         <v-list>
           <v-list-item prepend-icon="mdi-file-document-check-outline" @click="goToDocumentation">
@@ -172,6 +175,15 @@ const props = defineProps({
     type: String,
     default: undefined,
   },
+  /**
+   * Show the GitHub link (with its star count) in the bar. Off by default; the
+   * fetch behind the count runs either way, since it doubles as the
+   * connectivity probe (see useConnectivity).
+   */
+  showGithub: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const router = useRouter();
@@ -183,6 +195,8 @@ const tokenDialog = ref<InstanceType<typeof TokenDialog> | null>(null);
 
 const userStorage = useUserStore();
 const starCount = ref(0);
+const showGithub = computed(() => props.showGithub);
+const showStars = computed(() => props.showGithub && starCount.value > 0);
 const { checkConnectivity } = useConnectivity();
 
 const theme = useTheme();

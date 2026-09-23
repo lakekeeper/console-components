@@ -26,7 +26,7 @@
       </v-tabs>
       <v-divider></v-divider>
 
-      <v-tabs-window v-model="formatTab" crossfade>
+      <v-tabs-window v-model="formatTab">
         <v-tabs-window-item value="iceberg">
           <v-card-text>
             <!-- Namespace Info -->
@@ -246,6 +246,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
 import icebergIcon from '@/assets/iceberg.svg';
 
 interface TableEntry {
@@ -266,6 +267,11 @@ const emit = defineEmits<{
 }>();
 
 const functions = useFunctions();
+const visual = useVisualStore();
+
+/** Tree nodes are keyed by the dot-separated path, whatever separator we were handed. */
+// eslint-disable-next-line no-control-regex
+const namespacePathForTree = computed(() => props.namespaceId.replace(/\x1F/g, '.'));
 
 const dialog = ref(false);
 const formatTab = ref<'iceberg' | 'generic'>('iceberg');
@@ -490,6 +496,12 @@ async function registerTables() {
     namespaceForApi = namespaceForApi.split('.').join(String.fromCharCode(0x1f));
   }
 
+  // Captured with `namespaceForApi` above, and for the same reason: every
+  // registration and the refresh that follows must name the namespace the batch
+  // started against, not whatever the props say once the awaits have run.
+  const warehouseId = props.warehouseId;
+  const treePath = namespacePathForTree.value;
+
   const toRegister = validEntries.value;
   totalAttempted.value = toRegister.length;
   succeededCount.value = 0;
@@ -500,7 +512,7 @@ async function registerTables() {
 
     try {
       await functions.registerTable(
-        props.warehouseId,
+        warehouseId,
         namespaceForApi,
         entry.name.trim(),
         entry.metadataLocation.trim(),
@@ -516,6 +528,13 @@ async function registerTables() {
       entry.errorMessage =
         err?.error?.message || err?.message || err?.toString() || 'Registration failed';
     }
+  }
+
+  // Same reason as in TableCreate: the tree is refreshed by whoever knows a
+  // table appeared, not by whichever page happens to host the dialog. Once for
+  // the batch — the per-entry call reloaded the node once per table.
+  if (succeededCount.value > 0) {
+    visual.refreshNavTree(warehouseId, treePath);
   }
 
   registrationDone.value = true;
