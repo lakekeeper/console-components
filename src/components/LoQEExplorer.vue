@@ -1858,12 +1858,22 @@ async function toggleColumnDocs() {
     showColumnDocs.value = false;
     return;
   }
+  // The result the docs are being fetched for. Switching tabs, running a new
+  // query or dropping the results all replace it, and docs resolved for a result
+  // nobody is looking at any more would label the wrong columns.
+  const requestedFor = activeResult.value;
   docsLoading.value = true;
   try {
-    columnDocs.value = await resolveColumnDocs();
+    const docs = await resolveColumnDocs();
+    if (activeResult.value !== requestedFor) return;
+    columnDocs.value = docs;
     // Always switched on, even when nothing resolved: each column then says so
     // under its name, which answers "does this field have a doc?" directly.
     showColumnDocs.value = true;
+  } catch (error) {
+    // Only the catalog lookups behind the docs failed — the result itself is
+    // fine and stays on screen, so this is a notification, not an error state.
+    functions.handleError(error, 'LoQEExplorer.toggleColumnDocs', true);
   } finally {
     docsLoading.value = false;
   }

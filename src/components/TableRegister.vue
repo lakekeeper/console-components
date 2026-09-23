@@ -516,15 +516,19 @@ async function registerTables() {
 
       entry.status = 'success';
       succeededCount.value++;
-      // Same reason as in TableCreate: the tree is refreshed by whoever knows
-      // a table appeared, not by whichever page happens to host the dialog.
-      visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
       emit('registered', entry.name);
     } catch (err: any) {
       entry.status = 'error';
       entry.errorMessage =
         err?.error?.message || err?.message || err?.toString() || 'Registration failed';
     }
+  }
+
+  // Same reason as in TableCreate: the tree is refreshed by whoever knows a
+  // table appeared, not by whichever page happens to host the dialog. Once for
+  // the batch — the per-entry call reloaded the node once per table.
+  if (succeededCount.value > 0) {
+    visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
   }
 
   registrationDone.value = true;

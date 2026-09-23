@@ -535,8 +535,11 @@ const searchResults = ref<
 >([]);
 
 // Warehouse options for search picker
+// Includes the warehouses still behind "Load more": the selector picks what to
+// search, and a warehouse that exists but has not been paged into the tree yet
+// is still a valid thing to search.
 const warehouseOptions = computed(() =>
-  treeItems.value
+  [...treeItems.value, ...pendingWarehouses.value]
     .filter((item) => item.type === 'warehouse')
     .map((item) => ({ title: item.name, value: item.warehouseId })),
 );

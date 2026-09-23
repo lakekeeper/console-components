@@ -106,10 +106,14 @@ export function storageProbeUrl(
   if (type === 'gcs') {
     const bucket = String(profile.bucket ?? '');
     if (!bucket) return null;
+    // `authorization`, not a `x-goog-encryption-*` header: the console reads GCS
+    // with a vended OAuth token, so this is the header its real requests carry —
+    // and unlike the encryption headers, its value is not validated into a 400
+    // before CORS is evaluated, which would make a fine bucket look rejected.
     return {
       url: `https://storage.googleapis.com/${encodeURIComponent(bucket)}/${PROBE_KEY}`,
       type,
-      preflightHeader: 'x-goog-encryption-algorithm',
+      preflightHeader: 'authorization',
     };
   }
 

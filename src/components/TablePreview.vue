@@ -32,7 +32,7 @@
 
     <!-- Loading: a skeleton in the shape of the result, so the layout does not jump -->
     <div v-if="isLoading">
-      <div class="d-flex align-center mb-3">
+      <div class="d-flex align-center mb-3" role="status" aria-live="polite">
         <v-progress-circular indeterminate size="16" width="2" class="mr-2"></v-progress-circular>
         <span class="text-caption text-medium-emphasis">Running preview query…</span>
       </div>

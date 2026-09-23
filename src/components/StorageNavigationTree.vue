@@ -848,11 +848,9 @@ onMounted(async () => {
     const rendered = new Set(treeItems.value.map((item) => item.id));
     openedItems.value = savedOpened.filter((id) => rendered.has(id));
   }
-
-  if (props.warehouseId) {
-    const node = findItemById(treeItems.value, `warehouse-${props.warehouseId}`);
-    if (node) await loadNamespacesForWarehouse(node);
-  }
+  // No explicit load for a scoped warehouse: `loadWarehouses` opens that node,
+  // and the `openedItems` watcher loads whatever it finds newly opened — doing
+  // it here too listed its namespaces twice on every mount.
 });
 
 // Save tree state when it changes

@@ -1469,6 +1469,7 @@ function resetProviderPane() {
   storageFormDirty.value = false;
   validationReport.value = null;
   validationError.value = null;
+  clearBrowserCheck();
   importKey.value++;
 }
 
@@ -1491,6 +1492,7 @@ function handleReset() {
   resetCreateForm();
   validationReport.value = null;
   validationError.value = null;
+  clearBrowserCheck();
   storageCredentialType.value = selectedProvider;
   pane.value = selectedPane;
 }

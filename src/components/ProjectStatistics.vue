@@ -467,7 +467,9 @@ function aggTickValues(agg: string, scale: d3.ScaleTime<number, number>, width: 
   const units: Record<string, d3.CountableTimeInterval> = {
     hour: d3.timeHour,
     day: d3.timeDay,
-    week: d3.timeWeek,
+    // Monday, matching `bucketDate`'s week start — d3.timeWeek is Sunday-based,
+    // which put every weekly tick one day off its bucket.
+    week: d3.timeMonday,
     month: d3.timeMonth,
     year: d3.timeYear,
   };
@@ -479,7 +481,9 @@ function aggTickValues(agg: string, scale: d3.ScaleTime<number, number>, width: 
   if (spanned <= 0) return scale.ticks(maxTicks);
 
   const step = Math.max(1, Math.ceil(spanned / maxTicks));
-  const values = unit.range(start, end, step);
+  // `range` excludes its stop, so the last bucket — the one the axis ends on —
+  // would go unlabelled. A millisecond past the domain brings it back in.
+  const values = unit.range(start, new Date(end.getTime() + 1), step);
   return values.length > 1 ? values : scale.ticks(maxTicks);
 }
 

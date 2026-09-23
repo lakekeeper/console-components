@@ -3,6 +3,7 @@ import {
   checkBrowserStorageReachability,
   type BrowserStorageCheck,
 } from '@/common/browserStorageReachability';
+import { storageProbeUrl } from '@/common/storageProbeUrl';
 
 /**
  * The browser-reachability verdict for a warehouse.
@@ -20,9 +21,13 @@ import {
  */
 const cache = new Map<string, BrowserStorageCheck>();
 
-function cacheKey(warehouseId: string): string {
+function cacheKey(warehouseId: string, profile: Record<string, any> | null | undefined): string {
   const origin = typeof location !== 'undefined' ? location.origin : '';
-  return `${warehouseId}|${origin}`;
+  // The probed URL too: editing a warehouse's endpoint, bucket or region changes
+  // what the verdict is about, and a hit keyed only by id would answer for the
+  // storage that was there before the edit.
+  const target = storageProbeUrl(profile)?.url ?? '';
+  return `${warehouseId}|${origin}|${target}`;
 }
 
 export function useBrowserStorageCheck() {
@@ -41,7 +46,7 @@ export function useBrowserStorageCheck() {
     { force = false }: { force?: boolean } = {},
   ): Promise<void> {
     if (!warehouseId) return;
-    const key = cacheKey(warehouseId);
+    const key = cacheKey(warehouseId, profile);
     if (!force) {
       const hit = cache.get(key);
       if (hit) {
@@ -59,9 +64,16 @@ export function useBrowserStorageCheck() {
     }
   }
 
-  /** Drops the remembered verdict, e.g. when the storage profile was edited. */
+  /**
+   * Drops the remembered verdict, e.g. when the storage profile was edited.
+   * Every entry for the warehouse, not one key: the profile that produced the
+   * cached verdict is exactly what an edit replaced, so its key is no longer
+   * derivable here.
+   */
   function invalidate(warehouseId: string): void {
-    cache.delete(cacheKey(warehouseId));
+    for (const key of [...cache.keys()]) {
+      if (key.startsWith(`${warehouseId}|`)) cache.delete(key);
+    }
     result.value = null;
   }
 

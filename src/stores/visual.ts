@@ -480,6 +480,22 @@ export const useVisualStore = defineStore(
     persistedState: {
       key: 'visual',
       persist: true,
+      /**
+       * Drops the tree payload older builds persisted next to the opened ids.
+       * Without this, a key for a project nobody opens again keeps its
+       * serialised nodes forever — the very localStorage weight
+       * `warehouseTreeState` was narrowed to avoid.
+       */
+      migrate: (state: any) => {
+        const trees = state?.warehouseTreeState;
+        if (trees && typeof trees === 'object') {
+          for (const key of Object.keys(trees)) {
+            const opened = trees[key]?.openedItems;
+            trees[key] = { openedItems: Array.isArray(opened) ? opened : [] };
+          }
+        }
+        return state;
+      },
     },
   },
 );
