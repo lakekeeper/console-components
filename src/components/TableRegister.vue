@@ -246,6 +246,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { useVisualStore } from '@/stores/visual';
 import icebergIcon from '@/assets/iceberg.svg';
 
 interface TableEntry {
@@ -266,6 +267,11 @@ const emit = defineEmits<{
 }>();
 
 const functions = useFunctions();
+const visual = useVisualStore();
+
+/** Tree nodes are keyed by the dot-separated path, whatever separator we were handed. */
+// eslint-disable-next-line no-control-regex
+const namespacePathForTree = computed(() => props.namespaceId.replace(/\x1F/g, '.'));
 
 const dialog = ref(false);
 const formatTab = ref<'iceberg' | 'generic'>('iceberg');
@@ -510,6 +516,9 @@ async function registerTables() {
 
       entry.status = 'success';
       succeededCount.value++;
+      // Same reason as in TableCreate: the tree is refreshed by whoever knows
+      // a table appeared, not by whichever page happens to host the dialog.
+      visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
       emit('registered', entry.name);
     } catch (err: any) {
       entry.status = 'error';

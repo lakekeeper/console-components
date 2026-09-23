@@ -344,6 +344,7 @@ async function confirmBulkDelete() {
         );
       }
       bulkResults.value.push({ name: row.name, ok: true });
+      visual.refreshNavTree(props.warehouseId, props.namespacePath);
     } catch (error: any) {
       functions.handleError(error, 'NamespaceTables.confirmBulkDelete', false);
       bulkResults.value.push({
@@ -451,6 +452,7 @@ async function onDelete(e: any, item: TableRow) {
     } else {
       await functions.dropTable(props.warehouseId, props.namespacePath, item.name, e, notify);
     }
+    visual.refreshNavTree(props.warehouseId, props.namespacePath);
     await loadAll();
   } catch (error) {
     functions.handleError(error, `Failed to drop ${item.source}-${item.name}`, true);
@@ -505,6 +507,7 @@ async function executeRename() {
       );
     }
     closeRenameDialog();
+    visual.refreshNavTree(props.warehouseId, props.namespacePath);
     await loadAll();
   } catch {
     // error handled by functions plugin
