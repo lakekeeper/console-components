@@ -1688,6 +1688,9 @@ watch(
       seedSettingsFromWarehouse();
     }
     resetProviderPane();
+    // Re-seeded above, so nothing is dirty and the unsaved-changes guard has
+    // nothing to warn about.
+    cancelDialog();
   },
 );
 </script>

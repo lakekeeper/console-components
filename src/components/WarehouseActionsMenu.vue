@@ -99,8 +99,9 @@ const { canManageTags } = useWarehousePermissions(computed(() => warehouse.id));
 
 onMounted(async () => {});
 
-// The settings dialog saves per pane and stays open afterwards, so none of these
-// close the menu — closing it would unmount the dialog mid-edit.
+// None of these close the menu: that would unmount the dialog mid-edit. The
+// dialog closes itself after a storage save and emits `cancel`, which is what
+// takes the menu down.
 function emitRename(name: string) {
   emit('renameWarehouse', name);
 }
@@ -116,18 +117,4 @@ function updateStorageProfile(e: { profile: StorageProfile; credentials?: Storag
 function updateCatalogSettings(e: CatalogSettingsUpdate) {
   emit('updateCatalogSettings', e);
 }
-
-// watch(
-//   () => processStatus,
-//   (newVal) => {
-//     if (newVal === 'success') {
-//
-//       // menuOpen.value = false;
-//     }
-//   },
-//   {
-//     immediate: true,
-//     deep: true,
-//   },
-// );
 </script>
