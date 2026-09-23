@@ -97,7 +97,16 @@ export const useVisualStore = defineStore(
 
     // Warehouse navigation tree state
     // Key: projectId, Value: { openedItems, treeItems }
-    const warehouseTreeState = ref<Record<string, { openedItems: string[]; treeItems: any[] }>>({});
+    /**
+     * Per-tree expansion state. Only the opened node ids are kept: the nodes
+     * themselves are re-fetched on mount, which is one request the tree was
+     * making anyway to validate the cache. Persisting the loaded tree instead
+     * meant serialising every warehouse, namespace and table into
+     * localStorage on each expand — megabytes of synchronous JSON on the main
+     * thread once an instance has a few hundred warehouses, and close enough
+     * to the ~5MB quota to start throwing.
+     */
+    const warehouseTreeState = ref<Record<string, { openedItems: string[] }>>({});
 
     // Signal to tell WarehousesNavigationTree to reload a specific node
     // Incremented counter + context so watchers fire on every signal
