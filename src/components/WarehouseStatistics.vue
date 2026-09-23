@@ -571,22 +571,38 @@ function statusColor(code: number): string {
   return STATUS_COLORS[statusCategory(code)] ?? '#607d8b';
 }
 
-function aggTimeInterval(agg: string, dataLen: number): d3.TimeInterval | number {
-  const maxTicks = Math.min(dataLen, 10);
-  switch (agg) {
-    case 'hour':
-      return d3.timeHour.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'day':
-      return d3.timeDay.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'week':
-      return d3.timeWeek.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'month':
-      return d3.timeMonth.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    case 'year':
-      return d3.timeYear.every(Math.max(1, Math.ceil(dataLen / maxTicks))) ?? maxTicks;
-    default:
-      return maxTicks;
-  }
+/**
+ * Tick interval for a time axis, derived from the domain the axis actually
+ * spans and the pixels available for labels.
+ *
+ * The step used to come from the number of data points, which says nothing
+ * about how wide the axis is: four samples a year apart still asked for one
+ * tick per day, and the labels collapsed into a smear.
+ */
+function aggTimeInterval(
+  agg: string,
+  domain: [Date, Date],
+  width: number,
+): d3.TimeInterval | number {
+  // ~90px per rotated label before neighbours start to touch.
+  const maxTicks = Math.max(2, Math.floor(width / 90));
+
+  // Countable intervals only: `count`/`every` are what the step needs.
+  const units: Record<string, d3.CountableTimeInterval> = {
+    hour: d3.timeHour,
+    day: d3.timeDay,
+    week: d3.timeWeek,
+    month: d3.timeMonth,
+    year: d3.timeYear,
+  };
+  const unit = units[agg];
+  if (!unit) return maxTicks;
+
+  // How many buckets of this size the axis covers, not how many we sampled.
+  const spanned = unit.count(domain[0], domain[1]);
+  if (spanned <= 0) return maxTicks;
+  const step = Math.max(1, Math.ceil(spanned / maxTicks));
+  return unit.every(step) ?? maxTicks;
 }
 
 function fmtDate(d: string | Date) {
@@ -722,7 +738,7 @@ function drawAreaChart() {
       .call(
         d3
           .axisBottom(x)
-          .ticks(aggTimeInterval(aggregation.value, data.length))
+          .ticks(aggTimeInterval(aggregation.value, x.domain() as [Date, Date], width))
           .tickFormat((d) => {
             const dt = d as Date;
             return d3.timeFormat(tickFmt[aggregation.value] ?? '%d %b %H:%M')(dt);
@@ -1113,7 +1129,7 @@ function drawObjectsChart() {
     .call(
       d3
         .axisBottom(x)
-        .ticks(aggTimeInterval(objectsAggregation.value, data.length))
+        .ticks(aggTimeInterval(objectsAggregation.value, x.domain() as [Date, Date], width))
         .tickFormat((d) =>
           d3.timeFormat(tickFmt[objectsAggregation.value] ?? '%d %b %Y')(d as Date),
         ),
