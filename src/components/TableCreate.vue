@@ -405,12 +405,20 @@ function closeDialog() {
 async function createTable() {
   if (!canCreate.value) return;
 
+  // Read once, up front: the props can move while the create is in flight (the
+  // host page navigating), and a refresh aimed at a different namespace than the
+  // one just written to would reload the wrong node and leave the new table
+  // missing from the tree.
+  const warehouseId = props.warehouseId;
+  const namespaceId = props.namespaceId;
+  const treePath = namespacePathForTree.value;
+
   isCreating.value = true;
   error.value = null;
   success.value = false;
 
   try {
-    await functions.createIcebergTable(props.warehouseId, props.namespaceId, buildCreateRequest());
+    await functions.createIcebergTable(warehouseId, namespaceId, buildCreateRequest());
 
     // DuckDB caches Iceberg metadata, and attach is idempotent — so a session
     // that already holds this catalog would not see the new table. No-ops when
@@ -422,7 +430,7 @@ async function createTable() {
     // Refreshed here rather than by the host page: the navigation tree must
     // show the new table wherever the dialog was opened from, and a caller
     // that forgets to wire `created` would otherwise leave it stale.
-    visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
+    visual.refreshNavTree(warehouseId, treePath);
 
     success.value = true;
     emit('created', tableName.value);

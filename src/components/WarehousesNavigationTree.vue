@@ -734,22 +734,40 @@ function appendWarehousePage() {
   ];
 }
 
+/**
+ * Which load is current. A project switch and a warehouse-prop change fire
+ * their own reload, so two can be in flight at once — and the one that answers
+ * last wins the tree regardless of which selection it was asked for.
+ */
+let loadRequestId = 0;
+
 async function loadWarehouses() {
+  const requestId = ++loadRequestId;
+  const forWarehouse = props.warehouseId;
+  const forProject = projectId.value;
+  // Still the load everyone is waiting for, and still for the selection that
+  // asked for it.
+  const isCurrent = () =>
+    requestId === loadRequestId &&
+    props.warehouseId === forWarehouse &&
+    projectId.value === forProject;
+
   isLoading.value = true;
   try {
     // A warehouse-scoped tree shows exactly one node, so ask for that one
     // warehouse instead of fetching every warehouse in the project to throw
     // all but one away.
-    if (props.warehouseId) {
-      const warehouse: any = await functions.getWarehouse(props.warehouseId, false);
-      if (!warehouse) return;
+    if (forWarehouse) {
+      const warehouse: any = await functions.getWarehouse(forWarehouse, false);
+      if (!warehouse || !isCurrent()) return;
       pendingWarehouses.value = [];
-      treeItems.value = [warehouseNode({ ...warehouse, id: warehouse.id ?? props.warehouseId })];
+      treeItems.value = [warehouseNode({ ...warehouse, id: warehouse.id ?? forWarehouse })];
       openedItems.value = [treeItems.value[0].id];
       return;
     }
 
     const response = await functions.listWarehouses(false);
+    if (!isCurrent()) return;
     if (response && response.warehouses) {
       const nodes = response.warehouses.map(warehouseNode);
       pendingWarehouses.value = nodes.slice(TREE_PAGE_SIZE);
@@ -759,9 +777,13 @@ async function loadWarehouses() {
       ];
     }
   } catch (error) {
-    logError('loadWarehouses', error);
+    // A superseded load failing is not news; the load that replaced it reports
+    // its own outcome.
+    if (isCurrent()) logError('loadWarehouses', error);
   } finally {
-    isLoading.value = false;
+    // Only the newest load owns the flag, or the first to finish clears the
+    // spinner while a later one is still running.
+    if (requestId === loadRequestId) isLoading.value = false;
   }
 }
 

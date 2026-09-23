@@ -496,6 +496,12 @@ async function registerTables() {
     namespaceForApi = namespaceForApi.split('.').join(String.fromCharCode(0x1f));
   }
 
+  // Captured with `namespaceForApi` above, and for the same reason: every
+  // registration and the refresh that follows must name the namespace the batch
+  // started against, not whatever the props say once the awaits have run.
+  const warehouseId = props.warehouseId;
+  const treePath = namespacePathForTree.value;
+
   const toRegister = validEntries.value;
   totalAttempted.value = toRegister.length;
   succeededCount.value = 0;
@@ -506,7 +512,7 @@ async function registerTables() {
 
     try {
       await functions.registerTable(
-        props.warehouseId,
+        warehouseId,
         namespaceForApi,
         entry.name.trim(),
         entry.metadataLocation.trim(),
@@ -528,7 +534,7 @@ async function registerTables() {
   // table appeared, not by whichever page happens to host the dialog. Once for
   // the batch — the per-entry call reloaded the node once per table.
   if (succeededCount.value > 0) {
-    visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
+    visual.refreshNavTree(warehouseId, treePath);
   }
 
   registrationDone.value = true;
