@@ -58,7 +58,7 @@
       </v-tabs>
       <v-divider></v-divider>
 
-      <v-tabs-window v-model="formatTab" crossfade class="create-table-window">
+      <v-tabs-window v-model="formatTab" class="create-table-window">
         <v-tabs-window-item value="iceberg" class="create-table-pane">
           <v-card-text ref="icebergBodyRef" style="flex: 1 1 auto; overflow-y: auto; min-height: 0">
             <!-- Table Name -->
