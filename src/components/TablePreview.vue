@@ -30,11 +30,16 @@
       </div>
     </v-alert>
 
-    <!-- Loading/Initializing State -->
-    <v-alert v-if="isLoading" type="info" variant="tonal" class="mb-4">
-      <v-progress-circular indeterminate size="24" class="mr-2"></v-progress-circular>
-      Loading table preview...
-    </v-alert>
+    <!-- Loading: a skeleton in the shape of the result, so the layout does not jump -->
+    <div v-if="isLoading">
+      <div class="d-flex align-center mb-3">
+        <v-progress-circular indeterminate size="16" width="2" class="mr-2"></v-progress-circular>
+        <span class="text-caption text-medium-emphasis">Running preview query…</span>
+      </div>
+      <v-card variant="outlined">
+        <v-skeleton-loader type="table-thead, table-tbody"></v-skeleton-loader>
+      </v-card>
+    </div>
 
     <!-- Error State -->
     <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
@@ -47,13 +52,17 @@
 
     <!-- Results -->
     <div v-else-if="queryResults">
-      <div class="text-h6 mb-3">
-        Preview: {{ resolvedWarehouseName }}.{{ namespaceDisplay }}.{{ tableName }}
-      </div>
-
-      <!-- Branch & Time Travel Toolbar -->
-      <v-card variant="outlined" class="mb-4" density="compact">
+      <!-- One toolbar: what is being read, from where, and what came back -->
+      <v-card variant="outlined" class="mb-4">
         <div class="d-flex align-center flex-wrap ga-3 pa-3">
+          <div class="d-flex align-center text-truncate" style="min-width: 0">
+            <v-icon size="small" class="mr-2 text-medium-emphasis">mdi-table-eye</v-icon>
+            <span class="text-body-2 font-weight-medium text-truncate">{{ tableName }}</span>
+            <span class="text-caption text-medium-emphasis ml-2 text-truncate d-none d-sm-inline">
+              {{ resolvedWarehouseName }}.{{ namespaceDisplay }}
+            </span>
+          </div>
+
           <!-- Branch selector -->
           <v-select
             v-if="branchOptions.length > 1"
@@ -88,39 +97,109 @@
 
           <v-spacer></v-spacer>
 
-          <!-- Row count & download -->
-          <v-chip v-if="queryResults.truncated" color="warning" variant="flat" size="small">
-            {{ queryResults.rowCount.toLocaleString() }} of
-            {{ queryResults.totalRowCount.toLocaleString() }} rows
-          </v-chip>
-          <v-chip v-else color="primary" variant="flat" size="small">
-            {{ queryResults.rows.length }} rows
-          </v-chip>
+          <span class="text-caption text-medium-emphasis">{{ resultSummary }}</span>
+          <v-tooltip
+            v-if="queryResults.truncated"
+            text="Preview reads the first 1,000 rows only"
+            location="top">
+            <template #activator="{ props: tipProps }">
+              <v-icon v-bind="tipProps" size="small" color="warning">
+                mdi-information-outline
+              </v-icon>
+            </template>
+          </v-tooltip>
+
+          <v-btn
+            icon="mdi-refresh"
+            size="small"
+            variant="text"
+            title="Reload preview"
+            @click="loadPreview"></v-btn>
           <v-btn
             size="small"
             variant="outlined"
             prepend-icon="mdi-download-outline"
-            @click="downloadCSV"
-            :disabled="!csvDownload.isDownloadAvailable(queryResults)">
+            :disabled="!csvDownload.isDownloadAvailable(queryResults)"
+            @click="downloadCSV">
             CSV
+          </v-btn>
+          <!-- "Field docs", not "Docs": on its own the word reads as product
+               documentation. Pressed state is carried by the variant. -->
+          <v-btn
+            v-if="hasColumnDocs"
+            size="small"
+            :variant="showColumnDocs ? 'tonal' : 'outlined'"
+            :prepend-icon="showColumnDocs ? 'mdi-text-box' : 'mdi-text-box-outline'"
+            :title="
+              showColumnDocs
+                ? 'Hide field descriptions'
+                : 'Show the schema field description under each column'
+            "
+            @click="showColumnDocs = !showColumnDocs">
+            Field docs
           </v-btn>
         </div>
       </v-card>
 
+      <!-- A readable table can still hold nothing: say so rather than "No data available" -->
+      <v-alert v-if="tableRows.length === 0" type="info" variant="tonal" prominent class="mb-4">
+        <div class="text-body-1 font-weight-bold mb-2">
+          <v-icon class="mr-2">mdi-table-off</v-icon>
+          {{ emptyResult.title }}
+        </div>
+        <div class="text-body-2">{{ emptyResult.detail }}</div>
+      </v-alert>
+
       <!-- Results Table -->
-      <v-data-table
-        :headers="tableHeaders"
-        :items="tableRows"
-        :items-per-page="1000"
-        hide-default-footer
-        density="compact"
-        class="elevation-1"
-        fixed-header
-        height="50vh">
-        <template v-for="h in tableHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
-          <CellValue :value="value" @open="openCell(h.title, value)" />
-        </template>
-      </v-data-table>
+      <v-card v-else variant="outlined">
+        <v-data-table
+          :headers="tableHeaders"
+          :items="tableRows"
+          :items-per-page="1000"
+          hide-default-footer
+          density="compact"
+          class="preview-table"
+          fixed-header
+          height="50vh">
+          <template
+            v-for="h in tableHeaders"
+            :key="`header-${h.key}`"
+            #[`header.${h.key}`]="{ column, isSorted, getSortIcon }">
+            <div class="d-flex align-center ga-1">
+              <div class="d-flex flex-column column-head align-start">
+                <span class="d-flex align-center ga-1">
+                  {{ column.title }}
+                  <v-tooltip
+                    v-if="columnDocs[h.key] && !showColumnDocs"
+                    :text="columnDocs[h.key]"
+                    location="bottom"
+                    max-width="320">
+                    <template #activator="{ props: docProps }">
+                      <v-icon v-bind="docProps" size="x-small" class="doc-hint">
+                        mdi-information-outline
+                      </v-icon>
+                    </template>
+                  </v-tooltip>
+                </span>
+                <span v-if="columnTypes[h.key]" class="column-type">{{ columnTypes[h.key] }}</span>
+                <template v-if="showColumnDocs">
+                  <span v-if="columnDocs[h.key]" class="column-doc">{{ columnDocs[h.key] }}</span>
+                  <span v-else class="column-doc column-doc--empty">No docs available</span>
+                </template>
+              </div>
+              <v-icon
+                v-if="column.sortable"
+                size="x-small"
+                :class="isSorted(column) ? 'sort-icon sort-icon--active' : 'sort-icon'"
+                :icon="getSortIcon(column)"></v-icon>
+            </div>
+          </template>
+          <template v-for="h in tableHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
+            <span v-if="value === null || value === undefined" class="null-cell">NULL</span>
+            <CellValue v-else :value="value" @open="openCell(h.title, value)" />
+          </template>
+        </v-data-table>
+      </v-card>
 
       <!-- Full-value / JSON viewer -->
       <CellValueDialog v-model="cellDialog.open" :state="cellDialog" />
@@ -154,10 +233,25 @@ interface BigIntRef {
   'snapshot-id': string;
 }
 
+interface BigIntSchemaField {
+  name: string;
+  /** Primitive types are plain strings ('long'); nested ones are objects. */
+  type: string | { type?: string };
+  /** Iceberg field comment, when the writer set one. */
+  doc?: string;
+}
+
+interface BigIntSchema {
+  'schema-id'?: number;
+  fields?: BigIntSchemaField[];
+}
+
 interface BigIntTableMetadata {
   snapshots?: BigIntSnapshot[];
   refs?: Record<string, BigIntRef>;
   'current-snapshot-id'?: string;
+  schemas?: BigIntSchema[];
+  'current-schema-id'?: number;
 }
 
 interface BigIntLoadTableResult {
@@ -263,6 +357,56 @@ const allTimeTravelOptions = computed(() => {
   });
 });
 
+/**
+ * Column name → Iceberg type, for the type line under each header.
+ *
+ * Taken from the table's current schema rather than from the query result:
+ * DuckDB reports its own type names, and the Iceberg type is what the reader
+ * is actually looking at.
+ */
+const columnTypes = computed<Record<string, string>>(() => {
+  const meta = tableMetadata.value?.metadata;
+  const schemas = meta?.schemas;
+  if (!schemas?.length) return {};
+  const schema =
+    schemas.find((s) => s['schema-id'] === meta?.['current-schema-id']) ??
+    schemas[schemas.length - 1];
+  const types: Record<string, string> = {};
+  for (const field of schema?.fields ?? []) {
+    types[field.name] =
+      typeof field.type === 'string' ? field.type : (field.type?.type ?? 'complex');
+  }
+  return types;
+});
+
+/** Column name → Iceberg field doc, for the columns that carry one. */
+const columnDocs = computed<Record<string, string>>(() => {
+  const meta = tableMetadata.value?.metadata;
+  const schemas = meta?.schemas;
+  if (!schemas?.length) return {};
+  const schema =
+    schemas.find((s) => s['schema-id'] === meta?.['current-schema-id']) ??
+    schemas[schemas.length - 1];
+  const docs: Record<string, string> = {};
+  for (const field of schema?.fields ?? []) {
+    if (field.doc) docs[field.name] = field.doc;
+  }
+  return docs;
+});
+
+/** Whether any column carries a doc — no toggle is offered when none do. */
+const hasColumnDocs = computed(() => Object.keys(columnDocs.value).length > 0);
+
+/**
+ * Docs inline under the header when on, as a hover tooltip when off. Off by
+ * default: a description is often a sentence, and a preview is read for its
+ * data first.
+ */
+const showColumnDocs = ref(false);
+
+const isNumericColumn = (col: string) =>
+  /^(int|long|float|double|decimal)/.test(columnTypes.value[col] ?? '');
+
 // Compute headers from results
 const tableHeaders = computed(() => {
   if (!queryResults.value?.columns) return [];
@@ -270,6 +414,13 @@ const tableHeaders = computed(() => {
     title: col,
     key: col,
     sortable: true,
+    // Numbers read as a column when they share an edge and a tabular figure.
+    align: (isNumericColumn(col) ? 'end' : 'start') as 'start' | 'end',
+    // …but the header stays left whatever the cells do: name, type and doc are
+    // read as a stack, and a right-aligned stack over a wide column drifts far
+    // from the column it names. `headerProps` is merged after `align`, so it wins.
+    headerProps: { align: 'start' as const },
+    cellProps: isNumericColumn(col) ? { class: 'numeric-cell' } : undefined,
   }));
 });
 
@@ -284,6 +435,40 @@ const tableRows = computed(() => {
     return obj;
   });
 });
+
+const formatMs = (ms: number) =>
+  ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
+
+// "842 of 12,043 rows · 310 ms" — what came back, and what it cost
+const resultSummary = computed(() => {
+  const r = queryResults.value;
+  if (!r) return '';
+  const rows = r.truncated
+    ? `${r.rowCount.toLocaleString()} of ${r.totalRowCount.toLocaleString()} rows`
+    : `${r.rowCount.toLocaleString()} ${r.rowCount === 1 ? 'row' : 'rows'}`;
+  return typeof r.executionTimeMs === 'number' ? `${rows} · ${formatMs(r.executionTimeMs)}` : rows;
+});
+
+/**
+ * Why the query came back empty. An unwritten table and a snapshot that
+ * happens to hold nothing are different situations, and the default
+ * "No data available" explains neither.
+ */
+const emptyResult = computed(() =>
+  selectedSnapshot.value
+    ? {
+        title: 'No rows in this snapshot',
+        detail:
+          'The selected snapshot contains no rows. Choose a later one, or clear time travel to ' +
+          'read the tip of the branch.',
+      }
+    : {
+        title: 'No rows yet',
+        detail:
+          'The table and its schema are readable, but nothing has been written to it yet. ' +
+          'Rows appear here after the first write.',
+      },
+);
 
 // Cell value viewer: long / JSON-looking values are clickable and open a dialog
 // showing the full value (shared with the LoQE results grid).
@@ -461,9 +646,11 @@ watch(
   font-size: 0.875rem;
 }
 
+/* Neutral tint rather than a primary wash: the header must stay quiet under
+   any white-label theme, and the data is what should carry the colour. */
 :deep(.v-data-table th) {
   font-weight: 600;
-  background-color: rgba(var(--v-theme-primary), 0.1);
+  background-color: rgba(var(--v-theme-on-surface), 0.04);
 }
 
 :deep(.v-data-table td) {
@@ -471,5 +658,77 @@ watch(
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Zebra striping + hover: both sit on the theme's on-surface colour, so they
+   hold up in light and dark without a second palette. */
+.preview-table :deep(tbody tr:nth-child(even) td) {
+  background-color: rgba(var(--v-theme-on-surface), 0.02);
+}
+
+.preview-table :deep(tbody tr:hover td) {
+  background-color: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.preview-table :deep(td.numeric-cell) {
+  font-family: 'Roboto Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Iceberg type under the column name */
+.column-type {
+  font-size: 0.625rem;
+  line-height: 1.1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.6;
+  font-weight: 400;
+}
+
+/* The doc wraps, but only so far: a header row that grows without bound would
+   push the data itself off the screen. */
+.column-doc {
+  font-size: 0.6875rem;
+  line-height: 1.3;
+  font-weight: 400;
+  opacity: 0.7;
+  white-space: normal;
+  max-width: 260px;
+  margin-top: 2px;
+}
+
+.column-head {
+  min-width: 0;
+}
+
+/* Quieter still than a real doc: absence should not compete with content */
+.column-doc--empty {
+  opacity: 0.4;
+  font-style: italic;
+}
+
+/* Type and doc are block text, so they need the alignment the flex rows get */
+.column-head.align-start {
+  text-align: left;
+}
+
+.doc-hint {
+  opacity: 0.45;
+}
+
+/* Sort affordance: present but silent until the column is actually sorted */
+.sort-icon {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+:deep(th:hover) .sort-icon,
+.sort-icon--active {
+  opacity: 0.7;
+}
+
+.null-cell {
+  opacity: 0.38;
+  font-style: italic;
 }
 </style>
