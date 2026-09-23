@@ -31,6 +31,9 @@
             </v-expansion-panel-title>
             <v-expansion-panel-text v-if="check.detail">
               <div class="text-body-2 text-medium-emphasis">{{ check.detail }}</div>
+              <div v-if="check.showCors" class="mt-3">
+                <CorsConfigDialog />
+              </div>
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>
@@ -74,6 +77,8 @@
 import { computed } from 'vue';
 import { helix } from 'ldrs';
 import { ValidateWarehouseResponse, ValidationCheckName } from '@/gen/management/types.gen';
+import type { BrowserStorageCheck } from '@/common/browserStorageReachability';
+import CorsConfigDialog from './CorsConfigDialog.vue';
 
 // Registers the <l-helix> custom element. Idempotent (no-ops if another
 // component, e.g. WarehouseManager, already registered it) — don't rely on
@@ -86,6 +91,15 @@ const props = defineProps<{
   error?: string | null;
   /** Rendered as a pane rather than a dialog: there is nothing to close. */
   hideClose?: boolean;
+  /**
+   * The client-side browser-reachability verdict, when the caller ran one. It is
+   * not part of `report`: the API cannot produce it (CORS is decided in the
+   * browser, against this console's origin), so it arrives separately and is
+   * merged in for display only — see `browserStorageReachability`.
+   */
+  browserCheck?: BrowserStorageCheck | null;
+  /** The browser probe is still running; it outlives the API call. */
+  browserCheckLoading?: boolean;
 }>();
 
 defineEmits<{ (e: 'close'): void }>();
@@ -111,6 +125,12 @@ const checkLabels: Record<ValidationCheckName, string> = {
   cleanup: 'Test artifacts were cleaned up',
 };
 
+/**
+ * Not a `ValidationCheckName`: the wire enum is the API's, and this check is the
+ * console's own. Worded as the same kind of claim so it reads as one report.
+ */
+const BROWSER_CHECK_LABEL = 'Storage is reachable from this browser';
+
 function statusColor(status: string): string {
   if (status === 'passed') return 'success';
   if (status === 'failed') return 'error';
@@ -125,19 +145,56 @@ function statusIcon(status: string): string {
   return 'mdi-minus-circle-outline';
 }
 
-// Most severe first. `warning` is not currently emitted by the API
-// (ValidationCheckStatus is passed/failed/skipped) but is ranked here so it slots
-// in correctly if the backend adds it.
+// Most severe first. The API emits only passed/failed/skipped; `warning` and
+// `running` come from the client-side browser check merged in below, and are
+// ranked here so both slot in correctly — `running` sits with the unresolved
+// rather than below the passes, so a probe still in flight stays visible.
 const STATUS_RANK: Record<string, number> = {
   failed: 0,
   warning: 1,
-  passed: 2,
-  skipped: 3,
+  running: 2,
+  passed: 3,
+  skipped: 4,
 };
+
+/**
+ * The browser check never reports `failed`, so it cannot make a report invalid —
+ * `overallColor` and the header chip stay driven purely by `report.valid`. A
+ * warehouse that no browser can read is still a correct warehouse.
+ */
+const browserCheckRow = computed(() => {
+  if (props.browserCheckLoading) {
+    return {
+      name: 'browser-storage-reachable',
+      label: BROWSER_CHECK_LABEL,
+      status: 'running',
+      color: 'grey',
+      icon: 'mdi-timer-sand',
+      detail: 'Contacting the storage endpoint from this browser…',
+      showCors: false,
+    };
+  }
+  const check = props.browserCheck;
+  if (!check) return null;
+  const detailParts: string[] = [];
+  if (check.durationMs != null) detailParts.push(`Duration: ${check.durationMs}ms`);
+  return {
+    name: 'browser-storage-reachable',
+    label: BROWSER_CHECK_LABEL,
+    status: check.status,
+    color: statusColor(check.status),
+    icon: statusIcon(check.status),
+    detail: [check.detail, ...detailParts].join(' · '),
+    // The bucket's CORS rule is a credible cause, so the snippet that fixes it
+    // belongs in the row. Withheld for every verdict that proves the request
+    // never reached the storage — a blocked port is not fixed by a CORS rule.
+    showCors: check.corsLikely,
+  };
+});
 
 const checks = computed(() => {
   if (!props.report) return [];
-  return props.report.checks.map((check) => {
+  const backend = props.report.checks.map((check) => {
     const detailParts: string[] = [];
     if (check['duration-ms'] != null) detailParts.push(`Duration: ${check['duration-ms']}ms`);
     if (check.status === 'skipped' && check.reason) detailParts.push(`Skipped: ${check.reason}`);
@@ -149,8 +206,11 @@ const checks = computed(() => {
       color: statusColor(check.status),
       icon: statusIcon(check.status),
       detail: detailParts.join(' · '),
+      showCors: false,
     };
   });
+  const browser = browserCheckRow.value;
+  return browser ? [...backend, browser] : backend;
 });
 
 // Most severe first (failed → warning → passed); sort is stable, so checks of the
