@@ -450,22 +450,20 @@ function statusColor(code: number): string {
 }
 
 /**
- * Tick interval for a time axis, derived from the domain the axis actually
- * spans and the pixels available for labels.
+ * Tick positions for a time axis, spaced by the aggregation unit and capped by
+ * the pixels available for labels.
  *
- * The step used to come from the number of data points, which says nothing
- * about how wide the axis is: four samples a year apart still asked for one
- * tick per day, and the labels collapsed into a smear.
+ * Uses `interval.range`, not `interval.every`: `every(step)` filters by field
+ * value modulo step, so any step past the field's range degenerates —
+ * `timeHour.every(665)` keeps only hour 0 and yields a tick per day, which is
+ * how a year-long hourly axis ended up with 360 labels.
  */
-function aggTimeInterval(
-  agg: string,
-  domain: [Date, Date],
-  width: number,
-): d3.TimeInterval | number {
+function aggTickValues(agg: string, scale: d3.ScaleTime<number, number>, width: number): Date[] {
   // ~90px per rotated label before neighbours start to touch.
   const maxTicks = Math.max(2, Math.floor(width / 90));
+  const [start, end] = scale.domain() as [Date, Date];
 
-  // Countable intervals only: `count`/`every` are what the step needs.
+  // Countable intervals only: `count`/`range` are what the step needs.
   const units: Record<string, d3.CountableTimeInterval> = {
     hour: d3.timeHour,
     day: d3.timeDay,
@@ -474,13 +472,15 @@ function aggTimeInterval(
     year: d3.timeYear,
   };
   const unit = units[agg];
-  if (!unit) return maxTicks;
+  if (!unit) return scale.ticks(maxTicks);
 
   // How many buckets of this size the axis covers, not how many we sampled.
-  const spanned = unit.count(domain[0], domain[1]);
-  if (spanned <= 0) return maxTicks;
+  const spanned = unit.count(start, end);
+  if (spanned <= 0) return scale.ticks(maxTicks);
+
   const step = Math.max(1, Math.ceil(spanned / maxTicks));
-  return unit.every(step) ?? maxTicks;
+  const values = unit.range(start, end, step);
+  return values.length > 1 ? values : scale.ticks(maxTicks);
 }
 
 function fmtDate(d: string | Date) {
@@ -616,7 +616,7 @@ function drawAreaChart() {
       .call(
         d3
           .axisBottom(x)
-          .ticks(aggTimeInterval(aggregation.value, x.domain() as [Date, Date], width))
+          .tickValues(aggTickValues(aggregation.value, x, width))
           .tickFormat((d) => {
             const dt = d as Date;
             return d3.timeFormat(tickFmt[aggregation.value] ?? '%d %b %H:%M')(dt);
