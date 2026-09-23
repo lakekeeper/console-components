@@ -22,7 +22,21 @@ export function useStorageValidation(
   // List of supported storage types for DuckDB WASM.
   // 'adls' works through the azure_wasm community extension (abfss:// + the SAS
   // token vended by loadTable) — see LoQEEngine.attachCatalog.
-  const supportedStorageTypes = ['s3', 'gcs', 'adls'];
+  // 'stackit' is S3 on the wire (StorageGRID): s3:// locations and an ordinary
+  // S3 secret, so it rides the same httpfs path as an s3-compat warehouse and
+  // needs no code of its own. R2 and Alibaba OSS arrive as `s3` profiles with a
+  // different credential type, so they are already covered by the 's3' entry.
+  const supportedStorageTypes = ['s3', 'gcs', 'adls', 'stackit'];
+
+  /**
+   * "S3, GCS, ADLS and STACKIT" — a real conjunction rather than a join, which
+   * with four entries would read "S3 and GCS and ADLS and STACKIT".
+   */
+  function formatStorageTypes(conjunction: 'and' | 'or'): string {
+    const names = supportedStorageTypes.map((type) => type.toUpperCase());
+    if (names.length < 2) return names.join('');
+    return `${names.slice(0, -1).join(', ')} ${conjunction} ${names[names.length - 1]}`;
+  }
 
   // List of supported protocols for DuckDB WASM
   const supportedProtocols = ['https:', 'http:']; // 'http:' disabled since duckdb is not supporting it well
@@ -42,7 +56,7 @@ export function useStorageValidation(
     if (!supportedStorageTypes.includes(lowerStorageType)) {
       return {
         supported: false,
-        reason: `DuckDB WASM currently only supports ${supportedStorageTypes.join(' and ').toUpperCase()} storage. Your warehouse uses ${storageType.value}.`,
+        reason: `DuckDB WASM currently only supports ${formatStorageTypes('and')} storage. Your warehouse uses ${storageType.value}.`,
       };
     }
 
@@ -87,18 +101,16 @@ export function useStorageValidation(
    * Get the appropriate warning message for HTTP usage
    */
   const httpWarningMessage = computed(() => {
-    const storageTypeUpper = supportedStorageTypes.map((type) => type.toUpperCase()).join('/');
-    return `You are using cloud storage (${storageTypeUpper}) with an HTTP catalog URL. HTTPS is strongly recommended for security.`;
+    return `You are using cloud storage (${formatStorageTypes('or')}) with an HTTP catalog URL. HTTPS is strongly recommended for security.`;
   });
 
   /**
    * Get the requirements text for DuckDB WASM
    */
   const requirementsText = computed(() => {
-    const storageTypes = supportedStorageTypes.map((type) => type.toUpperCase()).join(' or ');
     const protocols = supportedProtocols.map((p) => p.replace(':', '').toUpperCase()).join(' or ');
     return {
-      storageRequirement: `Warehouse must use ${storageTypes} storage`,
+      storageRequirement: `Warehouse must use ${formatStorageTypes('or')} storage`,
       protocolRequirement: `Catalog must use ${protocols} protocol`,
     };
   });
@@ -106,10 +118,9 @@ export function useStorageValidation(
   /**
    * Get individual requirement texts (flattened for easier template usage)
    */
-  const storageRequirement = computed(() => {
-    const storageTypes = supportedStorageTypes.map((type) => type.toUpperCase()).join(' or ');
-    return `Warehouse must use ${storageTypes} storage`;
-  });
+  const storageRequirement = computed(
+    () => `Warehouse must use ${formatStorageTypes('or')} storage`,
+  );
 
   const protocolRequirement = computed(() => {
     const protocols = supportedProtocols.map((p) => p.replace(':', '').toUpperCase()).join(' or ');
@@ -120,7 +131,7 @@ export function useStorageValidation(
     if (!storageType.value) return null;
     const lowerStorageType = storageType.value.toLowerCase();
     if (!supportedStorageTypes.includes(lowerStorageType)) {
-      return `DuckDB WASM currently only supports ${supportedStorageTypes.join(' and ').toUpperCase()} storage. Your warehouse uses ${storageType.value}.`;
+      return `DuckDB WASM currently only supports ${formatStorageTypes('and')} storage. Your warehouse uses ${storageType.value}.`;
     }
     return null;
   });
