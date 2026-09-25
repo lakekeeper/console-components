@@ -19,6 +19,7 @@ import PrincipalGrantsPanel from './components/PrincipalGrantsPanel.vue';
 import GrantAssignDialog from './components/GrantAssignDialog.vue';
 import EntityGrantsTab from './components/EntityGrantsTab.vue';
 import GrantsDialog from './components/GrantsDialog.vue';
+import GrantsReviewPanel from './components/GrantsReviewPanel.vue';
 import GrantsExplorer from './components/GrantsExplorer.vue';
 import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
@@ -147,6 +148,7 @@ export {
   GrantAssignDialog,
   EntityGrantsTab,
   GrantsDialog,
+  GrantsReviewPanel,
   GrantsExplorer,
   TagDefinitionDialog,
   TagAttachmentsPanel,
@@ -314,6 +316,11 @@ export type { RoleOwnership } from './composables/useRoleProviders';
 // with whether grants there take effect. See `common/grantsNotice.ts`.
 export { GrantsNoticeKey } from './common/grantsNotice';
 
+// Extension point: a component the app registers as a second pane on every
+// container's grants pane, listing what is held beneath it. See
+// `common/grantsSubtree.ts`.
+export { GrantsSubtreeKey } from './common/grantsSubtree';
+
 // Build-time switches for UI on its way in or out.
 export { PERMISSIONS_UI_ENABLED } from './common/featureFlags';
 
@@ -462,6 +469,7 @@ const components = {
   GrantAssignDialog,
   EntityGrantsTab,
   GrantsDialog,
+  GrantsReviewPanel,
   GrantsExplorer,
   TagDefinitionDialog,
   TagAttachmentsPanel,

@@ -200,33 +200,15 @@
                 v-else-if="activeResource"
                 :key="resourceKey(activeResource)"
                 :resource="activeResource"
-                :resource-name="activeResourceName">
+                :resource-name="activeResourceName"
+                :warehouse-name="hierarchyWarehouseName"
+                :namespace-path="hierarchyNamespacePath">
                 <!-- Forwarded with the picked resource, because the scope here
                      changes as the rail is used: a host that wants to say
                      something about *this* scope needs to know which one it is.
                      -->
                 <template v-if="$slots.notice" #notice>
                   <slot name="notice" :resource="activeResource"></slot>
-                </template>
-                <!-- Same action the entity pages carry, which is where this rail
-                     sends people for "the levels above". Withheld for the server
-                     scope alone: it is the root, so its chain would be itself. -->
-                <template v-if="activeResource.type !== 'server'" #toolbar-actions>
-                  <GrantsDialog
-                    :resource="activeResource"
-                    :entity-name="activeResourceName || resourceLabel(activeResource.type)"
-                    :warehouse-name="hierarchyWarehouseName"
-                    :namespace-path="hierarchyNamespacePath">
-                    <template #activator="{ props: aProps }">
-                      <v-btn
-                        v-bind="aProps"
-                        size="small"
-                        variant="outlined"
-                        prepend-icon="mdi-file-tree-outline">
-                        Grant hierarchy
-                      </v-btn>
-                    </template>
-                  </GrantsDialog>
                 </template>
               </GrantsPanel>
               <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
@@ -268,7 +250,6 @@ import {
   useGrantPrincipalListingSupported,
 } from '../composables/useGrants';
 import GrantsPanel from './GrantsPanel.vue';
-import GrantsDialog from './GrantsDialog.vue';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
 import GrantPrivilegeReference from './GrantPrivilegeReference.vue';

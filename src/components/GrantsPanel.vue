@@ -3,61 +3,118 @@
        principal, their privileges as chips, and editing behind a dialog. There
        is no cross-resource transaction, so each save is one atomic apply here. -->
   <div class="d-flex flex-column" style="min-height: 0; height: 100%">
-    <div v-if="loading" class="d-flex flex-column align-center pa-8">
-      <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
-      <span class="mt-4 text-body-2 text-medium-emphasis">Loading grants…</span>
-    </div>
+    <!-- Two things you do with grants, as two panes rather than one crowded
+         one: give access on this object, or review where access to it comes
+         from. The rail is vertical because the pane names are words, and
+         because Review has no rail of its own left to collide with.
 
-    <!-- Reading grants is its own right, so a caller who can see the resource
+         Review is one table over two reads — the levels above, and whatever
+         the app can tell us is held inside. -->
+    <div class="d-flex" style="flex: 1 1 auto; min-height: 0">
+      <div class="grants-rail flex-shrink-0" :class="{ 'grants-rail--collapsed': railCollapsed }">
+        <v-tabs v-model="pane" direction="vertical" color="primary" density="compact">
+          <v-tab value="assign">
+            <v-icon>mdi-shield-key-outline</v-icon>
+            <span class="grants-rail__label">Assign</span>
+            <v-tooltip v-if="railCollapsed" activator="parent" location="right">
+              Grant, edit and revoke on this {{ resourceNoun }}
+            </v-tooltip>
+          </v-tab>
+          <v-tab v-if="showReview" value="review">
+            <!-- Not the tree icon: that one belongs to the Subtree node inside
+                 this pane, and reusing it made the rail look like a shortcut to
+                 that one node rather than to the whole review. -->
+            <v-icon>mdi-clipboard-search-outline</v-icon>
+            <span class="grants-rail__label">Review</span>
+            <v-tooltip v-if="railCollapsed" activator="parent" location="right">
+              Everything that reaches this {{ resourceNoun }}, above and below
+            </v-tooltip>
+          </v-tab>
+        </v-tabs>
+      </div>
+
+      <div class="d-flex flex-column" style="flex: 1 1 auto; min-width: 0; min-height: 0">
+        <!-- The collapse control belongs to the rail beside it, so it sits at
+             the top of the content column rather than inside whichever pane is
+             showing — above Review's own tree, which is the second level of
+             navigation and has to read as nested under this one. It also
+             survives the states where a pane renders no toolbar. -->
+        <div class="d-flex align-center ga-2 px-1 py-1 flex-shrink-0">
+          <NavToggle />
+          <span class="text-caption text-medium-emphasis">
+            <template v-if="pane === 'assign'">
+              Grants held on this {{ resourceNoun }} — grant, edit and revoke here
+            </template>
+            <template v-else>Where access to this {{ resourceNoun }} comes from</template>
+          </span>
+        </div>
+        <v-divider></v-divider>
+
+        <!-- `v-show` keeps a filter typed here from being lost to a round trip
+             through Review. The display value is inline rather than the
+             `d-flex` class: that utility carries `!important`, which beats what
+             `v-show` writes, and the pane stayed on screen underneath the
+             other one. -->
+        <div
+          v-show="pane === 'assign'"
+          style="display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0">
+          <div v-if="loading" class="d-flex flex-column align-center pa-8">
+            <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
+            <span class="mt-4 text-body-2 text-medium-emphasis">Loading grants…</span>
+          </div>
+
+          <!-- Reading grants is its own right, so a caller who can see the resource
          may still not be allowed to see who holds what on it.
          The host's actions stay reachable here: refused on this resource does
          not mean refused above it, and the hierarchy is the one view that can
          still show something — the levels it cannot read are marked there. -->
-    <div v-else-if="forbidden" class="pa-8 d-flex flex-column align-center ga-3">
-      <div class="text-medium-emphasis d-flex align-center ga-2">
-        <v-icon>mdi-lock-outline</v-icon>
-        You don't have permission to read the grants on this
-        {{ resourceLabel(resource.type).toLowerCase() }}.
-      </div>
-      <slot name="toolbar-actions"></slot>
-    </div>
+          <div v-else-if="forbidden" class="pa-8 d-flex flex-column align-center ga-3">
+            <div class="text-medium-emphasis d-flex align-center ga-2">
+              <v-icon>mdi-lock-outline</v-icon>
+              You don't have permission to read the grants on this
+              {{ resourceLabel(resource.type).toLowerCase() }}.
+            </div>
+            <slot name="toolbar-actions"></slot>
+          </div>
 
-    <!-- The authorizer itself is unreachable. Nothing is wrong with the request
+          <!-- The authorizer itself is unreachable. Nothing is wrong with the request
          and nothing here is editable until it is back, so this says so rather
          than rendering an empty list that would read as "no one holds
          anything". -->
-    <div v-else-if="backendUnavailable" class="pa-4">
-      <v-alert type="warning" variant="tonal" density="comfortable">
-        <div class="text-body-2 font-weight-medium mb-1">Authorization service unavailable</div>
-        <div class="text-body-2">
-          The catalog could not reach its authorizer, so grants cannot be read or changed right now.
-          This is a server-side outage, not a permissions problem.
-        </div>
-      </v-alert>
-      <v-btn
-        class="mt-3"
-        size="small"
-        variant="outlined"
-        prepend-icon="mdi-refresh"
-        @click="load()">
-        Retry
-      </v-btn>
-    </div>
+          <div v-else-if="backendUnavailable" class="pa-4">
+            <v-alert type="warning" variant="tonal" density="comfortable">
+              <div class="text-body-2 font-weight-medium mb-1">
+                Authorization service unavailable
+              </div>
+              <div class="text-body-2">
+                The catalog could not reach its authorizer, so grants cannot be read or changed
+                right now. This is a server-side outage, not a permissions problem.
+              </div>
+            </v-alert>
+            <v-btn
+              class="mt-3"
+              size="small"
+              variant="outlined"
+              prepend-icon="mdi-refresh"
+              @click="load()">
+              Retry
+            </v-btn>
+          </div>
 
-    <div v-else-if="loadError" class="pa-4">
-      <v-alert type="error" variant="tonal" density="compact">{{ loadError }}</v-alert>
-      <v-btn
-        class="mt-3"
-        size="small"
-        variant="outlined"
-        prepend-icon="mdi-refresh"
-        @click="load()">
-        Retry
-      </v-btn>
-    </div>
+          <div v-else-if="loadError" class="pa-4">
+            <v-alert type="error" variant="tonal" density="compact">{{ loadError }}</v-alert>
+            <v-btn
+              class="mt-3"
+              size="small"
+              variant="outlined"
+              prepend-icon="mdi-refresh"
+              @click="load()">
+              Retry
+            </v-btn>
+          </div>
 
-    <template v-else>
-      <!-- Above the table, not inside its `#top` slot: that slot stretches to
+          <template v-else>
+            <!-- Above the table, not inside its `#top` slot: that slot stretches to
            fill a table with a fixed height and few rows, which turned a
            two-line warning into a banner the height of the pane.
            For a host that knows something this panel cannot — whether a grant
@@ -65,221 +122,241 @@
            authorizer that reads them through switchable policies can leave a
            valid grant inert, and only the host (Plus, for Cedar) can see that.
            Empty by default; nothing OSS renders here. -->
-      <slot name="notice">
-        <!-- Fallback: a component the app registered for every grants pane. The
+            <slot name="notice">
+              <!-- Fallback: a component the app registered for every grants pane. The
              panel has four hosts (entity tabs, the Governance explorer, the
              project dialog, tag definitions) and threading a slot through each
              one misses whichever is added next — so the extension point is an
              injection, and a host that wants something specific still overrides
              it with the slot. Absent in OSS: nothing provides it. -->
-        <component :is="grantsNotice" v-if="grantsNotice" :resource="resource" />
-      </slot>
-      <v-data-table
-        fixed-header
-        hover
-        density="compact"
-        :headers="headers"
-        :items="visibleRows"
-        show-expand
-        item-value="key"
-        :items-per-page="50"
-        :items-per-page-options="[50, 100, 250, -1]"
-        :sort-by="[{ key: 'name', order: 'asc' }]"
-        style="flex: 1 1 auto; min-height: 0">
-        <template #top>
-          <v-toolbar color="transparent" density="compact" flat>
-            <!-- Same three-way toggle the role owners and members lists use, so
-                 narrowing to users or roles works the same way everywhere. -->
-            <v-btn-toggle
-              v-model="kindFilter"
-              mandatory
+              <component :is="grantsNotice" v-if="grantsNotice" :resource="resource" />
+            </slot>
+            <v-data-table
+              fixed-header
+              hover
               density="compact"
-              variant="outlined"
-              class="ml-4">
-              <v-btn value="all" size="small">All</v-btn>
-              <v-btn value="user" size="small" prepend-icon="mdi-account">Users</v-btn>
-              <v-btn value="role" size="small" prepend-icon="mdi-account-group">Roles</v-btn>
-            </v-btn-toggle>
-            <!-- Non-inheritance is worth stating — a short list here does not
+              :headers="headers"
+              :items="visibleRows"
+              show-expand
+              item-value="key"
+              :items-per-page="50"
+              :items-per-page-options="[50, 100, 250, -1]"
+              :sort-by="[{ key: 'name', order: 'asc' }]"
+              style="flex: 1 1 auto; min-height: 0">
+              <template #top>
+                <v-toolbar color="transparent" density="compact" flat>
+                  <!-- Same three-way toggle the role owners and members lists use, so
+                 narrowing to users or roles works the same way everywhere. -->
+                  <v-btn-toggle
+                    v-model="kindFilter"
+                    mandatory
+                    density="compact"
+                    variant="outlined"
+                    class="ml-4">
+                    <v-btn value="all" size="small">All</v-btn>
+                    <v-btn value="user" size="small" prepend-icon="mdi-account">Users</v-btn>
+                    <v-btn value="role" size="small" prepend-icon="mdi-account-group">Roles</v-btn>
+                  </v-btn-toggle>
+                  <!-- Non-inheritance is worth stating — a short list here does not
                  mean few people can reach the resource — but it is one fact, so
                  it rides in the toolbar with the detail behind a tooltip rather
                  than as a banner over every pane. -->
-            <span
-              v-if="showScopeNote"
-              class="text-caption text-medium-emphasis d-inline-flex align-center ga-1 ml-4">
-              <v-icon size="14">mdi-information-outline</v-icon>
-              Direct grants only
-              <v-tooltip activator="parent" location="bottom" max-width="360">
-                Grants held directly on this {{ resourceLabel(resource.type).toLowerCase() }}.
-                Grants do not inherit — those held on a parent are listed under that parent.
-              </v-tooltip>
-            </span>
-            <v-chip
-              v-if="!canEditAnything"
-              size="x-small"
-              variant="outlined"
-              color="warning"
-              class="ml-4">
-              Read only
-            </v-chip>
-            <v-spacer></v-spacer>
-            <v-text-field
-              v-model="filterText"
-              label="Filter principals"
-              prepend-inner-icon="mdi-filter"
-              placeholder="Type to filter"
-              variant="underlined"
-              density="compact"
-              hide-details
-              clearable
-              class="mr-4"
-              style="max-width: 280px"></v-text-field>
-            <v-btn
-              v-if="canEditAnything"
-              size="small"
-              variant="outlined"
-              prepend-icon="mdi-shield-plus-outline"
-              class="mr-2"
-              @click="openGrant">
-              Grant
-            </v-btn>
-            <!-- Hosts with somewhere else to send you put it here rather than
-                 on a row of its own. -->
-            <span class="mr-2">
-              <slot name="toolbar-actions"></slot>
-            </span>
-          </v-toolbar>
-        </template>
-
-        <template #item.name="{ item }">
-          <div class="d-flex align-center ga-2">
-            <v-icon size="18" :color="item.external ? 'warning' : undefined">
-              {{
-                item.kind === 'user'
-                  ? 'mdi-account-circle-outline'
-                  : item.external
-                    ? 'mdi-badge-account-alert-outline'
-                    : 'mdi-account-box-multiple-outline'
-              }}
-            </v-icon>
-            <div style="min-width: 0">
-              <div class="d-flex align-center ga-2">
-                <span class="text-truncate" :title="item.name">{{ item.name }}</span>
-                <v-chip v-if="item.external" size="x-small" variant="outlined" color="warning">
-                  External project
-                  <v-tooltip activator="parent" location="top" max-width="320">
-                    This role belongs to project {{ item.projectId }}, not the one you are viewing.
-                    Only server grants accept roles from another project.
-                  </v-tooltip>
-                </v-chip>
-              </div>
-              <div
-                v-if="item.subtitle"
-                class="text-caption text-medium-emphasis text-truncate"
-                :title="item.subtitle">
-                {{ item.subtitle }}
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <template v-for="c in categories" #[`item.cat_${c}`]="{ item }" :key="c">
-          <!-- Count, not names: the column answers "how much of this kind",
-               and the expanded row answers "which". -->
-          <template v-if="item.byCategory[c]?.length">
-            <v-chip size="x-small" variant="tonal" color="primary">
-              {{ item.byCategory[c].length }}
-              <v-tooltip activator="parent" location="top" max-width="320">
-                {{ item.byCategory[c].map(displayName).join(', ') }}
-              </v-tooltip>
-            </v-chip>
-          </template>
-          <span v-else class="text-disabled">–</span>
-        </template>
-
-        <template #item.granted="{ item }">
-          <span class="text-caption text-medium-emphasis">
-            {{ grantedSummary(item) || '—' }}
-          </span>
-          <!-- Still held but no longer enforced: surfaced here rather than
-               hidden, since it cannot appear in any category column. -->
-          <div v-if="item.stale.length" class="mt-1">
-            <v-chip
-              v-for="p in item.stale"
-              :key="p"
-              class="mr-1"
-              size="x-small"
-              variant="outlined"
-              color="warning">
-              {{ p }}
-              <v-tooltip activator="parent" location="top">
-                No longer in this authorizer's vocabulary — enforces nothing, but is still held.
-              </v-tooltip>
-            </v-chip>
-          </div>
-        </template>
-
-        <template #expanded-row="{ columns, item }">
-          <tr>
-            <td :colspan="columns.length" class="py-2">
-              <div v-for="c in categories" :key="c" class="d-flex align-start ga-2 mb-1">
-                <span
-                  class="text-caption text-medium-emphasis text-uppercase"
-                  style="min-width: 110px">
-                  {{ c }}
-                </span>
-                <div>
+                  <span
+                    v-if="showScopeNote"
+                    class="text-caption text-medium-emphasis d-inline-flex align-center ga-1 ml-4">
+                    <v-icon size="14">mdi-information-outline</v-icon>
+                    Direct grants only
+                    <v-tooltip activator="parent" location="bottom" max-width="360">
+                      Grants held directly on this {{ resourceLabel(resource.type).toLowerCase() }}.
+                      Grants do not inherit — those held on a parent are listed under that parent.
+                    </v-tooltip>
+                  </span>
                   <v-chip
-                    v-for="p in item.byCategory[c] ?? []"
-                    :key="p"
-                    class="mr-1 mb-1"
+                    v-if="!canEditAnything"
                     size="x-small"
-                    variant="tonal">
-                    {{ displayName(p) }}
-                    <v-tooltip activator="parent" location="top">
-                      {{ p }}
-                      <template v-if="item.grantedAt[p]">
-                        · granted {{ formatGrantedAt(item.grantedAt[p]) }}
-                      </template>
+                    variant="outlined"
+                    color="warning"
+                    class="ml-4">
+                    Read only
+                  </v-chip>
+                  <v-spacer></v-spacer>
+                  <v-text-field
+                    v-model="filterText"
+                    label="Filter principals"
+                    prepend-inner-icon="mdi-filter"
+                    placeholder="Type to filter"
+                    variant="underlined"
+                    density="compact"
+                    hide-details
+                    clearable
+                    class="mr-4"
+                    style="max-width: 280px"></v-text-field>
+                  <v-btn
+                    v-if="canEditAnything"
+                    size="small"
+                    variant="outlined"
+                    prepend-icon="mdi-shield-plus-outline"
+                    class="mr-2"
+                    @click="openGrant">
+                    Grant
+                  </v-btn>
+                  <!-- Hosts with somewhere else to send you put it here rather than
+                 on a row of its own. -->
+                  <span class="mr-2">
+                    <slot name="toolbar-actions"></slot>
+                  </span>
+                </v-toolbar>
+              </template>
+
+              <template #item.name="{ item }">
+                <div class="d-flex align-center ga-2">
+                  <v-icon size="18" :color="item.external ? 'warning' : undefined">
+                    {{
+                      item.kind === 'user'
+                        ? 'mdi-account-circle-outline'
+                        : item.external
+                          ? 'mdi-badge-account-alert-outline'
+                          : 'mdi-account-box-multiple-outline'
+                    }}
+                  </v-icon>
+                  <div style="min-width: 0">
+                    <div class="d-flex align-center ga-2">
+                      <span class="text-truncate" :title="item.name">{{ item.name }}</span>
+                      <v-chip
+                        v-if="item.external"
+                        size="x-small"
+                        variant="outlined"
+                        color="warning">
+                        External project
+                        <v-tooltip activator="parent" location="top" max-width="320">
+                          This role belongs to project {{ item.projectId }}, not the one you are
+                          viewing. Only server grants accept roles from another project.
+                        </v-tooltip>
+                      </v-chip>
+                    </div>
+                    <div
+                      v-if="item.subtitle"
+                      class="text-caption text-medium-emphasis text-truncate"
+                      :title="item.subtitle">
+                      {{ item.subtitle }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template v-for="c in categories" #[`item.cat_${c}`]="{ item }" :key="c">
+                <!-- Count, not names: the column answers "how much of this kind",
+               and the expanded row answers "which". -->
+                <template v-if="item.byCategory[c]?.length">
+                  <v-chip size="x-small" variant="tonal" color="primary">
+                    {{ item.byCategory[c].length }}
+                    <v-tooltip activator="parent" location="top" max-width="320">
+                      {{ item.byCategory[c].map(displayName).join(', ') }}
                     </v-tooltip>
                   </v-chip>
-                  <span
-                    v-if="!(item.byCategory[c] ?? []).length"
-                    class="text-disabled text-caption">
-                    none
-                  </span>
+                </template>
+                <span v-else class="text-disabled">–</span>
+              </template>
+
+              <template #item.granted="{ item }">
+                <span class="text-caption text-medium-emphasis">
+                  {{ grantedSummary(item) || '—' }}
+                </span>
+                <!-- Still held but no longer enforced: surfaced here rather than
+               hidden, since it cannot appear in any category column. -->
+                <div v-if="item.stale.length" class="mt-1">
+                  <v-chip
+                    v-for="p in item.stale"
+                    :key="p"
+                    class="mr-1"
+                    size="x-small"
+                    variant="outlined"
+                    color="warning">
+                    {{ p }}
+                    <v-tooltip activator="parent" location="top">
+                      No longer in this authorizer's vocabulary — enforces nothing, but is still
+                      held.
+                    </v-tooltip>
+                  </v-chip>
                 </div>
-              </div>
-            </td>
-          </tr>
-        </template>
+              </template>
 
-        <template #item.actions="{ item }">
-          <div class="d-flex align-center ga-2 justify-end">
-            <v-btn
-              v-if="canEditAnything"
-              size="small"
-              variant="outlined"
-              text="Edit"
-              @click="openEdit(item)"></v-btn>
-            <v-btn
-              v-if="canEditAnything"
-              color="error"
-              size="small"
-              variant="text"
-              text="Revoke all"
-              :disabled="saving"
-              @click="requestRevokeAll(item)"></v-btn>
-          </div>
-        </template>
+              <template #expanded-row="{ columns, item }">
+                <tr>
+                  <td :colspan="columns.length" class="py-2">
+                    <div v-for="c in categories" :key="c" class="d-flex align-start ga-2 mb-1">
+                      <span
+                        class="text-caption text-medium-emphasis text-uppercase"
+                        style="min-width: 110px">
+                        {{ c }}
+                      </span>
+                      <div>
+                        <v-chip
+                          v-for="p in item.byCategory[c] ?? []"
+                          :key="p"
+                          class="mr-1 mb-1"
+                          size="x-small"
+                          variant="tonal">
+                          {{ displayName(p) }}
+                          <v-tooltip activator="parent" location="top">
+                            {{ p }}
+                            <template v-if="item.grantedAt[p]">
+                              · granted {{ formatGrantedAt(item.grantedAt[p]) }}
+                            </template>
+                          </v-tooltip>
+                        </v-chip>
+                        <span
+                          v-if="!(item.byCategory[c] ?? []).length"
+                          class="text-disabled text-caption">
+                          none
+                        </span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </template>
 
-        <template #no-data>
-          <span class="text-disabled">
-            No grants are held on this {{ resourceLabel(resource.type).toLowerCase() }}.
-          </span>
-        </template>
-      </v-data-table>
-    </template>
+              <template #item.actions="{ item }">
+                <div class="d-flex align-center ga-2 justify-end">
+                  <v-btn
+                    v-if="canEditAnything"
+                    size="small"
+                    variant="outlined"
+                    text="Edit"
+                    @click="openEdit(item)"></v-btn>
+                  <v-btn
+                    v-if="canEditAnything"
+                    color="error"
+                    size="small"
+                    variant="text"
+                    text="Revoke all"
+                    :disabled="saving"
+                    @click="requestRevokeAll(item)"></v-btn>
+                </div>
+              </template>
+
+              <template #no-data>
+                <span class="text-disabled">
+                  No grants are held on this {{ resourceLabel(resource.type).toLowerCase() }}.
+                </span>
+              </template>
+            </v-data-table>
+          </template>
+        </div>
+
+        <!-- Mounted on first view rather than with the pane: reviewing walks
+             every level above and reads a page from inside, so it happens
+             because someone asked for it. -->
+        <GrantsReviewPanel
+          v-if="showReview && pane === 'review'"
+          :resource="resource"
+          :entity-name="resourceName || resourceLabel(resource.type)"
+          :warehouse-name="warehouseName"
+          :namespace-path="namespacePath"
+          style="flex: 1 1 auto; min-height: 0; padding-left: 8px"
+          @saved="onReviewSaved" />
+      </div>
+    </div>
 
     <GrantAssignDialog
       v-model="assignOpen"
@@ -326,7 +403,8 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, inject, onMounted, ref, watch } from 'vue';
+import { computed, h, inject, onMounted, ref, watch } from 'vue';
+import { VBtn, VIcon, VTooltip } from 'vuetify/components';
 import { helix } from 'ldrs';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
@@ -343,6 +421,7 @@ import {
   resourceLabel,
 } from '../composables/useGrants';
 import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.vue';
+import GrantsReviewPanel from './GrantsReviewPanel.vue';
 import type { GrantResourceRef, Header } from '../common/interfaces';
 import type { GrantEntry, GrantablePrivilege } from '../gen/management/types.gen';
 import { toPrincipal } from '../common/principal';
@@ -356,6 +435,10 @@ const props = withDefaults(
     resource: GrantResourceRef;
     /** Shown in the assign dialog's title, when the caller knows the name. */
     resourceName?: string;
+    /** Warehouse display name, when the hierarchy passes through one. */
+    warehouseName?: string;
+    /** Unit-separated namespace path, used to build the hierarchy's levels. */
+    namespacePath?: string;
     /** Suppresses the non-inheritance note where the host already explains it. */
     hideScopeNote?: boolean;
     /** Defers the first load until the pane is actually looked at. */
@@ -377,6 +460,59 @@ const visual = useVisualStore();
  * OSS renders nothing and this file needs no knowledge of what it would say.
  */
 const grantsNotice = inject<unknown>(GrantsNoticeKey, null);
+
+/**
+ * The server is the root, so a review of it would only repeat the pane beside
+ * it — every other level has somewhere to look.
+ */
+const showReview = computed(() => props.resource.type !== 'server');
+
+/**
+ * The rail's collapse control, rendered into whichever pane is showing rather
+ * than into the rail it collapses — the same place the Cedar policy panes put
+ * theirs, and the only place it stays reachable once the rail is 52px wide.
+ * Defined once here instead of written twice in the template.
+ */
+const NavToggle = () =>
+  h(
+    VBtn,
+    {
+      icon: railCollapsed.value ? 'mdi-menu' : 'mdi-menu-open',
+      size: 'small',
+      variant: 'text',
+      class: 'ml-2',
+      onClick: () => (railCollapsed.value = !railCollapsed.value),
+    },
+    {
+      default: () => [
+        h(VIcon),
+        h(
+          VTooltip,
+          { activator: 'parent', location: 'bottom' },
+          { default: () => (railCollapsed.value ? 'Show pane names' : 'Hide pane names') },
+        ),
+      ],
+    },
+  );
+
+const pane = ref<'assign' | 'review'>('assign');
+const railCollapsed = ref(false);
+const resourceNoun = computed(() => resourceLabel(props.resource.type).toLowerCase());
+
+// A pane that stops being offered must not stay selected.
+watch(showReview, (available) => {
+  if (!available) pane.value = 'assign';
+});
+
+/**
+ * The hierarchy edits grants at their own level, and one of those levels is
+ * this resource — so a save there can change what this pane is showing.
+ */
+function onReviewSaved() {
+  loaded.value = false;
+  load();
+  emit('saved');
+}
 
 /**
  * The project this resource sits in. Everything except the server is addressed
@@ -736,6 +872,7 @@ watch(
   () => resourceKey(props.resource),
   () => {
     loaded.value = false;
+    pane.value = 'assign';
     if (props.active) load();
   },
 );
@@ -746,3 +883,30 @@ onMounted(() => {
 
 defineExpose({ reload: load });
 </script>
+
+<style scoped>
+/* The labels stay mounted and are clipped by the column's width rather than
+   removed: `v-if` on them snaps the layout, since there is nothing for the
+   width to animate between. Same rail as the Cedar policy panes. */
+.grants-rail {
+  width: 148px;
+  overflow: hidden;
+  transition: width 0.2s ease;
+  border-right: 1px solid rgba(var(--v-border-color), 0.16);
+}
+
+.grants-rail--collapsed {
+  width: 52px;
+}
+
+/* Clipping the label by the column's width left slivers of text against the
+   border at some zoom levels. Collapsed means icons, so the labels go. */
+.grants-rail--collapsed .grants-rail__label {
+  display: none;
+}
+
+.grants-rail__label {
+  margin-left: 8px;
+  white-space: nowrap;
+}
+</style>
