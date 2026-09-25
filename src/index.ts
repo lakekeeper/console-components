@@ -320,6 +320,11 @@ export { GrantsNoticeKey } from './common/grantsNotice';
 // container's grants pane, listing what is held beneath it. See
 // `common/grantsSubtree.ts`.
 export { GrantsSubtreeKey } from './common/grantsSubtree';
+export type {
+  SubtreeGrantSource,
+  SubtreeGrantPage,
+  SubtreeGrantFilter,
+} from './common/grantsSubtree';
 
 // Build-time switches for UI on its way in or out.
 export { PERMISSIONS_UI_ENABLED } from './common/featureFlags';

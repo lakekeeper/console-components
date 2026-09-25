@@ -1,11 +1,20 @@
 <template>
-  <!-- What a Grants tab shows: this entity's own grants, because that is the
-       question being asked nine times in ten. Grants do not inherit, so the
-       levels above are a separate view rather than extra rows here — reachable
-       from the pane's own scope switch, not from a button that leaves the
-       page. -->
-  <div class="d-flex flex-column" style="height: calc(100vh - 260px); min-height: 380px">
-    <div class="px-4 py-3" style="flex: 1 1 auto; min-height: 0">
+  <!-- What a Grants tab shows: this entity's own grants first, because that is
+       the question being asked nine times in ten — and, in the same table and
+       one click away in its tree, the levels above and whatever is held inside.
+
+       `height: 100%` first, so where the host already bounds this tab — the
+       warehouse page does, through its window items — the pane fills exactly
+       that and nothing scrolls twice. The viewport cap is the fallback for a
+       host that does not: there `height: 100%` resolves to auto, the cap stops
+       the pane growing past the window, and the regions inside it scroll on
+       their own. A fixed viewport height did both jobs badly, overshooting the
+       bounded host by whatever its own chrome took and leaving two scrollbars
+       down the right-hand side. -->
+  <div
+    class="d-flex flex-column"
+    style="height: 100%; max-height: calc(100vh - 230px); min-height: 380px">
+    <div class="px-4 py-3" style="flex: 1 1 auto; min-height: 0; overflow: hidden">
       <GrantsPanel
         :resource="resource"
         :resource-name="entityName"

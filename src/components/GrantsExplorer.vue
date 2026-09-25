@@ -170,10 +170,12 @@
           </div>
           <v-divider></v-divider>
 
-          <!-- Which object is being granted on — without this the tree
-               selection and the panel are two unconnected things. -->
+          <!-- The panel carries this row itself now, with the Grant action on
+               it: two identity rows one above the other said the same thing
+               twice and put the action on the wrong one. Principal mode has no
+               panel, so it keeps its own. -->
           <div
-            v-if="selectionHeader"
+            v-if="selectionHeader && scope === 'principal'"
             class="d-flex align-center ga-3 px-4 py-2 flex-grow-0"
             style="border-bottom: 1px solid rgba(var(--v-border-color), 0.16)">
             <v-icon size="22">{{ selectionHeader.icon }}</v-icon>

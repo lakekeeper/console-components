@@ -37,6 +37,30 @@ export interface SubtreeGrantPage {
  * app.provide(GrantsSubtreeKey, { list: listSubtreeGrantsPage, actions: SubtreeRevokeButton });
  * ```
  */
+/**
+ * How a subtree listing is narrowed.
+ *
+ * These are the server's own filters, not a view over what has been paged in:
+ * a subtree can hold more grants than anyone wants to walk, so narrowing has to
+ * happen where the walk does. The review pane applies the same values to the
+ * levels above it in the client, since it already holds those rows — one filter,
+ * applied where each half can.
+ */
+export interface SubtreeGrantFilter {
+  /** Only this user's grants. Mutually exclusive with `principalRole`. */
+  principalUser?: string | null;
+  /** Only this role's grants. Mutually exclusive with `principalUser`. */
+  principalRole?: string | null;
+  /** Only grants carrying one of these privileges. Empty means every privilege. */
+  privilege?: string[];
+  /** Only grants on these resource kinds. Empty means every kind. */
+  resourceType?: string[];
+  /** Grants on tabulars in the recycle bin. On by default at the server. */
+  includeSoftDeleted?: boolean;
+  /** Read only grants created at or before this instant. */
+  createdBefore?: string | null;
+}
+
 export interface SubtreeGrantSource {
   /**
    * Strictly below the named resource. The pane lists that resource's own
@@ -45,9 +69,13 @@ export interface SubtreeGrantSource {
    */
   list(
     resource: GrantResourceRef,
-    options: { pageToken?: string; pageSize?: number },
+    options: { pageToken?: string; pageSize?: number } & SubtreeGrantFilter,
   ): Promise<SubtreeGrantPage>;
-  /** Rendered in the review toolbar, with `resource`, `resourceName`, `asOf`. */
+  /**
+   * Rendered in the review toolbar, with `resource`, `resourceName`, `asOf`,
+   * `filter` and `disabled`. It is handed the filter the review is showing so
+   * a bulk revoke starts on what was actually reviewed.
+   */
   actions?: Component | null;
 }
 
