@@ -1,40 +1,24 @@
 <template>
   <v-card>
-    <v-toolbar class="mb-4" color="transparent" density="compact" flat>
-      <template #prepend>
-        <v-btn
-          v-if="canListTags"
-          size="small"
-          variant="outlined"
-          color="primary"
-          class="mr-2"
-          :prepend-icon="filtersCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
-          :text="filtersCollapsed ? 'Show filters' : 'Hide filters'"
-          @click="filtersCollapsed = !filtersCollapsed"></v-btn>
-        <v-icon>mdi-tag-multiple-outline</v-icon>
-      </template>
-      <v-toolbar-title>
-        <span class="text-subtitle-1">Tag Definitions</span>
-      </v-toolbar-title>
-      <v-spacer></v-spacer>
-      <v-btn
-        icon="mdi-refresh"
-        size="small"
-        variant="text"
-        title="Refresh"
-        :loading="loading"
-        @click="loadDefinitions"></v-btn>
-      <TagDefinitionDialog v-if="canCreateTag" action-type="add" @submit="createDefinition" />
-    </v-toolbar>
-
-    <div v-if="canListTags" class="d-flex" style="height: calc(100vh - 300px)">
-      <!-- Left: collapsible faceted filter rail -->
-      <v-expand-x-transition>
+    <!-- No title row: the tab this sits under is called Tags, and a heading that
+         repeats it costs a band of height on every screen. What was in it — the
+         reload and the add — moves down to the row with the fold, where the rest
+         of this pane's controls already are. -->
+    <div
+      v-if="canListTags"
+      ref="paneRef"
+      class="d-flex"
+      :style="{ height: paneHeight, minHeight: '360px' }">
+      <!-- Left: the filters, folded by animating the column to nothing rather
+           than unmounting it — the controls keep their width on the inside, so
+           nothing reflows on the way out and the table grows into the space
+           instead of jumping into it. -->
+      <div class="tags-fold flex-shrink-0" :class="{ 'tags-fold--collapsed': filtersCollapsed }">
         <div
-          v-show="!filtersCollapsed"
-          class="pa-3 flex-shrink-0"
+          class="pa-3"
           style="
             width: 220px;
+            height: 100%;
             overflow-y: auto;
             border-right: 1px solid rgba(var(--v-theme-on-surface), 0.12);
           ">
@@ -86,70 +70,105 @@
             Clear all
           </v-btn>
         </div>
-      </v-expand-x-transition>
+      </div>
 
-      <!-- Right: table -->
-      <v-data-table
-        class="flex-grow-1"
-        style="min-width: 0"
-        height="100%"
-        fixed-header
-        density="compact"
-        :headers="headers"
-        hover
-        :items="displayedDefinitions"
-        :sort-by="[{ key: 'name', order: 'asc' }]"
-        :loading="loading"
-        items-per-page="50"
-        :items-per-page-options="[
-          { title: '50', value: 50 },
-          { title: '100', value: 100 },
-          { title: 'All', value: -1 },
-        ]"
-        @click:row="onRowClick">
-        <template #item.name="{ item }">
-          <span style="display: flex; align-items: center">
-            <v-icon class="mr-2" color="info">mdi-tag-outline</v-icon>
-            {{ item.name }}
-            <v-icon v-if="isSystem(item)" class="ml-2 text-medium-emphasis" size="x-small">
-              mdi-lock-outline
-            </v-icon>
-          </span>
-        </template>
-        <template #item.value-kind="{ item }">
-          <v-chip size="x-small" variant="tonal">{{ item['value-kind'] }}</v-chip>
-        </template>
-        <template #item.scope="{ item }">
-          <v-chip v-for="s in item.scope" :key="s" class="mr-1" size="x-small" variant="outlined">
-            {{ s }}
-          </v-chip>
-        </template>
-        <template #item.description="{ item }">
-          <v-tooltip
-            v-if="item.description && item.description.length > 50"
-            :text="item.description"
-            location="top"
-            max-width="400">
-            <template #activator="{ props: tipProps }">
-              <span v-bind="tipProps">{{ item.description.slice(0, 50) }}…</span>
+      <!-- Right: the fold lives with the content it uncovers, not across the
+           top of the card — the same place the grants pane keeps it. -->
+      <div class="d-flex flex-column flex-grow-1" style="min-width: 0">
+        <div class="d-flex align-center ga-2 px-1 py-1 flex-shrink-0">
+          <v-btn
+            size="small"
+            variant="text"
+            class="text-none"
+            @click="filtersCollapsed = !filtersCollapsed">
+            <template #prepend>
+              <v-icon color="secondary">
+                {{ filtersCollapsed ? 'mdi-arrow-expand-right' : 'mdi-arrow-collapse-left' }}
+              </v-icon>
             </template>
-          </v-tooltip>
-          <span v-else>{{ item.description }}</span>
-        </template>
-        <template #item.open>
-          <v-icon size="small" class="text-medium-emphasis">mdi-chevron-right</v-icon>
-        </template>
-        <template #no-data>
-          <span class="text-disabled">No tag definitions yet.</span>
-        </template>
-      </v-data-table>
+            Filters
+            <v-badge
+              v-if="activeFilterCount"
+              inline
+              color="primary"
+              :content="activeFilterCount"></v-badge>
+            <v-tooltip activator="parent" location="bottom">
+              {{ filtersCollapsed ? 'Show' : 'Hide' }} the filters
+            </v-tooltip>
+          </v-btn>
+          <v-spacer></v-spacer>
+          <v-btn
+            icon="mdi-refresh"
+            size="small"
+            variant="text"
+            title="Refresh"
+            :loading="loading"
+            @click="loadDefinitions"></v-btn>
+          <TagDefinitionDialog v-if="canCreateTag" action-type="add" @submit="createDefinition" />
+        </div>
+
+        <v-data-table
+          class="flex-grow-1"
+          style="min-width: 0"
+          height="100%"
+          fixed-header
+          density="compact"
+          :headers="headers"
+          hover
+          :items="displayedDefinitions"
+          :sort-by="[{ key: 'name', order: 'asc' }]"
+          :loading="loading"
+          items-per-page="50"
+          :items-per-page-options="[
+            { title: '50', value: 50 },
+            { title: '100', value: 100 },
+            { title: 'All', value: -1 },
+          ]"
+          @click:row="onRowClick">
+          <template #item.name="{ item }">
+            <span style="display: flex; align-items: center">
+              <v-icon class="mr-2" color="info">mdi-tag-outline</v-icon>
+              {{ item.name }}
+              <v-icon v-if="isSystem(item)" class="ml-2 text-medium-emphasis" size="x-small">
+                mdi-lock-outline
+              </v-icon>
+            </span>
+          </template>
+          <template #item.value-kind="{ item }">
+            <v-chip size="x-small" variant="tonal">{{ item['value-kind'] }}</v-chip>
+          </template>
+          <template #item.scope="{ item }">
+            <v-chip v-for="s in item.scope" :key="s" class="mr-1" size="x-small" variant="outlined">
+              {{ s }}
+            </v-chip>
+          </template>
+          <template #item.description="{ item }">
+            <v-tooltip
+              v-if="item.description && item.description.length > 50"
+              :text="item.description"
+              location="top"
+              max-width="400">
+              <template #activator="{ props: tipProps }">
+                <span v-bind="tipProps">{{ item.description.slice(0, 50) }}…</span>
+              </template>
+            </v-tooltip>
+            <span v-else>{{ item.description }}</span>
+          </template>
+          <template #item.open>
+            <v-icon size="small" class="text-medium-emphasis">mdi-chevron-right</v-icon>
+          </template>
+          <template #no-data>
+            <span class="text-disabled">No tag definitions yet.</span>
+          </template>
+        </v-data-table>
+      </div>
     </div>
     <div v-else class="pa-4">You don't have permission to list tag definitions</div>
   </v-card>
 </template>
 
 <script lang="ts" setup>
-import { computed, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { Header } from '../common/interfaces';
@@ -171,6 +190,22 @@ const notify = true;
 const definitions = ref<TagDefinition[]>([]);
 const loading = ref(false);
 const search = ref('');
+// ---- how tall this pane is -------------------------------------------------
+//
+// Measured rather than derived from the viewport: a formula has to know how much
+// chrome sits above the pane, which differs by host and by tab, and one that
+// overshoots puts a second scrollbar down the page beside the list's own.
+
+const paneRef = ref<HTMLElement | null>(null);
+const paneHeight = ref('calc(100vh - 300px)');
+
+function measurePane() {
+  const el = paneRef.value;
+  if (!el || typeof window === 'undefined') return;
+  const top = el.getBoundingClientRect().top;
+  paneHeight.value = `${Math.max(360, Math.round(window.innerHeight - top - 24))}px`;
+}
+
 const kindFilter = ref<TagValueKind[]>([]);
 const scopeFilter = ref<TagScope[]>([]);
 const kindOptions: TagValueKind[] = ['marker', 'free-text', 'enumerated'];
@@ -241,6 +276,16 @@ watch(projectId, () => {
   if (canListTags.value) loadDefinitions();
 });
 
+onMounted(() => {
+  measurePane();
+  // Again after the tab's transition settles, so the pane is measured where it
+  // ends up rather than where it starts.
+  requestAnimationFrame(measurePane);
+  window.addEventListener('resize', measurePane);
+});
+
+onUnmounted(() => window.removeEventListener('resize', measurePane));
+
 function isSystem(item: TagDefinition): boolean {
   return item.name.toLowerCase().startsWith('system.');
 }
@@ -284,3 +329,23 @@ async function createDefinition(input: TagDefinitionInput) {
   }
 }
 </script>
+
+<style scoped>
+/* One width transition for the folding column, and nothing for a reader who has
+   asked the system to stop moving things. */
+.tags-fold {
+  width: 220px;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.tags-fold--collapsed {
+  width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tags-fold {
+    transition: none;
+  }
+}
+</style>
