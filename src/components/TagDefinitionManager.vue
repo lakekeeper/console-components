@@ -8,7 +8,7 @@
       v-if="canListTags"
       ref="paneRef"
       class="d-flex"
-      :style="{ height: paneHeight, minHeight: '360px' }">
+      :style="{ height: paneHeight ?? 'calc(100vh - 300px)', minHeight: '360px' }">
       <!-- Left: the filters, folded by animating the column to nothing rather
            than unmounting it — the controls keep their width on the inside, so
            nothing reflows on the way out and the table grows into the space
@@ -168,11 +168,12 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
+import { usePaneHeight } from '../common/paneHeight';
 import { useProjectPermissions } from '../composables/useCatalogPermissions';
 import {
   CreateTagDefinitionRequest,
@@ -196,15 +197,7 @@ const search = ref('');
 // chrome sits above the pane, which differs by host and by tab, and one that
 // overshoots puts a second scrollbar down the page beside the list's own.
 
-const paneRef = ref<HTMLElement | null>(null);
-const paneHeight = ref('calc(100vh - 300px)');
-
-function measurePane() {
-  const el = paneRef.value;
-  if (!el || typeof window === 'undefined') return;
-  const top = el.getBoundingClientRect().top;
-  paneHeight.value = `${Math.max(360, Math.round(window.innerHeight - top - 24))}px`;
-}
+const { paneRef, paneHeight } = usePaneHeight(360);
 
 const kindFilter = ref<TagValueKind[]>([]);
 const scopeFilter = ref<TagScope[]>([]);
@@ -276,15 +269,7 @@ watch(projectId, () => {
   if (canListTags.value) loadDefinitions();
 });
 
-onMounted(() => {
-  measurePane();
-  // Again after the tab's transition settles, so the pane is measured where it
-  // ends up rather than where it starts.
-  requestAnimationFrame(measurePane);
-  window.addEventListener('resize', measurePane);
-});
-
-onUnmounted(() => window.removeEventListener('resize', measurePane));
+onMounted(() => {});
 
 function isSystem(item: TagDefinition): boolean {
   return item.name.toLowerCase().startsWith('system.');

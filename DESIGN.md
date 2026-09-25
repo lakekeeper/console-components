@@ -79,12 +79,34 @@ only one of those is a resource.
 **One glyph, one gesture.** Reusing a glyph makes a pane look as though it has
 one control twice.
 
-| Gesture                       | Icon                                                   |
-| ----------------------------- | ------------------------------------------------------ |
-| App navigation drawer         | `mdi-menu` — reserved for the shell                    |
-| Fold a pane's own column      | `mdi-arrow-collapse-left` / `mdi-arrow-expand-right`   |
-| Fold a host's selector column | `mdi-chevron-double-left` / `mdi-chevron-double-right` |
-| Disclose a section in place   | `mdi-chevron-up` / `mdi-chevron-down`                  |
+The pair says what the column does for the answer beside it, not which component
+it belongs to — so a reader learns it once and it holds everywhere. **Inputs**
+decide what the answer covers: filter controls, a principal picker, a resource
+tree feeding a query. **Destinations** are places to move between, where the
+answer changes because you went somewhere else.
+
+| Gesture                           | Icon                                                   |
+| --------------------------------- | ------------------------------------------------------ |
+| App navigation drawer             | `mdi-menu` — reserved for the shell                    |
+| Fold a column of **inputs**       | `mdi-arrow-collapse-left` / `mdi-arrow-expand-right`   |
+| Fold a column of **destinations** | `mdi-chevron-double-left` / `mdi-chevron-double-right` |
+| Disclose a section in place       | `mdi-chevron-up` / `mdi-chevron-down`                  |
+
+A column of inputs is labelled `Filters` whatever it holds — the grants review's
+`Filters & hierarchy` and Resolve Entities' principal-and-resource column are
+both filters on the answer beside them, and naming one of them something else
+made two identical columns look like two different kinds of thing. A column of
+destinations is labelled for what it lists: `Scope`.
+
+**A list of unlike things takes no label.** Where the entries are not one kind
+of thing — the Cedar rail holds policies you edit, sources and a schema you
+read, and a resolver you run — every collective noun is untrue of some of them,
+and inventing one to cover the set ("Sections", "Views") describes the furniture
+rather than the contents. Leave the fold as its icon and tooltip. It is also
+the right call wherever a pane title sits beside the control and already says
+where you are; a label there competes with a heading inches away. `Filters` and
+`Scope` keep theirs because each names a set that really is one kind of thing,
+and each sits alone on its row.
 
 **Accent the glyph, not the label.** `color="secondary"` on the icon makes a
 control findable among plain text without it reading as the pane's primary
@@ -100,8 +122,16 @@ The leading glyph carries the direction; a second arrow at the other end says
 the same thing twice. Buttons inside the row need `@click.stop` so clearing a
 filter does not also collapse the panel it just cleared.
 
+**Two values get a toggle, not a select.** A dropdown costs a click to reveal a
+choice that fits on one line, and the same question asked twice in an app should
+look the same both times.
+
 **Show what is set while collapsed.** A badge with the count of active filters,
 and a `Clear`, both only when something is actually set.
+
+**A pane inside a named tab does not repeat the tab's name.** Its actions go on
+the row with the fold, not in a header band of their own — a title that echoes
+the navigation above it costs the same height on every screen and says nothing.
 
 **Skip the tooltip when the row already says it.** A tooltip on a heading covers
 the first control beneath it, which is the one the reader is reaching for.
@@ -121,6 +151,11 @@ height.value = `${Math.max(MIN, Math.round(window.innerHeight - top - 24))}px`;
 
 Re-measure on `resize` and once more in a `requestAnimationFrame` after mount, so
 the pane is measured where it ends up rather than where it starts.
+
+Reach through `$el`, and refuse to measure anything without a
+`getBoundingClientRect`. A `ref` on a Vuetify component hands back the component,
+not the element; measuring the instance throws during mount and takes the pane —
+and whatever Vue unwinds with it — down. Nothing in the build catches this.
 
 **Every scrollable region is bounded by its own container.** The app shell
 disables page scroll; a pane that does not bound itself scrolls the window.

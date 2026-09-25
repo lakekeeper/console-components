@@ -9,7 +9,10 @@
          the page grows a scrollbar of its own beside the tree's, which is what a
          long warehouse tree made obvious. Measuring the pane's own top edge is
          right wherever it is mounted. -->
-    <div ref="paneRef" class="d-flex" :style="{ height: paneHeight, minHeight: '400px' }">
+    <div
+      ref="paneRef"
+      class="d-flex"
+      :style="{ height: paneHeight ?? 'calc(100vh - 240px)', minHeight: '400px' }">
       <!-- LEFT: scope toggle + picker.
 
            Folded by animating the outer width to nothing rather than by
@@ -26,96 +29,108 @@
           overflow: 'hidden',
           height: '100%',
         }">
+        <!-- The scope switch stays put; only the picker under it scrolls. One
+             scroll region over both meant that choosing a warehouse — the
+             scope with a tree long enough to need scrolling — pushed the
+             switch off the top, so the control you would use to leave that
+             scope was the first thing to disappear. -->
         <div
-          class="pa-2"
+          class="d-flex flex-column"
           :style="{
             width: leftWidth + 'px',
             minWidth: '200px',
             maxWidth: '800px',
-            overflow: 'auto',
             height: '100%',
+            minHeight: 0,
           }">
-          <!-- Five labels do not fit a narrow column, and wrapping clipped the
+          <div class="pa-2 pb-0 flex-shrink-0">
+            <!-- Five labels do not fit a narrow column, and wrapping clipped the
              last one against the toggle's fixed height. Below the width where
              the row still fits, the labels drop and the icons carry it. -->
-          <v-btn-toggle
-            v-model="scope"
-            mandatory
-            density="compact"
-            variant="text"
-            color="primary"
-            class="mb-2"
-            style="width: 100%">
-            <v-btn
-              v-for="s in scopes"
-              :key="s.value"
-              :value="s.value"
-              size="small"
-              class="flex-grow-1 px-1"
-              style="min-width: 0">
-              <v-icon :start="!compactScopes" size="18">{{ s.icon }}</v-icon>
-              <span v-if="!compactScopes">{{ s.label }}</span>
-              <v-tooltip v-if="compactScopes" activator="parent" location="bottom">
-                {{ s.label }}
-              </v-tooltip>
-            </v-btn>
-          </v-btn-toggle>
-          <v-divider class="mb-2"></v-divider>
-
-          <div v-if="scope === 'server'" class="pa-2 text-caption text-medium-emphasis">
-            Grants held on the server itself. These belong to no project.
-          </div>
-
-          <div v-else-if="scope === 'project'" class="pa-2 text-caption text-medium-emphasis">
-            Grants held on
-            <strong>{{ projectName }}</strong>
-            itself. Grants on resources inside it are listed under those resources. Switch project
-            in the app bar to work elsewhere.
-          </div>
-
-          <!-- Warehouse object tree: the same picker the permission explorer uses,
-             so the two read identically. -->
-          <WarehousesNavigationTree
-            v-else-if="scope === 'warehouses'"
-            pickable
-            :pickable-types="['warehouse', 'namespace', 'table', 'view', 'generic-table']"
-            @pick="onPick" />
-
-          <div v-else-if="scope === 'tags'">
-            <v-text-field
-              v-model="tagSearch"
-              label="Filter tags"
-              prepend-inner-icon="mdi-magnify"
-              variant="outlined"
+            <v-btn-toggle
+              v-model="scope"
+              mandatory
               density="compact"
-              hide-details
-              clearable
-              class="mb-2"></v-text-field>
-            <v-progress-linear v-if="tagsLoading" indeterminate color="primary"></v-progress-linear>
-            <v-list density="compact" bg-color="transparent" nav>
-              <v-list-item
-                v-for="t in filteredTags"
-                :key="t.id"
-                :active="selectedTagId === t.id"
-                color="primary"
-                prepend-icon="mdi-tag-outline"
-                :title="t.name"
-                @click="selectedTagId = t.id"></v-list-item>
-              <v-list-item v-if="!tagsLoading && !filteredTags.length">
-                <span class="text-caption text-disabled">No tags.</span>
-              </v-list-item>
-            </v-list>
+              variant="text"
+              color="primary"
+              class="mb-2"
+              style="width: 100%">
+              <v-btn
+                v-for="s in scopes"
+                :key="s.value"
+                :value="s.value"
+                size="small"
+                class="flex-grow-1 px-1"
+                style="min-width: 0">
+                <v-icon :start="!compactScopes" size="18">{{ s.icon }}</v-icon>
+                <span v-if="!compactScopes">{{ s.label }}</span>
+                <v-tooltip v-if="compactScopes" activator="parent" location="bottom">
+                  {{ s.label }}
+                </v-tooltip>
+              </v-btn>
+            </v-btn-toggle>
+            <v-divider class="mb-2"></v-divider>
           </div>
 
-          <div v-else-if="scope === 'principal'">
-            <div class="text-caption text-medium-emphasis mb-2">
-              Everything a user or role holds in
-              <strong>{{ projectName }}</strong>
-              . Server grants belong to no project and are not listed.
+          <div class="pa-2 pt-0" style="flex: 1 1 auto; min-height: 0; overflow-y: auto">
+            <div v-if="scope === 'server'" class="pa-2 text-caption text-medium-emphasis">
+              Grants held on the server itself. These belong to no project.
             </div>
-            <PrincipalSearch
-              v-model="principal"
-              :lock-project-id="currentProjectId"></PrincipalSearch>
+
+            <div v-else-if="scope === 'project'" class="pa-2 text-caption text-medium-emphasis">
+              Grants held on
+              <strong>{{ projectName }}</strong>
+              itself. Grants on resources inside it are listed under those resources. Switch project
+              in the app bar to work elsewhere.
+            </div>
+
+            <!-- Warehouse object tree: the same picker the permission explorer uses,
+             so the two read identically. -->
+            <WarehousesNavigationTree
+              v-else-if="scope === 'warehouses'"
+              pickable
+              :pickable-types="['warehouse', 'namespace', 'table', 'view', 'generic-table']"
+              @pick="onPick" />
+
+            <div v-else-if="scope === 'tags'">
+              <v-text-field
+                v-model="tagSearch"
+                label="Filter tags"
+                prepend-inner-icon="mdi-magnify"
+                variant="outlined"
+                density="compact"
+                hide-details
+                clearable
+                class="mb-2"></v-text-field>
+              <v-progress-linear
+                v-if="tagsLoading"
+                indeterminate
+                color="primary"></v-progress-linear>
+              <v-list density="compact" bg-color="transparent" nav>
+                <v-list-item
+                  v-for="t in filteredTags"
+                  :key="t.id"
+                  :active="selectedTagId === t.id"
+                  color="primary"
+                  prepend-icon="mdi-tag-outline"
+                  :title="t.name"
+                  @click="selectedTagId = t.id"></v-list-item>
+                <v-list-item v-if="!tagsLoading && !filteredTags.length">
+                  <span class="text-caption text-disabled">No tags.</span>
+                </v-list-item>
+              </v-list>
+            </div>
+
+            <div v-else-if="scope === 'principal'">
+              <div class="text-caption text-medium-emphasis mb-2">
+                Everything a user or role holds in
+                <strong>{{ projectName }}</strong>
+                . Server grants belong to no project and are not listed.
+              </div>
+              <PrincipalSearch
+                v-model="principal"
+                :lock-project-id="currentProjectId"></PrincipalSearch>
+            </div>
           </div>
         </div>
       </div>
@@ -269,6 +284,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { helix } from 'ldrs';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
+import { usePaneHeight } from '../common/paneHeight';
 import {
   resourceIcon,
   resourceKey,
@@ -325,16 +341,7 @@ const resolving = ref(false);
 
 // ---- how tall this pane is -------------------------------------------------
 
-const paneRef = ref<HTMLElement | null>(null);
-const paneHeight = ref('calc(100vh - 240px)');
-
-/** Whatever is left below this pane's top edge, less a margin for the page. */
-function measurePane() {
-  const el = paneRef.value;
-  if (!el || typeof window === 'undefined') return;
-  const top = el.getBoundingClientRect().top;
-  paneHeight.value = `${Math.max(400, Math.round(window.innerHeight - top - 24))}px`;
-}
+const { paneRef, paneHeight } = usePaneHeight(400);
 
 // ---- the selection, in the URL ---------------------------------------------
 //
@@ -795,16 +802,10 @@ watch([scope, pickedRef, selectedTagId, principal], writeSelection, { deep: true
 // The stored selection is what a reload restores from, so nothing is lost.
 const mountedPath = typeof window === 'undefined' ? '' : window.location.pathname;
 onUnmounted(() => {
-  window.removeEventListener('resize', measurePane);
   if (typeof window !== 'undefined' && window.location.pathname === mountedPath) patchQuery({});
 });
 
 onMounted(async () => {
-  measurePane();
-  // After the tab's own transition has settled: the pane is measured where it
-  // ends up, not where it starts.
-  requestAnimationFrame(measurePane);
-  window.addEventListener('resize', measurePane);
   await restoreSelection();
   if (scope.value === 'tags') loadTags();
 });

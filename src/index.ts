@@ -320,6 +320,9 @@ export { GrantsNoticeKey } from './common/grantsNotice';
 // container's grants pane, listing what is held beneath it. See
 // `common/grantsSubtree.ts`.
 export { GrantsSubtreeKey } from './common/grantsSubtree';
+
+// How tall a pane may be where it actually sits — see `common/paneHeight.ts`.
+export { measurePaneHeight, usePaneHeight } from './common/paneHeight';
 export type {
   SubtreeGrantSource,
   SubtreeGrantPage,
