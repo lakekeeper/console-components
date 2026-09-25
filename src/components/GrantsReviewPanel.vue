@@ -214,7 +214,13 @@
                   </div>
                   <div class="text-caption text-medium-emphasis">
                     {{ level.subtitle }}
-                    <template v-if="level.key === leafKey">· this one</template>
+                    <!-- The vantage point, in a word. Not "selected": the tree
+                         highlights whatever node you clicked and that moves,
+                         while this marks the object the whole pane is about and
+                         does not. "Here" is also what the rows above and below
+                         it are measured against — held above here, held inside
+                         here. -->
+                    <template v-if="level.key === leafKey">· here</template>
                   </div>
                 </div>
                 <v-spacer></v-spacer>
@@ -517,7 +523,7 @@
                   </div>
                   <div class="text-caption text-medium-emphasis">
                     {{ item.levelSubtitle }}
-                    <template v-if="item.levelKey === leafKey">· this one</template>
+                    <template v-if="item.levelKey === leafKey">· here</template>
                   </div>
                 </div>
               </div>
