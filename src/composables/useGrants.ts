@@ -748,14 +748,43 @@ export function useGrants() {
       const wh: any = await functions.getWarehouse(warehouseId, false).catch(() => null);
       const warehouseName = wh?.name || warehouseId;
 
-      const listing: any = await functions
-        .listNamespaces(warehouseId, undefined, undefined, false)
-        .catch(() => null);
-      const namespaceMap: Record<string, string> = listing?.namespaceMap ?? {};
-      for (const [path, id] of Object.entries(namespaceMap)) namespaces.set(id, path);
+      // Every namespace, not just the top row of them. `listNamespaces` lists
+      // the children of one parent and pages, so a single call with no parent
+      // returns the first hundred roots and nothing beneath them — which is why
+      // a grant on a nested namespace, or on a table inside one, rendered as a
+      // uuid: the index it was looked up in had never heard of it.
+      //
+      // Walked breadth-first and bounded: this runs once per warehouse per
+      // session, but a warehouse with a pathological namespace tree should not
+      // be able to turn one grant listing into thousands of requests.
+      const MAX_NAMESPACES = 500;
+      const MAX_PAGES = 20;
+      const queue: (string | undefined)[] = [undefined];
+
+      while (queue.length && namespaces.size < MAX_NAMESPACES) {
+        const parent = queue.shift();
+        const apiParent = parent ? parent.split('.').join('\x1F') : undefined;
+        let token: string | undefined;
+
+        for (let page = 0; page < MAX_PAGES; page++) {
+          const listing: any = await functions
+            .listNamespaces(warehouseId, apiParent, token, false)
+            .catch(() => null);
+          if (!listing) break;
+          for (const [path, id] of Object.entries(
+            (listing.namespaceMap ?? {}) as Record<string, string>,
+          )) {
+            if (namespaces.has(id)) continue;
+            namespaces.set(id, path);
+            queue.push(path);
+          }
+          token = listing['next-page-token'] || undefined;
+          if (!token) break;
+        }
+      }
 
       await Promise.all(
-        Object.keys(namespaceMap).map(async (nsPath) => {
+        [...namespaces.values()].map(async (nsPath) => {
           const apiNs = nsPath.split('.').join('\x1F');
           const add = (name: string, id: string, kind: string) =>
             tabulars.set(id, { namespace: nsPath, name, kind });

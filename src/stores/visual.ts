@@ -108,6 +108,49 @@ export const useVisualStore = defineStore(
      */
     const warehouseTreeState = ref<Record<string, { openedItems: string[] }>>({});
 
+    /**
+     * What the grants review pane was showing: the node it had selected and
+     * the filters narrowing it.
+     *
+     * Kept with the object it belongs to. A level key from one resource means
+     * nothing in another's chain, and a privilege filter that made sense for a
+     * warehouse may name nothing under a tag — so this is restored only on the
+     * object it was saved for, and everywhere else the pane opens on its own
+     * defaults.
+     */
+    const grantsReviewSelection = ref<{
+      resource: string;
+      level: string;
+      filtersOpen: boolean;
+      principalKind: 'any' | 'user' | 'role';
+      principal: { id: string; title: string } | null;
+      privilege: string[];
+      resourceType: string[];
+      includeSoftDeleted: boolean;
+      createdBefore: string | null;
+    } | null>(null);
+
+    /**
+     * What the grants explorer was looking at.
+     *
+     * Persisted rather than left to the URL alone: the Governance page rewrites
+     * its own query when the tab settles, and two `router.replace` calls racing
+     * on one reload is exactly how a selection goes missing. The query still
+     * carries it for sharing; this is what survives.
+     */
+    const grantsExplorerSelection = ref<{
+      scope: string;
+      type?: string;
+      warehouseId?: string;
+      id?: string;
+      name?: string;
+      namespacePath?: string;
+      tagId?: string;
+      principalKind?: string;
+      principalId?: string;
+      principalTitle?: string;
+    } | null>(null);
+
     // Signal to tell WarehousesNavigationTree to reload a specific node
     // Incremented counter + context so watchers fire on every signal
     const navTreeRefreshSignal = ref<{
@@ -429,6 +472,8 @@ export const useVisualStore = defineStore(
       bumpTagsRefresh,
       requestedNamespaceTab,
       warehouseTreeState,
+      grantsExplorerSelection,
+      grantsReviewSelection,
       navTreeRefreshSignal,
       refreshNavTree,
       warehouseListRefreshSignal,

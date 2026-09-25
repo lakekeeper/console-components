@@ -4,115 +4,133 @@
        The principal mode asks the same data the other way round — not "who
        holds what here" but "what does this principal hold anywhere". -->
   <v-card flat>
-    <div class="d-flex" style="height: calc(100vh - 240px); min-height: 400px">
-      <!-- LEFT: scope toggle + picker. -->
+    <!-- Measured, not guessed. A viewport formula has to know how much chrome
+         sits above this pane, and that differs by host and by tab — too tall and
+         the page grows a scrollbar of its own beside the tree's, which is what a
+         long warehouse tree made obvious. Measuring the pane's own top edge is
+         right wherever it is mounted. -->
+    <div ref="paneRef" class="d-flex" :style="{ height: paneHeight, minHeight: '400px' }">
+      <!-- LEFT: scope toggle + picker.
+
+           Folded by animating the outer width to nothing rather than by
+           unmounting: the column's contents keep their own width on the inside,
+           so nothing reflows on the way out and the pane beside it grows into
+           the space instead of jumping into it. The transition is dropped while
+           the divider is being dragged, where it would lag the pointer. -->
       <div
-        v-show="!leftCollapsed"
-        class="pa-2"
+        class="gx-fold"
+        :class="{ 'gx-fold--instant': isResizing }"
         :style="{
-          width: leftWidth + 'px',
-          minWidth: '200px',
-          maxWidth: '800px',
+          width: leftCollapsed ? '0px' : leftWidth + 'px',
           flexShrink: 0,
-          overflow: 'auto',
+          overflow: 'hidden',
           height: '100%',
         }">
-        <!-- Five labels do not fit a narrow column, and wrapping clipped the
+        <div
+          class="pa-2"
+          :style="{
+            width: leftWidth + 'px',
+            minWidth: '200px',
+            maxWidth: '800px',
+            overflow: 'auto',
+            height: '100%',
+          }">
+          <!-- Five labels do not fit a narrow column, and wrapping clipped the
              last one against the toggle's fixed height. Below the width where
              the row still fits, the labels drop and the icons carry it. -->
-        <v-btn-toggle
-          v-model="scope"
-          mandatory
-          density="compact"
-          variant="text"
-          color="primary"
-          class="mb-2"
-          style="width: 100%">
-          <v-btn
-            v-for="s in scopes"
-            :key="s.value"
-            :value="s.value"
-            size="small"
-            class="flex-grow-1 px-1"
-            style="min-width: 0">
-            <v-icon :start="!compactScopes" size="18">{{ s.icon }}</v-icon>
-            <span v-if="!compactScopes">{{ s.label }}</span>
-            <v-tooltip v-if="compactScopes" activator="parent" location="bottom">
-              {{ s.label }}
-            </v-tooltip>
-          </v-btn>
-        </v-btn-toggle>
-        <v-divider class="mb-2"></v-divider>
-
-        <div v-if="scope === 'server'" class="pa-2 text-caption text-medium-emphasis">
-          Grants held on the server itself. These belong to no project.
-        </div>
-
-        <div v-else-if="scope === 'project'" class="pa-2 text-caption text-medium-emphasis">
-          Grants held on
-          <strong>{{ projectName }}</strong>
-          itself. Grants on resources inside it are listed under those resources. Switch project in
-          the app bar to work elsewhere.
-        </div>
-
-        <!-- Warehouse object tree: the same picker the permission explorer uses,
-             so the two read identically. -->
-        <WarehousesNavigationTree
-          v-else-if="scope === 'warehouses'"
-          pickable
-          :pickable-types="['warehouse', 'namespace', 'table', 'view', 'generic-table']"
-          @pick="onPick" />
-
-        <div v-else-if="scope === 'tags'">
-          <v-text-field
-            v-model="tagSearch"
-            label="Filter tags"
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
+          <v-btn-toggle
+            v-model="scope"
+            mandatory
             density="compact"
-            hide-details
-            clearable
-            class="mb-2"></v-text-field>
-          <v-progress-linear v-if="tagsLoading" indeterminate color="primary"></v-progress-linear>
-          <v-list density="compact" bg-color="transparent" nav>
-            <v-list-item
-              v-for="t in filteredTags"
-              :key="t.id"
-              :active="selectedTagId === t.id"
-              color="primary"
-              prepend-icon="mdi-tag-outline"
-              :title="t.name"
-              @click="selectedTagId = t.id"></v-list-item>
-            <v-list-item v-if="!tagsLoading && !filteredTags.length">
-              <span class="text-caption text-disabled">No tags.</span>
-            </v-list-item>
-          </v-list>
-        </div>
+            variant="text"
+            color="primary"
+            class="mb-2"
+            style="width: 100%">
+            <v-btn
+              v-for="s in scopes"
+              :key="s.value"
+              :value="s.value"
+              size="small"
+              class="flex-grow-1 px-1"
+              style="min-width: 0">
+              <v-icon :start="!compactScopes" size="18">{{ s.icon }}</v-icon>
+              <span v-if="!compactScopes">{{ s.label }}</span>
+              <v-tooltip v-if="compactScopes" activator="parent" location="bottom">
+                {{ s.label }}
+              </v-tooltip>
+            </v-btn>
+          </v-btn-toggle>
+          <v-divider class="mb-2"></v-divider>
 
-        <div v-else-if="scope === 'principal'">
-          <div class="text-caption text-medium-emphasis mb-2">
-            Everything a user or role holds in
-            <strong>{{ projectName }}</strong>
-            . Server grants belong to no project and are not listed.
+          <div v-if="scope === 'server'" class="pa-2 text-caption text-medium-emphasis">
+            Grants held on the server itself. These belong to no project.
           </div>
-          <PrincipalSearch
-            v-model="principal"
-            :lock-project-id="currentProjectId"></PrincipalSearch>
+
+          <div v-else-if="scope === 'project'" class="pa-2 text-caption text-medium-emphasis">
+            Grants held on
+            <strong>{{ projectName }}</strong>
+            itself. Grants on resources inside it are listed under those resources. Switch project
+            in the app bar to work elsewhere.
+          </div>
+
+          <!-- Warehouse object tree: the same picker the permission explorer uses,
+             so the two read identically. -->
+          <WarehousesNavigationTree
+            v-else-if="scope === 'warehouses'"
+            pickable
+            :pickable-types="['warehouse', 'namespace', 'table', 'view', 'generic-table']"
+            @pick="onPick" />
+
+          <div v-else-if="scope === 'tags'">
+            <v-text-field
+              v-model="tagSearch"
+              label="Filter tags"
+              prepend-inner-icon="mdi-magnify"
+              variant="outlined"
+              density="compact"
+              hide-details
+              clearable
+              class="mb-2"></v-text-field>
+            <v-progress-linear v-if="tagsLoading" indeterminate color="primary"></v-progress-linear>
+            <v-list density="compact" bg-color="transparent" nav>
+              <v-list-item
+                v-for="t in filteredTags"
+                :key="t.id"
+                :active="selectedTagId === t.id"
+                color="primary"
+                prepend-icon="mdi-tag-outline"
+                :title="t.name"
+                @click="selectedTagId = t.id"></v-list-item>
+              <v-list-item v-if="!tagsLoading && !filteredTags.length">
+                <span class="text-caption text-disabled">No tags.</span>
+              </v-list-item>
+            </v-list>
+          </div>
+
+          <div v-else-if="scope === 'principal'">
+            <div class="text-caption text-medium-emphasis mb-2">
+              Everything a user or role holds in
+              <strong>{{ projectName }}</strong>
+              . Server grants belong to no project and are not listed.
+            </div>
+            <PrincipalSearch
+              v-model="principal"
+              :lock-project-id="currentProjectId"></PrincipalSearch>
+          </div>
         </div>
       </div>
 
       <!-- Drag to resize; the button on it collapses the column outright. -->
       <div
-        v-show="!leftCollapsed"
-        style="
-          width: 5px;
-          cursor: col-resize;
-          user-select: none;
-          flex-shrink: 0;
-          transition: background 0.3s;
-          position: relative;
-        "
         :style="{
+          width: leftCollapsed ? '0px' : '5px',
+          cursor: 'col-resize',
+          userSelect: 'none',
+          flexShrink: 0,
+          overflow: 'hidden',
+          position: 'relative',
+          // Folds with the column rather than blinking out from under it.
+          transition: isResizing ? 'none' : 'width 0.2s ease, background 0.3s',
           background:
             dividerHover || isResizing
               ? 'rgb(var(--v-theme-primary))'
@@ -143,15 +161,21 @@
       <div style="flex: 1 1 auto; min-width: 0; height: 100%; overflow: hidden">
         <div class="d-flex flex-column" style="height: 100%; min-height: 0">
           <div class="d-flex align-center pa-1 flex-grow-0">
+            <!-- Not the hamburger: that one belongs to the app's own drawer, two
+                 rows above this, and wearing its glyph made a control that folds
+                 one column of one pane look like the one that folds the whole
+                 navigation. Double chevrons point the column the way it goes. -->
             <v-btn
-              :icon="leftCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
+              :icon="leftCollapsed ? 'mdi-chevron-double-right' : 'mdi-chevron-double-left'"
               size="small"
               variant="text"
-              :title="leftCollapsed ? 'Show selector' : 'Hide selector'"
+              :title="leftCollapsed ? 'Show scope' : 'Hide scope'"
               @click="leftCollapsed = !leftCollapsed"></v-btn>
-            <span class="text-caption text-medium-emphasis ml-1">
-              {{ leftCollapsed ? 'Show selector' : 'Hide selector' }}
-            </span>
+            <!-- "Scope", not "resources": this column picks a server, a project,
+                 an object in a warehouse, a tag definition or a principal, and
+                 only one of those five is a resource. The verb lives in the
+                 icon and the tooltip; the label names what is behind it. -->
+            <span class="text-caption text-medium-emphasis ml-1">Scope</span>
             <v-spacer></v-spacer>
             <!-- What can be granted at all, as published by this authorizer —
                  the reference behind every picker in this view. -->
@@ -241,7 +265,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { helix } from 'ldrs';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
@@ -256,6 +280,7 @@ import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
 import GrantPrivilegeReference from './GrantPrivilegeReference.vue';
 import WarehousesNavigationTree from './WarehousesNavigationTree.vue';
+import { isForbiddenError, isNotFoundError } from '../common/errorUtils';
 import type { GrantResourceRef } from '../common/interfaces';
 import type { TagDefinition } from '../gen/management/types.gen';
 
@@ -297,6 +322,210 @@ watch(principalListingSupported, (ok) => {
   if (!ok && scope.value === 'principal') scope.value = 'server';
 });
 const resolving = ref(false);
+
+// ---- how tall this pane is -------------------------------------------------
+
+const paneRef = ref<HTMLElement | null>(null);
+const paneHeight = ref('calc(100vh - 240px)');
+
+/** Whatever is left below this pane's top edge, less a margin for the page. */
+function measurePane() {
+  const el = paneRef.value;
+  if (!el || typeof window === 'undefined') return;
+  const top = el.getBoundingClientRect().top;
+  paneHeight.value = `${Math.max(400, Math.round(window.innerHeight - top - 24))}px`;
+}
+
+// ---- the selection, in the URL ---------------------------------------------
+//
+// A reload used to drop you back on the server scope, having thrown away the
+// object you were looking at. The query carries it instead of a store, so the
+// state that survives a refresh is the same state you can send to someone else.
+
+/** Ids differ per kind; this is the one the ref carries. */
+function refId(ref: GrantResourceRef | null): string {
+  if (!ref) return '';
+  const r = ref as any;
+  return r.namespaceId || r.tableId || r.viewId || r.genericTableId || r.warehouseId || '';
+}
+
+function writeSelection() {
+  if (restoring.value) return;
+
+  // The store is what actually survives a reload; the query is for sharing.
+  visual.grantsExplorerSelection =
+    scope.value === 'warehouses' && pickedRef.value
+      ? {
+          scope: 'warehouses',
+          type: (pickedRef.value as any).type,
+          warehouseId: (pickedRef.value as any).warehouseId,
+          id: refId(pickedRef.value),
+          name: pickedName.value,
+          namespacePath: pickedNamespace.value,
+        }
+      : scope.value === 'tags' && selectedTagId.value
+        ? { scope: 'tags', tagId: selectedTagId.value }
+        : scope.value === 'principal' && principal.value
+          ? {
+              scope: 'principal',
+              principalKind: principal.value.type,
+              principalId: principal.value.id,
+              principalTitle: principal.value.title,
+            }
+          : { scope: scope.value };
+
+  const next: Record<string, string | undefined> = { gscope: scope.value };
+  if (scope.value === 'warehouses' && pickedRef.value) {
+    const r = pickedRef.value as any;
+    next.gtype = r.type;
+    next.gwh = r.warehouseId;
+    next.gid = refId(pickedRef.value);
+    next.gname = pickedName.value || undefined;
+    next.gns = pickedNamespace.value || undefined;
+  } else if (scope.value === 'tags' && selectedTagId.value) {
+    next.gtag = selectedTagId.value;
+  } else if (scope.value === 'principal' && principal.value) {
+    next.gpkind = principal.value.type;
+    next.gpid = principal.value.id;
+  }
+  patchQuery(next);
+}
+
+/** The parameters this pane owns; everything else in the query is left alone. */
+const OWNED = ['gscope', 'gtype', 'gwh', 'gid', 'gname', 'gns', 'gtag', 'gpkind', 'gpid'];
+
+/**
+ * Writes the address bar without navigating.
+ *
+ * `router.replace` runs the full guard pipeline on this app — the same reason
+ * the namespace page stopped using it for its own tab sync — and from here it
+ * simply never landed: the query stayed as it was while the Tags and Policies
+ * tabs, whose own sync happens in the page above, updated fine. This touches
+ * only the parameters this pane owns, so the page's `tab` is never disturbed.
+ */
+function patchQuery(next: Record<string, string | undefined>) {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  for (const k of OWNED) params.delete(k);
+  for (const [k, v] of Object.entries(next)) if (v) params.set(k, v);
+  const search = params.toString();
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${window.location.pathname}${search ? `?${search}` : ''}${window.location.hash}`,
+  );
+}
+
+const restoring = ref(true);
+
+/**
+ * Puts the selection back, or falls back to the server scope.
+ *
+ * A link can name an object that has since been dropped, or one this caller may
+ * not read. Landing on a pane full of refusals would be a worse answer than
+ * landing on the scope that always works, so the object is checked before it is
+ * selected — one request, and only for the kinds whose disappearance is
+ * ordinary.
+ */
+async function restoreSelection() {
+  // The query wins when it carries a selection — a shared link is an explicit
+  // request — and the store stands in when it does not, which is every ordinary
+  // reload.
+  const saved = visual.grantsExplorerSelection;
+  const url = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search);
+  const fromQuery: Record<string, string | undefined> = {};
+  for (const k of OWNED) fromQuery[k] = url?.get(k) ?? undefined;
+  const q: Record<string, string | undefined> = fromQuery.gscope
+    ? fromQuery
+    : {
+        gscope: saved?.scope,
+        gtype: saved?.type,
+        gwh: saved?.warehouseId,
+        gid: saved?.id,
+        gname: saved?.name || saved?.principalTitle,
+        gns: saved?.namespacePath,
+        gtag: saved?.tagId,
+        gpkind: saved?.principalKind,
+        gpid: saved?.principalId,
+      };
+  const want = q.gscope as typeof scope.value | undefined;
+  try {
+    if (!want) return;
+    if (want === 'tags' && q.gtag) {
+      scope.value = 'tags';
+      selectedTagId.value = q.gtag;
+      return;
+    }
+    if (want === 'principal' && q.gpid && q.gpkind) {
+      scope.value = 'principal';
+      principal.value = {
+        id: q.gpid,
+        type: q.gpkind as 'user' | 'role',
+        title: q.gname || q.gpid,
+      };
+      return;
+    }
+    if (want !== 'warehouses' || !q.gtype || !q.gwh || !q.gid) {
+      scope.value = want === 'project' ? 'project' : 'server';
+      return;
+    }
+
+    const ref =
+      q.gtype === 'warehouse'
+        ? ({ type: 'warehouse', warehouseId: q.gwh } as GrantResourceRef)
+        : q.gtype === 'namespace'
+          ? ({ type: 'namespace', warehouseId: q.gwh, namespaceId: q.gid } as GrantResourceRef)
+          : q.gtype === 'table'
+            ? ({ type: 'table', warehouseId: q.gwh, tableId: q.gid } as GrantResourceRef)
+            : q.gtype === 'view'
+              ? ({ type: 'view', warehouseId: q.gwh, viewId: q.gid } as GrantResourceRef)
+              : ({
+                  type: 'generic-table',
+                  warehouseId: q.gwh,
+                  genericTableId: q.gid,
+                } as GrantResourceRef);
+
+    scope.value = 'warehouses';
+    pickedRef.value = ref;
+    pickedName.value = q.gname || '';
+    pickedNamespace.value = q.gns || '';
+    // Not awaited, and not a gate: see below.
+    resolveWarehouseName(q.gwh);
+    verifyRestored(ref);
+  } catch {
+    scope.value = 'server';
+    pickedRef.value = null;
+  } finally {
+    restoring.value = false;
+    writeSelection();
+  }
+}
+
+/**
+ * Confirms afterwards that the restored object is still there.
+ *
+ * Afterwards, and never as a precondition: on a reload this runs before the
+ * access token has hydrated, and the request that comes back rejected says
+ * nothing about whether the object exists. Checking first and falling back on
+ * any failure sent every reload to the server scope.
+ *
+ * So only the two answers that actually mean "not yours to look at" move you:
+ * gone, or refused. A rejection for any other reason leaves the selection
+ * standing, and the pane reports it in its own states.
+ */
+async function verifyRestored(ref: GrantResourceRef) {
+  const r = ref as any;
+  try {
+    await functions.getWarehouse(r.warehouseId, false);
+    if (r.type === 'namespace') await functions.getNamespaceById(r.namespaceId, false);
+  } catch (e: any) {
+    if (!isNotFoundError(e) && !isForbiddenError(e)) return;
+    if (resourceKey(pickedRef.value ?? { type: 'server' }) !== resourceKey(ref)) return;
+    scope.value = 'server';
+    pickedRef.value = null;
+    writeSelection();
+  }
+}
 
 // Left column: collapsible and drag-resizable, the same behaviour the warehouse
 // pages use for their navigation tree.
@@ -401,10 +630,15 @@ async function onPick(item: PickItem) {
       }
     }
     if (next) {
+      // Awaited, not fired off: the panel builds its hierarchy from this name
+      // the moment the ref changes, and reads it once. Left to resolve on its
+      // own, every chain came out with the literal word "Warehouse" where the
+      // warehouse should be. Cached after the first pick, so this costs one
+      // request per warehouse and nothing after that.
+      await resolveWarehouseName(wh);
       pickedRef.value = next;
       pickedName.value = item.name;
       pickedNamespace.value = item.namespaceId ?? '';
-      resolveWarehouseName(wh);
     }
   } catch {
     // surfaced by the functions plugin
@@ -554,7 +788,43 @@ watch(scope, (s) => {
   if (s === 'tags') loadTags();
 });
 
-onMounted(() => {
+watch([scope, pickedRef, selectedTagId, principal], writeSelection, { deep: true });
+
+// Leaving the tab takes them with it: a link that still named a warehouse while
+// sitting on Policies read as though it selected the tab, which it never did.
+// The stored selection is what a reload restores from, so nothing is lost.
+const mountedPath = typeof window === 'undefined' ? '' : window.location.pathname;
+onUnmounted(() => {
+  window.removeEventListener('resize', measurePane);
+  if (typeof window !== 'undefined' && window.location.pathname === mountedPath) patchQuery({});
+});
+
+onMounted(async () => {
+  measurePane();
+  // After the tab's own transition has settled: the pane is measured where it
+  // ends up, not where it starts.
+  requestAnimationFrame(measurePane);
+  window.addEventListener('resize', measurePane);
+  await restoreSelection();
   if (scope.value === 'tags') loadTags();
 });
 </script>
+
+<style scoped>
+/* One width transition for the folding column. Kept here rather than inline so
+   the resize drag can turn it off with a class — a transition on width makes
+   the pointer and the edge disagree while dragging. */
+.gx-fold {
+  transition: width 0.2s ease;
+}
+
+.gx-fold--instant {
+  transition: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gx-fold {
+    transition: none;
+  }
+}
+</style>

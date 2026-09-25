@@ -18,300 +18,330 @@
          The downward half is asked for rather than walked. Upward is a handful
          of levels read in full; inside is unbounded, separately authorized and
          paged, so it stays one node until someone calls it. -->
-    <div
-      v-if="!treeCollapsed"
-      class="flex-shrink-0 d-flex flex-column"
-      style="width: 300px; border-right: 1px solid rgba(var(--v-border-color), 0.16)">
-      <!-- Narrowing is picking, like picking a node below it, so it belongs in
+    <div class="review-fold flex-shrink-0" :class="{ 'review-fold--collapsed': treeCollapsed }">
+      <div
+        class="d-flex flex-column"
+        style="
+          width: 300px;
+          height: 100%;
+          border-right: 1px solid rgba(var(--v-border-color), 0.16);
+        ">
+        <!-- Narrowing is picking, like picking a node below it, so it belongs in
            the picker column rather than among the answers on the right — the
            same reasoning the Resolve Entities pane follows. A row of controls
            across the top of the table also left the table squeezed between two
            bands of chrome. -->
-      <div
-        class="pa-2 flex-shrink-0"
-        style="border-bottom: 1px solid rgba(var(--v-border-color), 0.16)">
         <div
-          class="d-flex align-center"
-          style="cursor: pointer"
-          @click="filtersOpen = !filtersOpen">
-          <!-- The heading is the control, and its own glyph says which way it
+          class="pa-2 flex-shrink-0"
+          style="border-bottom: 1px solid rgba(var(--v-border-color), 0.16)">
+          <div
+            class="d-flex align-center"
+            style="cursor: pointer"
+            @click="filtersOpen = !filtersOpen">
+            <!-- The heading is the control, and its own glyph says which way it
                will go: no separate arrow, and no funnel repeating the word next
                to it. The accent sits on the glyph, as on the column's toggle,
                so the row is findable without reading as an action. -->
-          <v-icon size="16" color="secondary" class="mr-1">
-            {{ filtersOpen ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
-          </v-icon>
-          <span class="text-overline text-medium-emphasis">Filters</span>
-          <v-badge
-            v-if="activeFilterCount"
-            inline
-            color="primary"
-            :content="activeFilterCount"></v-badge>
-          <v-spacer></v-spacer>
-          <!-- Stops the click reaching the row, which would reopen what it
+            <v-icon size="16" color="secondary" class="mr-1">
+              {{ filtersOpen ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+            </v-icon>
+            <span class="text-overline text-medium-emphasis">Filters</span>
+            <v-badge
+              v-if="activeFilterCount"
+              inline
+              color="primary"
+              :content="activeFilterCount"></v-badge>
+            <v-spacer></v-spacer>
+            <!-- Stops the click reaching the row, which would reopen what it
                just cleared. -->
-          <v-btn v-if="activeFilterCount" size="x-small" variant="text" @click.stop="resetFilters">
-            Clear
-          </v-btn>
-        </div>
+            <v-btn
+              v-if="activeFilterCount"
+              size="x-small"
+              variant="text"
+              @click.stop="resetFilters">
+              Clear
+            </v-btn>
+            <!-- Re-reads both halves. The chain is walked once on arrival and the
+               subtree is bound to an instant, so neither notices a grant made
+               elsewhere; this is how you ask again. `.stop` keeps it from
+               folding the panel it sits in. -->
+            <v-btn
+              icon="mdi-refresh"
+              size="x-small"
+              variant="text"
+              :loading="buildingChain || loadingBelow"
+              @click.stop="reload">
+              <v-icon></v-icon>
+              <v-tooltip activator="parent" location="bottom">Re-read the grants</v-tooltip>
+            </v-btn>
+          </div>
 
-        <v-expand-transition>
-          <div v-show="filtersOpen" class="pt-2">
-            <!-- One control for "which principals", not two. It narrows the
+          <v-expand-transition>
+            <div v-show="filtersOpen" class="pt-2">
+              <!-- One control for "which principals", not two. It narrows the
                  rows on its own, and narrows the walk itself once an actual
                  user or role is named — the endpoint takes one principal or
                  none, never "every role". -->
-            <v-btn-toggle
-              v-model="principalKind"
-              mandatory
-              density="compact"
-              variant="outlined"
-              class="mb-2"
-              style="width: 100%"
-              @update:model-value="onPrincipalKindChange">
-              <v-btn value="any" size="small" class="flex-grow-1">Anyone</v-btn>
-              <v-btn value="user" size="small" class="flex-grow-1" prepend-icon="mdi-account">
-                Users
-              </v-btn>
-              <v-btn value="role" size="small" class="flex-grow-1" prepend-icon="mdi-account-group">
-                Roles
-              </v-btn>
-            </v-btn-toggle>
+              <v-btn-toggle
+                v-model="principalKind"
+                mandatory
+                density="compact"
+                variant="outlined"
+                class="mb-2"
+                style="width: 100%"
+                @update:model-value="onPrincipalKindChange">
+                <v-btn value="any" size="small" class="flex-grow-1">Anyone</v-btn>
+                <v-btn value="user" size="small" class="flex-grow-1" prepend-icon="mdi-account">
+                  Users
+                </v-btn>
+                <v-btn
+                  value="role"
+                  size="small"
+                  class="flex-grow-1"
+                  prepend-icon="mdi-account-group">
+                  Roles
+                </v-btn>
+              </v-btn-toggle>
 
-            <v-autocomplete
-              v-if="principalKind !== 'any'"
-              v-model="principal"
-              :items="principalCandidates"
-              :loading="searchingPrincipal"
-              item-title="title"
-              item-value="id"
-              return-object
-              no-filter
-              clearable
-              :label="principalKind === 'user' ? 'One user (optional)' : 'One role (optional)'"
-              :no-data-text="principalNoData"
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="mb-2"
-              @update:search="onPrincipalSearch"></v-autocomplete>
+              <v-autocomplete
+                v-if="principalKind !== 'any'"
+                v-model="principal"
+                :items="principalCandidates"
+                :loading="searchingPrincipal"
+                item-title="title"
+                item-value="id"
+                return-object
+                no-filter
+                clearable
+                :label="principalKind === 'user' ? 'One user (optional)' : 'One role (optional)'"
+                :no-data-text="principalNoData"
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="mb-2"
+                @update:search="onPrincipalSearch"></v-autocomplete>
 
-            <v-select
-              v-model="privilegeFilter"
-              :items="privilegeItems"
-              label="Privileges"
-              multiple
-              chips
-              closable-chips
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="mb-2"
-              :loading="vocabularyLoading"></v-select>
+              <v-select
+                v-model="privilegeFilter"
+                :items="privilegeItems"
+                label="Privileges"
+                multiple
+                chips
+                closable-chips
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="mb-2"
+                :loading="vocabularyLoading"></v-select>
 
-            <v-select
-              v-model="resourceTypeFilter"
-              :items="resourceTypeItems"
-              label="Object kinds"
-              multiple
-              chips
-              closable-chips
-              density="compact"
-              variant="outlined"
-              hide-details
-              class="mb-2"></v-select>
+              <v-select
+                v-model="resourceTypeFilter"
+                :items="resourceTypeItems"
+                label="Object kinds"
+                multiple
+                chips
+                closable-chips
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="mb-2"></v-select>
 
-            <!-- Dropping a table does not destroy it — it waits in the recycle
+              <!-- Dropping a table does not destroy it — it waits in the recycle
                  bin until it expires, and an undrop restores it together with
                  its grants. So a listing that hid them would stop matching the
                  revoke it is meant to preview. On by default for that reason. -->
-            <v-switch v-model="includeSoftDeleted" density="compact" hide-details color="primary">
-              <template #label>
-                <span class="text-body-2 d-inline-flex align-center ga-1">
-                  Include deleted objects
-                  <v-icon size="14">mdi-information-outline</v-icon>
-                  <v-tooltip activator="parent" location="bottom" max-width="340">
-                    Grants on tables, views and generic tables that have been dropped but not yet
-                    expired. They still hold — an undrop restores a table together with its grants —
-                    so they are shown by default, and a revoke removes them too.
-                  </v-tooltip>
-                </span>
-              </template>
-            </v-switch>
+              <v-switch v-model="includeSoftDeleted" density="compact" hide-details color="primary">
+                <template #label>
+                  <span class="text-body-2 d-inline-flex align-center ga-1">
+                    Include deleted objects
+                    <v-icon size="14">mdi-information-outline</v-icon>
+                    <v-tooltip activator="parent" location="bottom" max-width="340">
+                      Grants on tables, views and generic tables that have been dropped but not yet
+                      expired. They still hold — an undrop restores a table together with its grants
+                      — so they are shown by default, and a revoke removes them too.
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-switch>
 
-            <v-text-field
-              v-model="createdBefore"
-              type="datetime-local"
-              label="Granted before"
-              density="compact"
-              variant="outlined"
-              hide-details
-              clearable></v-text-field>
-          </div>
-        </v-expand-transition>
-      </div>
-
-      <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto">
-        <div v-if="buildingChain" class="d-flex align-center ga-2 pa-4">
-          <v-progress-circular indeterminate size="18" width="2"></v-progress-circular>
-          <span class="text-caption text-medium-emphasis">Resolving…</span>
+              <v-text-field
+                v-model="createdBefore"
+                type="datetime-local"
+                label="Granted before"
+                density="compact"
+                variant="outlined"
+                hide-details
+                clearable></v-text-field>
+            </div>
+          </v-expand-transition>
         </div>
 
-        <v-list v-else density="compact" nav>
-          <v-list-item :active="!levelFilter" color="primary" @click="levelFilter = ''">
-            <v-list-item-title class="text-body-2">Everything</v-list-item-title>
-            <v-list-item-subtitle class="text-caption">
-              {{ allRows.length }} {{ allRows.length === 1 ? 'grant' : 'grants' }}
-            </v-list-item-subtitle>
-          </v-list-item>
-          <v-divider class="my-1"></v-divider>
-
-          <div v-if="chain.length === 1" class="text-caption text-medium-emphasis px-4 py-1">
-            Nothing sits above this — it is the root.
+        <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto">
+          <div v-if="buildingChain" class="d-flex align-center ga-2 pa-4">
+            <v-progress-circular indeterminate size="18" width="2"></v-progress-circular>
+            <span class="text-caption text-medium-emphasis">Resolving…</span>
           </div>
 
-          <!-- Upward: server → … → this one. -->
-          <v-list-item
-            v-for="(level, depth) in chain"
-            :key="level.key"
-            :active="levelFilter === level.key"
-            color="primary"
-            @click="levelFilter = level.key">
-            <div class="d-flex align-center ga-2" style="min-width: 0">
-              <span :style="{ width: depth * 12 + 'px' }" class="flex-shrink-0"></span>
-              <v-icon v-if="depth" size="13" class="text-disabled flex-shrink-0">
-                mdi-subdirectory-arrow-right
-              </v-icon>
-              <v-icon size="18" class="flex-shrink-0">{{ level.icon }}</v-icon>
-              <div style="min-width: 0">
-                <div class="text-body-2 text-truncate" :title="level.title">{{ level.title }}</div>
-                <div class="text-caption text-medium-emphasis">
-                  {{ level.subtitle }}
-                  <template v-if="level.key === leafKey">· this one</template>
-                </div>
-              </div>
-              <v-spacer></v-spacer>
-              <v-icon
-                v-if="unreadableLevels.has(level.key)"
-                size="14"
-                color="medium-emphasis"
-                class="flex-shrink-0">
-                mdi-eye-off-outline
-                <v-tooltip activator="parent" location="bottom" max-width="300">
-                  You do not have permission to list grants at this level. Grants held here can
-                  still reach the levels below.
-                </v-tooltip>
-              </v-icon>
-              <span v-else class="text-caption text-medium-emphasis flex-shrink-0">
-                {{ countFor(level.key) }}
-              </span>
-            </div>
-          </v-list-item>
+          <v-list v-else density="compact" nav>
+            <v-list-item :active="!levelFilter" color="primary" @click="levelFilter = ''">
+              <v-list-item-title class="text-body-2">Everything</v-list-item-title>
+              <v-list-item-subtitle class="text-caption">
+                {{ allRows.length }} {{ allRows.length === 1 ? 'grant' : 'grants' }}
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-divider class="my-1"></v-divider>
 
-          <!-- Downward: the same tree, continuing past the leaf — but separated,
+            <div v-if="chain.length === 1" class="text-caption text-medium-emphasis px-4 py-1">
+              Nothing sits above this — it is the root.
+            </div>
+
+            <!-- Upward: server → … → this one. -->
+            <v-list-item
+              v-for="(level, depth) in chain"
+              :key="level.key"
+              :active="levelFilter === level.key"
+              color="primary"
+              @click="levelFilter = level.key">
+              <div class="d-flex align-center ga-2" style="min-width: 0">
+                <span :style="{ width: depth * 12 + 'px' }" class="flex-shrink-0"></span>
+                <v-icon v-if="depth" size="13" class="text-disabled flex-shrink-0">
+                  mdi-subdirectory-arrow-right
+                </v-icon>
+                <v-icon size="18" class="flex-shrink-0">{{ level.icon }}</v-icon>
+                <div style="min-width: 0">
+                  <div class="text-body-2 text-truncate" :title="level.title">
+                    {{ level.title }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">
+                    {{ level.subtitle }}
+                    <template v-if="level.key === leafKey">· this one</template>
+                  </div>
+                </div>
+                <v-spacer></v-spacer>
+                <v-icon
+                  v-if="unreadableLevels.has(level.key)"
+                  size="14"
+                  color="medium-emphasis"
+                  class="flex-shrink-0">
+                  mdi-eye-off-outline
+                  <v-tooltip activator="parent" location="bottom" max-width="300">
+                    You do not have permission to list grants at this level. Grants held here can
+                    still reach the levels below.
+                  </v-tooltip>
+                </v-icon>
+                <span v-else class="text-caption text-medium-emphasis flex-shrink-0">
+                  {{ countFor(level.key) }}
+                </span>
+              </div>
+            </v-list-item>
+
+            <!-- Downward: the same tree, continuing past the leaf — but separated,
              because the halves are not alike. Above is every level, read in
              full and authorized level by level; below is one permission, read a
              page at a time. The rule says where one ends and the other begins;
              the indentation still carries the hierarchy across it. -->
-          <template v-if="subtreeAvailable">
-            <v-divider class="my-1"></v-divider>
-            <v-list-item
-              v-if="!belowLoaded"
-              :disabled="loadingBelow"
-              color="primary"
-              @click="loadBelowPage()">
-              <div class="d-flex align-center ga-2" style="min-width: 0">
-                <span :style="{ width: chain.length * 12 + 'px' }" class="flex-shrink-0"></span>
-                <v-icon size="16" class="flex-shrink-0">
-                  {{ loadingBelow ? 'mdi-timer-sand' : 'mdi-chevron-down-circle-outline' }}
-                </v-icon>
-                <div style="min-width: 0">
-                  <div class="text-body-2 text-primary">
-                    {{ loadingBelow ? 'Loading…' : 'Load subtree grants' }}
-                  </div>
-                  <div class="text-caption text-medium-emphasis">
-                    Held on objects inside this {{ resourceLabel(resource.type).toLowerCase() }}
-                  </div>
-                </div>
-              </div>
-            </v-list-item>
-
-            <template v-else>
+            <template v-if="subtreeAvailable">
+              <v-divider class="my-1"></v-divider>
               <v-list-item
-                :active="levelFilter === BELOW_ALL"
+                v-if="!belowLoaded"
+                :disabled="loadingBelow"
                 color="primary"
-                @click="levelFilter = BELOW_ALL">
+                @click="loadBelowPage()">
                 <div class="d-flex align-center ga-2" style="min-width: 0">
                   <span :style="{ width: chain.length * 12 + 'px' }" class="flex-shrink-0"></span>
-                  <v-icon size="16" class="flex-shrink-0">mdi-file-tree-outline</v-icon>
-                  <div style="min-width: 0">
-                    <div class="text-body-2">Subtree</div>
-                    <div class="text-caption text-medium-emphasis">
-                      <template v-if="belowUnsupported">Not offered by this authorizer</template>
-                      <template v-else-if="belowForbidden">Not visible to you</template>
-                      <template v-else-if="belowError">{{ belowError }}</template>
-                      <template v-else>
-                        {{ belowNodes.length }}
-                        {{ belowNodes.length === 1 ? 'object' : 'objects' }}
-                      </template>
-                    </div>
-                  </div>
-                  <v-spacer></v-spacer>
-                  <span class="text-caption text-medium-emphasis flex-shrink-0">
-                    {{ belowRows.length }}
-                  </span>
-                </div>
-              </v-list-item>
-
-              <v-list-item
-                v-for="node in belowNodes"
-                :key="node.key"
-                :active="levelFilter === node.key"
-                color="primary"
-                @click="levelFilter = node.key">
-                <div class="d-flex align-center ga-2" style="min-width: 0">
-                  <span
-                    :style="{ width: (chain.length + 1 + node.depth) * 12 + 'px' }"
-                    class="flex-shrink-0"></span>
-                  <v-icon size="13" class="text-disabled flex-shrink-0">
-                    mdi-subdirectory-arrow-right
+                  <v-icon size="16" class="flex-shrink-0">
+                    {{ loadingBelow ? 'mdi-timer-sand' : 'mdi-chevron-down-circle-outline' }}
                   </v-icon>
-                  <v-icon size="18" class="flex-shrink-0">{{ node.icon }}</v-icon>
                   <div style="min-width: 0">
-                    <div class="text-body-2 text-truncate" :title="node.title">
-                      {{ node.title }}
+                    <div class="text-body-2 text-primary">
+                      {{ loadingBelow ? 'Loading…' : 'Load subtree grants' }}
                     </div>
-                    <div class="text-caption text-medium-emphasis">{{ node.subtitle }}</div>
+                    <div class="text-caption text-medium-emphasis">
+                      Held on objects inside this {{ resourceLabel(resource.type).toLowerCase() }}
+                    </div>
                   </div>
-                  <v-spacer></v-spacer>
-                  <span class="text-caption text-medium-emphasis flex-shrink-0">
-                    {{ node.count }}
-                  </span>
                 </div>
               </v-list-item>
 
-              <!-- Pages come back full, so an absent token is the end — not a
+              <template v-else>
+                <v-list-item
+                  :active="levelFilter === BELOW_ALL"
+                  color="primary"
+                  @click="levelFilter = BELOW_ALL">
+                  <div class="d-flex align-center ga-2" style="min-width: 0">
+                    <span :style="{ width: chain.length * 12 + 'px' }" class="flex-shrink-0"></span>
+                    <v-icon size="16" class="flex-shrink-0">mdi-file-tree-outline</v-icon>
+                    <div style="min-width: 0">
+                      <div class="text-body-2">Subtree</div>
+                      <div class="text-caption text-medium-emphasis">
+                        <template v-if="belowUnsupported">Not offered by this authorizer</template>
+                        <template v-else-if="belowForbidden">Not visible to you</template>
+                        <template v-else-if="belowError">{{ belowError }}</template>
+                        <template v-else>
+                          {{ belowNodes.length }}
+                          {{ belowNodes.length === 1 ? 'object' : 'objects' }}
+                        </template>
+                      </div>
+                    </div>
+                    <v-spacer></v-spacer>
+                    <span class="text-caption text-medium-emphasis flex-shrink-0">
+                      {{ belowRows.length }}
+                    </span>
+                  </div>
+                </v-list-item>
+
+                <v-list-item
+                  v-for="node in belowNodes"
+                  :key="node.key"
+                  :active="levelFilter === node.key"
+                  color="primary"
+                  @click="levelFilter = node.key">
+                  <div class="d-flex align-center ga-2" style="min-width: 0">
+                    <span
+                      :style="{ width: (chain.length + 1 + node.depth) * 12 + 'px' }"
+                      class="flex-shrink-0"></span>
+                    <v-icon size="13" class="text-disabled flex-shrink-0">
+                      mdi-subdirectory-arrow-right
+                    </v-icon>
+                    <v-icon size="18" class="flex-shrink-0">{{ node.icon }}</v-icon>
+                    <div style="min-width: 0">
+                      <div class="text-body-2 text-truncate" :title="node.title">
+                        {{ node.title }}
+                      </div>
+                      <div class="text-caption text-medium-emphasis">{{ node.subtitle }}</div>
+                    </div>
+                    <v-spacer></v-spacer>
+                    <span class="text-caption text-medium-emphasis flex-shrink-0">
+                      {{ node.count }}
+                    </span>
+                  </div>
+                </v-list-item>
+
+                <!-- Pages come back full, so an absent token is the end — not a
                  short page. Until then the tree is honest about being partial. -->
-              <v-list-item v-if="belowNextToken" :disabled="loadingBelow" @click="loadMoreBelow">
-                <div class="d-flex align-center ga-2" style="min-width: 0">
-                  <span
-                    :style="{ width: (chain.length + 1) * 12 + 'px' }"
-                    class="flex-shrink-0"></span>
-                  <v-icon size="16">mdi-dots-horizontal</v-icon>
-                  <span class="text-caption text-primary">
-                    {{ loadingBelow ? 'Reading…' : 'Load more' }}
-                  </span>
-                </div>
-              </v-list-item>
+                <v-list-item v-if="belowNextToken" :disabled="loadingBelow" @click="loadMoreBelow">
+                  <div class="d-flex align-center ga-2" style="min-width: 0">
+                    <span
+                      :style="{ width: (chain.length + 1) * 12 + 'px' }"
+                      class="flex-shrink-0"></span>
+                    <v-icon size="16">mdi-dots-horizontal</v-icon>
+                    <span class="text-caption text-primary">
+                      {{ loadingBelow ? 'Reading…' : 'Load more' }}
+                    </span>
+                  </div>
+                </v-list-item>
+              </template>
             </template>
-          </template>
-        </v-list>
+          </v-list>
 
-        <div v-if="chainError" class="text-caption text-warning px-4 pb-3">{{ chainError }}</div>
-        <div v-else-if="unreadableLevels.size" class="text-caption text-medium-emphasis px-4 pb-3">
-          {{ unreadableLevels.size }}
-          {{ unreadableLevels.size === 1 ? 'level is' : 'levels are' }}
-          hidden by permissions. Everything you may read is shown.
+          <div v-if="chainError" class="text-caption text-warning px-4 pb-3">{{ chainError }}</div>
+          <div
+            v-else-if="unreadableLevels.size"
+            class="text-caption text-medium-emphasis px-4 pb-3">
+            {{ unreadableLevels.size }}
+            {{ unreadableLevels.size === 1 ? 'level is' : 'levels are' }}
+            hidden by permissions. Everything you may read is shown.
+          </div>
         </div>
       </div>
     </div>
@@ -743,6 +773,53 @@ const levelFilter = ref('');
 
 /** Hides this pane's tree, leaving the table the full width. */
 const treeCollapsed = ref(false);
+
+// ---- what survives a reload ------------------------------------------------
+//
+// The node and the filters, saved against the object they belong to. Restored
+// only there: a level key means nothing in another resource's chain, and a
+// privilege that narrows a warehouse may name nothing under a tag.
+
+/** Set while a saved node is still waiting for the tree to contain it. */
+const pendingLevel = ref<string | null>(null);
+const restoringState = ref(false);
+
+function saveState() {
+  if (restoringState.value) return;
+  visual.grantsReviewSelection = {
+    resource: resourceKey(props.resource),
+    level: levelFilter.value,
+    filtersOpen: filtersOpen.value,
+    principalKind: principalKind.value,
+    principal: principal.value ? { ...principal.value } : null,
+    privilege: [...privilegeFilter.value],
+    resourceType: [...resourceTypeFilter.value],
+    includeSoftDeleted: includeSoftDeleted.value,
+    createdBefore: createdBefore.value,
+  };
+}
+
+/**
+ * Puts the filters back before the first read, so the walk goes out narrowed
+ * rather than fetching everything and then hiding most of it.
+ */
+function restoreFilters() {
+  const saved = visual.grantsReviewSelection;
+  if (!saved || saved.resource !== resourceKey(props.resource)) {
+    pendingLevel.value = null;
+    return;
+  }
+  restoringState.value = true;
+  filtersOpen.value = saved.filtersOpen;
+  principalKind.value = saved.principalKind;
+  principal.value = saved.principal ? { ...saved.principal } : null;
+  privilegeFilter.value = [...(saved.privilege ?? [])];
+  resourceTypeFilter.value = [...(saved.resourceType ?? [])];
+  includeSoftDeleted.value = saved.includeSoftDeleted ?? true;
+  createdBefore.value = saved.createdBefore ?? null;
+  pendingLevel.value = saved.level ?? null;
+  restoringState.value = false;
+}
 
 // ---- the server's filters --------------------------------------------------
 //
@@ -1372,6 +1449,14 @@ async function loadBelowPage(pageToken?: string) {
       }),
     );
     belowRows.value = pageToken ? [...belowRows.value, ...next] : next;
+    // A saved node from inside cannot be applied until the page holding it has
+    // been read; once the walk ends it is either there or gone for good.
+    if (pendingLevel.value) {
+      if (belowRows.value.some((r) => r.levelKey === pendingLevel.value)) {
+        levelFilter.value = pendingLevel.value;
+      }
+      if (!belowNextToken.value) pendingLevel.value = null;
+    }
   } catch (e: any) {
     const code = e?.error?.code || e?.status || 0;
     if (code === 501) belowUnsupported.value = true;
@@ -1391,6 +1476,21 @@ function loadMoreBelow() {
  * Debounced, because the pickers emit per selection and the date field per
  * keystroke, and each walk is a privileged read.
  */
+watch(
+  [
+    levelFilter,
+    filtersOpen,
+    principal,
+    principalKind,
+    privilegeFilter,
+    resourceTypeFilter,
+    includeSoftDeleted,
+    createdBefore,
+  ],
+  saveState,
+  { deep: true },
+);
+
 let refilterTimer: ReturnType<typeof setTimeout> | null = null;
 watch(
   [
@@ -1523,11 +1623,17 @@ async function buildChain() {
     }
 
     chain.value = levels;
-    // Select the object the pane is rooted at. Everything above and inside it
-    // is one click away in the tree, but "who holds what on this one" is the
-    // question nine askings in ten, and it was this pane's whole content
-    // before the levels around it joined the table.
-    levelFilter.value = leafKey.value;
+    // The object the pane is rooted at, unless a saved node still resolves.
+    // "Who holds what on this one" is the question nine askings in ten, and it
+    // was this pane's whole content before the levels around it joined the
+    // table — so it is the default, not a fallback nobody chose.
+    const wanted = pendingLevel.value;
+    if (wanted === '' || wanted === BELOW_ALL || levels.some((l) => l.key === wanted)) {
+      levelFilter.value = wanted as string;
+      pendingLevel.value = null;
+    } else {
+      levelFilter.value = leafKey.value;
+    }
     await loadAllLevels();
   } catch (e: any) {
     chainError.value = e?.error?.message || e?.message || 'Failed to build the resource hierarchy';
@@ -1601,6 +1707,7 @@ watch(
 watch(
   () => resourceKey(props.resource),
   () => {
+    restoreFilters();
     if (props.active) reload();
   },
 );
@@ -1618,9 +1725,32 @@ watch(
 );
 
 onMounted(() => {
+  restoreFilters();
   loadVocabulary();
   if (props.active) reload();
 });
 
 defineExpose({ reload });
 </script>
+
+<style scoped>
+/* Folded by animating the width to nothing, not by unmounting: the contents
+   keep their own 300px on the inside, so nothing reflows on the way out and the
+   table grows into the space rather than jumping into it. Kept mounted also
+   means the tree's scroll position and the filters survive a fold. */
+.review-fold {
+  width: 300px;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+
+.review-fold--collapsed {
+  width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-fold {
+    transition: none;
+  }
+}
+</style>
