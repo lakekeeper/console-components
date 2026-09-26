@@ -391,9 +391,18 @@
           display: flex;
           flex-direction: column;
         ">
-        <div v-if="loading" class="d-flex flex-column align-center pa-8">
+        <!-- The table goes away while it is being replaced.
+
+             A spinner on the refresh button in the filter column says
+             something is happening; it does not say that what is on screen is
+             no longer the answer. Rows from the previous resource sitting
+             under a new selection read as that selection's grants, which is
+             the one thing this pane must never show. -->
+        <div v-if="loading || rereadingBelow" class="d-flex flex-column align-center pa-8">
           <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
-          <span class="mt-4 text-body-2 text-medium-emphasis">Reading every level…</span>
+          <span class="mt-4 text-body-2 text-medium-emphasis">
+            {{ loading ? 'Reading every level…' : 'Reading what is inside…' }}
+          </span>
         </div>
 
         <template v-else>
@@ -821,6 +830,8 @@ const belowRows = ref<Row[]>([]);
 const belowNextToken = ref<string | null>(null);
 const belowAsOf = ref<string | null>(null);
 const loadingBelow = ref(false);
+/** A subtree read that replaces the table rather than extending it. */
+const rereadingBelow = ref(false);
 const belowForbidden = ref(false);
 const belowUnsupported = ref(false);
 const belowError = ref<string | null>(null);
@@ -1448,6 +1459,10 @@ async function loadAllLevels() {
 async function loadBelowPage(pageToken?: string) {
   if (!subtreeAvailable.value || !subtreeSource) return;
   loadingBelow.value = true;
+  // A first page replaces what the table is showing; a later one appends to
+  // it. Only the first is a reason to take the rows away — blanking the table
+  // on "load more" would hide the rows the reader asked to extend.
+  if (!pageToken) rereadingBelow.value = true;
   belowLoaded.value = true;
   belowError.value = null;
   try {
@@ -1525,6 +1540,7 @@ async function loadBelowPage(pageToken?: string) {
     else belowError.value = e?.error?.message || e?.message || 'could not be read';
   } finally {
     loadingBelow.value = false;
+    rereadingBelow.value = false;
   }
 }
 
