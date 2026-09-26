@@ -16,17 +16,32 @@ import { useVisualStore } from '../stores/visual';
  * Authorizers that own roles themselves, so roles cannot be created or deleted
  * through the catalog.
  *
- * Cedar manages them through its own policies, entities and group providers and
- * rejects both operations outright (`CreateRolesNotSupported` /
- * `DeleteRolesNotSupported`). A list rather than a single name so another such
- * backend can be added in one place.
+ * Empty by decision, not because no backend owns roles.
+ *
+ * Cedar does. Measured against a 0.13.1 server: the project reports
+ * `create_role` among its allowed actions, and the create is refused anyway.
+ *
+ *   POST /management/v1/role  ->  503
+ *   CreateRolesNotSupported (400): Creating Roles is not supported for the
+ *   Cedar Authorizer. Roles are managed through Cedar policies, Cedar entities
+ *   and group providers.
+ *
+ * Supplying `provider-id` and `source-id` does not change it. So on Cedar the
+ * controls are offered and the server refuses them, and the reader sees that
+ * message rather than an absent button — which is the trade this file was
+ * originally written to avoid. It is deliberate: the button is expected to
+ * start working when the backend lands role creation, and hiding it until then
+ * was costing more than the refusal does.
+ *
+ * Whoever revisits this: the check above is the switch. Put `'cedar'` back and
+ * the controls disappear again.
  *
  * `allow-all` does NOT belong here: it permits every operation, roles live in
  * the catalog's own store, and the backend covers role creation and membership
  * under that authorizer in its integration tests. Listing it disabled role
  * management on the one backend that refuses nothing.
  */
-export const EXTERNAL_ROLE_AUTHZ_BACKENDS = ['cedar'];
+export const EXTERNAL_ROLE_AUTHZ_BACKENDS: string[] = [];
 
 export function isExternalRoleBackend(authzBackend: string | undefined | null): boolean {
   return !!authzBackend && EXTERNAL_ROLE_AUTHZ_BACKENDS.includes(authzBackend.toLowerCase());
