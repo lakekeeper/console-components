@@ -200,7 +200,18 @@ export function supportsPrincipalGrantListing(authzBackend: string | undefined |
  * per distinct principal, so the answers are kept rather than re-fetched by
  * each panel that happens to list the same person.
  */
-const principalNameCache = new Map<string, { name: string; subtitle: string }>();
+/**
+ * The *promise*, not the value — as with the warehouse index above.
+ *
+ * A value cache is only a cache once the first call has returned. These are
+ * resolved for a whole batch at once, and a rehearsal of two hundred grants
+ * held by one user hits this two hundred times in the same tick: every one of
+ * them misses, and every one of them fires its own `getUser`. Two hundred
+ * identical requests is what made the sheet crawl on a batch it had already
+ * fetched. Caching the promise makes the first caller do the work and the rest
+ * wait on it.
+ */
+const principalNameCache = new Map<string, Promise<{ name: string; subtitle: string }>>();
 
 /** A page walk that never terminates would hang the pane rather than fail it. */
 const MAX_PAGES = 200;
@@ -871,7 +882,7 @@ export function useGrants() {
    * A principal that can no longer be read keeps its row and shows its id: the
    * grant is still real, and still revocable.
    */
-  async function resolvePrincipalName(
+  function resolvePrincipalName(
     kind: 'user' | 'role',
     id: string,
   ): Promise<{ name: string; subtitle: string }> {
@@ -879,21 +890,25 @@ export function useGrants() {
     const cached = principalNameCache.get(key);
     if (cached) return cached;
 
-    const out = { name: id, subtitle: kind === 'role' ? 'Role' : '' };
-    try {
-      if (kind === 'user') {
-        const u: any = await functions.getUser(id);
-        out.name = u?.name || u?.['preferred_username'] || id;
-        out.subtitle = u?.email || '';
-      } else {
-        const r: any = await functions.getRoleMetadata(id);
-        out.name = r?.name || id;
+    const built = (async () => {
+      const out = { name: id, subtitle: kind === 'role' ? 'Role' : '' };
+      try {
+        if (kind === 'user') {
+          const u: any = await functions.getUser(id);
+          out.name = u?.name || u?.['preferred_username'] || id;
+          out.subtitle = u?.email || '';
+        } else {
+          const r: any = await functions.getRoleMetadata(id);
+          out.name = r?.name || id;
+        }
+      } catch {
+        out.subtitle = kind === 'role' ? 'Role · unresolved' : 'Unresolved';
       }
-    } catch {
-      out.subtitle = kind === 'role' ? 'Role · unresolved' : 'Unresolved';
-    }
-    principalNameCache.set(key, out);
-    return out;
+      return out;
+    })();
+
+    principalNameCache.set(key, built);
+    return built;
   }
 
   return {
