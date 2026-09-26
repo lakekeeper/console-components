@@ -214,13 +214,12 @@
                   </div>
                   <div class="text-caption text-medium-emphasis">
                     {{ level.subtitle }}
-                    <!-- The vantage point, in a word. Not "selected": the tree
-                         highlights whatever node you clicked and that moves,
-                         while this marks the object the whole pane is about and
-                         does not. "Here" is also what the rows above and below
-                         it are measured against — held above here, held inside
-                         here. -->
-                    <template v-if="level.key === leafKey">· here</template>
+                    <!-- The object the pane is about: the one Grant and the
+                         subtree revoke act on, and where the chain above meets
+                         what lies inside. It does not move when a different
+                         node is clicked — that is what the row highlight is
+                         for. -->
+                    <template v-if="level.key === leafKey">· selected</template>
                   </div>
                 </div>
                 <v-spacer></v-spacer>
@@ -523,7 +522,7 @@
                   </div>
                   <div class="text-caption text-medium-emphasis">
                     {{ item.levelSubtitle }}
-                    <template v-if="item.levelKey === leafKey">· here</template>
+                    <template v-if="item.levelKey === leafKey">· selected</template>
                   </div>
                 </div>
               </div>

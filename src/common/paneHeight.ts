@@ -28,7 +28,17 @@ import { onMounted, onUnmounted, ref } from 'vue';
  * pane shrink the container, which shrank the pane, until it hit its floor and
  * sat in the top corner of an empty screen.
  */
-export function measurePaneHeight(target: unknown, min = 320, gap = 16): string | null {
+/**
+ * How much air to leave under a pane, above the app footer.
+ *
+ * One number for every pane, because panes ending on different lines across
+ * three tabs is what sent this round-tripping in the first place. Raise it if a
+ * pane overshoots and the page grows a scrollbar; there is nothing else to
+ * tune.
+ */
+const DEFAULT_GAP = 24;
+
+export function measurePaneHeight(target: unknown, min = 320, gap = DEFAULT_GAP): string | null {
   // A `ref` on a Vuetify component hands back the component, not the element;
   // measuring the instance throws during mount and takes the pane down with it.
   const el = ((target as any)?.$el ?? target) as HTMLElement | null;
@@ -59,7 +69,7 @@ export function measurePaneHeight(target: unknown, min = 320, gap = 16): string 
  * It watches the parent rather than the pane itself, because the pane's size is
  * what this sets: observing it would be watching for its own echo.
  */
-export function usePaneHeight(min = 320, gap = 16) {
+export function usePaneHeight(min = 320, gap = DEFAULT_GAP) {
   const paneRef = ref<any>(null);
   const paneHeight = ref<string | null>(null);
   let observer: ResizeObserver | null = null;
