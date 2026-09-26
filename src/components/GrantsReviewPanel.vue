@@ -65,12 +65,7 @@
                subtree is bound to an instant, so neither notices a grant made
                elsewhere; this is how you ask again. `.stop` keeps it from
                folding the panel it sits in. -->
-            <v-btn
-              icon="mdi-refresh"
-              size="x-small"
-              variant="text"
-              :loading="buildingChain || loadingBelow"
-              @click.stop="reload">
+            <v-btn icon="mdi-refresh" size="x-small" variant="text" @click.stop="reload">
               <v-icon></v-icon>
               <v-tooltip activator="parent" location="bottom">Re-read the grants</v-tooltip>
             </v-btn>
@@ -180,13 +175,28 @@
           </v-expand-transition>
         </div>
 
-        <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto">
+        <!-- A flex column rather than one long scroll: the subtree list inside
+             is windowed, and a virtual scroller needs a height of its own to
+             decide what is on screen. The levels above it are a handful of
+             rows and stay put. -->
+        <div style="flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex">
           <div v-if="buildingChain" class="d-flex align-center ga-2 pa-4">
             <v-progress-circular indeterminate size="18" width="2"></v-progress-circular>
             <span class="text-caption text-medium-emphasis">Resolving…</span>
           </div>
 
-          <v-list v-else density="compact" nav>
+          <v-list
+            v-else
+            density="compact"
+            nav
+            style="
+              flex: 1 1 auto;
+              min-height: 0;
+              min-width: 0;
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
+            ">
             <v-list-item :active="!levelFilter" color="primary" @click="levelFilter = ''">
               <v-list-item-title class="text-body-2">Everything</v-list-item-title>
               <v-list-item-subtitle class="text-caption">
@@ -299,32 +309,44 @@
                   </div>
                 </v-list-item>
 
-                <v-list-item
-                  v-for="node in belowNodes"
-                  :key="node.key"
-                  :active="levelFilter === node.key"
-                  color="primary"
-                  @click="levelFilter = node.key">
-                  <div class="d-flex align-center ga-2" style="min-width: 0">
-                    <span
-                      :style="{ width: (chain.length + 1 + node.depth) * 12 + 'px' }"
-                      class="flex-shrink-0"></span>
-                    <v-icon size="13" class="text-disabled flex-shrink-0">
-                      mdi-subdirectory-arrow-right
-                    </v-icon>
-                    <v-icon size="18" class="flex-shrink-0">{{ node.icon }}</v-icon>
-                    <div style="min-width: 0">
-                      <div class="text-body-2 text-truncate" :title="node.title">
-                        {{ node.title }}
+                <!-- Windowed, not rendered whole. A subtree of two hundred
+                     objects is two hundred `v-list-item`s with their icons and
+                     ripples — six hundred-odd components standing behind a
+                     column three of them are visible in. The virtual scroller
+                     builds the ones on screen and recycles the rest. -->
+                <v-virtual-scroll
+                  v-if="belowNodes.length"
+                  :items="belowNodes"
+                  :item-height="44"
+                  style="flex: 1 1 auto; min-height: 0">
+                  <template #default="{ item: node }">
+                    <v-list-item
+                      :key="node.key"
+                      :active="levelFilter === node.key"
+                      color="primary"
+                      @click="levelFilter = node.key">
+                      <div class="d-flex align-center ga-2" style="min-width: 0">
+                        <span
+                          :style="{ width: (chain.length + 1 + node.depth) * 12 + 'px' }"
+                          class="flex-shrink-0"></span>
+                        <v-icon size="13" class="text-disabled flex-shrink-0">
+                          mdi-subdirectory-arrow-right
+                        </v-icon>
+                        <v-icon size="18" class="flex-shrink-0">{{ node.icon }}</v-icon>
+                        <div style="min-width: 0">
+                          <div class="text-body-2 text-truncate" :title="node.title">
+                            {{ node.title }}
+                          </div>
+                          <div class="text-caption text-medium-emphasis">{{ node.subtitle }}</div>
+                        </div>
+                        <v-spacer></v-spacer>
+                        <span class="text-caption text-medium-emphasis flex-shrink-0">
+                          {{ node.count }}
+                        </span>
                       </div>
-                      <div class="text-caption text-medium-emphasis">{{ node.subtitle }}</div>
-                    </div>
-                    <v-spacer></v-spacer>
-                    <span class="text-caption text-medium-emphasis flex-shrink-0">
-                      {{ node.count }}
-                    </span>
-                  </div>
-                </v-list-item>
+                    </v-list-item>
+                  </template>
+                </v-virtual-scroll>
 
                 <!-- Pages come back full, so an absent token is the end — not a
                  short page. Until then the tree is honest about being partial. -->
@@ -521,8 +543,8 @@
               :items="visibleRows"
               show-expand
               item-value="key"
-              :items-per-page="50"
-              :items-per-page-options="[50, 100, -1]"
+              :items-per-page="25"
+              :items-per-page-options="[25, 50, 100, -1]"
               :sort-by="[{ key: 'principal', order: 'asc' }]">
               <template #item.principal="{ item }">
                 <div class="d-flex align-center ga-2">
@@ -547,10 +569,19 @@
                   <!-- Direction rides on the resource rather than taking a column
                        of its own: "where is this held" and "is that above me or
                        inside me" are the same fact read at two depths. -->
+                  <!-- `title`, not `v-tooltip`. Every Vuetify tooltip is an
+                       overlay component with its own teleport, transition and
+                       activator bindings, and these sit inside table rows: at
+                       fifty rows with a couple of chips each that is upward of
+                       a hundred and fifty of them built on every page change,
+                       every sort and every keystroke in the filter. The pane
+                       froze under its own hover affordances. The browser's own
+                       tooltip costs nothing and says the same thing. -->
                   <v-icon
                     size="14"
                     :color="item.direction === 'below' ? 'primary' : 'medium-emphasis'"
-                    class="flex-shrink-0">
+                    class="flex-shrink-0"
+                    :title="directionHint(item.direction)">
                     {{
                       item.direction === 'above'
                         ? 'mdi-arrow-up'
@@ -558,19 +589,6 @@
                           ? 'mdi-arrow-down'
                           : 'mdi-circle-small'
                     }}
-                    <v-tooltip activator="parent" location="top" max-width="320">
-                      <template v-if="item.direction === 'above'">
-                        Held above this {{ resourceLabel(resource.type).toLowerCase() }} — it
-                        reaches here without being listed here.
-                      </template>
-                      <template v-else-if="item.direction === 'below'">
-                        Held on something inside this
-                        {{ resourceLabel(resource.type).toLowerCase() }}.
-                      </template>
-                      <template v-else>
-                        Held on this {{ resourceLabel(resource.type).toLowerCase() }} itself.
-                      </template>
-                    </v-tooltip>
                   </v-icon>
                   <v-icon size="16">{{ item.levelIcon }}</v-icon>
                   <div style="min-width: 0">
@@ -595,11 +613,9 @@
                     :key="c"
                     size="x-small"
                     variant="tonal"
-                    color="primary">
+                    color="primary"
+                    :title="item.byCategory[c].join(', ')">
                     {{ c }} · {{ item.byCategory[c].length }}
-                    <v-tooltip activator="parent" location="top" max-width="360">
-                      {{ item.byCategory[c].join(', ') }}
-                    </v-tooltip>
                   </v-chip>
                   <span v-if="!item.privileges.length" class="text-disabled">–</span>
                   <v-chip
@@ -607,12 +623,9 @@
                     :key="p"
                     size="x-small"
                     variant="outlined"
-                    color="warning">
+                    color="warning"
+                    :title="STALE_HINT">
                     {{ p }}
-                    <v-tooltip activator="parent" location="top">
-                      No longer in this authorizer's vocabulary — enforces nothing, but is still
-                      held.
-                    </v-tooltip>
                   </v-chip>
                 </div>
               </template>
@@ -1147,6 +1160,32 @@ helix.register();
 const leafKey = ref('');
 const loading = ref(false);
 const filterText = ref('');
+
+/**
+ * Debounced copy of the filter, and the one the table actually reads.
+ *
+ * Every keystroke otherwise re-filters two hundred rows and rebuilds fifty of
+ * them, each with its own icons, chips and buttons — the typing lagged the
+ * caret. Nothing on screen needs to change faster than this.
+ */
+const filterQuery = ref('');
+let filterTimer: ReturnType<typeof setTimeout> | null = null;
+watch(filterText, (value) => {
+  if (filterTimer) clearTimeout(filterTimer);
+  filterTimer = setTimeout(() => (filterQuery.value = value ?? ''), 180);
+});
+
+const STALE_HINT =
+  "No longer in this authorizer's vocabulary — enforces nothing, but is still held.";
+
+/** What an arrow in the level column means, as plain text for a `title`. */
+function directionHint(direction: string): string {
+  const noun = resourceLabel(props.resource.type).toLowerCase();
+  if (direction === 'above')
+    return `Held above this ${noun} — it reaches here without being listed here.`;
+  if (direction === 'below') return `Held on something inside this ${noun}.`;
+  return `Held on this ${noun} itself.`;
+}
 const headers = computed<Header[]>(() => [
   { title: 'Principal', key: 'principal', align: 'start' },
   { title: 'Granted on', key: 'level', align: 'start' },
@@ -1210,7 +1249,7 @@ const rows = ref<Row[]>([]);
 const allRows = computed(() => [...rows.value.filter(matchesChainFilter), ...belowRows.value]);
 
 const visibleRows = computed(() => {
-  const q = filterText.value?.toLowerCase().trim();
+  const q = filterQuery.value?.toLowerCase().trim();
   return allRows.value.filter((r) => {
     if (levelFilter.value === BELOW_ALL) {
       if (r.direction !== 'below') return false;
