@@ -511,15 +511,29 @@
             <template v-else>{{ belowError }}</template>
           </v-alert>
 
-          <!-- The one thing the tree cannot show: the two halves are not
-               equally complete. Upward is every level, read in full. Inside is
-               however many pages have been asked for, under one instant. -->
+          <!-- Counts the table, then breaks it down.
+
+               This used to report the subtree alone — "205 grants read" — while
+               the table under it held 206 rows, the extra being the grant on
+               the project above. Both numbers were right and they sat one line
+               apart, which makes the line a contradiction whichever way the
+               reader resolves it. It leads with the total now, and says where
+               the rows come from after, because that split is the other thing
+               this pane exists to show: upward is every level, read in full;
+               inside is however many pages have been asked for, under one
+               instant. -->
           <div
             v-if="belowLoaded && !belowUnsupported && !belowForbidden"
             class="text-caption text-medium-emphasis mb-2">
-            Subtree: {{ belowRows.length }} {{ belowRows.length === 1 ? 'grant' : 'grants' }} read{{
-              belowNextToken ? ', more remain' : ''
-            }}
+            {{ visibleRows.length }} {{ visibleRows.length === 1 ? 'grant' : 'grants' }}
+            <template v-if="shownAbove && shownBelow">
+              — {{ shownAbove }} above this {{ resourceLabel(resource.type).toLowerCase() }},
+              {{ shownBelow }} inside it
+            </template>
+            <template v-else-if="shownBelow">
+              — all inside this {{ resourceLabel(resource.type).toLowerCase() }}
+            </template>
+            <template v-if="belowNextToken">· more remain inside</template>
             <template v-if="belowAsOf">· as of {{ formatInstant(belowAsOf) }}</template>
           </div>
 
@@ -1225,6 +1239,15 @@ const visibleRows = computed(() => {
     );
   });
 });
+
+/**
+ * How the rows on screen split between the two directions.
+ *
+ * Derived from what the table is actually showing rather than from the two
+ * source lists, so a filter narrows the breakdown along with the total.
+ */
+const shownAbove = computed(() => visibleRows.value.filter((r) => r.direction !== 'below').length);
+const shownBelow = computed(() => visibleRows.value.filter((r) => r.direction === 'below').length);
 
 // ---- editing ---------------------------------------------------------------
 
