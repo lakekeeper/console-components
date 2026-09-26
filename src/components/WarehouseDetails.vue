@@ -381,8 +381,25 @@
                     </v-chip>
                   </div>
                 </v-col>
+                <!-- The service is half of what resolves the endpoint, so it sits
+                     beside the region — but only while it is what resolves it: an
+                     endpoint override supersedes it, and showing an ignored value
+                     next to the thing overriding it would read as a conflict. -->
+                <v-col cols="12" sm="6" md="4" v-if="!warehouse['storage-profile'].endpoint">
+                  <div class="text-overline text-medium-emphasis">Storage Service</div>
+                  <div class="mt-2">
+                    <v-chip size="small" variant="outlined">
+                      {{
+                        warehouse['storage-profile']['storage-service'] === 'data-platform'
+                          ? 'Data Platform'
+                          : 'Object Storage'
+                      }}
+                    </v-chip>
+                  </div>
+                </v-col>
                 <!-- Absent is the normal case: the endpoint is derived from the
-                     region, so showing it only when overridden says something. -->
+                     region and the storage service, so showing it only when
+                     overridden says something. -->
                 <v-col cols="12" sm="6" md="4" v-if="warehouse['storage-profile'].endpoint">
                   <div class="text-overline text-medium-emphasis">Endpoint Override</div>
                   <div class="text-body-1 text-mono mt-2">
