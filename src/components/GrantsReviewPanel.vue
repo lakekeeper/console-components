@@ -533,7 +533,19 @@
                100%` resolves against the bounded wrapper, and the pager sits
                at the bottom of the pane where it can be clicked. -->
           <div style="flex: 1 1 auto; min-height: 0">
-            <v-data-table
+            <!-- Virtual, not paged.
+
+                 Every row here is four icons, a chip or two, two buttons and
+                 an expander — call it thirty components. At a hundred rows a
+                 page that is three thousand of them built at once, and they
+                 are rebuilt on every sort, every filter keystroke and every
+                 page change; the browser then re-lays-out all of it whenever
+                 anything opens a menu. The reader can see about a dozen.
+
+                 The virtual table builds what is on screen and recycles the
+                 rest, which also retires the pager: there are no pages to
+                 reach, the whole result scrolls. -->
+            <v-data-table-virtual
               density="compact"
               hover
               fixed-header
@@ -543,8 +555,6 @@
               :items="visibleRows"
               show-expand
               item-value="key"
-              :items-per-page="25"
-              :items-per-page-options="[25, 50, 100, -1]"
               :sort-by="[{ key: 'principal', order: 'asc' }]">
               <template #item.principal="{ item }">
                 <div class="d-flex align-center ga-2">
@@ -690,7 +700,7 @@
                   }}
                 </span>
               </template>
-            </v-data-table>
+            </v-data-table-virtual>
           </div>
 
           <!-- Revoke-all confirmation. Named per level, because this table
