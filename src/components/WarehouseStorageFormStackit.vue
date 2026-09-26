@@ -437,7 +437,18 @@ function getData() {
   return { 'storage-profile': cleanProfile, 'storage-credential': cleanCredential };
 }
 
-defineExpose({ getData });
+// Every field the template marks with `*`, for the one auth mode actually on
+// screen. The dialog gates its Verify tab on this: verifying a configuration
+// that is missing half of itself only ever reports what the form already shows.
+const isComplete = computed(() => {
+  if (!profile.bucket || dottedBucket.value || !!bucketShapeError.value) return false;
+  if (!profile.region) return false;
+  if (useCustomEndpoint.value && !profile.endpoint) return false;
+  if (profile['sts-enabled'] && !profile['credentials-group-urn']) return false;
+  return !!credential['access-key-id'] && !!credential['secret-access-key'];
+});
+
+defineExpose({ getData, isComplete });
 
 const showSecret = ref(false);
 

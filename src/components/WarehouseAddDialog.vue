@@ -118,24 +118,7 @@
                   mdi-circle
                 </v-icon>
               </v-tab>
-              <v-divider class="my-2"></v-divider>
-              <!-- Generic on purpose: this group is where later helpers land
-                   (docs, diagnostics), not just Verify and the connection strings. -->
-              <div class="text-caption text-medium-emphasis px-4 pb-1">TOOLS</div>
-              <v-tab value="VERIFY">
-                <v-icon size="20" class="mr-3">mdi-shield-search</v-icon>
-                <!-- Named for both checks it holds, so the stored-access test is
-                     advertised from the rail rather than only inside the pane. -->
-                {{ verifyTabTitle }}
-                <v-chip
-                  v-if="verifySummary"
-                  :color="verifySummary.color"
-                  size="x-small"
-                  variant="flat"
-                  class="ml-2">
-                  {{ verifySummary.short }}
-                </v-chip>
-              </v-tab>
+              <v-divider v-if="isSettingsFlow" class="my-2"></v-divider>
               <!-- Nothing to connect to until the warehouse exists. -->
               <v-tab v-if="isSettingsFlow" value="CONNECT">
                 <v-icon size="20" class="mr-3">mdi-connection</v-icon>
@@ -307,30 +290,39 @@
                     </v-card-text>
                   </v-card>
 
-                  <!-- One action per pane, each its own request: there is no
-                     cross-endpoint transaction, so a single global Save could
-                     half-succeed and leave the user guessing. -->
-                  <div v-if="isSettingsFlow" class="d-flex align-center">
+                  <!-- The stored check belongs to the warehouse rather than to
+                       the form being edited: it asks whether what is running right
+                       now still reaches its storage, and answers in place. -->
+                  <div
+                    v-if="isSettingsFlow"
+                    class="d-flex align-center flex-wrap mt-6"
+                    style="gap: 8px">
                     <v-btn
                       size="small"
                       variant="outlined"
-                      prepend-icon="mdi-restore"
-                      :disabled="!catalogSettingsDirty"
-                      @click="resetSettingsPane">
-                      Reset
+                      prepend-icon="mdi-lan-check"
+                      :loading="storedLoading"
+                      :disabled="storedLoading"
+                      @click="runStoredAccessTest">
+                      Test access
                     </v-btn>
-                    <v-spacer></v-spacer>
-                    <!-- Greyed out, like Reset, until there is something to save:
-                       a filled variant reads as available even when disabled. -->
-                    <v-btn
-                      size="small"
-                      color="primary"
-                      :variant="canSaveSettings ? 'flat' : 'outlined'"
-                      prepend-icon="mdi-content-save-outline"
-                      :disabled="!canSaveSettings"
-                      @click="emitCatalogSettings">
-                      Save settings
-                    </v-btn>
+                    <span
+                      v-if="!storedReport && !storedError && !storedLoading"
+                      class="text-caption text-medium-emphasis">
+                      Checks the credentials and profile the warehouse is running with right now.
+                    </span>
+                  </div>
+
+                  <div ref="storedReportRef">
+                    <WarehouseValidationReport
+                      v-if="isSettingsFlow && (storedLoading || storedReport || storedError)"
+                      class="mt-4"
+                      :report="storedReport"
+                      :loading="storedLoading"
+                      :error="storedError"
+                      :browser-check="storedBrowserCheck"
+                      :browser-check-loading="storedBrowserLoading"
+                      @close="clearStoredTest"></WarehouseValidationReport>
                   </div>
                 </div>
 
@@ -383,122 +375,33 @@
                     :lock-location="isSettingsFlow"
                     @dirty="onStorageDirty"></WarehouseStorageFormStackit>
 
-                  <div
-                    v-if="isSettingsFlow"
-                    class="d-flex align-center flex-wrap mt-6"
-                    style="gap: 8px">
-                    <v-btn
-                      size="small"
-                      variant="outlined"
-                      prepend-icon="mdi-restore"
-                      :disabled="!storageFormDirty"
-                      @click="resetProviderPane">
-                      Reset
-                    </v-btn>
-                    <v-spacer></v-spacer>
-                    <v-btn
-                      size="small"
-                      variant="outlined"
-                      color="secondary"
-                      prepend-icon="mdi-shield-search"
+                  <!-- Do not invite an action the buttons currently refuse. -->
+                  <v-alert
+                    v-if="isCreateFlow && !canSubmit"
+                    type="error"
+                    variant="tonal"
+                    density="compact"
+                    class="mt-4">
+                    {{ blockedReason }}
+                    <template #append>
+                      <v-btn variant="text" size="small" @click="pane = 'SETTINGS'">
+                        Go to Settings
+                      </v-btn>
+                    </template>
+                  </v-alert>
+
+                  <div ref="verifyReportRef">
+                    <WarehouseValidationReport
+                      v-if="
+                        validationReport || validationError || validationLoading || browserCheck
+                      "
+                      class="mt-4"
+                      :report="validationReport"
                       :loading="validationLoading"
-                      @click="runVerify">
-                      Verify
-                    </v-btn>
-                    <v-btn
-                      size="small"
-                      color="primary"
-                      :variant="canUpdateStorage ? 'flat' : 'outlined'"
-                      prepend-icon="mdi-key-change"
-                      :disabled="!canUpdateStorage"
-                      :loading="updating"
-                      @click="submitCredentials">
-                      Update credentials
-                    </v-btn>
-                    <v-btn
-                      size="small"
-                      color="primary"
-                      :variant="canUpdateStorage ? 'flat' : 'outlined'"
-                      prepend-icon="mdi-playlist-edit"
-                      :disabled="!canUpdateStorage"
-                      :loading="updating"
-                      @click="submitProfile">
-                      Update profile
-                    </v-btn>
-                  </div>
-                </div>
-
-                <div v-show="pane === 'VERIFY'">
-                  <div
-                    v-if="
-                      !validationReport && !validationError && !validationLoading && !browserCheck
-                    ">
-                    <!-- Do not invite an action the buttons currently refuse. -->
-                    <v-alert
-                      v-if="isCreateFlow && !canSubmit"
-                      type="error"
-                      variant="tonal"
-                      density="compact">
-                      {{ blockedReason }}
-                      <template #append>
-                        <v-btn variant="text" size="small" @click="pane = 'SETTINGS'">
-                          Go to Settings
-                        </v-btn>
-                      </template>
-                    </v-alert>
-                    <div v-else class="text-body-2 text-medium-emphasis pa-4">
-                      <span v-if="isCreateFlow">
-                        Run
-                        <strong>Verify</strong>
-                        to check this configuration against your storage before creating the
-                        warehouse.
-                      </span>
-                      <!-- Two related checks that used to be two menu entries with
-                           no hint of how they differ. Spelling both out here is the
-                           point of merging them. -->
-                      <span v-else>
-                        <strong>Verify configuration</strong>
-                        checks the settings shown in the
-                        <strong>{{ currentProviderTitle }}</strong>
-                        pane, including edits you have not saved yet.
-                        <br />
-                        <strong>Test stored access</strong>
-                        checks what the warehouse is actually running with right now.
-                      </span>
-                    </div>
-                  </div>
-                  <WarehouseValidationReport
-                    v-else
-                    class="mt-4"
-                    :report="validationReport"
-                    :loading="validationLoading"
-                    :error="validationError"
-                    :browser-check="browserCheck"
-                    :browser-check-loading="browserCheckLoading"
-                    hide-close></WarehouseValidationReport>
-
-                  <!-- Only the button that was clicked spins; the other is merely
-                       unavailable while a check is in flight. -->
-                  <div v-if="isSettingsFlow" class="d-flex flex-wrap mt-4" style="gap: 8px">
-                    <v-btn
-                      size="small"
-                      variant="outlined"
-                      color="secondary"
-                      prepend-icon="mdi-shield-search"
-                      :loading="validationSource === 'config'"
-                      :disabled="validationLoading"
-                      @click="runVerify">
-                      Verify configuration
-                    </v-btn>
-                    <v-btn
-                      size="small"
-                      variant="outlined"
-                      prepend-icon="mdi-lan-check"
-                      :loading="validationSource === 'stored'"
-                      :disabled="validationLoading"
-                      @click="runStoredAccessTest">
-                      Test stored access
-                    </v-btn>
+                      :error="validationError"
+                      :browser-check="browserCheck"
+                      :browser-check-loading="browserCheckLoading"
+                      hide-close></WarehouseValidationReport>
                   </div>
                 </div>
 
@@ -531,7 +434,7 @@
           size="small"
           class="ml-4"
           link
-          @click="pane = 'VERIFY'">
+          @click="pane = storageCredentialType">
           <v-icon start size="small">{{ verifySummary.icon }}</v-icon>
           {{ verifySummary.text }}
         </v-chip>
@@ -564,23 +467,104 @@
           Verify &amp; Create
         </v-btn>
       </v-card-actions>
-      <!-- The settings flow keeps its actions inside the pane they belong to, so
-           this row only closes the dialog. -->
+      <!-- The settings flow's actions sit here beside Close, as in the create
+           flow — but each still fires its own request against its own endpoint,
+           so the row carries the actions of the pane on screen rather than one
+           global Save: there is no cross-endpoint transaction, and a single
+           button over three endpoints could half-succeed silently. -->
       <v-card-actions
         v-else
-        class="px-6 py-4"
-        style="flex: 0 0 auto; border-top: 1px solid rgba(var(--v-border-color), 0.16)">
+        class="px-6 py-4 flex-wrap"
+        style="flex: 0 0 auto; border-top: 1px solid rgba(var(--v-border-color), 0.16); gap: 8px">
+        <!-- Reset discards the edits of the pane being looked at; Verify and
+             Connect Compute have none to discard. -->
+        <v-btn
+          v-if="pane === 'SETTINGS'"
+          size="small"
+          variant="outlined"
+          prepend-icon="mdi-restore"
+          :disabled="!catalogSettingsDirty"
+          @click="resetSettingsPane">
+          Reset
+        </v-btn>
+        <v-btn
+          v-else-if="isProviderPane"
+          size="small"
+          variant="outlined"
+          prepend-icon="mdi-restore"
+          :disabled="!storageFormDirty"
+          @click="resetProviderPane">
+          Reset
+        </v-btn>
         <v-chip
           v-if="verifySummary"
           :color="verifySummary.color"
           variant="flat"
           size="small"
           link
-          @click="pane = 'VERIFY'">
+          @click="pane = storageCredentialType">
           <v-icon start size="small">{{ verifySummary.icon }}</v-icon>
           {{ verifySummary.text }}
         </v-chip>
         <v-spacer></v-spacer>
+
+        <template v-if="pane === 'SETTINGS'">
+          <!-- Greyed out, like Reset, until there is something to save: a filled
+               variant reads as available even when disabled. -->
+          <v-btn
+            size="small"
+            color="primary"
+            :variant="canSaveSettings ? 'flat' : 'outlined'"
+            prepend-icon="mdi-content-save-outline"
+            :disabled="!canSaveSettings"
+            @click="emitCatalogSettings">
+            Save settings
+          </v-btn>
+        </template>
+
+        <template v-if="isProviderPane">
+          <!-- Beside the update it qualifies, as Verify sits beside Create in the
+               create flow. Credentials are never returned by the API, so an
+               untouched settings form has none to verify with; the tooltip sits on
+               a wrapper because a disabled button reports no hover. -->
+          <v-tooltip location="top" :disabled="storageFormComplete" :text="verifyBlockedHint">
+            <template #activator="{ props: tip }">
+              <span v-bind="tip">
+                <v-btn
+                  size="small"
+                  variant="outlined"
+                  color="secondary"
+                  prepend-icon="mdi-shield-search"
+                  :loading="validationLoading"
+                  :disabled="validationLoading || !storageFormComplete"
+                  @click="runVerify">
+                  Verify
+                </v-btn>
+              </span>
+            </template>
+          </v-tooltip>
+          <v-btn
+            size="small"
+            color="primary"
+            :variant="canUpdateStorage ? 'flat' : 'outlined'"
+            prepend-icon="mdi-key-change"
+            :disabled="!canUpdateStorage"
+            :loading="updating"
+            @click="submitCredentials">
+            Update credentials
+          </v-btn>
+          <v-btn
+            size="small"
+            color="primary"
+            :variant="canUpdateStorage ? 'flat' : 'outlined'"
+            prepend-icon="mdi-playlist-edit"
+            :disabled="!canUpdateStorage"
+            :loading="updating"
+            @click="submitProfile">
+            Update profile
+          </v-btn>
+        </template>
+
         <v-btn variant="text" @click="attemptClose">Close</v-btn>
       </v-card-actions>
     </v-card>
@@ -607,7 +591,8 @@
 </template>
 
 <script lang="ts" setup>
-import { reactive, ref, watch, computed, inject, onMounted } from 'vue';
+import { reactive, ref, watch, computed, inject, onMounted, nextTick } from 'vue';
+import type { Ref } from 'vue';
 import { useFunctions, handleError } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import WarehouseStorageFormS3 from './WarehouseStorageFormS3.vue';
@@ -1179,7 +1164,9 @@ function emitCatalogSettings() {
 // ---------------------------------------------------------------------------
 // Rail: providers + Settings + Verify
 // ---------------------------------------------------------------------------
-const storageFormRef = ref<{ getData?: () => WarehousObject } | null>(null);
+// `isComplete` is a computed in each form; Vue unwraps exposed refs, so it
+// arrives here as a plain boolean.
+const storageFormRef = ref<{ getData?: () => WarehousObject; isComplete?: boolean } | null>(null);
 
 // The rail slot is 20x20, so this is the square mark rather than the wordmark. It
 // is ink-on-transparent, so it needs the light/dark pair the other themed logos
@@ -1229,10 +1216,6 @@ const visibleProviders = computed(() => {
 // rail no longer offers — a form with nothing marked in the rail beside it.
 const defaultStorageProvider = computed(() => visibleProviders.value[0]?.value ?? 'S3');
 
-// Only the settings flow has an existing warehouse to test against; the create
-// flow has a configuration and nothing else.
-const verifyTabTitle = computed(() => (isSettingsFlow.value ? 'Verify & test' : 'Verify'));
-
 const currentProviderTitle = computed(
   () =>
     storageProviders.value.find((p) => p.value === storageCredentialType.value)?.title ??
@@ -1249,7 +1232,7 @@ const nameTaken = computed(() => {
 });
 
 // The rail doubles as pane navigation: a provider entry both selects the provider
-// and shows its form, while SETTINGS/VERIFY are panes of their own.
+// and shows its form, while SETTINGS and CONNECT are panes of their own.
 const pane = ref('SETTINGS');
 const isProviderPane = computed(() => storageProviders.value.some((p) => p.value === pane.value));
 watch(pane, (value) => {
@@ -1344,6 +1327,27 @@ function credentialEntered(credential: Record<string, any> | undefined): boolean
   );
 }
 
+// Verify checks a *configuration*, so it needs one that is whole — including the
+// credential, which the API never returns, so an untouched settings form has
+// nothing to verify with. Each storage form reports its own completeness; asking
+// it inside a computed tracks the form's reactive fields, so the gate follows
+// what has been typed. A form that does not report is taken at its word.
+const storageFormComplete = computed(() => storageFormRef.value?.isComplete ?? true);
+
+const verifyBlockedHint =
+  'Fill in the storage provider form — including its credentials — to verify this configuration. Test access, in Settings, checks the credentials the warehouse already has.';
+
+const verifyReportRef = ref<HTMLElement | null>(null);
+const storedReportRef = ref<HTMLElement | null>(null);
+
+// Both reports render under the form that produced them, which on a short window
+// is below the fold: the button spins, the verdict lands off screen, and nothing
+// appears to have happened. The check is started and the reader is taken to it.
+async function revealReport(target: Ref<HTMLElement | null>) {
+  await nextTick();
+  target.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 async function runVerify(): Promise<boolean> {
   const data = currentStorageData();
   if (!data) return false;
@@ -1355,9 +1359,10 @@ async function runVerify(): Promise<boolean> {
   // API call: it talks only to the storage endpoint, so there is nothing to
   // serialise, and the backend result should not wait on a foreign host.
   startBrowserCheck(data['storage-profile'] as Record<string, any>);
-  // Straight to the report, which renders its own loading state — the pane used
-  // to flick through Settings while the request was in flight.
-  pane.value = 'VERIFY';
+  // Straight to the report, which renders under the form it is about and shows
+  // its own loading state.
+  pane.value = storageCredentialType.value;
+  revealReport(verifyReportRef);
   try {
     const credential = data['storage-credential'] as StorageCredential;
     // An existing warehouse has its own validation endpoints — validateWarehouse
@@ -1377,7 +1382,6 @@ async function runVerify(): Promise<boolean> {
   } finally {
     validationLoading.value = false;
     validationSource.value = null;
-    pane.value = 'VERIFY';
   }
 }
 
@@ -1386,23 +1390,41 @@ async function verifyAndCreate() {
 }
 
 // The other half of Verify: what the warehouse is stored with, rather than what
-// the form currently shows. This was the "Test Storage Access" menu entry.
+// the form currently shows. This was the "Test Storage Access" menu entry. It
+// keeps its own report state — it is about the saved warehouse, so an edit to
+// the form does not make it stale, and it renders in the pane it was asked from
+// rather than moving the reader to a tab about something else.
+function clearStoredTest() {
+  storedReport.value = null;
+  storedError.value = null;
+  storedBrowserCheck.value = null;
+  storedBrowserRun += 1;
+}
+
 async function runStoredAccessTest() {
   if (!props.warehouse) return;
-  validationLoading.value = true;
-  validationSource.value = 'stored';
-  validationReport.value = null;
-  validationError.value = null;
+  storedLoading.value = true;
+  clearStoredTest();
+  revealReport(storedReportRef);
   // The stored profile, to match what this button checks everywhere else.
-  startBrowserCheck(props.warehouse['storage-profile'] as Record<string, any>);
-  pane.value = 'VERIFY';
+  const run = ++storedBrowserRun;
+  storedBrowserLoading.value = true;
+  checkBrowserStorageReachability(props.warehouse['storage-profile'] as Record<string, any>)
+    .then((result) => {
+      if (run === storedBrowserRun) storedBrowserCheck.value = result;
+    })
+    .catch(() => {
+      if (run === storedBrowserRun) storedBrowserCheck.value = null;
+    })
+    .finally(() => {
+      if (run === storedBrowserRun) storedBrowserLoading.value = false;
+    });
   try {
-    validationReport.value = await functions.validateStorageAccess(props.warehouse.id);
+    storedReport.value = await functions.validateStorageAccess(props.warehouse.id);
   } catch (error: any) {
-    validationError.value = error?.error?.message || error?.message || 'Validation request failed.';
+    storedError.value = error?.error?.message || error?.message || 'Validation request failed.';
   } finally {
-    validationLoading.value = false;
-    validationSource.value = null;
+    storedLoading.value = false;
   }
 }
 
@@ -1532,7 +1554,14 @@ function submitProfile() {
 const validationLoading = ref(false);
 // Which check is running, so a spinner appears on the button that was pressed
 // rather than on every button bound to the shared loading flag.
-const validationSource = ref<'config' | 'stored' | null>(null);
+const validationSource = ref<'config' | null>(null);
+// The stored-access check, reported in Settings rather than in the Verify tab.
+const storedLoading = ref(false);
+const storedReport = ref<ValidateWarehouseResponse | null>(null);
+const storedError = ref<string | null>(null);
+const storedBrowserCheck = ref<BrowserStorageCheck | null>(null);
+const storedBrowserLoading = ref(false);
+let storedBrowserRun = 0;
 const validationReport = ref<ValidateWarehouseResponse | null>(null);
 const validationError = ref<string | null>(null);
 
