@@ -226,9 +226,28 @@ top edge, and an element partway down a column that scrolls has none: measuring
 it means re-measuring as the column scrolls, which is a loop — the height
 changes the content height, which changes the scroll position, which changes the
 top edge. The sheet then resizes under the reader's cursor and carries off
-whatever they were reaching for. Give such a table a fraction of the viewport
-and leave it alone; a constant cannot oscillate. Better, bound the region so the
-table has a real edge to fill — which is what the shape under *Layout* is for.
+whatever they were reaching for. Better, bound the region so the table has a
+real edge to fill — which is what the shape under *Layout* is for.
+
+Where that is not available, a constant, and a constant cannot oscillate. It
+takes three bounds, because a fraction on its own does not know what sits
+around it:
+
+```css
+max(240px, min(60vh, calc(100vh - 560px)))
+/*  floor        target        what is actually left  */
+```
+
+The **target** is what to take when there is room. The **cap** subtracts the
+sheet's own chrome — its title bar, its notices, the table's toolbar and pager,
+whatever confirms, the action bar — and is the one that gets forgotten: at the
+target alone, a 700px window puts a 420px table under 370px of chrome and the
+confirmation goes off the bottom, where the table's own wheel handling makes it
+awkward to scroll to. The **floor** is where this stops being a list anyone can
+judge anything from; under it the column scrolls.
+
+The cap is fitted by eye to one layout and is only right for that layout. When
+the chrome changes, it changes.
 
 **Nothing is padded below a self-bounding pane.** A `pb-4` under a pane that
 already ends one gap above the footer puts it 16px past its container: the same
