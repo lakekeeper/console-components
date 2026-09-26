@@ -33,10 +33,11 @@ import { onMounted, onUnmounted, ref } from 'vue';
  *
  * One number for every pane, because panes ending on different lines across
  * three tabs is what sent this round-tripping in the first place. Raise it if a
- * pane overshoots and the page grows a scrollbar; there is nothing else to
- * tune.
+ * pane overshoots and the page grows a scrollbar, lower it if they all end
+ * short of the footer; there is nothing else to tune, and tuning it for one
+ * pane is how they stopped agreeing last time.
  */
-const DEFAULT_GAP = 24;
+const DEFAULT_GAP = 12;
 
 export function measurePaneHeight(target: unknown, min = 320, gap = DEFAULT_GAP): string | null {
   // A `ref` on a Vuetify component hands back the component, not the element;

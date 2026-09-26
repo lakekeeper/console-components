@@ -107,6 +107,7 @@
                   : ''
               "
               :no-data-text="`No ${searchForType}s found`"
+              no-filter
               @update:focused="items.splice(0, items.length)"
               @update:model-value="selectedObject"
               @update:search="searchMember">
