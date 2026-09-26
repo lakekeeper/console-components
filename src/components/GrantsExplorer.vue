@@ -817,6 +817,21 @@ onMounted(async () => {
    the pointer and the edge disagree while dragging. */
 .gx-fold {
   transition: width 0.2s ease;
+  /* Animating `width` makes the browser lay the page out again on every frame,
+   * and the two things either side of this edge are the most expensive in the
+   * app: a tree of a hundred rows inside, a virtual table outside. Sixty
+   * layouts in two tenths of a second is what the stutter is.
+   *
+   * `contain` draws a box around this column's internals: its contents keep
+   * the fixed width they are given, so nothing in here needs re-measuring as
+   * the frame it sits in narrows, and the browser is told so explicitly rather
+   * than having to prove it. `will-change` lets it prepare the layer before
+   * the first frame instead of during it.
+   *
+   * The column beside it still reflows — its width genuinely changes — so this
+   * halves the work rather than removing it. */
+  contain: layout paint;
+  will-change: width;
 }
 
 .gx-fold--instant {

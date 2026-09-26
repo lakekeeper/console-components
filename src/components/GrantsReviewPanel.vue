@@ -535,9 +535,9 @@
           <div style="flex: 1 1 auto; min-height: 0">
             <!-- Virtual, not paged.
 
-                 Every row here is four icons, a chip or two, two buttons and
-                 an expander — call it thirty components. At a hundred rows a
-                 page that is three thousand of them built at once, and they
+                 Every row here is icons, buttons and text — call it a dozen
+                 components. At a hundred rows a page that is over a thousand
+                 of them built at once, and they
                  are rebuilt on every sort, every filter keystroke and every
                  page change; the browser then re-lays-out all of it whenever
                  anything opens a menu. The reader can see about a dozen.
@@ -553,9 +553,12 @@
               style="height: 100%"
               :headers="headers"
               :items="visibleRows"
-              show-expand
               item-value="key"
               :sort-by="[{ key: 'principal', order: 'asc' }]">
+              <template #item.nr="{ index }">
+                <span class="text-caption text-disabled">{{ index + 1 }}</span>
+              </template>
+
               <template #item.principal="{ item }">
                 <div class="d-flex align-center ga-2">
                   <v-icon size="18">
@@ -611,64 +614,6 @@
                     </div>
                   </div>
                 </div>
-              </template>
-
-              <!-- Counts per category, not the names: a row here can hold two
-                   dozen privileges, and the wall of chips pushed every other
-                   column off screen. The names are one expand away. -->
-              <template #item.privileges="{ item }">
-                <div class="d-flex align-center flex-wrap ga-1">
-                  <v-chip
-                    v-for="c in item.categories"
-                    :key="c"
-                    size="x-small"
-                    variant="tonal"
-                    color="primary"
-                    :title="item.byCategory[c].join(', ')">
-                    {{ c }} · {{ item.byCategory[c].length }}
-                  </v-chip>
-                  <span v-if="!item.privileges.length" class="text-disabled">–</span>
-                  <v-chip
-                    v-for="p in item.stale"
-                    :key="p"
-                    size="x-small"
-                    variant="outlined"
-                    color="warning"
-                    :title="STALE_HINT">
-                    {{ p }}
-                  </v-chip>
-                </div>
-              </template>
-
-              <template #expanded-row="{ columns, item }">
-                <tr>
-                  <td :colspan="columns.length" class="py-2">
-                    <div v-for="c in item.categories" :key="c" class="d-flex align-start ga-2 mb-1">
-                      <span
-                        class="text-caption text-medium-emphasis text-uppercase"
-                        style="min-width: 110px">
-                        {{ c }}
-                      </span>
-                      <div>
-                        <v-chip
-                          v-for="p in item.byCategory[c]"
-                          :key="p"
-                          class="mr-1 mb-1"
-                          size="x-small"
-                          variant="tonal">
-                          {{ p }}
-                        </v-chip>
-                      </div>
-                    </div>
-                    <span v-if="!item.privileges.length" class="text-disabled text-caption">
-                      Only unrecognized privileges are held here.
-                    </span>
-                  </td>
-                </tr>
-              </template>
-
-              <template #item.granted="{ item }">
-                <span class="text-caption text-medium-emphasis">{{ item.granted || '—' }}</span>
               </template>
 
               <template #item.actions="{ item }">
@@ -1197,10 +1142,13 @@ function directionHint(direction: string): string {
   return `Held on this ${noun} itself.`;
 }
 const headers = computed<Header[]>(() => [
+  // Position in what is on screen, not an identity — it renumbers when the
+  // table is sorted or filtered, which is the point: it answers "how far
+  // through am I", the question a scrollbar used to answer before the pager
+  // went away.
+  { title: '#', key: 'nr', align: 'end', sortable: false, width: 64 },
   { title: 'Principal', key: 'principal', align: 'start' },
   { title: 'Granted on', key: 'level', align: 'start' },
-  { title: 'Privileges', key: 'privileges', align: 'start', sortable: false },
-  { title: 'Since', key: 'granted', align: 'start', sortable: false },
   { title: '', key: 'actions', align: 'end', sortable: false },
 ]);
 
@@ -1868,6 +1816,13 @@ defineExpose({ reload });
   width: 300px;
   overflow: hidden;
   transition: width 0.2s ease;
+
+  /* Same reasoning as the explorer's own fold: animating width relayouts the
+   * page every frame, and the table beside this one is not cheap to relayout.
+   * The contents here keep the fixed width they are given while the frame
+   * narrows, so nothing inside needs re-measuring. */
+  contain: layout paint;
+  will-change: width;
 }
 
 .review-fold--collapsed {
