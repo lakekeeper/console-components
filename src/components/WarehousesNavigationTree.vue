@@ -201,13 +201,18 @@
             color="amber-darken-2">
             mdi-folder-multiple-outline
           </v-icon>
-          <v-icon
+          <!-- A plain `img`, not `v-img`: that component brings an
+               intersection observer, a loading state machine and a
+               placeholder transition, per row, for a 15px format badge that is
+               already in the bundle. -->
+          <img
             v-else-if="
               (item.type === 'table' || item.type === 'generic-table') && formatIcon(item.format)
             "
-            size="x-small">
-            <v-img :src="formatIcon(item.format)!" width="15" height="15" />
-          </v-icon>
+            :src="formatIcon(item.format)!"
+            width="15"
+            height="15"
+            alt="" />
           <v-icon
             v-else-if="item.type === 'table' || item.type === 'generic-table'"
             size="x-small"
@@ -230,9 +235,7 @@
               isActiveItem(item)
                 ? 'background: rgba(var(--v-theme-primary), 0.14); border-radius: 4px; padding-left: 4px;'
                 : ''
-            "
-            @mouseenter="hoveredItem = item.id"
-            @mouseleave="hoveredItem = null">
+            ">
             <span
               class="tree-item-title text-caption"
               :title="item.name"
@@ -449,7 +452,11 @@ function formatIcon(format?: string): string | null {
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
-const hoveredItem = ref<string | null>(null);
+// `hoveredItem` used to live here: set on every row's mouseenter and cleared
+// on mouseleave, and read by nothing. Dead state is not free when it is
+// reactive — moving the pointer down a hundred-row tree re-rendered every row
+// twice per row it passed. The hover affordance it was presumably meant for is
+// CSS, which costs nothing per row and never re-enters Vue.
 
 // Highlight the tree node matching the current route so the open object stays
 // visually selected. Namespace ids in the tree are dotted; route nsid uses \x1F.
@@ -1609,6 +1616,21 @@ onBeforeUnmount(() => {
 /* Prevent text wrapping in tree items */
 .tree-view :deep(.v-treeview-item) {
   white-space: nowrap;
+
+  /* Rows that are not on screen cost nothing.
+   *
+   * A warehouse can carry a hundred namespaces per page, and each row is a
+   * list item, two icons and a button — components the browser lays out and
+   * paints whether or not anyone can see them. That bill is not paid once: it
+   * is paid again on every style recalculation, which is what opening any menu
+   * anywhere on the page triggers.
+   *
+   * `auto` skips rendering for off-screen rows while keeping them findable —
+   * they still participate in find-in-page and in scrolling to an item. The
+   * intrinsic size is the row's real height, so the scrollbar does not jump as
+   * rows come into view and get measured for the first time. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
 }
 
 .tree-view :deep(.v-treeview-item__content) {
