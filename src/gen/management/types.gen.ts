@@ -4392,7 +4392,7 @@ export type StackitProfile = {
     bucket: string;
     /**
      * URN of the STACKIT credentials group to assume when vending credentials,
-     * e.g. `urn:sgws:identity::87066461224079950546:group/credentials-group-a1b2c3`.
+     * e.g. `urn:sgws:identity::12345678901234567890:group/credentials-group-a1b2c3`.
      *
      * Copy it verbatim from the credentials group; it is not derivable.
      * Required when `sts-enabled` is true, optional otherwise — but validated
@@ -4401,12 +4401,15 @@ export type StackitProfile = {
     'credentials-group-urn'?: string | null;
     /**
      * Endpoint override. Normally omitted — the endpoint is derived from
-     * `region`.
+     * `region` and `storage-service`. Takes precedence over `storage-service`
+     * when set.
      *
      * Set this only for a STACKIT endpoint outside the public naming scheme,
      * which STACKIT hands out per customer. Such an endpoint is a distinct
-     * storage tenant, not another route to the same bucket, so it is immutable
-     * once the warehouse exists.
+     * storage tenant, not another route to the same bucket, so the resolved
+     * endpoint is immutable once the warehouse exists. An update may switch
+     * between `endpoint` and `storage-service` if both resolve to the same
+     * endpoint.
      */
     endpoint?: string | null;
     /**
@@ -4429,6 +4432,15 @@ export type StackitProfile = {
     'remote-signing-enabled'?: boolean;
     'storage-layout'?: null | StorageLayout;
     /**
+     * STACKIT storage service that holds the bucket. Defaults to
+     * `object-storage`. Ignored when `endpoint` is set.
+     *
+     * Each service is a distinct storage tenant, so the resolved endpoint is
+     * immutable once the warehouse exists. An update may switch between
+     * `storage-service` and `endpoint` if both resolve to the same endpoint.
+     */
+    'storage-service'?: StackitStorageService;
+    /**
      * Vend temporary downscoped credentials via STS. Defaults to enabled.
      *
      * Requires `credentials-group-urn`, and requires the credentials group to
@@ -4441,6 +4453,15 @@ export type StackitProfile = {
      */
     'sts-token-validity-seconds'?: number;
 };
+
+/**
+ * STACKIT storage service that holds a bucket.
+ *
+ * - `object-storage`: STACKIT Object Storage, `object.storage.<region>.onstackit.cloud`.
+ * - `data-platform`: STACKIT data platform storage,
+ * `dataplatform.storage.<region>.onstackit.cloud`. Available in `eu01` only.
+ */
+export type StackitStorageService = 'object-storage' | 'data-platform';
 
 /**
  * Storage secret for a warehouse.
