@@ -31,6 +31,25 @@ revoking and anything else addressing the object as a whole belong on its
 identity row, next to each other — not in the table's toolbar, where they read
 as acting on the current selection or on a row.
 
+**A fullscreen dialog is a pane and takes the same shape.** Filters in a folding
+column on the left; on the right, a header row that survives the fold, then the
+content. A dialog that stacks its filters above its result makes the reader
+scroll past every control on each open to reach what they came for, and puts any
+summary of those filters directly beneath the controls it summarises — the same
+thing said twice, one after the other.
+
+The full shape, which is what every pane and dialog here composes to:
+
+```
+┌─ picker column (folds) ─┬─ header row: identity / summary + fold toggle ─┐
+│ filters                 ├───────────────────────────────────────────────┤
+│ tree or list            │ notices, verdicts                             │
+│ (scrolls on its own)    │ table — bounded, fixed header, own scrollbar  │
+│                         │ what confirms or acts                         │
+└─────────────────────────┴───────────────────────────────────────────────┘
+        the whole bounded to the viewport; nothing outside it scrolls
+```
+
 ---
 
 ## Folding
@@ -140,33 +159,41 @@ the first control beneath it, which is the one the reader is reaching for.
 
 ## Height and scrolling
 
-**Measure the pane's top edge; do not compute a height from the viewport.**
-`calc(100vh - 240px)` has to know how much chrome sits above it, which differs by
-host and by tab. Overshoot and the page grows a scrollbar beside the pane's own.
+The app shell pins `body`, so nothing scrolls unless a pane says it does. One
+rule decides every height here, and three things have to hold for it to work.
+
+**The rule: a pane ends at the viewport, less the app footer, less one gap —
+measured from its own top edge.**
 
 ```ts
 const top = el.getBoundingClientRect().top;
-height.value = `${Math.max(MIN, Math.round(window.innerHeight - top - 24))}px`;
+height.value = `${Math.max(MIN, Math.round(window.innerHeight - footer - top - 24))}px`;
 ```
 
-Re-measure on `resize` and once more in a `requestAnimationFrame` after mount, so
-the pane is measured where it ends up rather than where it starts.
+Not `calc(100vh - 240px)`: a constant has to know how much chrome sits above
+this pane in this host on this tab, and it is wrong the first time any of the
+three changes. The element's own top already knows. Not `v-main` either — an
+`app` footer reserves its space by padding `v-main` rather than bounding it, so
+`v-main` is as tall as whatever is inside it and reports a pane's overflow back
+as room. Every pane takes the same gap and the same floor, or two tabs end on
+different lines.
 
-Reach through `$el`, and refuse to measure anything without a
-`getBoundingClientRect`. A `ref` on a Vuetify component hands back the component,
-not the element; measuring the instance throws during mount and takes the pane —
-and whatever Vue unwinds with it — down. Nothing in the build catches this.
+`usePaneHeight()` in `common/paneHeight.ts` is the implementation; reach for it
+rather than writing the arithmetic again.
 
-**Every scrollable region is bounded by its own container.** The app shell
-disables page scroll; a pane that does not bound itself scrolls the window.
+**What makes it hold, 1: every flex child in the chain needs `min-height: 0`.**
+A flex item defaults to `min-height: auto` — the height of its own content — so
+a column holding a long table grows past the pane and takes the page's scroll
+with it, while the `overflow` sitting right there never engages, because the box
+is never smaller than what is in it. A measured pane above an unbounded child
+buys nothing. This was the single most expensive defect in this codebase.
 
-**A measured pane is worth nothing if a flex child inside it refuses to shrink.**
-This is the single defect that cost the most: a flex item's default is
-`min-height: auto`, which is the height of its own content, so a column holding a
-long table simply grows past the pane it lives in and takes the page's scroll
-with it — while the `overflow-y: auto` sitting right there never engages, because
-the box is never smaller than what is in it. Every flex child between the measured
-pane and the scrolling region needs `min-height: 0`.
+**What makes it hold, 2: the table is the scroller, not the column around it.**
+`fixed-header` and a `height` resolved against the bounded parent —
+`height="100%"`, never `max-height`, which leaves the percentage undefined and
+renders the table full-length. A scrolling column instead of a scrolling table
+puts the pager below every row on the page: to reach page two you first scroll
+past all of page one, and the pager is the only control that matters there.
 
 ```html
 <div :style="{ height: paneHeight }" class="d-flex">
@@ -179,27 +206,39 @@ pane and the scrolling region needs `min-height: 0`.
 </div>
 ```
 
-**A table is bounded by the region, never by its row count.** `fixed-header` plus
-a `height` resolved against the bounded parent — `height="100%"`, not
-`max-height`, which leaves the percentage undefined and makes the table render
-full-length and clip.
+**What makes it hold, 3: the host's window is measured the same way.** A page
+that caps its tabs at `calc(100vh - 140px)` while the panes inside measure to
+the viewport gives itself a scrollbar of exactly the difference — and that
+difference is what makes three tabs look like three heights. Keep `overflow-y:
+auto` on the window for the case where the panes hit their floor.
 
-**The host's window is measured the same way its panes are.** A page that wraps
-its tabs in `max-height: calc(100vh - 140px)` while the panes inside measure to
-the viewport gives itself a scrollbar of exactly the difference, and that
-difference is what makes three tabs look like three different heights. Measure
-the window too, keep `overflow-y: auto` on it for the case where the panes hit
-their minimum, and give every pane the same floor.
+### Traps
+
+**Measure after the transition, not when it starts.** `v-tabs-window` animates
+its items, so a pane measured at the instant it becomes visible is measured
+where it was passing through — short coming up, tall going down — and it keeps
+that height for the rest of its life. Re-measure on a frame, and again after the
+animation settles. Two panes built from the same code ending on different sides
+of the footer is this, every time.
+
+**Never measure something inside a scrolling region.** The rule needs a fixed
+top edge, and an element partway down a column that scrolls has none: measuring
+it means re-measuring as the column scrolls, which is a loop — the height
+changes the content height, which changes the scroll position, which changes the
+top edge. The sheet then resizes under the reader's cursor and carries off
+whatever they were reaching for. Give such a table a fraction of the viewport
+and leave it alone; a constant cannot oscillate. Better, bound the region so the
+table has a real edge to fill — which is what the shape under *Layout* is for.
 
 **Nothing is padded below a self-bounding pane.** A `pb-4` under a pane that
-already ends one gap above the footer puts it 16px past its container — the same
+already ends one gap above the footer puts it 16px past its container: the same
 scrollbar, arrived at from the other end.
 
-**Inside a dialog, measure the body's visible height, not its content.** The two
-differ by exactly what an unbounded table would add, so measuring content feeds
-the table's size back into its own bound. The visible box is also independent of
-where the body is scrolled to, which a measurement from the table's top edge is
-not.
+**Reach through `$el`, and refuse to measure anything without a
+`getBoundingClientRect`.** A `ref` on a Vuetify component hands back the
+component, not the element; measuring the instance throws during mount and takes
+the pane — and whatever Vue unwinds with it — down. Nothing in the build catches
+this.
 
 ---
 
