@@ -164,14 +164,18 @@
                 </template>
               </v-switch>
 
-              <v-text-field
-                v-model="createdBefore"
-                type="datetime-local"
+              <!-- The shared picker, not `type="datetime-local"`: the native
+                   control is drawn by the browser, so it ignores the theme and
+                   any branding and shows up grey beside every other field here.
+                   Same component the task filters use. -->
+              <DateTimePicker
+                :model-value="createdBefore ?? ''"
                 label="Granted before"
                 density="compact"
                 variant="outlined"
                 hide-details
-                clearable></v-text-field>
+                clearable
+                @update:model-value="createdBefore = $event || null"></DateTimePicker>
             </div>
           </v-expand-transition>
         </div>
@@ -354,8 +358,39 @@
     <!-- RIGHT: one table over both directions. Which node is selected decides
          what it shows; the arrow on each row says which way that row came
          from, so the table still reads on its own when nothing is selected. -->
-    <div style="flex: 1 1 auto; min-width: 0; overflow-y: auto">
-      <div style="padding: 8px 16px 16px">
+    <!-- Bounded in pixels against its own top edge, not by inheriting a height
+         down four ancestors.
+
+         `min-height: 0` is still here and still necessary — a flex child
+         defaults to `min-height: auto`, the height of its own content — but it
+         is not sufficient: it only lets this column shrink, and something above
+         has to actually be giving it a height to shrink to. That chain runs
+         `height: 100%` through the explorer, the panel and this root, and any
+         one link resolving to `auto` leaves this column as tall as its rows
+         with `overflow-y` doing nothing, which is exactly what it did.
+
+         So it measures itself. Its top is fixed by the pane above it and does
+         not move when its own height changes, so there is no feedback loop —
+         and the bound holds whether or not the ancestors cooperate. -->
+    <div
+      ref="tableRef"
+      :style="{
+        flex: '1 1 auto',
+        minWidth: 0,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        height: tableHeight ?? undefined,
+      }">
+      <div
+        style="
+          padding: 8px 16px 16px;
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        ">
         <div v-if="loading" class="d-flex flex-column align-center pa-8">
           <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
           <span class="mt-4 text-body-2 text-medium-emphasis">Reading every level…</span>
@@ -457,169 +492,184 @@
             <template v-if="belowAsOf">· as of {{ formatInstant(belowAsOf) }}</template>
           </div>
 
-          <v-data-table
-            density="compact"
-            hover
-            :headers="headers"
-            :items="visibleRows"
-            show-expand
-            item-value="key"
-            :items-per-page="50"
-            :items-per-page-options="[50, 100, -1]"
-            :sort-by="[{ key: 'principal', order: 'asc' }]">
-            <template #item.principal="{ item }">
-              <div class="d-flex align-center ga-2">
-                <v-icon size="18">
-                  {{
-                    item.kind === 'user'
-                      ? 'mdi-account-circle-outline'
-                      : 'mdi-account-box-multiple-outline'
-                  }}
-                </v-icon>
-                <div style="min-width: 0">
-                  <div class="text-truncate" :title="item.principal">{{ item.principal }}</div>
-                  <div v-if="item.subtitle" class="text-caption text-medium-emphasis">
-                    {{ item.subtitle }}
-                  </div>
-                </div>
-              </div>
-            </template>
+          <!-- The table scrolls, not the column around it.
 
-            <template #item.level="{ item }">
-              <div class="d-flex align-center ga-2">
-                <!-- Direction rides on the resource rather than taking a column
-                     of its own: "where is this held" and "is that above me or
-                     inside me" are the same fact read at two depths. -->
-                <v-icon
-                  size="14"
-                  :color="item.direction === 'below' ? 'primary' : 'medium-emphasis'"
-                  class="flex-shrink-0">
-                  {{
-                    item.direction === 'above'
-                      ? 'mdi-arrow-up'
-                      : item.direction === 'below'
-                        ? 'mdi-arrow-down'
-                        : 'mdi-circle-small'
-                  }}
-                  <v-tooltip activator="parent" location="top" max-width="320">
-                    <template v-if="item.direction === 'above'">
-                      Held above this {{ resourceLabel(resource.type).toLowerCase() }} — it reaches
-                      here without being listed here.
-                    </template>
-                    <template v-else-if="item.direction === 'below'">
-                      Held on something inside this
-                      {{ resourceLabel(resource.type).toLowerCase() }}.
-                    </template>
-                    <template v-else>
-                      Held on this {{ resourceLabel(resource.type).toLowerCase() }} itself.
-                    </template>
-                  </v-tooltip>
-                </v-icon>
-                <v-icon size="16">{{ item.levelIcon }}</v-icon>
-                <div style="min-width: 0">
-                  <div class="text-body-2 text-truncate" :title="item.levelTitle">
-                    {{ item.levelTitle }}
-                  </div>
-                  <div class="text-caption text-medium-emphasis">
-                    {{ item.levelSubtitle }}
-                    <template v-if="item.levelKey === leafKey">· selected</template>
-                  </div>
-                </div>
-              </div>
-            </template>
-
-            <!-- Counts per category, not the names: a row here can hold two
-                 dozen privileges, and the wall of chips pushed every other
-                 column off screen. The names are one expand away. -->
-            <template #item.privileges="{ item }">
-              <div class="d-flex align-center flex-wrap ga-1">
-                <v-chip
-                  v-for="c in item.categories"
-                  :key="c"
-                  size="x-small"
-                  variant="tonal"
-                  color="primary">
-                  {{ c }} · {{ item.byCategory[c].length }}
-                  <v-tooltip activator="parent" location="top" max-width="360">
-                    {{ item.byCategory[c].join(', ') }}
-                  </v-tooltip>
-                </v-chip>
-                <span v-if="!item.privileges.length" class="text-disabled">–</span>
-                <v-chip
-                  v-for="p in item.stale"
-                  :key="p"
-                  size="x-small"
-                  variant="outlined"
-                  color="warning">
-                  {{ p }}
-                  <v-tooltip activator="parent" location="top">
-                    No longer in this authorizer's vocabulary — enforces nothing, but is still held.
-                  </v-tooltip>
-                </v-chip>
-              </div>
-            </template>
-
-            <template #expanded-row="{ columns, item }">
-              <tr>
-                <td :colspan="columns.length" class="py-2">
-                  <div v-for="c in item.categories" :key="c" class="d-flex align-start ga-2 mb-1">
-                    <span
-                      class="text-caption text-medium-emphasis text-uppercase"
-                      style="min-width: 110px">
-                      {{ c }}
-                    </span>
-                    <div>
-                      <v-chip
-                        v-for="p in item.byCategory[c]"
-                        :key="p"
-                        class="mr-1 mb-1"
-                        size="x-small"
-                        variant="tonal">
-                        {{ p }}
-                      </v-chip>
+               With the column scrolling, a page of fifty rows put the pager
+               fifty rows below the fold: to change the page size, or to reach
+               page two, you first had to scroll past every row on page one —
+               and on a subtree of two hundred grants that is the only control
+               that matters. `fixed-header` keeps the column names, `height:
+               100%` resolves against the bounded wrapper, and the pager sits
+               at the bottom of the pane where it can be clicked. -->
+          <div style="flex: 1 1 auto; min-height: 0">
+            <v-data-table
+              density="compact"
+              hover
+              fixed-header
+              height="100%"
+              style="height: 100%"
+              :headers="headers"
+              :items="visibleRows"
+              show-expand
+              item-value="key"
+              :items-per-page="50"
+              :items-per-page-options="[50, 100, -1]"
+              :sort-by="[{ key: 'principal', order: 'asc' }]">
+              <template #item.principal="{ item }">
+                <div class="d-flex align-center ga-2">
+                  <v-icon size="18">
+                    {{
+                      item.kind === 'user'
+                        ? 'mdi-account-circle-outline'
+                        : 'mdi-account-box-multiple-outline'
+                    }}
+                  </v-icon>
+                  <div style="min-width: 0">
+                    <div class="text-truncate" :title="item.principal">{{ item.principal }}</div>
+                    <div v-if="item.subtitle" class="text-caption text-medium-emphasis">
+                      {{ item.subtitle }}
                     </div>
                   </div>
-                  <span v-if="!item.privileges.length" class="text-disabled text-caption">
-                    Only unrecognized privileges are held here.
-                  </span>
-                </td>
-              </tr>
-            </template>
+                </div>
+              </template>
 
-            <template #item.granted="{ item }">
-              <span class="text-caption text-medium-emphasis">{{ item.granted || '—' }}</span>
-            </template>
+              <template #item.level="{ item }">
+                <div class="d-flex align-center ga-2">
+                  <!-- Direction rides on the resource rather than taking a column
+                       of its own: "where is this held" and "is that above me or
+                       inside me" are the same fact read at two depths. -->
+                  <v-icon
+                    size="14"
+                    :color="item.direction === 'below' ? 'primary' : 'medium-emphasis'"
+                    class="flex-shrink-0">
+                    {{
+                      item.direction === 'above'
+                        ? 'mdi-arrow-up'
+                        : item.direction === 'below'
+                          ? 'mdi-arrow-down'
+                          : 'mdi-circle-small'
+                    }}
+                    <v-tooltip activator="parent" location="top" max-width="320">
+                      <template v-if="item.direction === 'above'">
+                        Held above this {{ resourceLabel(resource.type).toLowerCase() }} — it
+                        reaches here without being listed here.
+                      </template>
+                      <template v-else-if="item.direction === 'below'">
+                        Held on something inside this
+                        {{ resourceLabel(resource.type).toLowerCase() }}.
+                      </template>
+                      <template v-else>
+                        Held on this {{ resourceLabel(resource.type).toLowerCase() }} itself.
+                      </template>
+                    </v-tooltip>
+                  </v-icon>
+                  <v-icon size="16">{{ item.levelIcon }}</v-icon>
+                  <div style="min-width: 0">
+                    <div class="text-body-2 text-truncate" :title="item.levelTitle">
+                      {{ item.levelTitle }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      {{ item.levelSubtitle }}
+                      <template v-if="item.levelKey === leafKey">· selected</template>
+                    </div>
+                  </div>
+                </div>
+              </template>
 
-            <template #item.actions="{ item }">
-              <!-- Editing where the grant is actually held: this table spans
-                   levels, so the row carries which one. -->
-              <div class="d-flex align-center ga-2 justify-end">
-                <v-btn
-                  size="small"
-                  variant="outlined"
-                  text="Edit"
-                  :loading="preparing === item.key"
-                  @click="openEdit(item)"></v-btn>
-                <v-btn
-                  color="error"
-                  size="small"
-                  variant="text"
-                  text="Revoke all"
-                  :loading="revoking === item.key"
-                  @click="requestRevokeAll(item)"></v-btn>
-              </div>
-            </template>
+              <!-- Counts per category, not the names: a row here can hold two
+                   dozen privileges, and the wall of chips pushed every other
+                   column off screen. The names are one expand away. -->
+              <template #item.privileges="{ item }">
+                <div class="d-flex align-center flex-wrap ga-1">
+                  <v-chip
+                    v-for="c in item.categories"
+                    :key="c"
+                    size="x-small"
+                    variant="tonal"
+                    color="primary">
+                    {{ c }} · {{ item.byCategory[c].length }}
+                    <v-tooltip activator="parent" location="top" max-width="360">
+                      {{ item.byCategory[c].join(', ') }}
+                    </v-tooltip>
+                  </v-chip>
+                  <span v-if="!item.privileges.length" class="text-disabled">–</span>
+                  <v-chip
+                    v-for="p in item.stale"
+                    :key="p"
+                    size="x-small"
+                    variant="outlined"
+                    color="warning">
+                    {{ p }}
+                    <v-tooltip activator="parent" location="top">
+                      No longer in this authorizer's vocabulary — enforces nothing, but is still
+                      held.
+                    </v-tooltip>
+                  </v-chip>
+                </div>
+              </template>
 
-            <template #no-data>
-              <span class="text-disabled">
-                {{
-                  !levelFilter && !filterText
-                    ? 'Nothing is granted on this object or anywhere above it.'
-                    : 'Nothing matches this selection.'
-                }}
-              </span>
-            </template>
-          </v-data-table>
+              <template #expanded-row="{ columns, item }">
+                <tr>
+                  <td :colspan="columns.length" class="py-2">
+                    <div v-for="c in item.categories" :key="c" class="d-flex align-start ga-2 mb-1">
+                      <span
+                        class="text-caption text-medium-emphasis text-uppercase"
+                        style="min-width: 110px">
+                        {{ c }}
+                      </span>
+                      <div>
+                        <v-chip
+                          v-for="p in item.byCategory[c]"
+                          :key="p"
+                          class="mr-1 mb-1"
+                          size="x-small"
+                          variant="tonal">
+                          {{ p }}
+                        </v-chip>
+                      </div>
+                    </div>
+                    <span v-if="!item.privileges.length" class="text-disabled text-caption">
+                      Only unrecognized privileges are held here.
+                    </span>
+                  </td>
+                </tr>
+              </template>
+
+              <template #item.granted="{ item }">
+                <span class="text-caption text-medium-emphasis">{{ item.granted || '—' }}</span>
+              </template>
+
+              <template #item.actions="{ item }">
+                <!-- Editing where the grant is actually held: this table spans
+                     levels, so the row carries which one. -->
+                <div class="d-flex align-center ga-2 justify-end">
+                  <v-btn
+                    size="small"
+                    variant="outlined"
+                    text="Edit"
+                    :loading="preparing === item.key"
+                    @click="openEdit(item)"></v-btn>
+                  <v-btn
+                    color="error"
+                    size="small"
+                    variant="text"
+                    text="Revoke all"
+                    :loading="revoking === item.key"
+                    @click="requestRevokeAll(item)"></v-btn>
+                </div>
+              </template>
+
+              <template #no-data>
+                <span class="text-disabled">
+                  {{
+                    !levelFilter && !filterText
+                      ? 'Nothing is granted on this object or anywhere above it.'
+                      : 'Nothing matches this selection.'
+                  }}
+                </span>
+              </template>
+            </v-data-table>
+          </div>
 
           <!-- Revoke-all confirmation. Named per level, because this table
                spans several and revoking the wrong one is not undoable. -->
@@ -691,6 +741,8 @@ import {
   useGrants,
 } from '../composables/useGrants';
 import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.vue';
+import DateTimePicker from './DateTimePicker.vue';
+import { usePaneHeight } from '../common/paneHeight';
 import type { GrantEntry, GrantResponse, GrantablePrivilege } from '../gen/management/types.gen';
 import type { Header } from '../common/interfaces';
 import { isForbiddenError } from '../common/errorUtils';
@@ -738,6 +790,10 @@ const emit = defineEmits<{
     v: { asOf: string | null; filter: Record<string, unknown>; canRevoke: boolean },
   ): void;
 }>();
+
+// The table column bounds itself rather than trusting the height chain above
+// it. 240 is a floor, not a target — on any real window the measurement wins.
+const { paneRef: tableRef, paneHeight: tableHeight } = usePaneHeight(240);
 
 const functions = useFunctions();
 const visual = useVisualStore();

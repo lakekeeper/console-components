@@ -8,7 +8,7 @@
       v-if="canListTags"
       ref="paneRef"
       class="d-flex"
-      :style="{ height: paneHeight ?? 'calc(100vh - 300px)', minHeight: '360px' }">
+      :style="{ height: paneHeight ?? 'calc(100vh - 300px)', minHeight: '320px' }">
       <!-- Left: the filters, folded by animating the column to nothing rather
            than unmounting it — the controls keep their width on the inside, so
            nothing reflows on the way out and the table grows into the space
@@ -74,7 +74,11 @@
 
       <!-- Right: the fold lives with the content it uncovers, not across the
            top of the card — the same place the grants pane keeps it. -->
-      <div class="d-flex flex-column flex-grow-1" style="min-width: 0">
+      <!-- `min-height: 0` or this column refuses to shrink below its content:
+           a flex child's default `min-height: auto` is its content's height, so
+           the table grew past the pane instead of scrolling inside it, and the
+           pane's measured height did nothing. -->
+      <div class="d-flex flex-column flex-grow-1" style="min-width: 0; min-height: 0">
         <div class="d-flex align-center ga-2 px-1 py-1 flex-shrink-0">
           <v-btn
             size="small"
@@ -107,60 +111,72 @@
           <TagDefinitionDialog v-if="canCreateTag" action-type="add" @submit="createDefinition" />
         </div>
 
-        <v-data-table
-          class="flex-grow-1"
-          style="min-width: 0"
-          height="100%"
-          fixed-header
-          density="compact"
-          :headers="headers"
-          hover
-          :items="displayedDefinitions"
-          :sort-by="[{ key: 'name', order: 'asc' }]"
-          :loading="loading"
-          items-per-page="50"
-          :items-per-page-options="[
-            { title: '50', value: 50 },
-            { title: '100', value: 100 },
-            { title: 'All', value: -1 },
-          ]"
-          @click:row="onRowClick">
-          <template #item.name="{ item }">
-            <span style="display: flex; align-items: center">
-              <v-icon class="mr-2" color="info">mdi-tag-outline</v-icon>
-              {{ item.name }}
-              <v-icon v-if="isSystem(item)" class="ml-2 text-medium-emphasis" size="x-small">
-                mdi-lock-outline
-              </v-icon>
-            </span>
-          </template>
-          <template #item.value-kind="{ item }">
-            <v-chip size="x-small" variant="tonal">{{ item['value-kind'] }}</v-chip>
-          </template>
-          <template #item.scope="{ item }">
-            <v-chip v-for="s in item.scope" :key="s" class="mr-1" size="x-small" variant="outlined">
-              {{ s }}
-            </v-chip>
-          </template>
-          <template #item.description="{ item }">
-            <v-tooltip
-              v-if="item.description && item.description.length > 50"
-              :text="item.description"
-              location="top"
-              max-width="400">
-              <template #activator="{ props: tipProps }">
-                <span v-bind="tipProps">{{ item.description.slice(0, 50) }}…</span>
-              </template>
-            </v-tooltip>
-            <span v-else>{{ item.description }}</span>
-          </template>
-          <template #item.open>
-            <v-icon size="small" class="text-medium-emphasis">mdi-chevron-right</v-icon>
-          </template>
-          <template #no-data>
-            <span class="text-disabled">No tag definitions yet.</span>
-          </template>
-        </v-data-table>
+        <!-- The table scrolls, not this div: `fixed-header` sticks the header to
+             `.v-table__wrapper`, so moving the scroll out here would let the
+             header scroll away with the rows. The wrapper needs a definite
+             height for that, which is what this flex child provides — and
+             `.v-table` needs its own `height: 100%` as well, or the prop's
+             percentage resolves against an auto-height parent and collapses. -->
+        <div style="flex: 1 1 auto; min-height: 0; overflow: hidden">
+          <v-data-table
+            style="min-width: 0; height: 100%"
+            height="100%"
+            fixed-header
+            density="compact"
+            :headers="headers"
+            hover
+            :items="displayedDefinitions"
+            :sort-by="[{ key: 'name', order: 'asc' }]"
+            :loading="loading"
+            items-per-page="50"
+            :items-per-page-options="[
+              { title: '50', value: 50 },
+              { title: '100', value: 100 },
+              { title: 'All', value: -1 },
+            ]"
+            @click:row="onRowClick">
+            <template #item.name="{ item }">
+              <span style="display: flex; align-items: center">
+                <v-icon class="mr-2" color="info">mdi-tag-outline</v-icon>
+                {{ item.name }}
+                <v-icon v-if="isSystem(item)" class="ml-2 text-medium-emphasis" size="x-small">
+                  mdi-lock-outline
+                </v-icon>
+              </span>
+            </template>
+            <template #item.value-kind="{ item }">
+              <v-chip size="x-small" variant="tonal">{{ item['value-kind'] }}</v-chip>
+            </template>
+            <template #item.scope="{ item }">
+              <v-chip
+                v-for="s in item.scope"
+                :key="s"
+                class="mr-1"
+                size="x-small"
+                variant="outlined">
+                {{ s }}
+              </v-chip>
+            </template>
+            <template #item.description="{ item }">
+              <v-tooltip
+                v-if="item.description && item.description.length > 50"
+                :text="item.description"
+                location="top"
+                max-width="400">
+                <template #activator="{ props: tipProps }">
+                  <span v-bind="tipProps">{{ item.description.slice(0, 50) }}…</span>
+                </template>
+              </v-tooltip>
+              <span v-else>{{ item.description }}</span>
+            </template>
+            <template #item.open>
+              <v-icon size="small" class="text-medium-emphasis">mdi-chevron-right</v-icon>
+            </template>
+            <template #no-data>
+              <span class="text-disabled">No tag definitions yet.</span>
+            </template>
+          </v-data-table>
+        </div>
       </div>
     </div>
     <div v-else class="pa-4">You don't have permission to list tag definitions</div>
@@ -197,7 +213,7 @@ const search = ref('');
 // chrome sits above the pane, which differs by host and by tab, and one that
 // overshoots puts a second scrollbar down the page beside the list's own.
 
-const { paneRef, paneHeight } = usePaneHeight(360);
+const { paneRef, paneHeight } = usePaneHeight(320);
 
 const kindFilter = ref<TagValueKind[]>([]);
 const scopeFilter = ref<TagScope[]>([]);

@@ -12,7 +12,7 @@
     <div
       ref="paneRef"
       class="d-flex"
-      :style="{ height: paneHeight ?? 'calc(100vh - 240px)', minHeight: '400px' }">
+      :style="{ height: paneHeight ?? 'calc(100vh - 240px)', minHeight: '320px' }">
       <!-- LEFT: scope toggle + picker.
 
            Folded by animating the outer width to nothing rather than by
@@ -341,7 +341,7 @@ const resolving = ref(false);
 
 // ---- how tall this pane is -------------------------------------------------
 
-const { paneRef, paneHeight } = usePaneHeight(400);
+const { paneRef, paneHeight } = usePaneHeight(320);
 
 // ---- the selection, in the URL ---------------------------------------------
 //

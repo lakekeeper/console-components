@@ -160,6 +160,58 @@ and whatever Vue unwinds with it — down. Nothing in the build catches this.
 **Every scrollable region is bounded by its own container.** The app shell
 disables page scroll; a pane that does not bound itself scrolls the window.
 
+**A measured pane is worth nothing if a flex child inside it refuses to shrink.**
+This is the single defect that cost the most: a flex item's default is
+`min-height: auto`, which is the height of its own content, so a column holding a
+long table simply grows past the pane it lives in and takes the page's scroll
+with it — while the `overflow-y: auto` sitting right there never engages, because
+the box is never smaller than what is in it. Every flex child between the measured
+pane and the scrolling region needs `min-height: 0`.
+
+```html
+<div :style="{ height: paneHeight }" class="d-flex">
+  <div class="d-flex flex-column" style="min-width: 0; min-height: 0">
+    <div style="flex: 0 0 auto">…toolbar…</div>
+    <div style="flex: 1 1 auto; min-height: 0; overflow: hidden">
+      <v-data-table fixed-header height="100%" style="height: 100%">…</v-data-table>
+    </div>
+  </div>
+</div>
+```
+
+**A table is bounded by the region, never by its row count.** `fixed-header` plus
+a `height` resolved against the bounded parent — `height="100%"`, not
+`max-height`, which leaves the percentage undefined and makes the table render
+full-length and clip.
+
+**The host's window is measured the same way its panes are.** A page that wraps
+its tabs in `max-height: calc(100vh - 140px)` while the panes inside measure to
+the viewport gives itself a scrollbar of exactly the difference, and that
+difference is what makes three tabs look like three different heights. Measure
+the window too, keep `overflow-y: auto` on it for the case where the panes hit
+their minimum, and give every pane the same floor.
+
+**Nothing is padded below a self-bounding pane.** A `pb-4` under a pane that
+already ends one gap above the footer puts it 16px past its container — the same
+scrollbar, arrived at from the other end.
+
+**Inside a dialog, measure the body's visible height, not its content.** The two
+differ by exactly what an unbounded table would add, so measuring content feeds
+the table's size back into its own bound. The visible box is also independent of
+where the body is scrolled to, which a measurement from the table's top edge is
+not.
+
+---
+
+## Inputs
+
+**Dates and times use `DateTimePicker`, never `type="datetime-local"`.** The
+native control is drawn by the browser: it ignores the theme, ignores any
+white-label branding, and renders grey beside every other field on the pane. The
+shared component composes Vuetify's own `VDatePicker` with hour/minute selects,
+takes and emits the same `"YYYY-MM-DDTHH:mm"` string, and is what the task and
+maintenance filters already use.
+
 ---
 
 ## State

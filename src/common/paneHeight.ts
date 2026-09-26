@@ -53,9 +53,11 @@ export function measurePaneHeight(target: unknown, min = 320, gap = DEFAULT_GAP)
   // callers keep what they had and measure again when the pane is laid out.
   if (!el.offsetParent && rect.height === 0) return null;
 
-  const bottom = window.innerHeight - appFooterHeight();
+  const footer = appFooterHeight();
+  const bottom = window.innerHeight - footer;
+  const height = Math.max(min, Math.round(bottom - rect.top - gap));
 
-  return `${Math.max(min, Math.round(bottom - rect.top - gap))}px`;
+  return `${height}px`;
 }
 
 /**
@@ -73,29 +75,77 @@ export function usePaneHeight(min = 320, gap = DEFAULT_GAP) {
   const paneRef = ref<any>(null);
   const paneHeight = ref<string | null>(null);
   let observer: ResizeObserver | null = null;
+  let visibility: IntersectionObserver | null = null;
+  let timers: ReturnType<typeof setTimeout>[] = [];
 
   function measure() {
     const next = measurePaneHeight(paneRef.value, min, gap);
     if (next) paneHeight.value = next;
   }
 
-  onMounted(() => {
+  /**
+   * Measure now, and again after the animation that is probably running.
+   *
+   * This is the one that mattered. `v-tabs-window` animates its items, and a
+   * pane measured while its item is still sliding is measured where it was
+   * passing through — short if it is coming up from below, tall if it is on its
+   * way down. Whichever it caught, it kept: the visibility trigger fires once
+   * and nothing measured again, which is exactly how two panes built from the
+   * same code ended one above the footer and the other below it.
+   *
+   * The last measurement wins, so the only requirement is that one of these
+   * lands after the transition has settled. Vuetify's window transition is
+   * 300ms by default; 600 covers a slow frame, and re-measuring a pane that was
+   * already right costs a `getBoundingClientRect`.
+   */
+  function scheduleMeasure() {
     measure();
-    // After the tab's own transition, where the pane lands somewhere else.
     requestAnimationFrame(measure);
+    for (const delay of [120, 350, 650]) timers.push(setTimeout(measure, delay));
+  }
+
+  onMounted(() => {
+    scheduleMeasure();
     window.addEventListener('resize', measure);
 
     const el = ((paneRef.value as any)?.$el ?? paneRef.value) as HTMLElement | null;
-    const parent = el?.parentElement;
-    if (parent && typeof ResizeObserver !== 'undefined') {
+    if (!el) return;
+
+    // Three triggers, because one measurement is never enough and the formula
+    // was never the problem:
+    //
+    //   mount + a frame — the ordinary case, where the pane is already showing;
+    //   resize          — the window changes and every pane is wrong at once;
+    //   visibility      — a pane built inside a tab that is not showing has no
+    //                     box, so its first measurement is refused and it keeps
+    //                     a fallback until this fires.
+    //
+    // The third is what made panes disagree: whichever ones happened to mount
+    // visible looked right, and the rest kept a constant nobody had revisited.
+    if (typeof ResizeObserver !== 'undefined' && el.parentElement) {
+      // The parent, not the pane: the pane's size is what this sets, so
+      // observing it would be watching for its own echo.
       observer = new ResizeObserver(measure);
-      observer.observe(parent);
+      observer.observe(el.parentElement);
+    }
+
+    if (typeof IntersectionObserver !== 'undefined') {
+      visibility = new IntersectionObserver((entries) => {
+        // Not a bare `measure()`: this fires at the *start* of the transition
+        // that reveals the pane, which is the worst possible instant to read a
+        // position from.
+        if (entries.some((entry) => entry.isIntersecting)) scheduleMeasure();
+      });
+      visibility.observe(el);
     }
   });
 
   onUnmounted(() => {
     window.removeEventListener('resize', measure);
     observer?.disconnect();
+    visibility?.disconnect();
+    for (const timer of timers) clearTimeout(timer);
+    timers = [];
   });
 
   return { paneRef, paneHeight, measurePane: measure };
