@@ -31,8 +31,15 @@ const props = withDefaults(
     series: Series[];
     points: Point[];
     height?: number;
+    /**
+     * `area` for a continuous series, `bar` for a handful of discrete buckets.
+     * An area drawn through two or three points is a line between them, which
+     * reads as a trend the data never claimed — bars say "these buckets, this
+     * tall" and nothing else.
+     */
+    variant?: 'area' | 'bar';
   }>(),
-  { height: 240 },
+  { height: 240, variant: 'area' },
 );
 
 const container = ref<HTMLDivElement | null>(null);
@@ -75,9 +82,12 @@ function draw() {
   const stacked = d3.stack<Record<string, number>>().keys(keys)(stackInput);
 
   const n = pts.length;
+  const isBar = props.variant === 'bar';
+  // Bars sit in the middle of their band, so the scale runs half a band past
+  // each end; an area starts and ends on the plot edge.
   const x = d3
     .scaleLinear()
-    .domain([0, Math.max(1, n - 1)])
+    .domain(isBar ? [-0.5, n - 0.5] : [0, Math.max(1, n - 1)])
     .range([0, innerW]);
   const yMax = d3.max(stacked[stacked.length - 1] ?? [], (d) => d[1]) ?? 1;
   const y = d3
@@ -108,22 +118,47 @@ function draw() {
     )
     .call((sel) => sel.select('.domain').remove());
 
-  const area = d3
-    .area<[number, number]>()
-    .x((_d, i) => x(i))
-    .y0((d) => y(d[0]))
-    .y1((d) => y(d[1]))
-    .curve(d3.curveMonotoneX);
+  if (isBar) {
+    const bandW = innerW / n;
+    const barW = Math.min(Math.max(2, bandW - 6), 56);
+    const segments: Array<{ key: string; i: number; y0: number; y1: number }> = [];
+    stacked.forEach((layer) => {
+      layer.forEach((seg, i) => {
+        if (seg[1] - seg[0] <= 0) return;
+        segments.push({ key: layer.key as string, i, y0: seg[0], y1: seg[1] });
+      });
+    });
+    g.selectAll('rect.sac-bar')
+      .data(segments)
+      .join('rect')
+      .attr('class', 'sac-bar')
+      .attr('x', (d) => x(d.i) - barW / 2)
+      .attr('width', barW)
+      .attr('y', (d) => y(d.y1))
+      // A 2px bite out of each segment keeps the surface visible between
+      // stacked segments instead of fusing them into one block.
+      .attr('height', (d) => Math.max(1, y(d.y0) - y(d.y1) - 2))
+      .attr('rx', 3)
+      .attr('fill', (d) => colorOf.get(d.key) ?? '#888')
+      .attr('fill-opacity', 0.85);
+  } else {
+    const area = d3
+      .area<[number, number]>()
+      .x((_d, i) => x(i))
+      .y0((d) => y(d[0]))
+      .y1((d) => y(d[1]))
+      .curve(d3.curveMonotoneX);
 
-  g.selectAll('path.sac-area')
-    .data(stacked)
-    .join('path')
-    .attr('class', 'sac-area')
-    .attr('fill', (d) => colorOf.get(d.key as string) ?? '#888')
-    .attr('fill-opacity', 0.7)
-    .attr('stroke', (d) => colorOf.get(d.key as string) ?? '#888')
-    .attr('stroke-width', 1)
-    .attr('d', (d) => area(d as unknown as [number, number][]));
+    g.selectAll('path.sac-area')
+      .data(stacked)
+      .join('path')
+      .attr('class', 'sac-area')
+      .attr('fill', (d) => colorOf.get(d.key as string) ?? '#888')
+      .attr('fill-opacity', 0.7)
+      .attr('stroke', (d) => colorOf.get(d.key as string) ?? '#888')
+      .attr('stroke-width', 1)
+      .attr('d', (d) => area(d as unknown as [number, number][]));
+  }
 
   // Hover interaction
   const focusLine = g
@@ -179,7 +214,9 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect();
   resizeObserver = null;
 });
-watch(() => [props.points, props.series, props.height], scheduleDraw, { deep: true });
+watch(() => [props.points, props.series, props.height, props.variant], scheduleDraw, {
+  deep: true,
+});
 </script>
 
 <style scoped>
