@@ -11,9 +11,63 @@
           style="height: 26px; width: auto; vertical-align: middle" />
       </v-app-bar-title>
     </slot>
-    <v-list-item>
-      <ProjectManager />
-    </v-list-item>
+    <!-- The bar says which project you are in and switches between them; it
+         does not manage them. Switching is the frequent gesture and stays one
+         click, while creating, renaming and granting live on /projects, where
+         there is room to show what they act on. -->
+    <!-- Same gate as the user menu: with authentication disabled there is no
+         principal, but there is still a project, and the bar still names it. -->
+    <v-menu v-if="showUserMenu" @update:model-value="onProjectMenu">
+      <template #activator="{ props: menuProps }">
+        <v-btn
+          v-bind="menuProps"
+          variant="text"
+          size="small"
+          class="text-none ml-2"
+          rounded="lg"
+          prepend-icon="mdi-home-silo"
+          append-icon="mdi-menu-down">
+          {{ visual.projectSelected['project-name'] || 'No project' }}
+          <v-tooltip activator="parent" location="bottom">Switch project</v-tooltip>
+        </v-btn>
+      </template>
+      <v-list density="compact" max-height="420" min-width="260">
+        <v-list-subheader>Projects</v-list-subheader>
+        <v-list-item v-if="projectsLoading">
+          <template #prepend>
+            <v-progress-circular indeterminate size="16" width="2" class="mr-3" />
+          </template>
+          <v-list-item-title class="text-caption">loading…</v-list-item-title>
+        </v-list-item>
+        <v-list-item
+          v-for="p in projects"
+          :key="p['project-id']"
+          :active="p['project-id'] === visual.projectSelected['project-id']"
+          @click="switchProject(p)">
+          <template #prepend>
+            <v-icon
+              size="small"
+              class="mr-2"
+              :icon="
+                p['project-id'] === visual.projectSelected['project-id']
+                  ? 'mdi-check-circle'
+                  : 'mdi-home-silo'
+              "></v-icon>
+          </template>
+          <v-list-item-title>{{ p['project-name'] }}</v-list-item-title>
+        </v-list-item>
+        <v-list-item v-if="!projectsLoading && !projects.length">
+          <v-list-item-title class="text-caption text-medium-emphasis">
+            No projects available
+          </v-list-item-title>
+        </v-list-item>
+
+        <v-divider class="my-1"></v-divider>
+        <v-list-item prepend-icon="mdi-cog-outline" @click="goToProjects">
+          <v-list-item-title>Manage projects</v-list-item-title>
+        </v-list-item>
+      </v-list>
+    </v-menu>
     <v-spacer></v-spacer>
 
     <!-- GitHub link — opt-in per app (`show-github`), so an enterprise or
@@ -142,6 +196,7 @@
 import { computed, inject, onMounted, ref } from 'vue';
 import { useTheme } from 'vuetify';
 import { useVisualStore } from '../stores/visual';
+import { Project } from '../common/interfaces';
 import { useConfig } from '../composables/useCatalogPermissions';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '@/plugins/functions';
@@ -194,6 +249,37 @@ const auth = inject<any>('auth', null);
 const tokenDialog = ref<InstanceType<typeof TokenDialog> | null>(null);
 
 const userStorage = useUserStore();
+
+// Read when the menu opens rather than on mount: every page already knows the
+// selected project from the store, and the full list is only needed by someone
+// about to switch.
+const projects = ref<Project[]>([]);
+const projectsLoading = ref(false);
+
+async function onProjectMenu(open: boolean) {
+  if (!open || projectsLoading.value) return;
+  projectsLoading.value = true;
+  try {
+    projects.value = (await functions.loadProjectList()) ?? [];
+  } catch {
+    projects.value = [];
+  } finally {
+    projectsLoading.value = false;
+  }
+}
+
+function switchProject(project: Project) {
+  if (project['project-id'] === visual.projectSelected['project-id']) return;
+  visual.setProjectSelected(project);
+  // Home, not wherever we were: a warehouse, namespace or table route names an
+  // object in the project being left, and it does not exist in the new one.
+  router.push('/');
+}
+
+function goToProjects() {
+  router.push('/projects');
+}
+
 const starCount = ref(0);
 const showGithub = computed(() => props.showGithub);
 const showStars = computed(() => props.showGithub && starCount.value > 0);

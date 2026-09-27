@@ -1,3 +1,10 @@
+<!--
+  DEPRECATED. The fullscreen project dialog, kept for hosts that still mount it
+  directly. `AppBar` no longer embeds it: projects live on `/projects` and
+  `/projects/:id` (`ProjectsView` / `ProjectDetail`), where they can be linked
+  to, and where the tabs name the project they act on rather than meaning
+  whichever one happens to be selected.
+-->
 <template>
   <v-dialog v-model="dialog" fullscreen transition="dialog-bottom-transition">
     <template #activator="{ props: activatorProps }">
