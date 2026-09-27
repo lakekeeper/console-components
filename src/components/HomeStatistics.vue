@@ -13,40 +13,47 @@
          actually sit. Four big cards spent a quarter of the page saying four
          numbers, and two of them had nowhere to go. -->
     <v-card v-if="showEstate" variant="outlined" class="estate-card mb-2">
-      <v-card-text class="pa-3">
-        <div class="d-flex align-center flex-wrap mb-2" style="gap: 6px 14px">
+      <v-card-text class="pa-4">
+        <div class="d-flex align-center mb-4" style="gap: 8px">
           <v-icon size="small" color="secondary">mdi-file-tree</v-icon>
           <span class="text-body-2 font-weight-bold">Estate</span>
-
-          <div class="totals d-flex align-center flex-wrap" style="gap: 6px 14px">
-            <button
-              v-for="total in totals"
-              :key="total.label"
-              class="total"
-              :class="{ 'total--link': total.to }"
-              type="button"
-              :disabled="!total.to"
-              @click="total.to && emit('navigate', total.to)">
-              <v-icon size="14" :color="total.color">{{ total.icon }}</v-icon>
-              <span class="total-value text-body-2 font-weight-bold">
-                {{ loading || total.unavailable ? '—' : fmt(total.value) }}
-              </span>
-              <span class="text-caption text-medium-emphasis">{{ total.label }}</span>
-              <span v-if="!loading && total.delta" class="text-caption text-medium-emphasis">
-                <v-icon size="11">{{ deltaIcon(total.delta) }}</v-icon>
-                {{ deltaLabel(total.delta) }}
-              </span>
-            </button>
-          </div>
+          <v-spacer />
+          <span v-if="!loading" class="text-caption text-medium-emphasis">
+            {{ occupied }} of {{ warehouses.toLocaleString() }} warehouses hold objects
+          </span>
         </div>
 
-        <div v-if="projectsUnavailable" class="text-caption text-medium-emphasis mb-2 px-1">
+        <div v-if="projectsUnavailable" class="text-caption text-medium-emphasis mb-3">
           <v-icon size="12" color="warning">mdi-alert-outline</v-icon>
           {{ projectsUnavailable }}
         </div>
-        <div v-if="loading" class="text-caption text-medium-emphasis pa-2">Counting…</div>
-        <div v-else class="text-caption text-medium-emphasis">
-          {{ occupied }} of {{ warehouses.toLocaleString() }} warehouses hold objects.
+
+        <!-- One block per total, given the room to be read across a table:
+             four numbers on one line was a footnote, and a footnote is not
+             what the page opens on. -->
+        <div class="totals">
+          <button
+            v-for="total in totals"
+            :key="total.label"
+            class="total"
+            :class="{ 'total--link': total.to }"
+            type="button"
+            :disabled="!total.to"
+            @click="total.to && emit('navigate', total.to)">
+            <v-icon size="20" :color="total.color" class="mb-1">{{ total.icon }}</v-icon>
+            <span class="total-value text-h4 font-weight-bold">
+              {{ loading || total.unavailable ? '—' : fmt(total.value) }}
+            </span>
+            <span class="text-caption text-medium-emphasis total-label">{{ total.label }}</span>
+            <!-- Always rendered, so a delta appearing does not shift the row. -->
+            <span class="delta-line text-caption text-medium-emphasis">
+              <template v-if="!loading && total.delta">
+                <v-icon size="11">{{ deltaIcon(total.delta) }}</v-icon>
+                {{ deltaLabel(total.delta) }}
+              </template>
+            </span>
+            <v-icon v-if="total.to" size="12" class="total-chevron">mdi-chevron-right</v-icon>
+          </button>
         </div>
       </v-card-text>
     </v-card>
@@ -590,20 +597,32 @@ watch(
   border-radius: 12px !important;
 }
 
-/* A total with nowhere to go is not a button: no pointer, no hover, no ripple.
-   The bare `@click` on the old cards gave Vuetify a link to style, which is
-   what made tables and views look clickable. */
+.totals {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* A total with nowhere to go is not a button: no pointer, no hover, no
+   chevron. Binding a bare click to a card is what made tables and views look
+   clickable when they were not. */
 .total {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 2px 6px;
-  border-radius: 6px;
-  background: none;
-  border: none;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 12px 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgba(var(--v-theme-on-surface), 0.02);
   color: inherit;
   cursor: default;
   font: inherit;
+  text-align: left;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
 }
 
 .total--link {
@@ -611,11 +630,36 @@ watch(
 }
 
 .total--link:hover {
-  background: rgba(var(--v-theme-on-surface), 0.06);
+  background: rgba(var(--v-theme-on-surface), 0.05);
+  border-color: rgba(var(--v-theme-on-surface), 0.12);
 }
 
 .total-value {
   font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.total-label {
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.total-chevron {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  opacity: 0.35;
+}
+
+.delta-line {
+  min-height: 18px;
+  line-height: 18px;
+}
+
+@media (max-width: 700px) {
+  .totals {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .chart-card {
