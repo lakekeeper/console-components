@@ -5,7 +5,7 @@
         size="small"
         variant="outlined"
         color="primary"
-        :prepend-icon="filtersCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
+        :prepend-icon="filtersCollapsed ? 'mdi-arrow-expand-right' : 'mdi-arrow-collapse-left'"
         :text="filtersCollapsed ? 'Show filters' : 'Hide filters'"
         @click="filtersCollapsed = !filtersCollapsed"></v-btn>
       <v-chip v-if="activeFilterCount" class="ml-2" size="small" color="primary" variant="tonal">

@@ -192,7 +192,7 @@
       <v-col :cols="12" :md="leftCollapsed ? 12 : 8" style="overflow: auto; height: 100%">
         <div class="d-flex align-center pa-1">
           <v-btn
-            :icon="leftCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
+            :icon="leftCollapsed ? 'mdi-arrow-expand-right' : 'mdi-arrow-collapse-left'"
             size="small"
             variant="text"
             :title="leftCollapsed ? 'Show selector' : 'Hide selector'"

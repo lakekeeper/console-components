@@ -224,7 +224,7 @@
                   <!-- Collapse toggle + info alert -->
                   <div class="d-flex align-center mb-3">
                     <v-btn
-                      :icon="sidebarCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
+                      :icon="sidebarCollapsed ? 'mdi-chevron-double-right' : 'mdi-chevron-double-left'"
                       size="default"
                       variant="tonal"
                       color="primary"
