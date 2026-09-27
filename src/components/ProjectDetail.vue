@@ -141,7 +141,10 @@
           <strong>{{ projectName }}</strong>
           to see its numbers.
         </v-alert>
-        <ProjectStatistics v-else ref="projectStatisticsRef" />
+        <ProjectStatistics
+          v-else
+          ref="projectStatisticsRef"
+          :initial-status-codes="initialStatusCodes" />
       </v-tabs-window-item>
     </v-tabs-window>
   </div>
@@ -191,6 +194,18 @@ const activeTab = ref('overview');
  * which reads as the tab having disappeared.
  */
 const requestedTab = ref<string | null>(null);
+
+/**
+ * `?status=errors` narrows the statistics tab to 4xx and 5xx on arrival. The
+ * home page's "API errors" signal links here, and a reader who followed a
+ * failure count wants the failures, not every successful call of the last day
+ * with them somewhere inside. Any other value, or none, opens on everything.
+ */
+const initialStatusCodes =
+  typeof window !== 'undefined' &&
+  new URL(window.location.href).searchParams.get('status') === 'errors'
+    ? ['4xx', '5xx']
+    : undefined;
 
 function writeTabToUrl(tab: string) {
   if (typeof window === 'undefined') return;
@@ -305,12 +320,14 @@ onMounted(() => {
   load();
 });
 
-// A `?tab=` left behind on another page reads as having selected a tab there.
+// A `?tab=` left behind on another page reads as having selected a tab there,
+// and a `?status=` as having narrowed a filter that page does not have.
 onBeforeUnmount(() => {
   if (typeof window === 'undefined') return;
   const url = new URL(window.location.href);
-  if (!url.searchParams.has('tab')) return;
+  if (!url.searchParams.has('tab') && !url.searchParams.has('status')) return;
   url.searchParams.delete('tab');
+  url.searchParams.delete('status');
   window.history.replaceState(window.history.state, '', url);
 });
 </script>

@@ -190,6 +190,14 @@ import { useVisualStore } from '../stores/visual';
 // ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
   warehouseFilter?: WarehouseFilter;
+  /**
+   * Which status categories the pane opens on. A reader who arrives from the
+   * "API errors" signal came to see the failures, and showing them every 2xx
+   * alongside buries the handful of rows they clicked for. Omitted, the pane
+   * opens on everything, which is the right default for anyone who navigated
+   * here to look around. Reset always restores everything.
+   */
+  initialStatusCodes?: string[];
 }>();
 
 // ─── Deps ────────────────────────────────────────────────────────────────────
@@ -271,7 +279,10 @@ async function loadWarehouses() {
 }
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
-const selectedStatusCodes = ref<string[]>([...STATUS_CATEGORIES]);
+const requestedStatusCodes = STATUS_CATEGORIES.filter((c) => props.initialStatusCodes?.includes(c));
+const selectedStatusCodes = ref<string[]>(
+  requestedStatusCodes.length ? requestedStatusCodes : [...STATUS_CATEGORIES],
+);
 const dateFrom = ref<string | null>(null);
 const dateTo = ref<string | null>(null);
 
