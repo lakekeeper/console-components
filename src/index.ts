@@ -126,6 +126,7 @@ import UserManager from './components/UserManager.vue';
 import StatisticsDialog from './components/StatisticsDialog.vue';
 import StatisticsProject from './components/StatisticsProject.vue';
 import StackedAreaChart from './components/StackedAreaChart.vue';
+import EstateGraph from './components/EstateGraph.vue';
 import ComputeConnectDialog from './components/ComputeConnectDialog.vue';
 import ComputeConnectPanel from './components/ComputeConnectPanel.vue';
 import NotificationButton from './components/NotificationButton.vue';
@@ -201,6 +202,7 @@ export {
   StatisticsDialog,
   StatisticsProject,
   StackedAreaChart,
+  EstateGraph,
   ComputeConnectDialog,
   ComputeConnectPanel,
   ProjectManager,
@@ -531,6 +533,7 @@ const components = {
   StatisticsDialog,
   StatisticsProject,
   StackedAreaChart,
+  EstateGraph,
   ComputeConnectDialog,
   ComputeConnectPanel,
   ProjectManager,
