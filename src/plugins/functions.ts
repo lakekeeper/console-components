@@ -5572,6 +5572,53 @@ async function getProjectCatalogActions(notify?: boolean): Promise<LakekeeperPro
   }
 }
 
+/**
+ * Catalog actions for a NAMED project, rather than the one that is currently
+ * selected.
+ *
+ * `getProjectCatalogActions` sends no `x-project-id`, so the server answers for
+ * the session's default project — right for every pane that acts on the
+ * selection, and wrong for a page that lists projects and has to gate rename
+ * and delete on each row separately. This asks the same endpoint the same way,
+ * naming the project.
+ */
+async function getProjectCatalogActionsFor(
+  projectId: string,
+  notify?: boolean,
+): Promise<LakekeeperProjectAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogProjectActions;
+    }
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getProjectActions({
+      client,
+      headers: { 'x-project-id': projectId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperProjectAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getProjectCatalogActionsFor',
+        'Project catalog actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getProjectCatalogActionsFor', notify);
+    throw error;
+  }
+}
+
 async function getAuthorizerWarehouseActions(
   warehouseId: string,
   notify?: boolean,
@@ -7088,6 +7135,7 @@ export function useFunctions(config?: any) {
     createProject,
     renameProject,
     deleteProject,
+    getProjectCatalogActionsFor,
     setWarehouseManagedAccess,
     setNamespaceManagedAccess,
     getNamespaceById,

@@ -7,6 +7,8 @@ import PermissionAssignDialog from './components/PermissionAssignDialog.vue';
 import UserRenameDialog from './components/UserRenameDialog.vue';
 import ProjectDialog from './components/ProjectDialog.vue';
 import ProjectManager from './components/ProjectManager.vue';
+import ProjectsView from './components/ProjectsView.vue';
+import ProjectDetail from './components/ProjectDetail.vue';
 import ProjectStatistics from './components/ProjectStatistics.vue';
 import NamespaceAddDialog from './components/NamespaceAddDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
@@ -202,6 +204,8 @@ export {
   ComputeConnectDialog,
   ComputeConnectPanel,
   ProjectManager,
+  ProjectsView,
+  ProjectDetail,
   ProjectStatistics,
   WarehouseDetails,
   TaskManager,
@@ -530,6 +534,8 @@ const components = {
   ComputeConnectDialog,
   ComputeConnectPanel,
   ProjectManager,
+  ProjectsView,
+  ProjectDetail,
   ProjectStatistics,
   WarehouseDetails,
   TaskManager,
