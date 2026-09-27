@@ -60,11 +60,14 @@
       <v-tab v-if="showStatisticsTab" value="statistics">statistics</v-tab>
     </v-tabs>
 
+    <!-- `overflow: hidden`, and every item bounded: each tab scrolls inside
+         itself so its own header and toolbar stay put, rather than the window
+         scrolling and taking them with it. -->
     <v-tabs-window
       v-model="activeTab"
-      style="flex: 1 1 auto; min-height: 0; overflow-y: auto"
-      class="pt-2">
-      <v-tabs-window-item value="overview">
+      style="flex: 1 1 auto; min-height: 0; overflow: hidden"
+      class="pt-2 project-detail__window">
+      <v-tabs-window-item value="overview" style="height: 100%; overflow-y: auto">
         <v-list lines="two" density="compact">
           <v-list-item :title="projectName" :subtitle="`ID: ${projectId}`">
             <template #prepend>
@@ -111,7 +114,10 @@
         </v-list>
       </v-tabs-window-item>
 
-      <v-tabs-window-item v-if="showPermissionsTab" value="permissions">
+      <v-tabs-window-item
+        v-if="showPermissionsTab"
+        value="permissions"
+        style="height: 100%; overflow-y: auto">
         <PermissionManager
           v-if="activeTab === 'permissions'"
           :object-id="projectId"
@@ -331,3 +337,17 @@ onBeforeUnmount(() => {
   window.history.replaceState(window.history.state, '', url);
 });
 </script>
+
+<style scoped>
+/*
+  Vuetify gives `.v-window__container` `height: inherit`, which inherits the
+  window's `height` *property* — and this window is sized by flex, so that
+  property is `auto`. An item asking for `height: 100%` then resolves against an
+  auto-height parent and becomes auto itself, which is how the grants pane ended
+  up its full content length inside a bounded page, with the window scrolling
+  instead of the table.
+*/
+.project-detail__window :deep(.v-window__container) {
+  height: 100%;
+}
+</style>
