@@ -1,53 +1,136 @@
 <template>
   <v-card-text class="pa-4">
-    <!-- Overview -->
-    <section id="tdx-overview" class="tdx-section">
-      <v-row dense class="mb-6">
-        <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
-          <v-card variant="outlined" class="pa-3 stat-tile h-100">
-            <v-icon :color="s.color" size="small" class="mb-1">{{ s.icon }}</v-icon>
-            <div class="stat-value" :title="s.title ?? String(s.value)">{{ s.value }}</div>
-            <div class="stat-label">{{ s.label }}</div>
-          </v-card>
-        </v-col>
-      </v-row>
-    </section>
+    <!-- Identity on the left, how the data is laid out and what is set on it
+         on the right: both fit above the fold, which is where a reader looks
+         for "which table is this and what is it made of". -->
+    <v-row dense class="mb-4">
+      <v-col cols="12" md="6">
+        <section id="tdx-identity" class="tdx-section">
+          <div class="tdx-head">
+            <v-icon icon="mdi-information-outline" size="16" color="primary" class="mr-2"></v-icon>
+            Identity &amp; location
+          </div>
+          <dl class="tdx-kv">
+            <template v-for="row in identityRows" :key="row.label">
+              <dt>{{ row.label }}</dt>
+              <dd :title="row.title">
+                <v-icon v-if="row.icon" :color="row.iconColor" size="16">{{ row.icon }}</v-icon>
+                <v-tooltip v-if="row.tip" location="bottom" :text="row.full">
+                  <template #activator="{ props: tp }">
+                    <span v-bind="tp" class="font-mono" style="cursor: help">{{ row.value }}</span>
+                  </template>
+                </v-tooltip>
+                <span v-else :class="{ 'font-mono': row.mono }">{{ row.value }}</span>
+                <v-btn
+                  v-if="row.copy"
+                  icon="mdi-content-copy"
+                  size="x-small"
+                  variant="text"
+                  class="tdx-kv__copy"
+                  @click="copyToClipboard(row.full ?? String(row.value))"></v-btn>
+              </dd>
+            </template>
 
-    <!-- Identity & location -->
-    <section id="tdx-identity" class="tdx-section">
-      <v-card variant="outlined" class="mb-6">
-        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
-          <v-icon icon="mdi-information-outline" class="mr-2" color="primary"></v-icon>
-          Identity &amp; location
-        </v-card-title>
-        <v-table density="compact" class="identity-table">
-          <tbody>
-            <tr v-for="row in identityRows" :key="row.label">
-              <td class="identity-key">{{ row.label }}</td>
-              <td class="identity-val">
-                <div class="d-flex align-center">
-                  <v-tooltip v-if="row.tip" location="bottom" :text="row.full">
-                    <template #activator="{ props: tp }">
-                      <span v-bind="tp" class="font-mono text-truncate" style="cursor: help">
-                        {{ row.value }}
-                      </span>
-                    </template>
-                  </v-tooltip>
-                  <span v-else :class="{ 'font-mono': row.mono }">{{ row.value }}</span>
-                  <v-btn
-                    v-if="row.copy"
-                    icon="mdi-content-copy"
-                    size="x-small"
-                    variant="text"
-                    class="ml-1"
-                    @click="copyToClipboard(row.full ?? String(row.value))"></v-btn>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </v-table>
-      </v-card>
-    </section>
+            <!-- The internal counters share one line: each is a number nobody
+                 reads on its own, and a row apiece doubled the block. -->
+            <template v-if="identityCounters.length">
+              <dt>Counters</dt>
+              <dd class="tdx-counters">
+                <span v-for="c in identityCounters" :key="c.label" class="tdx-counter">
+                  <span class="text-medium-emphasis">{{ c.label }}</span>
+                  <span class="font-mono">{{ c.value }}</span>
+                </span>
+              </dd>
+            </template>
+          </dl>
+        </section>
+      </v-col>
+
+      <v-col cols="12" md="6">
+        <!-- Layout & ordering -->
+        <section id="tdx-layout" class="tdx-section mb-4">
+          <div class="tdx-head">
+            <v-icon icon="mdi-view-grid-outline" size="16" color="primary" class="mr-2"></v-icon>
+            Layout &amp; ordering
+          </div>
+          <dl class="tdx-kv">
+            <dt>Partitioning</dt>
+            <dd>
+              <template v-if="activePartitionSpec && activePartitionSpec.fields.length">
+                <v-chip
+                  v-for="field in activePartitionSpec.fields"
+                  :key="field.name"
+                  size="x-small"
+                  color="primary"
+                  variant="tonal">
+                  {{ formatPartitionField(field) }}
+                </v-chip>
+              </template>
+              <span v-else class="text-medium-emphasis">Unpartitioned</span>
+              <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal">
+                spec {{ activePartitionSpec['spec-id'] }}
+              </v-chip>
+            </dd>
+
+            <dt>Sort order</dt>
+            <dd>
+              <template v-if="activeSortOrder && activeSortOrder.fields.length">
+                <v-chip
+                  v-for="(field, idx) in activeSortOrder.fields"
+                  :key="idx"
+                  size="x-small"
+                  color="info"
+                  variant="tonal">
+                  {{ formatSortField(field) }}
+                </v-chip>
+              </template>
+              <span v-else class="text-medium-emphasis">Unsorted</span>
+              <v-chip v-if="activeSortOrder" size="x-small" variant="tonal">
+                order {{ activeSortOrder['order-id'] }}
+              </v-chip>
+            </dd>
+          </dl>
+        </section>
+
+        <!-- Properties -->
+        <section
+          v-if="allPropertyItems.length > 0 || canEdit"
+          id="tdx-properties"
+          class="tdx-section">
+          <div class="tdx-head">
+            <v-icon icon="mdi-cog-outline" size="16" color="primary" class="mr-2"></v-icon>
+            Properties
+            <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
+            <v-spacer></v-spacer>
+            <!-- The filter sits on the heading rather than on a line of its
+                 own above a table that is often empty. -->
+            <v-switch
+              v-if="systemPropCount > 0"
+              v-model="hideSystemProps"
+              color="primary"
+              density="compact"
+              hide-details
+              class="tdx-head__switch"
+              :label="`Hide system (${systemPropCount})`"></v-switch>
+          </div>
+          <v-data-table-virtual
+            v-if="propertyItems.length"
+            :headers="propertyHeaders"
+            :items="propertyItems"
+            density="compact"
+            fixed-header
+            height="180px"
+            item-value="key"
+            hide-default-footer
+            :items-per-page="-1">
+            <template #item.value="{ item }">
+              <span class="font-mono text-wrap">{{ item.value }}</span>
+            </template>
+          </v-data-table-virtual>
+          <div v-else class="text-medium-emphasis text-body-2">No properties set</div>
+        </section>
+      </v-col>
+    </v-row>
 
     <!-- Structure & governance (fields + tags/stats + evolution) -->
     <section id="tdx-schema" class="tdx-section">
@@ -156,42 +239,6 @@
           </v-expansion-panel-text>
         </v-expansion-panel>
       </v-expansion-panels>
-    </section>
-
-    <!-- Properties -->
-    <section v-if="allPropertyItems.length > 0 || canEdit" id="tdx-properties" class="tdx-section">
-      <v-card variant="outlined" class="mb-6">
-        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
-          <v-icon icon="mdi-cog-outline" class="mr-2" color="primary"></v-icon>
-          Properties
-          <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
-        </v-card-title>
-        <v-card-text>
-          <div v-if="systemPropCount > 0" class="d-flex align-center mb-2">
-            <v-switch
-              v-model="hideSystemProps"
-              color="primary"
-              density="compact"
-              hide-details
-              :label="`Hide system properties (${systemPropCount})`"></v-switch>
-          </div>
-          <v-data-table-virtual
-            v-if="propertyItems.length"
-            :headers="propertyHeaders"
-            :items="propertyItems"
-            density="compact"
-            fixed-header
-            height="220px"
-            item-value="key"
-            hide-default-footer
-            :items-per-page="-1">
-            <template #item.value="{ item }">
-              <span class="font-mono text-wrap">{{ item.value }}</span>
-            </template>
-          </v-data-table-virtual>
-          <div v-else class="text-medium-emphasis pa-3">No properties set</div>
-        </v-card-text>
-      </v-card>
     </section>
 
     <!-- View a single schema as a fields table or its raw JSON (toggle) -->
@@ -329,143 +376,81 @@
       </v-card>
     </v-dialog>
 
-    <!-- Layout & ordering -->
-    <section id="tdx-layout" class="tdx-section">
-      <v-card variant="outlined" class="mb-6">
-        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
-          <v-icon icon="mdi-view-grid-outline" class="mr-2" color="primary"></v-icon>
-          Layout &amp; ordering
-        </v-card-title>
-        <v-card-text>
-          <v-row dense>
-            <v-col cols="12" md="6">
-              <div class="text-overline text-medium-emphasis d-flex align-center">
-                <v-icon size="small" class="mr-1" color="warning">mdi-view-grid-outline</v-icon>
-                Partitioning
-                <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal" class="ml-2">
-                  spec {{ activePartitionSpec['spec-id'] }}
-                </v-chip>
-              </div>
-              <div class="mt-2">
-                <template v-if="activePartitionSpec && activePartitionSpec.fields.length">
-                  <v-chip
-                    v-for="field in activePartitionSpec.fields"
-                    :key="field.name"
-                    size="small"
-                    color="primary"
-                    variant="tonal"
-                    class="mr-1 mb-1">
-                    {{ formatPartitionField(field) }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">Unpartitioned</span>
-              </div>
-            </v-col>
-
-            <v-col cols="12" md="6">
-              <div class="text-overline text-medium-emphasis d-flex align-center">
-                <v-icon size="small" class="mr-1" color="success">mdi-sort-ascending</v-icon>
-                Sort order
-                <v-chip v-if="activeSortOrder" size="x-small" variant="tonal" class="ml-2">
-                  order {{ activeSortOrder['order-id'] }}
-                </v-chip>
-              </div>
-              <div class="mt-2">
-                <template v-if="activeSortOrder && activeSortOrder.fields.length">
-                  <v-chip
-                    v-for="(field, idx) in activeSortOrder.fields"
-                    :key="idx"
-                    size="small"
-                    color="info"
-                    variant="tonal"
-                    class="mr-1 mb-1">
-                    {{ formatSortField(field) }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">Unsorted</span>
-              </div>
-            </v-col>
-          </v-row>
-        </v-card-text>
-      </v-card>
-    </section>
-
     <!-- Snapshots -->
-    <section v-if="snapshotRows.length" id="tdx-snapshots" class="tdx-section">
-      <v-card variant="outlined" class="mb-6">
-        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
-          <v-icon icon="mdi-camera-outline" class="mr-2" color="info"></v-icon>
-          Snapshots
-          <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
-          <v-spacer></v-spacer>
-          <v-select
-            v-if="branchOptions.length > 1"
-            v-model="selectedBranch"
-            :items="branchOptions"
-            density="compact"
-            variant="outlined"
-            hide-details
-            prepend-inner-icon="mdi-source-branch"
-            label="Branch"
-            no-data-text="No branches available"
-            style="max-width: 220px"></v-select>
-        </v-card-title>
-        <v-data-table
-          :headers="snapshotHeaders"
-          :items="snapshotRows"
-          :items-per-page="10"
+    <section v-if="snapshotRows.length" id="tdx-snapshots" class="tdx-section mb-4">
+      <div class="tdx-head">
+        <v-icon icon="mdi-camera-outline" size="16" color="info" class="mr-2"></v-icon>
+        Snapshots
+        <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
+        <v-spacer></v-spacer>
+        <v-select
+          v-if="branchOptions.length > 1"
+          v-model="selectedBranch"
+          :items="branchOptions"
           density="compact"
-          item-value="id"
-          hover
-          class="snapshot-table"
-          @click:row="openSnapshot">
-          <template #item.refs="{ item }">
-            <v-chip
-              v-for="r in item.refs"
-              :key="r"
-              size="x-small"
-              :color="r === 'main' ? 'primary' : 'default'"
-              variant="tonal"
-              class="mr-1">
-              <v-icon start size="x-small">mdi-source-branch</v-icon>
-              {{ r }}
-            </v-chip>
-            <span v-if="item.refs.length === 0" class="text-disabled">—</span>
-          </template>
-          <template #item.committed="{ item }">
-            <span :title="item.committedAbs" style="white-space: nowrap">
-              {{ item.committedAbs }}
-            </span>
-            <v-chip v-if="item.current" size="x-small" color="success" variant="flat" class="ml-1">
-              current
-            </v-chip>
-          </template>
-          <template #item.operation="{ item }">
-            <v-chip :color="getOperationColor(item.operation)" size="x-small" variant="flat">
-              {{ item.operation }}
-            </v-chip>
-          </template>
-          <template #item.records="{ item }">{{ fmtNum(item.totalRecords) }}</template>
-          <template #item.delta="{ item }">
-            <span v-if="Number(item.addedRecords) > 0" class="text-success">
-              +{{ fmtNum(item.addedRecords) }}
-            </span>
-            <span v-if="Number(item.deletedRecords) > 0" class="text-error ml-1">
-              −{{ fmtNum(item.deletedRecords) }}
-            </span>
-            <span v-if="!(Number(item.addedRecords) > 0) && !(Number(item.deletedRecords) > 0)">
-              —
-            </span>
-          </template>
-          <template #item.files="{ item }">{{ fmtNum(item.totalDataFiles) }}</template>
-          <template #item.id="{ item }">
-            <span class="font-mono">{{ item.id }}</span>
-          </template>
-          <template #item.actions>
-            <v-icon size="small" class="text-medium-emphasis">mdi-open-in-new</v-icon>
-          </template>
-        </v-data-table>
-      </v-card>
+          variant="outlined"
+          hide-details
+          prepend-inner-icon="mdi-source-branch"
+          label="Branch"
+          style="max-width: 220px"
+          no-data-text="No branches available"></v-select>
+      </div>
+      <v-data-table
+        :headers="snapshotHeaders"
+        :items="snapshotRows"
+        :items-per-page="10"
+        density="compact"
+        item-value="id"
+        hover
+        fixed-header
+        class="snapshot-table"
+        @click:row="openSnapshot">
+        <template #item.refs="{ item }">
+          <v-chip
+            v-for="r in item.refs"
+            :key="r"
+            size="x-small"
+            :color="r === 'main' ? 'primary' : 'default'"
+            variant="tonal"
+            class="mr-1">
+            <v-icon start size="x-small">mdi-source-branch</v-icon>
+            {{ r }}
+          </v-chip>
+          <span v-if="item.refs.length === 0" class="text-disabled">—</span>
+        </template>
+        <template #item.committed="{ item }">
+          <span :title="item.committedAbs" style="white-space: nowrap">
+            {{ item.committedAbs }}
+          </span>
+          <v-chip v-if="item.current" size="x-small" color="success" variant="flat" class="ml-1">
+            current
+          </v-chip>
+        </template>
+        <template #item.operation="{ item }">
+          <v-chip :color="getOperationColor(item.operation)" size="x-small" variant="flat">
+            {{ item.operation }}
+          </v-chip>
+        </template>
+        <template #item.records="{ item }">{{ fmtNum(item.totalRecords) }}</template>
+        <template #item.delta="{ item }">
+          <span v-if="Number(item.addedRecords) > 0" class="text-success">
+            +{{ fmtNum(item.addedRecords) }}
+          </span>
+          <span v-if="Number(item.deletedRecords) > 0" class="text-error ml-1">
+            −{{ fmtNum(item.deletedRecords) }}
+          </span>
+          <span v-if="!(Number(item.addedRecords) > 0) && !(Number(item.deletedRecords) > 0)">
+            —
+          </span>
+        </template>
+        <template #item.files="{ item }">{{ fmtNum(item.totalDataFiles) }}</template>
+        <template #item.id="{ item }">
+          <span class="font-mono">{{ item.id }}</span>
+        </template>
+        <template #item.actions>
+          <v-icon size="small" class="text-medium-emphasis">mdi-open-in-new</v-icon>
+        </template>
+      </v-data-table>
     </section>
 
     <!-- Snapshot detail popup -->
@@ -588,15 +573,6 @@ const refsSummary = computed(() => {
   if (tags > 0) parts.push(`${tags} tag${tags === 1 ? '' : 's'}`);
   return parts.join(' · ');
 });
-
-const snapshotsCount = computed(() => props.table.metadata.snapshots?.length ?? 0);
-
-const getCurrentSchema = () => {
-  if (!props.table.metadata.schemas || props.table.metadata.schemas.length === 0) return null;
-  return props.table.metadata.schemas.find(
-    (schema) => schema['schema-id'] === props.table.metadata['current-schema-id'],
-  );
-};
 
 // Build a map of field-id → field-name across all schemas for resolving source-ids
 const fieldNameMap = computed(() => {
@@ -753,9 +729,6 @@ const schemaFieldDiffs = computed(() => {
   return diffs;
 });
 
-// Computed properties
-const currentSchemaInfo = computed(() => getCurrentSchema());
-
 // --- All snapshots, as a digestible table + detail popup --------------------
 const snapshotDialog = ref(false);
 const selectedSnapshot = ref<any>(null);
@@ -878,64 +851,6 @@ const getOperationColor = (operation: string): string => {
 // Schema evolution panel starts collapsed.
 const schemaPanels = ref<string[]>([]);
 
-// At-a-glance metric tiles
-const statTiles = computed(() => {
-  const m = props.table.metadata as any;
-  return [
-    {
-      label: 'Format',
-      value: m['format-version'] ? `Iceberg v${m['format-version']}` : 'Iceberg',
-      icon: 'mdi-tag-outline',
-      color: 'primary',
-    },
-    {
-      label: 'Columns',
-      value: currentSchemaInfo.value?.fields?.length ?? 0,
-      icon: 'mdi-table-column',
-      color: 'primary',
-    },
-    {
-      label: 'Snapshots',
-      value: snapshotsCount.value,
-      icon: 'mdi-camera-outline',
-      color: 'info',
-    },
-    {
-      label: 'Partitions',
-      value: activePartitionSpec.value?.fields?.length || 0,
-      icon: 'mdi-view-grid-outline',
-      color: 'warning',
-    },
-    {
-      label: 'Sort keys',
-      value: activeSortOrder.value?.fields?.length || 0,
-      icon: 'mdi-sort-ascending',
-      color: 'success',
-    },
-    {
-      label: 'Updated',
-      value: m['last-updated-ms'] ? formatTimestamp(m['last-updated-ms']) : '—',
-      icon: 'mdi-update',
-      color: 'default',
-    },
-    // Whether a drop would be refused is a property of the table, not of the
-    // menu that happens to toggle it — so it is read here, with the rest of
-    // what the table is.
-    {
-      label: 'Protection',
-      value: protectionState.value === null ? '—' : protectionState.value ? 'On' : 'Off',
-      icon: protectionState.value ? 'mdi-lock-outline' : 'mdi-lock-open-variant-outline',
-      color: protectionState.value ? 'info' : 'default',
-      title:
-        protectionState.value === null
-          ? 'Deletion protection'
-          : protectionState.value
-            ? `Deletion protection is on${protectionUpdatedAt.value ? ` · set ${protectionUpdatedAt.value}` : ''} — drop and expiration are refused until it is turned off`
-            : 'Deletion protection is off — this table can be dropped',
-    },
-  ];
-});
-
 // Deletion protection lives behind its own endpoint, so it is loaded here
 // rather than read off the table metadata.
 const protectionState = ref<boolean | null>(null);
@@ -978,7 +893,16 @@ const identityRows = computed(() => {
     mono?: boolean;
     copy?: boolean;
     tip?: boolean;
+    icon?: string;
+    iconColor?: string;
+    title?: string;
   }> = [];
+  rows.push({
+    label: 'Format',
+    value: m['format-version'] ? `Iceberg v${m['format-version']}` : 'Iceberg',
+    icon: 'mdi-tag-outline',
+    iconColor: 'primary',
+  });
   rows.push({ label: 'Table UUID', value: m['table-uuid'], mono: true, copy: true });
   if (m.location)
     rows.push({
@@ -1003,8 +927,6 @@ const identityRows = computed(() => {
       label: 'Last updated',
       value: absoluteTimestamp(m['last-updated-ms']),
     });
-  if (m['current-schema-id'] !== undefined)
-    rows.push({ label: 'Current schema ID', value: m['current-schema-id'] });
   if (m['current-snapshot-id'])
     rows.push({
       label: 'Current snapshot ID',
@@ -1014,22 +936,45 @@ const identityRows = computed(() => {
     });
   if (refsSummary.value) rows.push({ label: 'Refs', value: refsSummary.value });
 
-  // Internal identifiers
-  const pushIf = (label: string, value: unknown) => {
-    if (value !== undefined && value !== null) rows.push({ label, value: String(value) });
-  };
-  pushIf('Last sequence number', m['last-sequence-number']);
-  pushIf('Last column ID', m['last-column-id']);
-  pushIf('Last partition ID', m['last-partition-id']);
-  pushIf('Default partition spec ID', m['default-spec-id']);
-  pushIf('Default sort order ID', m['default-sort-order-id']);
-  pushIf('Next row ID', m['next-row-id']);
-  const statsFiles = (m.statistics ?? []).length;
-  if (statsFiles > 0) pushIf('Statistics files', statsFiles);
-  const partStatsFiles = (m['partition-statistics'] ?? []).length;
-  if (partStatsFiles > 0) pushIf('Partition statistics files', partStatsFiles);
+  // Deletion protection is a property of the table, not of the menu that
+  // toggles it, so it is read with the rest of what the table is.
+  rows.push({
+    label: 'Protection',
+    value: protectionState.value === null ? '—' : protectionState.value ? 'On' : 'Off',
+    icon: protectionState.value ? 'mdi-lock-outline' : 'mdi-lock-open-variant-outline',
+    iconColor: protectionState.value ? 'info' : undefined,
+    title:
+      protectionState.value === null
+        ? 'Deletion protection'
+        : protectionState.value
+          ? `Deletion protection is on${protectionUpdatedAt.value ? ` · set ${protectionUpdatedAt.value}` : ''} — drop and expiration are refused until it is turned off`
+          : 'Deletion protection is off — this table can be dropped',
+  });
 
   return rows;
+});
+
+// The internal identifiers. Each is a single small number that means nothing
+// on its own, so they share one line rather than taking a labelled row each —
+// nine rows of "Last partition ID 999" is most of what made this block long.
+const identityCounters = computed(() => {
+  const m = props.table.metadata as any;
+  const out: Array<{ label: string; value: string }> = [];
+  const push = (label: string, value: unknown) => {
+    if (value !== undefined && value !== null) out.push({ label, value: String(value) });
+  };
+  push('schema', m['current-schema-id']);
+  push('seq', m['last-sequence-number']);
+  push('last col', m['last-column-id']);
+  push('last part', m['last-partition-id']);
+  push('spec', m['default-spec-id']);
+  push('sort', m['default-sort-order-id']);
+  push('next row', m['next-row-id']);
+  const statsFiles = (m.statistics ?? []).length;
+  if (statsFiles > 0) push('stats files', statsFiles);
+  const partStatsFiles = (m['partition-statistics'] ?? []).length;
+  if (partStatsFiles > 0) push('part stats files', partStatsFiles);
+  return out;
 });
 </script>
 
@@ -1053,7 +998,10 @@ const identityRows = computed(() => {
   white-space: pre-wrap;
 }
 
-.section-head {
+/* A section is an icon, a name and a hairline — the outlined card and its
+   filled title band cost ~56px of chrome per section and said nothing the
+   heading did not. */
+.tdx-head {
   display: flex;
   align-items: center;
   font-size: 0.8rem;
@@ -1061,40 +1009,101 @@ const identityRows = computed(() => {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: rgba(var(--v-theme-on-surface), 0.7);
-  margin-bottom: 8px;
   min-height: 32px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
+/* The heading's own words are uppercase; the controls sharing its line are not
+   headings and keep their own casing. */
+.tdx-head :deep(.v-btn),
+.tdx-head :deep(.v-chip),
+.tdx-head :deep(.v-label),
+.tdx-head :deep(.v-field) {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.tdx-head__switch {
+  flex: 0 0 auto;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
 }
 
 .tdx-section {
   margin-bottom: 0;
+  min-width: 0;
 }
 
-.stat-tile {
+/* Label/value pairs as a grid: the label column is as wide as its widest
+   label and no wider, which is what a two-column table could not do. A hairline
+   per row keeps a long value tied to its own label across the gap. */
+.tdx-kv {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) minmax(0, 1fr);
+  column-gap: 20px;
+  margin: 0;
+}
+.tdx-kv dt,
+.tdx-kv dd {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  min-height: 34px;
+  padding: 4px 0;
+  font-size: 0.8125rem;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
-.stat-value {
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.tdx-kv dt {
+  color: rgba(var(--v-theme-on-surface), 0.6);
   white-space: nowrap;
 }
-.stat-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: rgba(var(--v-theme-on-surface), 0.6);
+.tdx-kv dd {
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* The last pair closes the block; a rule under it would read as the start of
+   something that is not there. */
+.tdx-kv > dt:nth-last-of-type(1),
+.tdx-kv > dd:nth-last-of-type(1) {
+  border-bottom: none;
+}
+/* The copy button appears on the row it copies, so twelve of them do not sit
+   in a column of their own down the page. */
+.tdx-kv__copy {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tdx-kv dd:hover .tdx-kv__copy,
+.tdx-kv__copy:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .tdx-kv__copy {
+    opacity: 1;
+  }
 }
 
-.identity-table .identity-key {
-  width: 220px;
-  white-space: nowrap;
-  font-weight: 600;
-  color: rgba(var(--v-theme-on-surface), 0.7);
+.tdx-counters {
+  gap: 4px 14px;
 }
-.identity-table .identity-val {
-  word-break: break-all;
+.tdx-counter {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+}
+.tdx-counter > .font-mono {
+  font-size: 0.8125rem;
+}
+/* Ten rows and then the table scrolls, header pinned: a page size of 25 or 50
+   otherwise pushes the rest of the page — and the pager, the only control that
+   matters there — below the fold. `max-height` on the wrapper rather than the
+   `height` prop, so a table of three rows is three rows tall. */
+.snapshot-table :deep(.v-table__wrapper) {
+  max-height: calc(10 * 36px + 40px);
 }
 </style>

@@ -1,15 +1,15 @@
 <template>
-  <v-card variant="outlined" class="mb-6" elevation="1">
-    <v-card-title
-      class="bg-surface-light d-flex align-center flex-wrap text-subtitle-1 py-3"
-      style="gap: 8px">
+  <!-- Same section shape as the rest of the overview: a heading and a hairline
+       rather than an outlined card with a filled title band. -->
+  <section class="tdx-section mb-4">
+    <div class="tdx-head flex-wrap" style="gap: 8px">
       <v-btn
         :icon="collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'"
         variant="text"
         size="small"
         @click="collapsed = !collapsed"></v-btn>
       <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
-      Structure &amp; governance
+      Schema
       <v-chip size="x-small" variant="tonal">{{ schemaTree.length }} fields</v-chip>
       <v-btn
         variant="outlined"
@@ -65,11 +65,10 @@
           Analyze all
         </v-btn>
       </template>
-    </v-card-title>
+    </div>
 
     <template v-if="!collapsed">
-      <v-divider></v-divider>
-      <div class="pa-3">
+      <div>
         <v-alert
           v-if="schemaView === 'stats' && !canQuery"
           type="info"
@@ -364,7 +363,7 @@
         </v-card-text>
       </v-card>
     </v-dialog>
-  </v-card>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -952,6 +951,35 @@ watch(
 </script>
 
 <style scoped>
+/* Kept in step with the same block in TableDetails.vue — the two sections sit
+   on the same page and have to read as one. */
+.tdx-head {
+  display: flex;
+  align-items: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(var(--v-theme-on-surface), 0.7);
+  min-height: 32px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
+/* The heading's own words are uppercase; the controls sharing its line are not
+   headings and keep their own casing. */
+.tdx-head :deep(.v-btn),
+.tdx-head :deep(.v-chip),
+.tdx-head :deep(.v-label),
+.tdx-head :deep(.v-field) {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.tdx-section {
+  min-width: 0;
+}
+
 .font-mono {
   font-family: 'Roboto Mono', monospace;
 }
