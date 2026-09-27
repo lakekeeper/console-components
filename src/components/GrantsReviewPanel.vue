@@ -179,7 +179,14 @@
              is windowed, and a virtual scroller needs a height of its own to
              decide what is on screen. The levels above it are a handful of
              rows and stay put. -->
-        <div style="flex: 1 1 auto; min-height: 0; overflow: hidden; display: flex">
+        <div
+          style="
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+          ">
           <div v-if="buildingChain" class="d-flex align-center ga-2 pa-4">
             <v-progress-circular indeterminate size="18" width="2"></v-progress-circular>
             <span class="text-caption text-medium-emphasis">Resolving…</span>
@@ -428,7 +435,12 @@
         </div>
 
         <template v-else>
-          <div class="d-flex align-center flex-wrap ga-3 mb-2">
+          <!-- The bands above the table are as tall as what is in them, and say
+               so. In a flex column an unmarked child is `flex: 0 1 auto`, which
+               leaves the free space to be argued over: with no rows to fill it,
+               the refusal notice stretched into a block the height of the pane
+               with one sentence adrift in the middle of it. -->
+          <div class="d-flex align-center flex-wrap ga-3 mb-2" style="flex: 0 0 auto">
             <!-- Which node the tree has selected, said in words, because the
                  table below it is otherwise indistinguishable from the whole
                  listing filtered by hand. -->
@@ -498,7 +510,8 @@
             type="warning"
             variant="tonal"
             density="compact"
-            class="mb-2">
+            class="mb-2"
+            style="flex: 0 0 auto">
             <template v-if="belowUnsupported">
               This server's authorizer does not offer subtree listings, so nothing below
               {{ entityName }} can be shown. The levels above it are unaffected.
@@ -524,7 +537,8 @@
                instant. -->
           <div
             v-if="belowLoaded && !belowUnsupported && !belowForbidden"
-            class="text-caption text-medium-emphasis mb-2">
+            class="text-caption text-medium-emphasis mb-2"
+            style="flex: 0 0 auto">
             {{ visibleRows.length }} {{ visibleRows.length === 1 ? 'grant' : 'grants' }}
             <template v-if="shownAbove && shownBelow">
               — {{ shownAbove }} above this {{ resourceLabel(resource.type).toLowerCase() }},
