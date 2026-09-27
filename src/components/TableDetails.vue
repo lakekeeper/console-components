@@ -6,7 +6,7 @@
         <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
           <v-card variant="outlined" class="pa-3 stat-tile h-100">
             <v-icon :color="s.color" size="small" class="mb-1">{{ s.icon }}</v-icon>
-            <div class="stat-value" :title="String(s.value)">{{ s.value }}</div>
+            <div class="stat-value" :title="s.title ?? String(s.value)">{{ s.value }}</div>
             <div class="stat-label">{{ s.label }}</div>
           </v-card>
         </v-col>
@@ -918,8 +918,55 @@ const statTiles = computed(() => {
       icon: 'mdi-update',
       color: 'default',
     },
+    // Whether a drop would be refused is a property of the table, not of the
+    // menu that happens to toggle it — so it is read here, with the rest of
+    // what the table is.
+    {
+      label: 'Protection',
+      value: protectionState.value === null ? '—' : protectionState.value ? 'On' : 'Off',
+      icon: protectionState.value ? 'mdi-lock-outline' : 'mdi-lock-open-variant-outline',
+      color: protectionState.value ? 'info' : 'default',
+      title:
+        protectionState.value === null
+          ? 'Deletion protection'
+          : protectionState.value
+            ? `Deletion protection is on${protectionUpdatedAt.value ? ` · set ${protectionUpdatedAt.value}` : ''} — drop and expiration are refused until it is turned off`
+            : 'Deletion protection is off — this table can be dropped',
+    },
   ];
 });
+
+// Deletion protection lives behind its own endpoint, so it is loaded here
+// rather than read off the table metadata.
+const protectionState = ref<boolean | null>(null);
+const protectionUpdatedAt = ref('');
+
+// The host reloads with `Object.assign(table, …)`, so the table object's own
+// identity never changes — `metadata` is what is replaced, and watching it is
+// what makes a reload (or a protection toggle from the actions menu) re-read.
+watch(
+  () => [props.warehouseId, props.table.metadata] as const,
+  async () => {
+    const tableUuid = (props.table.metadata as any)?.['table-uuid'];
+    if (!props.warehouseId || !tableUuid) {
+      protectionState.value = null;
+      return;
+    }
+    try {
+      const prot = await functions.getTableProtection(props.warehouseId, tableUuid);
+      protectionState.value = prot.protected;
+      protectionUpdatedAt.value = prot.updated_at
+        ? formatTimestamp(Date.parse(prot.updated_at))
+        : '';
+    } catch {
+      // A reader without `get_protection` still gets every other tile; the
+      // dash says "not known here", which is the truth.
+      protectionState.value = null;
+      protectionUpdatedAt.value = '';
+    }
+  },
+  { immediate: true },
+);
 
 // Identity & location key/value rows
 const identityRows = computed(() => {

@@ -1,63 +1,42 @@
 <template>
-  <v-toolbar color="transparent" density="compact" flat>
-    <v-toolbar-title>
-      <span class="text-subtitle-1">
-        {{ namespacePath.split(String.fromCharCode(0x1f)).join('.') }}
-      </span>
-    </v-toolbar-title>
-    <template #prepend>
-      <!-- Collapse/Expand Button -->
-      <v-btn
-        :icon="isNavigationCollapsed ? 'mdi-chevron-double-right' : 'mdi-chevron-double-left'"
-        size="default"
-        variant="tonal"
-        color="primary"
-        @click="toggleNavigation"
-        class="mr-3"
-        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'"></v-btn>
-      <v-icon>mdi-table</v-icon>
+  <EntityIdentityRow
+    collapsible
+    icon="mdi-table"
+    :parent-path="parentPath"
+    :name="tableName"
+    :id="tableId"
+    id-label="Table ID">
+    <template #actions>
+      <TableActionsMenu
+        :warehouse-id="warehouseId"
+        :namespace-id="namespaceId"
+        :table-name="tableName"
+        @updated="$emit('updated')">
+        <template #maintenance="slotProps">
+          <slot name="maintenance" v-bind="slotProps"></slot>
+        </template>
+      </TableActionsMenu>
     </template>
-    <v-spacer></v-spacer>
-
-    <TableActionsMenu
-      :warehouse-id="warehouseId"
-      :namespace-id="namespaceId"
-      :table-name="tableName"
-      @updated="$emit('updated')">
-      <template #maintenance="slotProps">
-        <slot name="maintenance" v-bind="slotProps"></slot>
-      </template>
-    </TableActionsMenu>
-  </v-toolbar>
+  </EntityIdentityRow>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useVisualStore } from '@/stores/visual';
 import TableActionsMenu from './TableActionsMenu.vue';
+import EntityIdentityRow from './EntityIdentityRow.vue';
 
-const props = defineProps<{
-  warehouseId: string;
-  namespaceId: string;
-  tableName: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    warehouseId: string;
+    namespaceId: string;
+    tableName: string;
+    /** Table UUID, when the host has already loaded the metadata. */
+    tableId?: string;
+  }>(),
+  { tableId: '' },
+);
 
 defineEmits<{ (e: 'updated'): void }>();
 
-const visual = useVisualStore();
-
-const isNavigationCollapsed = computed({
-  get: () => visual.isNavigationCollapsed,
-  set: (value: boolean) => {
-    visual.isNavigationCollapsed = value;
-  },
-});
-
-const namespacePath = computed(
-  () => `${props.namespaceId}${String.fromCharCode(0x1f)}${props.tableName}`,
-);
-
-function toggleNavigation() {
-  isNavigationCollapsed.value = !isNavigationCollapsed.value;
-}
+const parentPath = computed(() => props.namespaceId.split(String.fromCharCode(0x1f)).join('.'));
 </script>

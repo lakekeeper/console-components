@@ -57,6 +57,7 @@ import WarehouseDetails from './components/WarehouseDetails.vue';
 import TaskManager from './components/TaskManager.vue';
 import TaskDetails from './components/TaskDetails.vue';
 import WarehouseManager from './components/WarehouseManager.vue';
+import EntityIdentityRow from './components/EntityIdentityRow.vue';
 import WarehouseHeader from './components/WarehouseHeader.vue';
 import WarehouseStatistics from './components/WarehouseStatistics.vue';
 import HomeStatistics from './components/HomeStatistics.vue';
@@ -211,6 +212,7 @@ export {
   TaskManager,
   TaskDetails,
   WarehouseManager,
+  EntityIdentityRow,
   WarehouseHeader,
   WarehouseStatistics,
   HomeStatistics,
@@ -541,6 +543,7 @@ const components = {
   TaskManager,
   TaskDetails,
   WarehouseManager,
+  EntityIdentityRow,
   WarehouseHeader,
   WarehouseStatistics,
   HomeStatistics,
