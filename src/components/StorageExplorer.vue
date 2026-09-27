@@ -42,26 +42,56 @@
 
     <input ref="fileInputRef" type="file" multiple style="display: none" @change="onFilesPicked" />
 
-    <!-- Upload progress -->
-    <div v-if="uploads.length" class="mb-2">
-      <div v-for="u in uploads" :key="u.id" class="d-flex align-center mb-1 px-1">
-        <v-icon size="x-small" class="mr-1" :color="u.error ? 'error' : 'primary'">
-          {{ u.error ? 'mdi-alert-circle-outline' : fileIcon(u.name) }}
-        </v-icon>
-        <span class="text-caption font-mono text-truncate" style="max-width: 180px">
-          {{ u.name }}
-        </span>
-        <v-progress-linear
-          :model-value="u.fraction * 100"
-          :color="u.error ? 'error' : 'primary'"
-          height="4"
-          class="mx-2 flex-grow-1"
-          :indeterminate="!u.done && u.fraction === 0 && !u.error" />
-        <span class="text-caption text-medium-emphasis" style="min-width: 36px; text-align: right">
-          {{ u.error ? 'Error' : u.done ? 'Done' : Math.round(u.fraction * 100) + '%' }}
-        </span>
-      </div>
-    </div>
+    <!-- Upload progress — floating panel, anchored bottom-right -->
+    <Teleport to="body">
+      <v-card v-if="uploads.length" class="upload-panel" elevation="8" rounded="lg" width="380">
+        <div class="d-flex align-center pl-4 pr-2 py-1 upload-panel-header">
+          <span class="text-body-2 font-weight-medium text-truncate">{{ uploadHeadline }}</span>
+          <v-spacer />
+          <v-btn
+            size="small"
+            variant="text"
+            :icon="uploadPanelCollapsed ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+            :title="uploadPanelCollapsed ? 'Expand' : 'Collapse'"
+            @click="uploadPanelCollapsed = !uploadPanelCollapsed"></v-btn>
+          <v-btn
+            size="small"
+            variant="text"
+            icon="mdi-close"
+            :disabled="uploadsActive"
+            title="Close"
+            @click="dismissUploads"></v-btn>
+        </div>
+        <v-expand-transition>
+          <div v-show="!uploadPanelCollapsed" class="upload-panel-body">
+            <div
+              v-for="u in uploads"
+              :key="u.id"
+              class="d-flex align-center px-4 py-2 upload-panel-row"
+              style="gap: 10px">
+              <v-icon size="small" :color="u.error ? 'error' : 'primary'">
+                {{ u.error ? 'mdi-alert-circle-outline' : fileIcon(u.name) }}
+              </v-icon>
+              <div class="flex-grow-1" style="min-width: 0">
+                <div class="text-caption font-mono text-truncate" :title="u.name">{{ u.name }}</div>
+                <div v-if="u.error" class="text-caption text-error text-truncate" :title="u.error">
+                  {{ u.error }}
+                </div>
+              </div>
+              <v-icon v-if="u.error" size="small" color="error">mdi-alert-circle</v-icon>
+              <v-icon v-else-if="u.done" size="small" color="success">mdi-check-circle</v-icon>
+              <v-progress-circular
+                v-else
+                :model-value="u.fraction * 100"
+                :indeterminate="u.fraction === 0"
+                size="18"
+                width="2"
+                color="primary" />
+            </div>
+          </div>
+        </v-expand-transition>
+      </v-card>
+    </Teleport>
 
     <v-alert v-if="topError" type="warning" variant="tonal" density="compact" class="mb-3">
       <div class="font-weight-medium mb-1">Storage listing unavailable</div>
@@ -356,6 +386,26 @@
             <template v-else-if="previewKind === 'avro'">
               Avro preview isn't supported yet (DuckDB-WASM lacks the avro reader in this build).
               Use Download.
+            </template>
+            <template v-else-if="previewKind === 'binary'">
+              This file looks binary — decoding it as text gives gibberish.
+              <div class="mt-3 d-flex align-center" style="gap: 8px">
+                <v-btn
+                  v-if="previewText"
+                  size="small"
+                  variant="tonal"
+                  @click="previewKind = 'text'">
+                  Show as text anyway
+                </v-btn>
+                <v-btn
+                  v-if="previewNode"
+                  size="small"
+                  variant="text"
+                  prepend-icon="mdi-download-outline"
+                  @click="download(previewNode)">
+                  Download
+                </v-btn>
+              </div>
             </template>
             <template v-else>No inline preview for this file type. Use Download.</template>
           </div>
@@ -652,6 +702,23 @@ let uploadSeq = 0;
 const uploads = ref<UploadItem[]>([]);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const uploadTarget = ref<string | null>(null);
+const uploadPanelCollapsed = ref(false);
+
+const uploadsActive = computed(() => uploads.value.some((u) => !u.done && !u.error));
+const uploadHeadline = computed(() => {
+  const total = uploads.value.length;
+  const pending = uploads.value.filter((u) => !u.done && !u.error).length;
+  const failed = uploads.value.filter((u) => u.error).length;
+  if (pending) return `Uploading ${pending} of ${total} item${total === 1 ? '' : 's'}…`;
+  if (failed === total) return `${failed} upload${failed === 1 ? '' : 's'} failed`;
+  if (failed) return `${total - failed} of ${total} uploads complete, ${failed} failed`;
+  return `${total} upload${total === 1 ? '' : 's'} complete`;
+});
+
+function dismissUploads() {
+  uploads.value = [];
+  uploadPanelCollapsed.value = false;
+}
 const isDraggingOver = ref(false);
 
 // Delete state
@@ -674,6 +741,21 @@ async function maybeGunzip(bytes: Uint8Array): Promise<Uint8Array> {
   const ds = new (globalThis as any).DecompressionStream('gzip');
   const stream = new Blob([bytes.buffer as ArrayBuffer]).stream().pipeThrough(ds);
   return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+// Rough binary sniff over the decoded head: NUL bytes, or a high share of
+// replacement chars / control codes, mean the text view would be gibberish.
+function looksBinary(bytes: Uint8Array, text: string): boolean {
+  const head = Math.min(bytes.length, 8192);
+  for (let i = 0; i < head; i++) if (bytes[i] === 0) return true;
+  const sample = text.slice(0, 4096);
+  if (!sample.length) return false;
+  let odd = 0;
+  for (const ch of sample) {
+    const c = ch.codePointAt(0) as number;
+    if (c === 0xfffd || (c < 0x20 && c !== 9 && c !== 10 && c !== 13)) odd++;
+  }
+  return odd / sample.length > 0.1;
 }
 
 async function openPreview(node: TreeNode) {
@@ -701,16 +783,35 @@ async function openPreview(node: TreeNode) {
     // source: a dataset README is worth reading, and rendering it would mean
     // pulling a markdown parser plus sanitiser into the shared library.
     const isText =
-      ['txt', 'log', 'yaml', 'yml', 'md', 'markdown', 'sql', 'toml', 'ini', 'conf'].includes(ext) ||
-      paimonText;
+      [
+        'txt',
+        'log',
+        'yaml',
+        'yml',
+        'md',
+        'markdown',
+        'sql',
+        'toml',
+        'ini',
+        'conf',
+        'cedar',
+      ].includes(ext) || paimonText;
     const tabular = isParquet || isCsv || isAvro;
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
     const isPdf = ext === 'pdf';
+    // Anything unrecognised is attempted as text: dataset side-cars (policies,
+    // manifests, dotfiles, extension-less files) are usually readable, and the
+    // binary ones are caught after decoding rather than by extension.
+    const isUnknown = !(tabular || isText || isJson || isImage || isPdf);
     // The cap covers text and JSON as well as the tabular formats: the text
     // viewer only shows the first 200k characters, but it got there by
     // downloading and decoding the whole object first — which a multi-gigabyte
     // log or SQL dump makes expensive enough to hang the tab.
-    if ((tabular || isText || isJson) && node.size != null && node.size > PREVIEW_SIZE_CAP) {
+    if (
+      (tabular || isText || isJson || isUnknown) &&
+      node.size != null &&
+      node.size > PREVIEW_SIZE_CAP
+    ) {
       previewKind.value = 'toolarge';
       return;
     }
@@ -774,7 +875,13 @@ async function openPreview(node: TreeNode) {
       );
       previewKind.value = isPdf ? 'pdf' : 'image';
     } else {
-      previewKind.value = 'binary';
+      const raw = await withRenew(() => explorer.getObject(storageRes.value!, node.path));
+      const bytes = await maybeGunzip(raw);
+      const text = new TextDecoder().decode(bytes);
+      previewText.value = text.slice(0, 200_000);
+      // Keep the decoded text around either way — the binary notice offers to
+      // show it anyway, since the heuristic can only guess.
+      previewKind.value = looksBinary(bytes, text) ? 'binary' : 'text';
     }
   } catch (e: any) {
     previewError.value = e instanceof StorageListError ? e.message : e?.message || String(e);
@@ -850,6 +957,7 @@ function fileIcon(name: string): string {
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '')) return 'mdi-image-outline';
   if (['csv', 'tsv'].includes(ext || '')) return 'mdi-file-delimited-outline';
   if (['md', 'markdown'].includes(ext || '')) return 'mdi-language-markdown-outline';
+  if (ext === 'cedar') return 'mdi-shield-key-outline';
   if (['txt', 'log', 'yaml', 'yml', 'sql', 'toml', 'ini', 'conf'].includes(ext || ''))
     return 'mdi-file-document-outline';
   return 'mdi-file-outline';
@@ -903,6 +1011,9 @@ function onFilesPicked(e: Event) {
 async function uploadFiles(files: File[], targetPrefix: string | null) {
   if (!storageRes.value) return;
   const prefix = targetPrefix ?? explorer.rootPrefix(storageRes.value.location);
+  // A new batch after a finished one starts a fresh panel (Drive-style).
+  if (uploads.value.length && !uploadsActive.value) uploads.value = [];
+  uploadPanelCollapsed.value = false;
   const tasks = files.map((file) => {
     const id = ++uploadSeq;
     const item: UploadItem = { id, name: file.name, fraction: 0, done: false };
@@ -925,9 +1036,12 @@ async function uploadFiles(files: File[], targetPrefix: string | null) {
     }),
   );
   await refreshFolder(targetPrefix);
+  // Successful batches fade out on their own; failures stay until dismissed.
+  const batchIds = new Set(tasks.map((t) => t.item.id));
   setTimeout(() => {
-    uploads.value = uploads.value.filter((u) => !u.done);
-  }, 2000);
+    if (uploads.value.some((u) => u.error)) return;
+    if (uploads.value.every((u) => batchIds.has(u.id) && u.done)) uploads.value = [];
+  }, 4000);
 }
 
 async function refreshFolder(path: string | null) {
@@ -1299,6 +1413,23 @@ watch(previewOpen, (open) => {
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.upload-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  max-width: calc(100vw - 32px);
+}
+.upload-panel-header {
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+.upload-panel-body {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.upload-panel-row + .upload-panel-row {
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 .drag-over {
   outline: 2px dashed rgba(var(--v-theme-primary), 0.5);
