@@ -2,7 +2,7 @@
   <div class="home-statistics">
     <!-- Slim progress bar while loading -->
     <v-progress-linear
-      v-if="loading || chartLoading"
+      v-if="(showEstate && loading) || (showChart && chartLoading)"
       indeterminate
       color="primary"
       height="2"
@@ -12,7 +12,7 @@
     <!-- The estate: the four totals on one line, and where the objects
          actually sit. Four big cards spent a quarter of the page saying four
          numbers, and two of them had nowhere to go. -->
-    <v-card variant="outlined" class="estate-card mb-2">
+    <v-card v-if="showEstate" variant="outlined" class="estate-card mb-2">
       <v-card-text class="pa-3">
         <div class="d-flex align-center flex-wrap mb-2" style="gap: 6px 14px">
           <v-icon size="small" color="secondary">mdi-file-tree</v-icon>
@@ -45,17 +45,14 @@
           {{ projectsUnavailable }}
         </div>
         <div v-if="loading" class="text-caption text-medium-emphasis pa-2">Counting…</div>
-        <EstateGraph
-          v-else
-          :root="treeRoot"
-          :load-children="loadTreeChildren"
-          :height="340"
-          @open="onTreeSelect" />
+        <div v-else class="text-caption text-medium-emphasis">
+          {{ occupied }} of {{ warehouses.toLocaleString() }} warehouses hold objects.
+        </div>
       </v-card-text>
     </v-card>
 
     <!-- API Calls Chart -->
-    <v-card v-if="!chartForbidden" variant="outlined" class="chart-card">
+    <v-card v-if="showChart && !chartForbidden" variant="outlined" class="chart-card">
       <v-card-text class="pa-3">
         <div class="d-flex align-center flex-wrap mb-1" style="gap: 8px">
           <v-icon size="small" color="secondary">mdi-chart-areaspline</v-icon>
@@ -99,14 +96,21 @@ import { useFunctions } from '../plugins/functions';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
 import StackedAreaChart from './StackedAreaChart.vue';
-import EstateGraph, { type GraphNodeData as TreeNodeData } from './EstateGraph.vue';
 
 // Only the counts that have a page behind them are offered as destinations.
 // Tables and views are counted across the whole estate and live inside a
 // namespace inside a warehouse, so there is no one list to open for them.
+// Home renders the estate card and the traffic chart in different places, so
+// one component renders either half and fetches only what that half shows.
+const props = withDefaults(defineProps<{ section?: 'all' | 'estate' | 'chart' }>(), {
+  section: 'all',
+});
+
+const showEstate = computed(() => props.section !== 'chart');
+const showChart = computed(() => props.section !== 'estate');
+
 const emit = defineEmits<{
   (e: 'navigate', destination: 'projects' | 'warehouses'): void;
-  (e: 'navigate-warehouse', warehouseId: string): void;
   // The per-warehouse object counts, so a host that needs them (the Plus
   // maintenance summary) does not repeat the fan-out that produced them.
   (
@@ -171,200 +175,13 @@ const projectsUnavailable = ref('');
 const tablesDelta = ref<number | null>(null);
 const viewsDelta = ref<number | null>(null);
 
+const occupied = computed(
+  () => warehouseObjects.value.filter((w) => w.tables + w.views > 0).length,
+);
+
 const warehouseObjects = ref<Array<{ id: string; name: string; tables: number; views: number }>>(
   [],
 );
-
-// ─── Estate tree ─────────────────────────────────────────────────────────────
-// Children are fetched when a node is opened, never up front: the estate is
-// warehouses × namespaces × tables, and only the path the reader actually
-// walks is worth a request.
-const TREE_PAGE = 100;
-// How many children one node draws. Past this the fan of links is denser than
-// the labels it carries, and the right answer is a page built for listing.
-const TREE_CHILDREN_CAP = 20;
-
-const treeRoot = computed<TreeNodeData>(() => ({
-  key: `project:${visual.projectSelected['project-id']}`,
-  label: visual.projectSelected['project-name'] || 'Project',
-  kind: 'project',
-  note: `${warehouses.value} warehouses`,
-  expandable: true,
-}));
-
-// The API takes a namespace path separated by unit separators; the tree and
-// the router both carry the dotted form.
-function toApiNamespace(path: string): string {
-  return path.split('.').join('\x1F');
-}
-
-// The full child list of every node that has been opened, so "N more" pages
-// through what is already in hand instead of asking the server again.
-const childCache = new Map<string, TreeNodeData[]>();
-
-// One page of a node's children, with a trailing signpost for the rest. The
-// signpost carries where to resume, and opening it swaps it for the next page.
-function page(parentKey: string, all: TreeNodeData[], offset: number): TreeNodeData[] {
-  childCache.set(parentKey, all);
-  const slice = all.slice(offset, offset + TREE_CHILDREN_CAP);
-  const shown = offset + slice.length;
-  if (shown >= all.length) return slice;
-  return [
-    ...slice,
-    {
-      key: `more:${parentKey}:${shown}`,
-      label: `${all.length - shown} more`,
-      kind: 'more',
-      expandable: true,
-      meta: { parentKey, offset: shown },
-    },
-  ];
-}
-
-async function loadTreeChildren(node: TreeNodeData): Promise<TreeNodeData[]> {
-  const meta = (node.meta ?? {}) as {
-    warehouseId?: string;
-    warehouseName?: string;
-    namespace?: string;
-    entityId?: string;
-    parentKey?: string;
-    offset?: number;
-  };
-
-  if (node.kind === 'more') {
-    const all = childCache.get(meta.parentKey ?? '') ?? [];
-    return page(meta.parentKey ?? '', all, meta.offset ?? 0);
-  }
-
-  if (node.kind === 'project') {
-    // Warehouses that hold something first: an estate of mostly-empty
-    // warehouses otherwise opens on a screen of zeroes.
-    const ranked = [...warehouseObjects.value].sort(
-      (a, b) => b.tables + b.views - (a.tables + a.views) || a.name.localeCompare(b.name),
-    );
-    const all: TreeNodeData[] = ranked.map((wh) => ({
-      key: `wh:${wh.id}`,
-      label: wh.name,
-      kind: 'warehouse' as const,
-      note:
-        wh.tables + wh.views > 0
-          ? `${wh.tables} t${wh.views > 0 ? ` · ${wh.views} v` : ''}`
-          : 'empty',
-      expandable: true,
-      meta: { warehouseId: wh.id, warehouseName: wh.name, entityId: wh.id },
-    }));
-    return page(node.key, all, 0);
-  }
-
-  if (node.kind === 'warehouse') {
-    const warehouseId = meta.warehouseId as string;
-    const resp = await functions.listNamespaces(
-      warehouseId,
-      undefined,
-      undefined,
-      false,
-      TREE_PAGE,
-    );
-    const warehouseName = (meta.warehouseName as string) ?? '';
-    const all: TreeNodeData[] = (resp.namespaces ?? []).map((ns: string[]) => {
-      const path = ns.join('.');
-      return {
-        key: `ns:${warehouseId}:${path}`,
-        label: ns[ns.length - 1],
-        kind: 'namespace' as const,
-        expandable: true,
-        meta: {
-          warehouseId,
-          warehouseName,
-          namespace: path,
-          entityId: resp.namespaceMap?.[path] ?? '',
-        },
-      };
-    });
-    return page(node.key, all, 0);
-  }
-
-  if (node.kind === 'namespace') {
-    const warehouseId = meta.warehouseId as string;
-    const warehouseName = (meta.warehouseName as string) ?? '';
-    const parent = meta.namespace as string;
-    const apiNs = toApiNamespace(parent);
-    // The uuid-returning variants: tags address a table or a view by id, and
-    // the plain listings answer with names only.
-    const [nested, tbls, vws, generic] = await Promise.all([
-      functions.listNamespaces(warehouseId, apiNs, undefined, false, TREE_PAGE),
-      functions.listTableUuids(warehouseId, apiNs, false),
-      functions.listViewUuids(warehouseId, apiNs, false),
-      // Not every server serves generic tables, and a refusal there must not
-      // cost the reader the Iceberg ones.
-      functions
-        .listGenericTables(warehouseId, apiNs, undefined, false, TREE_PAGE)
-        .catch(() => ({ identifiers: [] as any[] })),
-    ]);
-
-    const all: TreeNodeData[] = [];
-    const base = { warehouseId, warehouseName, namespace: parent };
-
-    for (const ns of nested.namespaces ?? []) {
-      const path = ns.join('.');
-      all.push({
-        key: `ns:${warehouseId}:${path}`,
-        label: ns[ns.length - 1],
-        kind: 'namespace',
-        expandable: true,
-        meta: {
-          warehouseId,
-          warehouseName,
-          namespace: path,
-          entityId: nested.namespaceMap?.[path] ?? '',
-        },
-      });
-    }
-    tbls.names.forEach((name: string, i: number) => {
-      all.push({
-        key: `tbl:${warehouseId}:${parent}:${name}`,
-        label: name,
-        kind: 'table',
-        expandable: false,
-        meta: { ...base, name, entityId: tbls.uuids[i] ?? '' },
-      });
-    });
-    vws.names.forEach((name: string, i: number) => {
-      all.push({
-        key: `view:${warehouseId}:${parent}:${name}`,
-        label: name,
-        kind: 'view',
-        expandable: false,
-        meta: { ...base, name, entityId: vws.uuids[i] ?? '' },
-      });
-    });
-    for (const id of ((generic as any).identifiers ?? []) as any[]) {
-      all.push({
-        key: `gt:${warehouseId}:${parent}:${id.name}`,
-        label: id.name,
-        kind: 'generic-table',
-        note: id.format ?? undefined,
-        expandable: false,
-        meta: { ...base, name: id.name, entityId: id['table-id'] ?? id.id ?? '' },
-      });
-    }
-
-    return page(node.key, all, 0);
-  }
-
-  return [];
-}
-
-function onTreeSelect(node: TreeNodeData) {
-  const meta = (node.meta ?? {}) as { warehouseId?: string; namespace?: string; name?: string };
-  if (node.kind === 'warehouse' && meta.warehouseId) {
-    emit('navigate-warehouse', meta.warehouseId);
-  } else if (node.kind === 'namespace' && meta.warehouseId && meta.namespace) {
-    emit('navigate-namespace', meta.warehouseId, meta.namespace);
-  } else if ((node.kind === 'table' || node.kind === 'view') && meta.warehouseId) {
-    emit('navigate-tabular', meta.warehouseId, meta.namespace ?? '', meta.name ?? '', node.kind);
-  }
-}
 
 const totals = computed(() => [
   {
@@ -738,7 +555,10 @@ async function loadChart() {
 
 // ─── Init ────────────────────────────────────────────────────────────────────
 async function loadStatistics() {
-  await Promise.all([loadCounts(), loadChart()]);
+  await Promise.all([
+    showEstate.value ? loadCounts() : Promise.resolve(),
+    showChart.value ? loadChart() : Promise.resolve(),
+  ]);
 }
 
 defineExpose({ loadStatistics });
