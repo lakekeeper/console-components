@@ -10,7 +10,7 @@
         v-model="searchQuery"
         label="Filter projects"
         prepend-inner-icon="mdi-filter"
-        placeholder="Type to filter projects"
+        placeholder="Name or ID"
         variant="underlined"
         hide-details
         clearable
