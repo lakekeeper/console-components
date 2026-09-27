@@ -473,6 +473,19 @@ onMounted(() => {
   loadStatistics();
 });
 
+// Every count and every point here is scoped to the selected project by the
+// `x-project-id` header, which `functions` reads fresh on each request — so a
+// switch changes what these numbers mean without changing the numbers. Nothing
+// else tells this pane to ask again: the switch may happen from the app bar
+// with the reader already on this page, where there is no navigation to
+// remount it.
+watch(
+  () => visual.projectSelected['project-id'],
+  (projectId, previous) => {
+    if (projectId && projectId !== previous) loadStatistics();
+  },
+);
+
 // Colours are baked into the SVG at draw time, so a theme toggle needs a
 // redraw — otherwise the chart keeps the previous theme's palette until
 // something else happens to resize it.
