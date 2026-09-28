@@ -8,13 +8,14 @@
  * scope for those surfaces, and answering "configure CORS" sends the operator to
  * fix a bucket that is already correct.
  *
- * Only `sts-enabled` is consulted. The storage types LoQE supports (s3, gcs, adls
- * and stackit) all carry the flag, and absent reads as on: for s3 the schema makes
- * it required, and for the others it defaults to true — so a missing value means
- * the profile has not loaded yet, never "off".
+ * Only the profile's own vending flag is consulted. The storage types LoQE
+ * supports carry it under one of two names — `sts-enabled` for s3, gcs, adls and
+ * stackit, `sas-enabled` for onelake — and absent reads as on: for s3 the schema
+ * makes it required, and for the others it defaults to true, so a missing value
+ * means the profile has not loaded yet, never "off".
  */
 export function stsDisabled(profile: Record<string, any> | null | undefined): boolean {
-  return profile?.['sts-enabled'] === false;
+  return profile?.['sts-enabled'] === false || profile?.['sas-enabled'] === false;
 }
 
 /** Why the local query engine cannot read this warehouse, or null when it can. */

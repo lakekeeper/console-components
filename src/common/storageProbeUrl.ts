@@ -133,7 +133,30 @@ export function storageProbeUrl(
     };
   }
 
-  // onelake and anything added later: not reachable from the browser by a route
-  // this code knows, so there is no honest probe to run.
+  if (type === 'onelake') {
+    const workspace = String(profile['workspace-id'] ?? '');
+    const lakehouse = String(profile['lakehouse-id'] ?? '');
+    if (!workspace || !lakehouse) return null;
+    const mode = profile['endpoint-mode'];
+    const modeType = String(mode?.type ?? 'default');
+    // Workspace-private-link hosts carry a `z<xy>` label Lakekeeper computes from
+    // the workspace ID at request time; the console cannot derive it, so there is
+    // no honest URL to probe.
+    if (modeType === 'workspace-private-link') return null;
+    const region = modeType === 'regional' ? String(mode?.region ?? '') : '';
+    if (modeType === 'regional' && !region) return null;
+    // Blob, not DFS — same reason as ADLS: the browser reads OneLake through
+    // azure_wasm, which talks to the Blob service.
+    const host = `${region ? `${region}-` : ''}onelake.blob.fabric.microsoft.com`;
+    const folder = String(profile['top-level-folder'] ?? 'Files');
+    return {
+      url: `https://${host}/${workspace}/${lakehouse}/${folder}/${PROBE_KEY}`,
+      type,
+      preflightHeader: 'x-ms-version',
+    };
+  }
+
+  // Anything added later: not reachable from the browser by a route this code
+  // knows, so there is no honest probe to run.
   return null;
 }

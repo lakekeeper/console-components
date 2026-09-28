@@ -57,4 +57,40 @@ describe('storageProbeUrl', () => {
     expect(storageProbeUrl(null)).toBeNull();
     expect(storageProbeUrl({ type: 's3' })).toBeNull();
   });
+
+  it('builds a OneLake blob URL from workspace and lakehouse ids', () => {
+    const t = storageProbeUrl({
+      type: 'onelake',
+      'workspace-id': 'ws-uuid',
+      'lakehouse-id': 'lh-uuid',
+    });
+    expect(t?.url).toBe(
+      `https://onelake.blob.fabric.microsoft.com/ws-uuid/lh-uuid/Files/${PROBE_KEY}`,
+    );
+    expect(t?.preflightHeader).toBe('x-ms-version');
+  });
+
+  it('region-pins the OneLake host and honours the top-level folder', () => {
+    const t = storageProbeUrl({
+      type: 'onelake',
+      'workspace-id': 'ws',
+      'lakehouse-id': 'lh',
+      'top-level-folder': 'Tables',
+      'endpoint-mode': { type: 'regional', region: 'westus' },
+    });
+    expect(t?.url).toBe(
+      `https://westus-onelake.blob.fabric.microsoft.com/ws/lh/Tables/${PROBE_KEY}`,
+    );
+  });
+
+  it('skips the probe for a workspace-private-link OneLake warehouse', () => {
+    expect(
+      storageProbeUrl({
+        type: 'onelake',
+        'workspace-id': 'ws',
+        'lakehouse-id': 'lh',
+        'endpoint-mode': { type: 'workspace-private-link' },
+      }),
+    ).toBeNull();
+  });
 });
