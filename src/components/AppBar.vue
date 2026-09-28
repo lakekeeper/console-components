@@ -17,7 +17,7 @@
          there is room to show what they act on. -->
     <!-- Same gate as the user menu: with authentication disabled there is no
          principal, but there is still a project, and the bar still names it. -->
-    <v-menu v-if="showUserMenu" @update:model-value="onProjectMenu">
+    <v-menu v-if="showUserMenu && !projectsRefused" @update:model-value="onProjectMenu">
       <template #activator="{ props: menuProps }">
         <v-btn
           v-bind="menuProps"
@@ -58,7 +58,7 @@
         </v-list-item>
         <v-list-item v-if="!projectsLoading && !projects.length">
           <v-list-item-title class="text-caption text-medium-emphasis">
-            No projects available
+            {{ projectsRefused ? 'Not permitted to list projects' : 'No projects available' }}
           </v-list-item-title>
         </v-list-item>
 
@@ -68,6 +68,20 @@
         </v-list-item>
       </v-list>
     </v-menu>
+
+    <!-- Refused the listing, there is nothing to switch to and no menu to open:
+         the bar names the project and stops there. A control that opens onto a
+         single line of apology is worse than no control — it offers a choice
+         that does not exist, and it offers it on every page. -->
+    <v-chip
+      v-else-if="showUserMenu"
+      size="small"
+      label
+      variant="tonal"
+      class="ml-2"
+      prepend-icon="mdi-home-silo">
+      {{ visual.projectSelected['project-name'] || 'No project' }}
+    </v-chip>
     <v-spacer></v-spacer>
 
     <!-- GitHub link — opt-in per app (`show-github`), so an enterprise or
@@ -197,6 +211,7 @@ import { computed, inject, onMounted, ref } from 'vue';
 import { useTheme } from 'vuetify';
 import { useVisualStore } from '../stores/visual';
 import { Project } from '../common/interfaces';
+import { isForbiddenError } from '../common/errorUtils';
 import { useConfig } from '../composables/useCatalogPermissions';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '@/plugins/functions';
@@ -255,17 +270,36 @@ const userStorage = useUserStore();
 // about to switch.
 const projects = ref<Project[]>([]);
 const projectsLoading = ref(false);
+const projectsRefused = ref(false);
 
-async function onProjectMenu(open: boolean) {
-  if (!open || projectsLoading.value) return;
+/**
+ * Asked once on mount, and again whenever the menu opens.
+ *
+ * On mount because the answer decides what the bar renders: a deployment that
+ * refuses the listing gets a label, not a switcher, and finding that out only
+ * when someone opens the menu means offering the control on every page until
+ * they do. Again on open because the list changes — a project created on
+ * `/projects` should be switchable to without a reload.
+ */
+async function loadProjects() {
+  if (projectsLoading.value) return;
   projectsLoading.value = true;
   try {
     projects.value = (await functions.loadProjectList()) ?? [];
-  } catch {
+    projectsRefused.value = false;
+  } catch (error: any) {
+    // The refusal is rendered in the menu rather than as a snackbar: opening a
+    // switcher is not the moment to be told off for something you cannot
+    // change.
     projects.value = [];
+    projectsRefused.value = isForbiddenError(error);
   } finally {
     projectsLoading.value = false;
   }
+}
+
+function onProjectMenu(open: boolean) {
+  if (open) loadProjects();
 }
 
 function switchProject(project: Project) {
@@ -325,6 +359,9 @@ onMounted(async () => {
       /* surfaced by the functions plugin; gating falls back to non-admin */
     });
   }
+  // Same gate as the control it decides: with authentication disabled there is
+  // no principal to refuse, and the listing is readable.
+  if (showUserMenu.value) loadProjects();
 });
 
 function formatStarCount(count: number): string {

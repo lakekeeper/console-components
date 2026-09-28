@@ -3,6 +3,20 @@
     ref="paneRef"
     class="d-flex flex-column"
     :style="{ height: paneHeight ?? '60vh', minHeight: 0 }">
+    <!-- Above the list rather than in place of it, because there IS a list —
+         one row long. It answers the question the row would otherwise raise:
+         not "why is this server empty", but "why is only this one here". -->
+    <v-alert
+      v-if="refused && projects.length"
+      type="info"
+      variant="tonal"
+      density="compact"
+      class="mb-2"
+      style="flex: 0 0 auto">
+      Showing the project you are working in. Listing all projects on this server is not permitted
+      for your account.
+    </v-alert>
+
     <!-- The toolbar acts on the list: a filter over rows already loaded, and
          the one thing you can do to the set as a whole. -->
     <v-toolbar color="transparent" density="compact" flat style="flex: 0 0 auto">
@@ -41,6 +55,11 @@
         hover
         height="100%"
         style="height: 100%"
+        :no-data-text="
+          refused
+            ? 'You are not permitted to list projects. Ask an administrator for access to one.'
+            : 'No projects'
+        "
         @click:row="onRowClick">
         <template #item.project-name="{ item }">
           <!-- Each row asks for its own actions as it scrolls into view: a
@@ -124,6 +143,7 @@ import {
   RenameProjectRequest,
 } from '../gen/management/types.gen';
 import { Header } from '../common/interfaces';
+import { isForbiddenError } from '../common/errorUtils';
 import ProjectNameAddOrEditDialog from './ProjectNameAddOrEditDialog.vue';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 
@@ -144,6 +164,7 @@ const { canCreateProject } = useServerPermissions(serverId);
 const selectedProjectId = computed(() => visual.projectSelected['project-id']);
 
 const loading = ref(false);
+const refused = ref(false);
 const searchQuery = ref('');
 const projects = reactive<ProjectRow[]>([]);
 
@@ -202,8 +223,21 @@ async function loadProjects() {
   loading.value = true;
   try {
     projects.splice(0, projects.length, ...((await functions.loadProjectList()) ?? []));
-  } catch (error) {
-    console.error(error);
+    refused.value = false;
+  } catch (error: any) {
+    // A refusal is an answer, not a failure — and it is never the whole answer.
+    // The reader still has the project they are working in; it is the one every
+    // other pane in the console is reading. So the page shows that one and says
+    // why it is the only one, rather than an empty table that would read as a
+    // server with no projects on it.
+    refused.value = isForbiddenError(error);
+    if (refused.value) {
+      const current = visual.projectSelected;
+      projects.splice(0, projects.length, ...(current['project-id'] ? [{ ...current }] : []));
+    } else {
+      console.error(error);
+      projects.splice(0, projects.length);
+    }
   } finally {
     loading.value = false;
   }
