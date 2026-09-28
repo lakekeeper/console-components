@@ -227,7 +227,7 @@ it means re-measuring as the column scrolls, which is a loop — the height
 changes the content height, which changes the scroll position, which changes the
 top edge. The sheet then resizes under the reader's cursor and carries off
 whatever they were reaching for. Better, bound the region so the table has a
-real edge to fill — which is what the shape under *Layout* is for.
+real edge to fill — which is what the shape under _Layout_ is for.
 
 Where that is not available, a constant, and a constant cannot oscillate. It
 takes three bounds, because a fraction on its own does not know what sits

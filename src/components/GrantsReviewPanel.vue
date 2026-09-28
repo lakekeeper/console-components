@@ -1158,9 +1158,6 @@ watch(filterText, (value) => {
   filterTimer = setTimeout(() => (filterQuery.value = value ?? ''), 180);
 });
 
-const STALE_HINT =
-  "No longer in this authorizer's vocabulary — enforces nothing, but is still held.";
-
 /** What an arrow in the level column means, as plain text for a `title`. */
 function directionHint(direction: string): string {
   const noun = resourceLabel(props.resource.type).toLowerCase();
