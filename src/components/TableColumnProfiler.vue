@@ -1,297 +1,257 @@
 <template>
-  <!-- Same section shape as the rest of the overview: a heading and a hairline
-       rather than an outlined card with a filled title band. -->
   <section class="tdx-section mb-4">
+    <!-- A toolbar, not a heading: the tab is already called Schema. What is
+         left is where the numbers came from and what acts on the table. -->
     <div class="tdx-head flex-wrap" style="gap: 8px">
+      <span class="tdx-head__count">{{ schemaTree.length }} fields</span>
+      <span v-if="manifest.loading.value" class="tdx-head__count d-inline-flex align-center">
+        <v-progress-circular indeterminate size="12" width="2" class="mr-2" />
+        reading manifests…
+      </span>
+      <span v-else-if="manifestStats" class="tdx-head__count">
+        · {{ fmtCount(manifestStats.recordCount) }} rows in
+        {{ fmtCount(manifestStats.dataFileCount) }} files
+        <v-tooltip activator="parent" location="bottom" max-width="420">
+          Counts come from the table's manifests — every file of the current snapshot, not a sample.
+          Distinct values and distributions are not recorded there; those come from Analyze, which
+          reads data.
+        </v-tooltip>
+      </span>
+
+      <v-chip
+        v-if="metricsCoverage"
+        size="x-small"
+        color="warning"
+        variant="tonal"
+        prepend-icon="mdi-information-outline">
+        metrics on {{ fmtCount(metricsCoverage.covered) }} of
+        {{ fmtCount(metricsCoverage.total) }} leaf fields
+        <v-tooltip activator="parent" location="bottom" max-width="440">
+          The {{ fmtCount(schemaTree.length) }} top-level fields expand to
+          {{ fmtCount(metricsCoverage.total) }} leaves once structs, lists and maps are opened, and
+          metrics are recorded per leaf. {{ noMetricsHint }}
+        </v-tooltip>
+      </v-chip>
+
+      <v-spacer></v-spacer>
+
+      <v-select
+        v-if="canQuery"
+        v-model="rowLimit"
+        :items="ROW_LIMIT_OPTIONS"
+        label="Analyze reads"
+        density="compact"
+        variant="outlined"
+        hide-details
+        no-data-text="No row limits available"
+        style="min-width: 150px; max-width: 180px"></v-select>
       <v-btn
-        :icon="collapsed ? 'mdi-chevron-down' : 'mdi-chevron-up'"
+        v-if="hasResults"
         variant="text"
         size="small"
-        @click="collapsed = !collapsed"></v-btn>
-      <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
-      Schema
-      <v-chip size="x-small" variant="tonal">{{ schemaTree.length }} fields</v-chip>
+        prepend-icon="mdi-delete-outline"
+        @click="dropResults">
+        Drop samples
+      </v-btn>
       <v-btn
-        variant="outlined"
+        variant="text"
         size="small"
         prepend-icon="mdi-code-json"
         @click="schemaJsonOpen = true">
         View JSON
       </v-btn>
-      <!-- Switch the right-hand columns between tags and statistics (Field stays fixed) -->
-      <v-btn-toggle
-        v-if="tableId && !collapsed"
-        v-model="schemaView"
-        mandatory
-        density="compact"
-        variant="outlined"
-        divided
-        class="ml-2">
-        <v-btn value="tags" size="small" prepend-icon="mdi-tag-multiple-outline">Tags</v-btn>
-        <v-btn value="stats" size="small" prepend-icon="mdi-chart-box-outline">Statistics</v-btn>
-      </v-btn-toggle>
-      <v-spacer></v-spacer>
-      <template v-if="!collapsed && schemaView === 'stats'">
-        <span v-if="canQuery" class="text-caption text-medium-emphasis mr-3">
-          Reads the
-          {{ rowLimit > 0 ? `first ${rowLimit.toLocaleString()} rows` : 'full table' }}; statistics
-          reflect that subset.
-        </span>
-        <v-select
-          v-model="rowLimit"
-          :items="ROW_LIMIT_OPTIONS"
-          label="Rows to scan"
-          density="compact"
-          variant="outlined"
-          hide-details
-          no-data-text="No row limits available"
-          style="min-width: 160px; max-width: 190px"></v-select>
-        <v-btn
-          v-if="hasResults"
-          variant="text"
-          size="small"
-          prepend-icon="mdi-delete-outline"
-          @click="dropResults">
-          Drop results
-        </v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          size="small"
-          prepend-icon="mdi-play"
-          :loading="analyzingAll"
-          :disabled="!canQuery"
-          @click="analyzeAll">
-          Analyze all
-        </v-btn>
-      </template>
     </div>
 
-    <template v-if="!collapsed">
-      <div>
-        <v-alert
-          v-if="schemaView === 'stats' && !canQuery"
-          type="info"
-          variant="tonal"
-          density="compact"
-          class="mb-2">
-          Profiling requires the catalog connection (warehouse, namespace, table, and catalog URL).
-        </v-alert>
+    <div class="profiler-body">
+      <!-- One line, and it does not stretch: this sits in a flex column, so an
+           alert without a flex basis grows to fill the whole pane. -->
+      <div v-if="manifest.error.value" class="manifest-note" :title="manifest.error.value">
+        <v-icon size="14" class="mr-1">mdi-information-outline</v-icon>
+        Column counts unavailable — {{ shortError(manifest.error.value) }}
+      </div>
 
-        <div class="profiler-scroll" style="max-height: 560px; overflow: auto">
-          <v-table density="comfortable" class="profiler-table">
-            <thead>
-              <tr>
-                <th class="col-field">Field</th>
-                <th class="col-type">Type</th>
-                <template v-if="schemaView === 'stats'">
-                  <th class="text-right">Null&nbsp;%</th>
-                  <th class="text-right">Distinct</th>
-                  <th>Min</th>
-                  <th>Max</th>
-                  <th class="text-right">Mean</th>
-                  <th class="text-right">Std&nbsp;dev</th>
-                  <th class="text-right">p50</th>
-                  <th class="text-right">p95</th>
-                  <th class="text-right">p99</th>
-                  <th class="col-top">Top values</th>
-                </template>
-                <th v-else class="col-tags">Tags</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template v-for="row in visibleRows" :key="row.key">
-                <tr :class="{ 'nested-row': row.depth > 0 }">
-                  <!-- Field -->
-                  <td class="col-field">
-                    <div class="d-flex tree-row" style="align-items: stretch; min-height: 42px">
-                      <!-- Indent guide lines (one vertical line per ancestor level,
+      <div class="profiler-scroll">
+        <v-table
+          density="comfortable"
+          class="profiler-table"
+          fixed-header
+          height="100%"
+          style="height: 100%">
+          <thead>
+            <tr>
+              <th class="col-field">Field</th>
+              <th class="col-type">Type</th>
+              <th class="col-tags">Tags</th>
+              <th class="text-right col-num">Values</th>
+              <th class="text-right col-num">Nulls</th>
+              <th class="text-right col-num">Size</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template v-for="row in visibleRows" :key="row.key">
+              <tr :class="{ 'nested-row': row.depth > 0 }">
+                <!-- Field -->
+                <td class="col-field">
+                  <div class="d-flex tree-row" style="align-items: stretch; min-height: 42px">
+                    <!-- Indent guide lines (one vertical line per ancestor level,
                            centered under that ancestor's expand arrow) -->
+                    <span
+                      v-for="d in row.depth"
+                      :key="d"
+                      style="position: relative; flex: 0 0 32px; align-self: stretch">
+                      <!-- Vertical line, centered in the 32px block (under the parent chevron) -->
                       <span
-                        v-for="d in row.depth"
-                        :key="d"
-                        style="position: relative; flex: 0 0 32px; align-self: stretch">
-                        <!-- Vertical line, centered in the 32px block (under the parent chevron) -->
-                        <span
-                          style="
-                            position: absolute;
-                            top: 0;
-                            bottom: 0;
-                            left: 16px;
-                            border-left: 1px solid rgba(var(--v-theme-on-surface), 0.3);
-                          "></span>
-                        <!-- Elbow: horizontal connector into this node -->
-                        <span
-                          v-if="d === row.depth"
-                          style="
-                            position: absolute;
-                            top: 50%;
-                            left: 16px;
-                            width: 32px;
-                            border-top: 1px solid rgba(var(--v-theme-on-surface), 0.3);
-                          "></span>
+                        style="
+                          position: absolute;
+                          top: 0;
+                          bottom: 0;
+                          left: 16px;
+                          border-left: 1px solid rgba(var(--v-theme-on-surface), 0.3);
+                        "></span>
+                      <!-- Elbow: horizontal connector into this node -->
+                      <span
+                        v-if="d === row.depth"
+                        style="
+                          position: absolute;
+                          top: 50%;
+                          left: 16px;
+                          width: 32px;
+                          border-top: 1px solid rgba(var(--v-theme-on-surface), 0.3);
+                        "></span>
+                    </span>
+
+                    <div class="d-flex align-center flex-grow-1" style="min-width: 0">
+                      <!-- Fixed-width gutter so toggles, analyze buttons and leaf
+                             rows all align at the same x (independent of scoped CSS) -->
+                      <span
+                        style="
+                          flex: 0 0 28px;
+                          display: inline-flex;
+                          align-items: center;
+                          justify-content: center;
+                        ">
+                        <!-- Expand toggle for nested (struct/list/map) nodes -->
+                        <v-btn
+                          v-if="row.expandable"
+                          :icon="expanded.has(row.key) ? 'mdi-chevron-down' : 'mdi-chevron-right'"
+                          size="x-small"
+                          variant="text"
+                          @click="toggleExpand(row.key)"></v-btn>
+                        <!-- Analyze, on top-level primitive columns and only
+                             where its results have somewhere to land. A greyed
+                             button on every row of the Tags view is a control
+                             the reader has to work out the irrelevance of. -->
+                        <v-btn
+                          v-else-if="row.profilable && canQuery"
+                          icon="mdi-play"
+                          size="x-small"
+                          variant="text"
+                          color="primary"
+                          :loading="results[row.name]?.loading"
+                          :disabled="!canQuery"
+                          @click="analyzeOne(row)">
+                          <v-icon></v-icon>
+                          <v-tooltip activator="parent" location="top">
+                            Analyze this field
+                          </v-tooltip>
+                        </v-btn>
                       </span>
 
-                      <div class="d-flex align-center flex-grow-1" style="min-width: 0">
-                        <!-- Fixed-width gutter so toggles, analyze buttons and leaf
-                             rows all align at the same x (independent of scoped CSS) -->
-                        <span
-                          style="
-                            flex: 0 0 28px;
-                            display: inline-flex;
-                            align-items: center;
-                            justify-content: center;
-                          ">
-                          <!-- Expand toggle for nested (struct/list/map) nodes -->
-                          <v-btn
-                            v-if="row.expandable"
-                            :icon="expanded.has(row.key) ? 'mdi-chevron-down' : 'mdi-chevron-right'"
-                            size="x-small"
-                            variant="text"
-                            @click="toggleExpand(row.key)"></v-btn>
-                          <!-- Analyze button for top-level primitive columns -->
-                          <v-btn
-                            v-else-if="row.profilable"
-                            icon="mdi-play"
-                            size="x-small"
-                            variant="text"
-                            color="primary"
-                            :loading="results[row.name]?.loading"
-                            :disabled="schemaView === 'tags' || !canQuery || analyzingAll"
-                            @click="analyzeOne(row)">
-                            <v-icon></v-icon>
-                            <v-tooltip activator="parent" location="top">
-                              {{
-                                schemaView === 'tags'
-                                  ? 'Switch to Statistics to analyze this field'
-                                  : 'Analyze this field'
-                              }}
-                            </v-tooltip>
-                          </v-btn>
-                        </span>
-
-                        <div class="flex-grow-1 ml-2" style="min-width: 0">
-                          <div class="font-mono font-weight-medium">{{ row.name }}</div>
-                          <div v-if="row.doc" class="field-doc text-caption text-medium-emphasis">
-                            {{ row.doc }}
-                          </div>
+                      <div class="flex-grow-1 ml-2" style="min-width: 0">
+                        <div class="font-mono font-weight-medium">{{ row.name }}</div>
+                        <div v-if="row.doc" class="field-doc text-caption text-medium-emphasis">
+                          {{ row.doc }}
                         </div>
-                        <v-btn
-                          v-if="row.profilable && hasChart(row.name)"
-                          icon="mdi-chart-bar"
-                          size="small"
-                          variant="text"
-                          color="secondary"
-                          @click="openChart(row.name)">
-                          <v-icon></v-icon>
-                          <v-tooltip activator="parent" location="top">Show chart</v-tooltip>
-                        </v-btn>
                       </div>
+                      <v-btn
+                        v-if="row.profilable && hasChart(row.name)"
+                        icon="mdi-chart-bar"
+                        size="small"
+                        variant="text"
+                        color="secondary"
+                        @click="openChart(row.name)">
+                        <v-icon></v-icon>
+                        <v-tooltip activator="parent" location="top">Show chart</v-tooltip>
+                      </v-btn>
                     </div>
-                  </td>
+                  </div>
+                </td>
 
-                  <!-- Type (own column) -->
-                  <td class="col-type font-mono">{{ row.type }}</td>
+                <!-- Type (own column) -->
+                <td class="col-type font-mono">{{ row.type }}</td>
 
-                  <!-- Statistics view: stats only apply to top-level primitive columns -->
-                  <template v-if="schemaView === 'stats'">
-                    <template v-if="row.profilable">
-                      <!-- Stats (when analyzed) -->
-                      <template v-if="results[row.name]?.data">
-                        <td class="text-right num">{{ results[row.name]!.data!.nullPct }}%</td>
-                        <td class="text-right num">{{ results[row.name]!.data!.distinct }}</td>
-                        <td class="num">{{ results[row.name]!.data!.min }}</td>
-                        <td class="num">{{ results[row.name]!.data!.max }}</td>
-                        <td class="text-right num">{{ results[row.name]!.data!.mean ?? '—' }}</td>
-                        <td class="text-right num">{{ results[row.name]!.data!.std ?? '—' }}</td>
-                        <td class="text-right num">{{ results[row.name]!.data!.p50 ?? '—' }}</td>
-                        <td class="text-right num">{{ results[row.name]!.data!.p95 ?? '—' }}</td>
-                        <td class="text-right num">{{ results[row.name]!.data!.p99 ?? '—' }}</td>
-                        <td class="col-top">
-                          <div
-                            v-if="results[row.name]!.data!.topValues.length > 0"
-                            class="d-flex flex-wrap"
-                            style="gap: 4px">
-                            <v-chip
-                              v-for="(t, i) in results[row.name]!.data!.topValues"
-                              :key="i"
-                              size="x-small"
-                              variant="tonal">
-                              {{ t.value }}
-                              <span class="text-medium-emphasis ml-1">
-                                {{ t.count.toLocaleString() }}
-                              </span>
-                            </v-chip>
-                          </div>
-                          <span v-else class="text-disabled">—</span>
-                        </td>
+                <!-- Column tags: attached to top-level columns only, which is
+                     what the API records them against. -->
+                <td class="col-tags">
+                  <div v-if="row.depth === 0" class="d-flex align-center flex-wrap ga-1">
+                    <v-tooltip
+                      v-for="tag in colTags(row.name)"
+                      :key="tag['tag-definition-id']"
+                      location="top"
+                      max-width="500">
+                      <template #activator="{ props: tp }">
+                        <v-chip
+                          v-bind="tp"
+                          size="small"
+                          variant="flat"
+                          color="secondary"
+                          prepend-icon="mdi-tag-outline">
+                          {{ tag.name }}
+                          <span v-if="tag.value">: {{ truncate(tag.value, 32) }}</span>
+                        </v-chip>
                       </template>
-
-                      <!-- Loading / error / idle -->
-                      <td v-else colspan="10">
-                        <span
-                          v-if="results[row.name]?.loading"
-                          class="d-inline-flex align-center text-caption text-medium-emphasis">
-                          <v-progress-circular indeterminate size="14" width="2" class="mr-2" />
-                          analyzing…
-                        </span>
-                        <span v-else-if="results[row.name]?.error" class="text-caption text-error">
-                          {{ results[row.name]?.error }}
-                        </span>
-                        <span v-else class="text-caption text-disabled">Not analyzed</span>
-                      </td>
-                    </template>
-
-                    <!-- Nested / structural rows: no scalar stats -->
-                    <td v-else colspan="10"></td>
-                  </template>
-
-                  <!-- Tags view: per-column tag chips + manage (top-level columns) -->
-                  <template v-else>
-                    <td class="col-tags">
-                      <div v-if="row.depth === 0" class="d-flex align-center flex-wrap ga-1">
-                        <v-tooltip
-                          v-for="tag in colTags(row.name)"
-                          :key="tag['tag-definition-id']"
-                          location="top"
-                          max-width="500">
-                          <template #activator="{ props: tp }">
-                            <v-chip
-                              v-bind="tp"
-                              size="small"
-                              variant="flat"
-                              color="secondary"
-                              prepend-icon="mdi-tag-outline">
-                              {{ tag.name }}
-                              <span v-if="tag.value">: {{ truncate(tag.value, 32) }}</span>
-                            </v-chip>
-                          </template>
-                          <div style="white-space: pre-wrap; word-break: break-word">
-                            <div class="font-weight-medium">{{ tag.name }}</div>
-                            <div v-if="tag.value">{{ tag.value }}</div>
-                          </div>
-                        </v-tooltip>
-                        <span v-if="!colTags(row.name).length" class="text-disabled">—</span>
+                      <div style="white-space: pre-wrap; word-break: break-word">
+                        <div class="font-weight-medium">{{ tag.name }}</div>
+                        <div v-if="tag.value">{{ tag.value }}</div>
                       </div>
-                      <span v-else class="text-disabled">—</span>
-                    </td>
+                    </v-tooltip>
+                    <span v-if="!colTags(row.name).length" class="text-disabled">—</span>
+                  </div>
+                  <span v-else class="text-disabled">—</span>
+                </td>
+
+                <!-- Facts from the manifests: exact, whole-table, and present
+                     for nested leaves too, because they are keyed by field id
+                     rather than by a column reference a query could name. -->
+                <td class="text-right num col-num">
+                  <span v-if="statsFor(row)?.valueCount != null">
+                    {{ fmtCount(statsFor(row)!.valueCount!) }}
+                    <v-tooltip v-if="row.repeated" activator="parent" location="top">
+                      Elements across all rows — this field sits inside a list or a map.
+                    </v-tooltip>
+                  </span>
+                  <span v-else class="text-disabled" :title="noMetricsHint">—</span>
+                </td>
+                <td class="text-right num col-num">
+                  <template v-if="statsFor(row)?.nullCount != null">
+                    {{ fmtCount(statsFor(row)!.nullCount!) }}
+                    <span v-if="nullPct(row) !== null" class="text-medium-emphasis">
+                      ({{ nullPct(row) }}%)
+                    </span>
                   </template>
-                </tr>
-              </template>
-            </tbody>
-          </v-table>
-        </div>
+                  <span v-else class="text-disabled" :title="noMetricsHint">—</span>
+                </td>
+                <td class="text-right num col-num">
+                  <span v-if="statsFor(row)?.sizeBytes != null">
+                    {{ fmtBytes(statsFor(row)!.sizeBytes!) }}
+                  </span>
+                  <span v-else class="text-disabled" :title="noMetricsHint">—</span>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </v-table>
       </div>
-    </template>
+    </div>
 
     <!-- Distribution popup: histogram (numeric) or top-values bar (categorical) -->
-    <v-dialog v-model="histDialogOpen" max-width="600">
+    <v-dialog v-model="histDialogOpen" max-width="640" scrollable>
       <v-card v-if="chartData">
         <v-card-title class="d-flex align-center text-subtitle-1 py-3">
           <v-icon class="mr-2" color="primary">
             {{ chartData.histogram ? 'mdi-chart-histogram' : 'mdi-chart-bar' }}
           </v-icon>
-          {{ chartData.histogram ? 'Value distribution' : 'Top values' }} —
+          Sample —
           <span class="font-mono ml-1">{{ histColName }}</span>
           <v-spacer></v-spacer>
           <v-btn
@@ -302,6 +262,47 @@
         </v-card-title>
         <v-divider></v-divider>
         <v-card-text>
+          <!-- Everything in this dialog came from reading data, and only as
+               much of it as the row limit allowed. Said here, once, next to
+               the numbers — the toolbar was too far away to be read as a
+               qualifier on a percentile. -->
+          <v-alert type="info" variant="tonal" density="compact" class="mb-3">
+            Sampled from the
+            {{ rowLimit > 0 ? `first ${rowLimit.toLocaleString()} rows` : 'full table' }}. Counts,
+            nulls and sizes in the table behind this dialog are exact — these are not.
+          </v-alert>
+
+          <v-table density="compact" class="mb-3">
+            <tbody>
+              <tr>
+                <td class="text-medium-emphasis">Distinct (approx.)</td>
+                <td class="num text-right">{{ chartData.distinct }}</td>
+                <td class="text-medium-emphasis">Null</td>
+                <td class="num text-right">{{ chartData.nullPct }}%</td>
+              </tr>
+              <tr>
+                <td class="text-medium-emphasis">Min</td>
+                <td class="num text-right">{{ chartData.min }}</td>
+                <td class="text-medium-emphasis">Max</td>
+                <td class="num text-right">{{ chartData.max }}</td>
+              </tr>
+              <tr v-if="chartData.mean !== null && chartData.mean !== undefined">
+                <td class="text-medium-emphasis">Mean</td>
+                <td class="num text-right">{{ chartData.mean }}</td>
+                <td class="text-medium-emphasis">Std dev</td>
+                <td class="num text-right">{{ chartData.std ?? '—' }}</td>
+              </tr>
+              <tr v-if="chartData.p50 !== null && chartData.p50 !== undefined">
+                <td class="text-medium-emphasis">p50</td>
+                <td class="num text-right">{{ chartData.p50 }}</td>
+                <td class="text-medium-emphasis">p95 · p99</td>
+                <td class="num text-right">
+                  {{ chartData.p95 ?? '—' }} · {{ chartData.p99 ?? '—' }}
+                </td>
+              </tr>
+            </tbody>
+          </v-table>
+
           <div class="text-caption text-medium-emphasis mb-2">
             <template v-if="chartData.histogram">
               {{ chartData.histogram.bins.length }} bins · range
@@ -360,6 +361,10 @@ import VueJsonPretty from 'vue-json-pretty';
 import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '../plugins/functions';
 import { loqeVendingReason } from '../common/vendedCredentials';
+import {
+  useTableManifestStats,
+  type ManifestColumnStats,
+} from '../composables/useTableManifestStats';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
@@ -385,12 +390,101 @@ const ROW_LIMIT_OPTIONS = [
   { title: 'Full table', value: 0 },
 ];
 const rowLimit = ref(100);
-// Right-hand columns: tags (default) vs statistics (Field column stays fixed).
-const schemaView = ref<'stats' | 'tags'>('tags');
 
 const functions = useFunctions();
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
+
+// Counts, nulls and sizes come from the table's own manifests: exact, whole
+// table, every leaf of the schema, and a few kilobytes of Avro to read.
+const manifest = useTableManifestStats(loqe);
+const manifestStats = computed(() => manifest.stats.value);
+
+function statsFor(row: SchemaNode): ManifestColumnStats | null {
+  if (row.fieldId === undefined) return null;
+  return manifestStats.value?.columns.get(row.fieldId) ?? null;
+}
+
+/**
+ * Against the values present for this field, not against the table's record
+ * count: inside a list or a map the two are different numbers.
+ */
+function nullPct(row: SchemaNode): string | null {
+  const st = statsFor(row);
+  if (!st || st.nullCount === null || !st.valueCount) return null;
+  const pct = (st.nullCount / st.valueCount) * 100;
+  if (pct === 0) return '0';
+  return pct < 0.1 ? '<0.1' : pct.toFixed(1);
+}
+
+/** The engine's errors carry a SQL listing; the first sentence is the reason. */
+function shortError(message: string): string {
+  const first = message.split(/ LINE \d|\n/)[0].trim();
+  return first.length > 160 ? `${first.slice(0, 157)}…` : first;
+}
+
+/**
+ * A dash is "the writer recorded nothing for this field", not "zero". Iceberg
+ * collects column metrics for the first 100 columns of a table by default, so
+ * on a wide schema the numbers legitimately stop partway down the list.
+ */
+const noMetricsHint = computed(() => {
+  const configured = (props.metadata as any)?.properties?.[
+    'write.metadata.metrics.max-inferred-column-defaults'
+  ];
+  const limit = configured ?? 100;
+  return (
+    "Not recorded in this table's manifests. Iceberg collects column metrics for the " +
+    `first ${limit} columns by default; the rest are governed by the ` +
+    'write.metadata.metrics.* table properties.'
+  );
+});
+
+/**
+ * How much of the schema the manifests actually describe. Shown only when the
+ * answer is "not all of it": otherwise it is a line saying nothing is wrong.
+ */
+const metricsCoverage = computed(() => {
+  if (!manifestStats.value) return null;
+  const leaves: SchemaNode[] = [];
+  const walk = (nodes: SchemaNode[]) => {
+    for (const n of nodes) {
+      if (n.children.length) walk(n.children);
+      else leaves.push(n);
+    }
+  };
+  walk(schemaTree.value);
+  const covered = leaves.filter((n) => statsFor(n) !== null).length;
+  if (!covered || covered >= leaves.length) return null;
+  return { covered, total: leaves.length };
+});
+
+function fmtCount(n: number): string {
+  return Number(n).toLocaleString();
+}
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ['KB', 'MB', 'GB', 'TB'];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v < 10 ? v.toFixed(1) : Math.round(v)} ${units[i]}`;
+}
+
+// No catalog attach and no data scan: the manifests are fetched with the
+// table's vended credentials and handed to DuckDB as bytes.
+async function loadManifestStats() {
+  if (!props.warehouseId || !props.namespaceId || !props.tableName) return;
+  await manifest.load({
+    warehouseId: props.warehouseId,
+    namespaceId: props.namespaceId,
+    tableName: props.tableName,
+  });
+}
 const userStore = useUserStore();
 const visual = useVisualStore();
 
@@ -430,8 +524,6 @@ interface ColumnState {
   data: ProfileData | null;
 }
 const results = reactive<Record<string, ColumnState>>({});
-const analyzingAll = ref(false);
-const collapsed = ref(false);
 
 // Persisted per-table profile cache (survives reloads).
 const loqeStore = useLoQEStore();
@@ -623,30 +715,40 @@ interface SchemaNode {
   children: SchemaNode[];
   expandable: boolean;
   profilable: boolean;
+  /**
+   * Iceberg's id for this leaf. Manifest statistics are keyed by it, which is
+   * what lets a field inside a struct carry the same facts as a top-level
+   * column — the name never appears in a manifest.
+   */
+  fieldId?: number;
+  /** Inside a list or a map: counts are per element, not per row. */
+  repeated?: boolean;
 }
 
 // Child rows for a nested type. Struct → its fields; a list of structs flattens
 // its element's fields directly; a list of list/map gets a single `element` row;
 // map → `key` and `value` rows.
-function childrenOf(t: any, parentKey: string, depth: number): SchemaNode[] {
+function childrenOf(t: any, parentKey: string, depth: number, repeated = false): SchemaNode[] {
   if (!t || typeof t !== 'object') return [];
   if (t.type === 'struct') {
     return (t.fields ?? []).map((f: StructField) =>
-      makeNode(f.name, f.type, f.doc, parentKey, depth),
+      makeNode(f.name, f.type, f.doc, parentKey, depth, (f as any).id, repeated),
     );
   }
   if (t.type === 'list') {
     const el = t.element;
     if (el && typeof el === 'object') {
-      if (el.type === 'struct') return childrenOf(el, parentKey, depth);
-      return [makeNode('element', el, undefined, parentKey, depth)];
+      // Everything under a list is counted per element from here down.
+      if (el.type === 'struct') return childrenOf(el, parentKey, depth, true);
+      return [makeNode('element', el, undefined, parentKey, depth, t['element-id'], true)];
     }
+    if (el) return [makeNode('element', el, undefined, parentKey, depth, t['element-id'], true)];
     return [];
   }
   if (t.type === 'map') {
     return [
-      makeNode('key', t.key, undefined, parentKey, depth),
-      makeNode('value', t.value, undefined, parentKey, depth),
+      makeNode('key', t.key, undefined, parentKey, depth, t['key-id'], true),
+      makeNode('value', t.value, undefined, parentKey, depth, t['value-id'], true),
     ];
   }
   return [];
@@ -658,10 +760,12 @@ function makeNode(
   doc: string | undefined,
   parentKey: string,
   parentDepth: number,
+  fieldId?: number,
+  repeated?: boolean,
 ): SchemaNode {
   const depth = parentDepth + 1;
   const key = `${parentKey}.${name}`;
-  const children = childrenOf(type, key, depth);
+  const children = childrenOf(type, key, depth, repeated);
   return {
     key,
     name,
@@ -672,6 +776,8 @@ function makeNode(
     expandable: children.length > 0,
     // Only top-level primitives can be profiled with column-reference aggregates.
     profilable: false,
+    fieldId,
+    repeated,
   };
 }
 
@@ -688,6 +794,7 @@ const schemaTree = computed<SchemaNode[]>(() => {
       children,
       expandable: children.length > 0,
       profilable: typeof f.type === 'string',
+      fieldId: f.id,
     };
   });
 });
@@ -711,11 +818,6 @@ const visibleRows = computed<SchemaNode[]>(() => {
   walk(schemaTree.value);
   return out;
 });
-
-// Profile-able (top-level primitive) columns — used for "Analyze all".
-const primitiveColumns = computed(() =>
-  schemaTree.value.filter((n) => n.profilable).map((n) => ({ name: n.name, type: n.type })),
-);
 
 const isNumeric = (type: string) => /^(int|long|float|double|decimal)/i.test(type);
 
@@ -862,26 +964,9 @@ async function analyzeOne(col: { name: string; type: string }) {
   try {
     const tablePath = await resolveTablePath();
     await profile(col, tablePath);
+    if (results[col.name]?.data) openChart(col.name);
   } catch (err: any) {
     results[col.name] = { loading: false, error: err?.message || String(err), data: null };
-  }
-}
-
-async function analyzeAll() {
-  if (!canQuery.value || analyzingAll.value) return;
-  analyzingAll.value = true;
-  try {
-    const tablePath = await resolveTablePath();
-    for (const col of primitiveColumns.value) {
-      await profile(col, tablePath);
-    }
-  } catch (err: any) {
-    const msg = err?.message || String(err);
-    for (const col of primitiveColumns.value) {
-      results[col.name] = { loading: false, error: msg, data: null };
-    }
-  } finally {
-    analyzingAll.value = false;
   }
 }
 
@@ -934,6 +1019,14 @@ watch(
   () => visual.tagsRefresh,
   () => loadAllColumnTags(),
 );
+
+// Re-read when the table changes or commits: the manifest list belongs to the
+// current snapshot, so a new snapshot is new numbers.
+watch(
+  () => [props.warehouseId, props.tableName, props.metadata?.['current-snapshot-id']],
+  () => loadManifestStats(),
+  { immediate: true },
+);
 </script>
 
 <style scoped>
@@ -947,8 +1040,8 @@ watch(
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: rgba(var(--v-theme-on-surface), 0.7);
-  min-height: 32px;
-  padding-bottom: 6px;
+  min-height: 48px;
+  padding: 8px 0;
   margin-bottom: 8px;
   border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 }
@@ -962,15 +1055,45 @@ watch(
   letter-spacing: normal;
   font-weight: 400;
 }
+.tdx-head__count {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-transform: none;
+  color: rgba(var(--v-theme-on-surface), 0.85);
+}
 .tdx-section {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
   min-width: 0;
+  min-height: 0;
 }
 
 .font-mono {
   font-family: 'Roboto Mono', monospace;
 }
+/* The fields table is what the tab is for, so it takes the height the tab has.
+   The table is the scroller, not this box: that is what keeps the column
+   headers in place while 250 fields go past under them. */
 .profiler-scroll {
-  overflow-x: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.profiler-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.manifest-note {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  padding: 4px 0 8px;
 }
 .profiler-table {
   white-space: nowrap;
@@ -995,13 +1118,17 @@ watch(
 .profiler-table :deep(.nested-row) td {
   border-bottom: none;
 }
-.profiler-table :deep(.col-top) {
-  white-space: normal;
-  min-width: 220px;
-}
 .profiler-table :deep(.col-tags) {
   white-space: normal;
-  min-width: 320px;
+  min-width: 260px;
+}
+/* The fact columns take what they need and no more: three numbers should not
+   push the tags column off a laptop screen. */
+.profiler-table :deep(.col-num) {
+  white-space: nowrap;
+  width: 1%;
+  min-width: 108px;
+  vertical-align: middle;
 }
 .profiler-table :deep(.col-type) {
   white-space: nowrap;

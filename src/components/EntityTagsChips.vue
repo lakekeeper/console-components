@@ -6,33 +6,28 @@
       color="primary"
       size="18"></v-progress-circular>
     <template v-else-if="tags.length">
-      <v-tooltip v-for="t in tags" :key="t['tag-definition-id']" location="top" max-width="500">
-        <template #activator="{ props: tp }">
-          <v-chip
-            v-bind="tp"
-            size="small"
-            :color="t['inherited-from'] ? undefined : 'info'"
-            :variant="t['inherited-from'] ? 'outlined' : 'tonal'"
-            :prepend-icon="
-              t['inherited-from'] ? 'mdi-arrow-top-left-bold-outline' : 'mdi-tag-outline'
-            ">
-            {{ t.name }}
-            <span v-if="t.value !== null && t.value !== undefined">
-              :&nbsp;{{ truncate(t.value, 40) }}
-            </span>
-            <span v-if="t['inherited-from']" class="ml-1 text-caption font-italic">
-              · from {{ t['inherited-from'].type }}
-            </span>
-          </v-chip>
-        </template>
-        <div style="white-space: pre-wrap; word-break: break-word">
-          <div class="font-weight-medium">{{ t.name }}</div>
-          <div v-if="t.value !== null && t.value !== undefined">{{ t.value }}</div>
-          <div v-if="t['inherited-from']" class="text-caption">
-            Inherited from {{ t['inherited-from'].type }}
-          </div>
-        </div>
-      </v-tooltip>
+      <!-- The chip already says the name, the value and where an inherited tag
+           came from, so a tooltip repeating it is a hover that costs a reader
+           the time to find out it says nothing. It is kept only where the chip
+           had to cut the value short. -->
+      <v-chip
+        v-for="t in tags"
+        :key="t['tag-definition-id']"
+        size="small"
+        :color="t['inherited-from'] ? undefined : 'info'"
+        :variant="t['inherited-from'] ? 'outlined' : 'tonal'"
+        :prepend-icon="t['inherited-from'] ? 'mdi-arrow-top-left-bold-outline' : 'mdi-tag-outline'">
+        {{ t.name }}
+        <span v-if="t.value !== null && t.value !== undefined">
+          :&nbsp;{{ truncate(t.value, 40) }}
+        </span>
+        <span v-if="t['inherited-from']" class="ml-1 text-caption font-italic">
+          · from {{ t['inherited-from'].type }}
+        </span>
+        <v-tooltip v-if="isCut(t.value)" activator="parent" location="top" max-width="500">
+          <div style="white-space: pre-wrap; word-break: break-word">{{ t.value }}</div>
+        </v-tooltip>
+      </v-chip>
     </template>
     <span v-else class="text-disabled text-caption">No tags</span>
   </div>
@@ -60,6 +55,11 @@ const loading = ref(false);
 function truncate(v: string | null | undefined, n = 40): string {
   if (v == null) return '';
   return v.length > n ? `${v.slice(0, n)}…` : v;
+}
+
+/** Whether the chip is showing less than the whole value. */
+function isCut(v: string | null | undefined, n = 40): boolean {
+  return typeof v === 'string' && v.length > n;
 }
 
 async function load() {

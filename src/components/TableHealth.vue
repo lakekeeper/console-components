@@ -1,406 +1,447 @@
 <template>
-  <!-- Loading state when self-loading table metadata -->
-  <div v-if="tableLoading" class="d-flex justify-center align-center pa-6">
-    <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
-    <span class="ml-3 text-body-2 text-medium-emphasis">Loading table metadata…</span>
+  <!-- Summary: the same verdict this tab reaches, on one line, for a host that
+       wants to say how the table is doing without being the health tab. Reusing
+       the component rather than re-deriving the checks keeps the two from ever
+       disagreeing — the checks are read from metadata, so this costs a load and
+       no query. -->
+  <div v-if="summary" class="th-summary">
+    <template v-if="healthChecks.length">
+      <v-icon :color="overallHealthColor" size="18" class="mr-2">mdi-heart-pulse</v-icon>
+      <v-chip :color="overallHealthColor" size="x-small" variant="flat" class="mr-2">
+        {{ overallHealthLabel }}
+      </v-chip>
+      <span class="th-summary__counts">
+        <template v-if="summaryCounts.critical">{{ summaryCounts.critical }} critical ·</template>
+        <template v-if="summaryCounts.warning">{{ summaryCounts.warning }} warning ·</template>
+        {{ healthChecks.length }} checks
+      </span>
+      <!-- Beside the verdict, not across the row: the link is where the reader
+           already is, and a button alone at the far right reads as page chrome
+           rather than as the way on from what it sits next to. -->
+      <v-btn
+        variant="text"
+        size="small"
+        density="comfortable"
+        class="ml-2"
+        append-icon="mdi-arrow-right"
+        @click="$emit('open-tab', 'health')">
+        Health
+      </v-btn>
+    </template>
+    <span v-else-if="tableLoading" class="th-summary__counts">Reading table metadata…</span>
+    <span v-else class="th-summary__counts">No health checks for this table yet.</span>
   </div>
-  <v-alert v-else-if="tableError" type="error" variant="tonal" density="compact" class="mb-4">
-    {{ tableError }}
-  </v-alert>
-  <v-row v-else-if="healthChecks.length > 0" dense class="mb-4">
-    <v-col cols="12">
-      <v-card variant="outlined" elevation="1">
-        <v-toolbar color="transparent" density="compact" flat>
-          <v-toolbar-title class="text-subtitle-1">
-            <v-icon class="mr-2" :color="overallHealthColor">mdi-heart-pulse</v-icon>
-            Table Health
-          </v-toolbar-title>
-          <v-spacer></v-spacer>
-          <v-select
-            v-if="branchOptions.length > 1"
-            v-model="selectedBranch"
-            :items="branchOptions"
+
+  <template v-else>
+    <!-- Loading state when self-loading table metadata -->
+    <div v-if="tableLoading" class="d-flex justify-center align-center pa-6">
+      <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+      <span class="ml-3 text-body-2 text-medium-emphasis">Loading table metadata…</span>
+    </div>
+    <v-alert v-else-if="tableError" type="error" variant="tonal" density="compact" class="mb-4">
+      {{ tableError }}
+    </v-alert>
+    <v-row v-else-if="healthChecks.length > 0" dense class="mb-4">
+      <v-col cols="12">
+        <v-card variant="outlined" elevation="1">
+          <v-toolbar color="transparent" density="compact" flat>
+            <v-toolbar-title class="text-subtitle-1">
+              <v-icon class="mr-2" :color="overallHealthColor">mdi-heart-pulse</v-icon>
+              Table Health
+            </v-toolbar-title>
+            <v-spacer></v-spacer>
+            <v-select
+              v-if="branchOptions.length > 1"
+              v-model="selectedBranch"
+              :items="branchOptions"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 180px"
+              class="mr-2"
+              no-data-text="No branches available"
+              prepend-inner-icon="mdi-source-branch"></v-select>
+            <v-chip
+              v-else
+              size="x-small"
+              variant="outlined"
+              class="mr-2"
+              prepend-icon="mdi-source-branch">
+              {{ selectedBranch }}
+            </v-chip>
+            <v-dialog max-width="600">
+              <template #activator="{ props: dialogProps }">
+                <v-btn
+                  v-bind="dialogProps"
+                  icon="mdi-information-outline"
+                  size="x-small"
+                  variant="text"
+                  color="primary"
+                  class="mr-1"></v-btn>
+              </template>
+              <template #default="{ isActive }">
+                <v-card>
+                  <v-card-title class="d-flex align-center text-subtitle-1 py-3">
+                    <v-icon class="mr-2" color="info">mdi-information-outline</v-icon>
+                    Health Check Logic
+                  </v-card-title>
+                  <v-divider></v-divider>
+                  <v-card-text class="text-body-2">
+                    <p class="mb-3">
+                      Health checks are derived from the current snapshot's summary statistics. No
+                      additional API calls are made. The Partition Distribution chart uses DuckDB's
+                      <code>iceberg_metadata()</code>
+                      to query manifest files for per-partition statistics.
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="warning" class="mr-1">
+                        mdi-file-alert-outline
+                      </v-icon>
+                      Small Files
+                    </h4>
+                    <p class="mb-3">
+                      Compares average file size (total size ÷ file count) against targets. Files
+                      under
+                      <strong>1 MB</strong>
+                      avg are flagged as very small; under
+                      <strong>8 MB</strong>
+                      avg (with 10+ files) as small. Optimal Iceberg file sizes are
+                      <strong>128–512 MB</strong>
+                      . Small files increase query planning time and metadata overhead. Fix with
+                      compaction or larger write batches.
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="warning" class="mr-1">
+                        mdi-delete-clock-outline
+                      </v-icon>
+                      Delete Files
+                    </h4>
+                    <p class="mb-3">
+                      Checks for positional or equality delete files. These cause merge-on-read
+                      overhead at query time. Severity increases with the ratio of delete files to
+                      data files. Running compaction merges deletes into data files.
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="warning" class="mr-1">mdi-camera-burst</v-icon>
+                      Snapshot Count
+                    </h4>
+                    <p class="mb-3">
+                      Counts total snapshots in table metadata. Over
+                      <strong>100</strong>
+                      snapshots increases metadata file sizes and load times. Over
+                      <strong>500</strong>
+                      is critical. Fix with snapshot expiration (
+                      <code>expire_snapshots</code>
+                      ).
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="info" class="mr-1">
+                        mdi-file-multiple-outline
+                      </v-icon>
+                      High File Count
+                    </h4>
+                    <p class="mb-3">
+                      Flags tables with over
+                      <strong>1,000</strong>
+                      data files (even if file sizes are healthy). High file counts increase query
+                      planning time. Fix with compaction.
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="info" class="mr-1">mdi-update</v-icon>
+                      Format Version
+                    </h4>
+                    <p class="mb-3">
+                      Checks the Iceberg format version. v1 tables lack row-level deletes, improved
+                      column statistics, and full schema evolution. Upgrade to
+                      <strong>v2</strong>
+                      is recommended.
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="warning" class="mr-1">
+                        mdi-table-split-cell
+                      </v-icon>
+                      Partitioning
+                    </h4>
+                    <p class="mb-3">
+                      Detects unpartitioned tables with many files (&gt; 100), which can hurt query
+                      performance. Also tracks partition spec evolution count — many changes add
+                      metadata overhead.
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="info" class="mr-1">mdi-sort-variant</v-icon>
+                      Sort Order
+                    </h4>
+                    <p class="mb-3">
+                      Flags large tables (&gt; 1 GB) with no sort order defined. Sorting improves
+                      data clustering and enables min/max column pruning during query planning.
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="info" class="mr-1">mdi-file-tree-outline</v-icon>
+                      Schema Evolution
+                    </h4>
+                    <p class="mb-3">
+                      Tracks the number of schema versions in metadata. Informational — many schema
+                      changes are normal but worth noting.
+                    </p>
+
+                    <h4 class="text-subtitle-2 mb-1">
+                      <v-icon size="small" color="success" class="mr-1">
+                        mdi-database-outline
+                      </v-icon>
+                      Table Size
+                    </h4>
+                    <p>
+                      Informational — shows total record count and data size from the snapshot
+                      summary.
+                    </p>
+                  </v-card-text>
+                  <v-card-actions>
+                    <v-spacer></v-spacer>
+                    <v-btn variant="text" @click="isActive.value = false">Close</v-btn>
+                  </v-card-actions>
+                </v-card>
+              </template>
+            </v-dialog>
+            <v-chip :color="overallHealthColor" size="small" variant="flat" class="mr-2">
+              {{ overallHealthLabel }}
+            </v-chip>
+          </v-toolbar>
+          <v-divider></v-divider>
+          <v-expansion-panels variant="accordion" flat>
+            <v-expansion-panel v-for="check in healthChecks" :key="check.label">
+              <v-expansion-panel-title class="py-2">
+                <template #default>
+                  <div class="d-flex align-center flex-grow-1">
+                    <v-icon :color="check.color" size="small" class="mr-3">{{ check.icon }}</v-icon>
+                    <div class="flex-grow-1">
+                      <div class="text-body-2 font-weight-medium">{{ check.label }}</div>
+                      <div class="text-caption text-medium-emphasis text-wrap">
+                        {{ check.detail }}
+                      </div>
+                    </div>
+                    <v-chip :color="check.color" size="x-small" variant="flat" class="ml-2 mr-2">
+                      {{ check.severity }}
+                    </v-chip>
+                  </div>
+                </template>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text>
+                <v-table density="compact" class="text-caption">
+                  <thead>
+                    <tr>
+                      <th class="text-left" style="width: 45%">Metric</th>
+                      <th class="text-left">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="(row, idx) in check.reasoning" :key="idx">
+                      <td class="font-mono text-medium-emphasis">{{ row.label }}</td>
+                      <td class="font-mono">{{ row.value }}</td>
+                    </tr>
+                  </tbody>
+                </v-table>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+        </v-card>
+      </v-col>
+
+      <!-- Recommended Actions -->
+      <v-col cols="12">
+        <TableHealthActions
+          v-if="resolvedTable?.metadata && healthBranchSnapshot?.summary"
+          :metadata="resolvedTable.metadata"
+          :snapshot-summary="healthBranchSnapshot.summary"
+          :partition-data="partitionData"
+          :is-partitioned="isTablePartitioned"
+          :skew-ratio="partitionSkewRatio"
+          :partition-loading="partitionLoading" />
+      </v-col>
+    </v-row>
+
+    <!-- Nothing to analyse — say why rather than rendering an empty tab -->
+    <v-alert v-else type="info" variant="tonal" prominent class="mb-4">
+      <div class="text-body-1 font-weight-bold mb-2">
+        <v-icon class="mr-2">mdi-heart-pulse</v-icon>
+        {{ healthEmptyState?.title }}
+      </div>
+      <div class="text-body-2">{{ healthEmptyState?.detail }}</div>
+    </v-alert>
+
+    <!-- Snapshot Trends Chart -->
+    <v-card
+      v-if="healthChecks.length > 0 && healthBranchSnapshots.length > 0"
+      variant="outlined"
+      class="mb-4"
+      elevation="1">
+      <v-toolbar color="transparent" density="compact" flat>
+        <v-toolbar-title class="text-subtitle-1">
+          <v-icon class="mr-2" color="primary">mdi-chart-areaspline</v-icon>
+          Snapshot Trends
+        </v-toolbar-title>
+        <v-spacer></v-spacer>
+        <v-select
+          v-model="selectedMetric"
+          :items="availableMetrics"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="max-width: 220px"
+          class="mr-2"
+          no-data-text="No metrics available"></v-select>
+      </v-toolbar>
+      <v-divider></v-divider>
+      <div class="pa-3">
+        <div ref="healthChartRef" class="health-chart-container"></div>
+        <div v-if="allChartPoints.length > 1" class="mt-2 d-flex align-center">
+          <v-btn-toggle
+            v-model="chartWindowSize"
+            mandatory
             density="compact"
             variant="outlined"
-            hide-details
-            style="max-width: 180px"
-            class="mr-2"
-            no-data-text="No branches available"
-            prepend-inner-icon="mdi-source-branch"></v-select>
-          <v-chip
-            v-else
-            size="x-small"
-            variant="outlined"
-            class="mr-2"
-            prepend-icon="mdi-source-branch">
-            {{ selectedBranch }}
-          </v-chip>
-          <v-dialog max-width="600">
-            <template #activator="{ props: dialogProps }">
-              <v-btn
-                v-bind="dialogProps"
-                icon="mdi-information-outline"
-                size="x-small"
-                variant="text"
-                color="primary"
-                class="mr-1"></v-btn>
-            </template>
-            <template #default="{ isActive }">
-              <v-card>
-                <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-                  <v-icon class="mr-2" color="info">mdi-information-outline</v-icon>
-                  Health Check Logic
-                </v-card-title>
-                <v-divider></v-divider>
-                <v-card-text class="text-body-2">
-                  <p class="mb-3">
-                    Health checks are derived from the current snapshot's summary statistics. No
-                    additional API calls are made. The Partition Distribution chart uses DuckDB's
-                    <code>iceberg_metadata()</code>
-                    to query manifest files for per-partition statistics.
-                  </p>
+            divided
+            color="primary">
+            <v-btn v-for="opt in chartWindowOptions" :key="opt" :value="opt" size="x-small">
+              {{ opt }}
+            </v-btn>
+            <v-btn :value="allChartPoints.length" size="x-small">All</v-btn>
+          </v-btn-toggle>
+          <span
+            v-if="allChartPoints.length > effectiveWindowSize"
+            class="text-caption text-medium-emphasis ml-3">
+            showing {{ effectiveWindowSize }} of {{ allChartPoints.length }} snapshots
+          </span>
+        </div>
+      </div>
+    </v-card>
 
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="warning" class="mr-1">
-                      mdi-file-alert-outline
-                    </v-icon>
-                    Small Files
-                  </h4>
-                  <p class="mb-3">
-                    Compares average file size (total size ÷ file count) against targets. Files
-                    under
-                    <strong>1 MB</strong>
-                    avg are flagged as very small; under
-                    <strong>8 MB</strong>
-                    avg (with 10+ files) as small. Optimal Iceberg file sizes are
-                    <strong>128–512 MB</strong>
-                    . Small files increase query planning time and metadata overhead. Fix with
-                    compaction or larger write batches.
-                  </p>
-
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="warning" class="mr-1">
-                      mdi-delete-clock-outline
-                    </v-icon>
-                    Delete Files
-                  </h4>
-                  <p class="mb-3">
-                    Checks for positional or equality delete files. These cause merge-on-read
-                    overhead at query time. Severity increases with the ratio of delete files to
-                    data files. Running compaction merges deletes into data files.
-                  </p>
-
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="warning" class="mr-1">mdi-camera-burst</v-icon>
-                    Snapshot Count
-                  </h4>
-                  <p class="mb-3">
-                    Counts total snapshots in table metadata. Over
-                    <strong>100</strong>
-                    snapshots increases metadata file sizes and load times. Over
-                    <strong>500</strong>
-                    is critical. Fix with snapshot expiration (
-                    <code>expire_snapshots</code>
-                    ).
-                  </p>
-
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="info" class="mr-1">
-                      mdi-file-multiple-outline
-                    </v-icon>
-                    High File Count
-                  </h4>
-                  <p class="mb-3">
-                    Flags tables with over
-                    <strong>1,000</strong>
-                    data files (even if file sizes are healthy). High file counts increase query
-                    planning time. Fix with compaction.
-                  </p>
-
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="info" class="mr-1">mdi-update</v-icon>
-                    Format Version
-                  </h4>
-                  <p class="mb-3">
-                    Checks the Iceberg format version. v1 tables lack row-level deletes, improved
-                    column statistics, and full schema evolution. Upgrade to
-                    <strong>v2</strong>
-                    is recommended.
-                  </p>
-
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="warning" class="mr-1">mdi-table-split-cell</v-icon>
-                    Partitioning
-                  </h4>
-                  <p class="mb-3">
-                    Detects unpartitioned tables with many files (&gt; 100), which can hurt query
-                    performance. Also tracks partition spec evolution count — many changes add
-                    metadata overhead.
-                  </p>
-
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="info" class="mr-1">mdi-sort-variant</v-icon>
-                    Sort Order
-                  </h4>
-                  <p class="mb-3">
-                    Flags large tables (&gt; 1 GB) with no sort order defined. Sorting improves data
-                    clustering and enables min/max column pruning during query planning.
-                  </p>
-
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="info" class="mr-1">mdi-file-tree-outline</v-icon>
-                    Schema Evolution
-                  </h4>
-                  <p class="mb-3">
-                    Tracks the number of schema versions in metadata. Informational — many schema
-                    changes are normal but worth noting.
-                  </p>
-
-                  <h4 class="text-subtitle-2 mb-1">
-                    <v-icon size="small" color="success" class="mr-1">mdi-database-outline</v-icon>
-                    Table Size
-                  </h4>
-                  <p>
-                    Informational — shows total record count and data size from the snapshot
-                    summary.
-                  </p>
-                </v-card-text>
-                <v-card-actions>
-                  <v-spacer></v-spacer>
-                  <v-btn variant="text" @click="isActive.value = false">Close</v-btn>
-                </v-card-actions>
-              </v-card>
-            </template>
-          </v-dialog>
-          <v-chip :color="overallHealthColor" size="small" variant="flat" class="mr-2">
-            {{ overallHealthLabel }}
-          </v-chip>
-        </v-toolbar>
-        <v-divider></v-divider>
-        <v-expansion-panels variant="accordion" flat>
-          <v-expansion-panel v-for="check in healthChecks" :key="check.label">
-            <v-expansion-panel-title class="py-2">
-              <template #default>
-                <div class="d-flex align-center flex-grow-1">
-                  <v-icon :color="check.color" size="small" class="mr-3">{{ check.icon }}</v-icon>
-                  <div class="flex-grow-1">
-                    <div class="text-body-2 font-weight-medium">{{ check.label }}</div>
-                    <div class="text-caption text-medium-emphasis text-wrap">
-                      {{ check.detail }}
-                    </div>
-                  </div>
-                  <v-chip :color="check.color" size="x-small" variant="flat" class="ml-2 mr-2">
-                    {{ check.severity }}
-                  </v-chip>
-                </div>
-              </template>
-            </v-expansion-panel-title>
-            <v-expansion-panel-text>
-              <v-table density="compact" class="text-caption">
-                <thead>
-                  <tr>
-                    <th class="text-left" style="width: 45%">Metric</th>
-                    <th class="text-left">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, idx) in check.reasoning" :key="idx">
-                    <td class="font-mono text-medium-emphasis">{{ row.label }}</td>
-                    <td class="font-mono">{{ row.value }}</td>
-                  </tr>
-                </tbody>
-              </v-table>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
-      </v-card>
-    </v-col>
-
-    <!-- Recommended Actions -->
-    <v-col cols="12">
-      <TableHealthActions
-        v-if="resolvedTable?.metadata && healthBranchSnapshot?.summary"
-        :metadata="resolvedTable.metadata"
-        :snapshot-summary="healthBranchSnapshot.summary"
-        :partition-data="partitionData"
-        :is-partitioned="isTablePartitioned"
-        :skew-ratio="partitionSkewRatio"
-        :partition-loading="partitionLoading" />
-    </v-col>
-  </v-row>
-
-  <!-- Nothing to analyse — say why rather than rendering an empty tab -->
-  <v-alert v-else type="info" variant="tonal" prominent class="mb-4">
-    <div class="text-body-1 font-weight-bold mb-2">
-      <v-icon class="mr-2">mdi-heart-pulse</v-icon>
-      {{ healthEmptyState?.title }}
-    </div>
-    <div class="text-body-2">{{ healthEmptyState?.detail }}</div>
-  </v-alert>
-
-  <!-- Snapshot Trends Chart -->
-  <v-card
-    v-if="healthChecks.length > 0 && healthBranchSnapshots.length > 0"
-    variant="outlined"
-    class="mb-4"
-    elevation="1">
-    <v-toolbar color="transparent" density="compact" flat>
-      <v-toolbar-title class="text-subtitle-1">
-        <v-icon class="mr-2" color="primary">mdi-chart-areaspline</v-icon>
-        Snapshot Trends
-      </v-toolbar-title>
-      <v-spacer></v-spacer>
-      <v-select
-        v-model="selectedMetric"
-        :items="availableMetrics"
-        density="compact"
-        variant="outlined"
-        hide-details
-        style="max-width: 220px"
-        class="mr-2"
-        no-data-text="No metrics available"></v-select>
-    </v-toolbar>
-    <v-divider></v-divider>
-    <div class="pa-3">
-      <div ref="healthChartRef" class="health-chart-container"></div>
-      <div v-if="allChartPoints.length > 1" class="mt-2 d-flex align-center">
+    <!-- Partition Distribution -->
+    <v-card v-if="partitionChartAvailable" variant="outlined" class="mb-4" elevation="1">
+      <v-toolbar color="transparent" density="compact" flat>
+        <v-toolbar-title class="text-subtitle-1">
+          <v-icon class="mr-2" color="primary">mdi-chart-bar</v-icon>
+          Partition Distribution
+        </v-toolbar-title>
+        <v-spacer></v-spacer>
         <v-btn-toggle
-          v-model="chartWindowSize"
+          v-model="partitionMetric"
           mandatory
           density="compact"
           variant="outlined"
           divided
-          color="primary">
-          <v-btn v-for="opt in chartWindowOptions" :key="opt" :value="opt" size="x-small">
-            {{ opt }}
-          </v-btn>
-          <v-btn :value="allChartPoints.length" size="x-small">All</v-btn>
-        </v-btn-toggle>
-        <span
-          v-if="allChartPoints.length > effectiveWindowSize"
-          class="text-caption text-medium-emphasis ml-3">
-          showing {{ effectiveWindowSize }} of {{ allChartPoints.length }} snapshots
-        </span>
-      </div>
-    </div>
-  </v-card>
-
-  <!-- Partition Distribution -->
-  <v-card v-if="partitionChartAvailable" variant="outlined" class="mb-4" elevation="1">
-    <v-toolbar color="transparent" density="compact" flat>
-      <v-toolbar-title class="text-subtitle-1">
-        <v-icon class="mr-2" color="primary">mdi-chart-bar</v-icon>
-        Partition Distribution
-      </v-toolbar-title>
-      <v-spacer></v-spacer>
-      <v-btn-toggle
-        v-model="partitionMetric"
-        mandatory
-        density="compact"
-        variant="outlined"
-        divided
-        color="primary"
-        class="mr-2">
-        <v-btn value="records" size="x-small">Records</v-btn>
-        <v-btn value="files" size="x-small">Files</v-btn>
-      </v-btn-toggle>
-    </v-toolbar>
-    <v-divider></v-divider>
-    <div v-if="partitionLoading" class="d-flex justify-center align-center pa-6">
-      <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
-      <span class="ml-3 text-body-2 text-medium-emphasis">
-        Querying partition metadata via DuckDB…
-      </span>
-    </div>
-    <div v-else-if="partitionError" class="pa-4">
-      <v-alert type="warning" variant="tonal" density="compact" class="text-body-2">
-        {{ partitionError }}
-        <template v-if="partitionError.includes('CORS')" #append>
-          <CorsConfigDialog />
-        </template>
-      </v-alert>
-    </div>
-    <div v-else-if="partitionData.length > 0" class="pa-3">
-      <div ref="partitionChartRef" class="partition-chart-container"></div>
-      <div v-if="partitionSkewRatio !== null" class="mt-2 d-flex align-center flex-wrap">
-        <v-chip
-          :color="partitionSkewRatio > 5 ? 'error' : partitionSkewRatio > 2 ? 'warning' : 'success'"
-          size="x-small"
-          variant="flat"
+          color="primary"
           class="mr-2">
-          {{
-            partitionSkewRatio > 5 ? 'High Skew' : partitionSkewRatio > 2 ? 'Skewed' : 'Balanced'
-          }}
-        </v-chip>
-        <span class="text-caption text-medium-emphasis mr-4">
-          Largest / median ratio: {{ partitionSkewRatio.toFixed(1) }}x ·
-          {{ partitionData.length }} partition{{ partitionData.length !== 1 ? 's' : '' }}
-        </span>
-        <span class="d-inline-flex align-center ga-3 text-caption text-medium-emphasis">
-          <span class="d-inline-flex align-center">
-            <span
-              style="
-                width: 10px;
-                height: 10px;
-                border-radius: 2px;
-                background: #66bb6a;
-                display: inline-block;
-              "
-              class="mr-1"></span>
-            Balanced
-          </span>
-          <span class="d-inline-flex align-center">
-            <span
-              style="
-                width: 10px;
-                height: 10px;
-                border-radius: 2px;
-                background: #fdd835;
-                display: inline-block;
-              "
-              class="mr-1"></span>
-            Moderate
-          </span>
-          <span class="d-inline-flex align-center">
-            <span
-              style="
-                width: 10px;
-                height: 10px;
-                border-radius: 2px;
-                background: #fb8c00;
-                display: inline-block;
-              "
-              class="mr-1"></span>
-            High
-          </span>
-          <span class="d-inline-flex align-center">
-            <span
-              style="
-                width: 10px;
-                height: 10px;
-                border-radius: 2px;
-                background: #e53935;
-                display: inline-block;
-              "
-              class="mr-1"></span>
-            Extreme
-          </span>
-          <span class="d-inline-flex align-center">
-            <span
-              style="
-                width: 10px;
-                height: 10px;
-                border-radius: 2px;
-                background: #42a5f5;
-                display: inline-block;
-              "
-              class="mr-1"></span>
-            Undersized
-          </span>
+          <v-btn value="records" size="x-small">Records</v-btn>
+          <v-btn value="files" size="x-small">Files</v-btn>
+        </v-btn-toggle>
+      </v-toolbar>
+      <v-divider></v-divider>
+      <div v-if="partitionLoading" class="d-flex justify-center align-center pa-6">
+        <v-progress-circular indeterminate color="primary" size="48"></v-progress-circular>
+        <span class="ml-3 text-body-2 text-medium-emphasis">
+          Querying partition metadata via DuckDB…
         </span>
       </div>
-    </div>
-  </v-card>
+      <div v-else-if="partitionError" class="pa-4">
+        <v-alert type="warning" variant="tonal" density="compact" class="text-body-2">
+          {{ partitionError }}
+          <template v-if="partitionError.includes('CORS')" #append>
+            <CorsConfigDialog />
+          </template>
+        </v-alert>
+      </div>
+      <div v-else-if="partitionData.length > 0" class="pa-3">
+        <div ref="partitionChartRef" class="partition-chart-container"></div>
+        <div v-if="partitionSkewRatio !== null" class="mt-2 d-flex align-center flex-wrap">
+          <v-chip
+            :color="
+              partitionSkewRatio > 5 ? 'error' : partitionSkewRatio > 2 ? 'warning' : 'success'
+            "
+            size="x-small"
+            variant="flat"
+            class="mr-2">
+            {{
+              partitionSkewRatio > 5 ? 'High Skew' : partitionSkewRatio > 2 ? 'Skewed' : 'Balanced'
+            }}
+          </v-chip>
+          <span class="text-caption text-medium-emphasis mr-4">
+            Largest / median ratio: {{ partitionSkewRatio.toFixed(1) }}x ·
+            {{ partitionData.length }} partition{{ partitionData.length !== 1 ? 's' : '' }}
+          </span>
+          <span class="d-inline-flex align-center ga-3 text-caption text-medium-emphasis">
+            <span class="d-inline-flex align-center">
+              <span
+                style="
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: #66bb6a;
+                  display: inline-block;
+                "
+                class="mr-1"></span>
+              Balanced
+            </span>
+            <span class="d-inline-flex align-center">
+              <span
+                style="
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: #fdd835;
+                  display: inline-block;
+                "
+                class="mr-1"></span>
+              Moderate
+            </span>
+            <span class="d-inline-flex align-center">
+              <span
+                style="
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: #fb8c00;
+                  display: inline-block;
+                "
+                class="mr-1"></span>
+              High
+            </span>
+            <span class="d-inline-flex align-center">
+              <span
+                style="
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: #e53935;
+                  display: inline-block;
+                "
+                class="mr-1"></span>
+              Extreme
+            </span>
+            <span class="d-inline-flex align-center">
+              <span
+                style="
+                  width: 10px;
+                  height: 10px;
+                  border-radius: 2px;
+                  background: #42a5f5;
+                  display: inline-block;
+                "
+                class="mr-1"></span>
+              Undersized
+            </span>
+          </span>
+        </div>
+      </div>
+    </v-card>
+  </template>
 </template>
 
 <script setup lang="ts">
@@ -422,6 +463,13 @@ const props = defineProps<{
   tableName?: string;
   catalogUrl?: string;
   storageType?: string;
+  /** Render the verdict as one line instead of the whole tab. */
+  summary?: boolean;
+}>();
+
+defineEmits<{
+  /** Raised by the summary's link to the full tab. */
+  'open-tab': [tab: string];
 }>();
 
 // Composables for partition distribution
@@ -1195,6 +1243,11 @@ const healthEmptyState = computed<{ title: string; detail: string } | null>(() =
   };
 });
 
+const summaryCounts = computed(() => ({
+  critical: healthChecks.value.filter((c) => c.severity === 'Critical').length,
+  warning: healthChecks.value.filter((c) => c.severity === 'Warning').length,
+}));
+
 const overallHealthColor = computed(() => {
   if (healthChecks.value.some((c) => c.severity === 'Critical')) return 'error';
   if (healthChecks.value.some((c) => c.severity === 'Warning')) return 'warning';
@@ -1872,6 +1925,16 @@ watch(
 </script>
 
 <style scoped>
+.th-summary {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+}
+.th-summary__counts {
+  font-size: 0.8125rem;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+
 .font-mono {
   font-family: 'Roboto Mono', monospace;
   font-size: 0.875rem;

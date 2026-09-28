@@ -24,11 +24,21 @@
       </slot>
     </span>
 
-    <span class="d-flex align-baseline ga-0 lk-identity__name" :title="fullName">
-      <!-- The parents stay, de-emphasised: where a table lives is part of its
-           name, but the leaf is what the reader came for. -->
-      <span v-if="parentPath" class="text-body-2 text-medium-emphasis">{{ parentPath }}.</span>
-      <span class="text-subtitle-1 font-weight-medium">{{ name }}</span>
+    <!-- Name over id: the id is long, monospaced and rarely read, so as a chip
+         beside the name it took more of the line than the name it identifies.
+         Under it, it reads as what it is — the thing's address. -->
+    <span class="lk-identity__text">
+      <span class="lk-identity__name" :title="fullName">
+        <!-- The parents stay, de-emphasised: where a table lives is part of its
+             name, but the leaf is what the reader came for. -->
+        <span v-if="parentPath" class="text-body-2 text-medium-emphasis">{{ parentPath }}.</span>
+        <span class="text-subtitle-1 font-weight-medium">{{ name }}</span>
+      </span>
+      <span v-if="id" class="lk-identity__id" @click="copyId">
+        {{ id }}
+        <v-icon size="11" class="lk-identity__copy">mdi-content-copy</v-icon>
+        <v-tooltip activator="parent" location="bottom">{{ idLabel }} — click to copy</v-tooltip>
+      </span>
     </span>
 
     <v-chip
@@ -43,21 +53,6 @@
       <v-tooltip v-if="chip.tooltip" activator="parent" location="bottom">
         {{ chip.tooltip }}
       </v-tooltip>
-    </v-chip>
-
-    <!-- The id is the one fact that disambiguates two things with the same
-         name, and the one nobody can retype from a screenshot — so it is on
-         the row, and one click copies it. -->
-    <v-chip
-      v-if="id"
-      size="x-small"
-      label
-      variant="tonal"
-      class="text-caption lk-identity__id"
-      @click="copyId">
-      {{ id }}
-      <v-icon size="12" class="ml-1 lk-identity__copy">mdi-content-copy</v-icon>
-      <v-tooltip activator="parent" location="bottom">{{ idLabel }} — click to copy</v-tooltip>
     </v-chip>
 
     <slot name="chips"></slot>
@@ -129,16 +124,35 @@ function copyId() {
   flex: 0 0 auto;
 }
 
+.lk-identity__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.25;
+}
+
 /* The name may be long; it wraps with the row rather than pushing the chips
    and the actions off the right edge. */
 .lk-identity__name {
+  display: flex;
+  align-items: baseline;
   min-width: 0;
   overflow-wrap: anywhere;
 }
 
 .lk-identity__id {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
   cursor: pointer;
   font-family: 'Roboto Mono', 'SFMono-Regular', Menlo, monospace;
+  font-size: 0.6875rem;
+  color: rgba(var(--v-theme-on-surface), 0.55);
+  overflow-wrap: anywhere;
+}
+.lk-identity__id:hover {
+  color: rgba(var(--v-theme-on-surface), 0.8);
 }
 
 .lk-identity__copy {

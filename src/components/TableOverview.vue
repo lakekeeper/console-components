@@ -1,13 +1,14 @@
 <template>
-  <div>
+  <!-- The host's window item is already bounded and scrolls; this passes that
+       height through so the details pane can end where the tab ends. -->
+  <div style="height: 100%; min-height: 0">
     <TableDetails
       :table="table"
       :warehouse-id="props.warehouseId"
       :namespace-path="props.namespaceId"
       :table-name="props.tableName"
-      :catalog-url="catalogUrl"
       :can-edit="canCommit"
-      @updated="loadTableData" />
+      @open-tab="$emit('open-tab', $event)" />
   </div>
 </template>
 
@@ -24,8 +25,12 @@ const props = defineProps<{
   tableName: string;
 }>();
 
+defineEmits<{
+  /** Raised when the pane points at one of the table's other tabs. */
+  'open-tab': [tab: string];
+}>();
+
 const functions = useFunctions();
-const catalogUrl = computed(() => `${functions.icebergCatalogUrl()}catalog`);
 const tableId = ref('');
 
 // Table permissions (rename / properties edit are gated on commit)
