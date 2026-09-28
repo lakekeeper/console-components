@@ -412,6 +412,15 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       return;
     }
 
+    // Listing projects is what every landing surface does on its own: home
+    // counts them, the app bar's switcher lists them, the projects page is
+    // made of them. A user without that permission would be told three times
+    // before touching anything, for a refusal they cannot act on. Each of
+    // those surfaces says so where the list would have been instead.
+    if (code === 403 && functionCaused === 'loadProjectList') {
+      return;
+    }
+
     // Show snackbar for immediate user feedback unless notify is explicitly false
     if (notify !== false) {
       visual.setSnackbarMsg({
