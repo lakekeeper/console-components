@@ -42,6 +42,7 @@ import RoleOverviewEdit from './components/RoleOverviewEdit.vue';
 import RoleProviderChip from './components/RoleProviderChip.vue';
 import ProjectNameAddOrEditDialog from './components/ProjectNameAddOrEditDialog.vue';
 import AuthenticationDisabledWarningBanner from './components/AuthenticationDisabledWarningBanner.vue';
+import WarehousePicker from './components/WarehousePicker.vue';
 import WarehouseRenameDialog from './components/WarehouseRenameDialog.vue';
 import WarehouseActionsMenu from './components/WarehouseActionsMenu.vue';
 import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
@@ -189,6 +190,7 @@ export {
   UserManager,
   ProjectNameAddOrEditDialog,
   AuthenticationDisabledWarningBanner,
+  WarehousePicker,
   WarehouseRenameDialog,
   WarehouseActionsMenu,
   WarehouseAddDialog,
@@ -521,6 +523,7 @@ const components = {
   PlusFeatureDialog,
   UserManager,
   AuthenticationDisabledWarningBanner,
+  WarehousePicker,
   WarehouseRenameDialog,
   WarehouseActionsMenu,
   WarehouseAddDialog,

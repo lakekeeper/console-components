@@ -15,21 +15,14 @@
     </v-sheet>
     <!-- Warehouse Search -->
     <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
-      <v-select
+      <WarehousePicker
         v-if="!props.warehouseId"
         v-model="selectedSearchWarehouse"
-        :items="warehouseOptions"
-        density="compact"
-        variant="outlined"
-        placeholder="Select warehouse to search..."
-        no-data-text="No warehouses available"
-        hide-details
+        :warehouses="warehouseChoices"
+        :loading="isLoading"
+        all-label="All warehouses"
         clearable
-        class="filter-field mb-1">
-        <template #prepend-inner>
-          <v-icon size="x-small">mdi-warehouse</v-icon>
-        </template>
-      </v-select>
+        class="mb-1" />
       <div v-else class="text-caption d-flex align-center mb-1 px-1" style="min-height: 28px">
         <v-icon size="x-small" class="mr-1">mdi-warehouse</v-icon>
         {{ props.warehouseName || selectedSearchWarehouse }}
@@ -134,7 +127,7 @@
     <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
-        :items="treeItems"
+        :items="visibleTreeItems"
         item-value="id"
         density="compact"
         open-on-click
@@ -345,6 +338,7 @@ import vortexLightIcon from '@/assets/vortex_logo.svg';
 import vortexDarkIcon from '@/assets/vortex_logo_dark_theme.svg';
 import lanceIcon from '@/assets/lance.png';
 import paimonIcon from '@/assets/paimon.svg';
+import WarehousePicker from './WarehousePicker.vue';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -543,11 +537,31 @@ const searchWarehouseId = computed(() => props.warehouseId || selectedSearchWare
 // Includes the warehouses still behind "Load more": the selector picks what to
 // search, and a warehouse that exists but has not been paged into the tree yet
 // is still a valid thing to search.
-const warehouseOptions = computed(() =>
+const warehouseChoices = computed(() =>
   [...treeItems.value, ...pendingWarehouses.value]
     .filter((item) => item.type === 'warehouse')
-    .map((item) => ({ title: item.name, value: item.warehouseId })),
+    .map((item) => ({ id: item.warehouseId, name: item.name })),
 );
+
+/**
+ * What the tree shows: every warehouse, or the picked one alone.
+ *
+ * The pick reaches into `pendingWarehouses` too — warehouses fetched but not yet
+ * rendered — so picking one far down the list shows it now rather than after
+ * paging to it. Nodes pass through by reference, never cloned: expanding one
+ * mutates `item.children` in place.
+ *
+ * Skipped entirely when the component is already scoped to a warehouse by prop;
+ * there is nothing to narrow.
+ */
+const visibleTreeItems = computed(() => {
+  const id = props.warehouseId ? null : selectedSearchWarehouse.value;
+  if (!id) return treeItems.value;
+  const picked =
+    treeItems.value.find((item) => item.type === 'warehouse' && item.warehouseId === id) ??
+    pendingWarehouses.value.find((item) => item.warehouseId === id);
+  return picked ? [picked] : [];
+});
 
 // Dismiss search results
 function dismissSearch() {

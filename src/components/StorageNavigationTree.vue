@@ -15,11 +15,23 @@
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
 
+    <!-- Narrow to one warehouse. Hidden when the component is already scoped to
+         one by prop: there is nothing to narrow, and an "All warehouses" entry
+         would offer a view this instance does not have. -->
+    <v-sheet v-if="!props.warehouseId" color="transparent" class="px-3 pb-2 pt-2 flex-shrink-0">
+      <WarehousePicker
+        v-model="selectedWarehouseId"
+        :warehouses="warehouseChoices"
+        :loading="isLoading"
+        all-label="All warehouses"
+        clearable />
+    </v-sheet>
+
     <!-- Tree View -->
     <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
-        :items="treeItems"
+        :items="visibleTreeItems"
         item-value="id"
         density="compact"
         open-on-click
@@ -148,6 +160,7 @@ import stackitLightIcon from '@/assets/stackit-mark.svg';
 import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 import aliyunIcon from '@/assets/aliyun.svg';
 import { isAliyunOssEndpoint } from '@/common/storageIcon';
+import WarehousePicker from './WarehousePicker.vue';
 
 const props = defineProps<{
   warehouseId?: string;
@@ -255,6 +268,31 @@ const WAREHOUSE_LOAD_MORE_ID = 'load-more-warehouses';
 
 /** Warehouse nodes fetched but not yet rendered. */
 const pendingWarehouses = ref<TreeItem[]>([]);
+
+const selectedWarehouseId = ref<string | null>(null);
+
+const warehouseChoices = computed(() =>
+  [...treeItems.value, ...pendingWarehouses.value]
+    .filter((item) => item.type === 'warehouse')
+    .map((item) => ({ id: item.warehouseId, name: item.name })),
+);
+
+/**
+ * What the tree shows: every warehouse, or the picked one alone.
+ *
+ * The pick reaches into `pendingWarehouses` too — warehouses fetched but not yet
+ * rendered — so picking one far down the list shows it now rather than after
+ * paging to it. Nodes pass through by reference, never cloned: expanding one
+ * mutates `item.children` in place.
+ */
+const visibleTreeItems = computed(() => {
+  const id = props.warehouseId ? null : selectedWarehouseId.value;
+  if (!id) return treeItems.value;
+  const picked =
+    treeItems.value.find((item) => item.type === 'warehouse' && item.warehouseId === id) ??
+    pendingWarehouses.value.find((item) => item.warehouseId === id);
+  return picked ? [picked] : [];
+});
 
 function warehouseNode(warehouse: any): TreeItem {
   const sp = warehouse['storage-profile'];
