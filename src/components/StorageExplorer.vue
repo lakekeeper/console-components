@@ -77,16 +77,29 @@
                 <div v-if="u.error" class="text-caption text-error text-truncate" :title="u.error">
                   {{ u.error }}
                 </div>
+                <div v-else-if="u.cancelled" class="text-caption text-medium-emphasis">
+                  Cancelled
+                </div>
               </div>
               <v-icon v-if="u.error" size="small" color="error">mdi-alert-circle</v-icon>
+              <v-icon v-else-if="u.cancelled" size="small" class="text-medium-emphasis">
+                mdi-cancel
+              </v-icon>
               <v-icon v-else-if="u.done" size="small" color="success">mdi-check-circle</v-icon>
-              <v-progress-circular
-                v-else
-                :model-value="u.fraction * 100"
-                :indeterminate="u.fraction === 0"
-                size="18"
-                width="2"
-                color="primary" />
+              <template v-else>
+                <v-progress-circular
+                  :model-value="u.fraction * 100"
+                  :indeterminate="u.fraction === 0"
+                  size="18"
+                  width="2"
+                  color="primary" />
+                <v-btn
+                  size="x-small"
+                  variant="text"
+                  icon="mdi-close"
+                  title="Cancel this upload"
+                  @click="cancelUpload(u)"></v-btn>
+              </template>
             </div>
           </div>
         </v-expand-transition>
@@ -413,6 +426,22 @@
       </v-card>
     </v-dialog>
 
+    <!-- Leaving while uploads are in flight -->
+    <v-dialog v-model="leaveOpen" max-width="460" persistent>
+      <v-card title="Uploads still in progress">
+        <v-card-text class="text-body-2">
+          {{ uploadsPendingCount }} file{{ uploadsPendingCount === 1 ? '' : 's' }} still uploading.
+          Leaving this page stops the explorer from tracking them, and a transfer that is cut off
+          can leave an incomplete object in storage.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="answerLeave(false)">Stay on page</v-btn>
+          <v-btn color="error" variant="flat" @click="answerLeave(true)">Leave anyway</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Create folder dialog -->
     <v-dialog v-model="createFolderOpen" max-width="440" persistent>
       <v-card title="New folder">
@@ -507,14 +536,26 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, watch, inject } from 'vue';
+import {
+  ref,
+  shallowRef,
+  reactive,
+  computed,
+  markRaw,
+  onMounted,
+  onUnmounted,
+  watch,
+  inject,
+} from 'vue';
 import VueJsonPretty from 'vue-json-pretty';
 import 'vue-json-pretty/lib/styles.css';
+import { onBeforeRouteLeave } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import {
   useStorageExplorer,
   StorageListError,
+  UploadCancelled,
   type StorageEntry,
   type StorageLoadResult,
 } from '../composables/useStorageExplorer';
@@ -697,6 +738,8 @@ interface UploadItem {
   fraction: number;
   done: boolean;
   error?: string;
+  cancelled?: boolean;
+  controller: AbortController;
 }
 let uploadSeq = 0;
 const uploads = ref<UploadItem[]>([]);
@@ -704,20 +747,65 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const uploadTarget = ref<string | null>(null);
 const uploadPanelCollapsed = ref(false);
 
-const uploadsActive = computed(() => uploads.value.some((u) => !u.done && !u.error));
+const isPending = (u: UploadItem) => !u.done && !u.error && !u.cancelled;
+const uploadsActive = computed(() => uploads.value.some(isPending));
+const uploadsPendingCount = computed(() => uploads.value.filter(isPending).length);
+
+function cancelUpload(item: UploadItem) {
+  item.controller.abort();
+}
 const uploadHeadline = computed(() => {
   const total = uploads.value.length;
-  const pending = uploads.value.filter((u) => !u.done && !u.error).length;
+  const pending = uploadsPendingCount.value;
   const failed = uploads.value.filter((u) => u.error).length;
+  const cancelled = uploads.value.filter((u) => u.cancelled).length;
+  const done = uploads.value.filter((u) => u.done).length;
   if (pending) return `Uploading ${pending} of ${total} item${total === 1 ? '' : 's'}…`;
   if (failed === total) return `${failed} upload${failed === 1 ? '' : 's'} failed`;
-  if (failed) return `${total - failed} of ${total} uploads complete, ${failed} failed`;
+  if (cancelled === total) return `${cancelled} upload${cancelled === 1 ? '' : 's'} cancelled`;
+  const tail = [failed ? `${failed} failed` : '', cancelled ? `${cancelled} cancelled` : '']
+    .filter(Boolean)
+    .join(', ');
+  if (tail) return `${done} of ${total} uploads complete, ${tail}`;
   return `${total} upload${total === 1 ? '' : 's'} complete`;
 });
 
 function dismissUploads() {
   uploads.value = [];
   uploadPanelCollapsed.value = false;
+}
+
+// ---- Leaving mid-upload -----------------------------------------------------
+// A transfer in flight is tied to this page: a full page unload kills it, and a
+// route change takes away the only place its progress and errors are reported.
+const leaveOpen = ref(false);
+let leaveResolve: ((leave: boolean) => void) | null = null;
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (!uploadsActive.value) return;
+  e.preventDefault();
+  e.returnValue = '';
+}
+
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload));
+onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload));
+
+function answerLeave(leave: boolean) {
+  leaveOpen.value = false;
+  leaveResolve?.(leave);
+  leaveResolve = null;
+}
+
+try {
+  onBeforeRouteLeave(() => {
+    if (!uploadsActive.value) return true;
+    leaveOpen.value = true;
+    return new Promise<boolean>((resolve) => {
+      leaveResolve = resolve;
+    });
+  });
+} catch {
+  // Rendered outside a router (tests, isolated mounts): the unload guard alone.
 }
 const isDraggingOver = ref(false);
 
@@ -1016,7 +1104,19 @@ async function uploadFiles(files: File[], targetPrefix: string | null) {
   uploadPanelCollapsed.value = false;
   const tasks = files.map((file) => {
     const id = ++uploadSeq;
-    const item: UploadItem = { id, name: file.name, fraction: 0, done: false };
+    // Reactive up front, not on the way out of the array: the upload tasks hold
+    // this object, and a mutation on the raw one the array was handed never
+    // reaches the proxy the panel renders — progress would sit at 0% and a
+    // cancel would change nothing on screen.
+    const item = reactive<UploadItem>({
+      id,
+      name: file.name,
+      fraction: 0,
+      done: false,
+      // Raw: a reactive proxy around an AbortController makes abort() and its
+      // signal's addEventListener throw on an illegal invocation.
+      controller: markRaw(new AbortController()),
+    });
     uploads.value.push(item);
     return { file, item, absPath: prefix + file.name };
   });
@@ -1024,24 +1124,27 @@ async function uploadFiles(files: File[], targetPrefix: string | null) {
     tasks.map(async ({ file, item, absPath }) => {
       try {
         await withRenew(() =>
-          explorer.putObject(storageRes.value!, absPath, file, (f) => {
-            item.fraction = f;
-          }),
+          explorer.putObject(
+            storageRes.value!,
+            absPath,
+            file,
+            (f) => {
+              item.fraction = f;
+            },
+            item.controller.signal,
+          ),
         );
         item.fraction = 1;
         item.done = true;
       } catch (e: any) {
-        item.error = e instanceof StorageListError ? e.message : e?.message || String(e);
+        if (e instanceof UploadCancelled) item.cancelled = true;
+        else item.error = e instanceof StorageListError ? e.message : e?.message || String(e);
       }
     }),
   );
   await refreshFolder(targetPrefix);
-  // Successful batches fade out on their own; failures stay until dismissed.
-  const batchIds = new Set(tasks.map((t) => t.item.id));
-  setTimeout(() => {
-    if (uploads.value.some((u) => u.error)) return;
-    if (uploads.value.every((u) => batchIds.has(u.id) && u.done)) uploads.value = [];
-  }, 4000);
+  // The panel stays until it is dismissed: a result that disappears on a timer
+  // is one the reader has to have been watching to see.
 }
 
 async function refreshFolder(path: string | null) {
