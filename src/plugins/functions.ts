@@ -148,13 +148,21 @@ import { App } from 'vue';
 let appConfig: any = null;
 
 // General
-function init() {
+// The catalog resolves a request's project from `x-project-id`; without it the
+// server falls back to the default project and rejects warehouses that live in
+// another one.
+const currentProjectId = (): string => {
   const visual = useVisualStore();
+  return (
+    visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'] || ''
+  );
+};
+
+function init() {
   // Don't capture the token - get it dynamically in the interceptor
 
   // Use selected project-id or fall back to default-project-id from server
-  const projectId =
-    visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'];
+  const projectId = currentProjectId();
 
   mngClient.client.setConfig({
     baseUrl: icebergCatalogUrl(),
@@ -170,6 +178,7 @@ function init() {
 
   iceClient.client.setConfig({
     baseUrl: icebergCatalogUrlSuffixed(),
+    headers: { 'x-project-id': projectId },
   });
 
   iceClient.client.interceptors.request.use((request) => {
@@ -2301,6 +2310,7 @@ async function createBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         body: bodyJson,
       },
@@ -2380,6 +2390,7 @@ async function renameBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         body: bodyJson,
       },
@@ -2437,6 +2448,7 @@ async function deleteBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         body: JSON.stringify(body),
       },
@@ -2503,6 +2515,7 @@ async function createTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         body: bodyJson,
       },
@@ -2580,6 +2593,7 @@ async function renameTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         body: bodyJson,
       },
@@ -2633,6 +2647,7 @@ async function deleteTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         body: JSON.stringify(body),
       },
@@ -2713,6 +2728,7 @@ async function rollbackBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         body: bodyJson,
       },
@@ -3189,6 +3205,7 @@ async function createIcebergTable(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         body: JSON.stringify(request),
       },
@@ -3264,6 +3281,7 @@ async function loadTableCustomized(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
         },
         // Never serve a 304-revalidated response: the vended storage credentials
         // in the body expire (~1h), and a cached body returns stale/expired creds.
