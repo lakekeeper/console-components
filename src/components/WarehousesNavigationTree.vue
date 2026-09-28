@@ -193,6 +193,11 @@
             size="small">
             <v-img :src="oneLakeIcon" width="18" height="18" />
           </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'stackit'"
+            size="small">
+            <v-img :src="stackitIcon" width="18" height="14" />
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon
@@ -331,6 +336,8 @@ import type { SearchTabular } from '@/gen/management/types.gen';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import aliyunIcon from '@/assets/aliyun.svg';
+import stackitLightIcon from '@/assets/stackit-mark.svg';
+import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 import icebergIcon from '@/assets/iceberg.svg';
 import { isAliyunOssEndpoint } from '@/common/storageIcon';
 import deltaIcon from '@/assets/delta.svg';
@@ -360,6 +367,8 @@ function canPick(type: string): boolean {
 
 const functions = useFunctions();
 const visualStore = useVisualStore();
+// The STACKIT mark is ink-on-transparent, so it needs the light/dark pair.
+const stackitIcon = computed(() => (visualStore.themeLight ? stackitLightIcon : stackitDarkIcon));
 
 const emit = defineEmits<{
   (
@@ -415,7 +424,7 @@ interface TreeItem {
   namespaceId?: string; // Full namespace path with dots (e.g., 'finance.sub')
   loaded?: boolean;
   /** Storage profile type — only set on warehouse nodes. */
-  storageType?: 's3' | 'adls' | 'gcs' | 'onelake';
+  storageType?: 's3' | 'adls' | 'gcs' | 'onelake' | 'stackit';
   storageFlavor?: string;
   storageEndpoint?: string;
   /** Tabular format — 'iceberg' on table nodes, gt.format on generic-table nodes. */
