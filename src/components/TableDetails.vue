@@ -31,15 +31,18 @@
               </dd>
             </template>
 
-            <!-- The internal counters share one line: each is a number nobody
-                 reads on its own, and a row apiece doubled the block. -->
-            <template v-if="identityCounters.length">
-              <dt>Counters</dt>
-              <dd class="tdx-counters">
-                <span v-for="c in identityCounters" :key="c.label" class="tdx-counter">
-                  <span class="text-medium-emphasis">{{ c.label }}</span>
-                  <span class="font-mono">{{ c.value }}</span>
-                </span>
+            <!-- What classifies the table belongs with what identifies it. The
+                 chips lived in the schema section, behind its tags/statistics
+                 toggle, so half the time the table's own tags were not on the
+                 page at all. Column tags stay with the columns. -->
+            <template v-if="tableId && warehouseId">
+              <dt>Tags</dt>
+              <dd>
+                <EntityTagsChips
+                  scope="table"
+                  :warehouse-id="warehouseId"
+                  :entity-id="tableId"
+                  effective />
               </dd>
             </template>
           </dl>
@@ -475,6 +478,7 @@ import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import TableSnapshotDetails from './TableSnapshotDetails.vue';
 import TableColumnProfiler from './TableColumnProfiler.vue';
+import EntityTagsChips from './EntityTagsChips.vue';
 import type {
   LoadTableResult,
   PartitionField,
@@ -953,29 +957,6 @@ const identityRows = computed(() => {
 
   return rows;
 });
-
-// The internal identifiers. Each is a single small number that means nothing
-// on its own, so they share one line rather than taking a labelled row each —
-// nine rows of "Last partition ID 999" is most of what made this block long.
-const identityCounters = computed(() => {
-  const m = props.table.metadata as any;
-  const out: Array<{ label: string; value: string }> = [];
-  const push = (label: string, value: unknown) => {
-    if (value !== undefined && value !== null) out.push({ label, value: String(value) });
-  };
-  push('schema', m['current-schema-id']);
-  push('seq', m['last-sequence-number']);
-  push('last col', m['last-column-id']);
-  push('last part', m['last-partition-id']);
-  push('spec', m['default-spec-id']);
-  push('sort', m['default-sort-order-id']);
-  push('next row', m['next-row-id']);
-  const statsFiles = (m.statistics ?? []).length;
-  if (statsFiles > 0) push('stats files', statsFiles);
-  const partStatsFiles = (m['partition-statistics'] ?? []).length;
-  if (partStatsFiles > 0) push('part stats files', partStatsFiles);
-  return out;
-});
 </script>
 
 <style scoped>
@@ -1087,18 +1068,6 @@ const identityCounters = computed(() => {
   }
 }
 
-.tdx-counters {
-  gap: 4px 14px;
-}
-.tdx-counter {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  white-space: nowrap;
-}
-.tdx-counter > .font-mono {
-  font-size: 0.8125rem;
-}
 /* Ten rows and then the table scrolls, header pinned: a page size of 25 or 50
    otherwise pushes the rest of the page — and the pager, the only control that
    matters there — below the fold. `max-height` on the wrapper rather than the

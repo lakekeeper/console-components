@@ -78,19 +78,6 @@
           Profiling requires the catalog connection (warehouse, namespace, table, and catalog URL).
         </v-alert>
 
-        <!-- Table-level tags live with the schema (managed from the table cog menu) -->
-        <div
-          v-if="schemaView === 'tags' && tableId"
-          class="d-flex align-center flex-wrap ga-2 mb-3">
-          <span class="text-caption text-medium-emphasis">Table tags:</span>
-          <EntityTagsChips
-            scope="table"
-            :warehouse-id="warehouseId || ''"
-            :entity-id="tableId"
-            effective />
-        </div>
-        <v-divider v-if="schemaView === 'tags' && tableId" class="mb-3"></v-divider>
-
         <div class="profiler-scroll" style="max-height: 560px; overflow: auto">
           <v-table density="comfortable" class="profiler-table">
             <thead>
@@ -377,7 +364,6 @@ import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
 import { useLoQEStore } from '../stores/loqe';
-import EntityTagsChips from './EntityTagsChips.vue';
 import type { StructField, TableMetadata } from '../gen/iceberg/types.gen';
 import type { TargetTag } from '../gen/management/types.gen';
 
