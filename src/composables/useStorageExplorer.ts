@@ -41,6 +41,14 @@ export class StorageListError extends Error {
   }
 }
 
+/** Thrown when an upload is aborted by the caller — not a failure to report. */
+export class UploadCancelled extends Error {
+  constructor() {
+    super('Upload cancelled');
+    this.name = 'UploadCancelled';
+  }
+}
+
 type Parsed =
   | { kind: 's3'; bucket: string; basePrefix: string }
   | { kind: 'adls'; account: string; filesystem: string; host: string; basePrefix: string }
@@ -339,29 +347,35 @@ async function getObjectBytes(res: StorageLoadResult, absPath: string): Promise<
 }
 
 // ---- Shared XHR PUT (supports upload progress) ------------------------------
-function xhrPut(
+function xhrSend(
   url: string,
   method: 'PUT' | 'POST' | 'PATCH',
-  file: File,
+  body: Blob,
   headers: Record<string, string>,
-  onProgress?: (fraction: number) => void,
-): Promise<void> {
+  onBytes?: (loaded: number) => void,
+  signal?: AbortSignal,
+): Promise<XMLHttpRequest> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(new UploadCancelled());
     const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
+    xhr.onloadend = () => signal?.removeEventListener('abort', onAbort);
+    xhr.onabort = () => reject(new UploadCancelled());
     xhr.open(method, url);
     // Browsers control these headers; setting them throws.
     const skip = new Set(['host', 'content-length', 'transfer-encoding']);
     for (const [k, v] of Object.entries(headers)) {
       if (!skip.has(k.toLowerCase())) xhr.setRequestHeader(k, v);
     }
-    if (onProgress) {
+    if (onBytes) {
       xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable) onProgress(e.loaded / e.total);
+        if (e.lengthComputable) onBytes(e.loaded);
       };
     }
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
+        resolve(xhr);
       } else {
         reject(
           new StorageListError(
@@ -380,8 +394,27 @@ function xhrPut(
           'network',
         ),
       );
-    xhr.send(file);
+    xhr.send(body);
   });
+}
+
+/** Back-compat wrapper: whole-body send reporting a 0–1 fraction. */
+async function xhrPut(
+  url: string,
+  method: 'PUT' | 'POST' | 'PATCH',
+  file: File,
+  headers: Record<string, string>,
+  onProgress?: (fraction: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  await xhrSend(
+    url,
+    method,
+    file,
+    headers,
+    onProgress && file.size ? (loaded) => onProgress(loaded / file.size) : undefined,
+    signal,
+  );
 }
 
 // ---- S3 PUT -----------------------------------------------------------------
@@ -391,6 +424,7 @@ async function putS3(
   absPath: string,
   file: File,
   onProgress?: (fraction: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const accessKeyId = cfg['s3.access-key-id'];
   const secretAccessKey = cfg['s3.secret-access-key'];
@@ -411,6 +445,8 @@ async function putS3(
   const root = pathStyle ? `${base}/${parsed.bucket}` : base.replace('://', `://${parsed.bucket}.`);
   const url = `${root}/${encodeKey(absPath)}`;
   const contentType = file.type || 'application/octet-stream';
+  if (file.size > MULTIPART_THRESHOLD)
+    return putS3Multipart(client, url, file, contentType, onProgress, signal);
   // Sign without body hash so we can stream the body separately via XHR.
   const signed = await client.sign(
     new Request(url, {
@@ -422,7 +458,142 @@ async function putS3(
   signed.headers.forEach((v, k) => {
     headers[k] = v;
   });
-  await xhrPut(url, 'PUT', file, headers, onProgress);
+  await xhrPut(url, 'PUT', file, headers, onProgress, signal);
+}
+
+// ---- S3 multipart upload ----------------------------------------------------
+// A single PutObject is capped at 5 GiB by S3, and a transfer that size is
+// worth resuming a part at a time anyway, so anything past the threshold goes
+// up in parts. S3 allows at most 10,000 parts and at least 5 MiB each (the
+// last part excepted), so the part size grows with the file.
+const MULTIPART_THRESHOLD = 64 * 1024 * 1024;
+const MIN_PART_SIZE = 8 * 1024 * 1024;
+const MAX_PARTS = 10_000;
+const PART_CONCURRENCY = 4;
+
+function partSizeFor(total: number): number {
+  const mib = 1024 * 1024;
+  return Math.max(MIN_PART_SIZE, Math.ceil(total / MAX_PARTS / mib) * mib);
+}
+
+function xmlText(body: string, tag: string): string | null {
+  const doc = new DOMParser().parseFromString(body, 'text/xml');
+  return doc.getElementsByTagName(tag)[0]?.textContent ?? null;
+}
+
+async function s3Request(
+  client: AwsClient,
+  url: string,
+  init: RequestInit,
+  what: string,
+): Promise<string> {
+  let resp: Response;
+  try {
+    resp = await client.fetch(url, init);
+  } catch (e) {
+    if ((init.signal as AbortSignal | undefined)?.aborted) throw new UploadCancelled();
+    throw await networkFailure(e, url, 'write');
+  }
+  const text = await resp.text().catch(() => '');
+  // S3 can report a failed CompleteMultipartUpload inside a 200 body.
+  if (!resp.ok || /<Error>/.test(text)) {
+    const code = xmlText(text, 'Message') || text.slice(0, 200);
+    throw new StorageListError(
+      `${what} ${resp.status}: ${code}`,
+      resp.status === 403 ? 'forbidden' : 'http',
+      resp.status,
+    );
+  }
+  return text;
+}
+
+async function putS3Multipart(
+  client: AwsClient,
+  url: string,
+  file: File,
+  contentType: string,
+  onProgress?: (fraction: number) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const created = await s3Request(
+    client,
+    `${url}?uploads=`,
+    { method: 'POST', headers: { 'Content-Type': contentType }, signal },
+    'Multipart create',
+  );
+  const uploadId = xmlText(created, 'UploadId');
+  if (!uploadId)
+    throw new StorageListError('S3 did not return an UploadId for the multipart upload', 'http');
+  const uploadQ = `uploadId=${encodeURIComponent(uploadId)}`;
+
+  const partSize = partSizeFor(file.size);
+  const count = Math.ceil(file.size / partSize);
+  const loaded = new Array<number>(count).fill(0);
+  const etags = new Array<string>(count);
+  // The last percent is the completion call — a part list is not an object yet.
+  const report = () => onProgress?.(Math.min(loaded.reduce((a, b) => a + b, 0) / file.size, 0.99));
+
+  let next = 0;
+  const worker = async () => {
+    for (let i = next++; i < count; i = next++) {
+      if (signal?.aborted) throw new UploadCancelled();
+      const part = file.slice(i * partSize, Math.min((i + 1) * partSize, file.size));
+      const partUrl = `${url}?partNumber=${i + 1}&${uploadQ}`;
+      const signed = await client.sign(
+        new Request(partUrl, {
+          method: 'PUT',
+          headers: { 'x-amz-content-sha256': 'UNSIGNED-PAYLOAD' },
+        }),
+      );
+      const headers: Record<string, string> = {};
+      signed.headers.forEach((v, k) => {
+        headers[k] = v;
+      });
+      const xhr = await xhrSend(
+        partUrl,
+        'PUT',
+        part,
+        headers,
+        (bytes) => {
+          loaded[i] = bytes;
+          report();
+        },
+        signal,
+      );
+      const etag = xhr.getResponseHeader('ETag');
+      if (!etag)
+        throw new StorageListError(
+          'The bucket did not expose the ETag header on the uploaded part, so the multipart ' +
+            'upload cannot be completed. Add ETag to ExposeHeaders in the bucket CORS rule.',
+          'cors',
+        );
+      etags[i] = etag;
+      loaded[i] = part.size;
+      report();
+    }
+  };
+
+  try {
+    await Promise.all(Array.from({ length: Math.min(PART_CONCURRENCY, count) }, worker));
+    const body =
+      '<CompleteMultipartUpload>' +
+      etags
+        .map((tag, i) => `<Part><PartNumber>${i + 1}</PartNumber><ETag>${tag}</ETag></Part>`)
+        .join('') +
+      '</CompleteMultipartUpload>';
+    await s3Request(
+      client,
+      `${url}?${uploadQ}`,
+      { method: 'POST', body, headers: { 'Content-Type': 'application/xml' }, signal },
+      'Multipart complete',
+    );
+    onProgress?.(1);
+  } catch (e) {
+    // Leave no half-uploaded parts behind to be billed for — best effort, the
+    // original failure is what the caller needs to see.
+    await client.fetch(`${url}?${uploadQ}`, { method: 'DELETE' }).catch(() => undefined);
+    throw e;
+  }
 }
 
 // ---- S3 DELETE --------------------------------------------------------------
@@ -472,6 +643,7 @@ async function putAdls(
   absPath: string,
   file: File,
   onProgress?: (fraction: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const sasKey = Object.keys(cfg).find((k) => k.startsWith('adls.sas-token.'));
   const sas = sasKey ? cfg[sasKey] : undefined;
@@ -483,8 +655,9 @@ async function putAdls(
   // Step 1: create / overwrite the file node
   let resp: Response;
   try {
-    resp = await fetch(`${base}?resource=file&overwrite=true&${sasQ}`, { method: 'PUT' });
+    resp = await fetch(`${base}?resource=file&overwrite=true&${sasQ}`, { method: 'PUT', signal });
   } catch (e) {
+    if (signal?.aborted) throw new UploadCancelled();
     throw await networkFailure(e, base, 'write');
   }
   if (!resp.ok) {
@@ -498,7 +671,12 @@ async function putAdls(
 
   // Step 2: stream the body with progress (scaled to 0–0.9; flush takes the last 10%)
   await new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(new UploadCancelled());
     const xhr = new XMLHttpRequest();
+    const onAbort = () => xhr.abort();
+    signal?.addEventListener('abort', onAbort, { once: true });
+    xhr.onloadend = () => signal?.removeEventListener('abort', onAbort);
+    xhr.onabort = () => reject(new UploadCancelled());
     xhr.open('PATCH', `${base}?action=append&position=0&${sasQ}`);
     xhr.setRequestHeader('Content-Type', 'application/octet-stream');
     if (onProgress) {
@@ -530,8 +708,12 @@ async function putAdls(
 
   // Step 3: flush / commit
   try {
-    resp = await fetch(`${base}?action=flush&position=${file.size}&${sasQ}`, { method: 'PATCH' });
+    resp = await fetch(`${base}?action=flush&position=${file.size}&${sasQ}`, {
+      method: 'PATCH',
+      signal,
+    });
   } catch (e) {
+    if (signal?.aborted) throw new UploadCancelled();
     throw await networkFailure(e, base, 'write');
   }
   if (!resp.ok) {
@@ -580,6 +762,7 @@ async function putGcs(
   absPath: string,
   file: File,
   onProgress?: (fraction: number) => void,
+  signal?: AbortSignal,
 ): Promise<void> {
   const token = cfg['gcs.oauth2.token'];
   if (!token) throw new StorageListError('No GCS OAuth token in vended credentials', 'config');
@@ -591,6 +774,7 @@ async function putGcs(
     file,
     { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
     onProgress,
+    signal,
   );
 }
 
@@ -661,12 +845,13 @@ export function useStorageExplorer() {
     absPath: string,
     file: File,
     onProgress?: (fraction: number) => void,
+    signal?: AbortSignal,
   ): Promise<void> {
     const parsed = parseLocation(res.location);
     const cfg = resolveConfig(res);
-    if (parsed.kind === 's3') return putS3(cfg, parsed, absPath, file, onProgress);
-    if (parsed.kind === 'adls') return putAdls(cfg, parsed, absPath, file, onProgress);
-    if (parsed.kind === 'gcs') return putGcs(cfg, parsed, absPath, file, onProgress);
+    if (parsed.kind === 's3') return putS3(cfg, parsed, absPath, file, onProgress, signal);
+    if (parsed.kind === 'adls') return putAdls(cfg, parsed, absPath, file, onProgress, signal);
+    if (parsed.kind === 'gcs') return putGcs(cfg, parsed, absPath, file, onProgress, signal);
     throw new StorageListError(
       `Storage scheme "${parsed.scheme}" is not supported for upload`,
       'unsupported',
