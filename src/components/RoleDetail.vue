@@ -36,6 +36,21 @@
         prepend-icon="mdi-arrow-left"
         text="All roles"
         @click="backToRoles"></v-btn>
+      <!-- Deleting is about the whole role, so it sits with the name rather
+           than inside Details. Gated like the roles list: the permission, an
+           authorizer that owns role lifecycle at all, and a namespace that is
+           not the reserved `system` one. -->
+      <DeleteConfirmDialog
+        v-if="canDelete && roleLifecycleSupported && !isSystemRole"
+        type="role"
+        :name="roleName"
+        force-label="Delete even if the role holds grants"
+        :force-hint="
+          isSyncManaged(providerId)
+            ? 'Provider sync recreates this role on its next run if the provider still reports the group — without its grants.'
+            : 'Its grants are revoked with it.'
+        "
+        @confirmed="removeRole" />
     </div>
 
     <div class="d-flex align-stretch" style="height: calc(100vh - 300px); min-height: 380px">
@@ -210,7 +225,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import type { RoleMembership } from '../gen/management/types.gen';
@@ -219,6 +234,10 @@ import RoleMembers from './RoleMembers.vue';
 import RoleOwners from './RoleOwners.vue';
 import RoleProviderChip from './RoleProviderChip.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
+import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
+import { hasAction } from '../composables/useCatalogPermissions';
+import { useRoleLifecycleSupported } from '../composables/useAuthzCapabilities';
+import { useIsSyncManagedRole, SYSTEM_ROLE_PROVIDER_ID } from '../composables/useRoleProviders';
 import { useGrantPrincipalListingSupported } from '../composables/useGrants';
 import { isNotImplementedError } from '../common/errorUtils';
 import { useRoleNavigation } from '../composables/useRoleNavigation';
@@ -241,6 +260,18 @@ const roleName = ref('');
 // otherwise rename itself as you move between roles — and the members panel
 // qualifies the list where the list actually is.
 const providerId = ref('');
+// Deletion is permitted per role, not per page: `delete` in the role's own
+// allowed-actions, an authorizer that manages role lifecycle at all, and a
+// provider that has not claimed the role. Starts false so the button cannot
+// flash in before the actions come back.
+const canDelete = ref(false);
+const roleLifecycleSupported = useRoleLifecycleSupported();
+// Provider-maintained roles are deletable — sync just recreates them if the
+// provider still reports the group. Only the reserved `system` namespace
+// refuses, with `SystemRoleImmutable`.
+const isSyncManagedRole = useIsSyncManagedRole();
+const isSyncManaged = (id?: string) => isSyncManagedRole.value(id);
+const isSystemRole = computed(() => providerId.value === SYSTEM_ROLE_PROVIDER_ID);
 
 const tab = ref('details');
 // Sections mount on first visit and stay mounted, so switching back does not
@@ -260,6 +291,18 @@ function backToRoles() {
     return;
   }
   router.push('/roles');
+}
+
+// The role is gone, so the page has nothing left to show — leave the same way
+// the back arrow does, which keeps the Identities host on its list instead of
+// pushing it to /roles.
+async function removeRole(force = false) {
+  try {
+    await functions.deleteRoleWithForce(props.roleId, force, true);
+    backToRoles();
+  } catch {
+    /* surfaced by the functions plugin */
+  }
 }
 
 function onRoleLoaded(role: any) {
@@ -297,6 +340,13 @@ async function load() {
     providerId.value = (meta as any)?.['provider-id'] ?? '';
     memberOf.value = ((mo as any)?.roles ?? []) as RoleMembership[];
     directMemberOfIds.value = new Set(memberOf.value.map((r) => r.id));
+    // Scoped to the role's own project: the header falls back to the default
+    // project otherwise, which answers for the wrong one on a multi-project
+    // instance.
+    const actions = await functions
+      .getRoleCatalogActions(props.roleId, (meta as any)?.['project-id'])
+      .catch(() => []);
+    canDelete.value = hasAction(actions, 'delete');
   } catch {
     /* surfaced by the functions plugin */
   }
@@ -335,6 +385,7 @@ watch(
     visited.value = new Set(['details']);
     grantCount.value = null;
     providerId.value = '';
+    canDelete.value = false;
     memberOfScope.value = 'direct';
     load();
   },

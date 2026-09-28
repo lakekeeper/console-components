@@ -153,9 +153,7 @@ let appConfig: any = null;
 // another one.
 const currentProjectId = (): string => {
   const visual = useVisualStore();
-  return (
-    visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'] || ''
-  );
+  return visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'] || '';
 };
 
 function init() {
@@ -5072,6 +5070,46 @@ async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
   }
 }
 
+/**
+ * Delete a role, optionally revoking the grants it holds along with it.
+ *
+ * Separate from `deleteRole` rather than an extra argument on it: that wrapper
+ * is called from the roles list and must keep its exact behaviour.
+ *
+ * `force` is a query parameter the management API accepts but the checked-in
+ * OpenAPI document predates, so the generated `DeleteRoleData` still types
+ * `query` as `never` — hence the cast. Without it the server answers `409
+ * RoleHasGrants` for any role holding grants, on every built-in authorizer
+ * except OpenFGA, which removes a role's grants with it regardless.
+ */
+async function deleteRoleWithForce(
+  roleId: string,
+  force: boolean,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { error: deleteRoleError } = await mng.deleteRole({
+      client,
+      path: { role_id: roleId },
+      ...(force ? ({ query: { force: true } } as any) : {}),
+    });
+    if (deleteRoleError) throw deleteRoleError;
+
+    if (notify) {
+      handleSuccess('deleteRole', `Role '${roleId}' deleted successfully`, notify);
+    }
+    return true;
+  } catch (error: any) {
+    console.error('Failed to delete role', error);
+    handleError(error, 'deleteRole', notify);
+    throw error;
+  }
+}
+
 async function getRoleMetadata(roleId: string, notify?: boolean): Promise<RoleMetadata> {
   try {
     init();
@@ -7078,6 +7116,7 @@ export function useFunctions(config?: any) {
     listUserRoles,
     setWarehouseManagedBy,
     deleteRole,
+    deleteRoleWithForce,
     getRole,
     createRole,
     updateRole,

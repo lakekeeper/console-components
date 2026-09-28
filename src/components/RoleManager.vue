@@ -94,10 +94,16 @@
             text="Open"
             @click="getRole(item.id)"></v-btn>
           <DeleteConfirmDialog
-            v-if="item.can_delete && roleLifecycleSupported && !isSyncManaged(item['provider-id'])"
+            v-if="item.can_delete && roleLifecycleSupported && !isSystemRole(item['provider-id'])"
             type="role"
             :name="item.name"
-            @confirmed="deleteRole(item.id)" />
+            force-label="Delete even if the role holds grants"
+            :force-hint="
+              isSyncManaged(item['provider-id'])
+                ? 'Provider sync recreates this role on its next run if the provider still reports the group — without its grants.'
+                : 'Its grants are revoked with it.'
+            "
+            @confirmed="(force: boolean) => deleteRole(item.id, force)" />
         </div>
       </template>
       <template #no-data>
@@ -126,17 +132,20 @@ import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
 import { useProjectPermissions, hasAction } from '../composables/useCatalogPermissions';
 import { useRoleLifecycleSupported } from '../composables/useAuthzCapabilities';
-import { useIsSyncManagedRole } from '../composables/useRoleProviders';
+import { useIsSyncManagedRole, SYSTEM_ROLE_PROVIDER_ID } from '../composables/useRoleProviders';
 import RoleProviderChip from './RoleProviderChip.vue';
 
 const functions = useFunctions();
 const visual = useVisualStore();
 // Creating and deleting roles is refused outright by some authorizers.
 const roleLifecycleSupported = useRoleLifecycleSupported();
-// Roles a role provider maintains cannot be deleted here either — the guard is
-// per role rather than per authorizer, and `can_delete` does not cover it.
+// A provider-maintained role can be deleted; the provider simply recreates it
+// on its next sync if it still reports the group. Only the reserved `system`
+// namespace refuses outright, with `SystemRoleImmutable`, and `can_delete` does
+// not cover that — so it stays a per-role guard, just a narrower one.
 const isSyncManagedRole = useIsSyncManagedRole();
 const isSyncManaged = (providerId?: string) => isSyncManagedRole.value(providerId);
+const isSystemRole = (providerId?: string) => providerId === SYSTEM_ROLE_PROVIDER_ID;
 const router = useRouter();
 const notify = true;
 
@@ -320,9 +329,9 @@ async function createRoleWithProvider(providerId?: string, sourceId?: string) {
   }
 }
 
-async function deleteRole(roleId: string) {
+async function deleteRole(roleId: string, force = false) {
   try {
-    await functions.deleteRole(roleId, notify);
+    await functions.deleteRoleWithForce(roleId, force, notify);
 
     // Remove from both arrays efficiently
     const loadedIndex = loadedRoles.findIndex((r) => r.id === roleId);
