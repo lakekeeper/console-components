@@ -45,7 +45,13 @@
 
     <div v-else-if="!grants.length" class="pa-6 text-center text-medium-emphasis">
       <v-icon size="28" class="mb-2">mdi-shield-off-outline</v-icon>
-      <div>Holds no grants in {{ projectLabel }}.</div>
+      <!-- The listing covers every object in the project, not just the project
+           itself, so the empty state spells the types out rather than reading
+           as a statement about project-level grants only. -->
+      <div>Holds no grants anywhere in {{ projectLabel }}.</div>
+      <div class="text-caption mt-1">
+        Not on the project itself, nor on any warehouse, namespace, table or view in it.
+      </div>
     </div>
 
     <template v-else>

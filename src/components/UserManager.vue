@@ -46,20 +46,14 @@
         prepend-icon="mdi-account-group-outline"
         text="Roles"
         @click="openRoles(item)"></v-btn>
-      <span v-for="(action, i) in item.actions" :key="i" class="mr-2">
-        <user-rename-dialog
-          v-if="action == 'rename'"
-          :id="item.id"
-          :name="item.name"
-          :status="renameStatus"
-          @rename-user-name="renameUser"></user-rename-dialog>
-        <DeleteConfirmDialog
-          v-else-if="action === 'delete'"
-          type="user"
-          :name="item.name"
-          :disabled="!canDeleteUsers"
-          @confirmed="deleteUser(item)" />
-      </span>
+      <!-- Rename lives in the name cell, so this column holds only the actions
+           every row has and the buttons line up across rows. -->
+      <DeleteConfirmDialog
+        v-if="item.actions.includes('delete')"
+        type="user"
+        :name="item.name"
+        :disabled="!canDeleteUsers"
+        @confirmed="deleteUser(item)" />
     </template>
 
     <template #item.id="{ item }">
@@ -83,6 +77,14 @@
           </v-icon>
           <v-icon v-else class="mr-2">mdi-account-circle-outline</v-icon>
           {{ item.name }}
+          <user-rename-dialog
+            v-if="item.actions.includes('rename')"
+            :id="item.id"
+            class="ml-1"
+            :name="item.name"
+            :status="renameStatus"
+            icon-only
+            @rename-user-name="renameUser"></user-rename-dialog>
         </span>
       </td>
     </template>

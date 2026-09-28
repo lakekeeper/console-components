@@ -1,7 +1,16 @@
 <template>
   <v-dialog v-model="isDialogActive" max-width="440">
     <template #activator="{ props: activatorProps }">
-      <v-btn v-bind="activatorProps" size="small" text="Rename" variant="outlined"></v-btn>
+      <!-- Inline next to the name it renames, so rows without the action keep
+           their remaining buttons aligned with every other row. -->
+      <v-btn
+        v-if="props.iconOnly"
+        v-bind="activatorProps"
+        icon="mdi-pencil-outline"
+        size="x-small"
+        variant="text"
+        title="Rename"></v-btn>
+      <v-btn v-else v-bind="activatorProps" size="small" text="Rename" variant="outlined"></v-btn>
     </template>
 
     <v-card title="New user name">
@@ -45,6 +54,7 @@ const props = defineProps<{
   name: string;
   id: string;
   status: StatusIntent;
+  iconOnly?: boolean;
 }>();
 
 function emmitNewUserName() {
