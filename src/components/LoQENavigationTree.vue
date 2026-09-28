@@ -308,17 +308,6 @@
               {{ item.name }}
             </span>
 
-            <!-- Attach chip on warehouse -->
-            <v-chip
-              v-if="item.type === 'warehouse' && isWarehouseAttached(item.warehouseId)"
-              size="x-small"
-              color="success"
-              variant="flat"
-              class="ml-1"
-              style="height: 16px; font-size: 0.6rem">
-              attached
-            </v-chip>
-
             <!-- Insert button for tables/views -->
             <v-btn
               v-if="item.type === 'table' || item.type === 'view'"

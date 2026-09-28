@@ -93,4 +93,26 @@ describe('isWriteStatement', () => {
     expect(isWriteStatement('SELECT * FROM t')).toBe('read');
     expect(isWriteStatement(undefined)).toBe('read');
   });
+
+  it('explains an unattached catalog instead of repeating the binder error', () => {
+    const out = friendlyQueryError(
+      new Error('x'),
+      'Binder Error: Catalog "demo-sts-27" does not exist!',
+    ) as Error;
+    expect(out.message).toContain('"demo-sts-27" is attached');
+    expect(out.message).toContain('expand');
+  });
+
+  it('names what is attached when anything is', () => {
+    const out = friendlyQueryError(new Error('x'), 'Catalog "wh-b" does not exist!', [
+      'wh-a',
+      'onelake',
+    ]) as Error;
+    expect(out.message).toContain('Currently attached: "wh-a", "onelake"');
+  });
+
+  it('leaves a binder error alone when that catalog is attached', () => {
+    const err = new Error('Binder Error: Catalog "wh-a" does not exist!');
+    expect(friendlyQueryError(err, err.message, ['wh-a'])).toBe(err);
+  });
 });

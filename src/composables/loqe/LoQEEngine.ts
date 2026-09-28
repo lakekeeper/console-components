@@ -355,7 +355,14 @@ export class LoQEEngine {
         const casted = /unsupported arrow type/i.test(msg)
           ? await this.buildArrowSafeQuery(pooled.connection, sql)
           : null;
-        if (!casted) throw await explainQueryFailure(err, msg, sql);
+        if (!casted) {
+          throw await explainQueryFailure(
+            err,
+            msg,
+            sql,
+            this.catalogs.getAttachedCatalogs().map((c) => c.catalogName),
+          );
+        }
         result = await exec(casted);
       }
       const elapsed = performance.now() - start;

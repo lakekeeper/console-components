@@ -1,6 +1,41 @@
 import { diagnoseReachability, extractUrl } from '@/common/storageReachability';
 
 /**
+ * A query naming a catalog that is not ATTACHed.
+ *
+ * DuckDB answers this with `Binder Error: Catalog "x" does not exist!`, which is
+ * true and useless: in LoQE a catalog is a warehouse, and warehouses attach
+ * lazily — the first few on load, the rest when expanded in the tree. So the
+ * reader has done nothing wrong and there is a concrete next step, which the
+ * raw message does not mention.
+ *
+ * Returns the replacement message, or null when this is not that failure.
+ */
+function unattachedCatalog(msg: string, attached: string[]): string | null {
+  const m =
+    /Catalog\s+"([^"]+)"\s+does not exist/i.exec(msg) ??
+    /Catalog with name\s+(\S+?)\s+does not exist/i.exec(msg);
+  if (!m) return null;
+  const name = m[1];
+  // Already attached under this name: the binder is objecting to something else
+  // (a schema or table further along the path), and blaming the attach would
+  // send the reader to fix what is already right.
+  if (attached.includes(name)) return null;
+
+  const fix =
+    `No catalog named "${name}" is attached, so the query cannot be bound. ` +
+    'Warehouses attach when you expand them in the tree — expand it there, then run the query ' +
+    'again.';
+  if (attached.length === 0) return fix;
+  const shown = attached.slice(0, 8);
+  const more = attached.length - shown.length;
+  return (
+    `${fix} Currently attached: ${shown.map((c) => `"${c}"`).join(', ')}` +
+    `${more > 0 ? ` and ${more} more` : ''}.`
+  );
+}
+
+/**
  * Translate DuckDB-WASM storage failures into actionable messages.
  *
  * DuckDB reports any failed httpfs download as a generic
@@ -17,7 +52,19 @@ import { diagnoseReachability, extractUrl } from '@/common/storageReachability';
  * Extracted from LoQEEngine so it can be unit-tested without importing the
  * DuckDB-WASM runtime. Pure: (err, msg) → friendly Error or the original err.
  */
-export function friendlyQueryError(err: unknown, msg: string): unknown {
+export function friendlyQueryError(
+  err: unknown,
+  msg: string,
+  /**
+   * Catalogs currently ATTACHed, so an unbound name can be answered with what is
+   * actually available. Omitted by callers that don't know; the message then
+   * just names the fix.
+   */
+  attached: string[] = [],
+): unknown {
+  const unattached = unattachedCatalog(msg, attached);
+  if (unattached) return new Error(unattached, { cause: err });
+
   if (/\bAzureFileSystem:[^\n]*\bnot implemented\b/i.test(msg)) {
     return new Error('Azure Data Lake Storage (ADLS) is read-only in LoQE.', { cause: err });
   }
@@ -66,15 +113,16 @@ export async function explainQueryFailure(
   err: unknown,
   msg: string,
   sql?: string,
+  attached: string[] = [],
 ): Promise<unknown> {
   const url = extractUrl(msg);
-  if (!url) return friendlyQueryError(err, msg);
+  if (!url) return friendlyQueryError(err, msg, attached);
 
   const verdict = await diagnoseReachability(url, { operation: isWriteStatement(sql) });
   // 'blocked' means the endpoint answered and the browser refused the response —
   // exactly the case the CORS/credentials text was written for.
   if (verdict.kind === 'blocked' || verdict.kind === 'unknown') {
-    return friendlyQueryError(err, msg);
+    return friendlyQueryError(err, msg, attached);
   }
   return new Error(verdict.message, { cause: err });
 }
