@@ -357,10 +357,12 @@ watch([dateFrom, dateTo], ([from, to]) => {
 });
 
 watch(rangeKey, (key) => {
-  if (key !== 'custom') {
-    dateFrom.value = null;
-    dateTo.value = null;
-  }
+  // Picking a date flips this to 'custom' via the watcher above, so fetching
+  // here would query a half-filled span the moment the first end is chosen.
+  // A custom range is fetched by Apply, once both ends are settled.
+  if (key === 'custom') return;
+  dateFrom.value = null;
+  dateTo.value = null;
   fetchStatistics();
 });
 
