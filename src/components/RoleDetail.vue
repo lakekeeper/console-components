@@ -50,7 +50,7 @@
             ? 'Provider sync recreates this role on its next run if the provider still reports the group — without its grants.'
             : 'Its grants are revoked with it.'
         "
-        @confirmed="removeRole" />
+        :confirm-handler="removeRole" />
     </div>
 
     <div class="d-flex align-stretch" style="height: calc(100vh - 300px); min-height: 380px">
@@ -296,13 +296,12 @@ function backToRoles() {
 // The role is gone, so the page has nothing left to show — leave the same way
 // the back arrow does, which keeps the Identities host on its list instead of
 // pushing it to /roles.
+// Failures stay in the dialog (which holds the force checkbox a `RoleHasGrants`
+// refusal is asking for), so they must propagate rather than be caught here, and
+// the plugin must not also toast them.
 async function removeRole(force = false) {
-  try {
-    await functions.deleteRoleWithForce(props.roleId, force, true);
-    backToRoles();
-  } catch {
-    /* surfaced by the functions plugin */
-  }
+  await functions.deleteRoleWithForce(props.roleId, force, false);
+  backToRoles();
 }
 
 function onRoleLoaded(role: any) {
