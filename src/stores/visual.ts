@@ -208,9 +208,12 @@ export const useVisualStore = defineStore(
       queues: [],
     });
 
+    // No name, not a placeholder name: every surface that shows the selection
+    // falls back to its own wording when the name is empty, and a literal
+    // 'none' defeats that — the app bar printed it as if it were a project.
     const projectSelected = reactive<Project>({
       'project-id': '',
-      'project-name': 'none',
+      'project-name': '',
     });
 
     const snackbarMsg = reactive<SnackbarMsg>({
@@ -532,6 +535,11 @@ export const useVisualStore = defineStore(
        * `warehouseTreeState` was narrowed to avoid.
        */
       migrate: (state: any) => {
+        // Older builds persisted the placeholder name next to an empty id; it
+        // would otherwise outlive this release as a project called 'none'.
+        const selected = state?.projectSelected;
+        if (selected && !selected['project-id']) selected['project-name'] = '';
+
         const trees = state?.warehouseTreeState;
         if (trees && typeof trees === 'object') {
           for (const key of Object.keys(trees)) {

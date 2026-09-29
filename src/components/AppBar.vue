@@ -219,6 +219,7 @@ import { useConfig } from '../composables/useCatalogPermissions';
 import { useUserStore } from '../stores/user';
 import { useFunctions } from '@/plugins/functions';
 import { useConnectivity } from '@/composables/useConnectivity';
+import { useCurrentProject } from '@/composables/useCurrentProject';
 import { useRouter } from 'vue-router';
 import LogoDark from '@/assets/LAKEKEEPER_IMAGE_TEXT_SIDE.svg';
 import LogoLight from '@/assets/LAKEKEEPER_IMAGE_TEXT_WHITE_SIDE.svg';
@@ -263,6 +264,7 @@ const router = useRouter();
 const visual = useVisualStore();
 const config = useConfig();
 const functions = useFunctions();
+const { ensureProjectSelected } = useCurrentProject();
 const auth = inject<any>('auth', null);
 const tokenDialog = ref<InstanceType<typeof TokenDialog> | null>(null);
 
@@ -296,6 +298,9 @@ async function loadProjects() {
     // change.
     projects.value = [];
     projectsRefused.value = isForbiddenError(error);
+    // Refused the listing, the selection was never filled: ask for the one
+    // project the reader is in, so the chip below has a name to carry.
+    if (projectsRefused.value) await ensureProjectSelected();
   } finally {
     projectsLoading.value = false;
   }

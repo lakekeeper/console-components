@@ -136,6 +136,7 @@ import { useRouter } from 'vue-router';
 import { useVisualStore } from '../stores/visual';
 import { useFunctions } from '../plugins/functions';
 import { useServerPermissions } from '../composables/useCatalogPermissions';
+import { useCurrentProject } from '@/composables/useCurrentProject';
 import { usePaneHeight } from '../common/paneHeight';
 import {
   CreateProjectRequest,
@@ -156,6 +157,7 @@ const { paneRef, paneHeight } = usePaneHeight();
 const router = useRouter();
 const visual = useVisualStore();
 const functions = useFunctions();
+const { ensureProjectSelected } = useCurrentProject();
 const notify = true;
 
 const serverId = computed(() => visual.getServerInfo()['server-id']);
@@ -232,6 +234,10 @@ async function loadProjects() {
     // server with no projects on it.
     refused.value = isForbiddenError(error);
     if (refused.value) {
+      // Nothing selected yet — the listing is what normally selects, and it
+      // just refused — so ask for the one project this reader is in rather
+      // than showing a table that reads as a server with no projects on it.
+      await ensureProjectSelected();
       const current = visual.projectSelected;
       projects.splice(0, projects.length, ...(current['project-id'] ? [{ ...current }] : []));
     } else {
