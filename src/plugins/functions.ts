@@ -157,6 +157,20 @@ const currentProjectId = (): string => {
 };
 
 /**
+ * The project header, or nothing at all.
+ *
+ * The raw `fetch` calls below bypass the interceptor, and each one spelled the
+ * header out — so before the store has a project and before the server has
+ * answered with its default they sent `x-project-id: `, which the catalog
+ * rejects outright instead of falling back. Same rule as
+ * `attachRequestContext`, in one place so the two cannot drift.
+ */
+function projectHeader(): Record<string, string> {
+  const projectId = currentProjectId();
+  return projectId ? { 'x-project-id': projectId } : {};
+}
+
+/**
  * Attaches the token and the project to every request, as they are at the time
  * the request is made.
  *
@@ -2327,7 +2341,7 @@ async function createBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -2407,7 +2421,7 @@ async function renameBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -2465,7 +2479,7 @@ async function deleteBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         body: JSON.stringify(body),
       },
@@ -2532,7 +2546,7 @@ async function createTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -2610,7 +2624,7 @@ async function renameTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -2664,7 +2678,7 @@ async function deleteTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         body: JSON.stringify(body),
       },
@@ -2745,7 +2759,7 @@ async function rollbackBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -3222,7 +3236,7 @@ async function createIcebergTable(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         body: JSON.stringify(request),
       },
@@ -3298,7 +3312,7 @@ async function loadTableCustomized(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
         },
         // Never serve a 304-revalidated response: the vended storage credentials
         // in the body expire (~1h), and a cached body returns stale/expired creds.
@@ -3384,7 +3398,7 @@ async function loadTableVendedCredentials(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
-          'x-project-id': currentProjectId(),
+          ...projectHeader(),
           // Without this the catalog vends nothing to anyone, and a missing
           // credential would say nothing about this caller's rights.
           'x-iceberg-access-delegation': 'vended-credentials',
