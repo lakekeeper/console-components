@@ -64,7 +64,9 @@
         <td @click="getRole(item.id)" style="cursor: pointer !important">
           <span style="display: flex; align-items: center">
             <v-icon class="mr-2" color="info">mdi-account-box-multiple-outline</v-icon>
-            {{ item.name }}
+            <!-- The whole cell is the click target; the name is styled as a link
+                 so the row says so without a second button to say it. -->
+            <span class="role-name-link">{{ item.name }}</span>
           </span>
         </td>
       </template>
@@ -85,14 +87,6 @@
       </template>
       <template #item.actions="{ item }">
         <div class="d-inline-flex align-center ga-2">
-          <!-- The name is clickable too, but nothing says so; this is the
-               affordance rather than a second way in. -->
-          <v-btn
-            size="small"
-            variant="outlined"
-            prepend-icon="mdi-open-in-new"
-            text="Open"
-            @click="getRole(item.id)"></v-btn>
           <DeleteConfirmDialog
             v-if="item.can_delete && roleLifecycleSupported && !isSystemRole(item['provider-id'])"
             type="role"
@@ -103,7 +97,7 @@
                 ? 'Provider sync recreates this role on its next run if the provider still reports the group — without its grants.'
                 : 'Its grants are revoked with it.'
             "
-            @confirmed="(force: boolean) => deleteRole(item.id, force)" />
+            :confirm-handler="(force: boolean) => deleteRole(item.id, force)" />
         </div>
       </template>
       <template #no-data>
@@ -329,19 +323,20 @@ async function createRoleWithProvider(providerId?: string, sourceId?: string) {
   }
 }
 
+// The dialog owns the outcome: it stays open and shows a refusal — a role
+// holding grants is rejected until `force` is ticked, and the checkbox is right
+// there — so the error must reach it rather than be swallowed here, and the
+// plugin must not raise a snackbar saying the same thing (`notify: false`).
+// Success needs no toast either: the row disappears from the table.
 async function deleteRole(roleId: string, force = false) {
-  try {
-    await functions.deleteRoleWithForce(roleId, force, notify);
+  await functions.deleteRoleWithForce(roleId, force, false);
 
-    // Remove from both arrays efficiently
-    const loadedIndex = loadedRoles.findIndex((r) => r.id === roleId);
-    if (loadedIndex !== -1) loadedRoles.splice(loadedIndex, 1);
+  // Remove from both arrays efficiently
+  const loadedIndex = loadedRoles.findIndex((r) => r.id === roleId);
+  if (loadedIndex !== -1) loadedRoles.splice(loadedIndex, 1);
 
-    const searchIndex = searchResults.findIndex((r) => r.id === roleId);
-    if (searchIndex !== -1) searchResults.splice(searchIndex, 1);
-  } catch (error) {
-    console.error(error);
-  }
+  const searchIndex = searchResults.findIndex((r) => r.id === roleId);
+  if (searchIndex !== -1) searchResults.splice(searchIndex, 1);
 }
 
 async function onProviderFilterChange() {
@@ -367,3 +362,12 @@ function roleInput(roleIn: {
   createRoleWithProvider(roleIn.providerId, roleIn.sourceId);
 }
 </script>
+
+<style scoped>
+.role-name-link {
+  color: rgb(var(--v-theme-primary));
+}
+td:hover .role-name-link {
+  text-decoration: underline;
+}
+</style>
