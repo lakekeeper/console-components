@@ -42,13 +42,11 @@
     </div>
 
     <!-- Error State -->
-    <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
-      <div class="text-body-1 font-weight-bold mb-2">Failed to load preview</div>
-      <div class="text-body-2">{{ error }}</div>
-      <template v-if="error.includes('CORS')" #append>
-        <CorsConfigDialog />
-      </template>
-    </v-alert>
+    <EngineErrorAlert
+      v-else-if="error"
+      :error="error"
+      title="Failed to load preview"
+      class="mb-4" />
 
     <!-- Results -->
     <div v-else-if="queryResults">
@@ -215,7 +213,8 @@ import { useLoQE } from '@/composables/useLoQE';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 import { useCellViewer } from '@/composables/useCellViewer';
-import CorsConfigDialog from './CorsConfigDialog.vue';
+import { hasVendedCredentials, useVendedCredentials } from '@/composables/useVendedCredentials';
+import EngineErrorAlert from './EngineErrorAlert.vue';
 import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
 
@@ -247,6 +246,8 @@ interface BigIntSchema {
 }
 
 interface BigIntTableMetadata {
+  /** Identifies the table to the management API, which keys permissions by UUID. */
+  'table-uuid'?: string;
   snapshots?: BigIntSnapshot[];
   refs?: Record<string, BigIntRef>;
   'current-snapshot-id'?: string;
@@ -256,6 +257,9 @@ interface BigIntTableMetadata {
 
 interface BigIntLoadTableResult {
   metadata: BigIntTableMetadata;
+  /** Per the Iceberg spec, credentials live here first and in `config` only as a fallback. */
+  'storage-credentials'?: unknown[];
+  config?: Record<string, string>;
 }
 
 const props = defineProps<{
@@ -285,17 +289,24 @@ const namespaceDisplay = computed(() => {
 // decides between "STS is off" and a CORS diagnosis.
 const storageProfile = ref<Record<string, any> | null>(null);
 
+const { explainMissingCredentials } = useVendedCredentials();
+
 const storageValidation = useStorageValidation(
   toRef(() => props.storageType),
   toRef(() => props.catalogUrl),
   storageProfile,
 );
 
+// Loaded with credential delegation, so the body doubles as the data-access check
+// below: DuckDB cannot report a missing privilege in those terms — with nothing
+// vended, the iceberg extension complains about an absent region, which reads like
+// a client misconfiguration and sends people to debug the ATTACH.
+const loadedTable = ref<BigIntLoadTableResult | null>(null);
+
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 const queryResults = ref<any>(null);
 const resolvedWarehouseName = ref<string | undefined>(undefined);
-const loadedTable = ref<BigIntLoadTableResult | null>(null);
 const selectedSnapshot = ref<string | null>(null);
 const selectedBranch = ref<string>('main');
 
@@ -530,18 +541,30 @@ async function loadPreview() {
       return;
     }
 
-    // Load table metadata via loadTableCustomized (uses json-bigint to preserve snapshot IDs)
+    // Load the table asking for vended credentials — the same request DuckDB is about
+    // to make. json-bigint preserves the snapshot IDs time travel needs.
     if (!loadedTable.value) {
       try {
-        loadedTable.value = (await functions.loadTableCustomized(
+        loadedTable.value = (await functions.loadTableVendedCredentials(
           props.warehouseId,
           props.namespaceId,
           props.tableName,
         )) as BigIntLoadTableResult;
       } catch {
-        // Non-critical — time travel just won't be available
+        // Non-critical here — the query below will fail with its own diagnosis, and
+        // time travel just won't be available.
         loadedTable.value = null;
       }
+    }
+
+    // Metadata came back but no credentials with it. STS being off was ruled out
+    // above, so the catalog is declining to vend to *this* caller.
+    if (loadedTable.value && !hasVendedCredentials(loadedTable.value)) {
+      error.value = await explainMissingCredentials(
+        props.warehouseId,
+        loadedTable.value.metadata?.['table-uuid'],
+      );
+      return;
     }
 
     // Initialize LoQE and attach the catalog (shared engine with LoQE Explorer)
@@ -582,23 +605,11 @@ async function loadPreview() {
       return;
     }
 
-    // Detect CORS errors that manifest as DuckDB read/download errors
-    if (
-      errorMsg.includes('Cannot read') ||
-      errorMsg.includes('memory buffer') ||
-      errorMsg.includes('Invalid Input Error') ||
-      errorMsg.includes('Full download failed') ||
-      errorMsg.includes('CORS error') ||
-      errorMsg.toLowerCase().includes('cors')
-    ) {
-      error.value =
-        `CORS Error: Cannot access object storage from the browser.\n\n` +
-        `DuckDB tried to read Iceberg metadata files from object storage but ` +
-        `the request was blocked by CORS policy.\n\n` +
-        `Please contact your administrator to configure CORS on your storage bucket.`;
-    } else {
-      error.value = errorMsg;
-    }
+    // Shown as thrown. The engine diagnosed this message already — reachability
+    // established, the catalog's own status read where it gave one — and the
+    // sniff that used to sit here matched the word "CORS" inside that diagnosis
+    // and replaced it with something vaguer.
+    error.value = errorMsg;
   } finally {
     isLoading.value = false;
   }

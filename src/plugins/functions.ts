@@ -3353,6 +3353,84 @@ async function loadTableCustomized(
   }
 }
 
+/**
+ * `loadTable` asking for vended storage credentials — the request DuckDB itself
+ * makes before a scan.
+ *
+ * Separate from `loadTableCustomized` (which asks for none) because the answer is
+ * the only reliable way to know whether this caller may read the table's data:
+ * Lakekeeper returns the metadata to anyone with `get_metadata`, but attaches
+ * `storage-credentials` only for a caller with data access. Asking the catalog's
+ * permission endpoint instead would be a second opinion on the same question, and
+ * one DuckDB does not consult.
+ *
+ * Returns the parsed body (json-bigint, so snapshot IDs survive) — inspect
+ * `storage-credentials` / `config` on it to see whether anything was vended.
+ */
+async function loadTableVendedCredentials(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'GET',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+          'x-project-id': currentProjectId(),
+          // Without this the catalog vends nothing to anyone, and a missing
+          // credential would say nothing about this caller's rights.
+          'x-iceberg-access-delegation': 'vended-credentials',
+        },
+        // Never serve a 304-revalidated response: the vended storage credentials
+        // in the body expire (~1h), and a cached body returns stale/expired creds.
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+
+      throw {
+        error: {
+          code: response.status,
+          message: errorMessage,
+          type: 'FetchError',
+        },
+      };
+    }
+
+    const data = JSONBig({ storeAsString: true }).parse(await response.text());
+
+    if (notify) {
+      handleSuccess(
+        'loadTableVendedCredentials',
+        `Table '${tableName}' loaded successfully`,
+        notify,
+      );
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'loadTableVendedCredentials', notify);
+    throw error;
+  }
+}
+
 async function dropTable(
   warehouseId: string,
   namespacePath: string,
@@ -7232,6 +7310,7 @@ export function useFunctions(config?: any) {
     listDeletedTabulars,
     loadTable,
     loadTableCustomized,
+    loadTableVendedCredentials,
     loadView,
     loadGenericTable,
     loadGenericTableCredentials,

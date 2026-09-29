@@ -559,6 +559,7 @@ import {
   type StorageEntry,
   type StorageLoadResult,
 } from '../composables/useStorageExplorer';
+import { hasVendedCredentials, useVendedCredentials } from '@/composables/useVendedCredentials';
 
 const props = defineProps<{
   warehouseId: string;
@@ -570,6 +571,7 @@ const props = defineProps<{
 
 const functions = useFunctions();
 const explorer = useStorageExplorer();
+const { explainMissingCredentials } = useVendedCredentials();
 const appConfig = inject<{ baseUrlPrefix?: string }>('appConfig', {});
 const loqe = useLoQE({ baseUrlPrefix: appConfig.baseUrlPrefix ?? '' });
 
@@ -606,6 +608,17 @@ const visibleRows = computed(() => {
   return rows;
 });
 
+/** The table UUID of the last load, for asking the catalog about privileges. */
+const loadedTableUuid = ref<string | undefined>(undefined);
+
+/**
+ * The entity and the credentials to read it with.
+ *
+ * Both halves matter here in a way they do not elsewhere: this pane signs its own
+ * S3 requests, so without vended credentials it cannot list a single object. The
+ * plain loader asks for no access delegation at all, which left the pane reporting
+ * "no S3 access key" for a reader who may well have had one coming.
+ */
 async function loadEntity(): Promise<StorageLoadResult> {
   if (props.entityType === 'generic-table') {
     const g: any = await functions.loadGenericTable(
@@ -614,18 +627,37 @@ async function loadEntity(): Promise<StorageLoadResult> {
       props.entityName,
       false,
     );
-    return {
+    loadedTableUuid.value = undefined;
+    const res: StorageLoadResult = {
       location: g?.table?.['base-location'] || '',
       config: g?.config,
       'storage-credentials': g?.['storage-credentials'],
     };
+    // Generic tables vend through their own endpoint; the load above carries
+    // credentials only on catalogs that attach them unasked.
+    if (!hasVendedCredentials(res)) {
+      try {
+        const creds: any = await functions.loadGenericTableCredentials(
+          props.warehouseId,
+          props.namespaceId,
+          props.entityName,
+          false,
+        );
+        if (creds?.['storage-credentials']?.length)
+          res['storage-credentials'] = creds['storage-credentials'];
+      } catch {
+        // Left to the diagnosis below, which says more than this refusal does.
+      }
+    }
+    return res;
   }
-  const t: any = await functions.loadTableCustomized(
+  const t: any = await functions.loadTableVendedCredentials(
     props.warehouseId,
     props.namespaceId,
     props.entityName,
     false,
   );
+  loadedTableUuid.value = t?.metadata?.['table-uuid'];
   return {
     location: t?.metadata?.location || '',
     config: t?.config,
@@ -648,6 +680,14 @@ async function load() {
     const entries = await explorer.listPrefix(res, explorer.rootPrefix(res.location));
     rootNodes.value = entries.map((e) => toNode(e, 0));
   } catch (e: any) {
+    // "No access key in vended credentials" is true and unhelpful: it names the
+    // field that is missing, not the reason. The catalog can give the reason, so
+    // ask it rather than leaving the reader to guess between a privilege they
+    // may not have and a warehouse that does not vend.
+    if (e instanceof StorageListError && e.kind === 'config') {
+      topError.value = await explainMissingCredentials(props.warehouseId, loadedTableUuid.value);
+      return;
+    }
     topError.value =
       e instanceof StorageListError ? e.message : e?.error?.message || e?.message || String(e);
   } finally {
