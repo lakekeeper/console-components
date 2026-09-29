@@ -574,7 +574,16 @@ async function putS3Multipart(
   };
 
   try {
-    await Promise.all(Array.from({ length: Math.min(PART_CONCURRENCY, count) }, worker));
+    // Settled, not `all`: `all` rejects on the first worker while the other
+    // three are still uploading, and the abort below would then race parts that
+    // had not been sent yet — leaving exactly the orphaned, billable parts it
+    // exists to clean up. Wait for the lot, then report the first failure.
+    const outcomes = await Promise.allSettled(
+      Array.from({ length: Math.min(PART_CONCURRENCY, count) }, worker),
+    );
+    const failed = outcomes.find((o) => o.status === 'rejected');
+    if (failed) throw (failed as PromiseRejectedResult).reason;
+
     const body =
       '<CompleteMultipartUpload>' +
       etags

@@ -167,7 +167,7 @@ measured from its own top edge.**
 
 ```ts
 const top = el.getBoundingClientRect().top;
-height.value = `${Math.max(MIN, Math.round(window.innerHeight - footer - top - 24))}px`;
+height.value = `${Math.max(MIN, Math.round(window.innerHeight - footer - top - 12))}px`;
 ```
 
 Not `calc(100vh - 240px)`: a constant has to know how much chrome sits above

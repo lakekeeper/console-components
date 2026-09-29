@@ -56,9 +56,12 @@
           </template>
           <v-list-item-title>{{ p['project-name'] }}</v-list-item-title>
         </v-list-item>
+        <!-- Only "none", never "not permitted": the menu itself is gated on
+             `!projectsRefused`, so a refusal never reaches this line — it is
+             the chip below that answers for that case. -->
         <v-list-item v-if="!projectsLoading && !projects.length">
           <v-list-item-title class="text-caption text-medium-emphasis">
-            {{ projectsRefused ? 'Not permitted to list projects' : 'No projects available' }}
+            No projects available
           </v-list-item-title>
         </v-list-item>
 

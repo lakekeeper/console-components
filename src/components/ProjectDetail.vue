@@ -237,8 +237,12 @@ const actions = ref<string[]>([]);
 const canRename = computed(() => actions.value.includes('rename'));
 const canDelete = computed(() => actions.value.includes('delete'));
 
-const { showStatisticsTab } = useProjectPermissions(projectId);
-const { showPermissionsTab } = useProjectAuthorizerPermissions(projectId);
+// The loading flags come along because a held `?tab=` must outlast the answer
+// it depends on: `false` for a tab whose permissions are still being read is
+// "not yet", not "no".
+const { showStatisticsTab, loading: catalogPermsLoading } = useProjectPermissions(projectId);
+const { showPermissionsTab, loading: authzPermsLoading } =
+  useProjectAuthorizerPermissions(projectId);
 // Null while the server is still being asked, which is not the same as no.
 const serverGrantsSupported = useGrantsSupported();
 const grantsSupported = computed(() => serverGrantsSupported.value === true);
@@ -292,19 +296,33 @@ watch(() => props.projectId, load);
 watch(activeTab, (tab) => writeTabToUrl(tab));
 
 // The held tab lands as soon as the flag that shows it turns true, and is
-// dropped once every flag has settled — otherwise a link naming a tab this
+// dropped once every source has settled — otherwise a link naming a tab this
 // deployment does not offer would keep waiting for it forever.
+//
+// Settled is not the same as false. `showPermissionsTab` and `showStatisticsTab`
+// both start false and stay false while their request is out, so testing the
+// grants answer alone dropped a `?tab=permissions` link whenever grants replied
+// first — which is the usual order, the permission reads being two round trips.
 watch(
-  () => [showPermissionsTab.value, grantsSupported.value, showStatisticsTab.value] as const,
+  () =>
+    [
+      showPermissionsTab.value,
+      grantsSupported.value,
+      showStatisticsTab.value,
+      catalogPermsLoading.value,
+      authzPermsLoading.value,
+    ] as const,
   () => {
     const wanted = requestedTab.value;
     if (!wanted) return;
     if (tabAvailable(wanted)) {
       activeTab.value = wanted;
       requestedTab.value = null;
-    } else if (serverGrantsSupported.value !== null) {
-      requestedTab.value = null;
+      return;
     }
+    if (catalogPermsLoading.value || authzPermsLoading.value) return;
+    if (serverGrantsSupported.value === null) return;
+    requestedTab.value = null;
   },
 );
 

@@ -156,46 +156,53 @@ const currentProjectId = (): string => {
   return visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'] || '';
 };
 
+/**
+ * Attaches the token and the project to every request, as they are at the time
+ * the request is made.
+ *
+ * Neither belongs in `setConfig`. A configured header is captured whenever
+ * `init()` last ran, and the Iceberg wrappers — `listNamespaces`, `loadTable`
+ * and the rest — do not call `init()` at all, so after a project switch they
+ * kept sending the previous project until some unrelated management call
+ * happened to refresh it, and the catalog answered for the wrong project.
+ *
+ * A wrapper that names its own project still wins: those pass the header on the
+ * call, which is already on the request by the time this runs, so it is only
+ * filled in where it is missing. An empty one is left off entirely rather than
+ * sent blank — before the store has a project and before the server has
+ * answered with its default, there is no answer to give, and the catalog
+ * rejects the empty string instead of falling back.
+ */
+function attachRequestContext(request: Request): Request {
+  const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
+  if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
+  if (!request.headers.get('x-project-id')) {
+    const projectId = currentProjectId();
+    if (projectId) request.headers.set('x-project-id', projectId);
+    else request.headers.delete('x-project-id');
+  }
+  return request;
+}
+
+// `init()` runs at the top of nearly every wrapper, and `interceptors.use` is a
+// push, not a set: registering from there added one more copy of the same
+// interceptor per call, so a long session ran hundreds of them on every
+// request. They are registered once and left alone; nothing in them is
+// captured, so there is never a reason to replace them.
+let interceptorsRegistered = false;
+
 function init() {
-  // Don't capture the token - get it dynamically in the interceptor
+  // Neither the token nor the project is captured here; both are read per
+  // request in `attachRequestContext`.
+  mngClient.client.setConfig({ baseUrl: icebergCatalogUrl() });
+  iceClient.client.setConfig({ baseUrl: icebergCatalogUrlSuffixed() });
+  gtClient.client.setConfig({ baseUrl: icebergCatalogUrl() });
 
-  // Use selected project-id or fall back to default-project-id from server
-  const projectId = currentProjectId();
-
-  mngClient.client.setConfig({
-    baseUrl: icebergCatalogUrl(),
-    headers: { 'x-project-id': projectId },
-  });
-
-  mngClient.client.interceptors.request.use((request) => {
-    // Get the token dynamically on each request
-    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
-    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
-    return request;
-  });
-
-  iceClient.client.setConfig({
-    baseUrl: icebergCatalogUrlSuffixed(),
-    headers: { 'x-project-id': projectId },
-  });
-
-  iceClient.client.interceptors.request.use((request) => {
-    // Get the token dynamically on each request
-    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
-    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
-    return request;
-  });
-
-  gtClient.client.setConfig({
-    baseUrl: icebergCatalogUrl(),
-    headers: { 'x-project-id': projectId },
-  });
-
-  gtClient.client.interceptors.request.use((request) => {
-    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
-    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
-    return request;
-  });
+  if (interceptorsRegistered) return;
+  interceptorsRegistered = true;
+  mngClient.client.interceptors.request.use(attachRequestContext);
+  iceClient.client.interceptors.request.use(attachRequestContext);
+  gtClient.client.interceptors.request.use(attachRequestContext);
 }
 
 const icebergCatalogUrl = (): string => {
@@ -5606,6 +5613,52 @@ async function getAuthorizerProjectActions(notify?: boolean): Promise<OpenFgaPro
   }
 }
 
+/**
+ * The authorizer actions held on one named project, rather than on whichever
+ * project the session has selected.
+ *
+ * A separate wrapper for the same reason `getProjectCatalogActionsFor` is one:
+ * `getAuthorizerProjectActions` answers for the selection and is called from
+ * surfaces that want exactly that, so it keeps its signature and its behaviour.
+ * A page that is open on a project it has not switched to — the project detail
+ * page — has to name the project it is asking about, or it gates its tabs on
+ * somebody else's permissions.
+ */
+async function getAuthorizerProjectActionsFor(
+  projectId: string,
+  notify?: boolean,
+): Promise<OpenFgaProjectAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) return [];
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getAuthorizerProjectActions({
+      client,
+      headers: { 'x-project-id': projectId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaProjectAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerProjectActionsFor',
+        'Project authorizer actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getAuthorizerProjectActionsFor', notify);
+    throw error;
+  }
+}
+
 async function getProjectCatalogActions(notify?: boolean): Promise<LakekeeperProjectAction[]> {
   try {
     if (!appConfig.enabledAuthentication) {
@@ -7133,6 +7186,7 @@ export function useFunctions(config?: any) {
     // New authorizer actions (OpenFGA relations - work with ALL backends)
     getAuthorizerServerActions,
     getAuthorizerProjectActions,
+    getAuthorizerProjectActionsFor,
     getAuthorizerWarehouseActions,
     getAuthorizerNamespaceActions,
     getAuthorizerTableActions,

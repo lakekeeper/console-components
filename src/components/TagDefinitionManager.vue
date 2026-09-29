@@ -184,7 +184,7 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { Header } from '../common/interfaces';
@@ -284,8 +284,6 @@ function clearFilters() {
 watch(projectId, () => {
   if (canListTags.value) loadDefinitions();
 });
-
-onMounted(() => {});
 
 function isSystem(item: TagDefinition): boolean {
   return item.name.toLowerCase().startsWith('system.');

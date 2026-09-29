@@ -493,11 +493,16 @@ async function restoreSelection() {
                 } as GrantResourceRef);
 
     scope.value = 'warehouses';
+    // Awaited before the ref lands, for the same reason `onPick` awaits it: the
+    // panel builds its hierarchy the moment `pickedRef` changes and reads the
+    // name once, so resolving alongside left every restored chain with the
+    // literal word "Warehouse" where the warehouse should be. It cannot throw —
+    // failures are swallowed and the id stands in — so it gates nothing.
+    await resolveWarehouseName(q.gwh);
     pickedRef.value = ref;
     pickedName.value = q.gname || '';
     pickedNamespace.value = q.gns || '';
     // Not awaited, and not a gate: see below.
-    resolveWarehouseName(q.gwh);
     verifyRestored(ref);
   } catch {
     scope.value = 'server';

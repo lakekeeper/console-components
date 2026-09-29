@@ -288,10 +288,32 @@ const warehouseChoices = computed(() =>
 const visibleTreeItems = computed(() => {
   const id = props.warehouseId ? null : selectedWarehouseId.value;
   if (!id) return treeItems.value;
-  const picked =
-    treeItems.value.find((item) => item.type === 'warehouse' && item.warehouseId === id) ??
-    pendingWarehouses.value.find((item) => item.warehouseId === id);
+  const picked = treeItems.value.find(
+    (item) => item.type === 'warehouse' && item.warehouseId === id,
+  );
   return picked ? [picked] : [];
+});
+
+/**
+ * Page the list until `warehouseId` is rendered, so the node can be opened.
+ *
+ * Showing a warehouse straight out of `pendingWarehouses` was half a pick: the
+ * node appeared, but every lookup that makes it work — the `openedItems`
+ * watcher, the restore path — searches `treeItems` alone, so it could not be
+ * expanded and loaded no namespaces. This is the same walk the restore already
+ * does before looking a saved node up.
+ */
+function ensureWarehouseRendered(warehouseId: string) {
+  const nodeId = `warehouse-${warehouseId}`;
+  while (pendingWarehouses.value.length > 0 && !findItemById(treeItems.value, nodeId)) {
+    appendWarehousePage();
+  }
+}
+
+// Picking is what puts a pending warehouse on screen, so it is also where it
+// has to become a real node rather than a rendered-only one.
+watch(selectedWarehouseId, (id) => {
+  if (id) ensureWarehouseRendered(id);
 });
 
 function warehouseNode(warehouse: any): TreeItem {

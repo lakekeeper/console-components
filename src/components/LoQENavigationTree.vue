@@ -544,9 +544,10 @@ const warehouseChoices = computed(() =>
  */
 watch(selectedWarehouseId, (id) => {
   if (!id) return;
-  const picked =
-    treeItems.value.find((item) => item.type === 'warehouse' && item.warehouseId === id) ??
-    pendingWarehouses.value.find((item) => item.warehouseId === id);
+  ensureWarehouseRendered(id);
+  const picked = treeItems.value.find(
+    (item) => item.type === 'warehouse' && item.warehouseId === id,
+  );
   if (!picked || picked.stsOff || isWarehouseAttached(id)) return;
   emit('attach-warehouse', {
     warehouseId: id,
@@ -570,11 +571,28 @@ watch(selectedWarehouseId, (id) => {
 const visibleTreeItems = computed(() => {
   const id = selectedWarehouseId.value;
   if (!id) return treeItems.value;
-  const picked =
-    treeItems.value.find((item) => item.type === 'warehouse' && item.warehouseId === id) ??
-    pendingWarehouses.value.find((item) => item.warehouseId === id);
+  const picked = treeItems.value.find(
+    (item) => item.type === 'warehouse' && item.warehouseId === id,
+  );
   return picked ? [picked] : [];
 });
+
+/**
+ * Page the list until `warehouseId` is rendered, so the node can be opened.
+ *
+ * Showing a warehouse straight out of `pendingWarehouses` was half a pick: the
+ * node appeared, but every lookup that makes it work — the `openedItems`
+ * watcher, the expand-to-attach path, search's expand-to-path — searches
+ * `treeItems` alone, so it could not be expanded and loaded no namespaces.
+ * Paging it in instead keeps one source of truth, and the "Load more" count
+ * follows because `appendWarehousePage` is what moves it.
+ */
+function ensureWarehouseRendered(warehouseId: string) {
+  const nodeId = `wh-${warehouseId}`;
+  while (pendingWarehouses.value.length > 0 && !findItemById(treeItems.value, nodeId)) {
+    appendWarehousePage();
+  }
+}
 
 // Cached warehouse metadata (warehouseId → name)
 const warehouseNames = new Map<string, string>();

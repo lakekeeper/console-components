@@ -1412,7 +1412,21 @@ async function applyEdit(payload: { principal: GrantPrincipalRow; privileges: st
  * someone's access comes from, which cannot be answered a level at a time.
  * Levels this caller cannot read are skipped rather than failing the table.
  */
+/**
+ * Which walk is the current one.
+ *
+ * Both reads below are restarted by things the reader does quickly — changing
+ * the resource, retyping a filter, paging the subtree — and a privileged listing
+ * is slow enough that the old answer regularly lands after the new one. Each
+ * read takes a ticket on the way in and drops whatever it produced if a later
+ * one has since started, including its own `loading` flag: an older request
+ * clearing that is what made the table show a settled, stale answer.
+ */
+let levelsSeq = 0;
+let belowSeq = 0;
+
 async function loadAllLevels() {
+  const seq = ++levelsSeq;
   loading.value = true;
   const next: Row[] = [];
   const refused = new Set<string>();
@@ -1471,10 +1485,11 @@ async function loadAllLevels() {
         );
       }),
     );
+    if (seq !== levelsSeq) return;
     rows.value = next;
     unreadableLevels.value = refused;
   } finally {
-    loading.value = false;
+    if (seq === levelsSeq) loading.value = false;
   }
 }
 
@@ -1489,6 +1504,7 @@ async function loadAllLevels() {
  */
 async function loadBelowPage(pageToken?: string) {
   if (!subtreeAvailable.value || !subtreeSource) return;
+  const seq = ++belowSeq;
   loadingBelow.value = true;
   // A first page replaces what the table is showing; a later one appends to
   // it. Only the first is a reason to take the rows away — blanking the table
@@ -1502,6 +1518,7 @@ async function loadBelowPage(pageToken?: string) {
       pageSize: BELOW_PAGE_SIZE,
       ...subtreeFilter.value,
     });
+    if (seq !== belowSeq) return;
     belowAsOf.value = page.asOf ?? belowAsOf.value;
     belowNextToken.value = page.nextPageToken ?? null;
 
@@ -1555,6 +1572,9 @@ async function loadBelowPage(pageToken?: string) {
         });
       }),
     );
+    // Resolving names and locations is a second round of requests, so the walk
+    // can be superseded between the listing and here as easily as before it.
+    if (seq !== belowSeq) return;
     belowRows.value = pageToken ? [...belowRows.value, ...next] : next;
     // A saved node from inside cannot be applied until the page holding it has
     // been read; once the walk ends it is either there or gone for good.
@@ -1565,13 +1585,16 @@ async function loadBelowPage(pageToken?: string) {
       if (!belowNextToken.value) pendingLevel.value = null;
     }
   } catch (e: any) {
+    if (seq !== belowSeq) return;
     const code = e?.error?.code || e?.status || 0;
     if (code === 501) belowUnsupported.value = true;
     else if (isForbiddenError(e)) belowForbidden.value = true;
     else belowError.value = e?.error?.message || e?.message || 'could not be read';
   } finally {
-    loadingBelow.value = false;
-    rereadingBelow.value = false;
+    if (seq === belowSeq) {
+      loadingBelow.value = false;
+      rereadingBelow.value = false;
+    }
   }
 }
 

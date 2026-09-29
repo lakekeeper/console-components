@@ -150,7 +150,6 @@ const WINDOW_DAYS = 14;
 // the same data by hour shows when the load actually arrives — so days are
 // earned by having enough of them to be a trend, not by passing a day or two.
 // At the limit the window is full, which is where days take over.
-const HOURLY_SPAN_LIMIT_H = WINDOW_DAYS * 24;
 // Fewer buckets than this and an area is a line drawn between a couple of
 // points, which reads as a trend; bars state each bucket and imply nothing.
 const BAR_THRESHOLD = 8;
@@ -281,8 +280,12 @@ function nextBucket(ts: number, gran: Granularity): number {
 const granularity = computed<Granularity>(() => {
   const raw = rawHours.value;
   if (raw.length === 0) return 'hour';
-  const span = Date.now() - raw[0].ts;
-  return span >= HOURLY_SPAN_LIMIT_H * HOUR_MS ? 'day' : 'hour';
+  // Against the window that was asked for, not against `Date.now()`. The rows
+  // are already filtered to start at `windowStart`, so the span from the oldest
+  // row to now could never reach the limit and every server got hours forever.
+  // Reaching the window start is exactly what "a full two weeks of history"
+  // means, and it is the same test `truncated` makes for the subtitle.
+  return raw[0].ts <= windowStart.value ? 'day' : 'hour';
 });
 
 // Continuous buckets across the loaded span, so a quiet hour is a gap at zero
@@ -428,7 +431,7 @@ async function loadWarehouseCounts(warehouseId: string): Promise<WarehouseCounts
   }
 }
 
-async function loadCounts() {
+async function loadCounts(seq: number) {
   loading.value = true;
   try {
     // Counted on its own: on a server with more than one project the Cedar
@@ -452,6 +455,11 @@ async function loadCounts() {
     const counts = await mapPool(whList, STATS_CONCURRENCY, (wh: any) =>
       loadWarehouseCounts(wh['warehouse-id'] ?? wh.id),
     );
+
+    // The fan-out over every warehouse is slow enough that a second project
+    // switch lands mid-flight; without this the first project's estate arrives
+    // afterwards and is emitted under the second one's name.
+    if (seq !== loadSeq) return;
 
     warehouseObjects.value = whList.map((wh: any, i: number) => ({
       id: wh['warehouse-id'] ?? wh.id,
@@ -477,14 +485,18 @@ async function loadCounts() {
   } catch {
     // Silently ignore – counts are best-effort
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
 // ─── Load chart data ─────────────────────────────────────────────────────────
-async function loadChart() {
+async function loadChart(seq: number) {
   chartLoading.value = true;
   noChartData.value = false;
+  // A refusal belongs to the project that was asked, not to this component: a
+  // project the reader may not read statistics for used to hide the chart for
+  // every project they switched to afterwards.
+  chartForbidden.value = false;
   try {
     const canFetch =
       visual.getServerInfo()['authz-backend'] === 'allow-all' ||
@@ -529,6 +541,8 @@ async function loadChart() {
       byHour.set(key, entry);
     });
 
+    if (seq !== loadSeq) return;
+
     if (byHour.size === 0) {
       rawHours.value = [];
       noChartData.value = true;
@@ -548,6 +562,7 @@ async function loadChart() {
     truncated.value = rows.length > 0 && rows[0].ts > start;
     noChartData.value = rows.length === 0;
   } catch (error: any) {
+    if (seq !== loadSeq) return;
     const status = error?.error?.code || error?.status || error?.response?.status || 0;
     if (status === 403) {
       chartForbidden.value = true;
@@ -556,15 +571,23 @@ async function loadChart() {
     }
     noChartData.value = true;
   } finally {
-    chartLoading.value = false;
+    if (seq === loadSeq) chartLoading.value = false;
   }
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
+//
+// Which load is the current one. Switching project restarts both halves while
+// the previous pair is still out, and each half writes several refs plus an
+// emit — so every one of those is checked against the ticket taken here rather
+// than landing on top of the project the reader has since moved to.
+let loadSeq = 0;
+
 async function loadStatistics() {
+  const seq = ++loadSeq;
   await Promise.all([
-    showEstate.value ? loadCounts() : Promise.resolve(),
-    showChart.value ? loadChart() : Promise.resolve(),
+    showEstate.value ? loadCounts(seq) : Promise.resolve(),
+    showChart.value ? loadChart(seq) : Promise.resolve(),
   ]);
 }
 

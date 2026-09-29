@@ -214,7 +214,9 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
   const loading = ref(false);
   const permissions = ref<OpenFgaProjectAction[]>([]);
 
-  computed(() => (typeof projectId === 'string' ? projectId : projectId.value));
+  const projectIdRef = computed(() =>
+    typeof projectId === 'string' ? projectId : projectId.value,
+  );
 
   async function loadPermissions() {
     // Only load authorizer permissions if OpenFGA is enabled
@@ -225,7 +227,16 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
 
     loading.value = true;
     try {
-      permissions.value = await functions.getAuthorizerProjectActions();
+      // The id was accepted and then dropped on the floor, so every caller got
+      // the selected project's answer under whatever project it had asked
+      // about — the project detail page can sit on a project it has not
+      // switched to, and gated its permissions tab on the wrong one. Falls
+      // back to the selection only when there is no id to name, which is what
+      // the unscoped endpoint answers for anyway.
+      const id = projectIdRef.value;
+      permissions.value = id
+        ? await functions.getAuthorizerProjectActionsFor(id)
+        : await functions.getAuthorizerProjectActions();
     } finally {
       loading.value = false;
     }
@@ -277,7 +288,10 @@ export function useProjectAuthorizerPermissions(projectId: Ref<string> | string)
     loadPermissions();
   });
 
-  // Note: No watch needed - project permissions are contextual (current project) and don't depend on projectId parameter
+  // Now that the id is actually used, a change of it is a different question.
+  watch(projectIdRef, (next, prev) => {
+    if (next !== prev) loadPermissions();
+  });
 
   return {
     loading,

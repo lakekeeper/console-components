@@ -331,11 +331,17 @@ const memberOfHeaders = [
 ];
 
 async function load() {
+  // Which role this load is about. Moving between roles restarts it while the
+  // previous one is still out, and the watcher below has already cleared the
+  // header for the new role — so a late answer would put the old role's name,
+  // provider and delete permission back under the new role's id.
+  const roleId = props.roleId;
   try {
     const [meta, mo] = await Promise.all([
-      functions.getRoleMetadata(props.roleId).catch(() => null),
-      functions.listRoleMemberOf(props.roleId).catch(() => ({ roles: [] })),
+      functions.getRoleMetadata(roleId).catch(() => null),
+      functions.listRoleMemberOf(roleId).catch(() => ({ roles: [] })),
     ]);
+    if (roleId !== props.roleId) return;
     roleName.value = (meta as any)?.name ?? '';
     providerId.value = (meta as any)?.['provider-id'] ?? '';
     memberOf.value = ((mo as any)?.roles ?? []) as RoleMembership[];
@@ -344,8 +350,9 @@ async function load() {
     // project otherwise, which answers for the wrong one on a multi-project
     // instance.
     const actions = await functions
-      .getRoleCatalogActions(props.roleId, (meta as any)?.['project-id'])
+      .getRoleCatalogActions(roleId, (meta as any)?.['project-id'])
       .catch(() => []);
+    if (roleId !== props.roleId) return;
     canDelete.value = hasAction(actions, 'delete');
   } catch {
     /* surfaced by the functions plugin */
