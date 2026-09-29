@@ -910,7 +910,9 @@ export const createRole = <ThrowOnError extends boolean = false>(options: Option
 /**
  * Delete Role
  *
- * Permanently removes a role and all its associated permissions.
+ * Permanently removes a role, its member assignments and its grants.
+ * Where Lakekeeper stores grants in its database (every built-in authorizer except OpenFGA), a role that holds grants is only deleted with `force=true`; otherwise the request fails with `409 RoleHasGrants`. Under OpenFGA the role's grants are removed with it.
+ * Roles maintained by a configured role provider can be deleted too. Their members are re-synced from the provider on their next request, and if the provider still reports the group, it recreates the role, without the deleted grants. Other Lakekeeper instances follow once their user assignments cache entry expires.
  */
 export const deleteRole = <ThrowOnError extends boolean = false>(options: Options<DeleteRoleData, ThrowOnError>): RequestResult<DeleteRoleResponses, DeleteRoleErrors, ThrowOnError> => (options.client ?? client).delete<DeleteRoleResponses, DeleteRoleErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

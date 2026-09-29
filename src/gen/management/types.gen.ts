@@ -429,7 +429,7 @@ export type CreateRoleRequest = {
     /**
      * Provider that owns this role (e.g. `"lakekeeper"`, `"oidc"`).
      * Must be provided together with `source-id`. Omit both to let the server
-     * assign `provider-id = "lakekeeper"` and a fresh UUIDv7 `source-id`.
+     * assign `provider-id = "lakekeeper"` and use the role's `id` as `source-id`.
      */
     'provider-id'?: string | null;
     /**
@@ -1866,6 +1866,7 @@ export type LakekeeperProjectActionCreateRole = {
      * Name of the role to create.
      */
     name?: string | null;
+    source_system?: null | RoleSourceSystem;
 };
 
 /**
@@ -3902,6 +3903,21 @@ export type RoleMetadata = {
 export type RoleRelation = 'assignee' | 'ownership';
 
 /**
+ * The external identity (source system) a role is bound to: a provider and the
+ * role's identifier within that provider, always given together.
+ */
+export type RoleSourceSystem = {
+    /**
+     * Provider that owns the role (e.g. `oidc`, `ldap`).
+     */
+    provider_id: string;
+    /**
+     * Identifier of the role within the provider.
+     */
+    source_id: string;
+};
+
+/**
  * Whether a subtree grant operation extends to the addressed resource itself, alongside
  * everything below it. Set from the request's `include-root-level`.
  */
@@ -4259,18 +4275,23 @@ export type ServerInfo = {
      * Role-provider namespaces whose roles are maintained by a configured role
      * provider (LDAP/Entra/Okta/token), sorted. Roles whose `provider-id`
      * appears here are the provider's to maintain: creating one, or renaming,
-     * re-describing, rebinding, or deleting an existing one, is rejected with
-     * `ManagedRoleImmutable` so provider sync cannot be clobbered.
+     * re-describing or rebinding an existing one, is rejected with
+     * `ManagedRoleImmutable` so provider sync cannot be clobbered. Deleting one
+     * is allowed; if the provider still reports the group, it creates the role
+     * again on its next sync.
      *
      * This is live server configuration, not a property of the namespace
      * string. A provider removed from config drops out of the list, and the
-     * roles it left behind become renamable and deletable again so they can be
-     * cleaned up.
+     * roles it left behind become renamable again.
      *
      * Empty when no role provider is configured. Two namespaces never appear,
      * and a client gating on this list must handle both itself: `lakekeeper`,
-     * which is always writable, and the reserved `system`, whose roles reject
-     * the same mutations with `SystemRoleImmutable`.
+     * which is always writable, and the reserved `system`: its existing roles
+     * reject the same mutations and deletion with `SystemRoleImmutable`, and
+     * naming it on create or rebind returns `RoleProviderIdReserved`. Some
+     * authorizers create and rebind roles only in `lakekeeper`; they refuse a
+     * namespace that is neither `lakekeeper`, `system` nor listed here with
+     * `RoleProviderNotApiManaged`.
      *
      * **Membership is gated differently — do not derive it from this list.**
      * Adding or removing a role's members requires the `lakekeeper` namespace
@@ -4443,9 +4464,9 @@ export type StackitProfile = {
     /**
      * Vend temporary downscoped credentials via STS. Defaults to enabled.
      *
-     * Requires `credentials-group-urn`, and requires the credentials group to
-     * carry a trust policy allowing `sts:AssumeRole`. Disable it to fall back
-     * to remote signing on storage that predates `StorageGRID` 12.0.
+     * Requires `credentials-group-urn`, and a trust policy on that group
+     * allowing `sts:AssumeRole`. Disable it to fall back to remote signing on
+     * STACKIT storage without STS.
      */
     'sts-enabled'?: boolean;
     /**
@@ -5387,12 +5408,14 @@ export type UserType = 'human' | 'application';
  */
 export type ValidateWarehouseResponse = {
     /**
-     * Every check that was considered, in execution order — passed, failed and
-     * skipped alike, so the caller can see what was and was not covered.
+     * Every check that was considered, in execution order — passed, failed,
+     * warning and skipped alike, so the caller can see what was and was not
+     * covered.
      */
     checks: Array<ValidationCheck>;
     /**
-     * True when no check failed. Skipped checks do not make a configuration invalid.
+     * True when no check failed. Skipped and warning checks do not make a
+     * configuration invalid.
      */
     valid: boolean;
 };
@@ -5425,17 +5448,17 @@ export type ValidationCheck = {
  * generated clients, which reject unknown enum values, so new checks ship in a
  * release that clients must upgrade to.
  */
-export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' | 'warehouse-name-valid' | 'warehouse-id-available' | 'location-exclusive' | 'spec-mutable' | 'format-version-policy-consistent' | 'managed-by-allowed' | 'storage-client-initialized' | 'lakekeeper-read-write' | 'vended-credentials-issued' | 'vended-credentials-read-write' | 'vended-credentials-scope-enforced' | 'cleanup';
+export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' | 'warehouse-name-valid' | 'warehouse-id-available' | 'location-exclusive' | 'spec-mutable' | 'format-version-policy-consistent' | 'managed-by-allowed' | 'storage-client-initialized' | 'lakekeeper-read-write' | 'vended-credentials-issued' | 'vended-credentials-read-write' | 'vended-credentials-scope-enforced' | 'cleanup' | 'cors-origin-allowed' | 'bucket-access-restricted';
 
 /**
  * The outcome of a single check.
  *
- * `passed` and `failed` are verdicts about the configuration. `skipped` is not
- * a verdict: the check did not apply, or a prerequisite failed, and `reason`
- * says which. Skipped checks never make a configuration invalid, so a report
+ * `passed`, `failed` and `warning` are verdicts about the configuration; only
+ * `failed` makes it invalid. `skipped` is not a verdict: the check did not
+ * apply, or a prerequisite failed, and `reason` says which. Skipped checks never make a configuration invalid, so a report
  * can be `valid` with nothing actually verified — read the individual checks.
  */
-export type ValidationCheckStatus = 'passed' | 'failed' | 'skipped';
+export type ValidationCheckStatus = 'passed' | 'failed' | 'skipped' | 'warning';
 
 export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
@@ -7528,7 +7551,14 @@ export type DeleteRoleData = {
          */
         role_id: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Delete the role even if it holds grants. Its grants are revoked with it.
+         * Checked where Lakekeeper stores grants in its database; under OpenFGA a role's
+         * grants are always removed with it.
+         */
+        force?: boolean;
+    };
     url: '/management/v1/role/{role_id}';
 };
 

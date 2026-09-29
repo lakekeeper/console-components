@@ -320,8 +320,6 @@
                       :report="storedReport"
                       :loading="storedLoading"
                       :error="storedError"
-                      :browser-check="storedBrowserCheck"
-                      :browser-check-loading="storedBrowserLoading"
                       @close="clearStoredTest"></WarehouseValidationReport>
                   </div>
                 </div>
@@ -392,15 +390,11 @@
 
                   <div ref="verifyReportRef">
                     <WarehouseValidationReport
-                      v-if="
-                        validationReport || validationError || validationLoading || browserCheck
-                      "
+                      v-if="validationReport || validationError || validationLoading"
                       class="mt-4"
                       :report="validationReport"
                       :loading="validationLoading"
                       :error="validationError"
-                      :browser-check="browserCheck"
-                      :browser-check-loading="browserCheckLoading"
                       hide-close></WarehouseValidationReport>
                   </div>
                 </div>
@@ -601,10 +595,6 @@ import WarehouseStorageFormGCS from './WarehouseStorageFormGCS.vue';
 import WarehouseStorageFormOneLake from './WarehouseStorageFormOneLake.vue';
 import WarehouseStorageFormStackit from './WarehouseStorageFormStackit.vue';
 import WarehouseValidationReport from './WarehouseValidationReport.vue';
-import {
-  checkBrowserStorageReachability,
-  type BrowserStorageCheck,
-} from '@/common/browserStorageReachability';
 import ComputeConnectPanel from './ComputeConnectPanel.vue';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
@@ -1041,7 +1031,6 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
     resetCreateForm();
     validationReport.value = null;
     validationError.value = null;
-    clearBrowserCheck();
 
     warehouseName.value = wh['warehouse-name'];
     const data = {
@@ -1278,13 +1267,13 @@ const verifySummary = computed(() => {
       short: String(failed),
     };
   // Nothing failed, but "All checks passed" would be untrue with an outstanding
-  // advisory. It stays a warning, never an error: the browser path is not
-  // required for a correct warehouse, so it does not gate Create.
-  if (browserCheck.value?.status === 'warning')
+  // advisory. Warnings never gate Create: the API still calls the report valid.
+  const warnings = report.checks.filter((c) => c.status === 'warning').length;
+  if (warnings > 0)
     return {
       color: 'warning',
       icon: 'mdi-alert-circle',
-      text: 'Passed with 1 warning',
+      text: `Passed with ${warnings} warning${warnings === 1 ? '' : 's'}`,
       short: '!',
     };
   return { color: 'success', icon: 'mdi-check-circle', text: 'All checks passed', short: '✓' };
@@ -1295,12 +1284,9 @@ const verifySummary = computed(() => {
 // the result is dropped as soon as the form changes.
 watch([() => warehouseName.value, storageCredentialType, storageEdits], () => {
   if (validationLoading.value) return;
-  if (validationReport.value || validationError.value || browserCheck.value) {
+  if (validationReport.value || validationError.value) {
     validationReport.value = null;
     validationError.value = null;
-    // Same staleness rule: an edit to the endpoint, bucket or region changes
-    // which URL the verdict was about.
-    clearBrowserCheck();
   }
 });
 
@@ -1355,10 +1341,6 @@ async function runVerify(): Promise<boolean> {
   validationSource.value = 'config';
   validationReport.value = null;
   validationError.value = null;
-  // Runs against the profile the form is about to submit, in parallel with the
-  // API call: it talks only to the storage endpoint, so there is nothing to
-  // serialise, and the backend result should not wait on a foreign host.
-  startBrowserCheck(data['storage-profile'] as Record<string, any>);
   // Straight to the report, which renders under the form it is about and shows
   // its own loading state.
   pane.value = storageCredentialType.value;
@@ -1397,8 +1379,6 @@ async function verifyAndCreate() {
 function clearStoredTest() {
   storedReport.value = null;
   storedError.value = null;
-  storedBrowserCheck.value = null;
-  storedBrowserRun += 1;
 }
 
 async function runStoredAccessTest() {
@@ -1406,19 +1386,6 @@ async function runStoredAccessTest() {
   storedLoading.value = true;
   clearStoredTest();
   revealReport(storedReportRef);
-  // The stored profile, to match what this button checks everywhere else.
-  const run = ++storedBrowserRun;
-  storedBrowserLoading.value = true;
-  checkBrowserStorageReachability(props.warehouse['storage-profile'] as Record<string, any>)
-    .then((result) => {
-      if (run === storedBrowserRun) storedBrowserCheck.value = result;
-    })
-    .catch(() => {
-      if (run === storedBrowserRun) storedBrowserCheck.value = null;
-    })
-    .finally(() => {
-      if (run === storedBrowserRun) storedBrowserLoading.value = false;
-    });
   try {
     storedReport.value = await functions.validateStorageAccess(props.warehouse.id);
   } catch (error: any) {
@@ -1491,7 +1458,6 @@ function resetProviderPane() {
   storageFormDirty.value = false;
   validationReport.value = null;
   validationError.value = null;
-  clearBrowserCheck();
   importKey.value++;
 }
 
@@ -1514,7 +1480,6 @@ function handleReset() {
   resetCreateForm();
   validationReport.value = null;
   validationError.value = null;
-  clearBrowserCheck();
   storageCredentialType.value = selectedProvider;
   pane.value = selectedPane;
 }
@@ -1559,44 +1524,8 @@ const validationSource = ref<'config' | null>(null);
 const storedLoading = ref(false);
 const storedReport = ref<ValidateWarehouseResponse | null>(null);
 const storedError = ref<string | null>(null);
-const storedBrowserCheck = ref<BrowserStorageCheck | null>(null);
-const storedBrowserLoading = ref(false);
-let storedBrowserRun = 0;
 const validationReport = ref<ValidateWarehouseResponse | null>(null);
 const validationError = ref<string | null>(null);
-
-// The browser-reachability verdict is kept apart from `validationReport`: it is
-// not something the API returns, and it is advisory — it must never reach
-// `verifySummary`'s failure count or gate the create button. See
-// `browserStorageReachability` for why the server cannot answer this.
-const browserCheck = ref<BrowserStorageCheck | null>(null);
-const browserCheckLoading = ref(false);
-// The probe outlives the API call (it waits on a foreign host, with its own
-// timeout), so a second Verify can start while the first is still in flight.
-// Only the newest run may publish a result.
-let browserCheckRun = 0;
-
-function startBrowserCheck(profile: Record<string, any> | null | undefined) {
-  const run = ++browserCheckRun;
-  browserCheck.value = null;
-  browserCheckLoading.value = true;
-  checkBrowserStorageReachability(profile)
-    .then((result) => {
-      if (run === browserCheckRun) browserCheck.value = result;
-    })
-    .catch(() => {
-      if (run === browserCheckRun) browserCheck.value = null;
-    })
-    .finally(() => {
-      if (run === browserCheckRun) browserCheckLoading.value = false;
-    });
-}
-
-function clearBrowserCheck() {
-  browserCheckRun++;
-  browserCheck.value = null;
-  browserCheckLoading.value = false;
-}
 
 // --- Seeding from an existing warehouse --------------------------------------
 function seedStorageFromWarehouse(wh: GetWarehouseResponse) {

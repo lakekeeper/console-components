@@ -460,13 +460,13 @@
             <!-- Shown only where it is actionable: a storage the browser reads
                  directly, with vended credentials on. Elsewhere a red chip would
                  be about a bucket that was never in scope. -->
-            <template v-if="browserCheckApplicable">
+            <template v-if="corsCheckApplicable">
               <v-divider class="my-5"></v-divider>
 
               <!-- The explanation is long and only wanted once, so it hangs off
                    an info icon rather than sitting above the control forever. -->
               <div class="d-flex align-center mb-3" style="gap: 4px">
-                <span class="text-overline text-medium-emphasis">Browser access</span>
+                <span class="text-overline text-medium-emphasis">Storage CORS</span>
                 <v-tooltip location="bottom" max-width="380">
                   <template #activator="{ props: tipProps }">
                     <v-icon
@@ -476,11 +476,10 @@
                       class="text-medium-emphasis"></v-icon>
                   </template>
                   <span>
-                    Whether this console's origin ({{ consoleOrigin }}) can read the storage
-                    directly, which the data preview and local query engine need. Warehouse
-                    validation covers the catalog's own access to storage; this is the other path,
-                    and only a browser can answer it. Checked once per session; refresh to re-test
-                    after changing a bucket's CORS rule.
+                    Whether the bucket's CORS rule allows browsers to read the storage directly,
+                    which the data preview and local query engine need. Answered by the catalog
+                    against the origin it serves the console from. Checked once per session —
+                    refresh to re-test after changing a bucket's CORS rule.
                   </span>
                 </v-tooltip>
               </div>
@@ -488,20 +487,20 @@
                 <v-chip
                   size="small"
                   variant="tonal"
-                  :color="browserChip.color"
-                  :prepend-icon="browserChip.icon">
-                  {{ browserChip.text }}
+                  :color="corsChip.color"
+                  :prepend-icon="corsChip.icon">
+                  {{ corsChip.text }}
                 </v-chip>
                 <v-btn
                   icon="mdi-refresh"
                   size="x-small"
                   variant="text"
-                  :loading="browserCheckLoading"
-                  @click="runBrowserCheck"></v-btn>
-                <CorsConfigDialog v-if="browserCheckResult?.corsLikely" />
+                  :loading="corsCheckLoading"
+                  @click="runCorsCheck"></v-btn>
+                <CorsConfigDialog v-if="corsCheckFailed" />
               </div>
-              <div v-if="browserCheckResult" class="text-caption text-medium-emphasis mt-2">
-                {{ browserCheckResult.detail }}
+              <div v-if="corsCheckDetail" class="text-caption text-medium-emphasis mt-2">
+                {{ corsCheckDetail }}
               </div>
             </template>
 
@@ -541,8 +540,8 @@ import stackitDarkIcon from '@/assets/stackit-logo-dark.svg';
 import { useUserStore } from '@/stores/user';
 import EntityTagsChips from './EntityTagsChips.vue';
 import CorsConfigDialog from './CorsConfigDialog.vue';
-import { useBrowserStorageCheck } from '@/composables/useBrowserStorageCheck';
 import { storageProbeUrl } from '@/common/storageProbeUrl';
+import { useStorageCorsCheck } from '@/composables/useStorageCorsCheck';
 import { stsDisabled } from '@/common/vendedCredentials';
 
 const props = defineProps<{
@@ -568,42 +567,54 @@ const layout = computed(
 
 const storageType = computed(() => (warehouse['storage-profile'] as any)?.type as string);
 
-// --- Browser access ---------------------------------------------------------
-// A verdict that validation cannot keep current: it was recorded when the
-// warehouse was configured, under whatever origin ran it, and both the console's
-// origin and the bucket's CORS rule can change afterwards.
+// --- Storage CORS -----------------------------------------------------------
+// The catalog's own `cors-origin-allowed` check, pulled out of a storage-access
+// validation. Once per warehouse per session — see `useStorageCorsCheck` for why
+// this one is not free to re-run.
 const {
-  result: browserCheckResult,
-  loading: browserCheckLoading,
-  run: runBrowserStorageCheck,
-} = useBrowserStorageCheck();
+  result: corsCheck,
+  ran: corsCheckRan,
+  loading: corsCheckLoading,
+  run: runStorageCorsCheck,
+} = useStorageCorsCheck();
 
-const consoleOrigin = computed(() =>
-  typeof window !== 'undefined' ? window.location.origin : 'this console',
-);
-
-const browserCheckApplicable = computed(() => {
+// Gated on the same shape as before: a storage the browser reads directly, with
+// vended credentials on. Elsewhere the verdict would be about a bucket that was
+// never in scope.
+const corsCheckApplicable = computed(() => {
   const profile = warehouse['storage-profile'] as any;
   return !!profile && !stsDisabled(profile) && storageProbeUrl(profile) !== null;
 });
 
-const browserChip = computed(() => {
-  if (browserCheckLoading.value)
+const corsCheckFailed = computed(
+  () => corsCheck.value?.status === 'failed' || corsCheck.value?.status === 'warning',
+);
+
+const corsCheckDetail = computed(() => {
+  const check = corsCheck.value;
+  if (!check) {
+    return corsCheckRan.value ? 'This Lakekeeper does not report a CORS check.' : '';
+  }
+  if (check.status === 'skipped') return check.reason ? `Skipped: ${check.reason}` : '';
+  return check.error?.message ?? '';
+});
+
+const corsChip = computed(() => {
+  if (corsCheckLoading.value)
     return { color: 'default', icon: 'mdi-timer-sand', text: 'Checking…' };
-  const result = browserCheckResult.value;
-  // Only before the warehouse has loaded — the check starts itself after that.
-  if (!result) return { color: 'default', icon: 'mdi-help-circle-outline', text: 'Not checked' };
-  if (result.status === 'passed')
-    return { color: 'success', icon: 'mdi-check-circle', text: 'Reachable' };
-  if (result.status === 'warning')
-    return { color: 'warning', icon: 'mdi-alert-circle', text: 'Not reachable' };
-  return { color: 'default', icon: 'mdi-minus-circle-outline', text: 'Not applicable' };
+  if (!corsCheckRan.value)
+    return { color: 'default', icon: 'mdi-help-circle-outline', text: 'Not checked' };
+  const status = corsCheck.value?.status;
+  if (status === 'passed') return { color: 'success', icon: 'mdi-check-circle', text: 'Allowed' };
+  if (status === 'failed' || status === 'warning')
+    return { color: 'warning', icon: 'mdi-alert-circle', text: 'Not allowed' };
+  return { color: 'default', icon: 'mdi-minus-circle-outline', text: 'Not reported' };
 });
 
 // `force` on every click: the button exists to observe a change made elsewhere,
 // so returning the remembered answer would defeat it.
-function runBrowserCheck() {
-  runBrowserStorageCheck(warehouse.id, warehouse['storage-profile'] as any, { force: true });
+function runCorsCheck() {
+  runStorageCorsCheck(warehouse.id, warehouse['storage-profile'] as any, { force: true });
 }
 
 // The STACKIT wordmark is ink-on-transparent, so it needs the light/dark pair.
@@ -670,11 +681,11 @@ async function loadWarehouse() {
       Object.assign(warehouse, whResponse);
       visual.wahrehouseName = whResponse.name;
       visual.whId = whResponse.id;
-      // Non-blocking and deliberately not awaited: the probe talks to a foreign
-      // host with its own timeout, and nothing on this page depends on it. The
-      // cache means this costs one request per warehouse per session.
-      if (browserCheckApplicable.value)
-        runBrowserStorageCheck(whResponse.id, whResponse['storage-profile']);
+      // Not awaited: nothing on this page depends on the verdict, and the
+      // validation talks to storage with its own timeout. The session cache
+      // means this costs one run per warehouse per session.
+      if (corsCheckApplicable.value)
+        runStorageCorsCheck(whResponse.id, whResponse['storage-profile'] as any);
     }
   } catch (error) {
     logError('WarehouseDetails.loadWarehouse', error);

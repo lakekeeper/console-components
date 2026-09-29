@@ -1,10 +1,13 @@
 /**
  * Where a browser would reach this warehouse's object storage.
  *
- * Derived from the storage profile alone — no catalog call, no credentials. The
- * URL names an object that is not expected to exist: the probe asks whether a
- * response comes back at all, never what it says, so a 403 or 404 is a perfectly
- * good answer (see `browserStorageReachability`).
+ * Derived from the storage profile alone — no catalog call, no credentials.
+ *
+ * Nothing fetches this any more: the client-side reachability probe was dropped
+ * in favour of the catalog's own `cors-origin-allowed` validation check. What
+ * survives is the predicate — a profile with no URL here is one the browser
+ * never reads directly, which is how `WarehouseDetails` decides whether a CORS
+ * verdict is worth showing at all.
  *
  * This is deliberately separate from `useStorageExplorer`, which builds URLs from
  * the *vended credential* config returned by `loadTable`. That is the richer

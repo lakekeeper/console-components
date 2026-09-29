@@ -983,6 +983,18 @@ async function updateStorageProfile(
   }
 }
 
+/**
+ * Toast wording for a validation report. `valid` stays true when checks only
+ * warn (see `ValidationCheckStatus`), so announcing such a report as plainly
+ * valid would hide the advisories the caller is meant to act on.
+ */
+function validationSummaryMsg(subject: string, result: ValidateWarehouseResponse): string {
+  if (!result.valid) return `${subject} is invalid`;
+  const warnings = result.checks.filter((c) => c.status === 'warning').length;
+  if (!warnings) return `${subject} is valid`;
+  return `${subject} is valid with ${warnings} warning${warnings === 1 ? '' : 's'}`;
+}
+
 async function validateWarehouse(
   wh: CreateWarehouseRequest,
   notify?: boolean,
@@ -1002,7 +1014,7 @@ async function validateWarehouse(
     if (notify) {
       handleSuccess(
         'validateWarehouse',
-        result.valid ? 'Warehouse configuration is valid' : 'Warehouse configuration is invalid',
+        validationSummaryMsg('Warehouse configuration', result),
         notify,
       );
     }
@@ -1040,7 +1052,7 @@ async function validateStorageProfile(
     if (notify) {
       handleSuccess(
         'validateStorageProfile',
-        result.valid ? 'Storage profile is valid' : 'Storage profile is invalid',
+        validationSummaryMsg('Storage profile', result),
         notify,
       );
     }
@@ -1074,7 +1086,7 @@ async function validateStorageCredential(
     if (notify) {
       handleSuccess(
         'validateStorageCredential',
-        result.valid ? 'Storage credential is valid' : 'Storage credential is invalid',
+        validationSummaryMsg('Storage credential', result),
         notify,
       );
     }
@@ -1106,7 +1118,7 @@ async function validateStorageAccess(
     if (notify) {
       handleSuccess(
         'validateStorageAccess',
-        result.valid ? 'Storage access is valid' : 'Storage access is invalid',
+        validationSummaryMsg('Storage access', result),
         notify,
       );
     }
@@ -5083,11 +5095,9 @@ async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
  * Separate from `deleteRole` rather than an extra argument on it: that wrapper
  * is called from the roles list and must keep its exact behaviour.
  *
- * `force` is a query parameter the management API accepts but the checked-in
- * OpenAPI document predates, so the generated `DeleteRoleData` still types
- * `query` as `never` — hence the cast. Without it the server answers `409
- * RoleHasGrants` for any role holding grants, on every built-in authorizer
- * except OpenFGA, which removes a role's grants with it regardless.
+ * Without `force` the server answers `409 RoleHasGrants` for any role holding
+ * grants, on every built-in authorizer except OpenFGA, which removes a role's
+ * grants with it regardless.
  */
 async function deleteRoleWithForce(
   roleId: string,
@@ -5102,7 +5112,7 @@ async function deleteRoleWithForce(
     const { error: deleteRoleError } = await mng.deleteRole({
       client,
       path: { role_id: roleId },
-      ...(force ? ({ query: { force: true } } as any) : {}),
+      ...(force ? { query: { force: true } } : {}),
     });
     if (deleteRoleError) throw deleteRoleError;
 
