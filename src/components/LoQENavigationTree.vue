@@ -149,7 +149,7 @@
                     density="compact"
                     @click="handleShowDDLSearchResult(result)"
                     prepend-icon="mdi-code-tags">
-                    <v-list-item-title class="text-caption">Show DDL</v-list-item-title>
+                    <v-list-item-title class="text-caption">SQL templates</v-list-item-title>
                   </v-list-item>
                   <v-list-item
                     density="compact"
@@ -342,7 +342,7 @@
                   density="compact"
                   @click="handleShowDDL(item)"
                   prepend-icon="mdi-code-tags">
-                  <v-list-item-title class="text-caption">Show DDL</v-list-item-title>
+                  <v-list-item-title class="text-caption">SQL templates</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   density="compact"

@@ -1,5 +1,8 @@
 <template>
-  <div class="sql-editor-wrapper" :class="{ disabled: disabled }" :style="{ maxHeight: minHeight }">
+  <div
+    class="sql-editor-wrapper"
+    :class="{ disabled: disabled && !readonly, readonly: readonly }"
+    :style="{ maxHeight: minHeight }">
     <div ref="editorContainer" class="sql-editor" :style="{ maxHeight: minHeight }"></div>
   </div>
 </template>
@@ -27,6 +30,12 @@ const props = withDefaults(
     modelValue: string;
     placeholder?: string;
     disabled?: boolean;
+    /**
+     * Non-editable but fully interactive: the content still scrolls and can be
+     * selected. `disabled` greys the editor out and blocks pointer events, which
+     * makes a long document impossible to scroll — use this for read-only views.
+     */
+    readonly?: boolean;
     minHeight?: string;
     clearable?: boolean;
     /** Nested schema for hierarchical name completions: { catalog: { ns: { table: [] } } } */
@@ -37,6 +46,7 @@ const props = withDefaults(
   {
     placeholder: '',
     disabled: false,
+    readonly: false,
     minHeight: '30vh',
     clearable: false,
     schema: undefined,
@@ -389,7 +399,7 @@ onMounted(async () => {
           return false;
         },
       }),
-      readOnlyCompartment.of(EditorState.readOnly.of(props.disabled)),
+      readOnlyCompartment.of(EditorState.readOnly.of(props.disabled || props.readonly)),
       themeCompartment.of([
         createThemeExtension(isDark.value),
         syntaxHighlighting(isDark.value ? darkHighlightStyle : lightHighlightStyle),
@@ -421,7 +431,7 @@ watch(
 );
 
 watch(
-  () => props.disabled,
+  () => props.disabled || props.readonly,
   (disabled) => {
     if (editorView) {
       editorView.dispatch({
@@ -584,5 +594,10 @@ defineExpose({
 .sql-editor-wrapper.disabled {
   opacity: 0.5;
   pointer-events: none;
+}
+
+/* Read-only keeps full opacity and pointer events so long content stays scrollable. */
+.sql-editor-wrapper.readonly :deep(.cm-cursor) {
+  display: none;
 }
 </style>
