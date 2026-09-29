@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.26.0](https://github.com/lakekeeper/console-components/compare/v0.25.0...v0.26.0) (2026-09-29)
+
+
+### Features
+
+* **ui:** compact the table overview onto two columns without card chrome ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+* **ui:** delete provider-owned roles, with a force option for their grants ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+* **ui:** give projects a page of their own and let the app bar switch them ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+* **ui:** give tags, policies and the grants explorer the same pane shape ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+* **ui:** name the STACKIT storage a warehouse is on ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+* **ui:** one grants pane with a review of grants above and below a resource ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+* **ui:** one identity row for warehouse, namespace, table and view headers ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+* **ui:** rebuild home around what the estate holds ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+
+
+### Bug Fixes
+
+* **ui:** measure every pane's height where it sits, with one gap ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+
+
+### Performance Improvements
+
+* **ui:** virtualize the grants table and stop the warehouse tree re-rendering ([04573f3](https://github.com/lakekeeper/console-components/commit/04573f358267e0a4cd5e354bffeaa52534bd0620))
+
 ## [0.25.0](https://github.com/lakekeeper/console-components/compare/v0.24.0...v0.25.0) (2026-09-23)
 
 
