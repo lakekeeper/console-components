@@ -1,7 +1,10 @@
 <template>
   <v-menu v-model="menuOpen" location="bottom end" :close-on-content-click="false">
     <template #activator="{ props: menuProps }">
-      <v-btn icon="mdi-cog" variant="text" v-bind="menuProps" title="Namespace actions"></v-btn>
+      <!-- Labelled rather than a bare cog: the glyph alone left people
+           guessing. No tooltip — the word is already on screen, and a
+           hover bubble repeating it would just say the same thing twice. -->
+      <v-btn variant="text" size="small" prepend-icon="mdi-cog" v-bind="menuProps">Settings</v-btn>
     </template>
 
     <v-list density="compact" min-width="240">

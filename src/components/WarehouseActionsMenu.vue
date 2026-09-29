@@ -1,7 +1,10 @@
 <template>
   <v-menu v-model="menuOpen" location="start" offset-y="20px">
     <template #activator="{ props }">
-      <v-btn icon="mdi-cog" variant="text" v-bind="props"></v-btn>
+      <!-- Labelled rather than a bare cog: the glyph alone left people
+           guessing. No tooltip — the word is already on screen, and a
+           hover bubble repeating it would just say the same thing twice. -->
+      <v-btn variant="text" size="small" prepend-icon="mdi-cog" v-bind="props">Settings</v-btn>
     </template>
 
     <v-list activatable density="compact">
