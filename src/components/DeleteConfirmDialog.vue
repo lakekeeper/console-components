@@ -120,6 +120,9 @@ function messageOf(error: any): string {
 }
 
 async function confirm() {
+  // The name field stays enabled while the request is in flight, so holding
+  // Enter fires this again and deletes twice; only the button was guarded.
+  if (submitting.value) return;
   if (!props.confirmHandler) {
     emit('confirmed', force.value);
     isDialogActive.value = false;
