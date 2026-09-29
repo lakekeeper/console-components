@@ -199,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue';
+import { computed, ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue';
 import * as d3 from 'd3';
 import {
   EndpointStatisticsResponse,
@@ -402,8 +402,7 @@ function buildRangeSpecifier(): TimeWindowSelector | null {
   if (preset?.hours) {
     return {
       end: new Date().toISOString(),
-      interval:
-        preset.hours % 24 === 0 ? `P${preset.hours / 24}D` : `PT${preset.hours}H`,
+      interval: preset.hours % 24 === 0 ? `P${preset.hours / 24}D` : `PT${preset.hours}H`,
       type: 'window',
     };
   }
@@ -442,6 +441,12 @@ async function fetchStatistics() {
 
     const result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
     tableRows.value = flatten(result);
+
+    // The grouping follows what came back. Measured from the rows rather than
+    // from the request, so a window with two hours of data in it is drawn by
+    // the hour whatever span was asked for.
+    const times = tableRows.value.map((row) => row.date.getTime()).filter(Number.isFinite);
+    dataSpanMs.value = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
     aggregateRows();
   } catch (error) {
     functions.handleError(error, 'loadStatistics');
@@ -456,7 +461,7 @@ async function fetchStatistics() {
 
 // ─── Time Aggregation ────────────────────────────────────────────────────────
 function bucketDate(d: Date): Date {
-  switch (aggregation.value) {
+  switch (aggregation.value as Unit) {
     case 'hour':
       return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours());
     case 'day':
