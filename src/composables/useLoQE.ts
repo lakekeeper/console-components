@@ -1,8 +1,10 @@
-import { ref, computed, watch, onBeforeUnmount, type Ref } from 'vue';
+import { ref, computed, watch, effectScope, onBeforeUnmount, type Ref } from 'vue';
 import { LoQEEngine } from './loqe/LoQEEngine';
 import type { LoQEConfig, LoQEQueryResult, LoQECatalogConfig } from './loqe/types';
 import { useLoQEStore } from '../stores/loqe';
 import { useUserStore } from '../stores/user';
+import { useVisualStore } from '../stores/visual';
+import { persistedCatalogKey } from './loqe/catalogIdentity';
 
 // ── DuckDB error rewriting ────────────────────────────────────────────
 
@@ -80,10 +82,18 @@ function humanizeDuckDBError(raw: string): string {
  * All DuckDB usage is consolidated through LoQE — the old `useDuckDB`
  * and `useIcebergDuckDB` composables have been removed.
  */
+/**
+ * Owns the page-wide project-switch watcher (see below). Detached, so the watcher
+ * is not collected with whichever component happened to call `useLoQE` first.
+ */
+const projectWatchScope = effectScope(true);
+let projectWatchStarted = false;
+
 export function useLoQE(config: LoQEConfig) {
   const engine = LoQEEngine.acquire(config);
   const store = useLoQEStore();
   const userStore = useUserStore();
+  const visualStore = useVisualStore();
 
   // ── Reactive state ────────────────────────────────────────────────
 
@@ -112,6 +122,41 @@ export function useLoQE(config: LoQEConfig) {
   });
 
   const attachedCatalogs = computed(() => engine.catalogs.getAttachedCatalogs());
+
+  const currentProjectId = (): string | undefined =>
+    visualStore.projectSelected['project-id'] || undefined;
+
+  /** Persisted catalogs belonging to the project that is currently selected. */
+  const catalogsOfCurrentProject = () =>
+    Object.values(store.attachedCatalogs).filter((c) => c.projectId === currentProjectId());
+
+  // ── Project switch watcher ────────────────────────────────────────
+  //
+  // Catalog aliases are bare warehouse names, and a name is unique only within a
+  // project — two projects can each have a `sales`. Drop the previous project's
+  // catalogs so a query can never resolve against the wrong warehouse.
+  //
+  // Registered once per page, not per caller, and never stopped: switching project
+  // routes to Home, which unmounts every LoQE view, so a watcher owned by a
+  // component would be disposed before — or instead of — doing this. The engine it
+  // cleans up is a singleton that outlives those components.
+  if (!projectWatchStarted) {
+    projectWatchStarted = true;
+    projectWatchScope.run(() =>
+      watch(
+        () => visualStore.projectSelected['project-id'],
+        async (projectId) => {
+          const live = LoQEEngine.current;
+          if (!live?.isInitialized) return;
+          try {
+            await live.catalogs.detachForeignCatalogs(projectId || undefined);
+          } catch (e) {
+            console.error('[LoQE] Failed to detach catalogs of the previous project:', e);
+          }
+        },
+      ),
+    );
+  }
 
   // ── Token refresh watcher ─────────────────────────────────────────
 
@@ -143,7 +188,7 @@ export function useLoQE(config: LoQEConfig) {
    * chance once authentication completes.
    */
   async function restoreMissingCatalogs(token: string): Promise<void> {
-    const persistedCatalogs = Object.values(store.attachedCatalogs);
+    const persistedCatalogs = catalogsOfCurrentProject();
     const attachedNames = new Set(engine.catalogs.getAttachedCatalogs().map((c) => c.catalogName));
     const missing = persistedCatalogs.filter((c) => !attachedNames.has(c.catalogName));
 
@@ -166,7 +211,7 @@ export function useLoQE(config: LoQEConfig) {
       const cat = missing[idx];
       if (result.status === 'rejected') {
         console.warn(`[LoQE] Failed to restore catalog "${cat.catalogName}":`, result.reason);
-        store.removeCatalog(cat.catalogName);
+        store.removeCatalog(persistedCatalogKey(cat.projectId, cat.catalogName));
       }
     });
   }
@@ -194,7 +239,7 @@ export function useLoQE(config: LoQEConfig) {
       }
 
       // Restore catalogs from previous sessions
-      const persistedCatalogs = Object.values(store.attachedCatalogs);
+      const persistedCatalogs = catalogsOfCurrentProject();
       if (persistedCatalogs.length > 0) {
         const reattachResults = await Promise.allSettled(
           persistedCatalogs.map((cat) =>
@@ -311,7 +356,7 @@ export function useLoQE(config: LoQEConfig) {
   async function attachCatalog(catalogConfig: LoQECatalogConfig): Promise<void> {
     if (!isInitialized.value) await initialize();
     await engine.attachCatalog(catalogConfig);
-    store.addCatalog(catalogConfig.catalogName, {
+    store.addCatalog(persistedCatalogKey(catalogConfig.projectId, catalogConfig.catalogName), {
       catalogName: catalogConfig.catalogName,
       restUri: catalogConfig.restUri,
       projectId: catalogConfig.projectId,
@@ -319,7 +364,14 @@ export function useLoQE(config: LoQEConfig) {
   }
 
   async function detachCatalog(catalogName: string): Promise<void> {
+    const attached = engine.catalogs
+      .getAttachedCatalogs()
+      .find((c) => c.catalogName === catalogName);
     await engine.detachCatalog(catalogName);
+    store.removeCatalog(
+      persistedCatalogKey(attached?.headerProjectId ?? currentProjectId(), catalogName),
+    );
+    // Entries persisted before catalogs were keyed by project.
     store.removeCatalog(catalogName);
   }
 

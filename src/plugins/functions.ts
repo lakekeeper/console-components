@@ -148,47 +148,75 @@ import { App } from 'vue';
 let appConfig: any = null;
 
 // General
-function init() {
+// The catalog resolves a request's project from `x-project-id`; without it the
+// server falls back to the default project and rejects warehouses that live in
+// another one.
+const currentProjectId = (): string => {
   const visual = useVisualStore();
-  // Don't capture the token - get it dynamically in the interceptor
+  return visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'] || '';
+};
 
-  // Use selected project-id or fall back to default-project-id from server
-  const projectId =
-    visual.projectSelected['project-id'] || visual.getServerInfo()['default-project-id'];
+/**
+ * The project header, or nothing at all.
+ *
+ * The raw `fetch` calls below bypass the interceptor, and each one spelled the
+ * header out — so before the store has a project and before the server has
+ * answered with its default they sent `x-project-id: `, which the catalog
+ * rejects outright instead of falling back. Same rule as
+ * `attachRequestContext`, in one place so the two cannot drift.
+ */
+function projectHeader(): Record<string, string> {
+  const projectId = currentProjectId();
+  return projectId ? { 'x-project-id': projectId } : {};
+}
 
-  mngClient.client.setConfig({
-    baseUrl: icebergCatalogUrl(),
-    headers: { 'x-project-id': projectId },
-  });
+/**
+ * Attaches the token and the project to every request, as they are at the time
+ * the request is made.
+ *
+ * Neither belongs in `setConfig`. A configured header is captured whenever
+ * `init()` last ran, and the Iceberg wrappers — `listNamespaces`, `loadTable`
+ * and the rest — do not call `init()` at all, so after a project switch they
+ * kept sending the previous project until some unrelated management call
+ * happened to refresh it, and the catalog answered for the wrong project.
+ *
+ * A wrapper that names its own project still wins: those pass the header on the
+ * call, which is already on the request by the time this runs, so it is only
+ * filled in where it is missing. An empty one is left off entirely rather than
+ * sent blank — before the store has a project and before the server has
+ * answered with its default, there is no answer to give, and the catalog
+ * rejects the empty string instead of falling back.
+ */
+function attachRequestContext(request: Request): Request {
+  const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
+  if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
+  if (!request.headers.get('x-project-id')) {
+    const projectId = currentProjectId();
+    if (projectId) request.headers.set('x-project-id', projectId);
+    else request.headers.delete('x-project-id');
+  }
+  return request;
+}
 
-  mngClient.client.interceptors.request.use((request) => {
-    // Get the token dynamically on each request
-    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
-    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
-    return request;
-  });
+// `init()` runs at the top of nearly every wrapper, and `interceptors.use` is a
+// push, not a set: registering from there added one more copy of the same
+// interceptor per call, so a long session ran hundreds of them on every
+// request. They are registered once and left alone; nothing in them is
+// captured, so there is never a reason to replace them.
+let interceptorsRegistered = false;
 
-  iceClient.client.setConfig({
-    baseUrl: icebergCatalogUrlSuffixed(),
-  });
+function init() {
+  // Neither the token nor the project is captured here; both are read per
+  // request in `attachRequestContext`.
+  mngClient.client.setConfig({ baseUrl: icebergCatalogUrl() });
+  iceClient.client.setConfig({ baseUrl: icebergCatalogUrlSuffixed() });
+  gtClient.client.setConfig({ baseUrl: icebergCatalogUrl() });
 
-  iceClient.client.interceptors.request.use((request) => {
-    // Get the token dynamically on each request
-    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
-    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
-    return request;
-  });
-
-  gtClient.client.setConfig({
-    baseUrl: icebergCatalogUrl(),
-    headers: { 'x-project-id': projectId },
-  });
-
-  gtClient.client.interceptors.request.use((request) => {
-    const accessToken = currentAccessToken(appConfig?.idpAuthority, appConfig?.idpClientId);
-    if (accessToken) request.headers.set('Authorization', `Bearer ${accessToken}`);
-    return request;
-  });
+  if (interceptorsRegistered) return;
+  interceptorsRegistered = true;
+  mngClient.client.interceptors.request.use(attachRequestContext);
+  iceClient.client.interceptors.request.use(attachRequestContext);
+  gtClient.client.interceptors.request.use(attachRequestContext);
 }
 
 const icebergCatalogUrl = (): string => {
@@ -409,6 +437,15 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
     // is surfaced by the No-Access page redirect, so never nag with a snackbar for it.
     // Per-resource 403s (e.g. "not permitted to delete warehouse X") still notify.
     if (code === 403 && message.toLowerCase().includes('access this instance')) {
+      return;
+    }
+
+    // Listing projects is what every landing surface does on its own: home
+    // counts them, the app bar's switcher lists them, the projects page is
+    // made of them. A user without that permission would be told three times
+    // before touching anything, for a refusal they cannot act on. Each of
+    // those surfaces says so where the list would have been instead.
+    if (code === 403 && functionCaused === 'loadProjectList') {
       return;
     }
 
@@ -960,6 +997,18 @@ async function updateStorageProfile(
   }
 }
 
+/**
+ * Toast wording for a validation report. `valid` stays true when checks only
+ * warn (see `ValidationCheckStatus`), so announcing such a report as plainly
+ * valid would hide the advisories the caller is meant to act on.
+ */
+function validationSummaryMsg(subject: string, result: ValidateWarehouseResponse): string {
+  if (!result.valid) return `${subject} is invalid`;
+  const warnings = result.checks.filter((c) => c.status === 'warning').length;
+  if (!warnings) return `${subject} is valid`;
+  return `${subject} is valid with ${warnings} warning${warnings === 1 ? '' : 's'}`;
+}
+
 async function validateWarehouse(
   wh: CreateWarehouseRequest,
   notify?: boolean,
@@ -979,7 +1028,7 @@ async function validateWarehouse(
     if (notify) {
       handleSuccess(
         'validateWarehouse',
-        result.valid ? 'Warehouse configuration is valid' : 'Warehouse configuration is invalid',
+        validationSummaryMsg('Warehouse configuration', result),
         notify,
       );
     }
@@ -1017,7 +1066,7 @@ async function validateStorageProfile(
     if (notify) {
       handleSuccess(
         'validateStorageProfile',
-        result.valid ? 'Storage profile is valid' : 'Storage profile is invalid',
+        validationSummaryMsg('Storage profile', result),
         notify,
       );
     }
@@ -1051,7 +1100,7 @@ async function validateStorageCredential(
     if (notify) {
       handleSuccess(
         'validateStorageCredential',
-        result.valid ? 'Storage credential is valid' : 'Storage credential is invalid',
+        validationSummaryMsg('Storage credential', result),
         notify,
       );
     }
@@ -1083,7 +1132,7 @@ async function validateStorageAccess(
     if (notify) {
       handleSuccess(
         'validateStorageAccess',
-        result.valid ? 'Storage access is valid' : 'Storage access is invalid',
+        validationSummaryMsg('Storage access', result),
         notify,
       );
     }
@@ -2292,6 +2341,7 @@ async function createBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -2371,6 +2421,7 @@ async function renameBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -2428,6 +2479,7 @@ async function deleteBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         body: JSON.stringify(body),
       },
@@ -2494,6 +2546,7 @@ async function createTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -2571,6 +2624,7 @@ async function renameTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -2624,6 +2678,7 @@ async function deleteTag(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         body: JSON.stringify(body),
       },
@@ -2704,6 +2759,7 @@ async function rollbackBranch(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         body: bodyJson,
       },
@@ -3180,6 +3236,7 @@ async function createIcebergTable(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         body: JSON.stringify(request),
       },
@@ -3255,6 +3312,7 @@ async function loadTableCustomized(
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
         },
         // Never serve a 304-revalidated response: the vended storage credentials
         // in the body expire (~1h), and a cached body returns stale/expired creds.
@@ -3305,6 +3363,84 @@ async function loadTableCustomized(
     return data;
   } catch (error: any) {
     handleError(error, 'loadTableCustomized', notify);
+    throw error;
+  }
+}
+
+/**
+ * `loadTable` asking for vended storage credentials — the request DuckDB itself
+ * makes before a scan.
+ *
+ * Separate from `loadTableCustomized` (which asks for none) because the answer is
+ * the only reliable way to know whether this caller may read the table's data:
+ * Lakekeeper returns the metadata to anyone with `get_metadata`, but attaches
+ * `storage-credentials` only for a caller with data access. Asking the catalog's
+ * permission endpoint instead would be a second opinion on the same question, and
+ * one DuckDB does not consult.
+ *
+ * Returns the parsed body (json-bigint, so snapshot IDs survive) — inspect
+ * `storage-credentials` / `config` on it to see whether anything was vended.
+ */
+async function loadTableVendedCredentials(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  notify?: boolean,
+) {
+  try {
+    const userStore = useUserStore();
+    const accessToken = userStore.user.access_token;
+
+    const response = await fetch(
+      `${icebergCatalogUrlSuffixed()}v1/${encodeURIComponent(warehouseId)}/namespaces/${encodeURIComponent(normalizeNamespacePath(namespacePath))}/tables/${encodeURIComponent(tableName)}`,
+      {
+        method: 'GET',
+        headers: {
+          'content-type': 'application/json',
+          authorization: `Bearer ${accessToken}`,
+          ...projectHeader(),
+          // Without this the catalog vends nothing to anyone, and a missing
+          // credential would say nothing about this caller's rights.
+          'x-iceberg-access-delegation': 'vended-credentials',
+        },
+        // Never serve a 304-revalidated response: the vended storage credentials
+        // in the body expire (~1h), and a cached body returns stale/expired creds.
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => response.statusText);
+      let errorMessage = response.statusText;
+
+      try {
+        const errorJson = JSON.parse(errorBody);
+        errorMessage = errorJson.message || errorJson.error?.message || response.statusText;
+      } catch {
+        errorMessage = errorBody || response.statusText;
+      }
+
+      throw {
+        error: {
+          code: response.status,
+          message: errorMessage,
+          type: 'FetchError',
+        },
+      };
+    }
+
+    const data = JSONBig({ storeAsString: true }).parse(await response.text());
+
+    if (notify) {
+      handleSuccess(
+        'loadTableVendedCredentials',
+        `Table '${tableName}' loaded successfully`,
+        notify,
+      );
+    }
+    return data;
+  } catch (error: any) {
+    handleError(error, 'loadTableVendedCredentials', notify);
     throw error;
   }
 }
@@ -5045,6 +5181,44 @@ async function deleteRole(roleId: string, notify?: boolean): Promise<boolean> {
   }
 }
 
+/**
+ * Delete a role, optionally revoking the grants it holds along with it.
+ *
+ * Separate from `deleteRole` rather than an extra argument on it: that wrapper
+ * is called from the roles list and must keep its exact behaviour.
+ *
+ * Without `force` the server answers `409 RoleHasGrants` for any role holding
+ * grants, on every built-in authorizer except OpenFGA, which removes a role's
+ * grants with it regardless.
+ */
+async function deleteRoleWithForce(
+  roleId: string,
+  force: boolean,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    init();
+
+    const client = mngClient.client;
+
+    const { error: deleteRoleError } = await mng.deleteRole({
+      client,
+      path: { role_id: roleId },
+      ...(force ? { query: { force: true } } : {}),
+    });
+    if (deleteRoleError) throw deleteRoleError;
+
+    if (notify) {
+      handleSuccess('deleteRole', `Role '${roleId}' deleted successfully`, notify);
+    }
+    return true;
+  } catch (error: any) {
+    console.error('Failed to delete role', error);
+    handleError(error, 'deleteRole', notify);
+    throw error;
+  }
+}
+
 async function getRoleMetadata(roleId: string, notify?: boolean): Promise<RoleMetadata> {
   try {
     init();
@@ -5541,6 +5715,52 @@ async function getAuthorizerProjectActions(notify?: boolean): Promise<OpenFgaPro
   }
 }
 
+/**
+ * The authorizer actions held on one named project, rather than on whichever
+ * project the session has selected.
+ *
+ * A separate wrapper for the same reason `getProjectCatalogActionsFor` is one:
+ * `getAuthorizerProjectActions` answers for the selection and is called from
+ * surfaces that want exactly that, so it keeps its signature and its behaviour.
+ * A page that is open on a project it has not switched to — the project detail
+ * page — has to name the project it is asking about, or it gates its tabs on
+ * somebody else's permissions.
+ */
+async function getAuthorizerProjectActionsFor(
+  projectId: string,
+  notify?: boolean,
+): Promise<OpenFgaProjectAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) return [];
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getAuthorizerProjectActions({
+      client,
+      headers: { 'x-project-id': projectId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as OpenFgaProjectAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getAuthorizerProjectActionsFor',
+        'Project authorizer actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getAuthorizerProjectActionsFor', notify);
+    throw error;
+  }
+}
+
 async function getProjectCatalogActions(notify?: boolean): Promise<LakekeeperProjectAction[]> {
   try {
     if (!appConfig.enabledAuthentication) {
@@ -5568,6 +5788,53 @@ async function getProjectCatalogActions(notify?: boolean): Promise<LakekeeperPro
     return actions;
   } catch (error: any) {
     handleError(error, 'getProjectCatalogActions', notify);
+    throw error;
+  }
+}
+
+/**
+ * Catalog actions for a NAMED project, rather than the one that is currently
+ * selected.
+ *
+ * `getProjectCatalogActions` sends no `x-project-id`, so the server answers for
+ * the session's default project — right for every pane that acts on the
+ * selection, and wrong for a page that lists projects and has to gate rename
+ * and delete on each row separately. This asks the same endpoint the same way,
+ * naming the project.
+ */
+async function getProjectCatalogActionsFor(
+  projectId: string,
+  notify?: boolean,
+): Promise<LakekeeperProjectAction[]> {
+  try {
+    if (!appConfig.enabledAuthentication) {
+      return permissionActions.catalogProjectActions;
+    }
+
+    init();
+
+    const client = mngClient.client;
+
+    const { data, error } = await mng.getProjectActions({
+      client,
+      headers: { 'x-project-id': projectId },
+    });
+
+    if (error) throw error;
+
+    const actions = (data ?? {})['allowed-actions'] as LakekeeperProjectAction[];
+
+    if (notify) {
+      handleSuccess(
+        'getProjectCatalogActionsFor',
+        'Project catalog actions retrieved successfully',
+        true,
+      );
+    }
+
+    return actions;
+  } catch (error: any) {
+    handleError(error, 'getProjectCatalogActionsFor', notify);
     throw error;
   }
 }
@@ -7004,6 +7271,7 @@ export function useFunctions(config?: any) {
     listUserRoles,
     setWarehouseManagedBy,
     deleteRole,
+    deleteRoleWithForce,
     getRole,
     createRole,
     updateRole,
@@ -7020,6 +7288,7 @@ export function useFunctions(config?: any) {
     // New authorizer actions (OpenFGA relations - work with ALL backends)
     getAuthorizerServerActions,
     getAuthorizerProjectActions,
+    getAuthorizerProjectActionsFor,
     getAuthorizerWarehouseActions,
     getAuthorizerNamespaceActions,
     getAuthorizerTableActions,
@@ -7055,6 +7324,7 @@ export function useFunctions(config?: any) {
     listDeletedTabulars,
     loadTable,
     loadTableCustomized,
+    loadTableVendedCredentials,
     loadView,
     loadGenericTable,
     loadGenericTableCredentials,
@@ -7088,6 +7358,7 @@ export function useFunctions(config?: any) {
     createProject,
     renameProject,
     deleteProject,
+    getProjectCatalogActionsFor,
     setWarehouseManagedAccess,
     setNamespaceManagedAccess,
     getNamespaceById,

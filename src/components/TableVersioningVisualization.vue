@@ -1946,6 +1946,22 @@ watch(chartHeight, () => {
   }
 });
 
+// Open on the snapshot the table is actually at. An empty detail panel beside
+// a drawn graph reads as "nothing to show here", and the current snapshot is
+// what a reader opening this tab came to check; it is also what the panel
+// falls back to after a rollback or a branch delete clears the selection.
+watch(
+  [() => props.snapshotHistory, () => props.table.metadata['current-snapshot-id']],
+  () => {
+    if (selectedSnapshot.value) return;
+    if (!props.snapshotHistory.length) return;
+    const currentId = props.table.metadata['current-snapshot-id'];
+    selectedSnapshot.value =
+      props.snapshotHistory.find((s) => s['snapshot-id'] === currentId) ?? props.snapshotHistory[0];
+  },
+  { immediate: true, deep: true },
+);
+
 // Update selected node highlight when selection changes
 watch(selectedSnapshot, (snap) => {
   if (!rootG) return;

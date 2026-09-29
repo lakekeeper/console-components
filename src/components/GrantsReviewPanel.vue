@@ -1,0 +1,1894 @@
+<template>
+  <!-- Every grant that bears on one entity, along the only axis that matters
+       for reach: the levels above it, which is what the rail walks, and —
+       where the app can answer it — everything below, which is one more entry
+       on that rail. Grants never roll up, so a level is where its grants are
+       held and where they are edited.
+
+       A panel rather than a dialog: it is one of the scopes a grants pane
+       offers, not a detour out of the page. `GrantsDialog` still wraps it for
+       callers that want the old fullscreen form. -->
+  <div class="d-flex" style="height: 100%; min-height: 0; overflow: hidden">
+    <!-- LEFT: the axis, in one tree. It starts at the server and walks down to
+         the object you are looking at, and it keeps going: ask for what is
+         inside and the same tree extends past the leaf with the places that
+         hold grants in there. Indentation carries the whole relationship, and
+         picking any node narrows the table beside it.
+
+         The downward half is asked for rather than walked. Upward is a handful
+         of levels read in full; inside is unbounded, separately authorized and
+         paged, so it stays one node until someone calls it. -->
+    <div class="review-fold flex-shrink-0" :class="{ 'review-fold--collapsed': treeCollapsed }">
+      <div
+        class="d-flex flex-column"
+        style="
+          width: 300px;
+          height: 100%;
+          border-right: 1px solid rgba(var(--v-border-color), 0.16);
+        ">
+        <!-- Narrowing is picking, like picking a node below it, so it belongs in
+           the picker column rather than among the answers on the right — the
+           same reasoning the Resolve Entities pane follows. A row of controls
+           across the top of the table also left the table squeezed between two
+           bands of chrome. -->
+        <div
+          class="pa-2 flex-shrink-0"
+          style="border-bottom: 1px solid rgba(var(--v-border-color), 0.16)">
+          <div
+            class="d-flex align-center"
+            style="cursor: pointer"
+            @click="filtersOpen = !filtersOpen">
+            <!-- The heading is the control, and its own glyph says which way it
+               will go: no separate arrow, and no funnel repeating the word next
+               to it. The accent sits on the glyph, as on the column's toggle,
+               so the row is findable without reading as an action. -->
+            <v-icon size="16" color="secondary" class="mr-1">
+              {{ filtersOpen ? 'mdi-chevron-up' : 'mdi-chevron-down' }}
+            </v-icon>
+            <span class="text-overline text-medium-emphasis">Filters</span>
+            <v-badge
+              v-if="activeFilterCount"
+              inline
+              color="primary"
+              :content="activeFilterCount"></v-badge>
+            <v-spacer></v-spacer>
+            <!-- Stops the click reaching the row, which would reopen what it
+               just cleared. -->
+            <v-btn
+              v-if="activeFilterCount"
+              size="x-small"
+              variant="text"
+              @click.stop="resetFilters">
+              Clear
+            </v-btn>
+            <!-- Re-reads both halves. The chain is walked once on arrival and the
+               subtree is bound to an instant, so neither notices a grant made
+               elsewhere; this is how you ask again. `.stop` keeps it from
+               folding the panel it sits in. -->
+            <v-btn icon="mdi-refresh" size="x-small" variant="text" @click.stop="reload">
+              <v-icon></v-icon>
+              <v-tooltip activator="parent" location="bottom">Re-read the grants</v-tooltip>
+            </v-btn>
+          </div>
+
+          <v-expand-transition>
+            <div v-show="filtersOpen" class="pt-2">
+              <!-- One control for "which principals", not two. It narrows the
+                 rows on its own, and narrows the walk itself once an actual
+                 user or role is named — the endpoint takes one principal or
+                 none, never "every role". -->
+              <v-btn-toggle
+                v-model="principalKind"
+                mandatory
+                density="compact"
+                variant="outlined"
+                class="mb-2"
+                style="width: 100%"
+                @update:model-value="onPrincipalKindChange">
+                <v-btn value="any" size="small" class="flex-grow-1">Anyone</v-btn>
+                <v-btn value="user" size="small" class="flex-grow-1" prepend-icon="mdi-account">
+                  Users
+                </v-btn>
+                <v-btn
+                  value="role"
+                  size="small"
+                  class="flex-grow-1"
+                  prepend-icon="mdi-account-group">
+                  Roles
+                </v-btn>
+              </v-btn-toggle>
+
+              <v-autocomplete
+                v-if="principalKind !== 'any'"
+                v-model="principal"
+                :items="principalCandidates"
+                :loading="searchingPrincipal"
+                item-title="title"
+                item-value="id"
+                return-object
+                no-filter
+                clearable
+                :label="principalKind === 'user' ? 'One user (optional)' : 'One role (optional)'"
+                :no-data-text="principalNoData"
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="mb-2"
+                @update:search="onPrincipalSearch"></v-autocomplete>
+
+              <v-select
+                v-model="privilegeFilter"
+                :items="privilegeItems"
+                label="Privileges"
+                multiple
+                chips
+                closable-chips
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="mb-2"
+                :loading="vocabularyLoading"></v-select>
+
+              <v-select
+                v-model="resourceTypeFilter"
+                :items="resourceTypeItems"
+                label="Object kinds"
+                multiple
+                chips
+                closable-chips
+                density="compact"
+                variant="outlined"
+                hide-details
+                class="mb-2"></v-select>
+
+              <!-- Dropping a table does not destroy it — it waits in the recycle
+                 bin until it expires, and an undrop restores it together with
+                 its grants. So a listing that hid them would stop matching the
+                 revoke it is meant to preview. On by default for that reason. -->
+              <v-switch v-model="includeSoftDeleted" density="compact" hide-details color="primary">
+                <template #label>
+                  <span class="text-body-2 d-inline-flex align-center ga-1">
+                    Include deleted objects
+                    <v-icon size="14">mdi-information-outline</v-icon>
+                    <v-tooltip activator="parent" location="bottom" max-width="340">
+                      Grants on tables, views and generic tables that have been dropped but not yet
+                      expired. They still hold — an undrop restores a table together with its grants
+                      — so they are shown by default, and a revoke removes them too.
+                    </v-tooltip>
+                  </span>
+                </template>
+              </v-switch>
+
+              <!-- The shared picker, not `type="datetime-local"`: the native
+                   control is drawn by the browser, so it ignores the theme and
+                   any branding and shows up grey beside every other field here.
+                   Same component the task filters use. -->
+              <DateTimePicker
+                :model-value="createdBefore ?? ''"
+                label="Granted before"
+                density="compact"
+                variant="outlined"
+                hide-details
+                clearable
+                @update:model-value="createdBefore = $event || null"></DateTimePicker>
+            </div>
+          </v-expand-transition>
+        </div>
+
+        <!-- A flex column rather than one long scroll: the subtree list inside
+             is windowed, and a virtual scroller needs a height of its own to
+             decide what is on screen. The levels above it are a handful of
+             rows and stay put. -->
+        <div
+          style="
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+          ">
+          <div v-if="buildingChain" class="d-flex align-center ga-2 pa-4">
+            <v-progress-circular indeterminate size="18" width="2"></v-progress-circular>
+            <span class="text-caption text-medium-emphasis">Resolving…</span>
+          </div>
+
+          <v-list
+            v-else
+            density="compact"
+            nav
+            style="
+              flex: 1 1 auto;
+              min-height: 0;
+              min-width: 0;
+              display: flex;
+              flex-direction: column;
+              overflow: hidden;
+            ">
+            <v-list-item :active="!levelFilter" color="primary" @click="levelFilter = ''">
+              <v-list-item-title class="text-body-2">Everything</v-list-item-title>
+              <v-list-item-subtitle class="text-caption">
+                {{ allRows.length }} {{ allRows.length === 1 ? 'grant' : 'grants' }}
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-divider class="my-1"></v-divider>
+
+            <div v-if="chain.length === 1" class="text-caption text-medium-emphasis px-4 py-1">
+              Nothing sits above this — it is the root.
+            </div>
+
+            <!-- Upward: server → … → this one. -->
+            <v-list-item
+              v-for="(level, depth) in chain"
+              :key="level.key"
+              :active="levelFilter === level.key"
+              color="primary"
+              @click="levelFilter = level.key">
+              <div class="d-flex align-center ga-2" style="min-width: 0">
+                <span :style="{ width: depth * 12 + 'px' }" class="flex-shrink-0"></span>
+                <v-icon v-if="depth" size="13" class="text-disabled flex-shrink-0">
+                  mdi-subdirectory-arrow-right
+                </v-icon>
+                <v-icon size="18" class="flex-shrink-0">{{ level.icon }}</v-icon>
+                <div style="min-width: 0">
+                  <div class="text-body-2 text-truncate" :title="level.title">
+                    {{ level.title }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis">
+                    {{ level.subtitle }}
+                    <!-- The object the pane is about: the one Grant and the
+                         subtree revoke act on, and where the chain above meets
+                         what lies inside. It does not move when a different
+                         node is clicked — that is what the row highlight is
+                         for. -->
+                    <template v-if="level.key === leafKey">· selected</template>
+                  </div>
+                </div>
+                <v-spacer></v-spacer>
+                <v-icon
+                  v-if="unreadableLevels.has(level.key)"
+                  size="14"
+                  color="medium-emphasis"
+                  class="flex-shrink-0">
+                  mdi-eye-off-outline
+                  <v-tooltip activator="parent" location="bottom" max-width="300">
+                    You do not have permission to list grants at this level. Grants held here can
+                    still reach the levels below.
+                  </v-tooltip>
+                </v-icon>
+                <span v-else class="text-caption text-medium-emphasis flex-shrink-0">
+                  {{ countFor(level.key) }}
+                </span>
+              </div>
+            </v-list-item>
+
+            <!-- Downward: the same tree, continuing past the leaf — but separated,
+             because the halves are not alike. Above is every level, read in
+             full and authorized level by level; below is one permission, read a
+             page at a time. The rule says where one ends and the other begins;
+             the indentation still carries the hierarchy across it. -->
+            <template v-if="subtreeAvailable">
+              <v-divider class="my-1"></v-divider>
+              <v-list-item
+                v-if="!belowLoaded"
+                :disabled="loadingBelow"
+                color="primary"
+                @click="loadBelowPage()">
+                <div class="d-flex align-center ga-2" style="min-width: 0">
+                  <span :style="{ width: chain.length * 12 + 'px' }" class="flex-shrink-0"></span>
+                  <v-icon size="16" class="flex-shrink-0">
+                    {{ loadingBelow ? 'mdi-timer-sand' : 'mdi-chevron-down-circle-outline' }}
+                  </v-icon>
+                  <div style="min-width: 0">
+                    <div class="text-body-2 text-primary">
+                      {{ loadingBelow ? 'Loading…' : 'Load subtree grants' }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      Held on objects inside this {{ resourceLabel(resource.type).toLowerCase() }}
+                    </div>
+                  </div>
+                </div>
+              </v-list-item>
+
+              <template v-else>
+                <v-list-item
+                  :active="levelFilter === BELOW_ALL"
+                  color="primary"
+                  @click="levelFilter = BELOW_ALL">
+                  <div class="d-flex align-center ga-2" style="min-width: 0">
+                    <span :style="{ width: chain.length * 12 + 'px' }" class="flex-shrink-0"></span>
+                    <v-icon size="16" class="flex-shrink-0">mdi-file-tree-outline</v-icon>
+                    <div style="min-width: 0">
+                      <div class="text-body-2">Subtree</div>
+                      <div class="text-caption text-medium-emphasis">
+                        <template v-if="belowUnsupported">Not offered by this authorizer</template>
+                        <template v-else-if="belowForbidden">Not visible to you</template>
+                        <template v-else-if="belowError">{{ belowError }}</template>
+                        <template v-else>
+                          {{ belowNodes.length }}
+                          {{ belowNodes.length === 1 ? 'object' : 'objects' }}
+                        </template>
+                      </div>
+                    </div>
+                    <v-spacer></v-spacer>
+                    <span class="text-caption text-medium-emphasis flex-shrink-0">
+                      {{ belowRows.length }}
+                    </span>
+                  </div>
+                </v-list-item>
+
+                <!-- Windowed, not rendered whole. A subtree of two hundred
+                     objects is two hundred `v-list-item`s with their icons and
+                     ripples — six hundred-odd components standing behind a
+                     column three of them are visible in. The virtual scroller
+                     builds the ones on screen and recycles the rest. -->
+                <v-virtual-scroll
+                  v-if="belowNodes.length"
+                  :items="belowNodes"
+                  :item-height="44"
+                  style="flex: 1 1 auto; min-height: 0">
+                  <template #default="{ item: node }">
+                    <v-list-item
+                      :key="node.key"
+                      :active="levelFilter === node.key"
+                      color="primary"
+                      @click="levelFilter = node.key">
+                      <div class="d-flex align-center ga-2" style="min-width: 0">
+                        <span
+                          :style="{ width: (chain.length + 1 + node.depth) * 12 + 'px' }"
+                          class="flex-shrink-0"></span>
+                        <v-icon size="13" class="text-disabled flex-shrink-0">
+                          mdi-subdirectory-arrow-right
+                        </v-icon>
+                        <v-icon size="18" class="flex-shrink-0">{{ node.icon }}</v-icon>
+                        <div style="min-width: 0">
+                          <div class="text-body-2 text-truncate" :title="node.title">
+                            {{ node.title }}
+                          </div>
+                          <div class="text-caption text-medium-emphasis">{{ node.subtitle }}</div>
+                        </div>
+                        <v-spacer></v-spacer>
+                        <span class="text-caption text-medium-emphasis flex-shrink-0">
+                          {{ node.count }}
+                        </span>
+                      </div>
+                    </v-list-item>
+                  </template>
+                </v-virtual-scroll>
+
+                <!-- Pages come back full, so an absent token is the end — not a
+                 short page. Until then the tree is honest about being partial. -->
+                <v-list-item v-if="belowNextToken" :disabled="loadingBelow" @click="loadMoreBelow">
+                  <div class="d-flex align-center ga-2" style="min-width: 0">
+                    <span
+                      :style="{ width: (chain.length + 1) * 12 + 'px' }"
+                      class="flex-shrink-0"></span>
+                    <v-icon size="16">mdi-dots-horizontal</v-icon>
+                    <span class="text-caption text-primary">
+                      {{ loadingBelow ? 'Reading…' : 'Load more' }}
+                    </span>
+                  </div>
+                </v-list-item>
+              </template>
+            </template>
+          </v-list>
+
+          <div v-if="chainError" class="text-caption text-warning px-4 pb-3">{{ chainError }}</div>
+          <div
+            v-else-if="unreadableLevels.size"
+            class="text-caption text-medium-emphasis px-4 pb-3">
+            {{ unreadableLevels.size }}
+            {{ unreadableLevels.size === 1 ? 'level is' : 'levels are' }}
+            hidden by permissions. Everything you may read is shown.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: one table over both directions. Which node is selected decides
+         what it shows; the arrow on each row says which way that row came
+         from, so the table still reads on its own when nothing is selected. -->
+    <!-- Bounded in pixels against its own top edge, not by inheriting a height
+         down four ancestors.
+
+         `min-height: 0` is still here and still necessary — a flex child
+         defaults to `min-height: auto`, the height of its own content — but it
+         is not sufficient: it only lets this column shrink, and something above
+         has to actually be giving it a height to shrink to. That chain runs
+         `height: 100%` through the explorer, the panel and this root, and any
+         one link resolving to `auto` leaves this column as tall as its rows
+         with `overflow-y` doing nothing, which is exactly what it did.
+
+         So it measures itself. Its top is fixed by the pane above it and does
+         not move when its own height changes, so there is no feedback loop —
+         and the bound holds whether or not the ancestors cooperate. -->
+    <div
+      ref="tableRef"
+      :style="{
+        flex: '1 1 auto',
+        minWidth: 0,
+        minHeight: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        height: tableHeight ?? undefined,
+      }">
+      <div
+        style="
+          padding: 8px 16px 16px;
+          flex: 1 1 auto;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+        ">
+        <!-- The table goes away while it is being replaced.
+
+             A spinner on the refresh button in the filter column says
+             something is happening; it does not say that what is on screen is
+             no longer the answer. Rows from the previous resource sitting
+             under a new selection read as that selection's grants, which is
+             the one thing this pane must never show. -->
+        <div v-if="loading || rereadingBelow" class="d-flex flex-column align-center pa-8">
+          <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
+          <span class="mt-4 text-body-2 text-medium-emphasis">
+            {{ loading ? 'Reading every level…' : 'Reading what is inside…' }}
+          </span>
+        </div>
+
+        <template v-else>
+          <!-- The bands above the table are as tall as what is in them, and say
+               so. In a flex column an unmarked child is `flex: 0 1 auto`, which
+               leaves the free space to be argued over: with no rows to fill it,
+               the refusal notice stretched into a block the height of the pane
+               with one sentence adrift in the middle of it. -->
+          <div class="d-flex align-center flex-wrap ga-3 mb-2" style="flex: 0 0 auto">
+            <!-- Which node the tree has selected, said in words, because the
+                 table below it is otherwise indistinguishable from the whole
+                 listing filtered by hand. -->
+            <!-- Named for what it hides, not for what the table happens to be
+                 showing. The column beside it holds two things — the filters
+                 and the tree of resources — and a sentence about the current
+                 selection said nothing about either, while the tree already
+                 marks what is selected. -->
+            <!-- Named for the two things the column holds. "Hierarchy" rather
+                 than "resources": the column is not a list of objects but the
+                 chain this one hangs from, continuing into what it contains,
+                 and that relationship is the whole reason it is a tree. -->
+            <!-- The icon carries the colour, the label does not: it has to be
+                 findable among plain text without reading as the pane's primary
+                 action, which it is not — secondary is the theme's other
+                 accent, so it stands out against the greys without competing
+                 with Grant. -->
+            <v-btn
+              size="small"
+              variant="text"
+              class="text-none"
+              @click="treeCollapsed = !treeCollapsed">
+              <template #prepend>
+                <v-icon color="secondary">
+                  {{ treeCollapsed ? 'mdi-arrow-expand-right' : 'mdi-arrow-collapse-left' }}
+                </v-icon>
+              </template>
+              Filters &amp; hierarchy
+              <v-tooltip activator="parent" location="bottom">
+                {{ treeCollapsed ? 'Show' : 'Hide' }} the filters and the hierarchy
+              </v-tooltip>
+            </v-btn>
+            <!-- The host's actions for the resource this pane is rooted at —
+                 granting to someone who holds nothing yet, above all, which no
+                 row can offer because a listing only lists what is already
+                 held. Next to the line that names the object rather than out at
+                 the right margin: it acts on the pane's object, not on whatever
+                 node the tree has selected, and distance from the name is what
+                 made that ambiguous. -->
+            <slot name="toolbar-actions"></slot>
+            <v-spacer></v-spacer>
+            <v-text-field
+              v-model="filterText"
+              label="Filter rows"
+              prepend-inner-icon="mdi-magnify"
+              variant="underlined"
+              density="compact"
+              hide-details
+              clearable
+              style="max-width: 180px"></v-text-field>
+          </div>
+
+          <!-- For a host that knows something this pane cannot: whether a grant
+               made here will have any effect. Grants are stored either way, so
+               an authorizer that reads them through switchable policies can
+               leave a valid grant inert, and only the host can see that. -->
+          <slot name="notice"></slot>
+
+          <!-- A subtree read that the server declined is about the request, not
+               about the console: a filter it will not accept, a permission not
+               held, an authorizer that does not do this at all. None of those
+               is a failure to report as one, and the levels above are still a
+               useful answer — so it reads as a warning over a table that still
+               has rows in it. -->
+          <v-alert
+            v-if="belowError || belowForbidden || belowUnsupported"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mb-2"
+            style="flex: 0 0 auto">
+            <template v-if="belowUnsupported">
+              This server's authorizer does not offer subtree listings, so nothing below
+              {{ entityName }} can be shown. The levels above it are unaffected.
+            </template>
+            <template v-else-if="belowForbidden">
+              You don't have permission to read the grants inside this
+              {{ resourceLabel(resource.type).toLowerCase() }} — a permission of its own, separate
+              from reading the grants on it.
+            </template>
+            <template v-else>{{ belowError }}</template>
+          </v-alert>
+
+          <!-- Counts the table, then breaks it down.
+
+               This used to report the subtree alone — "205 grants read" — while
+               the table under it held 206 rows, the extra being the grant on
+               the project above. Both numbers were right and they sat one line
+               apart, which makes the line a contradiction whichever way the
+               reader resolves it. It leads with the total now, and says where
+               the rows come from after, because that split is the other thing
+               this pane exists to show: upward is every level, read in full;
+               inside is however many pages have been asked for, under one
+               instant. -->
+          <div
+            v-if="belowLoaded && !belowUnsupported && !belowForbidden"
+            class="text-caption text-medium-emphasis mb-2"
+            style="flex: 0 0 auto">
+            {{ visibleRows.length }} {{ visibleRows.length === 1 ? 'grant' : 'grants' }}
+            <template v-if="shownAbove && shownBelow">
+              — {{ shownAbove }} above this {{ resourceLabel(resource.type).toLowerCase() }},
+              {{ shownBelow }} inside it
+            </template>
+            <template v-else-if="shownBelow">
+              — all inside this {{ resourceLabel(resource.type).toLowerCase() }}
+            </template>
+            <template v-if="belowNextToken">· more remain inside</template>
+            <template v-if="belowAsOf">· as of {{ formatInstant(belowAsOf) }}</template>
+          </div>
+
+          <!-- The table scrolls, not the column around it.
+
+               With the column scrolling, a page of fifty rows put the pager
+               fifty rows below the fold: to change the page size, or to reach
+               page two, you first had to scroll past every row on page one —
+               and on a subtree of two hundred grants that is the only control
+               that matters. `fixed-header` keeps the column names, `height:
+               100%` resolves against the bounded wrapper, and the pager sits
+               at the bottom of the pane where it can be clicked. -->
+          <div style="flex: 1 1 auto; min-height: 0">
+            <!-- Virtual, not paged.
+
+                 Every row here is icons, buttons and text — call it a dozen
+                 components. At a hundred rows a page that is over a thousand
+                 of them built at once, and they
+                 are rebuilt on every sort, every filter keystroke and every
+                 page change; the browser then re-lays-out all of it whenever
+                 anything opens a menu. The reader can see about a dozen.
+
+                 The virtual table builds what is on screen and recycles the
+                 rest, which also retires the pager: there are no pages to
+                 reach, the whole result scrolls. -->
+            <v-data-table-virtual
+              density="compact"
+              hover
+              fixed-header
+              height="100%"
+              style="height: 100%"
+              :headers="headers"
+              :items="visibleRows"
+              item-value="key"
+              :sort-by="[{ key: 'principal', order: 'asc' }]">
+              <template #item.nr="{ index }">
+                <span class="text-caption text-disabled">{{ index + 1 }}</span>
+              </template>
+
+              <template #item.principal="{ item }">
+                <div class="d-flex align-center ga-2">
+                  <v-icon size="18">
+                    {{
+                      item.kind === 'user'
+                        ? 'mdi-account-circle-outline'
+                        : 'mdi-account-box-multiple-outline'
+                    }}
+                  </v-icon>
+                  <div style="min-width: 0">
+                    <div class="text-truncate" :title="item.principal">{{ item.principal }}</div>
+                    <div v-if="item.subtitle" class="text-caption text-medium-emphasis">
+                      {{ item.subtitle }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template #item.level="{ item }">
+                <div class="d-flex align-center ga-2">
+                  <!-- Direction rides on the resource rather than taking a column
+                       of its own: "where is this held" and "is that above me or
+                       inside me" are the same fact read at two depths. -->
+                  <!-- `title`, not `v-tooltip`. Every Vuetify tooltip is an
+                       overlay component with its own teleport, transition and
+                       activator bindings, and these sit inside table rows: at
+                       fifty rows with a couple of chips each that is upward of
+                       a hundred and fifty of them built on every page change,
+                       every sort and every keystroke in the filter. The pane
+                       froze under its own hover affordances. The browser's own
+                       tooltip costs nothing and says the same thing. -->
+                  <v-icon
+                    size="14"
+                    :color="item.direction === 'below' ? 'primary' : 'medium-emphasis'"
+                    class="flex-shrink-0"
+                    :title="directionHint(item.direction)">
+                    {{
+                      item.direction === 'above'
+                        ? 'mdi-arrow-up'
+                        : item.direction === 'below'
+                          ? 'mdi-arrow-down'
+                          : 'mdi-circle-small'
+                    }}
+                  </v-icon>
+                  <v-icon size="16">{{ item.levelIcon }}</v-icon>
+                  <div style="min-width: 0">
+                    <div class="text-body-2 text-truncate" :title="item.levelTitle">
+                      {{ item.levelTitle }}
+                    </div>
+                    <div class="text-caption text-medium-emphasis">
+                      {{ item.levelSubtitle }}
+                      <template v-if="item.levelKey === leafKey">· selected</template>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template #item.actions="{ item }">
+                <!-- Editing where the grant is actually held: this table spans
+                     levels, so the row carries which one. -->
+                <div class="d-flex align-center ga-2 justify-end">
+                  <v-btn
+                    size="small"
+                    variant="outlined"
+                    text="Edit"
+                    :loading="preparing === item.key"
+                    @click="openEdit(item)"></v-btn>
+                  <v-btn
+                    color="error"
+                    size="small"
+                    variant="text"
+                    text="Revoke all"
+                    :loading="revoking === item.key"
+                    @click="requestRevokeAll(item)"></v-btn>
+                </div>
+              </template>
+
+              <template #no-data>
+                <span class="text-disabled">
+                  {{
+                    !levelFilter && !filterText
+                      ? 'Nothing is granted on this object or anywhere above it.'
+                      : 'Nothing matches this selection.'
+                  }}
+                </span>
+              </template>
+            </v-data-table-virtual>
+          </div>
+
+          <!-- Revoke-all confirmation. Named per level, because this table
+               spans several and revoking the wrong one is not undoable. -->
+          <v-dialog v-model="confirmRevokeOpen" max-width="480">
+            <v-card>
+              <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
+                <v-icon color="error">mdi-shield-remove-outline</v-icon>
+                Revoke all grants
+              </v-card-title>
+              <v-card-text class="text-body-2">
+                Revoke
+                <strong>every privilege</strong>
+                held by
+                <strong>{{ pendingRevoke?.principal }}</strong>
+                on
+                <strong>{{ pendingRevoke?.levelTitle }}</strong>
+                ({{ pendingRevoke?.levelSubtitle.toLowerCase() }})?
+                <div v-if="revokeLocked.length" class="text-caption text-medium-emphasis mt-2">
+                  {{ revokeLocked.join(', ') }} will remain — you may not revoke those here.
+                </div>
+                <div v-if="revokeError" class="text-caption text-error mt-2">
+                  {{ revokeError }}
+                </div>
+              </v-card-text>
+              <v-card-actions>
+                <v-spacer></v-spacer>
+                <v-btn variant="text" :disabled="!!revoking" @click="confirmRevokeOpen = false">
+                  Cancel
+                </v-btn>
+                <v-btn color="error" variant="flat" :loading="!!revoking" @click="doRevokeAll">
+                  Revoke all
+                </v-btn>
+              </v-card-actions>
+            </v-card>
+          </v-dialog>
+
+          <GrantAssignDialog
+            v-if="editing"
+            v-model="editOpen"
+            :privileges="editPrivileges"
+            :resource-type="editing.resource.type"
+            :resource-name="editing.levelTitle"
+            :principal="editing.principal"
+            :held-for="heldForEdit"
+            :project-id="editProjectId"
+            :saving="saving"
+            :error="saveError"
+            @apply="applyEdit" />
+        </template>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { computed, inject, onMounted, ref, watch } from 'vue';
+import { helix } from 'ldrs';
+import { useFunctions } from '../plugins/functions';
+import { useVisualStore } from '../stores/visual';
+import {
+  derivePrivilegeCategory,
+  formatGrantedSummary,
+  principalKey,
+  refFromResponse,
+  privilegeCategoryRank,
+  resourceIcon,
+  resourceKey,
+  resourceLabel,
+  useGrants,
+} from '../composables/useGrants';
+import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.vue';
+import DateTimePicker from './DateTimePicker.vue';
+import { usePaneHeight } from '../common/paneHeight';
+import type { GrantEntry, GrantResponse, GrantablePrivilege } from '../gen/management/types.gen';
+import type { Header } from '../common/interfaces';
+import { isForbiddenError } from '../common/errorUtils';
+import { GrantsSubtreeKey, type SubtreeGrantSource } from '../common/grantsSubtree';
+import type { GrantResourceRef } from '../common/interfaces';
+import type { GetNamespaceResponse } from '../gen/iceberg/types.gen';
+import { toPrincipal } from '../common/principal';
+
+const props = withDefaults(
+  defineProps<{
+    /** The entity this chain ends at — the deepest level in the rail. */
+    resource: GrantResourceRef;
+    /** Display name for the leaf rail entry. */
+    entityName: string;
+    /** Warehouse display name, when the chain passes through one. */
+    warehouseName?: string;
+    /**
+     * Unit-separated namespace path of the entity, used to build the namespace
+     * levels. For a namespace this is its own path; for a table or view it is
+     * the containing one.
+     */
+    namespacePath?: string;
+    /**
+     * Defers the chain walk until the pane is actually looked at. Building it
+     * is several listings — one per level — so a pane nobody opened should not
+     * pay for them.
+     */
+    active?: boolean;
+  }>(),
+  { active: true },
+);
+
+const emit = defineEmits<{
+  (e: 'saved'): void;
+  /**
+   * What a bulk revoke would need, published as it changes.
+   *
+   * The action itself lives on the host's header, beside granting, because both
+   * act on the object the pane is rooted at rather than on a row — but only
+   * this pane knows what the subtree read is bound to, or whether it has read
+   * anything at all.
+   */
+  (
+    e: 'subtree-state',
+    v: { asOf: string | null; filter: Record<string, unknown>; canRevoke: boolean },
+  ): void;
+}>();
+
+// The table column bounds itself rather than trusting the height chain above
+// it. 240 is a floor, not a target — on any real window the measurement wins.
+const { paneRef: tableRef, paneHeight: tableHeight } = usePaneHeight(240);
+
+const functions = useFunctions();
+const visual = useVisualStore();
+const grants = useGrants();
+
+/**
+ * An optional view of what is held *beneath* this entity.
+ *
+ * The chain above is bounded — a handful of levels, each read in full — and is
+ * walked on open. Everything below is neither: unbounded, paginated and
+ * separately authorized, so it is an entry in the rail that loads when asked
+ * rather than part of the walk. Provided by the app (Plus registers one for
+ * Cedar); `null` everywhere else, and then the entry is simply absent.
+ */
+const subtreeSource = inject<SubtreeGrantSource | null>(GrantsSubtreeKey, null);
+
+/** Only containers have a subtree; a table's own grants are the whole answer. */
+const subtreeAvailable = computed(
+  () =>
+    !!subtreeSource && (props.resource.type === 'warehouse' || props.resource.type === 'namespace'),
+);
+
+/** Rows read from below, paged, and what the walk is reading under. */
+const belowRows = ref<Row[]>([]);
+const belowNextToken = ref<string | null>(null);
+const belowAsOf = ref<string | null>(null);
+const loadingBelow = ref(false);
+/** A subtree read that replaces the table rather than extending it. */
+const rereadingBelow = ref(false);
+const belowForbidden = ref(false);
+const belowUnsupported = ref(false);
+const belowError = ref<string | null>(null);
+
+/**
+ * Which node the tree has selected: empty for everything, a level key for one
+ * node, or this sentinel for "every object inside".
+ */
+const BELOW_ALL = '__inside__';
+const levelFilter = ref('');
+
+/** Hides this pane's tree, leaving the table the full width. */
+const treeCollapsed = ref(false);
+
+// ---- what survives a reload ------------------------------------------------
+//
+// The node and the filters, saved against the object they belong to. Restored
+// only there: a level key means nothing in another resource's chain, and a
+// privilege that narrows a warehouse may name nothing under a tag.
+
+/** Set while a saved node is still waiting for the tree to contain it. */
+const pendingLevel = ref<string | null>(null);
+const restoringState = ref(false);
+
+function saveState() {
+  if (restoringState.value) return;
+  visual.grantsReviewSelection = {
+    resource: resourceKey(props.resource),
+    level: levelFilter.value,
+    filtersOpen: filtersOpen.value,
+    principalKind: principalKind.value,
+    principal: principal.value ? { ...principal.value } : null,
+    privilege: [...privilegeFilter.value],
+    resourceType: [...resourceTypeFilter.value],
+    includeSoftDeleted: includeSoftDeleted.value,
+    createdBefore: createdBefore.value,
+  };
+}
+
+/**
+ * Puts the filters back before the first read, so the walk goes out narrowed
+ * rather than fetching everything and then hiding most of it.
+ */
+function restoreFilters() {
+  const saved = visual.grantsReviewSelection;
+  if (!saved || saved.resource !== resourceKey(props.resource)) {
+    pendingLevel.value = null;
+    return;
+  }
+  restoringState.value = true;
+  filtersOpen.value = saved.filtersOpen;
+  principalKind.value = saved.principalKind;
+  principal.value = saved.principal ? { ...saved.principal } : null;
+  privilegeFilter.value = [...(saved.privilege ?? [])];
+  resourceTypeFilter.value = [...(saved.resourceType ?? [])];
+  includeSoftDeleted.value = saved.includeSoftDeleted ?? true;
+  createdBefore.value = saved.createdBefore ?? null;
+  pendingLevel.value = saved.level ?? null;
+  restoringState.value = false;
+}
+
+// ---- the server's filters --------------------------------------------------
+//
+// One set of values, applied twice: as query parameters on the subtree walk,
+// and as a predicate over the chain rows, which are already held. A subtree can
+// hold more grants than anyone wants to page through, so narrowing it in the
+// client would narrow only what had already been fetched.
+
+const filtersOpen = ref(false);
+const principalKind = ref<'any' | 'user' | 'role'>('any');
+const principal = ref<{ id: string; title: string } | null>(null);
+const principalCandidates = ref<{ id: string; title: string }[]>([]);
+const searchingPrincipal = ref(false);
+const principalSearchError = ref<string | null>(null);
+const privilegeFilter = ref<string[]>([]);
+const resourceTypeFilter = ref<string[]>([]);
+const includeSoftDeleted = ref(true);
+const createdBefore = ref<string | null>(null);
+
+const principalNoData = computed(() =>
+  principalSearchError.value
+    ? `Search failed: ${principalSearchError.value}`
+    : searchingPrincipal.value
+      ? 'Searching…'
+      : `No ${principalKind.value}s found`,
+);
+
+const activeFilterCount = computed(
+  () =>
+    (principal.value ? 1 : 0) +
+    (privilegeFilter.value.length ? 1 : 0) +
+    (resourceTypeFilter.value.length ? 1 : 0) +
+    (includeSoftDeleted.value ? 0 : 1) +
+    (createdBefore.value ? 1 : 0),
+);
+
+function resetFilters() {
+  principalKind.value = 'any';
+  principal.value = null;
+  principalCandidates.value = [];
+  privilegeFilter.value = [];
+  resourceTypeFilter.value = [];
+  includeSoftDeleted.value = true;
+  createdBefore.value = null;
+}
+
+/** The filter as the source and the revoke both take it. */
+const subtreeFilter = computed(() => ({
+  principalUser: principalKind.value === 'user' ? principal.value?.id : undefined,
+  principalRole: principalKind.value === 'role' ? principal.value?.id : undefined,
+  privilege: [...privilegeFilter.value],
+  resourceType: [...resourceTypeFilter.value],
+  includeSoftDeleted: includeSoftDeleted.value,
+  // A datetime-local value carries no zone; the server wants an instant.
+  createdBefore: createdBefore.value ? new Date(createdBefore.value).toISOString() : undefined,
+}));
+
+/**
+ * The same filter over the levels above, which the server cannot narrow for us:
+ * the chain is read one resource at a time through the ordinary grant listing,
+ * which takes no privilege or kind parameters.
+ *
+ * `includeSoftDeleted` and `createdBefore` are deliberately not applied here.
+ * A level of the hierarchy is never soft-deleted, and the chain listing reports
+ * no per-grant instant to compare a ceiling against.
+ */
+function matchesChainFilter(r: Row): boolean {
+  if (principal.value && r.principalId !== principal.value.id) return false;
+  if (principalKind.value !== 'any' && r.kind !== principalKind.value) return false;
+  if (privilegeFilter.value.length) {
+    const wanted = new Set(privilegeFilter.value);
+    if (![...r.privileges, ...r.stale].some((p) => wanted.has(p))) return false;
+  }
+  if (resourceTypeFilter.value.length && !resourceTypeFilter.value.includes(r.resource.type)) {
+    return false;
+  }
+  return true;
+}
+
+/** Kinds that can appear inside this object, for the picker. */
+const resourceTypeItems = computed(() => {
+  const kinds =
+    props.resource.type === 'warehouse'
+      ? ['namespace', 'table', 'view', 'generic-table']
+      : ['namespace', 'table', 'view', 'generic-table'];
+  return kinds.map((k) => ({ value: k, title: resourceLabel(k) }));
+});
+
+const vocabularyLoading = ref(false);
+const privilegeItems = ref<{ value: string; title: string }[]>([]);
+
+/**
+ * Every privilege this authorizer publishes, across the kinds in range.
+ *
+ * A name it does not publish is refused by the listing rather than matching
+ * nothing, so this is a picker and never a free-text field.
+ */
+async function loadVocabulary() {
+  vocabularyLoading.value = true;
+  try {
+    const vocab: Record<string, { name: string; 'display-name': string }[]> =
+      await grants.vocabulary();
+    // Only the kinds that can actually appear in this subtree. The whole
+    // vocabulary also holds names that belong to tag definitions, projects and
+    // the server, and naming one of those is a hard refusal — "no resource
+    // under this subtree has the privilege `apply`" — rather than an empty
+    // result. A picker that can produce a refused request is a broken picker.
+    const inRange = new Set(resourceTypeItems.value.map((i) => i.value));
+    const seen = new Map<string, string>();
+    for (const [type, list] of Object.entries(vocab)) {
+      if (!inRange.has(type)) continue;
+      for (const descriptor of list ?? []) {
+        if (!seen.has(descriptor.name)) seen.set(descriptor.name, descriptor['display-name']);
+      }
+    }
+    privilegeItems.value = [...seen.entries()]
+      .map(([value, title]) => ({ value, title: title || value }))
+      .sort((a, b) => a.title.localeCompare(b.title));
+  } catch {
+    // An authorizer that publishes no vocabulary leaves the picker empty; the
+    // listing still works, it simply cannot be narrowed by privilege.
+    privilegeItems.value = [];
+  } finally {
+    vocabularyLoading.value = false;
+  }
+}
+
+// ---- principal search ------------------------------------------------------
+
+let principalSearchSeq = 0;
+let principalSearchTimer: ReturnType<typeof setTimeout> | null = null;
+
+function onPrincipalKindChange() {
+  principal.value = null;
+  principalCandidates.value = [];
+  principalSearchError.value = null;
+}
+
+function onPrincipalSearch(term: string) {
+  if (principalSearchTimer) clearTimeout(principalSearchTimer);
+  principalSearchTimer = setTimeout(() => runPrincipalSearch(term), 250);
+}
+
+async function runPrincipalSearch(term: string) {
+  const query = (term || '').trim();
+  if (principalKind.value === 'any' || !query) {
+    principalCandidates.value = [];
+    return;
+  }
+  const seq = ++principalSearchSeq;
+  searchingPrincipal.value = true;
+  principalSearchError.value = null;
+  try {
+    if (principalKind.value === 'user') {
+      const users: any[] = await functions.searchUser(query);
+      if (seq !== principalSearchSeq) return;
+      principalCandidates.value = (users ?? []).map((u: any) => ({
+        id: u.id,
+        title: `${u.name || u['preferred_username'] || u.id}${u.email ? ` · ${u.email}` : ''}`,
+      }));
+    } else {
+      const roles: any[] = await functions.searchRole({ search: query });
+      if (seq !== principalSearchSeq) return;
+      principalCandidates.value = (roles ?? []).map((r: any) => ({
+        id: r.id,
+        title: r.name || r.ident || r.id,
+      }));
+    }
+  } catch (e: any) {
+    if (seq !== principalSearchSeq) return;
+    principalCandidates.value = [];
+    principalSearchError.value = e?.error?.message || e?.message || 'Search failed';
+  } finally {
+    if (seq === principalSearchSeq) searchingPrincipal.value = false;
+  }
+}
+
+/** Whether the downward half has been asked for yet. */
+const belowLoaded = ref(false);
+
+/**
+ * Whether a bulk revoke has anything to act on.
+ *
+ * A revoke that reaches further than the review did is the one thing this pane
+ * must not offer: until the subtree has been read, nobody has seen what the
+ * button would remove — and the ceiling it binds itself to does not exist yet
+ * either. An empty or refused read is the same answer for this purpose.
+ */
+const canRevokeSubtree = computed(
+  () =>
+    belowLoaded.value &&
+    !belowForbidden.value &&
+    !belowUnsupported.value &&
+    belowRows.value.length > 0,
+);
+
+function countFor(levelKey: string): number {
+  return rows.value.filter((r) => r.levelKey === levelKey).length;
+}
+
+/**
+ * The tree's downward nodes: the objects inside that actually hold a grant.
+ *
+ * There is no listing of the subtree's shape to draw from — only the grants —
+ * so the tree shows where grants are, not everything that exists. Depth is
+ * derived from each resolved path and normalized against the shallowest, so
+ * the indentation reads as a tree whichever level the review is rooted at.
+ */
+const belowNodes = computed(() => {
+  const byKey = new Map<
+    string,
+    { key: string; title: string; subtitle: string; icon: string; count: number; path: string }
+  >();
+  for (const r of belowRows.value) {
+    const hit = byKey.get(r.levelKey);
+    if (hit) {
+      hit.count += 1;
+      continue;
+    }
+    byKey.set(r.levelKey, {
+      key: r.levelKey,
+      title: r.levelTitle,
+      subtitle: r.levelSubtitle,
+      icon: r.levelIcon,
+      count: 1,
+      path: r.levelTitle,
+    });
+  }
+  const nodes = [...byKey.values()].map((n) => ({ ...n, depth: pathDepth(n.path) }));
+  const shallowest = nodes.reduce((min, n) => Math.min(min, n.depth), Number.MAX_SAFE_INTEGER);
+  return nodes
+    .map((n) => ({ ...n, depth: Number.isFinite(shallowest) ? n.depth - shallowest : 0 }))
+    .sort((a, b) => a.path.localeCompare(b.path));
+});
+
+/**
+ * How deep a resolved path sits, counting namespace levels.
+ *
+ * `resolveResourceLocation` renders "warehouse / a.b.c / table", so the
+ * warehouse is dropped, the namespace segment contributes one level per dot,
+ * and a trailing tabular contributes one more.
+ */
+function pathDepth(path: string): number {
+  const parts = path.split(' / ').slice(1);
+  if (!parts.length) return 0;
+  const nsDepth = parts[0] ? parts[0].split('.').length : 0;
+  return nsDepth + (parts.length > 1 ? 1 : 0);
+}
+
+// Registers the <l-helix> custom element. Idempotent.
+helix.register();
+
+const leafKey = ref('');
+const loading = ref(false);
+const filterText = ref('');
+
+/**
+ * Debounced copy of the filter, and the one the table actually reads.
+ *
+ * Every keystroke otherwise re-filters two hundred rows and rebuilds fifty of
+ * them, each with its own icons, chips and buttons — the typing lagged the
+ * caret. Nothing on screen needs to change faster than this.
+ */
+const filterQuery = ref('');
+let filterTimer: ReturnType<typeof setTimeout> | null = null;
+watch(filterText, (value) => {
+  if (filterTimer) clearTimeout(filterTimer);
+  filterTimer = setTimeout(() => (filterQuery.value = value ?? ''), 180);
+});
+
+/** What an arrow in the level column means, as plain text for a `title`. */
+function directionHint(direction: string): string {
+  const noun = resourceLabel(props.resource.type).toLowerCase();
+  if (direction === 'above')
+    return `Held above this ${noun} — it reaches here without being listed here.`;
+  if (direction === 'below') return `Held on something inside this ${noun}.`;
+  return `Held on this ${noun} itself.`;
+}
+const headers = computed<Header[]>(() => [
+  // Position in what is on screen, not an identity — it renumbers when the
+  // table is sorted or filtered, which is the point: it answers "how far
+  // through am I", the question a scrollbar used to answer before the pager
+  // went away.
+  { title: '#', key: 'nr', align: 'end', sortable: false, width: 64 },
+  { title: 'Principal', key: 'principal', align: 'start' },
+  { title: 'Granted on', key: 'level', align: 'start' },
+  { title: '', key: 'actions', align: 'end', sortable: false },
+]);
+
+interface Row {
+  key: string;
+  principal: string;
+  principalId: string;
+  subtitle: string;
+  kind: 'user' | 'role';
+  /**
+   * The resource this grant is actually held on — carried per row rather than
+   * looked up in the chain, because rows from below have no chain entry and
+   * are edited at their own level like every other row.
+   */
+  resource: GrantResourceRef;
+  /** Where the row came from, relative to the object being reviewed. */
+  direction: 'above' | 'here' | 'below';
+  levelKey: string;
+  levelTitle: string;
+  levelSubtitle: string;
+  levelIcon: string;
+  depth: number;
+  privileges: string[];
+  /** Held privileges bucketed by category, for the collapsed summary. */
+  byCategory: Record<string, string[]>;
+  /** The categories this row actually holds, in display order. */
+  categories: string[];
+  stale: string[];
+  granted: string;
+}
+
+/**
+ * The category comes off the name, not the authorizer's vocabulary: this table
+ * spans levels whose vocabularies are only fetched when a row is edited, and
+ * loading six of them just to group chips is not worth the round trips.
+ */
+function bucketByCategory(privileges: string[]): {
+  byCategory: Record<string, string[]>;
+  categories: string[];
+} {
+  const byCategory: Record<string, string[]> = {};
+  for (const name of privileges) {
+    (byCategory[derivePrivilegeCategory(name)] ??= []).push(name);
+  }
+  const categories = Object.keys(byCategory).sort(
+    (a, b) => privilegeCategoryRank(a) - privilegeCategoryRank(b) || a.localeCompare(b),
+  );
+  return { byCategory, categories };
+}
+const rows = ref<Row[]>([]);
+
+/**
+ * The one list: the chain above, this object, and whatever has been read from
+ * below — in that order, which is the order they sit in.
+ */
+const allRows = computed(() => [...rows.value.filter(matchesChainFilter), ...belowRows.value]);
+
+const visibleRows = computed(() => {
+  const q = filterQuery.value?.toLowerCase().trim();
+  return allRows.value.filter((r) => {
+    if (levelFilter.value === BELOW_ALL) {
+      if (r.direction !== 'below') return false;
+    } else if (levelFilter.value && r.levelKey !== levelFilter.value) {
+      return false;
+    }
+    // The principal toggle is the kind filter: naming a kind narrows the rows,
+    // and naming an actual principal narrows the walk as well.
+    if (principalKind.value !== 'any' && r.kind !== principalKind.value) return false;
+    if (!q) return true;
+    return (
+      r.principal.toLowerCase().includes(q) ||
+      r.levelTitle.toLowerCase().includes(q) ||
+      r.privileges.some((p) => p.toLowerCase().includes(q))
+    );
+  });
+});
+
+/**
+ * How the rows on screen split between the two directions.
+ *
+ * Derived from what the table is actually showing rather than from the two
+ * source lists, so a filter narrows the breakdown along with the total.
+ */
+const shownAbove = computed(() => visibleRows.value.filter((r) => r.direction !== 'below').length);
+const shownBelow = computed(() => visibleRows.value.filter((r) => r.direction === 'below').length);
+
+// ---- editing ---------------------------------------------------------------
+
+const editOpen = ref(false);
+const preparing = ref<string | null>(null);
+const saving = ref(false);
+const saveError = ref<string | null>(null);
+const editPrivileges = ref<GrantablePrivilege[]>([]);
+const editing = ref<{
+  row: Row;
+  resource: GrantResourceRef;
+  levelTitle: string;
+  principal: GrantPrincipalRow;
+} | null>(null);
+
+/** Roles must come from the resource's project; the server itself has none. */
+const editProjectId = computed(() =>
+  editing.value?.resource.type === 'server'
+    ? undefined
+    : visual.projectSelected['project-id'] || undefined,
+);
+
+function heldForEdit(): string[] {
+  const known = new Set(editPrivileges.value.map((p) => p.privilege.name));
+  return (editing.value?.row.privileges ?? []).filter((n) => known.has(n));
+}
+
+async function openEdit(row: Row) {
+  preparing.value = row.key;
+  saveError.value = null;
+  try {
+    editPrivileges.value = await grants.grantablePrivileges(row.resource);
+    editing.value = {
+      row,
+      resource: row.resource,
+      levelTitle: row.levelTitle,
+      principal: {
+        key: `${row.kind}:${row.principalId}`,
+        id: row.principalId,
+        kind: row.kind,
+        name: row.principal,
+      },
+    };
+    editOpen.value = true;
+  } catch (e: any) {
+    chainError.value = e?.error?.message || e?.message || 'Failed to read grantable privileges';
+  } finally {
+    preparing.value = null;
+  }
+}
+
+// ---- revoke all ------------------------------------------------------------
+
+const confirmRevokeOpen = ref(false);
+const pendingRevoke = ref<Row | null>(null);
+const revoking = ref<string | null>(null);
+const revokeError = ref<string | null>(null);
+/** Held here but not revocable by this caller — they survive the revoke. */
+const revokeLocked = ref<string[]>([]);
+
+/**
+ * The vocabulary is fetched before asking, so the confirmation can say what
+ * will actually be removed rather than promising "everything" and leaving
+ * privileges behind.
+ */
+async function requestRevokeAll(row: Row) {
+  revoking.value = row.key;
+  revokeError.value = null;
+  try {
+    const privs = await grants.grantablePrivileges(row.resource);
+    const grantable = new Set(privs.filter((p) => p.allowed).map((p) => p.privilege.name));
+    revokeLocked.value = row.privileges.filter((p) => !grantable.has(p));
+    pendingRevoke.value = row;
+    confirmRevokeOpen.value = true;
+  } catch (e: any) {
+    chainError.value = e?.error?.message || e?.message || 'Failed to read grantable privileges';
+  } finally {
+    revoking.value = null;
+  }
+}
+
+async function doRevokeAll() {
+  const row = pendingRevoke.value;
+  if (!row) return;
+
+  revoking.value = row.key;
+  revokeError.value = null;
+  try {
+    const principal = toPrincipal(row.kind, row.principalId);
+    const locked = new Set(revokeLocked.value);
+    // Stale privileges go too: they enforce nothing, but a "revoke all" that
+    // left some behind would be a lie.
+    const deletes: GrantEntry[] = [
+      ...row.privileges.filter((p) => !locked.has(p)),
+      ...row.stale,
+    ].map((privilege) => ({ principal, privilege }));
+
+    if (deletes.length) {
+      await grants.applyGrants(row.resource, { deletes });
+      await reload();
+      emit('saved');
+    }
+    confirmRevokeOpen.value = false;
+    pendingRevoke.value = null;
+  } catch (e: any) {
+    revokeError.value = e?.error?.message || e?.message || 'Failed to revoke grants';
+  } finally {
+    revoking.value = null;
+  }
+}
+
+async function applyEdit(payload: { principal: GrantPrincipalRow; privileges: string[] }) {
+  const target = editing.value;
+  if (!target) return;
+  const before = new Set(heldForEdit());
+  const after = new Set(payload.privileges);
+  const grantable = new Set(
+    editPrivileges.value.filter((p) => p.allowed).map((p) => p.privilege.name),
+  );
+  const entry = (privilege: string): GrantEntry => ({
+    principal: toPrincipal(payload.principal.kind, payload.principal.id),
+    privilege,
+  });
+  // Only what this caller may change on either side — a revoke they are not
+  // entitled to would fail the whole atomic apply.
+  const writes = [...after].filter((n) => !before.has(n) && grantable.has(n)).map(entry);
+  const deletes = [...before].filter((n) => !after.has(n) && grantable.has(n)).map(entry);
+  if (!writes.length && !deletes.length) {
+    editOpen.value = false;
+    return;
+  }
+
+  saving.value = true;
+  saveError.value = null;
+  try {
+    await grants.applyGrants(target.resource, { writes, deletes });
+    editOpen.value = false;
+    await loadAllLevels();
+    emit('saved');
+  } catch (e: any) {
+    saveError.value = e?.error?.message || e?.message || 'Failed to apply grants';
+  } finally {
+    saving.value = false;
+  }
+}
+
+/**
+ * Reads every level in the chain and flattens them into one listing.
+ *
+ * All of them at once, unlike the per-level panels: the question here is where
+ * someone's access comes from, which cannot be answered a level at a time.
+ * Levels this caller cannot read are skipped rather than failing the table.
+ */
+/**
+ * Which walk is the current one.
+ *
+ * Both reads below are restarted by things the reader does quickly — changing
+ * the resource, retyping a filter, paging the subtree — and a privileged listing
+ * is slow enough that the old answer regularly lands after the new one. Each
+ * read takes a ticket on the way in and drops whatever it produced if a later
+ * one has since started, including its own `loading` flag: an older request
+ * clearing that is what made the table show a settled, stale answer.
+ */
+let levelsSeq = 0;
+let belowSeq = 0;
+
+async function loadAllLevels() {
+  const seq = ++levelsSeq;
+  loading.value = true;
+  const next: Row[] = [];
+  const refused = new Set<string>();
+  try {
+    await Promise.all(
+      chain.value.map(async (level, depth) => {
+        let listed;
+        try {
+          listed = await grants.listGrants(level.resource);
+        } catch (e) {
+          // A level this caller may not read is expected here — reading grants
+          // on a namespace does not imply reading them on the server above it.
+          // Recorded so the rail can say "not visible to you", which an empty
+          // level would otherwise be indistinguishable from. Anything that is
+          // not a refusal stays silent as before, but is not claimed as empty.
+          if (isForbiddenError(e)) refused.add(level.key);
+          return;
+        }
+        const byPrincipal = new Map<string, any[]>();
+        for (const g of listed) {
+          const key = principalKey(g.principal);
+          if (!byPrincipal.has(key)) byPrincipal.set(key, []);
+          byPrincipal.get(key)!.push(g);
+        }
+        await Promise.all(
+          [...byPrincipal.entries()].map(async ([pk, list]) => {
+            const kind: 'user' | 'role' = pk.startsWith('user:') ? 'user' : 'role';
+            const id = pk.slice(pk.indexOf(':') + 1);
+            const meta = await grants.resolvePrincipalName(kind, id);
+            const held = list
+              .filter((g) => g.recognized !== false)
+              .map((g) => g.privilege)
+              .sort();
+            next.push({
+              key: `${level.key}|${pk}`,
+              principal: meta.name,
+              principalId: id,
+              subtitle: meta.subtitle,
+              kind,
+              resource: level.resource,
+              direction: level.key === leafKey.value ? 'here' : 'above',
+              levelKey: level.key,
+              levelTitle: level.title,
+              levelSubtitle: level.subtitle,
+              levelIcon: level.icon,
+              depth,
+              privileges: held,
+              ...bucketByCategory(held),
+              stale: list
+                .filter((g) => g.recognized === false)
+                .map((g) => g.privilege)
+                .sort(),
+              granted: formatGrantedSummary(list.map((g) => g['created-at'])),
+            });
+          }),
+        );
+      }),
+    );
+    if (seq !== levelsSeq) return;
+    rows.value = next;
+    unreadableLevels.value = refused;
+  } finally {
+    if (seq === levelsSeq) loading.value = false;
+  }
+}
+
+/**
+ * Reads one page of what is held inside this object, as rows of the same table.
+ *
+ * Pivoted the same way the levels are — one row per principal per resource —
+ * so a reader scanning the list is not switching between two shapes halfway
+ * down it. Its own failures are recorded rather than thrown: the chain above
+ * is still a useful answer when the subtree is refused, unsupported or simply
+ * not read yet.
+ */
+async function loadBelowPage(pageToken?: string) {
+  if (!subtreeAvailable.value || !subtreeSource) return;
+  const seq = ++belowSeq;
+  loadingBelow.value = true;
+  // A first page replaces what the table is showing; a later one appends to
+  // it. Only the first is a reason to take the rows away — blanking the table
+  // on "load more" would hide the rows the reader asked to extend.
+  if (!pageToken) rereadingBelow.value = true;
+  belowLoaded.value = true;
+  belowError.value = null;
+  try {
+    const page = await subtreeSource.list(props.resource, {
+      pageToken,
+      pageSize: BELOW_PAGE_SIZE,
+      ...subtreeFilter.value,
+    });
+    if (seq !== belowSeq) return;
+    belowAsOf.value = page.asOf ?? belowAsOf.value;
+    belowNextToken.value = page.nextPageToken ?? null;
+
+    // One row per principal per resource, matching the level rows above.
+    const byKey = new Map<string, { resource: GrantResourceRef; list: GrantResponse[] }>();
+    for (const g of page.grants ?? []) {
+      const ref = refFromResponse(g.resource);
+      if (!ref) continue;
+      const k = `${resourceKey(ref)}|${principalKey(g.principal)}`;
+      if (!byKey.has(k)) byKey.set(k, { resource: ref, list: [] });
+      byKey.get(k)!.list.push(g);
+    }
+
+    const next: Row[] = [];
+    await Promise.all(
+      [...byKey.entries()].map(async ([k, { resource, list }]) => {
+        const pk = principalKey(list[0].principal);
+        const kind: 'user' | 'role' = pk.startsWith('user:') ? 'user' : 'role';
+        const id = pk.slice(pk.indexOf(':') + 1);
+        const [meta, location] = await Promise.all([
+          grants.resolvePrincipalName(kind, id),
+          grants
+            .resolveResourceLocation(resource)
+            .catch(() => ({ path: '', route: null as string | null })),
+        ]);
+        const held = list
+          .filter((g) => g.recognized !== false)
+          .map((g) => g.privilege)
+          .sort();
+        next.push({
+          key: `below|${k}`,
+          principal: meta.name,
+          principalId: id,
+          subtitle: meta.subtitle,
+          kind,
+          resource,
+          direction: 'below',
+          levelKey: `below|${resourceKey(resource)}`,
+          levelTitle: location.path || resourceLabel(resource.type),
+          levelSubtitle: resourceLabel(resource.type),
+          levelIcon: resourceIcon(resource.type),
+          // Sorted below every level of the chain, which is where it is.
+          depth: chain.value.length,
+          privileges: held,
+          ...bucketByCategory(held),
+          stale: list
+            .filter((g) => g.recognized === false)
+            .map((g) => g.privilege)
+            .sort(),
+          granted: formatGrantedSummary(list.map((g) => g['created-at'])),
+        });
+      }),
+    );
+    // Resolving names and locations is a second round of requests, so the walk
+    // can be superseded between the listing and here as easily as before it.
+    if (seq !== belowSeq) return;
+    belowRows.value = pageToken ? [...belowRows.value, ...next] : next;
+    // A saved node from inside cannot be applied until the page holding it has
+    // been read; once the walk ends it is either there or gone for good.
+    if (pendingLevel.value) {
+      if (belowRows.value.some((r) => r.levelKey === pendingLevel.value)) {
+        levelFilter.value = pendingLevel.value;
+      }
+      if (!belowNextToken.value) pendingLevel.value = null;
+    }
+  } catch (e: any) {
+    if (seq !== belowSeq) return;
+    const code = e?.error?.code || e?.status || 0;
+    if (code === 501) belowUnsupported.value = true;
+    else if (isForbiddenError(e)) belowForbidden.value = true;
+    else belowError.value = e?.error?.message || e?.message || 'could not be read';
+  } finally {
+    if (seq === belowSeq) {
+      loadingBelow.value = false;
+      rereadingBelow.value = false;
+    }
+  }
+}
+
+function loadMoreBelow() {
+  if (belowNextToken.value) loadBelowPage(belowNextToken.value);
+}
+
+/**
+ * A changed filter is a different walk, so the pages read under the old one go.
+ * Debounced, because the pickers emit per selection and the date field per
+ * keystroke, and each walk is a privileged read.
+ */
+watch(
+  [
+    levelFilter,
+    filtersOpen,
+    principal,
+    principalKind,
+    privilegeFilter,
+    resourceTypeFilter,
+    includeSoftDeleted,
+    createdBefore,
+  ],
+  saveState,
+  { deep: true },
+);
+
+let refilterTimer: ReturnType<typeof setTimeout> | null = null;
+watch(
+  [
+    principal,
+    principalKind,
+    privilegeFilter,
+    resourceTypeFilter,
+    includeSoftDeleted,
+    createdBefore,
+  ],
+  () => {
+    if (!belowLoaded.value) return;
+    if (refilterTimer) clearTimeout(refilterTimer);
+    refilterTimer = setTimeout(() => {
+      belowRows.value = [];
+      belowNextToken.value = null;
+      belowAsOf.value = null;
+      belowError.value = null;
+      loadBelowPage();
+    }, 350);
+  },
+  { deep: true },
+);
+
+/**
+ * Levels whose grants this caller may not list.
+ *
+ * The hierarchy is still worth showing: someone with `read_grants` on a table
+ * and its namespace sees both, and the levels above are marked rather than
+ * omitted — dropping them would misrepresent where their access could come
+ * from as much as failing the whole dialog would.
+ */
+const unreadableLevels = ref<Set<string>>(new Set());
+const buildingChain = ref(false);
+const chainError = ref<string | null>(null);
+
+interface Level {
+  key: string;
+  title: string;
+  subtitle: string;
+  icon: string;
+  resource: GrantResourceRef;
+}
+const chain = ref<Level[]>([]);
+
+function levelFor(resource: GrantResourceRef, title: string, subtitle?: string): Level {
+  return {
+    key: resourceKey(resource),
+    title,
+    subtitle: subtitle ?? resourceLabel(resource.type),
+    icon: resourceIcon(resource.type),
+    resource,
+  };
+}
+
+/**
+ * Builds the rail from the server down to the entity.
+ *
+ * The namespace levels are the expensive part: a grant is addressed by
+ * namespace id, but the console carries a path, so each ancestor prefix is
+ * resolved separately. A prefix the caller cannot read is skipped rather than
+ * failing the whole rail — its own pane would have shown a lock anyway.
+ */
+async function buildChain() {
+  buildingChain.value = true;
+  chainError.value = null;
+  const levels: Level[] = [];
+
+  try {
+    const leaf = props.resource;
+
+    levels.push(levelFor({ type: 'server' }, 'Server'));
+    // Only what is actually above the leaf. The server is the root, so a
+    // project sits below it, not in its lineage — pushing one unconditionally
+    // put a level into the server's chain that nothing there reaches through,
+    // and counted its grants as reaching the server.
+    if (leaf.type !== 'server') {
+      levels.push(
+        levelFor(
+          { type: 'project' },
+          visual.projectSelected['project-name'] || 'Project',
+          'Project',
+        ),
+      );
+    }
+
+    const warehouseId = (leaf as any).warehouseId as string | undefined;
+    if (warehouseId) {
+      levels.push(
+        levelFor(
+          { type: 'warehouse', warehouseId },
+          props.warehouseName || 'Warehouse',
+          'Warehouse',
+        ),
+      );
+    }
+
+    if (warehouseId && props.namespacePath) {
+      const parts = props.namespacePath.split('\x1F').filter(Boolean);
+      // A namespace leaf is the last prefix; anything else sits under the full
+      // path, so every prefix is an ancestor.
+      const depth = parts.length;
+      for (let i = 1; i <= depth; i++) {
+        const prefix = parts.slice(0, i);
+        const isLeafNamespace = leaf.type === 'namespace' && i === depth;
+        try {
+          const id = isLeafNamespace
+            ? (leaf as any).namespaceId
+            : await resolveNamespaceId(warehouseId, prefix.join('\x1F'));
+          if (!id) continue;
+          levels.push(
+            levelFor(
+              { type: 'namespace', warehouseId, namespaceId: id },
+              prefix.join('.'),
+              'Namespace',
+            ),
+          );
+        } catch {
+          // Not readable by this caller — leave it out of the rail.
+          chainError.value = 'Some namespace levels could not be resolved.';
+        }
+      }
+    }
+
+    // The leaf, unless one of the levels above already is it.
+    const key = resourceKey(leaf);
+    leafKey.value = key;
+    if (!levels.some((l) => l.key === key)) {
+      levels.push(levelFor(leaf, props.entityName, resourceLabel(leaf.type)));
+    }
+
+    chain.value = levels;
+    // The object the pane is rooted at, unless a saved node still resolves.
+    // "Who holds what on this one" is the question nine askings in ten, and it
+    // was this pane's whole content before the levels around it joined the
+    // table — so it is the default, not a fallback nobody chose.
+    const wanted = pendingLevel.value;
+    if (wanted === '' || wanted === BELOW_ALL || levels.some((l) => l.key === wanted)) {
+      levelFilter.value = wanted as string;
+      pendingLevel.value = null;
+    } else {
+      levelFilter.value = leafKey.value;
+    }
+    await loadAllLevels();
+  } catch (e: any) {
+    chainError.value = e?.error?.message || e?.message || 'Failed to build the resource hierarchy';
+    chain.value = levels;
+  } finally {
+    buildingChain.value = false;
+  }
+}
+
+const namespaceIdCache = new Map<string, string>();
+
+async function resolveNamespaceId(warehouseId: string, path: string): Promise<string> {
+  const cacheKey = `${warehouseId}|${path}`;
+  const cached = namespaceIdCache.get(cacheKey);
+  if (cached) return cached;
+  const meta = (await functions.loadNamespaceMetadata(
+    warehouseId,
+    path,
+    false,
+  )) as GetNamespaceResponse;
+  const id = meta.properties?.namespace_id || (meta as any)['namespace-uuid'] || '';
+  if (id) namespaceIdCache.set(cacheKey, id);
+  return id;
+}
+
+const BELOW_PAGE_SIZE = 250;
+
+/** `as-of` is an instant, and reads better as one than as an ISO string. */
+function formatInstant(value?: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
+}
+
+/**
+ * Re-reads both halves.
+ *
+ * They run together rather than one behind a button: the point of the pane is
+ * a single answer, and a half of it that only appears after a second click is
+ * a half the reader will forget to ask for. The downward read is the expensive,
+ * separately-authorized one, so it reports its own state under the table
+ * instead of failing the whole view.
+ */
+async function reload() {
+  rows.value = [];
+  belowRows.value = [];
+  belowLoaded.value = false;
+  belowNextToken.value = null;
+  belowAsOf.value = null;
+  belowForbidden.value = false;
+  belowUnsupported.value = false;
+  belowError.value = null;
+  // The first page of the subtree comes with the chain. It is the expensive,
+  // separately-authorized half, so only the first page — the rest stays behind
+  // "Load more" — but a review that shows nothing about what is inside until
+  // you ask twice is a review most people will read as complete.
+  await Promise.all([buildChain(), loadBelowPage()]);
+}
+
+// Panes mount together and load on first view, so switching scope does not
+// fire a listing for every level of the hierarchy before anyone asked.
+watch(
+  () => props.active,
+  (active) => {
+    if (active && !chain.value.length) reload();
+  },
+);
+
+// A different entity is a different chain; keyed on the identity rather than
+// the object, since hosts pass the ref as an inline literal.
+watch(
+  () => resourceKey(props.resource),
+  () => {
+    restoreFilters();
+    if (props.active) reload();
+  },
+);
+
+watch(
+  [belowAsOf, subtreeFilter, canRevokeSubtree],
+  () => {
+    emit('subtree-state', {
+      asOf: belowAsOf.value,
+      filter: subtreeFilter.value,
+      canRevoke: canRevokeSubtree.value,
+    });
+  },
+  { deep: true, immediate: true },
+);
+
+onMounted(() => {
+  restoreFilters();
+  loadVocabulary();
+  if (props.active) reload();
+});
+
+defineExpose({ reload });
+</script>
+
+<style scoped>
+/* Folded by animating the width to nothing, not by unmounting: the contents
+   keep their own 300px on the inside, so nothing reflows on the way out and the
+   table grows into the space rather than jumping into it. Kept mounted also
+   means the tree's scroll position and the filters survive a fold. */
+.review-fold {
+  width: 300px;
+  overflow: hidden;
+  transition: width 0.2s ease;
+
+  /* Same reasoning as the explorer's own fold: animating width relayouts the
+   * page every frame, and the table beside this one is not cheap to relayout.
+   * The contents here keep the fixed width they are given while the frame
+   * narrows, so nothing inside needs re-measuring. */
+  contain: layout paint;
+  will-change: width;
+}
+
+.review-fold--collapsed {
+  width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .review-fold {
+    transition: none;
+  }
+}
+</style>

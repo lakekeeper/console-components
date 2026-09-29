@@ -16,13 +16,38 @@
 
         <v-divider vertical class="mx-1" />
 
-        <v-btn-toggle v-model="aggregation" mandatory density="compact" variant="outlined">
-          <v-btn value="hour" size="small">Hour</v-btn>
-          <v-btn value="day" size="small">Day</v-btn>
-          <v-btn value="week" size="small">Week</v-btn>
-          <v-btn value="month" size="small">Month</v-btn>
-          <v-btn value="year" size="small">Year</v-btn>
-        </v-btn-toggle>
+        <!-- A span, not a bucket size. The five unit buttons that used to sit
+             here set the grouping and left the window at the server's default
+             of one day, so a page asked for a year showed yesterday. -->
+        <v-select
+          v-model="rangeKey"
+          :items="RANGE_ITEMS"
+          density="compact"
+          variant="outlined"
+          hide-details
+          style="max-width: 190px"
+          prepend-inner-icon="mdi-calendar-range" />
+
+        <!-- What the data is grouped by, derived from the span that actually
+             came back. Clickable, because deriving it is a default and not a
+             decision taken away. -->
+        <v-menu>
+          <template #activator="{ props: menuProps }">
+            <v-btn v-bind="menuProps" size="small" variant="text" class="text-none">
+              grouped by {{ aggregation }}
+              <v-icon size="14" class="ml-1">mdi-menu-down</v-icon>
+            </v-btn>
+          </template>
+          <v-list density="compact">
+            <v-list-item
+              v-for="option in GROUP_OPTIONS"
+              :key="option.value"
+              :active="aggregationOverride === option.value"
+              @click="aggregationOverride = option.value">
+              <v-list-item-title class="text-body-2">{{ option.title }}</v-list-item-title>
+            </v-list-item>
+          </v-list>
+        </v-menu>
 
         <v-spacer />
         <v-btn
@@ -174,7 +199,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue';
+import { computed, ref, onMounted, watch, nextTick, onBeforeUnmount } from 'vue';
 import * as d3 from 'd3';
 import {
   EndpointStatisticsResponse,
@@ -190,6 +215,14 @@ import { useVisualStore } from '../stores/visual';
 // ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
   warehouseFilter?: WarehouseFilter;
+  /**
+   * Which status categories the pane opens on. A reader who arrives from the
+   * "API errors" signal came to see the failures, and showing them every 2xx
+   * alongside buries the handful of rows they clicked for. Omitted, the pane
+   * opens on everything, which is the right default for anyone who navigated
+   * here to look around. Reset always restores everything.
+   */
+  initialStatusCodes?: string[];
 }>();
 
 // ─── Deps ────────────────────────────────────────────────────────────────────
@@ -200,7 +233,47 @@ const visual = useVisualStore();
 // ─── State ───────────────────────────────────────────────────────────────────
 const activeView = ref<'charts' | 'table'>('charts');
 const loading = ref(false);
-const aggregation = ref<'hour' | 'day' | 'week' | 'month' | 'year'>('day');
+type Unit = 'hour' | 'day' | 'week' | 'month' | 'year';
+
+// Spans offered, in hours. Seven days is the default: short enough to load
+// quickly, long enough to have a shape rather than a spike.
+const RANGES: Array<{ key: string; title: string; hours: number | null }> = [
+  { key: '1h', title: 'Last hour', hours: 1 },
+  { key: '6h', title: 'Last 6 hours', hours: 6 },
+  { key: '24h', title: 'Last 24 hours', hours: 24 },
+  { key: '7d', title: 'Last 7 days', hours: 24 * 7 },
+  { key: '30d', title: 'Last 30 days', hours: 24 * 30 },
+  { key: '90d', title: 'Last 90 days', hours: 24 * 90 },
+  { key: '1y', title: 'Last year', hours: 24 * 365 },
+  { key: 'custom', title: 'Custom range', hours: null },
+];
+const RANGE_ITEMS = RANGES.map((r) => ({ title: r.title, value: r.key }));
+const GROUP_OPTIONS: Array<{ title: string; value: Unit | 'auto' }> = [
+  { title: 'Automatic', value: 'auto' },
+  { title: 'Hour', value: 'hour' },
+  { title: 'Day', value: 'day' },
+  { title: 'Week', value: 'week' },
+  { title: 'Month', value: 'month' },
+  { title: 'Year', value: 'year' },
+];
+
+const rangeKey = ref('7d');
+const aggregationOverride = ref<Unit | 'auto'>('auto');
+// The span the data actually covers, which is not the span that was asked for:
+// a young server answers a seven-day request with three hours, and three hours
+// grouped by day is one bar.
+const dataSpanMs = ref(0);
+
+// One bucket per hour up to a bit over a week, then coarser — the target is a
+// chart someone can read, which is roughly 180 marks or fewer.
+const aggregation = computed<Unit>(() => {
+  if (aggregationOverride.value !== 'auto') return aggregationOverride.value;
+  const days = dataSpanMs.value / 86_400_000;
+  if (days <= 8) return 'hour';
+  if (days <= 180) return 'day';
+  if (days <= 730) return 'week';
+  return 'month';
+});
 const areaChartRef = ref<HTMLElement | null>(null);
 const donutChartRef = ref<HTMLElement | null>(null);
 const barChartRef = ref<HTMLElement | null>(null);
@@ -271,11 +344,28 @@ async function loadWarehouses() {
 }
 
 // ─── Filters ─────────────────────────────────────────────────────────────────
-const selectedStatusCodes = ref<string[]>([...STATUS_CATEGORIES]);
+const requestedStatusCodes = STATUS_CATEGORIES.filter((c) => props.initialStatusCodes?.includes(c));
+const selectedStatusCodes = ref<string[]>(
+  requestedStatusCodes.length ? requestedStatusCodes : [...STATUS_CATEGORIES],
+);
 const dateFrom = ref<string | null>(null);
 const dateTo = ref<string | null>(null);
 
 // Prevent invalid date ranges
+watch([dateFrom, dateTo], ([from, to]) => {
+  if ((from || to) && rangeKey.value !== 'custom') rangeKey.value = 'custom';
+});
+
+watch(rangeKey, (key) => {
+  // Picking a date flips this to 'custom' via the watcher above, so fetching
+  // here would query a half-filled span the moment the first end is chosen.
+  // A custom range is fetched by Apply, once both ends are settled.
+  if (key === 'custom') return;
+  dateFrom.value = null;
+  dateTo.value = null;
+  fetchStatistics();
+});
+
 watch(dateFrom, (val) => {
   if (val && dateTo.value && val > dateTo.value) {
     dateTo.value = val;
@@ -306,16 +396,26 @@ function buildStatusCodesFilter(): number[] | null {
 }
 
 function buildRangeSpecifier(): TimeWindowSelector | null {
+  const preset = RANGES.find((r) => r.key === rangeKey.value);
+
+  // A preset is a window ending now. Custom is the pair of pickers, and an
+  // empty pair means the server's own default, which is the only case where
+  // this pane does not state the span itself.
+  if (preset?.hours) {
+    return {
+      end: new Date().toISOString(),
+      interval: preset.hours % 24 === 0 ? `P${preset.hours / 24}D` : `PT${preset.hours}H`,
+      type: 'window',
+    };
+  }
+
   if (!dateTo.value && !dateFrom.value) return null;
 
   const end = dateTo.value ? new Date(dateTo.value).toISOString() : new Date().toISOString();
   const start = dateFrom.value
     ? new Date(dateFrom.value)
     : new Date(Date.now() - 24 * 60 * 60 * 1000);
-  const endDate = new Date(end);
-  const diffMs = endDate.getTime() - start.getTime();
-
-  // Convert to ISO 8601 duration
+  const diffMs = new Date(end).getTime() - start.getTime();
   const hours = Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60)));
   const interval = hours >= 24 ? `P${Math.ceil(hours / 24)}D` : `PT${hours}H`;
 
@@ -343,6 +443,12 @@ async function fetchStatistics() {
 
     const result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
     tableRows.value = flatten(result);
+
+    // The grouping follows what came back. Measured from the rows rather than
+    // from the request, so a window with two hours of data in it is drawn by
+    // the hour whatever span was asked for.
+    const times = tableRows.value.map((row) => row.date.getTime()).filter(Number.isFinite);
+    dataSpanMs.value = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
     aggregateRows();
   } catch (error) {
     functions.handleError(error, 'loadStatistics');
@@ -357,7 +463,7 @@ async function fetchStatistics() {
 
 // ─── Time Aggregation ────────────────────────────────────────────────────────
 function bucketDate(d: Date): Date {
-  switch (aggregation.value) {
+  switch (aggregation.value as Unit) {
     case 'hour':
       return new Date(d.getFullYear(), d.getMonth(), d.getDate(), d.getHours());
     case 'day':
@@ -411,7 +517,8 @@ function resetFilters() {
   selectedWarehouse.value = '__all__';
   dateFrom.value = null;
   dateTo.value = null;
-  aggregation.value = 'day';
+  rangeKey.value = '7d';
+  aggregationOverride.value = 'auto';
   fetchStatistics();
 }
 

@@ -182,3 +182,16 @@ export type GrantResourceRef =
   | { type: 'view'; warehouseId: string; viewId: string }
   | { type: 'generic-table'; warehouseId: string; genericTableId: string }
   | { type: 'tag-definition'; tagDefinitionId: string };
+
+/**
+ * A status fact shown on an entity's identity row — protection, activation,
+ * which control plane owns it. Never an action: the row's actions are its own
+ * slot.
+ */
+export type IdentityChip = {
+  text: string;
+  icon?: string;
+  color?: string;
+  variant?: 'flat' | 'tonal' | 'outlined' | 'text' | 'elevated' | 'plain';
+  tooltip?: string;
+};

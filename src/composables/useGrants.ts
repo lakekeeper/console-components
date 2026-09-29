@@ -200,7 +200,18 @@ export function supportsPrincipalGrantListing(authzBackend: string | undefined |
  * per distinct principal, so the answers are kept rather than re-fetched by
  * each panel that happens to list the same person.
  */
-const principalNameCache = new Map<string, { name: string; subtitle: string }>();
+/**
+ * The *promise*, not the value — as with the warehouse index above.
+ *
+ * A value cache is only a cache once the first call has returned. These are
+ * resolved for a whole batch at once, and a rehearsal of two hundred grants
+ * held by one user hits this two hundred times in the same tick: every one of
+ * them misses, and every one of them fires its own `getUser`. Two hundred
+ * identical requests is what made the sheet crawl on a batch it had already
+ * fetched. Caching the promise makes the first caller do the work and the rest
+ * wait on it.
+ */
+const principalNameCache = new Map<string, Promise<{ name: string; subtitle: string }>>();
 
 /** A page walk that never terminates would hang the pane rather than fail it. */
 const MAX_PAGES = 200;
@@ -748,14 +759,43 @@ export function useGrants() {
       const wh: any = await functions.getWarehouse(warehouseId, false).catch(() => null);
       const warehouseName = wh?.name || warehouseId;
 
-      const listing: any = await functions
-        .listNamespaces(warehouseId, undefined, undefined, false)
-        .catch(() => null);
-      const namespaceMap: Record<string, string> = listing?.namespaceMap ?? {};
-      for (const [path, id] of Object.entries(namespaceMap)) namespaces.set(id, path);
+      // Every namespace, not just the top row of them. `listNamespaces` lists
+      // the children of one parent and pages, so a single call with no parent
+      // returns the first hundred roots and nothing beneath them — which is why
+      // a grant on a nested namespace, or on a table inside one, rendered as a
+      // uuid: the index it was looked up in had never heard of it.
+      //
+      // Walked breadth-first and bounded: this runs once per warehouse per
+      // session, but a warehouse with a pathological namespace tree should not
+      // be able to turn one grant listing into thousands of requests.
+      const MAX_NAMESPACES = 500;
+      const MAX_PAGES = 20;
+      const queue: (string | undefined)[] = [undefined];
+
+      while (queue.length && namespaces.size < MAX_NAMESPACES) {
+        const parent = queue.shift();
+        const apiParent = parent ? parent.split('.').join('\x1F') : undefined;
+        let token: string | undefined;
+
+        for (let page = 0; page < MAX_PAGES; page++) {
+          const listing: any = await functions
+            .listNamespaces(warehouseId, apiParent, token, false)
+            .catch(() => null);
+          if (!listing) break;
+          for (const [path, id] of Object.entries(
+            (listing.namespaceMap ?? {}) as Record<string, string>,
+          )) {
+            if (namespaces.has(id)) continue;
+            namespaces.set(id, path);
+            queue.push(path);
+          }
+          token = listing['next-page-token'] || undefined;
+          if (!token) break;
+        }
+      }
 
       await Promise.all(
-        Object.keys(namespaceMap).map(async (nsPath) => {
+        [...namespaces.values()].map(async (nsPath) => {
           const apiNs = nsPath.split('.').join('\x1F');
           const add = (name: string, id: string, kind: string) =>
             tabulars.set(id, { namespace: nsPath, name, kind });
@@ -842,7 +882,7 @@ export function useGrants() {
    * A principal that can no longer be read keeps its row and shows its id: the
    * grant is still real, and still revocable.
    */
-  async function resolvePrincipalName(
+  function resolvePrincipalName(
     kind: 'user' | 'role',
     id: string,
   ): Promise<{ name: string; subtitle: string }> {
@@ -850,21 +890,25 @@ export function useGrants() {
     const cached = principalNameCache.get(key);
     if (cached) return cached;
 
-    const out = { name: id, subtitle: kind === 'role' ? 'Role' : '' };
-    try {
-      if (kind === 'user') {
-        const u: any = await functions.getUser(id);
-        out.name = u?.name || u?.['preferred_username'] || id;
-        out.subtitle = u?.email || '';
-      } else {
-        const r: any = await functions.getRoleMetadata(id);
-        out.name = r?.name || id;
+    const built = (async () => {
+      const out = { name: id, subtitle: kind === 'role' ? 'Role' : '' };
+      try {
+        if (kind === 'user') {
+          const u: any = await functions.getUser(id);
+          out.name = u?.name || u?.['preferred_username'] || id;
+          out.subtitle = u?.email || '';
+        } else {
+          const r: any = await functions.getRoleMetadata(id);
+          out.name = r?.name || id;
+        }
+      } catch {
+        out.subtitle = kind === 'role' ? 'Role · unresolved' : 'Unresolved';
       }
-    } catch {
-      out.subtitle = kind === 'role' ? 'Role · unresolved' : 'Unresolved';
-    }
-    principalNameCache.set(key, out);
-    return out;
+      return out;
+    })();
+
+    principalNameCache.set(key, built);
+    return built;
   }
 
   return {

@@ -1,55 +1,38 @@
 <template>
-  <v-toolbar color="transparent" density="compact" flat>
-    <v-toolbar-title>
-      <span class="text-subtitle-1">{{ namespacePath }}.{{ viewName }}</span>
-    </v-toolbar-title>
-    <template #prepend>
-      <!-- Collapse/Expand Button -->
-      <v-btn
-        :icon="isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
-        size="default"
-        variant="text"
-        class="mr-3"
-        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'"
-        @click="toggleNavigation"></v-btn>
-      <v-icon>mdi-table</v-icon>
+  <EntityIdentityRow
+    collapsible
+    icon="mdi-eye-outline"
+    :parent-path="parentPath"
+    :name="viewName"
+    :id="viewId"
+    id-label="View ID">
+    <template #actions>
+      <ViewActionsMenu
+        :warehouse-id="warehouseId"
+        :namespace-id="namespaceId"
+        :view-name="viewName"
+        @updated="$emit('updated')" />
     </template>
-    <v-spacer></v-spacer>
-    <ViewActionsMenu
-      :warehouse-id="warehouseId"
-      :namespace-id="namespaceId"
-      :view-name="viewName"
-      @updated="$emit('updated')" />
-  </v-toolbar>
+  </EntityIdentityRow>
 </template>
 
 <script lang="ts" setup>
 import { computed } from 'vue';
-import { useVisualStore } from '@/stores/visual';
 import ViewActionsMenu from './ViewActionsMenu.vue';
+import EntityIdentityRow from './EntityIdentityRow.vue';
 
-const props = defineProps<{
-  warehouseId: string;
-  namespaceId: string;
-  viewName: string;
-}>();
+const props = withDefaults(
+  defineProps<{
+    warehouseId: string;
+    namespaceId: string;
+    viewName: string;
+    /** View UUID, when the host has already loaded the metadata. */
+    viewId?: string;
+  }>(),
+  { viewId: '' },
+);
 
 defineEmits<{ (e: 'updated'): void }>();
 
-const visual = useVisualStore();
-
-const isNavigationCollapsed = computed({
-  get: () => visual.isNavigationCollapsed,
-  set: (value: boolean) => {
-    visual.isNavigationCollapsed = value;
-  },
-});
-
-const namespacePath = computed(() => {
-  return props.namespaceId.split(String.fromCharCode(0x1f)).join('.');
-});
-
-function toggleNavigation() {
-  isNavigationCollapsed.value = !isNavigationCollapsed.value;
-}
+const parentPath = computed(() => props.namespaceId.split(String.fromCharCode(0x1f)).join('.'));
 </script>

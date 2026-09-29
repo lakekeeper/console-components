@@ -99,7 +99,7 @@
               no-data-text="No versions available"
               style="max-width: 280px"></v-select>
           </div>
-          <SqlEditor :model-value="formattedSql" disabled min-height="40vh" />
+          <SqlEditor :model-value="formattedSql" readonly min-height="40vh" />
         </v-expansion-panel-text>
       </v-expansion-panel>
 

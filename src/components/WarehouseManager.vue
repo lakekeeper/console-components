@@ -11,7 +11,7 @@
       <template #prepend>
         <!-- Collapse/Expand Button -->
         <v-btn
-          :icon="isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
+          :icon="isNavigationCollapsed ? 'mdi-chevron-double-right' : 'mdi-chevron-double-left'"
           size="default"
           variant="tonal"
           color="primary"

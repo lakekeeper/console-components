@@ -1,6 +1,7 @@
 import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import type { LoQECatalogConfig, AttachedCatalog } from './types';
 import type { TokenManager } from './TokenManager';
+import { icebergSecretSql } from './icebergSecret';
 
 /**
  * CatalogManager — tracks Iceberg REST catalogs that have been ATTACHed
@@ -26,6 +27,13 @@ export class CatalogManager {
   async attachCatalog(config: LoQECatalogConfig): Promise<void> {
     if (!this.db) throw new Error('[LoQE] Engine not initialised');
 
+    // Anything still attached from another project is the wrong warehouse under
+    // every name: the alias is the bare warehouse name, unique only within a
+    // project. Done before the idempotency check below so a re-attach of an
+    // already-attached catalog still clears the leftovers — belt and braces for
+    // the project-switch watcher in `useLoQE`.
+    await this.detachForeignCatalogs(config.projectId);
+
     // Idempotent — skip if already attached, unless force is set (then detach
     // first so the re-attach re-vends fresh storage credentials).
     if (this.catalogs.has(config.catalogName)) {
@@ -42,12 +50,7 @@ export class CatalogManager {
       conn = await this.db.connect();
 
       // Create a dedicated secret for this catalog
-      await conn.query(
-        `CREATE OR REPLACE SECRET ${secretName} (
-          TYPE iceberg,
-          TOKEN '${token.replace(/'/g, "''")}'
-        )`,
-      );
+      await conn.query(icebergSecretSql(secretName, token, config.projectId));
 
       // Attach the Iceberg REST catalog.
       // NB: the option is `STAGE_CREATE_TABLES` — DuckDB's iceberg extension renamed
@@ -64,13 +67,14 @@ export class CatalogManager {
       );
 
       // Register with token manager for auto-refresh
-      this.tokenManager.registerSecret(secretName, config.catalogName);
+      this.tokenManager.registerSecret(secretName, config.catalogName, 'iceberg', config.projectId);
 
       this.catalogs.set(config.catalogName, {
         catalogName: config.catalogName,
         restUri: config.restUri,
         projectId,
         secretName,
+        headerProjectId: config.projectId,
         attachedAt: Date.now(),
       });
     } finally {
@@ -110,6 +114,20 @@ export class CatalogManager {
 
   // ── Queries ─────────────────────────────────────────────────────────
 
+  /**
+   * Detach every catalog that does not belong to `projectId`.
+   *
+   * Called when the selected project changes: catalog aliases are bare warehouse
+   * names, so only one project's catalogs may be attached at a time.
+   */
+  async detachForeignCatalogs(projectId?: string): Promise<void> {
+    for (const cat of Array.from(this.catalogs.values())) {
+      if (cat.headerProjectId !== projectId) {
+        await this.detachCatalog(cat.catalogName);
+      }
+    }
+  }
+
   getAttachedCatalogs(): AttachedCatalog[] {
     return Array.from(this.catalogs.values());
   }
@@ -144,12 +162,7 @@ export class CatalogManager {
           await conn.query(`DETACH DATABASE IF EXISTS "${name}"`);
 
           // 2. Re-create the secret with the fresh token (idempotent)
-          await conn.query(
-            `CREATE OR REPLACE SECRET ${cat.secretName} (
-              TYPE iceberg,
-              TOKEN '${newToken.replace(/'/g, "''")}'
-            )`,
-          );
+          await conn.query(icebergSecretSql(cat.secretName, newToken, cat.headerProjectId));
 
           // 3. Re-attach with the same config
           await conn.query(

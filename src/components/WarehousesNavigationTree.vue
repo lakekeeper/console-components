@@ -15,21 +15,14 @@
     </v-sheet>
     <!-- Warehouse Search -->
     <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
-      <v-select
+      <WarehousePicker
         v-if="!props.warehouseId"
         v-model="selectedSearchWarehouse"
-        :items="warehouseOptions"
-        density="compact"
-        variant="outlined"
-        placeholder="Select warehouse to search..."
-        no-data-text="No warehouses available"
-        hide-details
+        :warehouses="warehouseChoices"
+        :loading="isLoading"
+        all-label="All warehouses"
         clearable
-        class="filter-field mb-1">
-        <template #prepend-inner>
-          <v-icon size="x-small">mdi-warehouse</v-icon>
-        </template>
-      </v-select>
+        class="mb-1" />
       <div v-else class="text-caption d-flex align-center mb-1 px-1" style="min-height: 28px">
         <v-icon size="x-small" class="mr-1">mdi-warehouse</v-icon>
         {{ props.warehouseName || selectedSearchWarehouse }}
@@ -134,7 +127,7 @@
     <v-sheet color="transparent" class="flex-grow-1" style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
-        :items="treeItems"
+        :items="visibleTreeItems"
         item-value="id"
         density="compact"
         open-on-click
@@ -193,6 +186,11 @@
             size="small">
             <v-img :src="oneLakeIcon" width="18" height="18" />
           </v-icon>
+          <v-icon
+            v-else-if="item.type === 'warehouse' && item.storageType === 'stackit'"
+            size="small">
+            <v-img :src="stackitIcon" width="18" height="14" />
+          </v-icon>
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon
@@ -201,13 +199,18 @@
             color="amber-darken-2">
             mdi-folder-multiple-outline
           </v-icon>
-          <v-icon
+          <!-- A plain `img`, not `v-img`: that component brings an
+               intersection observer, a loading state machine and a
+               placeholder transition, per row, for a 15px format badge that is
+               already in the bundle. -->
+          <img
             v-else-if="
               (item.type === 'table' || item.type === 'generic-table') && formatIcon(item.format)
             "
-            size="x-small">
-            <v-img :src="formatIcon(item.format)!" width="15" height="15" />
-          </v-icon>
+            :src="formatIcon(item.format)!"
+            width="15"
+            height="15"
+            alt="" />
           <v-icon
             v-else-if="item.type === 'table' || item.type === 'generic-table'"
             size="x-small"
@@ -230,9 +233,7 @@
               isActiveItem(item)
                 ? 'background: rgba(var(--v-theme-primary), 0.14); border-radius: 4px; padding-left: 4px;'
                 : ''
-            "
-            @mouseenter="hoveredItem = item.id"
-            @mouseleave="hoveredItem = null">
+            ">
             <span
               class="tree-item-title text-caption"
               :title="item.name"
@@ -328,6 +329,8 @@ import type { SearchTabular } from '@/gen/management/types.gen';
 import cfIcon from '@/assets/cf.svg';
 import oneLakeIcon from '@/assets/onelake.png';
 import aliyunIcon from '@/assets/aliyun.svg';
+import stackitLightIcon from '@/assets/stackit-mark.svg';
+import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 import icebergIcon from '@/assets/iceberg.svg';
 import { isAliyunOssEndpoint } from '@/common/storageIcon';
 import deltaIcon from '@/assets/delta.svg';
@@ -335,6 +338,7 @@ import vortexLightIcon from '@/assets/vortex_logo.svg';
 import vortexDarkIcon from '@/assets/vortex_logo_dark_theme.svg';
 import lanceIcon from '@/assets/lance.png';
 import paimonIcon from '@/assets/paimon.svg';
+import WarehousePicker from './WarehousePicker.vue';
 
 const props = defineProps<{
   warehouseId?: string; // Optional: filter to show only this warehouse
@@ -357,6 +361,8 @@ function canPick(type: string): boolean {
 
 const functions = useFunctions();
 const visualStore = useVisualStore();
+// The STACKIT mark is ink-on-transparent, so it needs the light/dark pair.
+const stackitIcon = computed(() => (visualStore.themeLight ? stackitLightIcon : stackitDarkIcon));
 
 const emit = defineEmits<{
   (
@@ -412,7 +418,7 @@ interface TreeItem {
   namespaceId?: string; // Full namespace path with dots (e.g., 'finance.sub')
   loaded?: boolean;
   /** Storage profile type — only set on warehouse nodes. */
-  storageType?: 's3' | 'adls' | 'gcs' | 'onelake';
+  storageType?: 's3' | 'adls' | 'gcs' | 'onelake' | 'stackit';
   storageFlavor?: string;
   storageEndpoint?: string;
   /** Tabular format — 'iceberg' on table nodes, gt.format on generic-table nodes. */
@@ -449,7 +455,11 @@ function formatIcon(format?: string): string | null {
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
 const isLoading = ref(false);
-const hoveredItem = ref<string | null>(null);
+// `hoveredItem` used to live here: set on every row's mouseenter and cleared
+// on mouseleave, and read by nothing. Dead state is not free when it is
+// reactive — moving the pointer down a hundred-row tree re-rendered every row
+// twice per row it passed. The hover affordance it was presumably meant for is
+// CSS, which costs nothing per row and never re-enters Vue.
 
 // Highlight the tree node matching the current route so the open object stays
 // visually selected. Namespace ids in the tree are dotted; route nsid uses \x1F.
@@ -527,11 +537,31 @@ const searchWarehouseId = computed(() => props.warehouseId || selectedSearchWare
 // Includes the warehouses still behind "Load more": the selector picks what to
 // search, and a warehouse that exists but has not been paged into the tree yet
 // is still a valid thing to search.
-const warehouseOptions = computed(() =>
+const warehouseChoices = computed(() =>
   [...treeItems.value, ...pendingWarehouses.value]
     .filter((item) => item.type === 'warehouse')
-    .map((item) => ({ title: item.name, value: item.warehouseId })),
+    .map((item) => ({ id: item.warehouseId, name: item.name })),
 );
+
+/**
+ * What the tree shows: every warehouse, or the picked one alone.
+ *
+ * The pick reaches into `pendingWarehouses` too — warehouses fetched but not yet
+ * rendered — so picking one far down the list shows it now rather than after
+ * paging to it. Nodes pass through by reference, never cloned: expanding one
+ * mutates `item.children` in place.
+ *
+ * Skipped entirely when the component is already scoped to a warehouse by prop;
+ * there is nothing to narrow.
+ */
+const visibleTreeItems = computed(() => {
+  const id = props.warehouseId ? null : selectedSearchWarehouse.value;
+  if (!id) return treeItems.value;
+  const picked =
+    treeItems.value.find((item) => item.type === 'warehouse' && item.warehouseId === id) ??
+    pendingWarehouses.value.find((item) => item.warehouseId === id);
+  return picked ? [picked] : [];
+});
 
 // Dismiss search results
 function dismissSearch() {
@@ -1609,6 +1639,21 @@ onBeforeUnmount(() => {
 /* Prevent text wrapping in tree items */
 .tree-view :deep(.v-treeview-item) {
   white-space: nowrap;
+
+  /* Rows that are not on screen cost nothing.
+   *
+   * A warehouse can carry a hundred namespaces per page, and each row is a
+   * list item, two icons and a button — components the browser lays out and
+   * paints whether or not anyone can see them. That bill is not paid once: it
+   * is paid again on every style recalculation, which is what opening any menu
+   * anywhere on the page triggers.
+   *
+   * `auto` skips rendering for off-screen rows while keeping them findable —
+   * they still participate in find-in-page and in scrolling to an item. The
+   * intrinsic size is the row's real height, so the scrollbar does not jump as
+   * rows come into view and get measured for the first time. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 32px;
 }
 
 .tree-view :deep(.v-treeview-item__content) {

@@ -5,7 +5,7 @@
       Storage Validation
       <v-spacer></v-spacer>
       <v-chip v-if="report" :color="overallColor" size="small" variant="flat">
-        {{ report.valid ? 'Valid' : 'Invalid' }}
+        {{ overallLabel }}
       </v-chip>
     </v-card-title>
     <v-divider></v-divider>
@@ -77,7 +77,6 @@
 import { computed } from 'vue';
 import { helix } from 'ldrs';
 import { ValidateWarehouseResponse, ValidationCheckName } from '@/gen/management/types.gen';
-import type { BrowserStorageCheck } from '@/common/browserStorageReachability';
 import CorsConfigDialog from './CorsConfigDialog.vue';
 
 // Registers the <l-helix> custom element. Idempotent (no-ops if another
@@ -91,15 +90,6 @@ const props = defineProps<{
   error?: string | null;
   /** Rendered as a pane rather than a dialog: there is nothing to close. */
   hideClose?: boolean;
-  /**
-   * The client-side browser-reachability verdict, when the caller ran one. It is
-   * not part of `report`: the API cannot produce it (CORS is decided in the
-   * browser, against this console's origin), so it arrives separately and is
-   * merged in for display only — see `browserStorageReachability`.
-   */
-  browserCheck?: BrowserStorageCheck | null;
-  /** The browser probe is still running; it outlives the API call. */
-  browserCheckLoading?: boolean;
 }>();
 
 defineEmits<{ (e: 'close'): void }>();
@@ -122,14 +112,13 @@ const checkLabels: Record<ValidationCheckName, string> = {
   'vended-credentials-issued': 'Vended credentials can be issued',
   'vended-credentials-read-write': 'Vended credentials can read and write to storage',
   'vended-credentials-scope-enforced': 'Vended credentials are scoped to the table location',
+  // What the bucket declares, answered by the catalog against the origin it
+  // serves the console from. This replaced a client-side probe row, so it is now
+  // the only CORS verdict here.
+  'cors-origin-allowed': 'Bucket CORS configuration allows this origin',
+  'bucket-access-restricted': 'Bucket is not publicly accessible',
   cleanup: 'Test artifacts were cleaned up',
 };
-
-/**
- * Not a `ValidationCheckName`: the wire enum is the API's, and this check is the
- * console's own. Worded as the same kind of claim so it reads as one report.
- */
-const BROWSER_CHECK_LABEL = 'Storage is reachable from this browser';
 
 function statusColor(status: string): string {
   if (status === 'passed') return 'success';
@@ -145,52 +134,14 @@ function statusIcon(status: string): string {
   return 'mdi-minus-circle-outline';
 }
 
-// Most severe first. The API emits only passed/failed/skipped; `warning` and
-// `running` come from the client-side browser check merged in below, and are
-// ranked here so both slot in correctly — `running` sits with the unresolved
-// rather than below the passes, so a probe still in flight stays visible.
+// Most severe first. Sort is stable, so checks of the same status keep their
+// execution order.
 const STATUS_RANK: Record<string, number> = {
   failed: 0,
   warning: 1,
-  running: 2,
-  passed: 3,
-  skipped: 4,
+  passed: 2,
+  skipped: 3,
 };
-
-/**
- * The browser check never reports `failed`, so it cannot make a report invalid —
- * `overallColor` and the header chip stay driven purely by `report.valid`. A
- * warehouse that no browser can read is still a correct warehouse.
- */
-const browserCheckRow = computed(() => {
-  if (props.browserCheckLoading) {
-    return {
-      name: 'browser-storage-reachable',
-      label: BROWSER_CHECK_LABEL,
-      status: 'running',
-      color: 'grey',
-      icon: 'mdi-timer-sand',
-      detail: 'Contacting the storage endpoint from this browser…',
-      showCors: false,
-    };
-  }
-  const check = props.browserCheck;
-  if (!check) return null;
-  const detailParts: string[] = [];
-  if (check.durationMs != null) detailParts.push(`Duration: ${check.durationMs}ms`);
-  return {
-    name: 'browser-storage-reachable',
-    label: BROWSER_CHECK_LABEL,
-    status: check.status,
-    color: statusColor(check.status),
-    icon: statusIcon(check.status),
-    detail: [check.detail, ...detailParts].join(' · '),
-    // The bucket's CORS rule is a credible cause, so the snippet that fixes it
-    // belongs in the row. Withheld for every verdict that proves the request
-    // never reached the storage — a blocked port is not fixed by a CORS rule.
-    showCors: check.corsLikely,
-  };
-});
 
 const checks = computed(() => {
   if (!props.report) return [];
@@ -198,7 +149,10 @@ const checks = computed(() => {
     const detailParts: string[] = [];
     if (check['duration-ms'] != null) detailParts.push(`Duration: ${check['duration-ms']}ms`);
     if (check.status === 'skipped' && check.reason) detailParts.push(`Skipped: ${check.reason}`);
-    if (check.status === 'failed' && check.error) detailParts.push(check.error.message);
+    // `error` carries the explanation for `warning` as well as `failed`; without
+    // it a warning row expands to nothing but its duration.
+    if ((check.status === 'failed' || check.status === 'warning') && check.error)
+      detailParts.push(check.error.message);
     return {
       name: check.name,
       label: checkLabels[check.name] ?? check.name,
@@ -206,11 +160,14 @@ const checks = computed(() => {
       color: statusColor(check.status),
       icon: statusIcon(check.status),
       detail: detailParts.join(' · '),
-      showCors: false,
+      // The snippet that fixes a CORS rule belongs in the row that just
+      // complained about one, rather than at the foot of the report.
+      showCors:
+        check.name === 'cors-origin-allowed' &&
+        (check.status === 'failed' || check.status === 'warning'),
     };
   });
-  const browser = browserCheckRow.value;
-  return browser ? [...backend, browser] : backend;
+  return backend;
 });
 
 // Most severe first (failed → warning → passed); sort is stable, so checks of the
@@ -223,15 +180,30 @@ const reportedChecks = computed(() =>
 );
 const skippedChecks = computed(() => checks.value.filter((c) => c.status === 'skipped'));
 
+// A warning is a verdict the API still calls valid, so it cannot drive the
+// header off `valid` alone — a plain green "Valid" would bury it.
+const warningCount = computed(
+  () => props.report?.checks.filter((c) => c.status === 'warning').length ?? 0,
+);
+
 const overallColor = computed(() => {
   if (props.error) return 'error';
   if (!props.report) return 'grey';
-  return props.report.valid ? 'success' : 'error';
+  if (!props.report.valid) return 'error';
+  return warningCount.value ? 'warning' : 'success';
 });
 
 const overallIcon = computed(() => {
   if (props.error) return 'mdi-shield-alert-outline';
   if (!props.report) return 'mdi-shield-search';
-  return props.report.valid ? 'mdi-shield-check-outline' : 'mdi-shield-alert-outline';
+  if (!props.report.valid || warningCount.value) return 'mdi-shield-alert-outline';
+  return 'mdi-shield-check-outline';
+});
+
+const overallLabel = computed(() => {
+  if (!props.report) return '';
+  if (!props.report.valid) return 'Invalid';
+  const count = warningCount.value;
+  return count ? `Valid with ${count} warning${count === 1 ? '' : 's'}` : 'Valid';
 });
 </script>

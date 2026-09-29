@@ -154,29 +154,14 @@
            moving from one to the other. -->
       <v-tabs-window-item v-if="grantsSupported && !isSystem" value="grants">
         <div class="pa-4" style="height: calc(100vh - 300px); min-height: 360px">
+          <!-- A tag definition is project-scoped, so the levels above it are
+               the project and the server — and a grant held there reaches this
+               definition without appearing in this pane. The pane's own
+               Hierarchy scope is where those show up. -->
           <GrantsPanel
             v-if="tab === 'grants' && full.id"
             :resource="{ type: 'tag-definition', tagDefinitionId: full.id }"
-            :resource-name="full.name">
-            <!-- A tag definition is project-scoped, so the levels above it are
-                 the project and the server — and a grant held there reaches this
-                 definition without appearing in the pane below. -->
-            <template #toolbar-actions>
-              <GrantsDialog
-                :resource="{ type: 'tag-definition', tagDefinitionId: full.id }"
-                :entity-name="full.name">
-                <template #activator="{ props: aProps }">
-                  <v-btn
-                    v-bind="aProps"
-                    size="small"
-                    variant="outlined"
-                    prepend-icon="mdi-file-tree-outline">
-                    Grant hierarchy
-                  </v-btn>
-                </template>
-              </GrantsDialog>
-            </template>
-          </GrantsPanel>
+            :resource-name="full.name" />
         </div>
       </v-tabs-window-item>
 
@@ -244,7 +229,6 @@ import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.v
 import TagPermissionsPanel from './TagPermissionsPanel.vue';
 import TagAttachmentsPanel from './TagAttachmentsPanel.vue';
 import GrantsPanel from './GrantsPanel.vue';
-import GrantsDialog from './GrantsDialog.vue';
 import { useGrantsSupported } from '../composables/useGrants';
 import { PERMISSIONS_UI_ENABLED } from '../common/featureFlags';
 import {

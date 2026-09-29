@@ -1,3 +1,10 @@
+<!--
+  DEPRECATED. The fullscreen project dialog, kept for hosts that still mount it
+  directly. `AppBar` no longer embeds it: projects live on `/projects` and
+  `/projects/:id` (`ProjectsView` / `ProjectDetail`), where they can be linked
+  to, and where the tabs name the project they act on rather than meaning
+  whichever one happens to be selected.
+-->
 <template>
   <v-dialog v-model="dialog" fullscreen transition="dialog-bottom-transition">
     <template #activator="{ props: activatorProps }">
@@ -154,29 +161,13 @@
           style="height: 100%">
           <!-- This project's own grants, beside its Permissions tab. -->
           <div class="pa-4" style="height: calc(100vh - 220px); min-height: 0">
+            <!-- Only the server sits above a project, but a grant held there
+                 reaches it without appearing in this pane — which is what the
+                 pane's own Hierarchy scope is for. -->
             <GrantsPanel
               v-if="tab === 'grants'"
               :resource="{ type: 'project' }"
-              :resource-name="project['project-name']">
-              <!-- Only the server sits above a project, but a grant held there
-                   reaches it without appearing in the pane below — so the rail
-                   is two levels and both of them matter. -->
-              <template #toolbar-actions>
-                <GrantsDialog
-                  :resource="{ type: 'project' }"
-                  :entity-name="project['project-name']">
-                  <template #activator="{ props: aProps }">
-                    <v-btn
-                      v-bind="aProps"
-                      size="small"
-                      variant="outlined"
-                      prepend-icon="mdi-file-tree-outline">
-                      Grant hierarchy
-                    </v-btn>
-                  </template>
-                </GrantsDialog>
-              </template>
-            </GrantsPanel>
+              :resource-name="project['project-name']" />
           </div>
         </v-tabs-window-item>
 
@@ -206,7 +197,6 @@ import { useRoute, useRouter } from 'vue-router';
 import ProjectTaskManager from './ProjectTaskManager.vue';
 import ProjectStatistics from './ProjectStatistics.vue';
 import GrantsPanel from './GrantsPanel.vue';
-import GrantsDialog from './GrantsDialog.vue';
 import { useGrantsSupported } from '../composables/useGrants';
 
 const dialog = ref(false);

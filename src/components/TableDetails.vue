@@ -1,516 +1,168 @@
 <template>
-  <v-card-text class="pa-4">
-    <!-- Overview -->
-    <section id="tdx-overview" class="tdx-section">
-      <v-row dense class="mb-6">
-        <v-col v-for="s in statTiles" :key="s.label" cols="6" sm="4" md="2">
-          <v-card variant="outlined" class="pa-3 stat-tile h-100">
-            <v-icon :color="s.color" size="small" class="mb-1">{{ s.icon }}</v-icon>
-            <div class="stat-value" :title="String(s.value)">{{ s.value }}</div>
-            <div class="stat-label">{{ s.label }}</div>
-          </v-card>
-        </v-col>
-      </v-row>
+  <div class="tdx-page">
+    <!-- How the table is doing, from the health tab's own checks, with the way
+         through to them: a verdict is the one thing about a table people want
+         without going looking for it. -->
+    <TableHealth
+      v-if="warehouseId && namespacePath && tableName"
+      summary
+      class="tdx-health"
+      :warehouse-id="warehouseId"
+      :namespace-id="namespacePath"
+      :table-name="tableName"
+      @open-tab="$emit('open-tab', $event)" />
+
+    <!-- One table of facts across the top. Identity and layout were two blocks
+         in two columns, which left a hole beside whichever was shorter; they
+         answer the same question — what is this table — so they are one list,
+         paired two-up where the window is wide enough. -->
+    <!-- No heading: this is the first thing under a tab named "details", and a
+         title there would say the tab's name back to the reader. -->
+    <section class="tdx-section">
+      <dl class="tdx-kv tdx-kv--pairs">
+        <!-- Each pair is its own row, so the rule under it runs the whole way
+             across instead of breaking at the gutter between label and value. -->
+        <div v-for="row in factRows" :key="row.label" class="tdx-kv__row">
+          <dt>{{ row.label }}</dt>
+          <dd :title="row.title">
+            <v-icon v-if="row.icon" :color="row.iconColor" size="16">{{ row.icon }}</v-icon>
+            <template v-if="row.chips">
+              <v-chip
+                v-for="chip in row.chips"
+                :key="chip.text"
+                size="x-small"
+                :color="chip.color"
+                :prepend-icon="chip.icon"
+                variant="tonal">
+                {{ chip.text }}
+              </v-chip>
+            </template>
+            <v-tooltip v-else-if="row.full" location="bottom" :text="row.full">
+              <template #activator="{ props: tp }">
+                <span
+                  v-bind="tp"
+                  :class="['tdx-kv__value', { 'font-mono': row.mono }]"
+                  style="cursor: help">
+                  {{ row.value }}
+                </span>
+              </template>
+            </v-tooltip>
+            <span v-else :class="['tdx-kv__value', { 'font-mono': row.mono }]">
+              {{ row.value }}
+            </span>
+            <v-chip v-if="row.suffix" size="x-small" variant="tonal">{{ row.suffix }}</v-chip>
+            <v-btn
+              v-if="row.copy"
+              icon="mdi-content-copy"
+              size="x-small"
+              variant="text"
+              class="tdx-kv__copy"
+              @click="copyToClipboard(String(row.full ?? row.value))"></v-btn>
+          </dd>
+        </div>
+      </dl>
     </section>
 
-    <!-- Identity & location -->
-    <section id="tdx-identity" class="tdx-section">
-      <v-card variant="outlined" class="mb-6">
-        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
-          <v-icon icon="mdi-information-outline" class="mr-2" color="primary"></v-icon>
-          Identity &amp; location
-        </v-card-title>
-        <v-table density="compact" class="identity-table">
-          <tbody>
-            <tr v-for="row in identityRows" :key="row.label">
-              <td class="identity-key">{{ row.label }}</td>
-              <td class="identity-val">
-                <div class="d-flex align-center">
-                  <v-tooltip v-if="row.tip" location="bottom" :text="row.full">
-                    <template #activator="{ props: tp }">
-                      <span v-bind="tp" class="font-mono text-truncate" style="cursor: help">
-                        {{ row.value }}
-                      </span>
-                    </template>
-                  </v-tooltip>
-                  <span v-else :class="{ 'font-mono': row.mono }">{{ row.value }}</span>
-                  <v-btn
-                    v-if="row.copy"
-                    icon="mdi-content-copy"
-                    size="x-small"
-                    variant="text"
-                    class="ml-1"
-                    @click="copyToClipboard(row.full ?? String(row.value))"></v-btn>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </v-table>
-      </v-card>
-    </section>
+    <!-- What is attached to the table, side by side: a short list of chips and
+         a long list of key/values, each filling the rest of the tab. -->
+    <div class="tdx-attached">
+      <section v-if="tableId && warehouseId" class="tdx-section tdx-attached__tags">
+        <div class="tdx-head">
+          <v-icon icon="mdi-tag-multiple-outline" size="16" color="primary" class="mr-2"></v-icon>
+          Tags
+        </div>
+        <EntityTagsChips scope="table" :warehouse-id="warehouseId" :entity-id="tableId" effective />
+        <p class="tdx-note">
+          Tags on individual columns live in the
+          <a href="#" @click.prevent="$emit('open-tab', 'schema')">Schema</a>
+          tab, on the field they describe.
+        </p>
+      </section>
 
-    <!-- Structure & governance (fields + tags/stats + evolution) -->
-    <section id="tdx-schema" class="tdx-section">
-      <TableColumnProfiler
-        :metadata="table.metadata"
-        :warehouse-id="warehouseId"
-        :namespace-id="namespacePath"
-        :table-name="tableName"
-        :catalog-url="catalogUrl"
-        :table-id="tableId" />
-
-      <!-- Schema evolution (only when there is more than one schema) -->
-      <v-expansion-panels v-if="allSchemas.length > 1" v-model="schemaPanels" multiple class="mb-6">
-        <v-expansion-panel value="evolution">
-          <v-expansion-panel-title>
-            <v-icon class="mr-2" size="small">mdi-history</v-icon>
-            Schema evolution
-            <v-chip size="x-small" color="primary" variant="tonal" class="ml-2">
-              {{ allSchemas.length }} versions
-            </v-chip>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <div class="d-flex mb-2">
-              <v-spacer></v-spacer>
-              <v-btn
-                size="small"
-                variant="flat"
-                color="primary"
-                prepend-icon="mdi-compare-horizontal"
-                @click="openCompare">
-                Compare schemas
-              </v-btn>
-            </div>
-            <v-table density="compact">
-              <thead>
-                <tr>
-                  <th style="width: 100px">Schema ID</th>
-                  <th style="width: 80px">Fields</th>
-                  <th>Changes</th>
-                  <th style="width: 48px"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="schema in allSchemas"
-                  :key="schema['schema-id']"
-                  :class="{
-                    'font-weight-medium':
-                      schema['schema-id'] === table.metadata['current-schema-id'],
-                  }">
-                  <td>
-                    {{ schema['schema-id'] }}
-                    <v-chip
-                      v-if="schema['schema-id'] === table.metadata['current-schema-id']"
-                      size="x-small"
-                      color="success"
-                      variant="flat"
-                      class="ml-1">
-                      current
-                    </v-chip>
-                  </td>
-                  <td>{{ schema.fields?.length || 0 }}</td>
-                  <td>
-                    <template v-if="schemaFieldDiffs[schema['schema-id'] ?? 0]">
-                      <v-chip
-                        v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].added"
-                        :key="'add-' + name"
-                        size="x-small"
-                        color="success"
-                        variant="flat"
-                        class="mr-1 mb-1">
-                        + {{ name }}
-                      </v-chip>
-                      <v-chip
-                        v-for="name in schemaFieldDiffs[schema['schema-id'] ?? 0].removed"
-                        :key="'rm-' + name"
-                        size="x-small"
-                        color="error"
-                        variant="flat"
-                        class="mr-1 mb-1">
-                        - {{ name }}
-                      </v-chip>
-                      <span
-                        v-if="
-                          schemaFieldDiffs[schema['schema-id'] ?? 0].added.length === 0 &&
-                          schemaFieldDiffs[schema['schema-id'] ?? 0].removed.length === 0
-                        "
-                        class="text-medium-emphasis">
-                        {{ schema['schema-id'] === 0 ? 'Initial schema' : 'No field changes' }}
-                      </span>
-                    </template>
-                  </td>
-                  <td>
-                    <v-btn
-                      icon="mdi-eye-outline"
-                      size="x-small"
-                      variant="text"
-                      @click="openSchema(schema)">
-                      <v-icon></v-icon>
-                      <v-tooltip activator="parent" location="top">View schema</v-tooltip>
-                    </v-btn>
-                  </td>
-                </tr>
-              </tbody>
-            </v-table>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
-    </section>
-
-    <!-- Properties -->
-    <section v-if="allPropertyItems.length > 0 || canEdit" id="tdx-properties" class="tdx-section">
-      <v-card variant="outlined" class="mb-6">
-        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
-          <v-icon icon="mdi-cog-outline" class="mr-2" color="primary"></v-icon>
+      <section class="tdx-section tdx-attached__props">
+        <div class="tdx-head">
+          <v-icon icon="mdi-cog-outline" size="16" color="primary" class="mr-2"></v-icon>
           Properties
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
-        </v-card-title>
-        <v-card-text>
-          <div v-if="systemPropCount > 0" class="d-flex align-center mb-2">
-            <v-switch
-              v-model="hideSystemProps"
-              color="primary"
-              density="compact"
-              hide-details
-              :label="`Hide system properties (${systemPropCount})`"></v-switch>
-          </div>
+          <v-spacer></v-spacer>
+          <v-text-field
+            v-if="allPropertyItems.length > 8"
+            v-model="propertySearch"
+            density="compact"
+            variant="outlined"
+            hide-details
+            clearable
+            placeholder="Find a property"
+            prepend-inner-icon="mdi-magnify"
+            class="tdx-head__search"></v-text-field>
+          <v-switch
+            v-if="systemPropCount > 0"
+            v-model="hideSystemProps"
+            color="primary"
+            density="compact"
+            hide-details
+            class="tdx-head__switch ml-3"
+            :label="`Hide system (${systemPropCount})`"></v-switch>
+        </div>
+
+        <div class="tdx-attached__table">
           <v-data-table-virtual
             v-if="propertyItems.length"
             :headers="propertyHeaders"
             :items="propertyItems"
             density="compact"
             fixed-header
-            height="220px"
+            height="100%"
+            style="height: 100%"
             item-value="key"
             hide-default-footer
             :items-per-page="-1">
+            <template #item.key="{ item }">
+              <span class="tdx-prop-key">{{ item.key }}</span>
+            </template>
             <template #item.value="{ item }">
-              <span class="font-mono text-wrap">{{ item.value }}</span>
+              <div class="d-flex align-start tdx-prop-value">
+                <span class="font-mono text-wrap">{{ item.value }}</span>
+                <v-btn
+                  icon="mdi-content-copy"
+                  size="x-small"
+                  variant="text"
+                  class="tdx-kv__copy ml-1"
+                  @click="copyToClipboard(String(item.value))"></v-btn>
+              </div>
             </template>
           </v-data-table-virtual>
-          <div v-else class="text-medium-emphasis pa-3">No properties set</div>
-        </v-card-text>
-      </v-card>
-    </section>
-
-    <!-- View a single schema as a fields table or its raw JSON (toggle) -->
-    <v-dialog v-model="schemaViewOpen" max-width="800" scrollable>
-      <v-card v-if="schemaViewData">
-        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-          <v-icon class="mr-2" color="primary">mdi-file-tree</v-icon>
-          Schema {{ schemaViewData['schema-id'] }}
-          <v-chip size="x-small" variant="tonal" class="ml-2">
-            {{ schemaViewData.fields?.length || 0 }} fields
-          </v-chip>
-          <v-spacer></v-spacer>
-          <v-btn-toggle
-            v-model="schemaViewMode"
-            mandatory
-            density="compact"
-            variant="outlined"
-            divided
-            class="mr-2">
-            <v-btn value="table" size="small" prepend-icon="mdi-table">Table</v-btn>
-            <v-btn value="json" size="small" prepend-icon="mdi-code-json">JSON</v-btn>
-          </v-btn-toggle>
-          <v-btn
-            v-if="schemaViewMode === 'json'"
-            variant="text"
-            size="small"
-            prepend-icon="mdi-content-copy"
-            @click="copyToClipboard(JSON.stringify(schemaViewData, null, 2))">
-            Copy
-          </v-btn>
-          <v-btn
-            icon="mdi-close"
-            variant="text"
-            size="small"
-            @click="schemaViewOpen = false"></v-btn>
-        </v-card-title>
-        <v-divider></v-divider>
-        <v-card-text>
-          <!-- Fields table -->
-          <v-table v-if="schemaViewMode === 'table'" density="compact">
-            <thead>
-              <tr>
-                <th style="width: 56px">ID</th>
-                <th>Field</th>
-                <th>Type</th>
-                <th style="width: 80px">Required</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="f in schemaViewData.fields" :key="f.id">
-                <td class="text-caption text-medium-emphasis">{{ f.id }}</td>
-                <td class="font-mono">{{ f.name }}</td>
-                <td class="font-mono text-caption">{{ typeLabel(f.type) }}</td>
-                <td>
-                  <v-icon v-if="f.required" size="small" color="error">mdi-asterisk</v-icon>
-                  <span v-else class="text-disabled">—</span>
-                </td>
-              </tr>
-            </tbody>
-          </v-table>
-
-          <!-- Raw JSON -->
-          <div v-else class="schema-json">
-            <vue-json-pretty
-              :data="schemaViewData"
-              :deep="4"
-              :theme="visual.themeLight ? 'light' : 'dark'"
-              :show-line-number="true"
-              :virtual="false" />
+          <div v-else class="text-medium-emphasis text-body-2 pt-2">
+            {{ propertySearch ? 'No property matches that.' : 'No properties set' }}
           </div>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
-
-    <!-- Compare two schemas -->
-    <v-dialog v-model="compareOpen" max-width="800" scrollable>
-      <v-card>
-        <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-          <v-icon class="mr-2" color="primary">mdi-compare-horizontal</v-icon>
-          Compare schemas
-          <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="compareOpen = false"></v-btn>
-        </v-card-title>
-        <v-divider></v-divider>
-        <v-card-text>
-          <div class="d-flex align-center mb-3" style="gap: 12px">
-            <v-select
-              v-model="compareLeft"
-              :items="schemaIdItems"
-              label="Base"
-              density="compact"
-              variant="outlined"
-              hide-details
-              no-data-text="No schema versions available"
-              style="max-width: 200px"></v-select>
-            <v-icon>mdi-arrow-right</v-icon>
-            <v-select
-              v-model="compareRight"
-              :items="schemaIdItems"
-              label="Compare"
-              density="compact"
-              variant="outlined"
-              hide-details
-              no-data-text="No schema versions available"
-              style="max-width: 200px"></v-select>
-          </div>
-          <v-table density="compact">
-            <thead>
-              <tr>
-                <th>Field</th>
-                <th>Base type</th>
-                <th>Compare type</th>
-                <th style="width: 110px">Change</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in schemaCompareRows" :key="row.name">
-                <td class="font-mono">{{ row.name }}</td>
-                <td class="font-mono text-caption">{{ row.leftType ?? '—' }}</td>
-                <td class="font-mono text-caption">{{ row.rightType ?? '—' }}</td>
-                <td>
-                  <v-chip size="x-small" variant="flat" :color="row.color">
-                    {{ row.status }}
-                  </v-chip>
-                </td>
-              </tr>
-              <tr v-if="schemaCompareRows.length === 0">
-                <td colspan="4" class="text-center text-medium-emphasis py-4">
-                  Select two schema versions to compare.
-                </td>
-              </tr>
-            </tbody>
-          </v-table>
-        </v-card-text>
-      </v-card>
-    </v-dialog>
-
-    <!-- Layout & ordering -->
-    <section id="tdx-layout" class="tdx-section">
-      <v-card variant="outlined" class="mb-6">
-        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
-          <v-icon icon="mdi-view-grid-outline" class="mr-2" color="primary"></v-icon>
-          Layout &amp; ordering
-        </v-card-title>
-        <v-card-text>
-          <v-row dense>
-            <v-col cols="12" md="6">
-              <div class="text-overline text-medium-emphasis d-flex align-center">
-                <v-icon size="small" class="mr-1" color="warning">mdi-view-grid-outline</v-icon>
-                Partitioning
-                <v-chip v-if="activePartitionSpec" size="x-small" variant="tonal" class="ml-2">
-                  spec {{ activePartitionSpec['spec-id'] }}
-                </v-chip>
-              </div>
-              <div class="mt-2">
-                <template v-if="activePartitionSpec && activePartitionSpec.fields.length">
-                  <v-chip
-                    v-for="field in activePartitionSpec.fields"
-                    :key="field.name"
-                    size="small"
-                    color="primary"
-                    variant="tonal"
-                    class="mr-1 mb-1">
-                    {{ formatPartitionField(field) }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">Unpartitioned</span>
-              </div>
-            </v-col>
-
-            <v-col cols="12" md="6">
-              <div class="text-overline text-medium-emphasis d-flex align-center">
-                <v-icon size="small" class="mr-1" color="success">mdi-sort-ascending</v-icon>
-                Sort order
-                <v-chip v-if="activeSortOrder" size="x-small" variant="tonal" class="ml-2">
-                  order {{ activeSortOrder['order-id'] }}
-                </v-chip>
-              </div>
-              <div class="mt-2">
-                <template v-if="activeSortOrder && activeSortOrder.fields.length">
-                  <v-chip
-                    v-for="(field, idx) in activeSortOrder.fields"
-                    :key="idx"
-                    size="small"
-                    color="info"
-                    variant="tonal"
-                    class="mr-1 mb-1">
-                    {{ formatSortField(field) }}
-                  </v-chip>
-                </template>
-                <span v-else class="text-medium-emphasis">Unsorted</span>
-              </div>
-            </v-col>
-          </v-row>
-        </v-card-text>
-      </v-card>
-    </section>
-
-    <!-- Snapshots -->
-    <section v-if="snapshotRows.length" id="tdx-snapshots" class="tdx-section">
-      <v-card variant="outlined" class="mb-6">
-        <v-card-title class="bg-surface-light d-flex align-center text-subtitle-1 py-3">
-          <v-icon icon="mdi-camera-outline" class="mr-2" color="info"></v-icon>
-          Snapshots
-          <v-chip size="x-small" variant="tonal" class="ml-2">{{ snapshotRows.length }}</v-chip>
-          <v-spacer></v-spacer>
-          <v-select
-            v-if="branchOptions.length > 1"
-            v-model="selectedBranch"
-            :items="branchOptions"
-            density="compact"
-            variant="outlined"
-            hide-details
-            prepend-inner-icon="mdi-source-branch"
-            label="Branch"
-            no-data-text="No branches available"
-            style="max-width: 220px"></v-select>
-        </v-card-title>
-        <v-data-table
-          :headers="snapshotHeaders"
-          :items="snapshotRows"
-          :items-per-page="10"
-          density="compact"
-          item-value="id"
-          hover
-          class="snapshot-table"
-          @click:row="openSnapshot">
-          <template #item.refs="{ item }">
-            <v-chip
-              v-for="r in item.refs"
-              :key="r"
-              size="x-small"
-              :color="r === 'main' ? 'primary' : 'default'"
-              variant="tonal"
-              class="mr-1">
-              <v-icon start size="x-small">mdi-source-branch</v-icon>
-              {{ r }}
-            </v-chip>
-            <span v-if="item.refs.length === 0" class="text-disabled">—</span>
-          </template>
-          <template #item.committed="{ item }">
-            <span :title="item.committedAbs" style="white-space: nowrap">
-              {{ item.committedAbs }}
-            </span>
-            <v-chip v-if="item.current" size="x-small" color="success" variant="flat" class="ml-1">
-              current
-            </v-chip>
-          </template>
-          <template #item.operation="{ item }">
-            <v-chip :color="getOperationColor(item.operation)" size="x-small" variant="flat">
-              {{ item.operation }}
-            </v-chip>
-          </template>
-          <template #item.records="{ item }">{{ fmtNum(item.totalRecords) }}</template>
-          <template #item.delta="{ item }">
-            <span v-if="Number(item.addedRecords) > 0" class="text-success">
-              +{{ fmtNum(item.addedRecords) }}
-            </span>
-            <span v-if="Number(item.deletedRecords) > 0" class="text-error ml-1">
-              −{{ fmtNum(item.deletedRecords) }}
-            </span>
-            <span v-if="!(Number(item.addedRecords) > 0) && !(Number(item.deletedRecords) > 0)">
-              —
-            </span>
-          </template>
-          <template #item.files="{ item }">{{ fmtNum(item.totalDataFiles) }}</template>
-          <template #item.id="{ item }">
-            <span class="font-mono">{{ item.id }}</span>
-          </template>
-          <template #item.actions>
-            <v-icon size="small" class="text-medium-emphasis">mdi-open-in-new</v-icon>
-          </template>
-        </v-data-table>
-      </v-card>
-    </section>
-
-    <!-- Snapshot detail popup -->
-    <v-dialog v-model="snapshotDialog" max-width="800" scrollable>
-      <TableSnapshotDetails
-        v-if="selectedSnapshot"
-        :snapshot="selectedSnapshot"
-        title="Snapshot detail">
-        <template #append>
-          <v-btn icon="mdi-close" variant="text" @click="snapshotDialog = false"></v-btn>
-        </template>
-      </TableSnapshotDetails>
-    </v-dialog>
-  </v-card-text>
+        </div>
+      </section>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import VueJsonPretty from 'vue-json-pretty';
-import 'vue-json-pretty/lib/styles.css';
 import { useFunctions } from '../plugins/functions';
-import { useVisualStore } from '../stores/visual';
-import TableSnapshotDetails from './TableSnapshotDetails.vue';
-import TableColumnProfiler from './TableColumnProfiler.vue';
-import type {
-  LoadTableResult,
-  PartitionField,
-  SortField,
-  Type,
-  Schema,
-} from '../gen/iceberg/types.gen';
+import EntityTagsChips from './EntityTagsChips.vue';
+import TableHealth from './TableHealth.vue';
+import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
 
 // Props
+defineEmits<{
+  /** Ask the host to show another of the table's tabs. */
+  'open-tab': [tab: string];
+}>();
+
 const props = defineProps<{
   table: LoadTableResult;
   warehouseId?: string;
+  /** Unit-separator namespace path, for the panes that load for themselves. */
   namespacePath?: string;
   tableName?: string;
-  catalogUrl?: string;
+  /** Whether the reader may commit — the properties block is offered empty to
+      someone who can add one, and hidden from someone who cannot. */
   canEdit?: boolean;
-}>();
-
-// Emits
-defineEmits<{
-  updated: [];
 }>();
 
 // Governance tags: bind against the table UUID.
@@ -518,13 +170,8 @@ const tableId = computed(() => props.table.metadata?.['table-uuid'] || '');
 
 // Composables
 const functions = useFunctions();
-const visual = useVisualStore();
 
 // Methods
-const truncatePath = (path: string, maxLen = 10): string => {
-  if (!path || path.length <= maxLen + 3) return path;
-  return path.slice(0, maxLen) + '…';
-};
 
 const copyToClipboard = (text: string) => {
   functions.copyToClipboard(text);
@@ -548,9 +195,17 @@ const allPropertyItems = computed(() => {
   return Object.entries(props_).map(([key, value]) => ({ key, value, system: isSystemProp(key) }));
 });
 const systemPropCount = computed(() => allPropertyItems.value.filter((i) => i.system).length);
-const propertyItems = computed(() =>
-  hideSystemProps.value ? allPropertyItems.value.filter((i) => !i.system) : allPropertyItems.value,
-);
+// A table can carry dozens of properties, and the one being looked for is
+// usually known by name.
+const propertySearch = ref('');
+const propertyItems = computed(() => {
+  const q = (propertySearch.value ?? '').trim().toLowerCase();
+  return allPropertyItems.value.filter((i) => {
+    if (hideSystemProps.value && i.system) return false;
+    if (!q) return true;
+    return `${i.key} ${i.value}`.toLowerCase().includes(q);
+  });
+});
 
 const formatTimestamp = (timestampMs: number): string => {
   if (!timestampMs) return '';
@@ -588,15 +243,6 @@ const refsSummary = computed(() => {
   if (tags > 0) parts.push(`${tags} tag${tags === 1 ? '' : 's'}`);
   return parts.join(' · ');
 });
-
-const snapshotsCount = computed(() => props.table.metadata.snapshots?.length ?? 0);
-
-const getCurrentSchema = () => {
-  if (!props.table.metadata.schemas || props.table.metadata.schemas.length === 0) return null;
-  return props.table.metadata.schemas.find(
-    (schema) => schema['schema-id'] === props.table.metadata['current-schema-id'],
-  );
-};
 
 // Build a map of field-id → field-name across all schemas for resolving source-ids
 const fieldNameMap = computed(() => {
@@ -646,318 +292,97 @@ const activeSortOrder = computed(() => {
 });
 
 // Schema evolution — collect all schemas and diff fields
-const allSchemas = computed(() => {
-  const schemas = props.table.metadata.schemas;
-  if (!schemas) return [];
-  return [...schemas].sort((a, b) => (a['schema-id'] ?? 0) - (b['schema-id'] ?? 0));
-});
+// Deletion protection lives behind its own endpoint, so it is loaded here
+// rather than read off the table metadata.
+const protectionState = ref<boolean | null>(null);
+const protectionUpdatedAt = ref('');
 
-// Human label for a field type (primitive string, or struct/list/map).
-function typeLabel(t: Type): string {
-  if (typeof t === 'string') return t;
-  if (t.type === 'struct') {
-    const inner = t.fields.map((f) => `${f.name}: ${typeLabel(f.type)}`).join(', ');
-    return `struct<${inner}>`;
-  }
-  if (t.type === 'list') return `array<${typeLabel(t.element)}>`;
-  if (t.type === 'map') return `map<${typeLabel(t.key)}, ${typeLabel(t.value)}>`;
-  return 'complex';
-}
-
-// View a single schema's fields.
-const schemaViewOpen = ref(false);
-const schemaViewData = ref<Schema | null>(null);
-const schemaViewMode = ref<'table' | 'json'>('table');
-function openSchema(schema: Schema) {
-  schemaViewData.value = schema;
-  schemaViewOpen.value = true;
-}
-
-// Compare two schema versions.
-const compareOpen = ref(false);
-const compareLeft = ref<number | null>(null);
-const compareRight = ref<number | null>(null);
-const schemaIdItems = computed(() =>
-  allSchemas.value.map((s) => ({
-    title: `Schema ${s['schema-id']}${s['schema-id'] === props.table.metadata['current-schema-id'] ? ' (current)' : ''}`,
-    value: s['schema-id'] ?? 0,
-  })),
-);
-function openCompare() {
-  const ids = allSchemas.value.map((s) => s['schema-id'] ?? 0);
-  compareRight.value = props.table.metadata['current-schema-id'] ?? ids[ids.length - 1] ?? null;
-  compareLeft.value = ids.filter((id) => id !== compareRight.value).pop() ?? ids[0] ?? null;
-  compareOpen.value = true;
-}
-const schemaCompareRows = computed(() => {
-  if (compareLeft.value === null || compareRight.value === null) return [];
-  const byId = (id: number | null) => allSchemas.value.find((s) => s['schema-id'] === id);
-  const left = byId(compareLeft.value);
-  const right = byId(compareRight.value);
-  if (!left || !right) return [];
-  const leftMap = new Map((left.fields ?? []).map((f: any) => [f.name, typeLabel(f.type)]));
-  const rightMap = new Map((right.fields ?? []).map((f: any) => [f.name, typeLabel(f.type)]));
-  const names = Array.from(new Set([...leftMap.keys(), ...rightMap.keys()]));
-  return names
-    .map((name) => {
-      const leftType = leftMap.get(name) ?? null;
-      const rightType = rightMap.get(name) ?? null;
-      let status = 'same';
-      let color = 'default';
-      if (leftType === null) {
-        status = 'added';
-        color = 'success';
-      } else if (rightType === null) {
-        status = 'removed';
-        color = 'error';
-      } else if (leftType !== rightType) {
-        status = 'changed';
-        color = 'warning';
-      }
-      return { name, leftType, rightType, status, color };
-    })
-    .sort((a, b) => (a.status === 'same' ? 1 : 0) - (b.status === 'same' ? 1 : 0));
-});
-
-const schemaFieldDiffs = computed(() => {
-  const schemas = allSchemas.value;
-  const diffs: Record<number, { added: string[]; removed: string[] }> = {};
-
-  for (let i = 0; i < schemas.length; i++) {
-    const schema = schemas[i];
-    const id = schema['schema-id'] ?? i;
-    if (i === 0) {
-      diffs[id] = { added: [], removed: [] };
-      continue;
-    }
-    const prevFields = new Set(
-      (schemas[i - 1].fields || []).map(
-        (f) => `${f.name}:${typeof f.type === 'string' ? f.type : 'complex'}`,
-      ),
-    );
-    const currFields = new Set(
-      (schema.fields || []).map(
-        (f) => `${f.name}:${typeof f.type === 'string' ? f.type : 'complex'}`,
-      ),
-    );
-    const added: string[] = [];
-    const removed: string[] = [];
-    for (const f of currFields) {
-      if (!prevFields.has(f)) added.push(f.split(':')[0]);
-    }
-    for (const f of prevFields) {
-      if (!currFields.has(f)) removed.push(f.split(':')[0]);
-    }
-    diffs[id] = { added, removed };
-  }
-  return diffs;
-});
-
-// Computed properties
-const currentSchemaInfo = computed(() => getCurrentSchema());
-
-// --- All snapshots, as a digestible table + detail popup --------------------
-const snapshotDialog = ref(false);
-const selectedSnapshot = ref<any>(null);
-function openSnapshot(_event: unknown, row: { item: { raw: any } }) {
-  selectedSnapshot.value = row.item.raw;
-  snapshotDialog.value = true;
-}
-const snapshotHeaders = [
-  { title: 'Committed', key: 'committed' },
-  { title: 'Refs', key: 'refs', sortable: false },
-  { title: 'Operation', key: 'operation' },
-  { title: 'Records', key: 'records', align: 'end' as const },
-  { title: 'Δ Records', key: 'delta', align: 'end' as const },
-  { title: 'Data files', key: 'files', align: 'end' as const },
-  { title: 'Snapshot ID', key: 'id' },
-  { title: '', key: 'actions', align: 'end' as const, sortable: false },
-];
-
-// Branch/tag refs (name → { snapshot-id, type }).
-const branchRefs = computed(() => {
-  const refs = (props.table.metadata as any)?.refs as Record<string, any> | undefined;
-  return refs && typeof refs === 'object' ? refs : {};
-});
-const branchOptions = computed(() => [
-  { title: 'All snapshots', value: '__all__' },
-  ...Object.keys(branchRefs.value).map((name) => ({
-    title: `${name} · ${branchRefs.value[name]?.type ?? 'branch'}`,
-    value: name,
-  })),
-]);
-const selectedBranch = ref('__all__');
-// Default to the `main` branch when the table has one (set once refs load).
-let branchInitialized = false;
+// The host reloads with `Object.assign(table, …)`, so the table object's own
+// identity never changes — `metadata` is what is replaced, and watching it is
+// what makes a reload (or a protection toggle from the actions menu) re-read.
 watch(
-  branchRefs,
-  (refs) => {
-    if (branchInitialized || !refs || Object.keys(refs).length === 0) return;
-    if (refs['main']) selectedBranch.value = 'main';
-    branchInitialized = true;
+  () => [props.warehouseId, props.table.metadata] as const,
+  async () => {
+    const tableUuid = (props.table.metadata as any)?.['table-uuid'];
+    if (!props.warehouseId || !tableUuid) {
+      protectionState.value = null;
+      return;
+    }
+    try {
+      const prot = await functions.getTableProtection(props.warehouseId, tableUuid);
+      protectionState.value = prot.protected;
+      protectionUpdatedAt.value = prot.updated_at
+        ? formatTimestamp(Date.parse(prot.updated_at))
+        : '';
+    } catch {
+      // A reader without `get_protection` still gets every other tile; the
+      // dash says "not known here", which is the truth.
+      protectionState.value = null;
+      protectionUpdatedAt.value = '';
+    }
   },
   { immediate: true },
 );
-// snapshot-id → ref names that point at it (tips)
-const refTips = computed(() => {
-  const map: Record<string, string[]> = {};
-  for (const [name, r] of Object.entries(branchRefs.value)) {
-    const sid = String((r as any)?.['snapshot-id']);
-    (map[sid] ??= []).push(name);
-  }
-  return map;
-});
-
-function toNum(v: unknown): number {
-  const n = typeof v === 'string' ? Number(v) : (v as number);
-  return Number.isFinite(n) ? n : 0;
-}
-// Format integer counters string-safely so i64 values above
-// Number.MAX_SAFE_INTEGER are grouped without precision loss.
-const fmtNum = (v: unknown): string => {
-  if (v === null || v === undefined || v === '') return '0';
-  const s = String(v);
-  if (/^-?\d+$/.test(s)) return s.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const num = Number(s);
-  return Number.isFinite(num) ? num.toLocaleString() : '0';
-};
-
-const snapshotRows = computed(() => {
-  const snaps = props.table.metadata.snapshots;
-  if (!Array.isArray(snaps)) return [];
-  const currentId = String(props.table.metadata['current-snapshot-id']);
-
-  // When a branch/tag is selected, keep only its lineage (walk parent links from the tip).
-  let allowed: Set<string> | null = null;
-  if (selectedBranch.value !== '__all__') {
-    const byId = new Map(snaps.map((s: any) => [String(s['snapshot-id']), s]));
-    const tip = String(branchRefs.value[selectedBranch.value]?.['snapshot-id'] ?? '');
-    allowed = new Set();
-    let cur = tip;
-    while (cur && byId.has(cur) && !allowed.has(cur)) {
-      allowed.add(cur);
-      cur = String(byId.get(cur)?.['parent-snapshot-id'] ?? '');
-    }
-  }
-
-  return [...snaps]
-    .filter((s: any) => !allowed || allowed.has(String(s['snapshot-id'])))
-    .sort((a: any, b: any) => toNum(b['timestamp-ms']) - toNum(a['timestamp-ms']))
-    .map((s: any) => {
-      const summary = s.summary ?? {};
-      const id = String(s['snapshot-id']);
-      return {
-        id,
-        raw: s,
-        refs: refTips.value[id] ?? [],
-        committedAbs: s['timestamp-ms'] ? absoluteTimestamp(s['timestamp-ms']) : '—',
-        operation: summary.operation ?? '—',
-        current: id === currentId,
-        totalRecords: summary['total-records'],
-        addedRecords: summary['added-records'],
-        deletedRecords: summary['deleted-records'],
-        totalDataFiles: summary['total-data-files'],
-      };
-    });
-});
-
-const getOperationColor = (operation: string): string => {
-  const colors: Record<string, string> = {
-    append: 'success',
-    overwrite: 'warning',
-    delete: 'error',
-    replace: 'primary',
-    merge: 'info',
-    optimize: 'secondary',
-    expire: 'orange',
-    compact: 'teal',
-  };
-  return colors[operation?.toLowerCase()] || 'default';
-};
-
-// Schema evolution panel starts collapsed.
-const schemaPanels = ref<string[]>([]);
-
-// At-a-glance metric tiles
-const statTiles = computed(() => {
-  const m = props.table.metadata as any;
-  return [
-    {
-      label: 'Format',
-      value: m['format-version'] ? `Iceberg v${m['format-version']}` : 'Iceberg',
-      icon: 'mdi-tag-outline',
-      color: 'primary',
-    },
-    {
-      label: 'Columns',
-      value: currentSchemaInfo.value?.fields?.length ?? 0,
-      icon: 'mdi-table-column',
-      color: 'primary',
-    },
-    {
-      label: 'Snapshots',
-      value: snapshotsCount.value,
-      icon: 'mdi-camera-outline',
-      color: 'info',
-    },
-    {
-      label: 'Partitions',
-      value: activePartitionSpec.value?.fields?.length || 0,
-      icon: 'mdi-view-grid-outline',
-      color: 'warning',
-    },
-    {
-      label: 'Sort keys',
-      value: activeSortOrder.value?.fields?.length || 0,
-      icon: 'mdi-sort-ascending',
-      color: 'success',
-    },
-    {
-      label: 'Updated',
-      value: m['last-updated-ms'] ? formatTimestamp(m['last-updated-ms']) : '—',
-      icon: 'mdi-update',
-      color: 'default',
-    },
-  ];
-});
 
 // Identity & location key/value rows
-const identityRows = computed(() => {
+type FactRow = {
+  label: string;
+  value?: string | number;
+  /** Values that are chips rather than text: partition and sort fields. */
+  chips?: Array<{ text: string; color?: string; icon?: string }>;
+  /** A trailing chip that qualifies the value, e.g. which spec it came from. */
+  suffix?: string;
+  mono?: boolean;
+  copy?: boolean;
+  icon?: string;
+  iconColor?: string;
+  title?: string;
+  /** The whole value, when what is shown is an abbreviation of it. */
+  full?: string;
+};
+
+// The middle goes, not the tail: two tables in one warehouse share a long
+// prefix and differ at the end, so cutting the end is cutting the only part
+// that identifies the row. The whole path is in the tooltip and on the
+// clipboard button.
+function shortenPath(value: string, max = 44): string {
+  if (value.length <= max) return value;
+  const head = Math.ceil((max - 1) * 0.55);
+  const tail = max - 1 - head;
+  return `${value.slice(0, head)}…${value.slice(-tail)}`;
+}
+
+const factRows = computed(() => {
   const m = props.table.metadata as any;
-  const rows: Array<{
-    label: string;
-    value: string | number;
-    full?: string;
-    mono?: boolean;
-    copy?: boolean;
-    tip?: boolean;
-  }> = [];
+  const rows: FactRow[] = [];
+  rows.push({
+    label: 'Format',
+    value: m['format-version'] ? `Iceberg v${m['format-version']}` : 'Iceberg',
+    icon: 'mdi-tag-outline',
+    iconColor: 'primary',
+  });
   rows.push({ label: 'Table UUID', value: m['table-uuid'], mono: true, copy: true });
   if (m.location)
     rows.push({
       label: 'Data location',
-      value: truncatePath(m.location, 48),
+      value: shortenPath(m.location),
       full: m.location,
       mono: true,
       copy: true,
-      tip: true,
     });
   if (props.table['metadata-location'])
     rows.push({
       label: 'Metadata location',
-      value: truncatePath(props.table['metadata-location'], 48),
+      value: shortenPath(props.table['metadata-location']),
       full: props.table['metadata-location'],
       mono: true,
       copy: true,
-      tip: true,
     });
   if (m['last-updated-ms'])
     rows.push({
       label: 'Last updated',
       value: absoluteTimestamp(m['last-updated-ms']),
     });
-  if (m['current-schema-id'] !== undefined)
-    rows.push({ label: 'Current schema ID', value: m['current-schema-id'] });
   if (m['current-snapshot-id'])
     rows.push({
       label: 'Current snapshot ID',
@@ -967,20 +392,46 @@ const identityRows = computed(() => {
     });
   if (refsSummary.value) rows.push({ label: 'Refs', value: refsSummary.value });
 
-  // Internal identifiers
-  const pushIf = (label: string, value: unknown) => {
-    if (value !== undefined && value !== null) rows.push({ label, value: String(value) });
-  };
-  pushIf('Last sequence number', m['last-sequence-number']);
-  pushIf('Last column ID', m['last-column-id']);
-  pushIf('Last partition ID', m['last-partition-id']);
-  pushIf('Default partition spec ID', m['default-spec-id']);
-  pushIf('Default sort order ID', m['default-sort-order-id']);
-  pushIf('Next row ID', m['next-row-id']);
-  const statsFiles = (m.statistics ?? []).length;
-  if (statsFiles > 0) pushIf('Statistics files', statsFiles);
-  const partStatsFiles = (m['partition-statistics'] ?? []).length;
-  if (partStatsFiles > 0) pushIf('Partition statistics files', partStatsFiles);
+  // Deletion protection is a property of the table, not of the menu that
+  // toggles it, so it is read with the rest of what the table is.
+  rows.push({
+    label: 'Protection',
+    // A chip, and amber when it is off: "this table can be dropped" is the
+    // state worth noticing, and plain text next to a grey icon was not it.
+    chips: [
+      protectionState.value === null
+        ? { text: 'unknown', icon: 'mdi-help-circle-outline' }
+        : protectionState.value
+          ? { text: 'On', color: 'info', icon: 'mdi-lock-outline' }
+          : { text: 'Off', color: 'warning', icon: 'mdi-lock-open-variant-outline' },
+    ],
+    title:
+      protectionState.value === null
+        ? 'Deletion protection'
+        : protectionState.value
+          ? `Deletion protection is on${protectionUpdatedAt.value ? ` · set ${protectionUpdatedAt.value}` : ''} — drop and expiration are refused until it is turned off`
+          : 'Deletion protection is off — this table can be dropped',
+  });
+
+  rows.push({
+    label: 'Partitioning',
+    value: activePartitionSpec.value?.fields.length ? undefined : 'Unpartitioned',
+    chips: activePartitionSpec.value?.fields.length
+      ? activePartitionSpec.value.fields.map((f) => ({
+          text: formatPartitionField(f),
+          color: 'primary',
+        }))
+      : undefined,
+    suffix: activePartitionSpec.value ? `spec ${activePartitionSpec.value['spec-id']}` : undefined,
+  });
+  rows.push({
+    label: 'Sort order',
+    value: activeSortOrder.value?.fields.length ? undefined : 'Unsorted',
+    chips: activeSortOrder.value?.fields.length
+      ? activeSortOrder.value.fields.map((f) => ({ text: formatSortField(f), color: 'info' }))
+      : undefined,
+    suffix: activeSortOrder.value ? `order ${activeSortOrder.value['order-id']}` : undefined,
+  });
 
   return rows;
 });
@@ -1006,7 +457,102 @@ const identityRows = computed(() => {
   white-space: pre-wrap;
 }
 
-.section-head {
+/* The tab: a fact list across the top, then tags and properties filling what
+   is left. The properties table is the scroller, never the column around it. */
+.tdx-page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  height: 100%;
+  min-height: 0;
+  padding: 16px;
+}
+.tdx-health {
+  flex: 0 0 auto;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+  padding-bottom: 8px;
+  margin-bottom: -8px;
+}
+
+/* The same two columns as the fact list above, on the same gutter: tags start
+   where the left-hand facts start, properties where the right-hand ones do.
+   Two different splits on one screen read as a page that does not line up. */
+.tdx-attached {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+@media (min-width: 1264px) {
+  .tdx-attached {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 40px;
+  }
+}
+.tdx-attached__tags {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+.tdx-attached__props {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.tdx-attached__table {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+/* Stacked below the pair width: the tab scrolls as one and the table takes a
+   fixed slice rather than fighting for the leftovers. */
+@media (max-width: 1263px) {
+  .tdx-page {
+    overflow-y: auto;
+  }
+  .tdx-attached {
+    flex: 0 0 auto;
+  }
+  .tdx-attached__tags {
+    overflow: visible;
+  }
+  .tdx-attached__table {
+    height: 320px;
+    flex: 0 0 auto;
+  }
+}
+
+.tdx-note {
+  margin: 12px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+}
+.tdx-note a {
+  color: rgb(var(--v-theme-primary));
+}
+
+.tdx-head__search {
+  flex: 0 1 220px;
+  max-width: 220px;
+}
+.tdx-prop-key {
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.tdx-prop-value {
+  padding: 4px 0;
+}
+.tdx-prop-value .tdx-kv__copy {
+  flex: 0 0 auto;
+}
+
+/* A section is an icon, a name and a hairline — the outlined card and its
+   filled title band cost ~56px of chrome per section and said nothing the
+   heading did not. */
+.tdx-head {
   display: flex;
   align-items: center;
   font-size: 0.8rem;
@@ -1014,40 +560,97 @@ const identityRows = computed(() => {
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: rgba(var(--v-theme-on-surface), 0.7);
-  margin-bottom: 8px;
   min-height: 32px;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+}
+/* The heading's own words are uppercase; the controls sharing its line are not
+   headings and keep their own casing. */
+.tdx-head :deep(.v-btn),
+.tdx-head :deep(.v-chip),
+.tdx-head :deep(.v-label),
+.tdx-head :deep(.v-field) {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+.tdx-head__switch {
+  flex: 0 0 auto;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
 }
 
 .tdx-section {
   margin-bottom: 0;
+  min-width: 0;
 }
 
-.stat-tile {
+/* Label/value pairs. On a wide window two pairs share a row: a full-width list
+   of short values is mostly empty space. The pair — not the label and the value
+   separately — carries the rule, so each row reads as one line across, and the
+   labels keep one width in both columns so the two sides line up. */
+.tdx-kv {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0;
+}
+@media (min-width: 1264px) {
+  .tdx-kv--pairs {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 40px;
+  }
+}
+.tdx-kv__row {
   display: flex;
-  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  min-height: 34px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
 }
-.stat-value {
-  font-size: 1.15rem;
-  font-weight: 600;
-  line-height: 1.2;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.stat-label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.tdx-kv dt {
+  flex: 0 0 136px;
+  font-size: 0.8125rem;
   color: rgba(var(--v-theme-on-surface), 0.6);
+  padding-top: 2px;
+}
+.tdx-kv dd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+}
+.tdx-kv__value {
+  min-width: 0;
+}
+/* The copy button appears on the row it copies, so twelve of them do not sit
+   in a column of their own down the page. */
+.tdx-kv__copy {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.tdx-kv dd:hover .tdx-kv__copy,
+.tdx-kv__copy:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .tdx-kv__copy {
+    opacity: 1;
+  }
 }
 
-.identity-table .identity-key {
-  width: 220px;
-  white-space: nowrap;
-  font-weight: 600;
-  color: rgba(var(--v-theme-on-surface), 0.7);
-}
-.identity-table .identity-val {
-  word-break: break-all;
+/* Ten rows and then the table scrolls, header pinned: a page size of 25 or 50
+   otherwise pushes the rest of the page — and the pager, the only control that
+   matters there — below the fold. `max-height` on the wrapper rather than the
+   `height` prop, so a table of three rows is three rows tall. */
+.snapshot-table :deep(.v-table__wrapper) {
+  max-height: calc(10 * 36px + 40px);
 }
 </style>

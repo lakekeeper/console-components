@@ -429,7 +429,7 @@ export type CreateRoleRequest = {
     /**
      * Provider that owns this role (e.g. `"lakekeeper"`, `"oidc"`).
      * Must be provided together with `source-id`. Omit both to let the server
-     * assign `provider-id = "lakekeeper"` and a fresh UUIDv7 `source-id`.
+     * assign `provider-id = "lakekeeper"` and use the role's `id` as `source-id`.
      */
     'provider-id'?: string | null;
     /**
@@ -581,10 +581,10 @@ export type DeletedTabularResponse = {
 /**
  * A single factor that contributed to an authorization decision.
  *
- * Discriminated by `type`: `policy` names a policy the authorizer matched,
- * `system-authority` records that a built-in authority tier decided the
- * request. Further kinds may be added, so treat an unrecognised `type` as an
- * opaque factor rather than an error.
+ * Discriminated by `type`: `policy` names a policy the authorizer matched, and
+ * `system-authority` records that a built-in authority tier decided the request. The
+ * schema is a closed `oneOf` over those two, so a further kind is a schema change a
+ * generated client has to be rebuilt for rather than one it absorbs on its own.
  */
 export type DeterminingFactor = ({
     type: 'policy';
@@ -1481,7 +1481,11 @@ export type LakekeeperNamespaceAction = ({
     action: 'accept_moved_namespace';
 } & LakekeeperNamespaceActionAcceptMovedNamespace) | ({
     action: 'read_grants';
-} & LakekeeperNamespaceActionReadGrants);
+} & LakekeeperNamespaceActionReadGrants) | ({
+    action: 'read_subtree_grants';
+} & LakekeeperNamespaceActionReadSubtreeGrants) | ({
+    action: 'revoke_subtree_grants';
+} & LakekeeperNamespaceActionRevokeSubtreeGrants);
 
 /**
  * Accept a namespace being moved in from elsewhere as a child of this entity.
@@ -1626,7 +1630,11 @@ export type LakekeeperNamespaceActionKind = ({
     action: 'accept_moved_namespace';
 } & LakekeeperNamespaceActionKindAcceptMovedNamespace) | ({
     action: 'read_grants';
-} & LakekeeperNamespaceActionKindReadGrants);
+} & LakekeeperNamespaceActionKindReadGrants) | ({
+    action: 'read_subtree_grants';
+} & LakekeeperNamespaceActionKindReadSubtreeGrants) | ({
+    action: 'revoke_subtree_grants';
+} & LakekeeperNamespaceActionKindRevokeSubtreeGrants);
 
 export type LakekeeperNamespaceActionKindAcceptMovedNamespace = {
     action: 'accept_moved_namespace';
@@ -1690,6 +1698,14 @@ export type LakekeeperNamespaceActionKindMove = {
 
 export type LakekeeperNamespaceActionKindReadGrants = {
     action: 'read_grants';
+};
+
+export type LakekeeperNamespaceActionKindReadSubtreeGrants = {
+    action: 'read_subtree_grants';
+};
+
+export type LakekeeperNamespaceActionKindRevokeSubtreeGrants = {
+    action: 'revoke_subtree_grants';
 };
 
 export type LakekeeperNamespaceActionKindSetProtection = {
@@ -1759,6 +1775,39 @@ export type LakekeeperNamespaceActionReadGrants = {
     action: 'read_grants';
 };
 
+/**
+ * Can list and read every grant in the subtree rooted here: the namespace's own and
+ * those on every descendant namespace and tabular. Strictly stronger than
+ * `ReadGrants`, which covers this one resource; granted separately because it
+ * enumerates the subtree.
+ *
+ * `scope` states what the listing covers — the resource kinds it reaches, how far its
+ * range extends, the privileges it covers, and the principal it is narrowed to — so a
+ * policy can allow a narrow access review and still refuse a full enumeration.
+ *
+ * Every enforced check carries it: Lakekeeper authorizes a real subtree listing or
+ * revoke only with a scope. An absent scope is the base-capability question that
+ * permission introspection asks, so an authorizer may answer the two separately —
+ * refusing the base question drops the action from
+ * `GET /{warehouse,namespace}/{id}/actions` and leaves real calls untouched.
+ */
+export type LakekeeperNamespaceActionReadSubtreeGrants = {
+    action: 'read_subtree_grants';
+    scope?: null | SubtreeGrantScope;
+};
+
+/**
+ * Can revoke any grant in the subtree rooted here, asked once at this namespace for
+ * the whole batch. An authorizer must answer it as authority over everything
+ * beneath — or refuse the subtree routes.
+ *
+ * `scope` states what the revoke covers, on the same terms as `ReadSubtreeGrants`.
+ */
+export type LakekeeperNamespaceActionRevokeSubtreeGrants = {
+    action: 'revoke_subtree_grants';
+    scope?: null | SubtreeGrantScope;
+};
+
 export type LakekeeperNamespaceActionSetProtection = {
     action: 'set_protection';
 };
@@ -1817,6 +1866,7 @@ export type LakekeeperProjectActionCreateRole = {
      * Name of the role to create.
      */
     name?: string | null;
+    source_system?: null | RoleSourceSystem;
 };
 
 /**
@@ -2621,7 +2671,11 @@ export type LakekeeperWarehouseAction = ({
     action: 'accept_moved_namespace';
 } & LakekeeperWarehouseActionAcceptMovedNamespace) | ({
     action: 'read_grants';
-} & LakekeeperWarehouseActionReadGrants);
+} & LakekeeperWarehouseActionReadGrants) | ({
+    action: 'read_subtree_grants';
+} & LakekeeperWarehouseActionReadSubtreeGrants) | ({
+    action: 'revoke_subtree_grants';
+} & LakekeeperWarehouseActionRevokeSubtreeGrants);
 
 /**
  * Accept a namespace being moved in from elsewhere as a child of this entity.
@@ -2740,7 +2794,11 @@ export type LakekeeperWarehouseActionKind = ({
     action: 'accept_moved_namespace';
 } & LakekeeperWarehouseActionKindAcceptMovedNamespace) | ({
     action: 'read_grants';
-} & LakekeeperWarehouseActionKindReadGrants);
+} & LakekeeperWarehouseActionKindReadGrants) | ({
+    action: 'read_subtree_grants';
+} & LakekeeperWarehouseActionKindReadSubtreeGrants) | ({
+    action: 'revoke_subtree_grants';
+} & LakekeeperWarehouseActionKindRevokeSubtreeGrants);
 
 export type LakekeeperWarehouseActionKindAcceptMovedNamespace = {
     action: 'accept_moved_namespace';
@@ -2818,8 +2876,16 @@ export type LakekeeperWarehouseActionKindReadGrants = {
     action: 'read_grants';
 };
 
+export type LakekeeperWarehouseActionKindReadSubtreeGrants = {
+    action: 'read_subtree_grants';
+};
+
 export type LakekeeperWarehouseActionKindRename = {
     action: 'rename';
+};
+
+export type LakekeeperWarehouseActionKindRevokeSubtreeGrants = {
+    action: 'revoke_subtree_grants';
 };
 
 export type LakekeeperWarehouseActionKindSetFormatVersionPolicy = {
@@ -2872,8 +2938,40 @@ export type LakekeeperWarehouseActionReadGrants = {
     action: 'read_grants';
 };
 
+/**
+ * Can list and read every grant in the warehouse: the warehouse's own and those on
+ * every namespace and tabular inside it. Strictly stronger than `ReadGrants`, which
+ * covers this one resource; granted separately because it enumerates the subtree.
+ *
+ * `scope` states what the listing covers — the resource kinds it reaches, how far its
+ * range extends, the privileges it covers, and the principal it is narrowed to — so a
+ * policy can allow a narrow access review and still refuse a full enumeration.
+ *
+ * Every enforced check carries it: Lakekeeper authorizes a real subtree listing or
+ * revoke only with a scope. An absent scope is the base-capability question that
+ * permission introspection asks, so an authorizer may answer the two separately —
+ * refusing the base question drops the action from
+ * `GET /{warehouse,namespace}/{id}/actions` and leaves real calls untouched.
+ */
+export type LakekeeperWarehouseActionReadSubtreeGrants = {
+    action: 'read_subtree_grants';
+    scope?: null | SubtreeGrantScope;
+};
+
 export type LakekeeperWarehouseActionRename = {
     action: 'rename';
+};
+
+/**
+ * Can revoke any grant in the warehouse, asked once at the warehouse for the whole
+ * batch. An authorizer must answer it as authority over everything beneath — or
+ * refuse the subtree routes.
+ *
+ * `scope` states what the revoke covers, on the same terms as `ReadSubtreeGrants`.
+ */
+export type LakekeeperWarehouseActionRevokeSubtreeGrants = {
+    action: 'revoke_subtree_grants';
+    scope?: null | SubtreeGrantScope;
 };
 
 export type LakekeeperWarehouseActionSetFormatVersionPolicy = {
@@ -3052,6 +3150,31 @@ export type ListRoleMembershipsResponse = {
 export type ListRolesResponse = {
     'next-page-token'?: string | null;
     roles: Array<Role>;
+};
+
+/**
+ * A page of a subtree grant listing.
+ *
+ * A page of grants from a subtree, and the instant it was read under.
+ */
+export type ListSubtreeGrantsResponse = {
+    /**
+     * The ceiling this walk reads under. Pass it to the matching revoke as
+     * `created-before` to bound the revoke to what was previewed.
+     */
+    'as-of': string;
+    /**
+     * Grants held anywhere under the addressed resource. Reading a subtree is
+     * authorized once, at that resource, and covers every member — so pages come back
+     * full.
+     */
+    grants: Array<GrantResponse>;
+    /**
+     * Present when another page may follow; follow it until it is absent. The token
+     * also pins the walk's ceiling, so every page reads under the instant page one
+     * bound.
+     */
+    'next-page-token'?: string | null;
 };
 
 export type ListTagAttachmentsResponse = {
@@ -3528,6 +3651,95 @@ export type ResourceGrantablePrivilegesResponse = {
  */
 export type ResourceType = 'server' | 'project' | 'warehouse' | 'namespace' | 'table' | 'view' | 'generic-table' | 'tag-definition';
 
+/**
+ * Which of a subtree's grants to revoke, and how far one call may go.
+ *
+ * Unknown fields are rejected: a misspelled `privilege` would otherwise widen the
+ * request from "these privileges" to "every grant under here".
+ */
+export type RevokeSubtreeGrantsRequest = {
+    /**
+     * Allow the call to leave matching grants behind, to be removed by repeating the
+     * request. Without it, a filter matching more than `limit` grants is refused and
+     * nothing is removed — so nobody starts a multi-call revoke without knowing that
+     * each call is its own transaction and the whole is not atomic.
+     */
+    'allow-partial'?: boolean;
+    /**
+     * Revoke only grants created at or before this instant. The first call may omit it
+     * and echo back the `created-before` it is answered with; every later call of the
+     * same operation repeats that value. This is what makes the loop terminate:
+     * grants made after the operation began are deliberately left alone.
+     */
+    'created-before'?: string | null;
+    /**
+     * Compute and return what this request would revoke, removing nothing. The same
+     * read and the same two authority checks as the live call, both told this is a
+     * rehearsal — so a policy may allow the preview and gate the revoke itself. The
+     * response's `preview` carries the batch. A dry run is never refused for batch size
+     * — `has-more: true` says the live call needs `allow-partial`, or several calls.
+     */
+    'dry-run'?: boolean;
+    /**
+     * Also revoke the grants held on the addressed resource itself. On by default: a
+     * grant on a container confers access beneath it, so a revoke that skipped the root
+     * would leave standing the access it names. Pass `false` to keep the root's own
+     * grants — its administration plane — untouched, including the one that gives the
+     * caller authority here.
+     */
+    'include-root-level'?: boolean;
+    /**
+     * At most this many grants are removed by one call. A value outside 1–1000 is
+     * clamped into it, so the response's `revoked` and `has-more` describe what the
+     * server actually did.
+     */
+    limit?: number | null;
+    principal?: null | UserOrRole;
+    /**
+     * Revoke only grants carrying one of these privileges, each of which must be one
+     * this server's authorizer publishes. Empty matches every privilege, including any
+     * the authorizer no longer knows — which is how those are cleared in bulk.
+     */
+    privilege?: Array<string>;
+    /**
+     * Revoke only grants on resources of these kinds. Empty matches every kind under
+     * the addressed resource.
+     */
+    'resource-type'?: Array<ResourceType>;
+};
+
+/**
+ * What one revoke call removed.
+ */
+export type RevokeSubtreeGrantsResponse = {
+    /**
+     * The ceiling this call ran under. Pass it back on every later call of the same
+     * operation.
+     */
+    'created-before': string;
+    /**
+     * Whether grants matching the same filter were still visible to this call. Repeat
+     * the request — with `created-before` set to the value below — until this is
+     * `false`. There is no continuation token: the filter is the continuation, and a
+     * cursor over a delete would permanently skip a grant that sorts below it.
+     *
+     * `false` reports that this call saw nothing further, not that the subtree is clear.
+     * A grant whose transaction committed after the call began can carry a timestamp
+     * below the ceiling and outlive the loop. Re-run the operation with a fresh ceiling
+     * to confirm.
+     */
+    'has-more': boolean;
+    /**
+     * The grants a dry run would revoke, rendered as the listing renders them. Present
+     * exactly when the request set `dry-run`.
+     */
+    preview?: Array<GrantResponse> | null;
+    /**
+     * How many grants this call removed.
+     */
+    revoked: number;
+};
+
 export type Role = {
     /**
      * Timestamp when the role was created
@@ -3689,6 +3901,27 @@ export type RoleMetadata = {
 };
 
 export type RoleRelation = 'assignee' | 'ownership';
+
+/**
+ * The external identity (source system) a role is bound to: a provider and the
+ * role's identifier within that provider, always given together.
+ */
+export type RoleSourceSystem = {
+    /**
+     * Provider that owns the role (e.g. `oidc`, `ldap`).
+     */
+    provider_id: string;
+    /**
+     * Identifier of the role within the provider.
+     */
+    source_id: string;
+};
+
+/**
+ * Whether a subtree grant operation extends to the addressed resource itself, alongside
+ * everything below it. Set from the request's `include-root-level`.
+ */
+export type RootLevelGrants = 'included' | 'excluded';
 
 /**
  * S3CredentialAccessKey
@@ -4042,18 +4275,23 @@ export type ServerInfo = {
      * Role-provider namespaces whose roles are maintained by a configured role
      * provider (LDAP/Entra/Okta/token), sorted. Roles whose `provider-id`
      * appears here are the provider's to maintain: creating one, or renaming,
-     * re-describing, rebinding, or deleting an existing one, is rejected with
-     * `ManagedRoleImmutable` so provider sync cannot be clobbered.
+     * re-describing or rebinding an existing one, is rejected with
+     * `ManagedRoleImmutable` so provider sync cannot be clobbered. Deleting one
+     * is allowed; if the provider still reports the group, it creates the role
+     * again on its next sync.
      *
      * This is live server configuration, not a property of the namespace
      * string. A provider removed from config drops out of the list, and the
-     * roles it left behind become renamable and deletable again so they can be
-     * cleaned up.
+     * roles it left behind become renamable again.
      *
      * Empty when no role provider is configured. Two namespaces never appear,
      * and a client gating on this list must handle both itself: `lakekeeper`,
-     * which is always writable, and the reserved `system`, whose roles reject
-     * the same mutations with `SystemRoleImmutable`.
+     * which is always writable, and the reserved `system`: its existing roles
+     * reject the same mutations and deletion with `SystemRoleImmutable`, and
+     * naming it on create or rebind returns `RoleProviderIdReserved`. Some
+     * authorizers create and rebind roles only in `lakekeeper`; they refuse a
+     * namespace that is neither `lakekeeper`, `system` nor listed here with
+     * `RoleProviderNotApiManaged`.
      *
      * **Membership is gated differently — do not derive it from this list.**
      * Adding or removing a role's members requires the `lakekeeper` namespace
@@ -4175,7 +4413,7 @@ export type StackitProfile = {
     bucket: string;
     /**
      * URN of the STACKIT credentials group to assume when vending credentials,
-     * e.g. `urn:sgws:identity::87066461224079950546:group/credentials-group-a1b2c3`.
+     * e.g. `urn:sgws:identity::12345678901234567890:group/credentials-group-a1b2c3`.
      *
      * Copy it verbatim from the credentials group; it is not derivable.
      * Required when `sts-enabled` is true, optional otherwise — but validated
@@ -4184,12 +4422,15 @@ export type StackitProfile = {
     'credentials-group-urn'?: string | null;
     /**
      * Endpoint override. Normally omitted — the endpoint is derived from
-     * `region`.
+     * `region` and `storage-service`. Takes precedence over `storage-service`
+     * when set.
      *
      * Set this only for a STACKIT endpoint outside the public naming scheme,
      * which STACKIT hands out per customer. Such an endpoint is a distinct
-     * storage tenant, not another route to the same bucket, so it is immutable
-     * once the warehouse exists.
+     * storage tenant, not another route to the same bucket, so the resolved
+     * endpoint is immutable once the warehouse exists. An update may switch
+     * between `endpoint` and `storage-service` if both resolve to the same
+     * endpoint.
      */
     endpoint?: string | null;
     /**
@@ -4212,11 +4453,20 @@ export type StackitProfile = {
     'remote-signing-enabled'?: boolean;
     'storage-layout'?: null | StorageLayout;
     /**
+     * STACKIT storage service that holds the bucket. Defaults to
+     * `object-storage`. Ignored when `endpoint` is set.
+     *
+     * Each service is a distinct storage tenant, so the resolved endpoint is
+     * immutable once the warehouse exists. An update may switch between
+     * `storage-service` and `endpoint` if both resolve to the same endpoint.
+     */
+    'storage-service'?: StackitStorageService;
+    /**
      * Vend temporary downscoped credentials via STS. Defaults to enabled.
      *
-     * Requires `credentials-group-urn`, and requires the credentials group to
-     * carry a trust policy allowing `sts:AssumeRole`. Disable it to fall back
-     * to remote signing on storage that predates `StorageGRID` 12.0.
+     * Requires `credentials-group-urn`, and a trust policy on that group
+     * allowing `sts:AssumeRole`. Disable it to fall back to remote signing on
+     * STACKIT storage without STS.
      */
     'sts-enabled'?: boolean;
     /**
@@ -4224,6 +4474,15 @@ export type StackitProfile = {
      */
     'sts-token-validity-seconds'?: number;
 };
+
+/**
+ * STACKIT storage service that holds a bucket.
+ *
+ * - `object-storage`: STACKIT Object Storage, `object.storage.<region>.onstackit.cloud`.
+ * - `data-platform`: STACKIT data platform storage,
+ * `dataplatform.storage.<region>.onstackit.cloud`. Available in `eu01` only.
+ */
+export type StackitStorageService = 'object-storage' | 'data-platform';
 
 /**
  * Storage secret for a warehouse.
@@ -4412,6 +4671,82 @@ export type StorageProfileS3 = S3Profile & {
  */
 export type StorageProfileStackit = StackitProfile & {
     type: 'stackit';
+};
+
+/**
+ * Which principals' grants a subtree operation covers.
+ */
+export type SubtreeGrantPrincipal = {
+    /**
+     * Every principal holding a grant in range.
+     */
+    every: {
+        [key: string]: unknown;
+    };
+} | {
+    /**
+     * The single principal the request is narrowed to.
+     */
+    one: UserOrRole;
+};
+
+/**
+ * Which privileges a subtree grant operation covers.
+ */
+export type SubtreeGrantPrivileges = {
+    /**
+     * Every privilege a matching grant can carry, including privileges this server's
+     * authorizer no longer publishes. A request naming none takes this form.
+     */
+    every: {
+        [key: string]: unknown;
+    };
+} | {
+    /**
+     * Only the privileges named here.
+     */
+    only: {
+        /**
+         * Every privilege the request reaches, and never empty. Spelled `names` so the
+         * wire form does not read `privileges.only.privileges`.
+         */
+        names: Array<string>;
+    };
+};
+
+/**
+ * The scope of a concrete subtree grant request: what it reaches, how far, and whether
+ * the call only rehearses.
+ */
+export type SubtreeGrantScope = {
+    /**
+     * Whether the call this check belongs to only reports what it would do. A dry run
+     * reads the same grants as the live call and changes nothing, so a policy can allow
+     * a rehearsal and still refuse the revoke, which then removes nothing. Both checks a
+     * revoke makes carry the same value, so the grant-read check sees the rehearsal too.
+     * A listing carries `false`, the value of a call that runs for real.
+     */
+    dry_run: boolean;
+    /**
+     * Whether the request covers every principal, or one named principal.
+     */
+    principal: SubtreeGrantPrincipal;
+    /**
+     * Which privileges the request reaches: every privilege a matching grant can carry,
+     * or the named set it is narrowed to. A revoke removes only what this covers, so a
+     * policy can leave an administrative privilege standing while clearing the rest.
+     */
+    privileges: SubtreeGrantPrivileges;
+    /**
+     * Every resource kind whose grants the request reaches. Never empty, and always a
+     * subset of the kinds the addressed resource covers: a request naming no kinds
+     * carries that full set, so this always states what the operation actually touches.
+     */
+    resource_types: Array<ResourceType>;
+    /**
+     * Whether the request's range extends to the addressed resource itself.
+     */
+    root_level: RootLevelGrants;
 };
 
 export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
@@ -5073,12 +5408,14 @@ export type UserType = 'human' | 'application';
  */
 export type ValidateWarehouseResponse = {
     /**
-     * Every check that was considered, in execution order — passed, failed and
-     * skipped alike, so the caller can see what was and was not covered.
+     * Every check that was considered, in execution order — passed, failed,
+     * warning and skipped alike, so the caller can see what was and was not
+     * covered.
      */
     checks: Array<ValidationCheck>;
     /**
-     * True when no check failed. Skipped checks do not make a configuration invalid.
+     * True when no check failed. Skipped and warning checks do not make a
+     * configuration invalid.
      */
     valid: boolean;
 };
@@ -5111,17 +5448,17 @@ export type ValidationCheck = {
  * generated clients, which reject unknown enum values, so new checks ship in a
  * release that clients must upgrade to.
  */
-export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' | 'warehouse-name-valid' | 'warehouse-id-available' | 'location-exclusive' | 'spec-mutable' | 'format-version-policy-consistent' | 'managed-by-allowed' | 'storage-client-initialized' | 'lakekeeper-read-write' | 'vended-credentials-issued' | 'vended-credentials-read-write' | 'vended-credentials-scope-enforced' | 'cleanup';
+export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' | 'warehouse-name-valid' | 'warehouse-id-available' | 'location-exclusive' | 'spec-mutable' | 'format-version-policy-consistent' | 'managed-by-allowed' | 'storage-client-initialized' | 'lakekeeper-read-write' | 'vended-credentials-issued' | 'vended-credentials-read-write' | 'vended-credentials-scope-enforced' | 'cleanup' | 'cors-origin-allowed' | 'bucket-access-restricted';
 
 /**
  * The outcome of a single check.
  *
- * `passed` and `failed` are verdicts about the configuration. `skipped` is not
- * a verdict: the check did not apply, or a prerequisite failed, and `reason`
- * says which. Skipped checks never make a configuration invalid, so a report
+ * `passed`, `failed` and `warning` are verdicts about the configuration; only
+ * `failed` makes it invalid. `skipped` is not a verdict: the check did not
+ * apply, or a prerequisite failed, and `reason` says which. Skipped checks never make a configuration invalid, so a report
  * can be `valid` with nothing actually verified — read the individual checks.
  */
-export type ValidationCheckStatus = 'passed' | 'failed' | 'skipped';
+export type ValidationCheckStatus = 'passed' | 'failed' | 'skipped' | 'warning';
 
 export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
@@ -7214,7 +7551,14 @@ export type DeleteRoleData = {
          */
         role_id: string;
     };
-    query?: never;
+    query?: {
+        /**
+         * Delete the role even if it holds grants. Its grants are revoked with it.
+         * Checked where Lakekeeper stores grants in its database; under OpenFGA a role's
+         * grants are always removed with it.
+         */
+        force?: boolean;
+    };
     url: '/management/v1/role/{role_id}';
 };
 
@@ -9273,6 +9617,131 @@ export type GetWarehouseGrantablePrivilegesResponses = {
 
 export type GetWarehouseGrantablePrivilegesResponse = GetWarehouseGrantablePrivilegesResponses[keyof GetWarehouseGrantablePrivilegesResponses];
 
+export type ListWarehouseSubtreeGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+    };
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`.
+         */
+        principalRole?: string | null;
+        /**
+         * List only grants carrying one of these privileges. Repeat the parameter for
+         * several. A name this server's authorizer does not publish is rejected, so a
+         * misspelling cannot read as "nobody holds that".
+         */
+        privilege?: Array<string>;
+        /**
+         * List only grants on resources of these kinds. Repeat the parameter for several.
+         * `table` does not imply `view` or `generic-table`; name each kind you want.
+         */
+        resourceType?: Array<ResourceType>;
+        /**
+         * Include grants on tables, views and generic tables that are in the recycle bin.
+         * On by default, so that a listing previews exactly what the matching revoke would
+         * remove — an undrop restores a table together with its grants.
+         */
+        includeSoftDeleted?: boolean;
+        /**
+         * Read only grants created at or before this instant. Meaningful on the first page:
+         * the page token pins the walk's ceiling, and a later value that disagrees with the
+         * token is refused. Omit it to have the server bind the ceiling and report it as
+         * `as-of`.
+         */
+        createdBefore?: string | null;
+        /**
+         * Include the grants held on the addressed resource itself. On by default: a grant
+         * on a container confers access beneath it, so a listing meant to preview a revoke
+         * must show it. Pass `false` for strictly-below.
+         */
+        includeRootLevel?: boolean;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/grants/subtree';
+};
+
+export type ListWarehouseSubtreeGrantsErrors = {
+    /**
+     * Subtree grant listing is not supported under the configured authorizer backend
+     */
+    501: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListWarehouseSubtreeGrantsError = ListWarehouseSubtreeGrantsErrors[keyof ListWarehouseSubtreeGrantsErrors];
+
+export type ListWarehouseSubtreeGrantsResponses = {
+    /**
+     * Grants held under the warehouse
+     */
+    200: ListSubtreeGrantsResponse;
+};
+
+export type ListWarehouseSubtreeGrantsResponse = ListWarehouseSubtreeGrantsResponses[keyof ListWarehouseSubtreeGrantsResponses];
+
+export type RevokeWarehouseSubtreeGrantsData = {
+    body: RevokeSubtreeGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/grants/subtree/revoke';
+};
+
+export type RevokeWarehouseSubtreeGrantsErrors = {
+    /**
+     * Conflict — nothing was revoked and the request can be retried.
+     */
+    409: IcebergErrorResponse;
+    /**
+     * Subtree grant revocation is not supported under the configured authorizer backend
+     */
+    501: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type RevokeWarehouseSubtreeGrantsError = RevokeWarehouseSubtreeGrantsErrors[keyof RevokeWarehouseSubtreeGrantsErrors];
+
+export type RevokeWarehouseSubtreeGrantsResponses = {
+    /**
+     * Grants revoked
+     */
+    200: RevokeSubtreeGrantsResponse;
+};
+
+export type RevokeWarehouseSubtreeGrantsResponse = RevokeWarehouseSubtreeGrantsResponses[keyof RevokeWarehouseSubtreeGrantsResponses];
+
 export type SetWarehouseManagedByData = {
     body: SetWarehouseManagedByRequest;
     path: {
@@ -9470,6 +9939,139 @@ export type GetNamespaceGrantablePrivilegesResponses = {
 };
 
 export type GetNamespaceGrantablePrivilegesResponse = GetNamespaceGrantablePrivilegesResponses[keyof GetNamespaceGrantablePrivilegesResponses];
+
+export type ListNamespaceSubtreeGrantsData = {
+    body?: never;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Namespace ID
+         */
+        namespace_id: string;
+    };
+    query?: {
+        /**
+         * List only the grants held by this user. Mutually exclusive with `principalRole`.
+         */
+        principalUser?: string | null;
+        /**
+         * List only the grants held by this role. Mutually exclusive with `principalUser`.
+         */
+        principalRole?: string | null;
+        /**
+         * List only grants carrying one of these privileges. Repeat the parameter for
+         * several. A name this server's authorizer does not publish is rejected, so a
+         * misspelling cannot read as "nobody holds that".
+         */
+        privilege?: Array<string>;
+        /**
+         * List only grants on resources of these kinds. Repeat the parameter for several.
+         * `table` does not imply `view` or `generic-table`; name each kind you want.
+         */
+        resourceType?: Array<ResourceType>;
+        /**
+         * Include grants on tables, views and generic tables that are in the recycle bin.
+         * On by default, so that a listing previews exactly what the matching revoke would
+         * remove — an undrop restores a table together with its grants.
+         */
+        includeSoftDeleted?: boolean;
+        /**
+         * Read only grants created at or before this instant. Meaningful on the first page:
+         * the page token pins the walk's ceiling, and a later value that disagrees with the
+         * token is refused. Omit it to have the server bind the ceiling and report it as
+         * `as-of`.
+         */
+        createdBefore?: string | null;
+        /**
+         * Include the grants held on the addressed resource itself. On by default: a grant
+         * on a container confers access beneath it, so a listing meant to preview a revoke
+         * must show it. Pass `false` for strictly-below.
+         */
+        includeRootLevel?: boolean;
+        /**
+         * Next page token
+         */
+        pageToken?: string;
+        /**
+         * Signals an upper bound of the number of results that a client will receive.
+         */
+        pageSize?: number | null;
+    };
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/grants/subtree';
+};
+
+export type ListNamespaceSubtreeGrantsErrors = {
+    /**
+     * Subtree grant listing is not supported under the configured authorizer backend
+     */
+    501: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type ListNamespaceSubtreeGrantsError = ListNamespaceSubtreeGrantsErrors[keyof ListNamespaceSubtreeGrantsErrors];
+
+export type ListNamespaceSubtreeGrantsResponses = {
+    /**
+     * Grants held under the namespace
+     */
+    200: ListSubtreeGrantsResponse;
+};
+
+export type ListNamespaceSubtreeGrantsResponse = ListNamespaceSubtreeGrantsResponses[keyof ListNamespaceSubtreeGrantsResponses];
+
+export type RevokeNamespaceSubtreeGrantsData = {
+    body: RevokeSubtreeGrantsRequest;
+    headers?: {
+        /**
+         * Project ID (optional; falls back to the default project if not provided)
+         */
+        'x-project-id'?: string | null;
+    };
+    path: {
+        /**
+         * Warehouse ID
+         */
+        warehouse_id: string;
+        /**
+         * Namespace ID
+         */
+        namespace_id: string;
+    };
+    query?: never;
+    url: '/management/v1/warehouse/{warehouse_id}/namespace/{namespace_id}/grants/subtree/revoke';
+};
+
+export type RevokeNamespaceSubtreeGrantsErrors = {
+    /**
+     * Conflict — nothing was revoked and the request can be retried.
+     */
+    409: IcebergErrorResponse;
+    /**
+     * Subtree grant revocation is not supported under the configured authorizer backend
+     */
+    501: IcebergErrorResponse;
+    '4XX': IcebergErrorResponse;
+};
+
+export type RevokeNamespaceSubtreeGrantsError = RevokeNamespaceSubtreeGrantsErrors[keyof RevokeNamespaceSubtreeGrantsErrors];
+
+export type RevokeNamespaceSubtreeGrantsResponses = {
+    /**
+     * Grants revoked
+     */
+    200: RevokeSubtreeGrantsResponse;
+};
+
+export type RevokeNamespaceSubtreeGrantsResponse = RevokeNamespaceSubtreeGrantsResponses[keyof RevokeNamespaceSubtreeGrantsResponses];
 
 export type MoveNamespaceData = {
     body: MoveNamespaceRequest;

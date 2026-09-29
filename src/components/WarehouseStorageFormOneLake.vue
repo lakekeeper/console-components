@@ -372,5 +372,15 @@ function getData() {
   return { 'storage-profile': cleanProfile, 'storage-credential': cleanCredential };
 }
 
-defineExpose({ getData });
+// Every field the template marks with `*`, for the one auth mode actually on
+// screen. The dialog gates its Verify tab on this: verifying a configuration
+// that is missing half of itself only ever reports what the form already shows.
+const isComplete = computed(() => {
+  if (!profile['workspace-id'] || !profile['lakehouse-id']) return false;
+  if (authMode.value === 'client-credentials')
+    return !!credential['client-id'] && !!credential['client-secret'] && !!credential['tenant-id'];
+  return true;
+});
+
+defineExpose({ getData, isComplete });
 </script>

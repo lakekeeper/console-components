@@ -26,11 +26,16 @@ export function useStorageValidation(
   // S3 secret, so it rides the same httpfs path as an s3-compat warehouse and
   // needs no code of its own. R2 and Alibaba OSS arrive as `s3` profiles with a
   // different credential type, so they are already covered by the 's3' entry.
-  const supportedStorageTypes = ['s3', 'gcs', 'adls', 'stackit'];
+  // 'onelake' is ADLS Gen2 on the wire: Lakekeeper derives an `abfss://` location
+  // on the onelake host and vends the same `adls.sas-token.*` config, so it rides
+  // the azure_wasm path unchanged. Whether Fabric answers a browser request at
+  // all depends on OneLake's CORS behaviour, which is not configurable per
+  // workspace — so this is enabled to be tried, not because it is guaranteed.
+  const supportedStorageTypes = ['s3', 'gcs', 'adls', 'stackit', 'onelake'];
 
   /**
-   * "S3, GCS, ADLS and STACKIT" — a real conjunction rather than a join, which
-   * with four entries would read "S3 and GCS and ADLS and STACKIT".
+   * "S3, GCS, ADLS, STACKIT and ONELAKE" — a real conjunction rather than a join,
+   * which at this length would read "S3 and GCS and ADLS and …".
    */
   function formatStorageTypes(conjunction: 'and' | 'or'): string {
     const names = supportedStorageTypes.map((type) => type.toUpperCase());

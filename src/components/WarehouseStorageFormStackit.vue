@@ -35,14 +35,25 @@
       </v-col>
     </v-row>
 
-    <!-- 2. How do we reach it? The endpoint is derived from the region, so the
-         region is the only reachability field most warehouses need. -->
-    <v-row dense class="mb-3">
-      <v-col cols="12" md="6">
+    <!-- 2. How do we reach it? The endpoint is derived from the region and the
+         storage service, and a custom endpoint replaces that derivation — so the
+         override is the last item of the same select rather than a checkbox
+         beside it: one control, one question ("which storage?"), and the answer
+         "somewhere else entirely" is just another answer to it. Picking it opens
+         the URL field in the freed-up third of the row. The choice stays on the
+         surface because the resolved endpoint is fixed once the warehouse exists
+         (a custom endpoint is a distinct storage tenant, not another route to the
+         same bucket) — a customer who needs it and cannot find it has to recreate
+         the warehouse to correct the mistake. -->
+    <v-row dense class="mb-3" align="start">
+      <!-- A region is four characters; a sixth of the row holds it with room to
+           spare, and the width it gives back goes to the two fields that carry
+           real strings. -->
+      <v-col cols="6" sm="3" md="2">
         <v-combobox
           density="compact"
           v-model="profile.region"
-          hint="STACKIT region the bucket lives in — the endpoint is derived from it"
+          hint="Where the bucket lives"
           persistent-hint
           :items="regions"
           label="Region *"
@@ -51,23 +62,28 @@
           :readonly="lockLocation"
           :rules="[rules.required]"></v-combobox>
       </v-col>
-      <!-- Normally left empty: the endpoint follows from the region. It stays on
-           the surface anyway because it is fixed once the warehouse exists — a
-           custom endpoint is a distinct storage tenant, not another route to the
-           same bucket — so a customer who needs it and cannot find it has to
-           recreate the warehouse to correct the mistake. -->
-      <v-col cols="12" md="6">
+      <!-- With the endpoint showing, the two split the rest a third to two
+           thirds: the select holds two fixed titles, the URL does not. -->
+      <v-col cols="12" sm="9" :md="useCustomEndpoint ? 3 : 10">
+        <v-select
+          density="compact"
+          v-model="endpointSource"
+          :items="endpointSources"
+          label="Storage service"
+          :disabled="lockLocation"
+          :hint="storageServiceHint"
+          persistent-hint></v-select>
+      </v-col>
+      <v-col v-if="useCustomEndpoint" cols="12" md="7">
         <v-text-field
           density="compact"
           v-model="profile.endpoint"
-          label="Endpoint override"
+          label="Endpoint *"
           placeholder="https://object.storage.eu01.onstackit.cloud"
           :readonly="lockLocation"
-          :hint="
-            lockLocation
-              ? lockedHint
-              : 'Optional — only for a per-customer endpoint outside the public naming scheme'
-          "
+          :error="!profile.endpoint"
+          :rules="[rules.required]"
+          hint="Full URL of the endpoint"
           persistent-hint></v-text-field>
       </v-col>
     </v-row>
@@ -292,6 +308,7 @@ const profile = reactive<Record<string, any>>({
   type: 'stackit',
   bucket: '',
   region: 'eu01',
+  'storage-service': 'object-storage',
   'remote-signing-enabled': true,
   'sts-enabled': true,
   'push-s3-delete-disabled': true,
@@ -316,7 +333,20 @@ onMounted(() => {
     if (layout.namespace) layoutNamespace.value = layout.namespace;
   }
 
+  // A warehouse that already carries an override opens with the box ticked —
+  // otherwise the settings flow would show a derivation the warehouse is not on.
+  useCustomEndpoint.value = !!profile.endpoint;
+
   baseline = JSON.stringify(getData());
+});
+
+// Declared before the watcher below it, which clears the field the box reveals.
+const useCustomEndpoint = ref(false);
+
+// Unticking has to clear the value, not just hide it: a hidden field that still
+// reaches the API is how a form lies about what it submitted.
+watch(useCustomEndpoint, (on) => {
+  if (!on) profile.endpoint = '';
 });
 
 // Dirty is measured against what was seeded, not against "has been typed in", so
@@ -382,6 +412,10 @@ function getData() {
   }
 
   cleanProfile['storage-layout'] = buildLayout();
+  // The endpoint override takes precedence, and the pair is what the backend
+  // compares on update: sending a service the override supersedes would claim a
+  // tenant the warehouse is not on.
+  if (cleanProfile.endpoint) delete cleanProfile['storage-service'];
   // The STS keys are hidden when vending is off, and a hidden field that still
   // reaches the API is how a form lies about what it submitted.
   if (profile['sts-enabled']) {
@@ -403,7 +437,18 @@ function getData() {
   return { 'storage-profile': cleanProfile, 'storage-credential': cleanCredential };
 }
 
-defineExpose({ getData });
+// Every field the template marks with `*`, for the one auth mode actually on
+// screen. The dialog gates its Verify tab on this: verifying a configuration
+// that is missing half of itself only ever reports what the form already shows.
+const isComplete = computed(() => {
+  if (!profile.bucket || dottedBucket.value || !!bucketShapeError.value) return false;
+  if (!profile.region) return false;
+  if (useCustomEndpoint.value && !profile.endpoint) return false;
+  if (profile['sts-enabled'] && !profile['credentials-group-urn']) return false;
+  return !!credential['access-key-id'] && !!credential['secret-access-key'];
+});
+
+defineExpose({ getData, isComplete });
 
 const showSecret = ref(false);
 
@@ -439,6 +484,7 @@ const bucketShapeError = computed(() => {
 });
 
 const lockedHint = 'Fixed after creation — a profile update must keep the same location';
+const lockLocationHint = computed(() => (props.lockLocation ? lockedHint : ''));
 
 watch(
   [profile, credential, layoutType, layoutTabular, layoutNamespace],
@@ -448,7 +494,79 @@ watch(
   { deep: true },
 );
 
-// STACKIT Object Storage is offered per region; the endpoint follows the region,
-// so a free-text combobox keeps new regions usable without a release.
-const regions = ['eu01'];
+// STACKIT hosts eu01 in Germany and eu02 in Austria. Object Storage is offered
+// per region and the endpoint follows it, so a free-text combobox keeps a new
+// region usable without a release.
+const regions = ['eu01', 'eu02'];
+
+// The data platform is a separate STACKIT product, offered in eu01 only, so the
+// option is listed but gated on the region rather than hidden — someone looking
+// for it needs to find out *why* it is unavailable, not just that it is missing.
+const DATA_PLATFORM_REGIONS = ['eu01'];
+const dataPlatformAvailable = computed(() => DATA_PLATFORM_REGIONS.includes(profile.region ?? ''));
+
+const storageServices = computed(() => [
+  {
+    title: 'Object Storage',
+    value: 'object-storage',
+    props: { subtitle: 'object.storage.<region>.onstackit.cloud' },
+  },
+  {
+    title: 'Data Platform',
+    value: 'data-platform',
+    props: {
+      subtitle: dataPlatformAvailable.value
+        ? 'dataplatform.storage.<region>.onstackit.cloud'
+        : 'Available in eu01 only',
+      disabled: !dataPlatformAvailable.value,
+    },
+  },
+]);
+
+// The override is offered as one more storage to pick, so the question the
+// select asks stays singular. The sentinel never reaches `profile`: it only
+// flips `useCustomEndpoint`, which is what the endpoint field and `getData()`
+// already key off.
+const CUSTOM_ENDPOINT = '__custom-endpoint__';
+
+const endpointSources = computed(() => [
+  ...storageServices.value,
+  {
+    title: 'Custom endpoint…',
+    value: CUSTOM_ENDPOINT,
+    props: { subtitle: 'A per-customer endpoint outside the public naming scheme' },
+  },
+]);
+
+const endpointSource = computed({
+  get: () => (useCustomEndpoint.value ? CUSTOM_ENDPOINT : profile['storage-service']),
+  set: (value) => {
+    if (value === CUSTOM_ENDPOINT) {
+      useCustomEndpoint.value = true;
+      return;
+    }
+    // Unsetting it clears the endpoint through the watcher above, so the form
+    // cannot submit an override it no longer shows.
+    useCustomEndpoint.value = false;
+    profile['storage-service'] = value;
+  },
+});
+
+const storageServiceHint = computed(() => {
+  if (lockLocationHint.value) return lockLocationHint.value;
+  if (useCustomEndpoint.value) return 'The endpoint beside it replaces the derived one';
+  return 'Which STACKIT storage holds the bucket — the endpoint is derived from it';
+});
+
+// A region change can strand `data-platform` on a region that does not offer it,
+// and the select would keep showing a value the backend rejects. Falling back is
+// the only correct resolution; the hint above says why the option went away.
+watch(
+  () => profile.region,
+  () => {
+    if (!dataPlatformAvailable.value && profile['storage-service'] === 'data-platform') {
+      profile['storage-service'] = 'object-storage';
+    }
+  },
+);
 </script>

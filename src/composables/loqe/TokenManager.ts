@@ -1,4 +1,5 @@
 import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
+import { icebergSecretSql } from './icebergSecret';
 
 /**
  * TokenManager — keeps DuckDB `SECRET` objects in sync with the
@@ -12,7 +13,10 @@ import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
  */
 export class TokenManager {
   private db: AsyncDuckDB | null = null;
-  private registeredSecrets = new Map<string, { catalogName: string; type: string }>();
+  private registeredSecrets = new Map<
+    string,
+    { catalogName: string; type: string; projectId?: string }
+  >();
   private _currentToken = '';
 
   get currentToken(): string {
@@ -26,8 +30,13 @@ export class TokenManager {
   }
 
   /** Track a SECRET that needs refreshing when the token rotates. */
-  registerSecret(secretName: string, catalogName: string, type = 'iceberg'): void {
-    this.registeredSecrets.set(secretName, { catalogName, type });
+  registerSecret(
+    secretName: string,
+    catalogName: string,
+    type = 'iceberg',
+    projectId?: string,
+  ): void {
+    this.registeredSecrets.set(secretName, { catalogName, type, projectId });
   }
 
   /** Stop tracking a SECRET (e.g. after detaching a catalog). */
@@ -49,14 +58,9 @@ export class TokenManager {
     try {
       conn = await this.db.connect();
 
-      for (const [secretName, { type }] of this.registeredSecrets) {
+      for (const [secretName, { type, projectId }] of this.registeredSecrets) {
         try {
-          await conn.query(
-            `CREATE OR REPLACE SECRET ${secretName} (
-              TYPE ${type},
-              TOKEN '${newToken.replace(/'/g, "''")}'
-            )`,
-          );
+          await conn.query(icebergSecretSql(secretName, newToken, projectId, type));
         } catch (e) {
           console.error(`[LoQE] Failed to refresh secret ${secretName}:`, e);
         }

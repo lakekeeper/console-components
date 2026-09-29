@@ -7,6 +7,8 @@ import PermissionAssignDialog from './components/PermissionAssignDialog.vue';
 import UserRenameDialog from './components/UserRenameDialog.vue';
 import ProjectDialog from './components/ProjectDialog.vue';
 import ProjectManager from './components/ProjectManager.vue';
+import ProjectsView from './components/ProjectsView.vue';
+import ProjectDetail from './components/ProjectDetail.vue';
 import ProjectStatistics from './components/ProjectStatistics.vue';
 import NamespaceAddDialog from './components/NamespaceAddDialog.vue';
 import RoleDialog from './components/RoleDialog.vue';
@@ -19,6 +21,7 @@ import PrincipalGrantsPanel from './components/PrincipalGrantsPanel.vue';
 import GrantAssignDialog from './components/GrantAssignDialog.vue';
 import EntityGrantsTab from './components/EntityGrantsTab.vue';
 import GrantsDialog from './components/GrantsDialog.vue';
+import GrantsReviewPanel from './components/GrantsReviewPanel.vue';
 import GrantsExplorer from './components/GrantsExplorer.vue';
 import TagDefinitionDialog from './components/TagDefinitionDialog.vue';
 import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
@@ -39,6 +42,7 @@ import RoleOverviewEdit from './components/RoleOverviewEdit.vue';
 import RoleProviderChip from './components/RoleProviderChip.vue';
 import ProjectNameAddOrEditDialog from './components/ProjectNameAddOrEditDialog.vue';
 import AuthenticationDisabledWarningBanner from './components/AuthenticationDisabledWarningBanner.vue';
+import WarehousePicker from './components/WarehousePicker.vue';
 import WarehouseRenameDialog from './components/WarehouseRenameDialog.vue';
 import WarehouseActionsMenu from './components/WarehouseActionsMenu.vue';
 import WarehouseAddDialog from './components/WarehouseAddDialog.vue';
@@ -54,6 +58,7 @@ import WarehouseDetails from './components/WarehouseDetails.vue';
 import TaskManager from './components/TaskManager.vue';
 import TaskDetails from './components/TaskDetails.vue';
 import WarehouseManager from './components/WarehouseManager.vue';
+import EntityIdentityRow from './components/EntityIdentityRow.vue';
 import WarehouseHeader from './components/WarehouseHeader.vue';
 import WarehouseStatistics from './components/WarehouseStatistics.vue';
 import HomeStatistics from './components/HomeStatistics.vue';
@@ -69,6 +74,7 @@ import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import MoveNamespaceDialog from './components/MoveNamespaceDialog.vue';
 import TableHeader from './components/TableHeader.vue';
+import TableSchema from './components/TableSchema.vue';
 import TableActionsMenu from './components/TableActionsMenu.vue';
 import GenericTableHeader from './components/GenericTableHeader.vue';
 import GenericTableOverview from './components/GenericTableOverview.vue';
@@ -147,6 +153,7 @@ export {
   GrantAssignDialog,
   EntityGrantsTab,
   GrantsDialog,
+  GrantsReviewPanel,
   GrantsExplorer,
   TagDefinitionDialog,
   TagAttachmentsPanel,
@@ -183,6 +190,7 @@ export {
   UserManager,
   ProjectNameAddOrEditDialog,
   AuthenticationDisabledWarningBanner,
+  WarehousePicker,
   WarehouseRenameDialog,
   WarehouseActionsMenu,
   WarehouseAddDialog,
@@ -200,11 +208,14 @@ export {
   ComputeConnectDialog,
   ComputeConnectPanel,
   ProjectManager,
+  ProjectsView,
+  ProjectDetail,
   ProjectStatistics,
   WarehouseDetails,
   TaskManager,
   TaskDetails,
   WarehouseManager,
+  EntityIdentityRow,
   WarehouseHeader,
   WarehouseStatistics,
   HomeStatistics,
@@ -220,6 +231,7 @@ export {
   MoveNamespaceDialog,
   NamespacePropertiesDialog,
   TableHeader,
+  TableSchema,
   TableActionsMenu,
   GenericTableHeader,
   GenericTableOverview,
@@ -313,6 +325,19 @@ export type { RoleOwnership } from './composables/useRoleProviders';
 // Extension point: a component the app registers to annotate every grants pane
 // with whether grants there take effect. See `common/grantsNotice.ts`.
 export { GrantsNoticeKey } from './common/grantsNotice';
+
+// Extension point: a component the app registers as a second pane on every
+// container's grants pane, listing what is held beneath it. See
+// `common/grantsSubtree.ts`.
+export { GrantsSubtreeKey } from './common/grantsSubtree';
+
+// How tall a pane may be where it actually sits — see `common/paneHeight.ts`.
+export { measurePaneHeight, usePaneHeight } from './common/paneHeight';
+export type {
+  SubtreeGrantSource,
+  SubtreeGrantPage,
+  SubtreeGrantFilter,
+} from './common/grantsSubtree';
 
 // Build-time switches for UI on its way in or out.
 export { PERMISSIONS_UI_ENABLED } from './common/featureFlags';
@@ -462,6 +487,7 @@ const components = {
   GrantAssignDialog,
   EntityGrantsTab,
   GrantsDialog,
+  GrantsReviewPanel,
   GrantsExplorer,
   TagDefinitionDialog,
   TagAttachmentsPanel,
@@ -497,6 +523,7 @@ const components = {
   PlusFeatureDialog,
   UserManager,
   AuthenticationDisabledWarningBanner,
+  WarehousePicker,
   WarehouseRenameDialog,
   WarehouseActionsMenu,
   WarehouseAddDialog,
@@ -514,11 +541,14 @@ const components = {
   ComputeConnectDialog,
   ComputeConnectPanel,
   ProjectManager,
+  ProjectsView,
+  ProjectDetail,
   ProjectStatistics,
   WarehouseDetails,
   TaskManager,
   TaskDetails,
   WarehouseManager,
+  EntityIdentityRow,
   WarehouseHeader,
   WarehouseStatistics,
   HomeStatistics,
@@ -535,6 +565,7 @@ const components = {
   MoveNamespaceDialog,
   NamespacePropertiesDialog,
   TableHeader,
+  TableSchema,
   TableActionsMenu,
   GenericTableHeader,
   GenericTableOverview,
@@ -613,6 +644,7 @@ export {
 export type { DuckDBSettings } from './stores/duckdbSettings';
 export { default as DuckDBSettingsDialog } from './components/DuckDBSettingsDialog.vue';
 export { default as CorsConfigDialog } from './components/CorsConfigDialog.vue';
+export { default as EngineErrorAlert } from './components/EngineErrorAlert.vue';
 
 // Export LoQE — Local Query Engine DuckDB
 export { useLoQE } from './composables/useLoQE';

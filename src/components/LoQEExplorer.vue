@@ -224,7 +224,9 @@
                   <!-- Collapse toggle + info alert -->
                   <div class="d-flex align-center mb-3">
                     <v-btn
-                      :icon="sidebarCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
+                      :icon="
+                        sidebarCollapsed ? 'mdi-chevron-double-right' : 'mdi-chevron-double-left'
+                      "
                       size="default"
                       variant="tonal"
                       color="primary"
@@ -477,23 +479,13 @@
                   </v-alert>
 
                   <!-- Error (for active result tab) -->
-                  <v-alert
-                    v-if="activeError"
-                    type="error"
+                  <EngineErrorAlert
+                    :error="activeError"
+                    title="Query Error"
                     icon="mdi-bug"
                     closable
-                    @click:close="queryResults[activeResultTab].error = null"
-                    class="mb-3">
-                    <div class="font-weight-bold">Query Error</div>
-                    <pre class="text-caption mt-1" style="white-space: pre-wrap">{{
-                      activeError
-                    }}</pre>
-                    <template
-                      v-if="activeError.includes('CORS') || activeError.includes('Failed to fetch')"
-                      #append>
-                      <CorsConfigDialog />
-                    </template>
-                  </v-alert>
+                    class="mb-3"
+                    @close="queryResults[activeResultTab].error = null" />
 
                   <!-- Result Tabs (only shown when multiple statements) -->
                   <v-tabs
@@ -851,7 +843,20 @@
             @click="showDDLDialog = false"></v-btn>
         </v-card-title>
         <v-divider />
-        <v-card-text class="pa-0" style="flex: 1; overflow: auto">
+        <v-tabs v-model="ddlTab" density="compact" class="px-2">
+          <v-tab
+            v-for="t in ddlTabs"
+            :key="t.value"
+            :value="t.value"
+            :disabled="!ddlStatements[t.value]"
+            size="small"
+            class="text-caption">
+            <v-icon size="small" class="mr-1">{{ t.icon }}</v-icon>
+            {{ t.label }}
+          </v-tab>
+        </v-tabs>
+        <v-divider />
+        <v-card-text class="pa-0" style="flex: 1 1 auto; min-height: 0; overflow: hidden">
           <div v-if="isDDLLoading" class="text-center py-8">
             <v-progress-circular indeterminate size="48" color="primary" />
             <div class="text-caption mt-2 text-medium-emphasis">Loading metadata…</div>
@@ -859,7 +864,14 @@
           <div v-else-if="ddlError" class="pa-4">
             <v-alert type="error" variant="tonal" density="compact">{{ ddlError }}</v-alert>
           </div>
-          <SqlEditor v-else :model-value="ddlContent" disabled min-height="60vh" placeholder="" />
+          <!-- Bound to the dialog minus its title, tabs and actions so the editor
+               scrolls internally instead of overflowing the card. -->
+          <SqlEditor
+            v-else
+            :model-value="ddlContent"
+            readonly
+            min-height="calc(80vh - 160px)"
+            placeholder="" />
         </v-card-text>
         <v-divider />
         <v-card-actions class="px-4 py-2">
@@ -867,10 +879,18 @@
           <v-btn
             size="small"
             variant="text"
+            @click="insertDDLIntoEditor"
+            prepend-icon="mdi-application-import"
+            :disabled="!ddlContent">
+            Insert into editor
+          </v-btn>
+          <v-btn
+            size="small"
+            variant="text"
             @click="copyDDLToClipboard"
             prepend-icon="mdi-content-copy"
             :disabled="!ddlContent">
-            Copy DDL
+            Copy SQL
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -907,7 +927,7 @@ import type {
 import SqlEditor from './SqlEditor.vue';
 import LoQENavigationTree from './LoQENavigationTree.vue';
 import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
-import CorsConfigDialog from './CorsConfigDialog.vue';
+import EngineErrorAlert from './EngineErrorAlert.vue';
 import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
 import ReportBuilderPanel from './ReportBuilderPanel.vue';
@@ -1010,9 +1030,17 @@ const previewItems = computed(() => {
 // DDL dialog state
 const showDDLDialog = ref(false);
 const isDDLLoading = ref(false);
-const ddlContent = ref('');
+const ddlStatements = ref<SqlTemplates>({ create: '', insert: '', delete: '', drop: '' });
+const ddlTab = ref<SqlTemplateKind>('create');
 const ddlError = ref<string | null>(null);
 const ddlTitle = ref('');
+const ddlContent = computed(() => ddlStatements.value[ddlTab.value] || '');
+const ddlTabs: { value: SqlTemplateKind; label: string; icon: string }[] = [
+  { value: 'create', label: 'Create', icon: 'mdi-table-plus' },
+  { value: 'insert', label: 'Insert', icon: 'mdi-table-row-plus-after' },
+  { value: 'delete', label: 'Delete', icon: 'mdi-table-row-remove' },
+  { value: 'drop', label: 'Drop', icon: 'mdi-table-remove' },
+];
 
 // Race-condition guards: monotonically increasing request tokens
 let previewRequestToken = 0;
@@ -1488,6 +1516,73 @@ function typeToString(t: IcebergType): string {
   return String(t);
 }
 
+type SqlTemplateKind = 'create' | 'insert' | 'delete' | 'drop';
+type SqlTemplates = Record<SqlTemplateKind, string>;
+
+/** Resolve the current schema of a table/view metadata document. */
+function currentSchema(
+  schemas: any[] | undefined,
+  schemaId: number | undefined,
+): { fields?: StructField[] } | undefined {
+  const list = schemas || [];
+  return list.find((s) => (s as any)['schema-id'] === (schemaId ?? 0)) || list[0];
+}
+
+/**
+ * A placeholder literal for an Iceberg type, valid as a DuckDB expression so the
+ * generated INSERT runs as-is once the values are edited.
+ */
+function sampleValueForType(t: IcebergType): string {
+  const name = typeof t === 'string' ? t : (t as any).type;
+  if (name === 'boolean') return 'false';
+  if (name === 'int' || name === 'long') return '0';
+  if (name === 'float' || name === 'double' || name.startsWith('decimal')) return '0.0';
+  if (name === 'date') return "DATE '1970-01-01'";
+  if (name === 'time') return "TIME '00:00:00'";
+  if (name.startsWith('timestamp')) return "TIMESTAMP '1970-01-01 00:00:00'";
+  if (name === 'string') return "''";
+  if (name === 'uuid') return "'00000000-0000-0000-0000-000000000000'";
+  return 'NULL';
+}
+
+/** INSERT … VALUES skeleton with one placeholder row, typed per column. */
+function generateInsertDML(tablePath: string, metadata: TableMetadataWritable): string {
+  const schema = currentSchema(metadata.schemas as any[], metadata['current-schema-id']);
+  const fields = schema?.fields || [];
+  if (!fields.length) return `INSERT INTO ${tablePath} VALUES ();\n`;
+
+  const cols = fields.map((f: StructField) => `  ${f.name}`).join(',\n');
+  const width = Math.max(...fields.map((f: StructField) => sampleValueForType(f.type).length));
+  const values = fields
+    .map((f: StructField) => {
+      const v = sampleValueForType(f.type);
+      return `  ${v.padEnd(width)} -- ${f.name}: ${typeToString(f.type)}${f.required ? ' NOT NULL' : ''}`;
+    })
+    .join(',\n');
+
+  return `INSERT INTO ${tablePath} (\n${cols}\n) VALUES (\n${values}\n);\n`;
+}
+
+/** DELETE skeleton with the first column as an editable predicate. */
+function generateDeleteDML(tablePath: string, metadata: TableMetadataWritable): string {
+  const schema = currentSchema(metadata.schemas as any[], metadata['current-schema-id']);
+  const first = schema?.fields?.[0];
+  const lines = ['-- Review the predicate before running: without it every row is deleted.'];
+  if (first) {
+    lines.push(`DELETE FROM ${tablePath}`);
+    lines.push(`WHERE ${first.name} = ${sampleValueForType(first.type)};`);
+  } else {
+    lines.push(`DELETE FROM ${tablePath}`);
+    lines.push('WHERE true;');
+  }
+  return lines.join('\n') + '\n';
+}
+
+function generateDropDDL(path: string, kind: 'table' | 'view'): string {
+  const keyword = kind === 'view' ? 'VIEW' : 'TABLE';
+  return `-- Dropping is irreversible.\nDROP ${keyword} ${path};\n`;
+}
+
 function generateTableDDL(tablePath: string, metadata: TableMetadataWritable): string {
   const lines: string[] = [];
   const schemaId = metadata['current-schema-id'] ?? 0;
@@ -1537,10 +1632,8 @@ function generateTableDDL(tablePath: string, metadata: TableMetadataWritable): s
     lines.push(`SORTED BY (${sorts.join(', ')})`);
   }
 
-  // Location
-  if (metadata.location) {
-    lines.push(`LOCATION '${metadata.location}'`);
-  }
+  // No LOCATION: the catalog owns the table location, and DuckDB/Iceberg writes
+  // through the REST catalog reject a client-supplied one.
 
   // Properties
   if (metadata.properties && Object.keys(metadata.properties).length) {
@@ -1606,7 +1699,8 @@ async function handleShowDDL(item: {
   const tablePath = buildTablePath(item);
   const token = ++ddlRequestToken;
   ddlTitle.value = `${item.name} (${item.type})`;
-  ddlContent.value = '';
+  ddlStatements.value = { create: '', insert: '', delete: '', drop: '' };
+  ddlTab.value = 'create';
   ddlError.value = null;
   isDDLLoading.value = true;
   showDDLDialog.value = true;
@@ -1615,7 +1709,13 @@ async function handleShowDDL(item: {
     if (item.type === 'view') {
       const result = await functions.loadView(item.warehouseId, item.namespaceId, item.name, false);
       if (token !== ddlRequestToken) return;
-      ddlContent.value = generateViewDDL(tablePath, result.metadata);
+      // Views have no rows of their own — only CREATE and DROP apply.
+      ddlStatements.value = {
+        create: generateViewDDL(tablePath, result.metadata),
+        insert: '',
+        delete: '',
+        drop: generateDropDDL(tablePath, 'view'),
+      };
     } else {
       const result = await functions.loadTable(
         item.warehouseId,
@@ -1624,7 +1724,12 @@ async function handleShowDDL(item: {
         false,
       );
       if (token !== ddlRequestToken) return;
-      ddlContent.value = generateTableDDL(tablePath, result.metadata);
+      ddlStatements.value = {
+        create: generateTableDDL(tablePath, result.metadata),
+        insert: generateInsertDML(tablePath, result.metadata),
+        delete: generateDeleteDML(tablePath, result.metadata),
+        drop: generateDropDDL(tablePath, 'table'),
+      };
     }
   } catch (err: any) {
     if (token !== ddlRequestToken) return;
@@ -1649,7 +1754,22 @@ async function handleCopyPath(item: {
 
 async function copyDDLToClipboard() {
   if (!ddlContent.value) return;
-  await copyToClipboard(ddlContent.value, 'DDL copied to clipboard');
+  await copyToClipboard(ddlContent.value, 'SQL copied to clipboard');
+}
+
+/** Drop the active statement into the SQL editor at the cursor. */
+function insertDDLIntoEditor() {
+  const sql = ddlContent.value;
+  if (!sql) return;
+  if (!sqlQuery.value) {
+    sqlQuery.value = sql;
+  } else {
+    const before = sqlQuery.value.substring(0, cursorPosition.value);
+    const after = sqlQuery.value.substring(cursorPosition.value);
+    sqlQuery.value = before + sql + after;
+    cursorPosition.value += sql.length;
+  }
+  showDDLDialog.value = false;
 }
 
 async function handleAutoAttachWarehouse(wh: {

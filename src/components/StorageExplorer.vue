@@ -42,26 +42,69 @@
 
     <input ref="fileInputRef" type="file" multiple style="display: none" @change="onFilesPicked" />
 
-    <!-- Upload progress -->
-    <div v-if="uploads.length" class="mb-2">
-      <div v-for="u in uploads" :key="u.id" class="d-flex align-center mb-1 px-1">
-        <v-icon size="x-small" class="mr-1" :color="u.error ? 'error' : 'primary'">
-          {{ u.error ? 'mdi-alert-circle-outline' : fileIcon(u.name) }}
-        </v-icon>
-        <span class="text-caption font-mono text-truncate" style="max-width: 180px">
-          {{ u.name }}
-        </span>
-        <v-progress-linear
-          :model-value="u.fraction * 100"
-          :color="u.error ? 'error' : 'primary'"
-          height="4"
-          class="mx-2 flex-grow-1"
-          :indeterminate="!u.done && u.fraction === 0 && !u.error" />
-        <span class="text-caption text-medium-emphasis" style="min-width: 36px; text-align: right">
-          {{ u.error ? 'Error' : u.done ? 'Done' : Math.round(u.fraction * 100) + '%' }}
-        </span>
-      </div>
-    </div>
+    <!-- Upload progress — floating panel, anchored bottom-right -->
+    <Teleport to="body">
+      <v-card v-if="uploads.length" class="upload-panel" elevation="8" rounded="lg" width="380">
+        <div class="d-flex align-center pl-4 pr-2 py-1 upload-panel-header">
+          <span class="text-body-2 font-weight-medium text-truncate">{{ uploadHeadline }}</span>
+          <v-spacer />
+          <v-btn
+            size="small"
+            variant="text"
+            :icon="uploadPanelCollapsed ? 'mdi-chevron-up' : 'mdi-chevron-down'"
+            :title="uploadPanelCollapsed ? 'Expand' : 'Collapse'"
+            @click="uploadPanelCollapsed = !uploadPanelCollapsed"></v-btn>
+          <v-btn
+            size="small"
+            variant="text"
+            icon="mdi-close"
+            :disabled="uploadsActive"
+            title="Close"
+            @click="dismissUploads"></v-btn>
+        </div>
+        <v-expand-transition>
+          <div v-show="!uploadPanelCollapsed" class="upload-panel-body">
+            <div
+              v-for="u in uploads"
+              :key="u.id"
+              class="d-flex align-center px-4 py-2 upload-panel-row"
+              style="gap: 10px">
+              <v-icon size="small" :color="u.error ? 'error' : 'primary'">
+                {{ u.error ? 'mdi-alert-circle-outline' : fileIcon(u.name) }}
+              </v-icon>
+              <div class="flex-grow-1" style="min-width: 0">
+                <div class="text-caption font-mono text-truncate" :title="u.name">{{ u.name }}</div>
+                <div v-if="u.error" class="text-caption text-error text-truncate" :title="u.error">
+                  {{ u.error }}
+                </div>
+                <div v-else-if="u.cancelled" class="text-caption text-medium-emphasis">
+                  Cancelled
+                </div>
+              </div>
+              <v-icon v-if="u.error" size="small" color="error">mdi-alert-circle</v-icon>
+              <v-icon v-else-if="u.cancelled" size="small" class="text-medium-emphasis">
+                mdi-cancel
+              </v-icon>
+              <v-icon v-else-if="u.done" size="small" color="success">mdi-check-circle</v-icon>
+              <template v-else>
+                <v-progress-circular
+                  :model-value="u.fraction * 100"
+                  :indeterminate="u.fraction === 0"
+                  size="18"
+                  width="2"
+                  color="primary" />
+                <v-btn
+                  size="x-small"
+                  variant="text"
+                  icon="mdi-close"
+                  title="Cancel this upload"
+                  @click="cancelUpload(u)"></v-btn>
+              </template>
+            </div>
+          </div>
+        </v-expand-transition>
+      </v-card>
+    </Teleport>
 
     <v-alert v-if="topError" type="warning" variant="tonal" density="compact" class="mb-3">
       <div class="font-weight-medium mb-1">Storage listing unavailable</div>
@@ -357,9 +400,45 @@
               Avro preview isn't supported yet (DuckDB-WASM lacks the avro reader in this build).
               Use Download.
             </template>
+            <template v-else-if="previewKind === 'binary'">
+              This file looks binary — decoding it as text gives gibberish.
+              <div class="mt-3 d-flex align-center" style="gap: 8px">
+                <v-btn
+                  v-if="previewText"
+                  size="small"
+                  variant="tonal"
+                  @click="previewKind = 'text'">
+                  Show as text anyway
+                </v-btn>
+                <v-btn
+                  v-if="previewNode"
+                  size="small"
+                  variant="text"
+                  prepend-icon="mdi-download-outline"
+                  @click="download(previewNode)">
+                  Download
+                </v-btn>
+              </div>
+            </template>
             <template v-else>No inline preview for this file type. Use Download.</template>
           </div>
         </v-card-text>
+      </v-card>
+    </v-dialog>
+
+    <!-- Leaving while uploads are in flight -->
+    <v-dialog v-model="leaveOpen" max-width="460" persistent>
+      <v-card title="Uploads still in progress">
+        <v-card-text class="text-body-2">
+          {{ uploadsPendingCount }} file{{ uploadsPendingCount === 1 ? '' : 's' }} still uploading.
+          Leaving this page stops the explorer from tracking them, and a transfer that is cut off
+          can leave an incomplete object in storage.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="answerLeave(false)">Stay on page</v-btn>
+          <v-btn color="error" variant="flat" @click="answerLeave(true)">Leave anyway</v-btn>
+        </v-card-actions>
       </v-card>
     </v-dialog>
 
@@ -457,17 +536,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, computed, onMounted, watch, inject } from 'vue';
+import {
+  ref,
+  shallowRef,
+  reactive,
+  computed,
+  markRaw,
+  onMounted,
+  onUnmounted,
+  watch,
+  inject,
+} from 'vue';
 import VueJsonPretty from 'vue-json-pretty';
 import 'vue-json-pretty/lib/styles.css';
+import { onBeforeRouteLeave } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
 import {
   useStorageExplorer,
   StorageListError,
+  UploadCancelled,
   type StorageEntry,
   type StorageLoadResult,
 } from '../composables/useStorageExplorer';
+import { hasVendedCredentials, useVendedCredentials } from '@/composables/useVendedCredentials';
 
 const props = defineProps<{
   warehouseId: string;
@@ -479,6 +571,7 @@ const props = defineProps<{
 
 const functions = useFunctions();
 const explorer = useStorageExplorer();
+const { explainMissingCredentials } = useVendedCredentials();
 const appConfig = inject<{ baseUrlPrefix?: string }>('appConfig', {});
 const loqe = useLoQE({ baseUrlPrefix: appConfig.baseUrlPrefix ?? '' });
 
@@ -515,6 +608,17 @@ const visibleRows = computed(() => {
   return rows;
 });
 
+/** The table UUID of the last load, for asking the catalog about privileges. */
+const loadedTableUuid = ref<string | undefined>(undefined);
+
+/**
+ * The entity and the credentials to read it with.
+ *
+ * Both halves matter here in a way they do not elsewhere: this pane signs its own
+ * S3 requests, so without vended credentials it cannot list a single object. The
+ * plain loader asks for no access delegation at all, which left the pane reporting
+ * "no S3 access key" for a reader who may well have had one coming.
+ */
 async function loadEntity(): Promise<StorageLoadResult> {
   if (props.entityType === 'generic-table') {
     const g: any = await functions.loadGenericTable(
@@ -523,18 +627,37 @@ async function loadEntity(): Promise<StorageLoadResult> {
       props.entityName,
       false,
     );
-    return {
+    loadedTableUuid.value = undefined;
+    const res: StorageLoadResult = {
       location: g?.table?.['base-location'] || '',
       config: g?.config,
       'storage-credentials': g?.['storage-credentials'],
     };
+    // Generic tables vend through their own endpoint; the load above carries
+    // credentials only on catalogs that attach them unasked.
+    if (!hasVendedCredentials(res)) {
+      try {
+        const creds: any = await functions.loadGenericTableCredentials(
+          props.warehouseId,
+          props.namespaceId,
+          props.entityName,
+          false,
+        );
+        if (creds?.['storage-credentials']?.length)
+          res['storage-credentials'] = creds['storage-credentials'];
+      } catch {
+        // Left to the diagnosis below, which says more than this refusal does.
+      }
+    }
+    return res;
   }
-  const t: any = await functions.loadTableCustomized(
+  const t: any = await functions.loadTableVendedCredentials(
     props.warehouseId,
     props.namespaceId,
     props.entityName,
     false,
   );
+  loadedTableUuid.value = t?.metadata?.['table-uuid'];
   return {
     location: t?.metadata?.location || '',
     config: t?.config,
@@ -557,6 +680,14 @@ async function load() {
     const entries = await explorer.listPrefix(res, explorer.rootPrefix(res.location));
     rootNodes.value = entries.map((e) => toNode(e, 0));
   } catch (e: any) {
+    // "No access key in vended credentials" is true and unhelpful: it names the
+    // field that is missing, not the reason. The catalog can give the reason, so
+    // ask it rather than leaving the reader to guess between a privilege they
+    // may not have and a warehouse that does not vend.
+    if (e instanceof StorageListError && e.kind === 'config') {
+      topError.value = await explainMissingCredentials(props.warehouseId, loadedTableUuid.value);
+      return;
+    }
     topError.value =
       e instanceof StorageListError ? e.message : e?.error?.message || e?.message || String(e);
   } finally {
@@ -647,11 +778,75 @@ interface UploadItem {
   fraction: number;
   done: boolean;
   error?: string;
+  cancelled?: boolean;
+  controller: AbortController;
 }
 let uploadSeq = 0;
 const uploads = ref<UploadItem[]>([]);
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const uploadTarget = ref<string | null>(null);
+const uploadPanelCollapsed = ref(false);
+
+const isPending = (u: UploadItem) => !u.done && !u.error && !u.cancelled;
+const uploadsActive = computed(() => uploads.value.some(isPending));
+const uploadsPendingCount = computed(() => uploads.value.filter(isPending).length);
+
+function cancelUpload(item: UploadItem) {
+  item.controller.abort();
+}
+const uploadHeadline = computed(() => {
+  const total = uploads.value.length;
+  const pending = uploadsPendingCount.value;
+  const failed = uploads.value.filter((u) => u.error).length;
+  const cancelled = uploads.value.filter((u) => u.cancelled).length;
+  const done = uploads.value.filter((u) => u.done).length;
+  if (pending) return `Uploading ${pending} of ${total} item${total === 1 ? '' : 's'}…`;
+  if (failed === total) return `${failed} upload${failed === 1 ? '' : 's'} failed`;
+  if (cancelled === total) return `${cancelled} upload${cancelled === 1 ? '' : 's'} cancelled`;
+  const tail = [failed ? `${failed} failed` : '', cancelled ? `${cancelled} cancelled` : '']
+    .filter(Boolean)
+    .join(', ');
+  if (tail) return `${done} of ${total} uploads complete, ${tail}`;
+  return `${total} upload${total === 1 ? '' : 's'} complete`;
+});
+
+function dismissUploads() {
+  uploads.value = [];
+  uploadPanelCollapsed.value = false;
+}
+
+// ---- Leaving mid-upload -----------------------------------------------------
+// A transfer in flight is tied to this page: a full page unload kills it, and a
+// route change takes away the only place its progress and errors are reported.
+const leaveOpen = ref(false);
+let leaveResolve: ((leave: boolean) => void) | null = null;
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (!uploadsActive.value) return;
+  e.preventDefault();
+  e.returnValue = '';
+}
+
+onMounted(() => window.addEventListener('beforeunload', onBeforeUnload));
+onUnmounted(() => window.removeEventListener('beforeunload', onBeforeUnload));
+
+function answerLeave(leave: boolean) {
+  leaveOpen.value = false;
+  leaveResolve?.(leave);
+  leaveResolve = null;
+}
+
+try {
+  onBeforeRouteLeave(() => {
+    if (!uploadsActive.value) return true;
+    leaveOpen.value = true;
+    return new Promise<boolean>((resolve) => {
+      leaveResolve = resolve;
+    });
+  });
+} catch {
+  // Rendered outside a router (tests, isolated mounts): the unload guard alone.
+}
 const isDraggingOver = ref(false);
 
 // Delete state
@@ -674,6 +869,21 @@ async function maybeGunzip(bytes: Uint8Array): Promise<Uint8Array> {
   const ds = new (globalThis as any).DecompressionStream('gzip');
   const stream = new Blob([bytes.buffer as ArrayBuffer]).stream().pipeThrough(ds);
   return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+// Rough binary sniff over the decoded head: NUL bytes, or a high share of
+// replacement chars / control codes, mean the text view would be gibberish.
+function looksBinary(bytes: Uint8Array, text: string): boolean {
+  const head = Math.min(bytes.length, 8192);
+  for (let i = 0; i < head; i++) if (bytes[i] === 0) return true;
+  const sample = text.slice(0, 4096);
+  if (!sample.length) return false;
+  let odd = 0;
+  for (const ch of sample) {
+    const c = ch.codePointAt(0) as number;
+    if (c === 0xfffd || (c < 0x20 && c !== 9 && c !== 10 && c !== 13)) odd++;
+  }
+  return odd / sample.length > 0.1;
 }
 
 async function openPreview(node: TreeNode) {
@@ -701,16 +911,35 @@ async function openPreview(node: TreeNode) {
     // source: a dataset README is worth reading, and rendering it would mean
     // pulling a markdown parser plus sanitiser into the shared library.
     const isText =
-      ['txt', 'log', 'yaml', 'yml', 'md', 'markdown', 'sql', 'toml', 'ini', 'conf'].includes(ext) ||
-      paimonText;
+      [
+        'txt',
+        'log',
+        'yaml',
+        'yml',
+        'md',
+        'markdown',
+        'sql',
+        'toml',
+        'ini',
+        'conf',
+        'cedar',
+      ].includes(ext) || paimonText;
     const tabular = isParquet || isCsv || isAvro;
     const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
     const isPdf = ext === 'pdf';
+    // Anything unrecognised is attempted as text: dataset side-cars (policies,
+    // manifests, dotfiles, extension-less files) are usually readable, and the
+    // binary ones are caught after decoding rather than by extension.
+    const isUnknown = !(tabular || isText || isJson || isImage || isPdf);
     // The cap covers text and JSON as well as the tabular formats: the text
     // viewer only shows the first 200k characters, but it got there by
     // downloading and decoding the whole object first — which a multi-gigabyte
     // log or SQL dump makes expensive enough to hang the tab.
-    if ((tabular || isText || isJson) && node.size != null && node.size > PREVIEW_SIZE_CAP) {
+    if (
+      (tabular || isText || isJson || isUnknown) &&
+      node.size != null &&
+      node.size > PREVIEW_SIZE_CAP
+    ) {
       previewKind.value = 'toolarge';
       return;
     }
@@ -774,7 +1003,13 @@ async function openPreview(node: TreeNode) {
       );
       previewKind.value = isPdf ? 'pdf' : 'image';
     } else {
-      previewKind.value = 'binary';
+      const raw = await withRenew(() => explorer.getObject(storageRes.value!, node.path));
+      const bytes = await maybeGunzip(raw);
+      const text = new TextDecoder().decode(bytes);
+      previewText.value = text.slice(0, 200_000);
+      // Keep the decoded text around either way — the binary notice offers to
+      // show it anyway, since the heuristic can only guess.
+      previewKind.value = looksBinary(bytes, text) ? 'binary' : 'text';
     }
   } catch (e: any) {
     previewError.value = e instanceof StorageListError ? e.message : e?.message || String(e);
@@ -850,6 +1085,7 @@ function fileIcon(name: string): string {
   if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext || '')) return 'mdi-image-outline';
   if (['csv', 'tsv'].includes(ext || '')) return 'mdi-file-delimited-outline';
   if (['md', 'markdown'].includes(ext || '')) return 'mdi-language-markdown-outline';
+  if (ext === 'cedar') return 'mdi-shield-key-outline';
   if (['txt', 'log', 'yaml', 'yml', 'sql', 'toml', 'ini', 'conf'].includes(ext || ''))
     return 'mdi-file-document-outline';
   return 'mdi-file-outline';
@@ -903,9 +1139,24 @@ function onFilesPicked(e: Event) {
 async function uploadFiles(files: File[], targetPrefix: string | null) {
   if (!storageRes.value) return;
   const prefix = targetPrefix ?? explorer.rootPrefix(storageRes.value.location);
+  // A new batch after a finished one starts a fresh panel (Drive-style).
+  if (uploads.value.length && !uploadsActive.value) uploads.value = [];
+  uploadPanelCollapsed.value = false;
   const tasks = files.map((file) => {
     const id = ++uploadSeq;
-    const item: UploadItem = { id, name: file.name, fraction: 0, done: false };
+    // Reactive up front, not on the way out of the array: the upload tasks hold
+    // this object, and a mutation on the raw one the array was handed never
+    // reaches the proxy the panel renders — progress would sit at 0% and a
+    // cancel would change nothing on screen.
+    const item = reactive<UploadItem>({
+      id,
+      name: file.name,
+      fraction: 0,
+      done: false,
+      // Raw: a reactive proxy around an AbortController makes abort() and its
+      // signal's addEventListener throw on an illegal invocation.
+      controller: markRaw(new AbortController()),
+    });
     uploads.value.push(item);
     return { file, item, absPath: prefix + file.name };
   });
@@ -913,21 +1164,27 @@ async function uploadFiles(files: File[], targetPrefix: string | null) {
     tasks.map(async ({ file, item, absPath }) => {
       try {
         await withRenew(() =>
-          explorer.putObject(storageRes.value!, absPath, file, (f) => {
-            item.fraction = f;
-          }),
+          explorer.putObject(
+            storageRes.value!,
+            absPath,
+            file,
+            (f) => {
+              item.fraction = f;
+            },
+            item.controller.signal,
+          ),
         );
         item.fraction = 1;
         item.done = true;
       } catch (e: any) {
-        item.error = e instanceof StorageListError ? e.message : e?.message || String(e);
+        if (e instanceof UploadCancelled) item.cancelled = true;
+        else item.error = e instanceof StorageListError ? e.message : e?.message || String(e);
       }
     }),
   );
   await refreshFolder(targetPrefix);
-  setTimeout(() => {
-    uploads.value = uploads.value.filter((u) => !u.done);
-  }, 2000);
+  // The panel stays until it is dismissed: a result that disappears on a timer
+  // is one the reader has to have been watching to see.
 }
 
 async function refreshFolder(path: string | null) {
@@ -1299,6 +1556,23 @@ watch(previewOpen, (open) => {
   max-width: 320px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.upload-panel {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 2000;
+  max-width: calc(100vw - 32px);
+}
+.upload-panel-header {
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+}
+.upload-panel-body {
+  max-height: 260px;
+  overflow-y: auto;
+}
+.upload-panel-row + .upload-panel-row {
+  border-top: 1px solid rgba(var(--v-theme-on-surface), 0.06);
 }
 .drag-over {
   outline: 2px dashed rgba(var(--v-theme-primary), 0.5);

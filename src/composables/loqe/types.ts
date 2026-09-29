@@ -38,7 +38,10 @@ export interface LoQECatalogConfig {
 export interface AttachedCatalog {
   catalogName: string;
   restUri: string;
+  /** Project segment of the ATTACH prefix — falls back to `default`. */
   projectId: string;
+  /** Real project id, sent as `x-project-id`; absent when the caller knew none. */
+  headerProjectId?: string;
   secretName: string;
   attachedAt: number;
 }

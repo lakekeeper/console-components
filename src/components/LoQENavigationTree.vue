@@ -17,30 +17,25 @@
 
     <!-- Search -->
     <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
-      <v-select
-        v-model="selectedSearchWarehouse"
-        :items="warehouseOptions"
-        density="compact"
-        variant="outlined"
-        placeholder="Select warehouse to search…"
-        no-data-text="No warehouses available"
-        hide-details
+      <WarehousePicker
+        v-model="selectedWarehouseId"
+        :warehouses="warehouseChoices"
+        :loading="isLoading"
+        all-label="All warehouses"
         clearable
-        class="filter-field mb-1">
-        <template #prepend-inner>
-          <v-icon size="x-small">mdi-warehouse</v-icon>
-        </template>
-      </v-select>
+        class="mb-1" />
       <v-text-field
         v-model="searchQuery"
         density="compact"
         variant="outlined"
-        placeholder="Search tables & views…"
+        :placeholder="
+          selectedWarehouseId ? 'Search tables & views…' : 'Pick a warehouse to search…'
+        "
         hide-details
         clearable
         class="filter-field"
         :loading="isSearching"
-        :disabled="!selectedSearchWarehouse"
+        :disabled="!selectedWarehouseId"
         @keyup.enter="performSearch"
         @click:clear="clearSearch">
         <template #prepend-inner>
@@ -51,7 +46,7 @@
             icon="mdi-arrow-right"
             size="x-small"
             variant="text"
-            :disabled="!searchQuery || isSearching || !selectedSearchWarehouse"
+            :disabled="!searchQuery || isSearching || !selectedWarehouseId"
             @click="performSearch"
             title="Search warehouse (fuzzy)"></v-btn>
         </template>
@@ -154,7 +149,7 @@
                     density="compact"
                     @click="handleShowDDLSearchResult(result)"
                     prepend-icon="mdi-code-tags">
-                    <v-list-item-title class="text-caption">Show DDL</v-list-item-title>
+                    <v-list-item-title class="text-caption">SQL templates</v-list-item-title>
                   </v-list-item>
                   <v-list-item
                     density="compact"
@@ -191,7 +186,7 @@
       style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
-        :items="treeItems"
+        :items="visibleTreeItems"
         item-value="id"
         density="compact"
         open-on-click
@@ -258,17 +253,21 @@
             mdi-database
           </v-icon>
           <!-- Not an error state: the catalog side of this warehouse browses
-               fine, only its data files are unreachable from the browser. -->
-          <v-icon
+               fine, only its data files are unreachable from the browser — hence
+               a database mark rather than an alert. The tooltip hangs off a
+               wrapper, not the icon: `v-icon` reads its default slot as the glyph
+               name, so a component sitting in there is fragile.
+               The lead line names the symbol; a reader who does not already know
+               what "vended credentials" are cannot start with that sentence. -->
+          <span
             v-if="item.type === 'warehouse' && item.stsOff"
-            size="x-small"
-            color="warning"
-            class="ml-1">
-            mdi-flash-off-outline
+            class="ml-1 d-inline-flex align-center">
+            <v-icon icon="mdi-database-off-outline" size="x-small" color="warning" />
             <v-tooltip activator="parent" location="right" max-width="360">
+              <div class="font-weight-medium mb-1">Data not readable in the browser</div>
               {{ item.vendingReason }}
             </v-tooltip>
-          </v-icon>
+          </span>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'table'">mdi-table</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'view'">mdi-eye-outline</v-icon>
@@ -308,17 +307,6 @@
               {{ item.name }}
             </span>
 
-            <!-- Attach chip on warehouse -->
-            <v-chip
-              v-if="item.type === 'warehouse' && isWarehouseAttached(item.warehouseId)"
-              size="x-small"
-              color="success"
-              variant="flat"
-              class="ml-1"
-              style="height: 16px; font-size: 0.6rem">
-              attached
-            </v-chip>
-
             <!-- Insert button for tables/views -->
             <v-btn
               v-if="item.type === 'table' || item.type === 'view'"
@@ -354,7 +342,7 @@
                   density="compact"
                   @click="handleShowDDL(item)"
                   prepend-icon="mdi-code-tags">
-                  <v-list-item-title class="text-caption">Show DDL</v-list-item-title>
+                  <v-list-item-title class="text-caption">SQL templates</v-list-item-title>
                 </v-list-item>
                 <v-list-item
                   density="compact"
@@ -399,6 +387,7 @@ import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
 import aliyunIcon from '@/assets/aliyun.svg';
 import { isAliyunOssEndpoint } from '@/common/storageIcon';
 import { formatIcebergType } from '@/common/icebergTypes';
+import WarehousePicker from './WarehousePicker.vue';
 
 // ── Props / Emits ─────────────────────────────────────────────────────
 
@@ -517,7 +506,7 @@ const pageTokens = ref<Record<string, { namespaces?: string; tables?: string; vi
 
 // Search state
 const searchQuery = ref('');
-const selectedSearchWarehouse = ref<string | null>(null);
+const selectedWarehouseId = ref<string | null>(null);
 const isSearching = ref(false);
 const hasSearched = ref(false);
 const lastFocusedNodeId = ref<string | null>(null);
@@ -538,11 +527,72 @@ const searchResults = ref<
 // Includes the warehouses still behind "Load more": the selector picks what to
 // search, and a warehouse that exists but has not been paged into the tree yet
 // is still a valid thing to search.
-const warehouseOptions = computed(() =>
+const warehouseChoices = computed(() =>
   [...treeItems.value, ...pendingWarehouses.value]
     .filter((item) => item.type === 'warehouse')
-    .map((item) => ({ title: item.name, value: item.warehouseId })),
+    .map((item) => ({ id: item.warehouseId, name: item.name })),
 );
+
+/**
+ * Picking a warehouse attaches it.
+ *
+ * The pick is the whole tree, so the warehouse it names should be queryable
+ * without a second gesture — otherwise the editor answers a perfectly reasonable
+ * query with "catalog does not exist" about the one warehouse on screen. Skipped
+ * when the warehouse vends nothing: the ATTACH would fail and the error would
+ * blame the bucket.
+ */
+watch(selectedWarehouseId, (id) => {
+  if (!id) return;
+  ensureWarehouseRendered(id);
+  const picked = treeItems.value.find(
+    (item) => item.type === 'warehouse' && item.warehouseId === id,
+  );
+  if (!picked || picked.stsOff || isWarehouseAttached(id)) return;
+  emit('attach-warehouse', {
+    warehouseId: id,
+    warehouseName: picked.warehouseName || picked.name,
+    catalogUrl: getCatalogUrl(),
+  });
+});
+
+/**
+ * What the tree shows: every warehouse, or the picked one alone.
+ *
+ * The pick reaches into `pendingWarehouses` too — warehouses fetched but not yet
+ * rendered. That is the point of filtering rather than scrolling: picking the
+ * fortieth warehouse shows it now, instead of paging through the thirty-nine
+ * ahead of it.
+ *
+ * Nodes are passed through by reference, never cloned: expanding one mutates
+ * `item.children` in place, and a copy would load its namespaces into an object
+ * the tree has already thrown away.
+ */
+const visibleTreeItems = computed(() => {
+  const id = selectedWarehouseId.value;
+  if (!id) return treeItems.value;
+  const picked = treeItems.value.find(
+    (item) => item.type === 'warehouse' && item.warehouseId === id,
+  );
+  return picked ? [picked] : [];
+});
+
+/**
+ * Page the list until `warehouseId` is rendered, so the node can be opened.
+ *
+ * Showing a warehouse straight out of `pendingWarehouses` was half a pick: the
+ * node appeared, but every lookup that makes it work — the `openedItems`
+ * watcher, the expand-to-attach path, search's expand-to-path — searches
+ * `treeItems` alone, so it could not be expanded and loaded no namespaces.
+ * Paging it in instead keeps one source of truth, and the "Load more" count
+ * follows because `appendWarehousePage` is what moves it.
+ */
+function ensureWarehouseRendered(warehouseId: string) {
+  const nodeId = `wh-${warehouseId}`;
+  while (pendingWarehouses.value.length > 0 && !findItemById(treeItems.value, nodeId)) {
+    appendWarehousePage();
+  }
+}
 
 // Cached warehouse metadata (warehouseId → name)
 const warehouseNames = new Map<string, string>();
@@ -566,17 +616,17 @@ function getCatalogUrl(): string {
 // ── Search ────────────────────────────────────────────────────────────
 
 async function performSearch() {
-  if (!searchQuery.value?.trim() || !selectedSearchWarehouse.value) return;
+  if (!searchQuery.value?.trim() || !selectedWarehouseId.value) return;
 
   isSearching.value = true;
   hasSearched.value = true;
 
   try {
-    const response = await functions.searchTabular(selectedSearchWarehouse.value, {
+    const response = await functions.searchTabular(selectedWarehouseId.value, {
       search: searchQuery.value.trim(),
     });
 
-    const whName = warehouseNames.get(selectedSearchWarehouse.value) || '';
+    const whName = warehouseNames.get(selectedWarehouseId.value) || '';
 
     searchResults.value = (response.tabulars || []).map((result: SearchTabular) => ({
       id: result['tabular-id'].id,
@@ -584,7 +634,7 @@ async function performSearch() {
       namespace: result['namespace-name'].join('.'),
       type: result['tabular-id'].type,
       distance: result.distance ?? null,
-      warehouseId: selectedSearchWarehouse.value!,
+      warehouseId: selectedWarehouseId.value!,
       warehouseName: whName,
       namespaceId: result['namespace-name'].join('.'),
     }));

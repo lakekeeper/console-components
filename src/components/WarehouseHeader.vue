@@ -1,38 +1,30 @@
 <template>
-  <v-toolbar color="transparent" density="compact" flat>
-    <v-toolbar-title>
-      <span class="text-subtitle-1">
-        {{ warehouse.name }}
-      </span>
-    </v-toolbar-title>
-    <template #prepend>
-      <!-- Collapse/Expand Button -->
-      <v-btn
-        :icon="isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
-        size="default"
-        variant="tonal"
-        color="primary"
-        @click="toggleNavigation"
-        class="mr-3"
-        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'"></v-btn>
-      <component :is="storageIcon" class="mr-1" v-if="storageIcon" />
-      <v-icon v-else>mdi-database</v-icon>
+  <EntityIdentityRow
+    collapsible
+    :name="warehouse.name"
+    :id="warehouseUuid"
+    id-label="Warehouse ID"
+    :chips="chips">
+    <template #icon>
+      <component :is="storageIcon" v-if="storageIcon" />
+      <v-icon v-else color="secondary" size="20">mdi-database</v-icon>
     </template>
-    <v-spacer></v-spacer>
 
-    <WarehouseActionsMenu
-      :process-status="processStatus"
-      :warehouse="warehouse"
-      @close="processStatus = 'starting'"
-      @rename-warehouse="renameWarehouse"
-      @update-credentials="updateCredentials"
-      @update-catalog-settings="updateCatalogSettings"
-      @update-profile="updateProfile">
-      <template #maintenance="slotProps">
-        <slot name="maintenance" v-bind="slotProps"></slot>
-      </template>
-    </WarehouseActionsMenu>
-  </v-toolbar>
+    <template #actions>
+      <WarehouseActionsMenu
+        :process-status="processStatus"
+        :warehouse="warehouse"
+        @close="processStatus = 'starting'"
+        @rename-warehouse="renameWarehouse"
+        @update-credentials="updateCredentials"
+        @update-catalog-settings="updateCatalogSettings"
+        @update-profile="updateProfile">
+        <template #maintenance="slotProps">
+          <slot name="maintenance" v-bind="slotProps"></slot>
+        </template>
+      </WarehouseActionsMenu>
+    </template>
+  </EntityIdentityRow>
 </template>
 
 <script setup lang="ts">
@@ -41,6 +33,8 @@ import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { useLoQE } from '@/composables/useLoQE';
 import { storageProviderIcon } from '@/common/storageIcon';
+import type { IdentityChip } from '@/common/interfaces';
+import EntityIdentityRow from './EntityIdentityRow.vue';
 import type {
   GetWarehouseResponse,
   ManagedBy,
@@ -88,15 +82,39 @@ const warehouse = reactive<GetWarehouseResponse>({
 // Provider icon (AWS / Azure / GCS / OneLake / …) shown next to the name.
 const storageIcon = computed(() => storageProviderIcon(warehouse, visual.themeLight));
 
-const isNavigationCollapsed = computed({
-  get: () => visual.isNavigationCollapsed,
-  set: (value: boolean) => {
-    visual.isNavigationCollapsed = value;
-  },
+const warehouseUuid = computed(() => warehouse['warehouse-id'] || warehouse.id || '');
+
+// Only the facts that change how the warehouse behaves. A chip per field would
+// turn the identity row into the overview tab it sits above.
+const chips = computed<IdentityChip[]>(() => {
+  const out: IdentityChip[] = [];
+  if (warehouse.status && warehouse.status !== 'active') {
+    out.push({
+      text: warehouse.status,
+      icon: 'mdi-pause-circle-outline',
+      color: 'warning',
+      tooltip: 'Warehouse status',
+    });
+  }
+  if (warehouse.protected) {
+    out.push({
+      text: 'protected',
+      icon: 'mdi-lock-outline',
+      color: 'info',
+      tooltip: 'Deletion protection is on',
+    });
+  }
+  const managedBy = warehouse['managed-by'];
+  if (managedBy && managedBy !== 'self-managed') {
+    out.push({
+      text: managedBy,
+      icon: 'mdi-shield-account-outline',
+      color: 'secondary',
+      tooltip: 'Spec mutations are restricted to this control plane',
+    });
+  }
+  return out;
 });
-function toggleNavigation() {
-  isNavigationCollapsed.value = !isNavigationCollapsed.value;
-}
 
 async function loadWarehouse() {
   try {

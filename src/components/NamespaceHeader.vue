@@ -1,41 +1,27 @@
 <template>
-  <v-toolbar color="transparent" density="compact" flat>
-    <v-toolbar-title>
-      <span class="text-subtitle-1">
-        {{
-          namespacePath.length > 0
-            ? namespacePath.split(String.fromCharCode(0x1f)).join('.')
-            : namespaceName
-        }}
-      </span>
-    </v-toolbar-title>
-    <template #prepend>
-      <!-- Collapse/Expand Button -->
-      <v-btn
-        :icon="isNavigationCollapsed ? 'mdi-menu' : 'mdi-menu-open'"
-        size="default"
-        variant="tonal"
-        color="primary"
-        @click="toggleNavigation"
-        class="mr-3"
-        :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'"></v-btn>
-      <v-icon>mdi-folder-open</v-icon>
+  <EntityIdentityRow
+    collapsible
+    icon="mdi-folder-open"
+    :parent-path="parentPath"
+    :name="leafName"
+    :id="namespaceId"
+    id-label="Namespace ID">
+    <template #actions>
+      <NamespaceActionsMenu
+        :warehouse-id="warehouseId"
+        :namespace-path="namespacePath"
+        @updated="loadNamespaceMetadata" />
     </template>
-    <v-spacer></v-spacer>
-    <NamespaceActionsMenu
-      :warehouse-id="warehouseId"
-      :namespace-path="namespacePath"
-      @updated="loadNamespaceMetadata" />
-  </v-toolbar>
+  </EntityIdentityRow>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
-import { useVisualStore } from '@/stores/visual';
 import { logError } from '@/common/errorUtils';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 import NamespaceActionsMenu from './NamespaceActionsMenu.vue';
+import EntityIdentityRow from './EntityIdentityRow.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -43,25 +29,21 @@ const props = defineProps<{
 }>();
 
 const functions = useFunctions();
-const visual = useVisualStore();
 const namespace = ref<GetNamespaceResponse>({ namespace: [] });
 const namespaceId = ref('');
 
-const isNavigationCollapsed = computed({
-  get: () => visual.isNavigationCollapsed,
-  set: (value: boolean) => {
-    visual.isNavigationCollapsed = value;
-  },
+// The route carries the path; the loaded metadata only fills in when the
+// request lands, so the name is read from the path and the response is the
+// fallback.
+const pathParts = computed(() => {
+  if (props.namespacePath.length > 0) {
+    return props.namespacePath.split(String.fromCharCode(0x1f));
+  }
+  return namespace.value.namespace ?? [];
 });
 
-function toggleNavigation() {
-  isNavigationCollapsed.value = !isNavigationCollapsed.value;
-}
-
-const namespaceName = computed(() => {
-  const ns = namespace.value.namespace;
-  return ns && ns.length > 0 ? ns[ns.length - 1] : '';
-});
+const parentPath = computed(() => pathParts.value.slice(0, -1).join('.'));
+const leafName = computed(() => pathParts.value[pathParts.value.length - 1] ?? '');
 
 onMounted(loadNamespaceMetadata);
 watch(() => props.namespacePath, loadNamespaceMetadata);

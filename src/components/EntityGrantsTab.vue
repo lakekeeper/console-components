@@ -1,38 +1,30 @@
 <template>
-  <!-- What a Grants tab shows: this entity's own grants, because that is the
-       question being asked nine times in ten. Grants do not inherit, so the
-       levels above are a separate view rather than extra rows here — reachable,
-       but not in the way. -->
-  <div class="d-flex flex-column" style="height: calc(100vh - 260px); min-height: 380px">
-    <div class="px-4 py-3" style="flex: 1 1 auto; min-height: 0">
-      <GrantsPanel :resource="resource" @saved="emit('saved')">
+  <!-- What a Grants tab shows: this entity's own grants first, because that is
+       the question being asked nine times in ten — and, in the same table and
+       one click away in its tree, the levels above and whatever is held inside.
+
+       `height: 100%` first, so where the host already bounds this tab — the
+       warehouse page does, through its window items — the pane fills exactly
+       that and nothing scrolls twice. The viewport cap is the fallback for a
+       host that does not: there `height: 100%` resolves to auto, the cap stops
+       the pane growing past the window, and the regions inside it scroll on
+       their own. A fixed viewport height did both jobs badly, overshooting the
+       bounded host by whatever its own chrome took and leaving two scrollbars
+       down the right-hand side. -->
+  <div
+    class="d-flex flex-column"
+    style="height: 100%; max-height: calc(100vh - 230px); min-height: 380px">
+    <div class="px-4 py-3" style="flex: 1 1 auto; min-height: 0; overflow: hidden">
+      <GrantsPanel
+        :resource="resource"
+        :resource-name="entityName"
+        :warehouse-name="warehouseName"
+        :namespace-path="namespacePath"
+        @saved="emit('saved')">
         <!-- Forwarded so the app can pass an authorizer-specific notice through
              this tab without this component knowing what it says. -->
         <template v-if="$slots.notice" #notice>
           <slot name="notice"></slot>
-        </template>
-        <!-- Inline with Grant and the filters rather than on a row above: it is
-             another action on this entity's grants, not a header. -->
-        <template #toolbar-actions>
-          <!-- "Who can touch this table" is not answered by this pane alone: a
-               grant on the warehouse or namespace is held there and listed
-               there. -->
-          <GrantsDialog
-            :resource="resource"
-            :entity-name="entityName"
-            :warehouse-name="warehouseName"
-            :namespace-path="namespacePath"
-            @saved="emit('saved')">
-            <template #activator="{ props: aProps }">
-              <v-btn
-                v-bind="aProps"
-                size="small"
-                variant="outlined"
-                prepend-icon="mdi-file-tree-outline">
-                Grant hierarchy
-              </v-btn>
-            </template>
-          </GrantsDialog>
         </template>
       </GrantsPanel>
     </div>
@@ -41,13 +33,12 @@
 
 <script lang="ts" setup>
 import GrantsPanel from './GrantsPanel.vue';
-import GrantsDialog from './GrantsDialog.vue';
 import type { GrantResourceRef } from '../common/interfaces';
 
 defineProps<{
   /** The entity whose own grants this tab reads and writes. */
   resource: GrantResourceRef;
-  /** Display name, used by the all-levels dialog. */
+  /** Display name, used by the assign dialog and the hierarchy's leaf entry. */
   entityName: string;
   /** Warehouse display name, when the hierarchy passes through one. */
   warehouseName?: string;

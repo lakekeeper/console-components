@@ -64,7 +64,9 @@
         <td @click="getRole(item.id)" style="cursor: pointer !important">
           <span style="display: flex; align-items: center">
             <v-icon class="mr-2" color="info">mdi-account-box-multiple-outline</v-icon>
-            {{ item.name }}
+            <!-- The whole cell is the click target; the name is styled as a link
+                 so the row says so without a second button to say it. -->
+            <span class="role-name-link">{{ item.name }}</span>
           </span>
         </td>
       </template>
@@ -85,19 +87,17 @@
       </template>
       <template #item.actions="{ item }">
         <div class="d-inline-flex align-center ga-2">
-          <!-- The name is clickable too, but nothing says so; this is the
-               affordance rather than a second way in. -->
-          <v-btn
-            size="small"
-            variant="outlined"
-            prepend-icon="mdi-open-in-new"
-            text="Open"
-            @click="getRole(item.id)"></v-btn>
           <DeleteConfirmDialog
-            v-if="item.can_delete && roleLifecycleSupported && !isSyncManaged(item['provider-id'])"
+            v-if="item.can_delete && roleLifecycleSupported && !isSystemRole(item['provider-id'])"
             type="role"
             :name="item.name"
-            @confirmed="deleteRole(item.id)" />
+            force-label="Delete even if the role holds grants"
+            :force-hint="
+              isSyncManaged(item['provider-id'])
+                ? 'Provider sync recreates this role on its next run if the provider still reports the group — without its grants.'
+                : 'Its grants are revoked with it.'
+            "
+            :confirm-handler="(force: boolean) => deleteRole(item.id, force)" />
         </div>
       </template>
       <template #no-data>
@@ -126,17 +126,20 @@ import { Header } from '../common/interfaces';
 import { useVisualStore } from '../stores/visual';
 import { useProjectPermissions, hasAction } from '../composables/useCatalogPermissions';
 import { useRoleLifecycleSupported } from '../composables/useAuthzCapabilities';
-import { useIsSyncManagedRole } from '../composables/useRoleProviders';
+import { useIsSyncManagedRole, SYSTEM_ROLE_PROVIDER_ID } from '../composables/useRoleProviders';
 import RoleProviderChip from './RoleProviderChip.vue';
 
 const functions = useFunctions();
 const visual = useVisualStore();
 // Creating and deleting roles is refused outright by some authorizers.
 const roleLifecycleSupported = useRoleLifecycleSupported();
-// Roles a role provider maintains cannot be deleted here either — the guard is
-// per role rather than per authorizer, and `can_delete` does not cover it.
+// A provider-maintained role can be deleted; the provider simply recreates it
+// on its next sync if it still reports the group. Only the reserved `system`
+// namespace refuses outright, with `SystemRoleImmutable`, and `can_delete` does
+// not cover that — so it stays a per-role guard, just a narrower one.
 const isSyncManagedRole = useIsSyncManagedRole();
 const isSyncManaged = (providerId?: string) => isSyncManagedRole.value(providerId);
+const isSystemRole = (providerId?: string) => providerId === SYSTEM_ROLE_PROVIDER_ID;
 const router = useRouter();
 const notify = true;
 
@@ -320,19 +323,20 @@ async function createRoleWithProvider(providerId?: string, sourceId?: string) {
   }
 }
 
-async function deleteRole(roleId: string) {
-  try {
-    await functions.deleteRole(roleId, notify);
+// The dialog owns the outcome: it stays open and shows a refusal — a role
+// holding grants is rejected until `force` is ticked, and the checkbox is right
+// there — so the error must reach it rather than be swallowed here, and the
+// plugin must not raise a snackbar saying the same thing (`notify: false`).
+// Success needs no toast either: the row disappears from the table.
+async function deleteRole(roleId: string, force = false) {
+  await functions.deleteRoleWithForce(roleId, force, false);
 
-    // Remove from both arrays efficiently
-    const loadedIndex = loadedRoles.findIndex((r) => r.id === roleId);
-    if (loadedIndex !== -1) loadedRoles.splice(loadedIndex, 1);
+  // Remove from both arrays efficiently
+  const loadedIndex = loadedRoles.findIndex((r) => r.id === roleId);
+  if (loadedIndex !== -1) loadedRoles.splice(loadedIndex, 1);
 
-    const searchIndex = searchResults.findIndex((r) => r.id === roleId);
-    if (searchIndex !== -1) searchResults.splice(searchIndex, 1);
-  } catch (error) {
-    console.error(error);
-  }
+  const searchIndex = searchResults.findIndex((r) => r.id === roleId);
+  if (searchIndex !== -1) searchResults.splice(searchIndex, 1);
 }
 
 async function onProviderFilterChange() {
@@ -358,3 +362,12 @@ function roleInput(roleIn: {
   createRoleWithProvider(roleIn.providerId, roleIn.sourceId);
 }
 </script>
+
+<style scoped>
+.role-name-link {
+  color: rgb(var(--v-theme-primary));
+}
+td:hover .role-name-link {
+  text-decoration: underline;
+}
+</style>

@@ -570,7 +570,28 @@ function getData() {
   return { 'storage-profile': cleanProfile, 'storage-credential': cleanCredential };
 }
 
-defineExpose({ getData });
+// Every field the template marks with `*`, for the one auth mode actually on
+// screen. The dialog gates its Verify tab on this: verifying a configuration
+// that is missing half of itself only ever reports what the form already shows.
+const isComplete = computed(() => {
+  if (!profile.bucket) return false;
+  if (regionRequired.value && !profile.region) return false;
+  if (needsEndpoint.value && endpointRequired.value && !profile.endpoint) return false;
+  if (profile['sts-enabled'] && stsArnRequired.value && !profile['sts-role-arn']) return false;
+  if (authMode.value === 'cloudflare-r2')
+    return (
+      !!credential['access-key-id'] &&
+      !!credential['secret-access-key'] &&
+      !!credential.token &&
+      !!credential['account-id']
+    );
+  if (authMode.value === 'access-key' || authMode.value === 'aliyun-oss')
+    return !!credential['access-key-id'] && !!credential['secret-access-key'];
+  // System identity: the server holds the credential, there is nothing to enter.
+  return true;
+});
+
+defineExpose({ getData, isComplete });
 
 const visual = useVisualStore();
 const showSecret = ref(false);

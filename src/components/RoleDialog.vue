@@ -28,27 +28,49 @@
           v-model="roleData.description"
           label="Role description"
           hide-details="auto"></v-textarea>
-        <!--v-text-field
-          v-model="roleData.providerId"
-          label="Provider ID (optional)"
-          placeholder="lakekeeper"
-          hint="Provider that owns this role (e.g. lakekeeper, oidc). Leave empty to use default."
-          persistent-hint
-          clearable></v-text-field>
-        <v-text-field
-          v-model="roleData.sourceId"
-          label="Source ID (optional)"
-          placeholder=""
-          hint="Identifier of the role in the provider. Must be provided together with Provider ID."
-          persistent-hint
-          clearable></v-text-field-->
+        <!-- Who owns this role, for a role that already exists somewhere else.
+
+             Both or neither: the server refuses one without the other, and
+             with neither it assigns `lakekeeper` and a fresh UUIDv7 itself,
+             which is what an ordinary role wants. They were commented out, so
+             a role backed by an OIDC group or an LDAP group could not be named
+             here at all — it had to be created through the API. -->
+        <v-expansion-panels v-if="actionType === 'add'" flat class="mt-2">
+          <v-expansion-panel elevation="0">
+            <v-expansion-panel-title class="px-0 text-caption text-medium-emphasis">
+              Back this role with an external provider
+            </v-expansion-panel-title>
+            <v-expansion-panel-text class="px-0">
+              <v-text-field
+                v-model="roleData.providerId"
+                label="Provider ID"
+                placeholder="lakekeeper"
+                :rules="[providerPairRule]"
+                hint="Provider that owns this role — lakekeeper, oidc, ldap. Leave both empty and the server assigns lakekeeper."
+                persistent-hint
+                clearable></v-text-field>
+              <v-text-field
+                v-model="roleData.sourceId"
+                label="Source ID"
+                class="mt-3"
+                :rules="[providerPairRule]"
+                hint="The role's identifier in that provider, e.g. the group name."
+                persistent-hint
+                clearable></v-text-field>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
       </v-card-text>
 
       <v-card-actions>
         <v-spacer></v-spacer>
 
         <v-btn variant="text" text="Cancel" @click="cancelRoleInput"></v-btn>
-        <v-btn color="primary" variant="flat" :disabled="!isNameValid" @click="createRole">
+        <v-btn
+          color="primary"
+          variant="flat"
+          :disabled="!isNameValid || !providerPairComplete"
+          @click="createRole">
           save role
         </v-btn>
       </v-card-actions>
@@ -86,11 +108,25 @@ const roleData = reactive({
 
 const isNameValid = computed(() => roleData.name.trim() !== '');
 
+/**
+ * `provider-id` and `source-id` go together or not at all — the server refuses
+ * one without the other. Caught here so the refusal is a hint under the field
+ * rather than an error after the save.
+ */
+const providerPairComplete = computed(() => {
+  const p = roleData.providerId?.trim();
+  const sid = roleData.sourceId?.trim();
+  return (!p && !sid) || (!!p && !!sid);
+});
+
+const providerPairRule = () =>
+  providerPairComplete.value || 'Provider ID and Source ID must be given together';
+
 const nameRule = (value: string) =>
   (typeof value === 'string' && value.trim() !== '') || 'Role name is required';
 
 function createRole() {
-  if (!isNameValid.value) return;
+  if (!isNameValid.value || !providerPairComplete.value) return;
   emit('roleInput', {
     name: roleData.name,
     description: roleData.description,

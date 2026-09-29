@@ -1,285 +1,79 @@
 <template>
-  <!-- One resource's grants, in the shape the permissions tab uses: a row per
-       principal, their privileges as chips, and editing behind a dialog. There
-       is no cross-resource transaction, so each save is one atomic apply here. -->
+  <!-- One resource's grants — and, in the same table, the levels above it and
+       whatever is held inside it.
+
+       This used to be two panes behind a rail: a matrix of who holds what here,
+       and a review of where access comes from. They were the same view twice.
+       Selecting this object in the review's tree *is* the matrix, with the
+       privileges as chips rather than columns, and its rows already edit and
+       revoke at their own level. The one thing a listing cannot offer is
+       granting to someone who holds nothing yet — there is no row for them —
+       so that is what this component adds, and all it adds. -->
   <div class="d-flex flex-column" style="min-height: 0; height: 100%">
-    <div v-if="loading" class="d-flex flex-column align-center pa-8">
-      <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
-      <span class="mt-4 text-body-2 text-medium-emphasis">Loading grants…</span>
-    </div>
-
-    <!-- Reading grants is its own right, so a caller who can see the resource
-         may still not be allowed to see who holds what on it.
-         The host's actions stay reachable here: refused on this resource does
-         not mean refused above it, and the hierarchy is the one view that can
-         still show something — the levels it cannot read are marked there. -->
-    <div v-else-if="forbidden" class="pa-8 d-flex flex-column align-center ga-3">
-      <div class="text-medium-emphasis d-flex align-center ga-2">
-        <v-icon>mdi-lock-outline</v-icon>
-        You don't have permission to read the grants on this
-        {{ resourceLabel(resource.type).toLowerCase() }}.
-      </div>
-      <slot name="toolbar-actions"></slot>
-    </div>
-
-    <!-- The authorizer itself is unreachable. Nothing is wrong with the request
-         and nothing here is editable until it is back, so this says so rather
-         than rendering an empty list that would read as "no one holds
-         anything". -->
-    <div v-else-if="backendUnavailable" class="pa-4">
-      <v-alert type="warning" variant="tonal" density="comfortable">
-        <div class="text-body-2 font-weight-medium mb-1">Authorization service unavailable</div>
-        <div class="text-body-2">
-          The catalog could not reach its authorizer, so grants cannot be read or changed right now.
-          This is a server-side outage, not a permissions problem.
+    <!-- What this pane is about, and the one action that belongs to it rather
+         than to a row. Granting acts on this object whatever the tree below has
+         selected, so it sits on the line that names the object — anywhere
+         lower and it reads as acting on the current selection. -->
+    <div
+      class="d-flex align-center ga-3 px-4 py-2 flex-shrink-0"
+      style="border-bottom: 1px solid rgba(var(--v-border-color), 0.16)">
+      <v-icon size="22">{{ resourceIcon(resource.type) }}</v-icon>
+      <div style="min-width: 0">
+        <div class="text-subtitle-2 text-truncate" :title="headerTitle">{{ headerTitle }}</div>
+        <div class="text-caption text-medium-emphasis text-truncate" :title="headerSubtitle">
+          {{ headerSubtitle }}
         </div>
-      </v-alert>
+      </div>
+      <v-spacer></v-spacer>
+      <!-- Both act on this object rather than on a row: one adds access to it,
+           the other clears access inside it. They belong on the same line as
+           its name, and next to each other. -->
       <v-btn
-        class="mt-3"
+        v-if="canEditAnything"
         size="small"
         variant="outlined"
-        prepend-icon="mdi-refresh"
-        @click="load()">
-        Retry
+        prepend-icon="mdi-shield-plus-outline"
+        :loading="preparing"
+        @click="openGrant">
+        Grant
       </v-btn>
+      <component
+        :is="subtreeSource?.actions"
+        v-if="subtreeSource?.actions"
+        :resource="resource"
+        :resource-name="resourceName"
+        :as-of="subtreeState.asOf"
+        :filter="subtreeState.filter"
+        :disabled="!subtreeState.canRevoke"
+        @revoked="reviewRef?.reload()" />
     </div>
 
-    <div v-else-if="loadError" class="pa-4">
-      <v-alert type="error" variant="tonal" density="compact">{{ loadError }}</v-alert>
-      <v-btn
-        class="mt-3"
-        size="small"
-        variant="outlined"
-        prepend-icon="mdi-refresh"
-        @click="load()">
-        Retry
-      </v-btn>
-    </div>
+    <GrantsReviewPanel
+      ref="reviewRef"
+      :resource="resource"
+      :entity-name="resourceName || resourceLabel(resource.type)"
+      :warehouse-name="warehouseName"
+      :namespace-path="namespacePath"
+      :active="active"
+      style="flex: 1 1 auto; min-height: 0"
+      @saved="emit('saved')"
+      @subtree-state="onSubtreeState">
+      <template #notice>
+        <slot name="notice">
+          <!-- Fallback: a component the app registered for every grants pane.
+               This pane has four hosts and threading a slot through each one
+               misses whichever is added next — so the extension point is an
+               injection, and a host that wants something specific still
+               overrides it with the slot. Absent in OSS: nothing provides it. -->
+          <component :is="grantsNotice" v-if="grantsNotice" :resource="resource" />
+        </slot>
+      </template>
 
-    <template v-else>
-      <!-- Above the table, not inside its `#top` slot: that slot stretches to
-           fill a table with a fixed height and few rows, which turned a
-           two-line warning into a banner the height of the pane.
-           For a host that knows something this panel cannot — whether a grant
-           made here will have any effect. Grants are stored either way, so an
-           authorizer that reads them through switchable policies can leave a
-           valid grant inert, and only the host (Plus, for Cedar) can see that.
-           Empty by default; nothing OSS renders here. -->
-      <slot name="notice">
-        <!-- Fallback: a component the app registered for every grants pane. The
-             panel has four hosts (entity tabs, the Governance explorer, the
-             project dialog, tag definitions) and threading a slot through each
-             one misses whichever is added next — so the extension point is an
-             injection, and a host that wants something specific still overrides
-             it with the slot. Absent in OSS: nothing provides it. -->
-        <component :is="grantsNotice" v-if="grantsNotice" :resource="resource" />
-      </slot>
-      <v-data-table
-        fixed-header
-        hover
-        density="compact"
-        :headers="headers"
-        :items="visibleRows"
-        show-expand
-        item-value="key"
-        :items-per-page="50"
-        :items-per-page-options="[50, 100, 250, -1]"
-        :sort-by="[{ key: 'name', order: 'asc' }]"
-        style="flex: 1 1 auto; min-height: 0">
-        <template #top>
-          <v-toolbar color="transparent" density="compact" flat>
-            <!-- Same three-way toggle the role owners and members lists use, so
-                 narrowing to users or roles works the same way everywhere. -->
-            <v-btn-toggle
-              v-model="kindFilter"
-              mandatory
-              density="compact"
-              variant="outlined"
-              class="ml-4">
-              <v-btn value="all" size="small">All</v-btn>
-              <v-btn value="user" size="small" prepend-icon="mdi-account">Users</v-btn>
-              <v-btn value="role" size="small" prepend-icon="mdi-account-group">Roles</v-btn>
-            </v-btn-toggle>
-            <!-- Non-inheritance is worth stating — a short list here does not
-                 mean few people can reach the resource — but it is one fact, so
-                 it rides in the toolbar with the detail behind a tooltip rather
-                 than as a banner over every pane. -->
-            <span
-              v-if="showScopeNote"
-              class="text-caption text-medium-emphasis d-inline-flex align-center ga-1 ml-4">
-              <v-icon size="14">mdi-information-outline</v-icon>
-              Direct grants only
-              <v-tooltip activator="parent" location="bottom" max-width="360">
-                Grants held directly on this {{ resourceLabel(resource.type).toLowerCase() }}.
-                Grants do not inherit — those held on a parent are listed under that parent.
-              </v-tooltip>
-            </span>
-            <v-chip
-              v-if="!canEditAnything"
-              size="x-small"
-              variant="outlined"
-              color="warning"
-              class="ml-4">
-              Read only
-            </v-chip>
-            <v-spacer></v-spacer>
-            <v-text-field
-              v-model="filterText"
-              label="Filter principals"
-              prepend-inner-icon="mdi-filter"
-              placeholder="Type to filter"
-              variant="underlined"
-              density="compact"
-              hide-details
-              clearable
-              class="mr-4"
-              style="max-width: 280px"></v-text-field>
-            <v-btn
-              v-if="canEditAnything"
-              size="small"
-              variant="outlined"
-              prepend-icon="mdi-shield-plus-outline"
-              class="mr-2"
-              @click="openGrant">
-              Grant
-            </v-btn>
-            <!-- Hosts with somewhere else to send you put it here rather than
-                 on a row of its own. -->
-            <span class="mr-2">
-              <slot name="toolbar-actions"></slot>
-            </span>
-          </v-toolbar>
-        </template>
-
-        <template #item.name="{ item }">
-          <div class="d-flex align-center ga-2">
-            <v-icon size="18" :color="item.external ? 'warning' : undefined">
-              {{
-                item.kind === 'user'
-                  ? 'mdi-account-circle-outline'
-                  : item.external
-                    ? 'mdi-badge-account-alert-outline'
-                    : 'mdi-account-box-multiple-outline'
-              }}
-            </v-icon>
-            <div style="min-width: 0">
-              <div class="d-flex align-center ga-2">
-                <span class="text-truncate" :title="item.name">{{ item.name }}</span>
-                <v-chip v-if="item.external" size="x-small" variant="outlined" color="warning">
-                  External project
-                  <v-tooltip activator="parent" location="top" max-width="320">
-                    This role belongs to project {{ item.projectId }}, not the one you are viewing.
-                    Only server grants accept roles from another project.
-                  </v-tooltip>
-                </v-chip>
-              </div>
-              <div
-                v-if="item.subtitle"
-                class="text-caption text-medium-emphasis text-truncate"
-                :title="item.subtitle">
-                {{ item.subtitle }}
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <template v-for="c in categories" #[`item.cat_${c}`]="{ item }" :key="c">
-          <!-- Count, not names: the column answers "how much of this kind",
-               and the expanded row answers "which". -->
-          <template v-if="item.byCategory[c]?.length">
-            <v-chip size="x-small" variant="tonal" color="primary">
-              {{ item.byCategory[c].length }}
-              <v-tooltip activator="parent" location="top" max-width="320">
-                {{ item.byCategory[c].map(displayName).join(', ') }}
-              </v-tooltip>
-            </v-chip>
-          </template>
-          <span v-else class="text-disabled">–</span>
-        </template>
-
-        <template #item.granted="{ item }">
-          <span class="text-caption text-medium-emphasis">
-            {{ grantedSummary(item) || '—' }}
-          </span>
-          <!-- Still held but no longer enforced: surfaced here rather than
-               hidden, since it cannot appear in any category column. -->
-          <div v-if="item.stale.length" class="mt-1">
-            <v-chip
-              v-for="p in item.stale"
-              :key="p"
-              class="mr-1"
-              size="x-small"
-              variant="outlined"
-              color="warning">
-              {{ p }}
-              <v-tooltip activator="parent" location="top">
-                No longer in this authorizer's vocabulary — enforces nothing, but is still held.
-              </v-tooltip>
-            </v-chip>
-          </div>
-        </template>
-
-        <template #expanded-row="{ columns, item }">
-          <tr>
-            <td :colspan="columns.length" class="py-2">
-              <div v-for="c in categories" :key="c" class="d-flex align-start ga-2 mb-1">
-                <span
-                  class="text-caption text-medium-emphasis text-uppercase"
-                  style="min-width: 110px">
-                  {{ c }}
-                </span>
-                <div>
-                  <v-chip
-                    v-for="p in item.byCategory[c] ?? []"
-                    :key="p"
-                    class="mr-1 mb-1"
-                    size="x-small"
-                    variant="tonal">
-                    {{ displayName(p) }}
-                    <v-tooltip activator="parent" location="top">
-                      {{ p }}
-                      <template v-if="item.grantedAt[p]">
-                        · granted {{ formatGrantedAt(item.grantedAt[p]) }}
-                      </template>
-                    </v-tooltip>
-                  </v-chip>
-                  <span
-                    v-if="!(item.byCategory[c] ?? []).length"
-                    class="text-disabled text-caption">
-                    none
-                  </span>
-                </div>
-              </div>
-            </td>
-          </tr>
-        </template>
-
-        <template #item.actions="{ item }">
-          <div class="d-flex align-center ga-2 justify-end">
-            <v-btn
-              v-if="canEditAnything"
-              size="small"
-              variant="outlined"
-              text="Edit"
-              @click="openEdit(item)"></v-btn>
-            <v-btn
-              v-if="canEditAnything"
-              color="error"
-              size="small"
-              variant="text"
-              text="Revoke all"
-              :disabled="saving"
-              @click="requestRevokeAll(item)"></v-btn>
-          </div>
-        </template>
-
-        <template #no-data>
-          <span class="text-disabled">
-            No grants are held on this {{ resourceLabel(resource.type).toLowerCase() }}.
-          </span>
-        </template>
-      </v-data-table>
-    </template>
+      <!-- Kept for hosts that carry an action of their own. -->
+      <template v-if="$slots['toolbar-actions']" #toolbar-actions>
+        <slot name="toolbar-actions"></slot>
+      </template>
+    </GrantsReviewPanel>
 
     <GrantAssignDialog
       v-model="assignOpen"
@@ -287,76 +81,47 @@
       :resource-type="resource.type"
       :resource-name="resourceName"
       :project-id="resourceProjectId"
-      :principal="editing"
+      :principal="null"
       :held-for="heldFor"
-      :existing-keys="rows.map((r) => r.key)"
+      :existing-keys="existingKeys"
       :saving="saving"
       :error="saveError"
       @apply="applyAssignment" />
-
-    <!-- Revoke-all confirmation -->
-    <v-dialog v-model="confirmRevokeOpen" max-width="460">
-      <v-card>
-        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
-          <v-icon color="error">mdi-shield-remove-outline</v-icon>
-          Revoke all grants
-        </v-card-title>
-        <v-card-text class="text-body-2">
-          Revoke
-          <strong>every privilege</strong>
-          held by
-          <strong>{{ pendingRevoke?.name }}</strong>
-          on this {{ resourceLabel(resource.type).toLowerCase() }}?
-          <div
-            v-if="lockedFor(pendingRevoke).length"
-            class="text-caption text-medium-emphasis mt-2">
-            {{ lockedFor(pendingRevoke).join(', ') }} will remain — you may not revoke those here.
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="text" :disabled="saving" @click="confirmRevokeOpen = false">Cancel</v-btn>
-          <v-btn color="error" variant="flat" :loading="saving" @click="doRevokeAll">
-            Revoke all
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { computed, inject, onMounted, ref, watch } from 'vue';
-import { helix } from 'ldrs';
-import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
-import { isForbiddenError } from '../common/errorUtils';
 import { GrantsNoticeKey } from '../common/grantsNotice';
+import { GrantsSubtreeKey, type SubtreeGrantSource } from '../common/grantsSubtree';
 import {
   useGrants,
-  isAuthorizationBackendUnavailable,
-  formatGrantedSummary,
-  derivePrivilegeCategory,
   principalKey,
-  privilegeCategoryRank,
+  resourceIcon,
   resourceKey,
   resourceLabel,
 } from '../composables/useGrants';
 import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.vue';
-import type { GrantResourceRef, Header } from '../common/interfaces';
+import GrantsReviewPanel from './GrantsReviewPanel.vue';
+import type { GrantResourceRef } from '../common/interfaces';
 import type { GrantEntry, GrantablePrivilege } from '../gen/management/types.gen';
 import { toPrincipal } from '../common/principal';
 
-// Registers the <l-helix> custom element. Idempotent.
-helix.register();
-
 const props = withDefaults(
   defineProps<{
-    /** The single resource level this pane reads and writes. */
+    /**
+     * The resource this pane is rooted at: what it grants on, and where the
+     * review's chain ends.
+     */
     resource: GrantResourceRef;
     /** Shown in the assign dialog's title, when the caller knows the name. */
     resourceName?: string;
-    /** Suppresses the non-inheritance note where the host already explains it. */
+    /** Warehouse display name, when the hierarchy passes through one. */
+    warehouseName?: string;
+    /** Unit-separated namespace path, used to build the hierarchy's levels. */
+    namespacePath?: string;
+    /** Accepted for callers that still set it; the review pane says it itself. */
     hideScopeNote?: boolean;
     /** Defers the first load until the pane is actually looked at. */
     active?: boolean;
@@ -366,9 +131,24 @@ const props = withDefaults(
 
 const emit = defineEmits<{ (e: 'saved'): void }>();
 
-const functions = useFunctions();
 const grants = useGrants();
 const visual = useVisualStore();
+
+const headerTitle = computed(() => props.resourceName || resourceLabel(props.resource.type));
+
+/**
+ * The kind, and where it sits — the same shape the explorer's own header used,
+ * so moving that row in here did not change how a selection reads.
+ */
+const headerSubtitle = computed(() => {
+  const parts = [resourceLabel(props.resource.type)];
+  if (props.warehouseName) {
+    // eslint-disable-next-line no-control-regex
+    const path = props.namespacePath?.replace(/\x1F/g, '.');
+    parts.push(path ? `${props.warehouseName} / ${path}` : props.warehouseName);
+  }
+  return parts.join(' · ');
+});
 
 /**
  * An optional per-deployment notice about whether grants here take effect.
@@ -378,14 +158,30 @@ const visual = useVisualStore();
  */
 const grantsNotice = inject<unknown>(GrantsNoticeKey, null);
 
+const reviewRef = ref<{ reload: () => Promise<void> } | null>(null);
+
+/**
+ * The app's subtree access, for the bulk revoke it contributes. Rendered here
+ * rather than inside the review pane so it sits beside granting, on the line
+ * that names what both of them act on.
+ */
+const subtreeSource = inject<SubtreeGrantSource | null>(GrantsSubtreeKey, null);
+
+/** Published by the review pane, which is the only thing that knows it. */
+const subtreeState = ref<{
+  asOf: string | null;
+  filter: Record<string, unknown>;
+  canRevoke: boolean;
+}>({ asOf: null, filter: {}, canRevoke: false });
+
+function onSubtreeState(v: typeof subtreeState.value) {
+  subtreeState.value = v;
+}
+
 /**
  * The project this resource sits in. Everything except the server is addressed
- * under a project — `x-project-id` for the project endpoints, and the selected
- * project for the rest — and roles must come from it.
+ * under a project, and roles must come from it.
  */
-/** The project the console is currently working in. */
-const activeProjectId = computed(() => visual.projectSelected['project-id'] || '');
-
 const resourceProjectId = computed(() => {
   if (props.resource.type === 'server') return undefined;
   if (props.resource.type === 'project') {
@@ -394,249 +190,67 @@ const resourceProjectId = computed(() => {
   return visual.projectSelected['project-id'] || undefined;
 });
 
-const loading = ref(false);
-const loaded = ref(false);
-const forbidden = ref(false);
-const backendUnavailable = ref(false);
-const loadError = ref<string | null>(null);
-const saving = ref(false);
-const saveError = ref<string | null>(null);
-const filterText = ref('');
-const kindFilter = ref<'all' | 'user' | 'role'>('all');
+// ---- what may be granted here ----------------------------------------------
 
 const privileges = ref<GrantablePrivilege[]>([]);
 
-interface Row extends GrantPrincipalRow {
-  subtitle: string;
-  /** Owning project, for roles — users are not project-scoped. */
-  projectId?: string;
-  /** Role from a project other than the active one. Server grants allow it. */
-  external: boolean;
-  /** Held privileges that are still in the vocabulary. */
-  privileges: string[];
-  /** Held privileges the authorizer no longer recognizes. */
-  stale: string[];
-  /** When each privilege was granted, where the server reports it. */
-  grantedAt: Record<string, string | null>;
-  /** Held privileges bucketed by category, for the columns. */
-  byCategory: Record<string, string[]>;
-}
-const rows = ref<Row[]>([]);
-const nameCache = new Map<string, { name: string; subtitle: string; projectId?: string }>();
-
 /**
- * Categories this resource actually publishes, in display order. A column each
- * answers "what kind of access does this principal have" at a glance; the exact
- * names are one expand away, because a wall of chips answers neither question
- * well.
+ * `allowed` is the only signal of grant authority — action introspection does
+ * not report it — so the vocabulary doubles as the gate on whether anything
+ * here is grantable at all.
  */
-const categories = computed(() => {
-  const seen = new Set<string>();
-  for (const p of privileges.value) {
-    seen.add(p.privilege.category ?? derivePrivilegeCategory(p.privilege.name));
-  }
-  return [...seen].sort(
-    (a, b) => privilegeCategoryRank(a) - privilegeCategoryRank(b) || a.localeCompare(b),
-  );
-});
-
-const headers = computed<Header[]>(() => [
-  { title: 'Principal', key: 'name', align: 'start' },
-  ...categories.value.map((c) => ({
-    title: c.charAt(0).toUpperCase() + c.slice(1),
-    key: `cat_${c}`,
-    align: 'center' as const,
-    sortable: false,
-  })),
-  { title: 'Granted', key: 'granted', align: 'start', sortable: false },
-  { title: '', key: 'actions', align: 'end', sortable: false },
-]);
-
-const showScopeNote = computed(() => !props.hideScopeNote && props.resource.type !== 'server');
 const canEditAnything = computed(() => privileges.value.some((p) => p.allowed));
 const grantableNames = computed(
   () => new Set(privileges.value.filter((p) => p.allowed).map((p) => p.privilege.name)),
 );
 
-/**
- * `created-at` is optional — an authorizer that does not record it reports
- * nothing, so the tooltip simply omits the clause rather than inventing a date.
- */
-function formatGrantedAt(value: string | null): string {
-  if (!value) return '';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString();
-}
-
-function grantedSummary(row: Row): string {
-  return formatGrantedSummary([...row.privileges, ...row.stale].map((p) => row.grantedAt[p]));
-}
-
-function displayName(name: string): string {
-  const p = privileges.value.find((x) => x.privilege.name === name);
-  return p?.privilege['display-name'] || name;
-}
-
-const visibleRows = computed(() => {
-  const q = filterText.value?.toLowerCase().trim();
-  return rows.value.filter((r) => {
-    if (kindFilter.value !== 'all' && r.kind !== kindFilter.value) return false;
-    if (!q) return true;
-    return (
-      r.name.toLowerCase().includes(q) ||
-      r.subtitle.toLowerCase().includes(q) ||
-      r.id.toLowerCase().includes(q) ||
-      r.privileges.some((p) => p.toLowerCase().includes(q))
-    );
-  });
-});
-
-/** What one principal currently holds, for the dialog to open on. */
-function heldFor(key: string): string[] {
-  return rows.value.find((r) => r.key === key)?.privileges ?? [];
-}
-
-/** Privileges a row holds that this caller may not revoke — they survive a revoke-all. */
-function lockedFor(row: Row | null): string[] {
-  if (!row) return [];
-  return row.privileges.filter((p) => !grantableNames.value.has(p));
-}
-
-/**
- * Grants carry an id, not a name, so each distinct principal is resolved once
- * and remembered — a list of twenty should not re-fetch them on every reload.
- */
-async function resolveName(
-  kind: 'user' | 'role',
-  id: string,
-): Promise<{ name: string; subtitle: string; projectId?: string }> {
-  const key = `${kind}:${id}`;
-  const cached = nameCache.get(key);
-  if (cached) return cached;
-
-  const out: { name: string; subtitle: string; projectId?: string } = {
-    name: id,
-    subtitle: kind === 'role' ? 'Role' : '',
-  };
+async function loadVocabulary() {
   try {
-    if (kind === 'user') {
-      const u: any = await functions.getUser(id);
-      out.name = u?.name || u?.['preferred_username'] || id;
-      out.subtitle = u?.email || '';
-    } else {
-      const r: any = await functions.getRoleMetadata(id);
-      out.name = r?.name || id;
-      out.projectId = r?.['project-id'] || undefined;
-    }
+    privileges.value = await grants.grantablePrivileges(props.resource);
   } catch {
-    // A principal that can no longer be read still holds its grants, so the row
-    // stays and shows the raw id rather than vanishing from the list.
-    out.subtitle = kind === 'role' ? 'Role · unresolved' : 'Unresolved';
-  }
-
-  nameCache.set(key, out);
-  return out;
-}
-
-// ---- load ------------------------------------------------------------------
-
-async function load() {
-  loading.value = true;
-  loadError.value = null;
-  forbidden.value = false;
-  backendUnavailable.value = false;
-  saveError.value = null;
-  try {
-    // The vocabulary carries the per-caller `allowed` decision, which is the
-    // only signal of grant authority — action introspection does not report it.
-    const [privs, listed] = await Promise.all([
-      grants.grantablePrivileges(props.resource),
-      grants.listGrants(props.resource),
-    ]);
-
-    privileges.value = privs;
-    const known = new Set(privs.map((p) => p.privilege.name));
-    // Chips read in the order the authorizer publishes its vocabulary, which is
-    // already grouped by category.
-    const order = new Map(privs.map((p, i) => [p.privilege.name, i]));
-
-    const byPrincipal = new Map<string, Row>();
-    for (const g of listed) {
-      const key = principalKey(g.principal);
-      if (!byPrincipal.has(key)) {
-        const kind: 'user' | 'role' = key.startsWith('user:') ? 'user' : 'role';
-        byPrincipal.set(key, {
-          key,
-          id: key.slice(key.indexOf(':') + 1),
-          kind,
-          name: '',
-          subtitle: '',
-          external: false,
-          privileges: [],
-          stale: [],
-          grantedAt: {},
-          byCategory: {},
-        });
-      }
-      const row = byPrincipal.get(key)!;
-      row.grantedAt[g.privilege] = g['created-at'] ?? null;
-      // `recognized: false` means the authorizer no longer knows the privilege.
-      if (g.recognized === false || !known.has(g.privilege)) row.stale.push(g.privilege);
-      else row.privileges.push(g.privilege);
-    }
-
-    const next = [...byPrincipal.values()];
-    await Promise.all(
-      next.map(async (row) => {
-        const meta = await resolveName(row.kind, row.id);
-        row.name = meta.name;
-        row.subtitle = meta.subtitle;
-        row.projectId = meta.projectId;
-        // Server grants accept roles from any project, so one shown here may
-        // well not be from the project you are looking at. Say so rather than
-        // letting the name imply otherwise.
-        row.external =
-          row.kind === 'role' &&
-          !!meta.projectId &&
-          !!activeProjectId.value &&
-          meta.projectId !== activeProjectId.value;
-        row.privileges.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
-        row.stale.sort();
-        row.byCategory = {};
-        for (const name of row.privileges) {
-          const descriptor = privs.find((x) => x.privilege.name === name)?.privilege;
-          const cat = descriptor?.category ?? derivePrivilegeCategory(name);
-          (row.byCategory[cat] ??= []).push(name);
-        }
-      }),
-    );
-
-    rows.value = next.sort((a, b) => a.name.localeCompare(b.name));
-    loaded.value = true;
-  } catch (e: any) {
-    if (isForbiddenError(e)) forbidden.value = true;
-    else if (isAuthorizationBackendUnavailable(e)) backendUnavailable.value = true;
-    else loadError.value = e?.error?.message || e?.message || 'Failed to load grants';
-  } finally {
-    loading.value = false;
+    // Refused or unavailable: no Grant button. The review pane reports the read
+    // side for itself, per level.
+    privileges.value = [];
   }
 }
 
-// ---- assign ----------------------------------------------------------------
+// ---- granting --------------------------------------------------------------
 
 const assignOpen = ref(false);
-const editing = ref<GrantPrincipalRow | null>(null);
+const preparing = ref(false);
+const saving = ref(false);
+const saveError = ref<string | null>(null);
 
-function openGrant() {
-  editing.value = null;
-  saveError.value = null;
-  assignOpen.value = true;
+/**
+ * What each principal already holds here, read when the dialog opens.
+ *
+ * The dialog hands back a desired final set and the diff is taken against this,
+ * so opening on an empty one would turn Save into a silent revoke of everything
+ * that principal already had.
+ */
+const held = ref<Record<string, string[]>>({});
+const existingKeys = computed(() => Object.keys(held.value));
+
+function heldFor(key: string): string[] {
+  return held.value[key] ?? [];
 }
 
-function openEdit(row: Row) {
-  editing.value = { key: row.key, id: row.id, kind: row.kind, name: row.name };
+async function openGrant() {
+  preparing.value = true;
   saveError.value = null;
-  assignOpen.value = true;
+  try {
+    const listed = await grants.listGrants(props.resource);
+    const next: Record<string, string[]> = {};
+    for (const g of listed) (next[principalKey(g.principal)] ??= []).push(g.privilege);
+    held.value = next;
+  } catch (e: any) {
+    // Open anyway, saying so: granting to someone new does not depend on this,
+    // and refusing to open would be a worse answer than a warning.
+    saveError.value = e?.error?.message || e?.message || 'Could not read the current grants';
+  } finally {
+    preparing.value = false;
+    assignOpen.value = true;
+  }
 }
 
 /**
@@ -672,7 +286,7 @@ async function applyAssignment(payload: { principal: GrantPrincipalRow; privileg
     assignOpen.value = false;
     // Apply answers 204 with no body — whether an entry was already in the
     // requested state is not reported — so the truth comes from a re-read.
-    await load();
+    await reviewRef.value?.reload();
     emit('saved');
   } catch (e: any) {
     saveError.value = e?.error?.message || e?.message || 'Failed to apply grants';
@@ -681,68 +295,13 @@ async function applyAssignment(payload: { principal: GrantPrincipalRow; privileg
   }
 }
 
-// ---- revoke all ------------------------------------------------------------
-
-const confirmRevokeOpen = ref(false);
-const pendingRevoke = ref<Row | null>(null);
-
-function requestRevokeAll(row: Row) {
-  pendingRevoke.value = row;
-  confirmRevokeOpen.value = true;
-}
-
-async function doRevokeAll() {
-  const row = pendingRevoke.value;
-  if (!row) return;
-  saving.value = true;
-  try {
-    const principal = toPrincipal(row.kind, row.id);
-    // Stale privileges go too: they enforce nothing, but a "revoke all" that
-    // left some behind would be a lie.
-    const deletes: GrantEntry[] = [
-      ...row.privileges.filter((p) => grantableNames.value.has(p)),
-      ...row.stale,
-    ].map((privilege) => ({ principal, privilege }));
-
-    if (deletes.length) {
-      await grants.applyGrants(props.resource, { deletes });
-      await load();
-      emit('saved');
-    }
-    confirmRevokeOpen.value = false;
-    pendingRevoke.value = null;
-  } catch (e: any) {
-    loadError.value = e?.error?.message || e?.message || 'Failed to revoke grants';
-    confirmRevokeOpen.value = false;
-  } finally {
-    saving.value = false;
-  }
-}
-
 // ---- lifecycle -------------------------------------------------------------
-
-// Panes in the rail mount together but load on first view, so opening the modal
-// does not fire a listing for every level of the hierarchy at once.
-watch(
-  () => props.active,
-  (active) => {
-    if (active && !loaded.value && !loading.value) load();
-  },
-);
 
 // Keyed on the identity rather than the object: hosts pass the ref as an inline
 // literal, so a deep watch on it would refire on every parent re-render.
-watch(
-  () => resourceKey(props.resource),
-  () => {
-    loaded.value = false;
-    if (props.active) load();
-  },
-);
+watch(() => resourceKey(props.resource), loadVocabulary);
 
-onMounted(() => {
-  if (props.active) load();
-});
+onMounted(loadVocabulary);
 
-defineExpose({ reload: load });
+defineExpose({ reload: () => reviewRef.value?.reload() });
 </script>

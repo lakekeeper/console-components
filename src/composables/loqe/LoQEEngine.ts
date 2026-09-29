@@ -72,6 +72,15 @@ export class LoQEEngine {
    */
   private static readonly IDLE_GRACE_MS = 60_000;
 
+  /**
+   * The live engine, if one exists — for callers that outlive any single consumer
+   * (the project-switch watcher in `useLoQE`) and must not keep a torn-down
+   * instance alive or resurrect one.
+   */
+  static get current(): LoQEEngine | null {
+    return LoQEEngine.instance;
+  }
+
   static acquire(config: LoQEConfig): LoQEEngine {
     // A consumer reappeared before the grace period elapsed — cancel teardown
     // and reuse the warm instance as-is.
@@ -346,7 +355,14 @@ export class LoQEEngine {
         const casted = /unsupported arrow type/i.test(msg)
           ? await this.buildArrowSafeQuery(pooled.connection, sql)
           : null;
-        if (!casted) throw await explainQueryFailure(err, msg, sql);
+        if (!casted) {
+          throw await explainQueryFailure(
+            err,
+            msg,
+            sql,
+            this.catalogs.getAttachedCatalogs().map((c) => c.catalogName),
+          );
+        }
         result = await exec(casted);
       }
       const elapsed = performance.now() - start;

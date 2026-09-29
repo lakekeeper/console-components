@@ -84,6 +84,8 @@ const catalogWarehouseActions: LakekeeperWarehouseAction[] = [
   { action: 'set_format_version_policy' },
   { action: 'get_endpoint_statistics' },
   { action: 'read_grants' },
+  { action: 'read_subtree_grants' },
+  { action: 'revoke_subtree_grants' },
   { action: 'manage_tags' },
   { action: 'accept_moved_namespace' },
 ];
@@ -104,6 +106,8 @@ const catalogNamespaceActions: LakekeeperNamespaceAction[] = [
   { action: 'set_protection' },
   { action: 'include_in_list' },
   { action: 'read_grants' },
+  { action: 'read_subtree_grants' },
+  { action: 'revoke_subtree_grants' },
   { action: 'manage_tags' },
   // `move` is deliberately absent: the schema requires a `destination` with it,
   // so it asks "may I move this namespace *there*" rather than naming a

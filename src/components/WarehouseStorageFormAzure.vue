@@ -396,5 +396,17 @@ function getData() {
   return { 'storage-profile': cleanProfile, 'storage-credential': cleanCredential };
 }
 
-defineExpose({ getData });
+// Every field the template marks with `*`, for the one auth mode actually on
+// screen. The dialog gates its Verify tab on this: verifying a configuration
+// that is missing half of itself only ever reports what the form already shows.
+const isComplete = computed(() => {
+  if (!profile['account-name'] || !profile.filesystem) return false;
+  if (authMode.value === 'client-credentials')
+    return !!credential['client-id'] && !!credential['client-secret'] && !!credential['tenant-id'];
+  if (authMode.value === 'shared-access-key') return !!credential.key;
+  // Managed identity: the server holds the credential, there is nothing to enter.
+  return true;
+});
+
+defineExpose({ getData, isComplete });
 </script>
