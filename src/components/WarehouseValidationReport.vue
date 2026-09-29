@@ -112,9 +112,9 @@ const checkLabels: Record<ValidationCheckName, string> = {
   'vended-credentials-issued': 'Vended credentials can be issued',
   'vended-credentials-read-write': 'Vended credentials can read and write to storage',
   'vended-credentials-scope-enforced': 'Vended credentials are scoped to the table location',
-  // What the bucket *declares*, read server-side. The browser row below reports
-  // what a request from this origin actually did, which is a different claim —
-  // a bucket can pass here and still fail there behind a proxy.
+  // What the bucket declares, answered by the catalog against the origin it
+  // serves the console from. This replaced a client-side probe row, so it is now
+  // the only CORS verdict here.
   'cors-origin-allowed': 'Bucket CORS configuration allows this origin',
   'bucket-access-restricted': 'Bucket is not publicly accessible',
   cleanup: 'Test artifacts were cleaned up',
@@ -160,8 +160,8 @@ const checks = computed(() => {
       color: statusColor(check.status),
       icon: statusIcon(check.status),
       detail: detailParts.join(' · '),
-      // Same reasoning as the browser row: the snippet that fixes a CORS rule
-      // belongs in the row that just complained about one.
+      // The snippet that fixes a CORS rule belongs in the row that just
+      // complained about one, rather than at the foot of the report.
       showCors:
         check.name === 'cors-origin-allowed' &&
         (check.status === 'failed' || check.status === 'warning'),

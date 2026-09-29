@@ -573,6 +573,7 @@ const storageType = computed(() => (warehouse['storage-profile'] as any)?.type a
 // this one is not free to re-run.
 const {
   result: corsCheck,
+  error: corsCheckError,
   ran: corsCheckRan,
   loading: corsCheckLoading,
   run: runStorageCorsCheck,
@@ -591,6 +592,9 @@ const corsCheckFailed = computed(
 );
 
 const corsCheckDetail = computed(() => {
+  // Said first: a request that never landed is not this Lakekeeper declining to
+  // report a check, and the refresh button beside it is the way to try again.
+  if (corsCheckError.value) return `${corsCheckError.value} Refresh to try again.`;
   const check = corsCheck.value;
   if (!check) {
     return corsCheckRan.value ? 'This Lakekeeper does not report a CORS check.' : '';
@@ -604,6 +608,9 @@ const corsChip = computed(() => {
     return { color: 'default', icon: 'mdi-timer-sand', text: 'Checking…' };
   if (!corsCheckRan.value)
     return { color: 'default', icon: 'mdi-help-circle-outline', text: 'Not checked' };
+  // 'Not reported' would credit the catalog with an answer it never gave.
+  if (corsCheckError.value)
+    return { color: 'error', icon: 'mdi-alert-circle-outline', text: 'Check failed' };
   const status = corsCheck.value?.status;
   if (status === 'passed') return { color: 'success', icon: 'mdi-check-circle', text: 'Allowed' };
   if (status === 'failed' || status === 'warning')
