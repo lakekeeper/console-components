@@ -72,6 +72,10 @@ export function splitEngineError(text: string): {
 function privilegeFor(sql: string | undefined): string {
   if (/^\s*create\s+(or\s+replace\s+)?(table|view)\b/i.test(sql || ''))
     return '`create_table` (or `create_view`) on the namespace';
+  // Before the write test below, which `create` matches: a namespace is not a
+  // table, and `write_data` is not the grant that would have let this through.
+  if (/^\s*create\s+schema\b/i.test(sql || ''))
+    return '`create_namespace` on the warehouse (or on the parent namespace)';
   if (/^\s*(drop|alter|rename)\b/i.test(sql || '')) return '`drop` or `rename` on the object';
   if (isWriteStatement(sql) === 'write') return '`write_data` on the table';
   return '`read_data` on the table (or on a namespace or warehouse above it)';
