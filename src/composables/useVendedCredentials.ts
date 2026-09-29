@@ -12,12 +12,34 @@ export interface CredentialBearing {
  *
  * Per the Iceberg spec credentials live in `storage-credentials`; older catalogs
  * put them in `config`, which also carries plain client hints — so a config is
- * only evidence of a credential when one of its keys looks like one.
+ * only evidence of a credential when one of its keys actually names one.
  */
+
+/**
+ * The `config` keys that carry a credential, matched in full.
+ *
+ * A substring test for "key" also matches `s3.sse.key`, which is the bucket's
+ * server-side encryption key: it is set on warehouses that vend nothing, and it
+ * made every such table look credentialled — so the pane went on to read the
+ * data files with no credential at all instead of saying why it could not.
+ * Listing the keys is what keeps a setting from being read as a grant.
+ */
+const CREDENTIAL_CONFIG_KEYS: RegExp[] = [
+  /^s3\.access-key-id$/i,
+  /^s3\.secret-access-key$/i,
+  /^s3\.session-token$/i,
+  /^gcs\.oauth2\.token$/i,
+  // ADLS suffixes both with the storage account, so they are prefix matches.
+  /^adls\.sas-token(\..+)?$/i,
+  /^adls\.connection-string(\..+)?$/i,
+];
+
 export function hasVendedCredentials(res: CredentialBearing | null | undefined): boolean {
   if (!res) return false;
   if (res['storage-credentials']?.length) return true;
-  return Object.keys(res.config ?? {}).some((k) => /token|key|sas|credential|secret/i.test(k));
+  return Object.keys(res.config ?? {}).some((k) =>
+    CREDENTIAL_CONFIG_KEYS.some((pattern) => pattern.test(k)),
+  );
 }
 
 /**

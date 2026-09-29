@@ -24,6 +24,24 @@ describe('hasVendedCredentials', () => {
     expect(hasVendedCredentials({ 'storage-credentials': [] })).toBe(false);
     expect(hasVendedCredentials(null)).toBe(false);
   });
+
+  // Encryption settings are configuration, not a grant: a warehouse that vends
+  // nothing still sends these, and reading them as credentials sent the pane on
+  // to read data files with nothing to authenticate with.
+  it('does not mistake an encryption key for a vended credential', () => {
+    expect(hasVendedCredentials({ config: { 's3.sse.key': 'kms-key' } })).toBe(false);
+    expect(hasVendedCredentials({ config: { 's3.sse.type': 'kms', 's3.sse.md5': 'x' } })).toBe(
+      false,
+    );
+  });
+
+  it('accepts the credential keys each storage actually vends', () => {
+    expect(hasVendedCredentials({ config: { 's3.session-token': 'tok' } })).toBe(true);
+    expect(hasVendedCredentials({ config: { 's3.secret-access-key': 'sk' } })).toBe(true);
+    expect(hasVendedCredentials({ config: { 'gcs.oauth2.token': 'tok' } })).toBe(true);
+    // ADLS suffixes the account onto the key.
+    expect(hasVendedCredentials({ config: { 'adls.sas-token.myaccount': 'sig' } })).toBe(true);
+  });
 });
 
 describe('explainMissingCredentials', () => {
