@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { friendlyQueryError, isWriteStatement } from './queryError';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  explainQueryFailure,
+  friendlyQueryError,
+  isWriteStatement,
+  splitEngineError,
+} from './queryError';
 
 // friendlyQueryError explains unsupported ADLS operations and turns DuckDB-WASM's
 // opaque storage-read failures into an actionable "Configure CORS" message across
@@ -18,7 +23,7 @@ describe('friendlyQueryError', () => {
       const result = friendlyQueryError(err, err.message) as Error;
 
       expect(result).not.toBe(err);
-      expect(result.message).toBe('Azure Data Lake Storage (ADLS) is read-only in LoQE.');
+      expect(result.message).toContain('Azure Data Lake Storage (ADLS) is read-only in LoQE.');
       expect(result.cause).toBe(err);
     },
   );
@@ -81,6 +86,73 @@ describe('friendlyQueryError', () => {
   });
 });
 
+describe('friendlyQueryError: credentials the catalog did not vend', () => {
+  const RAW =
+    'Invalid Configuration Error: No region was provided via the vended credentials, and no ' +
+    'region could be found via environment variables. Please provide a default_region for the ' +
+    'Iceberg Catalog when attaching.';
+
+  it('blames the missing privilege, not the ATTACH options', () => {
+    const out = friendlyQueryError(original, RAW) as Error;
+
+    expect(out).not.toBe(original);
+    expect(out.message).toContain('read_data');
+    expect(out.message).toContain('no storage credentials');
+    expect(out.cause).toBe(original);
+
+    // `default_region` survives only inside the quoted engine line; the explanation
+    // itself must not send anyone back to the ATTACH options.
+    const { explanation } = splitEngineError(out.message);
+    expect(explanation).not.toMatch(/default_region/i);
+  });
+
+  it('a region complaint that is not about vended credentials passes through', () => {
+    const msg = 'Invalid Configuration Error: Unknown region "moon-1"';
+    expect(friendlyQueryError(original, msg)).toBe(original);
+  });
+});
+
+// Every replacement marks off whose words it replaced, so the UI can attribute
+// them: read as Lakekeeper's, a DuckDB configuration complaint sends people to
+// debug a catalog that is behaving fine.
+describe('friendlyQueryError: attribution to the engine', () => {
+  it.each([
+    ['Binder Error: Catalog "wh" does not exist!', []],
+    ['Not implemented Error: AzureFileSystem: RemoveFile is not implemented!', []],
+    ['Full download failed for HTTP file: .../snap-1.avro: 404 (might be a CORS error)', []],
+    [
+      'Invalid Configuration Error: No region was provided via the vended credentials, and no region could be found.',
+      [],
+    ],
+  ])('marks off the engine text and quotes the raw line: %s', (msg, attached) => {
+    const out = friendlyQueryError(original, msg, attached as string[]) as Error;
+    const { explanation, engineMessage } = splitEngineError(out.message);
+
+    expect(engineMessage).toBe(msg.split('\n')[0]);
+    // The explanation is ours and stands on its own — it never leans on the
+    // engine line to make sense.
+    expect(explanation.trim().length).toBeGreaterThan(0);
+    expect(explanation).not.toContain(msg.split('\n')[0]);
+  });
+
+  // Anything we did not translate carries no marker, so the alert does not put
+  // DuckDB's name on a verdict of ours.
+  it('leaves an untranslated message unattributed', () => {
+    const { explanation, engineMessage } = splitEngineError('Host unreachable: storage.example');
+
+    expect(engineMessage).toBeNull();
+    expect(explanation).toBe('Host unreachable: storage.example');
+  });
+
+  it('truncates a runaway engine message instead of pasting it whole', () => {
+    const msg = `Binder Error: Catalog "wh" does not exist! ${'x'.repeat(2000)}`;
+    const out = friendlyQueryError(original, msg) as Error;
+
+    expect(out.message).toContain('…');
+    expect(out.message.length).toBeLessThan(1700);
+  });
+});
+
 describe('isWriteStatement', () => {
   it('recognises the statements that write', () => {
     expect(isWriteStatement("INSERT INTO t VALUES ('x')")).toBe('write');
@@ -114,5 +186,65 @@ describe('isWriteStatement', () => {
   it('leaves a binder error alone when that catalog is attached', () => {
     const err = new Error('Binder Error: Catalog "wh-a" does not exist!');
     expect(friendlyQueryError(err, err.message, ['wh-a'])).toBe(err);
+  });
+});
+
+// A 403 from the catalog on CREATE TABLE was reported as a bucket CORS problem:
+// the message names a URL, the URL is Lakekeeper's own, and probing it proved
+// only that Lakekeeper answers. The stated status outranks every heuristic.
+describe('a status the catalog already stated', () => {
+  const RAW_403 =
+    'Invalid Configuration Error: Request to ' +
+    "'http://localhost:8181/catalog/v1/01a0d6f5-82fb-7008-b1e7-93cadfe2e23d/namespaces/ns/tables' " +
+    'returned a non-200 status code body: {"exception_type":"Invalid Configuration",' +
+    '"exception_message":"Request to \'http://localhost:8181/catalog/v1/x/namespaces/ns/tables\' ' +
+    'returned a non-200 status code (Forbidden_403), with reason: Forbidden, body: "}';
+
+  const SQL = 'CREATE TABLE "demo-sts"."ns"."ice2222" (a string)';
+
+  it('reads the 403 as a missing privilege, not a storage problem', () => {
+    const out = friendlyQueryError(original, RAW_403, [], SQL) as Error;
+    const { explanation } = splitEngineError(out.message);
+
+    expect(explanation).toContain('403');
+    expect(explanation).toContain('create_table');
+    expect(explanation).not.toMatch(/CORS|bucket/i);
+  });
+
+  it('never probes a URL whose status is already known', async () => {
+    // The probe is what produced the wrong answer: it reaches Lakekeeper, which
+    // of course answers, and "reachable" then reads as "storage is fine".
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null));
+    try {
+      const out = (await explainQueryFailure(original, RAW_403, SQL, [])) as Error;
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(splitEngineError(out.message).explanation).toContain('403');
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it('keeps DuckDB’s own line alongside the verdict', () => {
+    const out = friendlyQueryError(original, RAW_403, [], SQL) as Error;
+    const { engineMessage } = splitEngineError(out.message);
+
+    expect(engineMessage).toContain('Forbidden_403');
+  });
+
+  it('names the token, not a privilege, on 401', () => {
+    const msg = RAW_403.replace(/Forbidden_403/, 'Unauthorized_401').replace(
+      /4\d\d\)/,
+      'Unauthorized_401)',
+    );
+    const out = friendlyQueryError(original, msg, [], SQL) as Error;
+
+    expect(splitEngineError(out.message).explanation).toMatch(/401|token/i);
+  });
+
+  it('asks for the right privilege on a read', () => {
+    const out = friendlyQueryError(original, RAW_403, [], 'SELECT * FROM "wh"."ns"."t"') as Error;
+
+    expect(splitEngineError(out.message).explanation).toContain('read_data');
   });
 });

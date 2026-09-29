@@ -351,12 +351,7 @@
         </span>
       </div>
       <div v-else-if="partitionError" class="pa-4">
-        <v-alert type="warning" variant="tonal" density="compact" class="text-body-2">
-          {{ partitionError }}
-          <template v-if="partitionError.includes('CORS')" #append>
-            <CorsConfigDialog />
-          </template>
-        </v-alert>
+        <EngineErrorAlert :error="partitionError" type="warning" density="compact" />
       </div>
       <div v-else-if="partitionData.length > 0" class="pa-3">
         <div ref="partitionChartRef" class="partition-chart-container"></div>
@@ -451,7 +446,7 @@ import { useFunctions } from '../plugins/functions';
 import { loqeVendingReason } from '../common/vendedCredentials';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
-import CorsConfigDialog from './CorsConfigDialog.vue';
+import EngineErrorAlert from './EngineErrorAlert.vue';
 import TableHealthActions from './TableHealthActions.vue';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 
@@ -1714,13 +1709,10 @@ async function loadPartitionData() {
     }));
   } catch (err: any) {
     console.error('Failed to load partition data:', err);
-    const msg = err.message || String(err);
-    if (msg.includes('CORS') || msg.includes('Failed to fetch')) {
-      partitionError.value =
-        'Cannot query table metadata — CORS not configured for direct browser access to storage.';
-    } else {
-      partitionError.value = msg;
-    }
+    // As diagnosed by the engine: it establishes reachability and reads the
+    // catalog's own status where there is one, so re-testing the finished text
+    // for the word "CORS" could only replace a precise answer with a guess.
+    partitionError.value = err.message || String(err);
   } finally {
     partitionLoading.value = false;
   }

@@ -949,11 +949,10 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
     // Persist so results survive a reload.
     loqeStore.setTableProfile(tableKey.value, col.name, state.data);
   } catch (err: any) {
-    const msg = err?.message || String(err);
-    state.error =
-      msg.includes('CORS') || msg.includes('Failed to fetch')
-        ? 'Cannot scan table data — CORS not configured for direct browser access to storage.'
-        : msg;
+    // Kept as the engine diagnosed it: the old test for the word "CORS" matched
+    // the diagnosis itself and traded a specific answer — a 403 from the
+    // catalog, an unreachable endpoint — for a sentence about bucket config.
+    state.error = err?.message || String(err);
   } finally {
     state.loading = false;
   }
