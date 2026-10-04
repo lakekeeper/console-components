@@ -547,6 +547,7 @@ The consuming app must provide: `vue ^3.5`, `vuetify ^3.8`, `pinia ^2.3`, `vue-r
 
 ## Conventions
 
+- **UI rules**: read `DESIGN.md` before building or restyling a pane, dialog or tree — layout, folding, icons, dialog close placement, height and scrolling. Follow it rather than the nearest existing component, which may predate a rule.
 - **Conventional commits** required — release-please manages versioning
   - `feat(ui): …` for new features or UI enhancements
   - `fix(ui): …` for bug fixes

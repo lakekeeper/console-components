@@ -66,3 +66,39 @@ export function storageProviderIcon(
   }
   return null;
 }
+
+/** A mark as data: an MDI glyph (`icon`, `color`) or a bundled logo (`src`). */
+export interface IconSpec {
+  icon?: string;
+  color?: string;
+  src?: string;
+  /** Logo height when it is not square (STACKIT). */
+  height?: number;
+}
+
+/**
+ * Which mark a warehouse row wears, as data, so a tree can render it in a slot.
+ * Same choices as `storageProviderIcon`, with a database glyph as the fallback.
+ */
+export function warehouseIconSpec(
+  storage: { storageType?: string; storageFlavor?: string; storageEndpoint?: string },
+  themeLight = true,
+): IconSpec {
+  switch (storage.storageType) {
+    case 's3':
+      if (storage.storageFlavor === 'aws') return { icon: 'mdi-aws', color: 'orange' };
+      if (storage.storageEndpoint?.includes('cloudflarestorage')) return { src: cfIcon };
+      if (isAliyunOssEndpoint(storage.storageEndpoint)) return { src: aliyunIcon };
+      return { icon: 'mdi-bucket-outline', color: 'primary' };
+    case 'adls':
+      return { icon: 'mdi-microsoft-azure', color: 'primary' };
+    case 'gcs':
+      return { icon: 'mdi-google-cloud', color: 'info' };
+    case 'onelake':
+      return { src: oneLakeIcon };
+    case 'stackit':
+      return { src: themeLight ? stackitLightIcon : stackitDarkIcon, height: 14 };
+    default:
+      return { icon: 'mdi-database', color: 'blue-grey' };
+  }
+}
