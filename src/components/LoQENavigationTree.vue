@@ -178,88 +178,15 @@
       <v-divider class="border-opacity-25" />
     </v-sheet>
 
-    <!-- Pinned: what you keep coming back to, one click from anywhere in the tree. -->
-    <!-- Tinted and closed off by a full divider so it does not read as the top
-         of the tree; the header stays put while the list scrolls. -->
-    <v-sheet v-if="pinnedObjects.length" class="flex-shrink-0 pinned-section">
-      <!-- Folding keeps the count in view, so pins are not forgotten the way a
-           hidden section would be. Remembered across reloads. -->
-      <div
-        class="pinned-header text-caption text-medium-emphasis px-3 py-1 d-flex align-center"
-        role="button"
-        :aria-expanded="!visualStore.loqePinnedCollapsed"
-        @click="visualStore.loqePinnedCollapsed = !visualStore.loqePinnedCollapsed">
-        <v-icon size="x-small" class="mr-1">mdi-pin-outline</v-icon>
-        Pinned
-        <span class="ml-1">({{ pinnedObjects.length }})</span>
-        <v-spacer />
-        <v-icon size="x-small">
-          {{ visualStore.loqePinnedCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-down' }}
-        </v-icon>
-      </div>
-      <v-list
-        v-show="!visualStore.loqePinnedCollapsed"
-        density="compact"
-        bg-color="transparent"
-        class="py-0 px-2"
-        style="max-height: 180px; overflow-y: auto">
-        <v-list-item
-          v-for="pin in pinnedObjects"
-          :key="pinKey(pin)"
-          density="compact"
-          class="pinned-item"
-          @click="revealObject(pin)"
-          @dblclick.stop="isInsertable(pin) && insertPin(pin)">
-          <template #prepend>
-            <!-- A warehouse pin wears the same provider mark as its tree row. -->
-            <template v-if="pin.type === 'warehouse'">
-              <v-icon v-if="pinIcons.get(pin.warehouseId)?.src" size="x-small" class="mr-2">
-                <v-img
-                  :src="pinIcons.get(pin.warehouseId)?.src"
-                  width="16"
-                  :height="pinIcons.get(pin.warehouseId)?.height ? 12 : 16" />
-              </v-icon>
-              <v-icon
-                v-else
-                size="x-small"
-                class="mr-2"
-                :color="pinIcons.get(pin.warehouseId)?.color">
-                {{ pinIcons.get(pin.warehouseId)?.icon }}
-              </v-icon>
-            </template>
-            <v-icon v-else size="x-small" class="mr-2">{{ PIN_ICONS[pin.type] }}</v-icon>
-          </template>
-          <v-list-item-title style="font-size: 0.8125rem">
-            {{ pin.type === 'namespace' ? pin.namespaceId : pin.name }}
-          </v-list-item-title>
-          <v-list-item-subtitle v-if="pin.type !== 'warehouse'" class="text-caption">
-            {{
-              pin.type === 'namespace'
-                ? pinWarehouseName(pin)
-                : `${pinWarehouseName(pin)} · ${pin.namespaceId}`
-            }}
-          </v-list-item-subtitle>
-          <template #append>
-            <v-btn
-              v-if="isInsertable(pin)"
-              icon="mdi-arrow-right-bold-box-outline"
-              size="x-small"
-              variant="text"
-              title="Insert path into query"
-              @click.stop="insertPin(pin)"
-              @dblclick.stop></v-btn>
-            <v-btn
-              icon="mdi-pin-off-outline"
-              size="x-small"
-              variant="text"
-              title="Unpin"
-              @click.stop="unpin(pin)"
-              @dblclick.stop></v-btn>
-          </template>
-        </v-list-item>
-      </v-list>
-    </v-sheet>
-    <v-divider v-if="pinnedObjects.length" />
+    <PinnedObjects
+      v-model:collapsed="pinsCollapsed"
+      :pins="pinnedObjects"
+      :icon-for="pinIcon"
+      :warehouse-name-for="pinWarehouseName"
+      :insertable="isInsertable"
+      @open="revealObject"
+      @insert="insertPin"
+      @unpin="unpin" />
 
     <!-- Loading state -->
     <div v-if="isLoading && treeItems.length === 0" class="text-center py-4">
@@ -507,12 +434,9 @@ import { Type } from '@/common/enums';
 import { logError, isForbiddenError } from '@/common/errorUtils';
 import type { AttachedCatalog } from '../composables/loqe/types';
 import type { SearchTabular } from '@/gen/management/types.gen';
-import cfIcon from '@/assets/cf.svg';
-import oneLakeIcon from '@/assets/onelake.png';
-import stackitLightIcon from '@/assets/stackit-mark.svg';
-import stackitDarkIcon from '@/assets/stackit-mark-dark.svg';
-import aliyunIcon from '@/assets/aliyun.svg';
-import { isAliyunOssEndpoint } from '@/common/storageIcon';
+import { warehouseIconSpec, type IconSpec } from '@/common/storageIcon';
+import { usePinnedObjects, type PinnedObject } from '@/composables/usePinnedObjects';
+import PinnedObjects from './PinnedObjects.vue';
 import { formatIcebergType } from '@/common/icebergTypes';
 import WarehousePicker from './WarehousePicker.vue';
 
@@ -591,8 +515,6 @@ const emit = defineEmits<{
 
 const functions = useFunctions();
 const visualStore = useVisualStore();
-// The STACKIT mark is ink-on-transparent, so it needs the light/dark pair.
-const stackitIcon = computed(() => (visualStore.themeLight ? stackitLightIcon : stackitDarkIcon));
 
 // const appConfig = inject<any>('appConfig', {});
 
@@ -1716,30 +1638,11 @@ function fieldTooltip(item: TreeItem): string {
 
 // ── Warehouse icon ────────────────────────────────────────────────────
 
-/** Which mark a warehouse wears: an MDI glyph, or a bundled logo (`src`). */
-function warehouseIcon(item: Pick<TreeItem, 'storageType' | 'storageFlavor' | 'storageEndpoint'>): {
-  icon?: string;
-  color?: string;
-  src?: string;
-  height?: number;
-} {
-  switch (item.storageType) {
-    case 's3':
-      if (item.storageFlavor === 'aws') return { icon: 'mdi-aws', color: 'orange' };
-      if (item.storageEndpoint?.includes('cloudflarestorage')) return { src: cfIcon };
-      if (isAliyunOssEndpoint(item.storageEndpoint)) return { src: aliyunIcon };
-      return { icon: 'mdi-bucket-outline', color: 'primary' };
-    case 'adls':
-      return { icon: 'mdi-microsoft-azure', color: 'primary' };
-    case 'gcs':
-      return { icon: 'mdi-google-cloud', color: 'info' };
-    case 'onelake':
-      return { src: oneLakeIcon };
-    case 'stackit':
-      return { src: stackitIcon.value, height: 14 };
-    default:
-      return { icon: 'mdi-database', color: 'blue-grey' };
-  }
+/** Which mark a warehouse wears; shared with the warehouse tree so they cannot drift. */
+function warehouseIcon(
+  item: Pick<TreeItem, 'storageType' | 'storageFlavor' | 'storageEndpoint'>,
+): IconSpec {
+  return warehouseIconSpec(item, visualStore.themeLight);
 }
 
 // ── Status rows ───────────────────────────────────────────────────────
@@ -1783,92 +1686,67 @@ async function retryLoad(status: TreeItem) {
 
 // ── Pins ──────────────────────────────────────────────────────────────
 
-type Pin = (typeof visualStore.loqePinnedObjects)[number];
+// Shared with the warehouse tree. LoQE cannot query generic tables, so their
+// pins are left out here.
+const {
+  pins: pinnedObjects,
+  isPinned,
+  togglePin: togglePinTarget,
+  unpin,
+  collapsed: pinsCollapsed,
+} = usePinnedObjects({
+  warehouseFilter: () => selectedWarehouseId.value,
+  types: ['warehouse', 'namespace', 'table', 'view'],
+});
 
-const PIN_ICONS: Record<Pin['type'], string> = {
-  warehouse: 'mdi-database',
+const PIN_ICONS: Record<string, string> = {
   namespace: 'mdi-folder-outline',
   table: 'mdi-table',
   view: 'mdi-eye-outline',
 };
-
-function pinKey(p: { warehouseId: string; namespaceId?: string; name: string; type: string }) {
-  return `${p.type}:${p.warehouseId}:${p.namespaceId ?? ''}:${p.name}`;
-}
 
 /** Provider marks for pinned warehouses, from their nodes in the loaded list. */
 const pinIcons = computed(() => {
   const ids = new Set(
     pinnedObjects.value.filter((p) => p.type === 'warehouse').map((p) => p.warehouseId),
   );
-  const icons = new Map<string, ReturnType<typeof warehouseIcon>>();
+  const icons = new Map<string, IconSpec>();
   for (const item of [...treeItems.value, ...pendingWarehouses.value]) {
     if (item.type === 'warehouse' && ids.has(item.warehouseId)) {
       icons.set(item.warehouseId, warehouseIcon(item));
     }
   }
-  for (const id of ids) if (!icons.has(id)) icons.set(id, warehouseIcon({}));
   return icons;
 });
+
+/** A warehouse pin wears the same provider mark as its tree row. */
+function pinIcon(pin: PinnedObject): IconSpec {
+  if (pin.type === 'warehouse') return pinIcons.value.get(pin.warehouseId) ?? warehouseIcon({});
+  return { icon: PIN_ICONS[pin.type] };
+}
 
 /**
  * The warehouse's current name. The pin keeps the name it had when pinned, and
  * the engine attaches under the current one, so a renamed warehouse would
  * otherwise insert a catalog that does not exist.
  */
-function pinWarehouseName(pin: Pin): string {
+function pinWarehouseName(pin: PinnedObject): string {
   return warehouseNames.get(pin.warehouseId) ?? pin.warehouseName;
 }
 
 /** Only tables and views have a path the editor can use. */
-function isInsertable(pin: Pin): boolean {
+function isInsertable(pin: PinnedObject): boolean {
   return pin.type === 'table' || pin.type === 'view';
 }
 
-/** This project's pins, narrowed to the picked warehouse like the tree is. */
-const pinnedObjects = computed(() => {
-  const pid = visualStore.projectSelected['project-id'];
-  const wh = selectedWarehouseId.value;
-  return (visualStore.loqePinnedObjects ?? []).filter(
-    (p) => p.projectId === pid && (!wh || p.warehouseId === wh),
-  );
-});
-
-function isPinned(item: TreeItem): boolean {
-  const key = pinKey(item);
-  return pinnedObjects.value.some((p) => pinKey(p) === key);
-}
-
 function togglePin(item: TreeItem) {
-  const type = item.type;
-  if (type !== 'warehouse' && type !== 'namespace' && type !== 'table' && type !== 'view') return;
-  if (type !== 'warehouse' && !item.namespaceId) return;
-  if (isPinned(item)) {
-    unpin(item);
-    return;
-  }
-  visualStore.loqePinnedObjects = [
-    ...(visualStore.loqePinnedObjects ?? []),
-    {
-      projectId: visualStore.projectSelected['project-id'],
-      warehouseId: item.warehouseId,
-      warehouseName: item.warehouseName || warehouseNames.get(item.warehouseId) || '',
-      namespaceId: item.namespaceId ?? '',
-      name: item.name,
-      type,
-    },
-  ];
+  togglePinTarget({
+    ...item,
+    warehouseName: item.warehouseName || warehouseNames.get(item.warehouseId) || '',
+  });
 }
 
-function unpin(pin: Parameters<typeof pinKey>[0]) {
-  const pid = visualStore.projectSelected['project-id'];
-  const key = pinKey(pin);
-  visualStore.loqePinnedObjects = (visualStore.loqePinnedObjects ?? []).filter(
-    (p) => !(p.projectId === pid && pinKey(p) === key),
-  );
-}
-
-function insertPin(pin: Pin) {
+function insertPin(pin: PinnedObject) {
   emit('item-selected', {
     type: pin.type,
     warehouseId: pin.warehouseId,
