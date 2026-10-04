@@ -38,6 +38,15 @@ scroll past every control on each open to reach what they came for, and puts any
 summary of those filters directly beneath the controls it summarises — the same
 thing said twice, one after the other.
 
+**Close sits where the dialog's frame puts it.** A fullscreen dialog has no
+corner of its own to put a control in, so its `mdi-close` leads the toolbar,
+before the title, and anything that confirms goes at the far end. A windowed
+dialog is a box on top of the page, so its `mdi-close` ends the title row, top
+right. The policy editor once put a fullscreen close on the right — the only one
+of twelve fullscreen dialogs to do so, and the one that looked out of place. See
+`GrantsDialog.vue` and `WarehouseMaintenanceDialog.vue` (fullscreen), and the
+resource picker in `PolicyBuilder.vue` (windowed).
+
 The full shape, which is what every pane and dialog here composes to:
 
 ```

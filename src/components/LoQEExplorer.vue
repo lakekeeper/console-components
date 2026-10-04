@@ -101,7 +101,8 @@
               @attach-warehouse="handleAutoAttachWarehouse"
               @preview-table="handlePreviewTable"
               @show-ddl="handleShowDDL"
-              @copy-path="handleCopyPath" />
+              @copy-path="handleCopyPath"
+              @insert-select="handleInsertSelect" />
           </div>
 
           <v-divider />
@@ -787,11 +788,11 @@
             v-else-if="previewResult"
             :headers="previewHeaders"
             :items="previewItems"
-            :height="Math.min(400, 28 + previewItems.length * 28)"
+            :height="previewTableHeight"
             density="compact"
             fixed-header
             class="text-caption"
-            item-height="28">
+            item-height="36">
             <template v-for="h in previewHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
               <CellValue :value="value" @open="openCell(h.title, value)" />
             </template>
@@ -1000,6 +1001,12 @@ const lastExecutedTabName = ref('');
 
 // Preview dialog state
 const showPreviewDialog = ref(false);
+// Sized to the rows, up to 400px. Compact tables are a 40px header and 36px
+// rows, plus room for a horizontal scrollbar when the columns overflow; sizing
+// for 28px cut a short result off under its header.
+const previewTableHeight = computed(() =>
+  Math.min(400, 40 + Math.max(previewItems.value.length, 1) * 36 + 14),
+);
 const isPreviewLoading = ref(false);
 const previewResult = ref<LoQEQueryResult | null>(null);
 const previewError = ref<string | null>(null);
@@ -1079,7 +1086,8 @@ watch(activeResultTab, (idx) => {
 
 // Sidebar
 const sidebarCollapsed = ref(false);
-const sidebarWidth = ref(280);
+// Wide enough for the warehouse picker's label beside its two buttons.
+const sidebarWidth = ref(320);
 const dividerHover = ref(false);
 const isResizing = ref(false);
 
@@ -1380,14 +1388,7 @@ function handleTreeItemSelected(item: {
   }
 
   if (textToInsert) {
-    if (!sqlQuery.value) {
-      sqlQuery.value = textToInsert;
-    } else {
-      const before = sqlQuery.value.substring(0, cursorPosition.value);
-      const after = sqlQuery.value.substring(cursorPosition.value);
-      sqlQuery.value = before + textToInsert + after;
-      cursorPosition.value += textToInsert.length;
-    }
+    insertAtCursor(textToInsert);
   }
 }
 
@@ -1440,17 +1441,22 @@ async function handlePreviewTable(item: {
   }
 }
 
-function insertPreviewQuery() {
-  if (!previewTablePath.value) return;
-  const query = `SELECT * FROM ${previewTablePath.value} LIMIT 50`;
+/** Put text into the SQL editor at the cursor, or start the query with it. */
+function insertAtCursor(text: string) {
   if (!sqlQuery.value) {
-    sqlQuery.value = query;
+    sqlQuery.value = text;
   } else {
     const before = sqlQuery.value.substring(0, cursorPosition.value);
     const after = sqlQuery.value.substring(cursorPosition.value);
-    sqlQuery.value = before + query + after;
-    cursorPosition.value += query.length;
+    sqlQuery.value = before + text + after;
+    cursorPosition.value += text.length;
   }
+}
+
+function insertPreviewQuery() {
+  if (!previewTablePath.value) return;
+  const query = `SELECT * FROM ${previewTablePath.value} LIMIT 50`;
+  insertAtCursor(query);
   showPreviewDialog.value = false;
 }
 
@@ -1741,6 +1747,23 @@ async function handleShowDDL(item: {
   }
 }
 
+/** A SELECT over every column, dropped at the cursor; `*` if the schema did not load. */
+function handleInsertSelect(item: {
+  type: string;
+  warehouseId: string;
+  warehouseName: string;
+  namespaceId: string;
+  name: string;
+  columns: string[];
+}) {
+  if (!item.warehouseName || !item.namespaceId) return;
+  const cols = item.columns.length
+    ? item.columns.map((c) => `  "${c.replace(/"/g, '""')}"`).join(',\n')
+    : '  *';
+  const sql = `SELECT\n${cols}\nFROM ${buildTablePath(item)}\nLIMIT 100;`;
+  insertAtCursor(sql);
+}
+
 async function handleCopyPath(item: {
   type: string;
   warehouseId: string;
@@ -1761,14 +1784,7 @@ async function copyDDLToClipboard() {
 function insertDDLIntoEditor() {
   const sql = ddlContent.value;
   if (!sql) return;
-  if (!sqlQuery.value) {
-    sqlQuery.value = sql;
-  } else {
-    const before = sqlQuery.value.substring(0, cursorPosition.value);
-    const after = sqlQuery.value.substring(cursorPosition.value);
-    sqlQuery.value = before + sql + after;
-    cursorPosition.value += sql.length;
-  }
+  insertAtCursor(sql);
   showDDLDialog.value = false;
 }
 

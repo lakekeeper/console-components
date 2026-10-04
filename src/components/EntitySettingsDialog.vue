@@ -211,6 +211,10 @@ import {
   namespaceMoveCapability,
   type StorageLayoutInfo,
 } from '../common/namespaceMove';
+import { useMenuBoundary } from '@/composables/useMenuBoundary';
+
+// Opened from an actions menu: keep its menus out of that menu's close chain.
+useMenuBoundary();
 const props = defineProps<{
   /** The four differ only in which endpoints apply. A namespace renames through
       `move_namespace` with its parent unchanged; the rest have rename endpoints. */

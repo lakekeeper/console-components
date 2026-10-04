@@ -19,6 +19,10 @@
 import { ref } from 'vue';
 import { GetWarehouseResponse } from '@/gen/management';
 import ComputeConnectPanel from './ComputeConnectPanel.vue';
+import { useMenuBoundary } from '@/composables/useMenuBoundary';
+
+// Opened from an actions menu: keep its menus out of that menu's close chain.
+useMenuBoundary();
 
 const isDialogActive = ref(false);
 

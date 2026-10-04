@@ -617,6 +617,10 @@ import { Intent, ObjectType, Type } from '../common/enums';
 import { WarehousObject } from '@/common/interfaces';
 import { applyStorageProviderPreferences } from '../common/storageProviderOrder';
 import { useUserStore } from '../stores/user';
+import { useMenuBoundary } from '@/composables/useMenuBoundary';
+
+// Opened from an actions menu: keep its menus out of that menu's close chain.
+useMenuBoundary();
 
 const visual = useVisualStore();
 const userStore = useUserStore();

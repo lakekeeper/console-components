@@ -300,6 +300,7 @@ export * from './composables/useAuth';
 // Session-wide internet reachability — surfaces gate external links on this so
 // air-gapped deployments fall back to offline-safe paths.
 export { useConnectivity, type ConnectivityStatus } from './composables/useConnectivity';
+export { useMenuBoundary } from './composables/useMenuBoundary';
 
 // What the configured authorizer lets the console do, beyond per-object rights.
 export {
