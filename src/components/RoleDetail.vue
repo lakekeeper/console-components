@@ -145,7 +145,7 @@
                     size="small"
                     prepend-icon="mdi-file-tree-outline"
                     :disabled="memberOfTransitiveSupported === null">
-                    Incl. nested
+                    Show nested
                   </v-btn>
                 </v-btn-toggle>
               </template>

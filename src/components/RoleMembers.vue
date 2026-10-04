@@ -32,7 +32,7 @@
             size="small"
             prepend-icon="mdi-file-tree-outline"
             :disabled="transitiveSupported === null">
-            Incl. nested
+            Show nested
           </v-btn>
         </v-btn-toggle>
         <span v-if="transitiveSupported === null" class="text-caption text-medium-emphasis mr-2">

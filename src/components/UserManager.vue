@@ -157,7 +157,7 @@
               size="small"
               prepend-icon="mdi-file-tree-outline"
               :disabled="rolesTransitiveSupported === null">
-              Incl. nested
+              Show nested
             </v-btn>
           </v-btn-toggle>
           <span v-if="rolesTransitiveSupported === null" class="text-caption text-medium-emphasis">
