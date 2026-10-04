@@ -61,28 +61,28 @@
             {{ ownership.description }}
           </div>
 
-          <div class="text-overline text-medium-emphasis mt-3">Identifier</div>
+          <div class="text-overline text-medium-emphasis mt-3">Role ID in Provider</div>
           <div class="d-flex align-center mt-1">
             <v-chip
-              v-if="role.ident"
+              v-if="role['source-id']"
               size="small"
               variant="outlined"
               label
               class="mr-1 font-monospace">
-              {{ role.ident }}
+              {{ role['source-id'] }}
             </v-chip>
             <span v-else class="text-medium-emphasis">—</span>
             <v-btn
-              v-if="role.ident"
+              v-if="role['source-id']"
               icon="mdi-content-copy"
               size="x-small"
               variant="text"
-              :aria-label="`Copy identifier ${role.ident}`"
-              :title="`Copy identifier ${role.ident}`"
-              @click="functions.copyToClipboard(role.ident)"></v-btn>
+              :aria-label="`Copy source ID ${role['source-id']}`"
+              :title="`Copy source ID ${role['source-id']}`"
+              @click="functions.copyToClipboard(role['source-id'])"></v-btn>
           </div>
 
-          <div class="text-overline text-medium-emphasis mt-3">Role ID</div>
+          <div class="text-overline text-medium-emphasis mt-3">Role ID in Lakekeeper</div>
           <div class="d-flex align-center mt-1">
             <v-chip size="small" variant="outlined" label class="mr-1 font-monospace">
               {{ role.id }}
