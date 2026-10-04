@@ -260,17 +260,21 @@ function onIdSearch(v: string) {
   idTimer = setTimeout(async () => {
     if (!v) {
       idAssignedTitle.value = '';
+      searching.value = false;
       emit('update:modelValue', null);
       return;
     }
     searching.value = true;
     try {
       const resolved = await resolveById(v);
+      // The debounce only delays the start; a lookup already in flight can
+      // still answer after the input changed, and must not overwrite it.
+      if (v !== idInput.value) return;
       const assigned = !!resolved && isAssigned(resolved.id);
       idAssignedTitle.value = assigned ? resolved!.title : '';
       emit('update:modelValue', assigned ? null : resolved);
     } finally {
-      searching.value = false;
+      if (v === idInput.value) searching.value = false;
     }
   }, 300);
 }
