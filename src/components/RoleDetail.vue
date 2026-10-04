@@ -9,6 +9,12 @@
          itself. No role icon either: the page is only ever about a role, so it
          marks nothing. -->
     <div class="d-flex align-center ga-3 px-1 py-3">
+      <v-btn
+        icon="mdi-arrow-left"
+        size="small"
+        variant="tonal"
+        title="Back to roles"
+        @click="backToRoles"></v-btn>
       <div style="min-width: 0">
         <div class="d-flex align-center ga-2" style="min-width: 0">
           <div class="text-h6 text-truncate" :title="roleName">{{ roleName || '—' }}</div>
@@ -26,31 +32,6 @@
             @click="functions.copyToClipboard(roleId)"></v-btn>
         </div>
       </div>
-      <v-spacer></v-spacer>
-      <!-- Leaving is about the role, not about a section of it, so it sits with
-           the name and stays reachable from every tab. Editing stays in the
-           Details pane, beside the fields it changes. -->
-      <v-btn
-        variant="outlined"
-        size="small"
-        prepend-icon="mdi-arrow-left"
-        text="All roles"
-        @click="backToRoles"></v-btn>
-      <!-- Deleting is about the whole role, so it sits with the name rather
-           than inside Details. Gated like the roles list: the permission, an
-           authorizer that owns role lifecycle at all, and a namespace that is
-           not the reserved `system` one. -->
-      <DeleteConfirmDialog
-        v-if="canDelete && roleLifecycleSupported && !isSystemRole"
-        type="role"
-        :name="roleName"
-        force-label="Delete even if the role holds grants"
-        :force-hint="
-          isSyncManaged(providerId)
-            ? 'Provider sync recreates this role on its next run if the provider still reports the group — without its grants.'
-            : 'Its grants are revoked with it.'
-        "
-        :confirm-handler="removeRole" />
     </div>
 
     <div class="d-flex align-stretch" style="height: calc(100vh - 300px); min-height: 380px">
@@ -110,8 +91,9 @@
           <RoleMembers
             v-if="visited.has('members')"
             :role-id="roleId"
-            :can-edit="canEdit"
+            :can-edit="canManageMembers"
             :provider-id="providerId"
+            :project-id="roleProjectId"
             embedded />
         </div>
 
@@ -225,7 +207,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import type { RoleMembership } from '../gen/management/types.gen';
@@ -234,10 +216,7 @@ import RoleMembers from './RoleMembers.vue';
 import RoleOwners from './RoleOwners.vue';
 import RoleProviderChip from './RoleProviderChip.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
-import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 import { hasAction } from '../composables/useCatalogPermissions';
-import { useRoleLifecycleSupported } from '../composables/useAuthzCapabilities';
-import { useIsSyncManagedRole, SYSTEM_ROLE_PROVIDER_ID } from '../composables/useRoleProviders';
 import { useGrantPrincipalListingSupported } from '../composables/useGrants';
 import { isNotImplementedError } from '../common/errorUtils';
 import { useRoleNavigation } from '../composables/useRoleNavigation';
@@ -260,18 +239,12 @@ const roleName = ref('');
 // otherwise rename itself as you move between roles — and the members panel
 // qualifies the list where the list actually is.
 const providerId = ref('');
-// Deletion is permitted per role, not per page: `delete` in the role's own
-// allowed-actions, an authorizer that manages role lifecycle at all, and a
-// provider that has not claimed the role. Starts false so the button cannot
-// flash in before the actions come back.
-const canDelete = ref(false);
-const roleLifecycleSupported = useRoleLifecycleSupported();
-// Provider-maintained roles are deletable — sync just recreates them if the
-// provider still reports the group. Only the reserved `system` namespace
-// refuses, with `SystemRoleImmutable`.
-const isSyncManagedRole = useIsSyncManagedRole();
-const isSyncManaged = (id?: string) => isSyncManagedRole.value(id);
-const isSystemRole = computed(() => providerId.value === SYSTEM_ROLE_PROVIDER_ID);
+// Member roles must come from this same project; the server refuses others.
+const roleProjectId = ref('');
+// Membership goes through the catalog's `/role/{id}/members`, which checks
+// `manage_role_assignments` — not the authorizer's delegation actions behind
+// `canEdit`, which only OpenFGA reports.
+const canManageMembers = ref(false);
 
 const tab = ref('details');
 // Sections mount on first visit and stay mounted, so switching back does not
@@ -291,17 +264,6 @@ function backToRoles() {
     return;
   }
   router.push('/roles');
-}
-
-// The role is gone, so the page has nothing left to show — leave the same way
-// the back arrow does, which keeps the Identities host on its list instead of
-// pushing it to /roles.
-// Failures stay in the dialog (which holds the force checkbox a `RoleHasGrants`
-// refusal is asking for), so they must propagate rather than be caught here, and
-// the plugin must not also toast them.
-async function removeRole(force = false) {
-  await functions.deleteRoleWithForce(props.roleId, force, false);
-  backToRoles();
 }
 
 function onRoleLoaded(role: any) {
@@ -333,7 +295,7 @@ async function load() {
   // Which role this load is about. Moving between roles restarts it while the
   // previous one is still out, and the watcher below has already cleared the
   // header for the new role — so a late answer would put the old role's name,
-  // provider and delete permission back under the new role's id.
+  // provider and member permission back under the new role's id.
   const roleId = props.roleId;
   try {
     const [meta, mo] = await Promise.all([
@@ -343,6 +305,7 @@ async function load() {
     if (roleId !== props.roleId) return;
     roleName.value = (meta as any)?.name ?? '';
     providerId.value = (meta as any)?.['provider-id'] ?? '';
+    roleProjectId.value = (meta as any)?.['project-id'] ?? '';
     memberOf.value = ((mo as any)?.roles ?? []) as RoleMembership[];
     directMemberOfIds.value = new Set(memberOf.value.map((r) => r.id));
     // Scoped to the role's own project: the header falls back to the default
@@ -352,7 +315,7 @@ async function load() {
       .getRoleCatalogActions(roleId, (meta as any)?.['project-id'])
       .catch(() => []);
     if (roleId !== props.roleId) return;
-    canDelete.value = hasAction(actions, 'delete');
+    canManageMembers.value = hasAction(actions, 'manage_role_assignments');
   } catch {
     /* surfaced by the functions plugin */
   }
@@ -391,7 +354,8 @@ watch(
     visited.value = new Set(['details']);
     grantCount.value = null;
     providerId.value = '';
-    canDelete.value = false;
+    roleProjectId.value = '';
+    canManageMembers.value = false;
     memberOfScope.value = 'direct';
     load();
   },

@@ -138,7 +138,8 @@
       <template #item.actions="{ item }">
         <v-btn
           v-if="canWrite && !item.inherited"
-          icon="mdi-close"
+          icon="mdi-account-remove"
+          title="Remove member"
           size="x-small"
           variant="text"
           @click="requestRemove([item])"></v-btn>
@@ -156,7 +157,19 @@
       <v-card>
         <v-card-title class="text-subtitle-1 d-flex align-center py-3">Add member</v-card-title>
         <v-card-text>
-          <PrincipalSearch v-model="addSelected" :exclude-role-id="roleId" />
+          <PrincipalSearch
+            v-model="addSelected"
+            :exclude-role-id="roleId"
+            :assigned-ids="directMemberIds"
+            :lock-project-id="projectId || undefined" />
+          <!-- Kept in the dialog, not a snackbar: the pick is still here to change. -->
+          <v-alert
+            v-if="addError"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mt-4"
+            :text="addError"></v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -204,6 +217,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
+import { Type } from '../common/enums';
 import type { RoleMember } from '../gen/management/types.gen';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 import { isNotImplementedError } from '../common/errorUtils';
@@ -229,6 +243,11 @@ const props = defineProps<{
    * whether it can be edited.
    */
   providerId?: string;
+  /**
+   * The role's project. A member role must belong to it, so role search is
+   * pinned there rather than offering projects the server would refuse.
+   */
+  projectId?: string;
   /** Drop the outer card chrome when a host already provides it (e.g. a tab). */
   embedded?: boolean;
 }>();
@@ -242,6 +261,8 @@ const currentProjectId = computed(() => visual.projectSelected['project-id'] || 
 // API refuses it with `RoleNotManuallyAssignable`, so the controls are not
 // offered rather than offered and then failing.
 const providerOwned = computed(() => isProviderOwnedRole(props.providerId));
+// Only direct members: an inherited one can still be assigned here directly.
+const directMemberIds = computed(() => members.value.filter((m) => !m.inherited).map((m) => m.id));
 const canWrite = computed(() => !!props.canEdit && isMembershipEditableRole(props.providerId));
 
 const providerStillSynced = useRoleProviderStillSynced(() => props.providerId);
@@ -376,25 +397,45 @@ async function confirmRemove() {
 const addOpen = ref(false);
 const addSelected = ref<SelectedPrincipal | null>(null);
 const adding = ref(false);
+const addError = ref('');
+watch(addSelected, () => (addError.value = ''));
 
 function openAdd() {
   addSelected.value = null;
+  addError.value = '';
   addOpen.value = true;
 }
 
+// The server names both roles by id only; say it with names.
+async function describeAddError(error: any, picked: SelectedPrincipal): Promise<string> {
+  const message: string = error?.error?.message ?? error?.message ?? 'Adding the member failed.';
+  if (error?.error?.type !== 'RoleMembershipCycle' && !message.startsWith('RoleMembershipCycle')) {
+    return message;
+  }
+  const meta: any = await functions.getRoleMetadata(props.roleId).catch(() => null);
+  const here = meta?.name ?? props.roleId;
+  return `Can't add role "${picked.title}": "${here}" is already a member of it, directly or through other roles, so this would create a cycle.`;
+}
+
 async function confirmAdd() {
-  if (!addSelected.value) return;
+  const picked = addSelected.value;
+  if (!picked) return;
   adding.value = true;
+  addError.value = '';
   try {
-    await functions.addRoleMembers(
-      props.roleId,
-      [{ id: addSelected.value.id, type: addSelected.value.type }],
-      true,
-    );
+    // Silent: a refusal is shown in the dialog instead.
+    await functions.addRoleMembers(props.roleId, [{ id: picked.id, type: picked.type }], false);
+    visual.setSnackbarMsg({
+      function: 'addRoleMembers',
+      text: `Added ${picked.title}`,
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.SUCCESS,
+    });
     addOpen.value = false;
     await load();
-  } catch {
-    /* surfaced */
+  } catch (e) {
+    addError.value = await describeAddError(e, picked);
   } finally {
     adding.value = false;
   }

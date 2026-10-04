@@ -64,6 +64,7 @@
       item-title="title"
       item-value="id"
       return-object
+      :item-props="assignedItemProps"
       :label="type === 'role' && lockProjectId ? 'Search roles by name' : 'Search by name'"
       placeholder="Type to search"
       :hint="type === 'role' && lockProjectId ? lockedProjectHint : undefined"
@@ -82,7 +83,8 @@
       label="Paste an identifier"
       density="compact"
       variant="outlined"
-      hide-details
+      hide-details="auto"
+      :messages="idAssignedTitle ? `${idAssignedTitle}: ${assignedLabel}` : undefined"
       clearable
       :loading="searching"
       @update:model-value="onIdSearch"></v-text-field>
@@ -112,6 +114,13 @@ const props = defineProps<{
   modelValue: SelectedPrincipal | null;
   /** A role id to exclude from role results (e.g. the role being edited). */
   excludeRoleId?: string;
+  /**
+   * Principals already in place (e.g. a role's direct members). Still listed —
+   * a search that finds nothing reads as "no such user" — but not selectable.
+   */
+  assignedIds?: string[];
+  /** What to say about an assigned principal. Defaults to "Already a member". */
+  assignedLabel?: string;
   /**
    * Pins role search to one project and takes the chooser away. For callers
    * whose target only accepts principals from a single project — offering the
@@ -184,14 +193,20 @@ function onTypeChange(v: 'user' | 'role') {
   if (v === 'role') loadProjects();
 }
 
+// User ids are always `<idp_id>~<user-id>`, role ids are UUIDs. Anything looser
+// catches plain names (`service-account-spark`) and the lookup comes back 400.
 function looksLikeId(s: string): boolean {
-  return /~/.test(s) || /^[0-9a-f]{8}-[0-9a-f]{4}-/i.test(s) || /^[A-Za-z0-9_-]{16,}$/.test(s);
+  return type.value === 'user'
+    ? /^[^~\s]+~\S+$/.test(s)
+    : /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null;
 function onSearch(q: string) {
   search.value = q;
   if (timer) clearTimeout(timer);
+  // Picking an item writes its title into the search box; that is not a query.
+  if (props.modelValue && q === props.modelValue.title) return;
   timer = setTimeout(() => runSearch(q), 250);
 }
 function rerun() {
@@ -244,17 +259,32 @@ function onIdSearch(v: string) {
   if (idTimer) clearTimeout(idTimer);
   idTimer = setTimeout(async () => {
     if (!v) {
+      idAssignedTitle.value = '';
       emit('update:modelValue', null);
       return;
     }
     searching.value = true;
     try {
       const resolved = await resolveById(v);
-      emit('update:modelValue', resolved);
+      const assigned = !!resolved && isAssigned(resolved.id);
+      idAssignedTitle.value = assigned ? resolved!.title : '';
+      emit('update:modelValue', assigned ? null : resolved);
     } finally {
       searching.value = false;
     }
   }, 300);
+}
+
+const assignedLabel = computed(() => props.assignedLabel ?? 'Already a member');
+// Set when a pasted id resolves to an assigned principal, which is then not selected.
+const idAssignedTitle = ref('');
+
+function isAssigned(id: string): boolean {
+  return !!props.assignedIds?.includes(id);
+}
+
+function assignedItemProps(item: SelectedPrincipal) {
+  return isAssigned(item.id) ? { disabled: true, subtitle: assignedLabel.value } : {};
 }
 
 async function resolveById(id: string): Promise<SelectedPrincipal | null> {
@@ -288,6 +318,7 @@ async function resolveById(id: string): Promise<SelectedPrincipal | null> {
 watch(byId, () => {
   emit('update:modelValue', null);
   idInput.value = '';
+  idAssignedTitle.value = '';
 });
 
 onMounted(() => {
