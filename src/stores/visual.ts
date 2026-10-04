@@ -3,6 +3,7 @@ import { ref, reactive } from 'vue';
 import { defineStore } from 'pinia';
 import { Project, SnackbarMsg } from '@/common/interfaces';
 import { Type } from '@/common/enums';
+import type { PinnedObject } from '@/composables/usePinnedObjects';
 import { ServerInfo } from '@/gen//management/types.gen';
 
 // SQL Tab interface
@@ -65,6 +66,11 @@ export const useVisualStore = defineStore(
     const savedSqlQuery = ref(''); // Store last SQL query (deprecated - use warehouseSqlData)
     const isNavigationCollapsed = ref(false); // Navigation tree collapsed state
     const dismissSearchOnClick = ref(false); // LoQE tree: auto-dismiss search results on click
+    // Pinned objects, shared by the warehouse tree and the LoQE tree, per
+    // browser. Keyed by project, so one list serves every project without
+    // mixing them. Shape: `PinnedObject` in composables/usePinnedObjects.ts.
+    const pinnedObjects = ref<PinnedObject[]>([]);
+    const pinnedCollapsed = ref(false); // Pinned section folded
     const tagFilterPanelOpen = ref(false); // Governance tags: filter rail open (persisted, closed by default)
     const tagsRefresh = ref(0); // Governance tags: bumped after a tag change so read-only chip displays reload
     function bumpTagsRefresh() {
@@ -470,6 +476,8 @@ export const useVisualStore = defineStore(
       warehouseSqlData,
       isNavigationCollapsed,
       dismissSearchOnClick,
+      pinnedObjects,
+      pinnedCollapsed,
       tagFilterPanelOpen,
       tagsRefresh,
       bumpTagsRefresh,
@@ -539,6 +547,15 @@ export const useVisualStore = defineStore(
         // would otherwise outlive this release as a project called 'none'.
         const selected = state?.projectSelected;
         if (selected && !selected['project-id']) selected['project-name'] = '';
+
+        // Pins started out LoQE-only under these names; both trees share them now.
+        if (state && Array.isArray(state.loqePinnedObjects)) {
+          if (!Array.isArray(state.pinnedObjects)) state.pinnedObjects = state.loqePinnedObjects;
+          if (typeof state.loqePinnedCollapsed === 'boolean')
+            state.pinnedCollapsed ??= state.loqePinnedCollapsed;
+          delete state.loqePinnedObjects;
+          delete state.loqePinnedCollapsed;
+        }
 
         const trees = state?.warehouseTreeState;
         if (trees && typeof trees === 'object') {
