@@ -1,6 +1,8 @@
 <template>
   <div class="d-flex flex-column" style="min-height: 0">
-    <div class="px-3 pt-3 pb-2 flex-shrink-0">
+    <!-- Filters only earn their place over a list. Editing one assigned tag
+         passes just that tag, and a search box over one row filters nothing. -->
+    <div v-if="definitions.length > 1" class="px-3 pt-3 pb-2 flex-shrink-0">
       <v-text-field
         v-model="search"
         density="compact"
@@ -23,7 +25,10 @@
       </v-chip-group>
     </div>
 
-    <div class="px-1 pb-2" :style="{ maxHeight: listMaxHeight, overflowY: 'auto', minHeight: 0 }">
+    <div
+      class="px-1 pb-2"
+      :class="{ 'pt-2': definitions.length <= 1 }"
+      :style="{ maxHeight: listMaxHeight, overflowY: 'auto', minHeight: 0 }">
       <div v-if="!filtered.length" class="text-body-2 text-medium-emphasis pa-3">
         {{ definitions.length ? 'No tag matches these filters.' : 'No tags available.' }}
       </div>

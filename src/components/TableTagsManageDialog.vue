@@ -59,6 +59,10 @@
 import { ref } from 'vue';
 import EntityTagsManagePanel from './EntityTagsManagePanel.vue';
 import ColumnTagsManagePanel from './ColumnTagsManagePanel.vue';
+import { useMenuBoundary } from '@/composables/useMenuBoundary';
+
+// Opened from an actions menu: keep its menus out of that menu's close chain.
+useMenuBoundary();
 
 defineProps<{
   warehouseId: string;

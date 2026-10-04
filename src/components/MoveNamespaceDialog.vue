@@ -171,6 +171,10 @@ import {
   isReparent,
   type StorageLayoutInfo,
 } from '@/common/namespaceMove';
+import { useMenuBoundary } from '@/composables/useMenuBoundary';
+
+// Opened from an actions menu: keep its menus out of that menu's close chain.
+useMenuBoundary();
 
 const props = defineProps<{
   warehouseId: string;
