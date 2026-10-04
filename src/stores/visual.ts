@@ -65,6 +65,20 @@ export const useVisualStore = defineStore(
     const savedSqlQuery = ref(''); // Store last SQL query (deprecated - use warehouseSqlData)
     const isNavigationCollapsed = ref(false); // Navigation tree collapsed state
     const dismissSearchOnClick = ref(false); // LoQE tree: auto-dismiss search results on click
+    // LoQE tree: pinned tables/views, per browser. Keyed by project, so one list
+    // serves every project without mixing them.
+    const loqePinnedCollapsed = ref(false); // LoQE tree: Pinned section folded
+    const loqePinnedObjects = ref<
+      {
+        projectId: string;
+        warehouseId: string;
+        warehouseName: string;
+        /** Empty for a warehouse pin. */
+        namespaceId: string;
+        name: string;
+        type: 'warehouse' | 'namespace' | 'table' | 'view';
+      }[]
+    >([]);
     const tagFilterPanelOpen = ref(false); // Governance tags: filter rail open (persisted, closed by default)
     const tagsRefresh = ref(0); // Governance tags: bumped after a tag change so read-only chip displays reload
     function bumpTagsRefresh() {
@@ -470,6 +484,8 @@ export const useVisualStore = defineStore(
       warehouseSqlData,
       isNavigationCollapsed,
       dismissSearchOnClick,
+      loqePinnedObjects,
+      loqePinnedCollapsed,
       tagFilterPanelOpen,
       tagsRefresh,
       bumpTagsRefresh,

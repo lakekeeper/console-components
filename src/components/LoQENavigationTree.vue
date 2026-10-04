@@ -1,42 +1,54 @@
 <template>
   <v-sheet class="d-flex flex-column" color="transparent" style="height: 100%; overflow: hidden">
-    <!-- Header -->
-    <v-sheet
-      color="transparent"
-      class="text-subtitle-2 py-2 px-3 flex-shrink-0 d-flex align-center">
-      <v-icon size="small" class="mr-1">mdi-file-tree-outline</v-icon>
-      <span class="flex-grow-1">Object Browser</span>
-      <v-btn
-        icon="mdi-refresh"
-        size="x-small"
-        variant="text"
-        @click="refreshTree"
-        :loading="isLoading"
-        title="Refresh"></v-btn>
-    </v-sheet>
-
-    <!-- Search -->
-    <v-sheet color="transparent" class="px-3 pb-2 pt-1 flex-shrink-0">
-      <WarehousePicker
-        v-model="selectedWarehouseId"
-        :warehouses="warehouseChoices"
-        :loading="isLoading"
-        all-label="All warehouses"
-        clearable
-        class="mb-1" />
+    <!-- One row: what to browse, then the two actions on it. The pane needs no
+         title, and search only applies to a picked warehouse, so it opens on
+         demand instead of sitting there disabled. -->
+    <v-sheet color="transparent" class="px-3 pt-2 pb-2 flex-shrink-0">
+      <div class="d-flex align-center">
+        <WarehousePicker
+          v-model="selectedWarehouseId"
+          :warehouses="warehouseChoices"
+          :loading="isLoading"
+          all-label="All warehouses"
+          clearable
+          class="flex-grow-1 tree-picker"
+          style="min-width: 0" />
+        <!-- A disabled button gets no hover events, so the tooltip hangs off a wrapper. -->
+        <span class="d-inline-flex">
+          <v-btn
+            icon="mdi-magnify"
+            size="x-small"
+            variant="text"
+            :active="searchOpen"
+            :disabled="!selectedWarehouseId"
+            @click="toggleSearch"></v-btn>
+          <v-tooltip activator="parent" location="bottom">
+            {{
+              selectedWarehouseId ? 'Search tables & views' : 'Pick a warehouse first to search it'
+            }}
+          </v-tooltip>
+        </span>
+        <v-btn
+          icon="mdi-refresh"
+          size="x-small"
+          variant="text"
+          :loading="isLoading"
+          title="Refresh"
+          @click="refreshTree"></v-btn>
+      </div>
       <v-text-field
+        v-if="searchOpen && selectedWarehouseId"
         v-model="searchQuery"
         density="compact"
         variant="outlined"
-        :placeholder="
-          selectedWarehouseId ? 'Search tables & views…' : 'Pick a warehouse to search…'
-        "
+        placeholder="Search tables & views…"
         hide-details
         clearable
-        class="filter-field"
+        autofocus
+        class="filter-field mt-2"
         :loading="isSearching"
-        :disabled="!selectedWarehouseId"
         @keyup.enter="performSearch"
+        @keydown.esc="closeSearch"
         @click:clear="clearSearch">
         <template #prepend-inner>
           <v-icon size="x-small">mdi-magnify</v-icon>
@@ -46,7 +58,7 @@
             icon="mdi-arrow-right"
             size="x-small"
             variant="text"
-            :disabled="!searchQuery || isSearching || !selectedWarehouseId"
+            :disabled="!searchQuery || isSearching"
             @click="performSearch"
             title="Search warehouse (fuzzy)"></v-btn>
         </template>
@@ -106,10 +118,10 @@
                 {{ result.type === 'table' ? 'mdi-table' : 'mdi-eye-outline' }}
               </v-icon>
             </template>
-            <v-list-item-title class="text-caption">
+            <v-list-item-title style="font-size: 0.8125rem">
               {{ result.name }}
             </v-list-item-title>
-            <v-list-item-subtitle class="text-caption" style="font-size: 0.65rem !important">
+            <v-list-item-subtitle class="text-caption">
               {{ result.namespace }}
             </v-list-item-subtitle>
             <template #append>
@@ -123,7 +135,7 @@
                 {{ Math.round((1 - result.distance) * 100) }}%
               </v-chip>
               <v-btn
-                icon="mdi-plus-circle-outline"
+                icon="mdi-arrow-right-bold-box-outline"
                 size="x-small"
                 variant="text"
                 @click.stop="insertSearchResult(result)"
@@ -166,6 +178,89 @@
       <v-divider class="border-opacity-25" />
     </v-sheet>
 
+    <!-- Pinned: what you keep coming back to, one click from anywhere in the tree. -->
+    <!-- Tinted and closed off by a full divider so it does not read as the top
+         of the tree; the header stays put while the list scrolls. -->
+    <v-sheet v-if="pinnedObjects.length" class="flex-shrink-0 pinned-section">
+      <!-- Folding keeps the count in view, so pins are not forgotten the way a
+           hidden section would be. Remembered across reloads. -->
+      <div
+        class="pinned-header text-caption text-medium-emphasis px-3 py-1 d-flex align-center"
+        role="button"
+        :aria-expanded="!visualStore.loqePinnedCollapsed"
+        @click="visualStore.loqePinnedCollapsed = !visualStore.loqePinnedCollapsed">
+        <v-icon size="x-small" class="mr-1">mdi-pin-outline</v-icon>
+        Pinned
+        <span class="ml-1">({{ pinnedObjects.length }})</span>
+        <v-spacer />
+        <v-icon size="x-small">
+          {{ visualStore.loqePinnedCollapsed ? 'mdi-chevron-right' : 'mdi-chevron-down' }}
+        </v-icon>
+      </div>
+      <v-list
+        v-show="!visualStore.loqePinnedCollapsed"
+        density="compact"
+        bg-color="transparent"
+        class="py-0 px-2"
+        style="max-height: 180px; overflow-y: auto">
+        <v-list-item
+          v-for="pin in pinnedObjects"
+          :key="pinKey(pin)"
+          density="compact"
+          class="pinned-item"
+          @click="revealObject(pin)"
+          @dblclick.stop="isInsertable(pin) && insertPin(pin)">
+          <template #prepend>
+            <!-- A warehouse pin wears the same provider mark as its tree row. -->
+            <template v-if="pin.type === 'warehouse'">
+              <v-icon v-if="pinIcons.get(pin.warehouseId)?.src" size="x-small" class="mr-2">
+                <v-img
+                  :src="pinIcons.get(pin.warehouseId)?.src"
+                  width="16"
+                  :height="pinIcons.get(pin.warehouseId)?.height ? 12 : 16" />
+              </v-icon>
+              <v-icon
+                v-else
+                size="x-small"
+                class="mr-2"
+                :color="pinIcons.get(pin.warehouseId)?.color">
+                {{ pinIcons.get(pin.warehouseId)?.icon }}
+              </v-icon>
+            </template>
+            <v-icon v-else size="x-small" class="mr-2">{{ PIN_ICONS[pin.type] }}</v-icon>
+          </template>
+          <v-list-item-title style="font-size: 0.8125rem">
+            {{ pin.type === 'namespace' ? pin.namespaceId : pin.name }}
+          </v-list-item-title>
+          <v-list-item-subtitle v-if="pin.type !== 'warehouse'" class="text-caption">
+            {{
+              pin.type === 'namespace'
+                ? pinWarehouseName(pin)
+                : `${pinWarehouseName(pin)} · ${pin.namespaceId}`
+            }}
+          </v-list-item-subtitle>
+          <template #append>
+            <v-btn
+              v-if="isInsertable(pin)"
+              icon="mdi-arrow-right-bold-box-outline"
+              size="x-small"
+              variant="text"
+              title="Insert path into query"
+              @click.stop="insertPin(pin)"
+              @dblclick.stop></v-btn>
+            <v-btn
+              icon="mdi-pin-off-outline"
+              size="x-small"
+              variant="text"
+              title="Unpin"
+              @click.stop="unpin(pin)"
+              @dblclick.stop></v-btn>
+          </template>
+        </v-list-item>
+      </v-list>
+    </v-sheet>
+    <v-divider v-if="pinnedObjects.length" />
+
     <!-- Loading state -->
     <div v-if="isLoading && treeItems.length === 0" class="text-center py-4">
       <v-progress-circular indeterminate size="48" color="primary" />
@@ -182,7 +277,7 @@
     <v-sheet
       v-else
       color="transparent"
-      class="flex-grow-1"
+      class="flex-grow-1 tree-scroller"
       style="overflow-y: auto; overflow-x: auto">
       <v-treeview
         v-model:opened="openedItems"
@@ -191,67 +286,23 @@
         density="compact"
         open-on-click
         indent-lines="default"
+        expand-icon="mdi-chevron-right"
+        collapse-icon="mdi-chevron-down"
         class="tree-view pa-2"
-        style="background-color: transparent !important; --v-treeview-indent-line-opacity: 0.5">
+        style="background-color: transparent !important; --v-treeview-indent-line-opacity: 0.2">
         <template v-slot:prepend="{ item }">
           <!-- Warehouse: cloud provider icon -->
-          <v-icon
-            v-if="
-              item.type === 'warehouse' && item.storageType === 's3' && item.storageFlavor === 'aws'
-            "
-            size="small"
-            color="orange">
-            mdi-aws
-          </v-icon>
-          <v-icon
-            v-else-if="
-              item.type === 'warehouse' &&
-              item.storageType === 's3' &&
-              item.storageEndpoint?.includes('cloudflarestorage')
-            "
-            size="small">
-            <v-img :src="cfIcon" width="18" height="18" />
-          </v-icon>
-          <v-icon
-            v-else-if="
-              item.type === 'warehouse' &&
-              item.storageType === 's3' &&
-              isAliyunOssEndpoint(item.storageEndpoint)
-            "
-            size="small">
-            <v-img :src="aliyunIcon" width="18" height="18" />
-          </v-icon>
-          <v-icon
-            v-else-if="item.type === 'warehouse' && item.storageType === 's3'"
-            size="small"
-            color="primary">
-            mdi-bucket-outline
-          </v-icon>
-          <v-icon
-            v-else-if="item.type === 'warehouse' && item.storageType === 'adls'"
-            size="small"
-            color="primary">
-            mdi-microsoft-azure
-          </v-icon>
-          <v-icon
-            v-else-if="item.type === 'warehouse' && item.storageType === 'gcs'"
-            size="small"
-            color="info">
-            mdi-google-cloud
-          </v-icon>
-          <v-icon
-            v-else-if="item.type === 'warehouse' && item.storageType === 'onelake'"
-            size="small">
-            <v-img :src="oneLakeIcon" width="18" height="18" />
-          </v-icon>
-          <v-icon
-            v-else-if="item.type === 'warehouse' && item.storageType === 'stackit'"
-            size="small">
-            <v-img :src="stackitIcon" width="18" height="14" />
-          </v-icon>
-          <v-icon size="small" v-else-if="item.type === 'warehouse'" color="blue-grey">
-            mdi-database
-          </v-icon>
+          <template v-if="item.type === 'warehouse'">
+            <v-icon v-if="warehouseIcon(item).src" size="small">
+              <v-img
+                :src="warehouseIcon(item).src"
+                width="18"
+                :height="warehouseIcon(item).height ?? 18" />
+            </v-icon>
+            <v-icon v-else size="small" :color="warehouseIcon(item).color">
+              {{ warehouseIcon(item).icon }}
+            </v-icon>
+          </template>
           <!-- Not an error state: the catalog side of this warehouse browses
                fine, only its data files are unreachable from the browser — hence
                a database mark rather than an alert. The tooltip hangs off a
@@ -276,6 +327,18 @@
             :icon="getTypeIcon(item.fieldType)"
             :color="getTypeColor(item.fieldType)"
             size="x-small" />
+          <v-icon
+            v-else-if="item.type === 'status' && item.statusKind === 'error'"
+            size="x-small"
+            color="error">
+            mdi-alert-circle-outline
+          </v-icon>
+          <v-icon
+            v-else-if="item.type === 'status' && item.statusKind === 'forbidden'"
+            size="x-small"
+            color="warning">
+            mdi-lock-outline
+          </v-icon>
           <v-icon v-else-if="item.type === 'load-more'" size="small" class="text-medium-emphasis">
             mdi-dots-horizontal
           </v-icon>
@@ -287,14 +350,16 @@
             :class="{
               'tree-item-active': item.id === lastFocusedNodeId,
               'tree-leaf-row':
-                item.type === 'table' || item.type === 'view' || item.type === 'field',
+                item.type === 'table' ||
+                item.type === 'view' ||
+                item.type === 'field' ||
+                item.type === 'status',
             }"
             :data-node-id="item.id"
-            @mouseenter="hoveredItem = item.id"
-            @mouseleave="hoveredItem = null">
+            @dblclick.stop="handleRowDblClick(item)">
             <span
               v-if="item.type === 'load-more'"
-              class="tree-item-title text-caption"
+              class="tree-item-title"
               style="
                 cursor: pointer;
                 font-style: italic;
@@ -303,66 +368,128 @@
               @click.stop="handleLoadMore(item)">
               {{ item.name }}
             </span>
-            <span v-else class="tree-item-title text-caption" :title="item.fieldType || item.name">
+            <span
+              v-else-if="item.type === 'status'"
+              class="tree-item-title tree-item-status"
+              :class="{ 'text-error': item.statusKind === 'error' }">
               {{ item.name }}
+              <a
+                v-if="item.statusKind !== 'empty'"
+                class="tree-item-retry"
+                href="#"
+                @click.prevent.stop="retryLoad(item)">
+                Retry
+              </a>
+            </span>
+            <!-- Only columns get a tooltip: their type is not on the row. A name
+                 tooltip would just repeat the label. -->
+            <span
+              v-else
+              class="tree-item-title"
+              :class="{ 'tree-item-title--warehouse': item.type === 'warehouse' }"
+              :title="item.type === 'field' ? fieldTooltip(item) : undefined">
+              {{ item.name }}
+              <v-icon
+                v-if="item.isIdentifier"
+                icon="mdi-key-variant"
+                size="12"
+                color="amber-darken-2"
+                class="ml-1"></v-icon>
+              <span v-if="item.partitionTransform" class="tree-item-badge">
+                {{
+                  item.partitionTransform === 'identity'
+                    ? 'partition'
+                    : `partition · ${item.partitionTransform}`
+                }}
+              </span>
+              <span v-if="item.required && !item.isIdentifier" class="tree-item-badge">
+                not null
+              </span>
+              <!-- Capped and cut short: the tree sizes to its widest row, so one
+                   long doc would push every row into horizontal scroll. -->
+              <span v-if="item.fieldDoc" class="tree-item-doc">{{ item.fieldDoc }}</span>
             </span>
 
-            <!-- Insert button for tables/views -->
-            <v-btn
-              v-if="item.type === 'table' || item.type === 'view'"
-              icon="mdi-plus-circle-outline"
-              size="x-small"
-              variant="text"
-              class="tree-item-insert-btn"
-              :style="{ opacity: hoveredItem === item.id ? 1 : 0 }"
-              @click.stop="handleInsertPath(item)"
-              title="Insert path into query"></v-btn>
+            <!-- Sticky to the pane's right edge: the tree scrolls sideways for long
+                 names, and the actions would otherwise sit past the widest row. -->
+            <span class="tree-item-actions" @dblclick.stop>
+              <!-- Warehouses and namespaces have no menu; pinning is their one action. -->
+              <v-btn
+                v-if="item.type === 'warehouse' || item.type === 'namespace'"
+                :icon="isPinned(item) ? 'mdi-pin-off-outline' : 'mdi-pin-outline'"
+                size="x-small"
+                variant="text"
+                class="tree-item-insert-btn"
+                :title="isPinned(item) ? 'Unpin' : 'Pin'"
+                @click.stop="togglePin(item)"></v-btn>
+              <!-- Insert button for tables/views -->
+              <v-btn
+                v-if="item.type === 'table' || item.type === 'view'"
+                icon="mdi-arrow-right-bold-box-outline"
+                size="x-small"
+                variant="text"
+                class="tree-item-insert-btn"
+                @click.stop="handleInsertPath(item)"
+                title="Insert path into query"></v-btn>
 
-            <!-- Kebab menu for tables/views -->
-            <v-menu v-if="item.type === 'table' || item.type === 'view'" location="bottom end">
-              <template #activator="{ props: menuProps }">
-                <v-btn
-                  v-bind="menuProps"
-                  icon="mdi-dots-vertical"
-                  size="x-small"
-                  variant="text"
-                  class="tree-item-insert-btn"
-                  :style="{ opacity: hoveredItem === item.id ? 1 : 0 }"
-                  @click.stop
-                  title="More actions"></v-btn>
-              </template>
-              <v-list density="compact" class="pa-1" min-width="160">
-                <v-list-item
-                  density="compact"
-                  @click="handlePreview(item)"
-                  prepend-icon="mdi-eye-outline">
-                  <v-list-item-title class="text-caption">Preview data</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                  density="compact"
-                  @click="handleShowDDL(item)"
-                  prepend-icon="mdi-code-tags">
-                  <v-list-item-title class="text-caption">SQL templates</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                  density="compact"
-                  @click="handleCopyPath(item)"
-                  prepend-icon="mdi-content-copy">
-                  <v-list-item-title class="text-caption">Copy path</v-list-item-title>
-                </v-list-item>
-              </v-list>
-            </v-menu>
+              <!-- Kebab menu for tables/views -->
+              <v-menu v-if="item.type === 'table' || item.type === 'view'" location="bottom end">
+                <template #activator="{ props: menuProps }">
+                  <v-btn
+                    v-bind="menuProps"
+                    icon="mdi-dots-vertical"
+                    size="x-small"
+                    variant="text"
+                    class="tree-item-insert-btn"
+                    @click.stop
+                    title="More actions"></v-btn>
+                </template>
+                <v-list density="compact" class="pa-1" min-width="160">
+                  <v-list-item
+                    density="compact"
+                    @click="handlePreview(item)"
+                    prepend-icon="mdi-eye-outline">
+                    <v-list-item-title class="text-caption">Preview data</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item
+                    density="compact"
+                    @click="handleShowDDL(item)"
+                    prepend-icon="mdi-code-tags">
+                    <v-list-item-title class="text-caption">SQL templates</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item
+                    density="compact"
+                    @click="handleSelectAll(item)"
+                    prepend-icon="mdi-format-list-checks">
+                    <v-list-item-title class="text-caption">Select all columns</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item
+                    density="compact"
+                    @click="handleCopyPath(item)"
+                    prepend-icon="mdi-content-copy">
+                    <v-list-item-title class="text-caption">Copy path</v-list-item-title>
+                  </v-list-item>
+                  <v-list-item
+                    density="compact"
+                    @click="togglePin(item)"
+                    :prepend-icon="isPinned(item) ? 'mdi-pin-off-outline' : 'mdi-pin-outline'">
+                    <v-list-item-title class="text-caption">
+                      {{ isPinned(item) ? 'Unpin' : 'Pin' }}
+                    </v-list-item-title>
+                  </v-list-item>
+                </v-list>
+              </v-menu>
 
-            <!-- Insert button for fields -->
-            <v-btn
-              v-if="item.type === 'field'"
-              icon="mdi-plus-circle-outline"
-              size="x-small"
-              variant="text"
-              class="tree-item-insert-btn"
-              :style="{ opacity: hoveredItem === item.id ? 1 : 0 }"
-              @click.stop="handleInsertField(item)"
-              title="Insert field name"></v-btn>
+              <!-- Insert button for fields -->
+              <v-btn
+                v-if="item.type === 'field'"
+                icon="mdi-arrow-right-bold-box-outline"
+                size="x-small"
+                variant="text"
+                class="tree-item-insert-btn"
+                @click.stop="handleInsertField(item)"
+                title="Insert field name"></v-btn>
+            </span>
           </div>
         </template>
       </v-treeview>
@@ -377,7 +504,7 @@ import { stsDisabled, loqeVendingReason } from '@/common/vendedCredentials';
 import { useVisualStore } from '@/stores/visual';
 // import { useUserStore } from '@/stores/user';
 import { Type } from '@/common/enums';
-import { logError } from '@/common/errorUtils';
+import { logError, isForbiddenError } from '@/common/errorUtils';
 import type { AttachedCatalog } from '../composables/loqe/types';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import cfIcon from '@/assets/cf.svg';
@@ -435,6 +562,18 @@ const emit = defineEmits<{
       name: string;
     },
   ): void;
+  /** User asked for a SELECT naming every top-level column */
+  (
+    e: 'insert-select',
+    item: {
+      type: string;
+      warehouseId: string;
+      warehouseName: string;
+      namespaceId: string;
+      name: string;
+      columns: string[];
+    },
+  ): void;
   /** User clicked Copy path */
   (
     e: 'copy-path',
@@ -462,13 +601,27 @@ const stackitIcon = computed(() => (visualStore.themeLight ? stackitLightIcon : 
 interface TreeItem {
   id: string;
   name: string;
-  type: 'warehouse' | 'namespace' | 'table' | 'view' | 'field' | 'load-more';
+  type: 'warehouse' | 'namespace' | 'table' | 'view' | 'field' | 'load-more' | 'status';
   children?: TreeItem[];
   warehouseId: string;
   warehouseName?: string;
   namespaceId?: string;
   loaded?: boolean;
   fieldType?: string;
+  /** The field's Iceberg `doc`, when the schema has one. */
+  fieldDoc?: string;
+  /** Field is `required` in the schema (NOT NULL). */
+  required?: boolean;
+  /** Field is one of the schema's `identifier-field-ids` (its row key). */
+  isIdentifier?: boolean;
+  /** Transform of the default partition spec on this field (`identity`, `day`, …). */
+  partitionTransform?: string;
+  /**
+   * Status rows stand in for children that could not be shown: a failed or
+   * forbidden load, or an empty container. `retryOf` is the node to reload.
+   */
+  statusKind?: 'error' | 'forbidden' | 'empty';
+  retryOf?: string;
   /** Dotted path from the top-level column, for nested fields. */
   fieldPath?: string;
   parentType?: 'table' | 'view';
@@ -496,7 +649,6 @@ const TREE_PAGE_SIZE = 100;
 
 const treeItems = ref<TreeItem[]>([]);
 const openedItems = ref<string[]>([]);
-const hoveredItem = ref<string | null>(null);
 const isLoading = ref(false);
 
 // Pagination tokens keyed by parent node id
@@ -659,6 +811,23 @@ function clearSearch() {
   searchResults.value = [];
 }
 
+const searchOpen = ref(false);
+
+function toggleSearch() {
+  if (searchOpen.value) closeSearch();
+  else searchOpen.value = true;
+}
+
+function closeSearch() {
+  searchOpen.value = false;
+  clearSearch();
+}
+
+// Search is scoped to the picked warehouse; without one there is nothing to search.
+watch(selectedWarehouseId, (id) => {
+  if (!id) closeSearch();
+});
+
 function dismissSearch() {
   hasSearched.value = false;
   searchResults.value = [];
@@ -695,6 +864,70 @@ async function expandTreeToPath(warehouseId: string, namespacePath: string) {
 }
 
 async function handleSearchResultClick(result: (typeof searchResults.value)[0]) {
+  await revealObject(result);
+  // Auto-dismiss search results if the option is enabled
+  if (visualStore.dismissSearchOnClick) {
+    dismissSearch();
+  }
+}
+
+/** Open the tree down to a table or view, expand it, and scroll it into view. */
+async function revealObject(target: {
+  warehouseId: string;
+  namespaceId: string;
+  name: string;
+  type: string;
+}) {
+  // Both clicks of a double-click land here; parallel runs would race on the
+  // same lazy loads and fetch everything twice.
+  if (revealing) return;
+  revealing = true;
+  try {
+    await revealObjectNow(target);
+  } finally {
+    revealing = false;
+  }
+}
+
+let revealing = false;
+
+async function revealObjectNow(target: {
+  warehouseId: string;
+  namespaceId: string;
+  name: string;
+  type: string;
+}) {
+  // A pin can outlive its warehouse (deleted, or no longer visible to you).
+  if (!warehouseChoices.value.some((wh) => wh.id === target.warehouseId)) {
+    visualStore.setSnackbarMsg({
+      function: 'revealObject',
+      text: 'That warehouse is no longer available. Unpin it to remove it from the list.',
+      ttl: 4000,
+      ts: Date.now(),
+      type: Type.WARNING,
+    });
+    return;
+  }
+  // A pin may name a warehouse still behind "Load more".
+  ensureWarehouseRendered(target.warehouseId);
+  if (target.type === 'warehouse') {
+    // A warehouse pin is a shortcut for the picker: the tree narrows to it.
+    selectedWarehouseId.value = target.warehouseId;
+    await expandTreeToPath(target.warehouseId, '');
+    return;
+  }
+  if (target.type === 'namespace') {
+    // Opening the path opens the node itself too; there are no fields to load.
+    await expandTreeToPath(target.warehouseId, target.namespaceId);
+    const nodeId = `ns-${target.warehouseId}-${target.namespaceId}`;
+    await nextTick();
+    await nextTick();
+    document
+      .querySelector(`[data-node-id="${nodeId}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+  const result = target;
   // Collapse previously focused search result table/view
   if (lastFocusedNodeId.value && openedItems.value.includes(lastFocusedNodeId.value)) {
     openedItems.value = openedItems.value.filter((id) => id !== lastFocusedNodeId.value);
@@ -714,11 +947,6 @@ async function handleSearchResultClick(result: (typeof searchResults.value)[0]) 
     openedItems.value = [...openedItems.value, itemNodeId];
   }
   lastFocusedNodeId.value = itemNodeId;
-
-  // Auto-dismiss search results if the option is enabled
-  if (visualStore.dismissSearchOnClick) {
-    dismissSearch();
-  }
 
   // Scroll the node into view after DOM settles
   await nextTick();
@@ -923,6 +1151,7 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
       }
     }
 
+    if (!item.children?.length) item.children = [statusNode(item, 'empty', 'No namespaces')];
     item.loaded = true;
     treeItems.value = [...treeItems.value]; // force reactivity
 
@@ -938,8 +1167,7 @@ async function loadNamespacesForWarehouse(item: TreeItem) {
     }
   } catch (error: any) {
     logError('[LoQE Tree] loadNamespaces', error);
-    // Collapse back on error
-    openedItems.value = openedItems.value.filter((id) => id !== item.id);
+    showLoadFailure(item, error);
   }
 }
 
@@ -1037,12 +1265,14 @@ async function loadChildrenForNamespace(item: TreeItem) {
       });
     }
 
-    item.children = children;
+    item.children = children.length
+      ? children
+      : [statusNode(item, 'empty', 'No namespaces, tables or views')];
     item.loaded = true;
     treeItems.value = [...treeItems.value];
   } catch (error: any) {
     logError('[LoQE Tree] loadNamespaceChildren', error);
-    openedItems.value = openedItems.value.filter((id) => id !== item.id);
+    showLoadFailure(item, error);
   }
 }
 
@@ -1060,6 +1290,7 @@ async function loadFieldsForTableOrView(item: TreeItem) {
         : await functions.loadView(item.warehouseId, apiNs, item.name, false);
 
     const fields: TreeItem[] = [];
+    const ctx = fieldContext(metadata?.metadata, item.type);
 
     if (item.type === 'view') {
       if (metadata?.metadata?.versions) {
@@ -1070,8 +1301,9 @@ async function loadFieldsForTableOrView(item: TreeItem) {
         if (currentVersion) {
           const schemaId = currentVersion['schema-id'];
           const schema = metadata.metadata.schemas?.find((s: any) => s['schema-id'] === schemaId);
+          ctx.identifierIds = new Set(schema?.['identifier-field-ids'] ?? []);
           schema?.fields?.forEach((field: any) => {
-            fields.push(makeFieldItem(item, field));
+            fields.push(makeFieldItem(item, field, '', ctx));
           });
         }
       }
@@ -1081,17 +1313,19 @@ async function loadFieldsForTableOrView(item: TreeItem) {
         const schema = metadata.metadata.schemas.find(
           (s: any) => s['schema-id'] === currentSchemaId,
         );
+        ctx.identifierIds = new Set(schema?.['identifier-field-ids'] ?? []);
         schema?.fields?.forEach((field: any) => {
-          fields.push(makeFieldItem(item, field));
+          fields.push(makeFieldItem(item, field, '', ctx));
         });
       }
     }
 
-    item.children = fields;
+    item.children = fields.length ? fields : [statusNode(item, 'empty', 'No columns')];
     item.loaded = true;
     treeItems.value = [...treeItems.value];
   } catch (error: any) {
     logError(`[LoQE Tree] loadFields(${item.type})`, error);
+    showLoadFailure(item, error);
   }
 }
 
@@ -1103,13 +1337,22 @@ async function loadFieldsForTableOrView(item: TreeItem) {
  * a dotted path as their name so inserting one into the editor yields something
  * usable (`address.street`).
  */
-function makeFieldItem(parent: TreeItem, field: any, namePath = ''): TreeItem {
+function makeFieldItem(
+  parent: TreeItem,
+  field: any,
+  namePath = '',
+  ctx: FieldContext = EMPTY_FIELD_CONTEXT,
+): TreeItem {
   const path = namePath ? `${namePath}.${field.name}` : field.name;
   const item: TreeItem = {
     id: `field-${parent.id}-${path}-${field.id}`,
     name: field.name,
     type: 'field',
     fieldType: formatIcebergType(field.type),
+    fieldDoc: field.doc || undefined,
+    required: !!field.required,
+    isIdentifier: ctx.identifierIds.has(field.id),
+    partitionTransform: ctx.partitionTransforms.get(field.id),
     warehouseId: parent.warehouseId,
     warehouseName: parent.warehouseName,
     namespaceId: parent.namespaceId,
@@ -1118,7 +1361,7 @@ function makeFieldItem(parent: TreeItem, field: any, namePath = ''): TreeItem {
     fieldPath: path,
   };
 
-  const children = makeNestedFieldItems(parent, field.type, path);
+  const children = makeNestedFieldItems(parent, field.type, path, ctx);
   if (children.length) item.children = children;
   return item;
 }
@@ -1127,23 +1370,33 @@ function makeFieldItem(parent: TreeItem, field: any, namePath = ''): TreeItem {
  * Children of a non-primitive type. List elements and map key/values have no
  * name of their own, so they are labelled by their role.
  */
-function makeNestedFieldItems(parent: TreeItem, type: any, path: string): TreeItem[] {
+function makeNestedFieldItems(
+  parent: TreeItem,
+  type: any,
+  path: string,
+  ctx: FieldContext,
+): TreeItem[] {
   if (!type || typeof type === 'string') return [];
 
   if (type.type === 'struct') {
-    return (type.fields ?? []).map((f: any) => makeFieldItem(parent, f, path));
+    return (type.fields ?? []).map((f: any) => makeFieldItem(parent, f, path, ctx));
   }
 
   if (type.type === 'list') {
     return [
-      makeFieldItem(parent, { id: `${path}-element`, name: 'element', type: type.element }, path),
+      makeFieldItem(
+        parent,
+        { id: `${path}-element`, name: 'element', type: type.element },
+        path,
+        ctx,
+      ),
     ];
   }
 
   if (type.type === 'map') {
     return [
-      makeFieldItem(parent, { id: `${path}-key`, name: 'key', type: type.key }, path),
-      makeFieldItem(parent, { id: `${path}-value`, name: 'value', type: type.value }, path),
+      makeFieldItem(parent, { id: `${path}-key`, name: 'key', type: type.key }, path, ctx),
+      makeFieldItem(parent, { id: `${path}-value`, name: 'value', type: type.value }, path, ctx),
     ];
   }
 
@@ -1421,7 +1674,217 @@ function getTypeColor(fieldType: string): string {
   return 'grey';
 }
 
+// ── Field markers ─────────────────────────────────────────────────────
+
+interface FieldContext {
+  identifierIds: Set<number>;
+  /** Source field id → transform, from the table's default partition spec. */
+  partitionTransforms: Map<number, string>;
+}
+const EMPTY_FIELD_CONTEXT: FieldContext = {
+  identifierIds: new Set(),
+  partitionTransforms: new Map(),
+};
+
+/** What the loaded metadata says about fields beyond their type. Views have no partitions. */
+function fieldContext(metadata: any, type: TreeItem['type']): FieldContext {
+  const partitionTransforms = new Map<number, string>();
+  if (type === 'table' && metadata) {
+    const spec = (metadata['partition-specs'] ?? []).find(
+      (s: any) => s['spec-id'] === metadata['default-spec-id'],
+    );
+    for (const f of spec?.fields ?? []) {
+      const sourceId = f['source-id'] ?? f['source-ids']?.[0];
+      if (sourceId !== undefined && !partitionTransforms.has(sourceId)) {
+        partitionTransforms.set(sourceId, String(f.transform));
+      }
+    }
+  }
+  return { identifierIds: new Set(), partitionTransforms };
+}
+
+function fieldTooltip(item: TreeItem): string {
+  return [
+    item.fieldType,
+    item.isIdentifier ? 'identifier field' : item.required ? 'NOT NULL' : '',
+    item.partitionTransform ? `partitioned by ${item.partitionTransform}` : '',
+    item.fieldDoc,
+  ]
+    .filter(Boolean)
+    .join(' — ');
+}
+
+// ── Warehouse icon ────────────────────────────────────────────────────
+
+/** Which mark a warehouse wears: an MDI glyph, or a bundled logo (`src`). */
+function warehouseIcon(item: Pick<TreeItem, 'storageType' | 'storageFlavor' | 'storageEndpoint'>): {
+  icon?: string;
+  color?: string;
+  src?: string;
+  height?: number;
+} {
+  switch (item.storageType) {
+    case 's3':
+      if (item.storageFlavor === 'aws') return { icon: 'mdi-aws', color: 'orange' };
+      if (item.storageEndpoint?.includes('cloudflarestorage')) return { src: cfIcon };
+      if (isAliyunOssEndpoint(item.storageEndpoint)) return { src: aliyunIcon };
+      return { icon: 'mdi-bucket-outline', color: 'primary' };
+    case 'adls':
+      return { icon: 'mdi-microsoft-azure', color: 'primary' };
+    case 'gcs':
+      return { icon: 'mdi-google-cloud', color: 'info' };
+    case 'onelake':
+      return { src: oneLakeIcon };
+    case 'stackit':
+      return { src: stackitIcon.value, height: 14 };
+    default:
+      return { icon: 'mdi-database', color: 'blue-grey' };
+  }
+}
+
+// ── Status rows ───────────────────────────────────────────────────────
+
+function statusNode(parent: TreeItem, kind: TreeItem['statusKind'], text: string): TreeItem {
+  return {
+    id: `status-${parent.id}`,
+    name: text,
+    type: 'status',
+    statusKind: kind,
+    retryOf: parent.id,
+    warehouseId: parent.warehouseId,
+    loaded: true,
+  };
+}
+
+/**
+ * Keep the node open and say what went wrong in place of its children. It used
+ * to collapse back, which read as "nothing here" or as a click that missed.
+ */
+function showLoadFailure(item: TreeItem, error: any) {
+  item.children = [
+    isForbiddenError(error)
+      ? statusNode(item, 'forbidden', 'No access')
+      : statusNode(item, 'error', "Couldn't load"),
+  ];
+  item.loaded = true;
+  treeItems.value = [...treeItems.value];
+}
+
+async function retryLoad(status: TreeItem) {
+  const parent = status.retryOf ? findItemById(treeItems.value, status.retryOf) : null;
+  if (!parent) return;
+  parent.loaded = false;
+  parent.children = [];
+  treeItems.value = [...treeItems.value];
+  if (parent.type === 'warehouse') await loadNamespacesForWarehouse(parent);
+  else if (parent.type === 'namespace') await loadChildrenForNamespace(parent);
+  else await loadFieldsForTableOrView(parent);
+}
+
+// ── Pins ──────────────────────────────────────────────────────────────
+
+type Pin = (typeof visualStore.loqePinnedObjects)[number];
+
+const PIN_ICONS: Record<Pin['type'], string> = {
+  warehouse: 'mdi-database',
+  namespace: 'mdi-folder-outline',
+  table: 'mdi-table',
+  view: 'mdi-eye-outline',
+};
+
+function pinKey(p: { warehouseId: string; namespaceId?: string; name: string; type: string }) {
+  return `${p.type}:${p.warehouseId}:${p.namespaceId ?? ''}:${p.name}`;
+}
+
+/** Provider marks for pinned warehouses, from their nodes in the loaded list. */
+const pinIcons = computed(() => {
+  const ids = new Set(
+    pinnedObjects.value.filter((p) => p.type === 'warehouse').map((p) => p.warehouseId),
+  );
+  const icons = new Map<string, ReturnType<typeof warehouseIcon>>();
+  for (const item of [...treeItems.value, ...pendingWarehouses.value]) {
+    if (item.type === 'warehouse' && ids.has(item.warehouseId)) {
+      icons.set(item.warehouseId, warehouseIcon(item));
+    }
+  }
+  for (const id of ids) if (!icons.has(id)) icons.set(id, warehouseIcon({}));
+  return icons;
+});
+
+/**
+ * The warehouse's current name. The pin keeps the name it had when pinned, and
+ * the engine attaches under the current one, so a renamed warehouse would
+ * otherwise insert a catalog that does not exist.
+ */
+function pinWarehouseName(pin: Pin): string {
+  return warehouseNames.get(pin.warehouseId) ?? pin.warehouseName;
+}
+
+/** Only tables and views have a path the editor can use. */
+function isInsertable(pin: Pin): boolean {
+  return pin.type === 'table' || pin.type === 'view';
+}
+
+/** This project's pins, narrowed to the picked warehouse like the tree is. */
+const pinnedObjects = computed(() => {
+  const pid = visualStore.projectSelected['project-id'];
+  const wh = selectedWarehouseId.value;
+  return (visualStore.loqePinnedObjects ?? []).filter(
+    (p) => p.projectId === pid && (!wh || p.warehouseId === wh),
+  );
+});
+
+function isPinned(item: TreeItem): boolean {
+  const key = pinKey(item);
+  return pinnedObjects.value.some((p) => pinKey(p) === key);
+}
+
+function togglePin(item: TreeItem) {
+  const type = item.type;
+  if (type !== 'warehouse' && type !== 'namespace' && type !== 'table' && type !== 'view') return;
+  if (type !== 'warehouse' && !item.namespaceId) return;
+  if (isPinned(item)) {
+    unpin(item);
+    return;
+  }
+  visualStore.loqePinnedObjects = [
+    ...(visualStore.loqePinnedObjects ?? []),
+    {
+      projectId: visualStore.projectSelected['project-id'],
+      warehouseId: item.warehouseId,
+      warehouseName: item.warehouseName || warehouseNames.get(item.warehouseId) || '',
+      namespaceId: item.namespaceId ?? '',
+      name: item.name,
+      type,
+    },
+  ];
+}
+
+function unpin(pin: Parameters<typeof pinKey>[0]) {
+  const pid = visualStore.projectSelected['project-id'];
+  const key = pinKey(pin);
+  visualStore.loqePinnedObjects = (visualStore.loqePinnedObjects ?? []).filter(
+    (p) => !(p.projectId === pid && pinKey(p) === key),
+  );
+}
+
+function insertPin(pin: Pin) {
+  emit('item-selected', {
+    type: pin.type,
+    warehouseId: pin.warehouseId,
+    warehouseName: pinWarehouseName(pin),
+    namespaceId: pin.namespaceId,
+    name: pin.name,
+  });
+}
+
 // ── Emit handlers ─────────────────────────────────────────────────────
+
+/** Double-click inserts, as in DataGrip/DBeaver; the row icon stays for discovery. */
+function handleRowDblClick(item: TreeItem) {
+  if (item.type === 'table' || item.type === 'view') handleInsertPath(item);
+  else if (item.type === 'field') handleInsertField(item);
+}
 
 function handleInsertPath(item: TreeItem) {
   emit('item-selected', {
@@ -1467,6 +1930,24 @@ function handleShowDDL(item: TreeItem) {
   });
 }
 
+/**
+ * Spelled-out columns rather than `*`, so the query is a starting point to trim.
+ * Top-level columns only: a struct comes back whole, and its fields are a
+ * dotted path away. Loads the schema first when the table has not been opened.
+ */
+async function handleSelectAll(item: TreeItem) {
+  if (!item.namespaceId) return;
+  if (!item.loaded) await loadFieldsForTableOrView(item);
+  emit('insert-select', {
+    type: item.type,
+    warehouseId: item.warehouseId,
+    warehouseName: item.warehouseName || '',
+    namespaceId: item.namespaceId,
+    name: item.name,
+    columns: (item.children ?? []).filter((c) => c.type === 'field').map((c) => c.name),
+  });
+}
+
 function handleCopyPath(item: TreeItem) {
   if (!item.namespaceId) return;
   emit('copy-path', {
@@ -1492,8 +1973,10 @@ watch(projectId, () => {
 </script>
 
 <style scoped>
+/* Warehouses 14px, everything inside them 13px — in line with the console's
+   lists rather than caption-sized. */
 .tree-view {
-  font-size: 0.75rem;
+  font-size: 0.8125rem;
   min-width: max-content;
   background-color: transparent !important;
 }
@@ -1515,7 +1998,6 @@ watch(projectId, () => {
 }
 
 .tree-view :deep(.v-list-item) {
-  overflow-x: auto !important;
   min-width: max-content;
   /* Tighter rows so the indent/connector lines read as one continuous tree. */
   min-height: 26px !important;
@@ -1533,7 +2015,44 @@ watch(projectId, () => {
 
 .tree-view :deep(.v-list-item-title) {
   white-space: nowrap !important;
-  overflow-x: auto !important;
+}
+
+/* Only the pane scrolls. Vuetify clips list items, groups and titles, and any
+   clipping box in between would capture the sticky actions instead of the pane.
+   Groups are left alone: they do not clip, except while the expand transition
+   sets overflow inline, and overriding that lets children spill mid-animation. */
+.tree-view,
+.tree-view :deep(.v-list-item),
+.tree-view :deep(.v-list-item__content),
+.tree-view :deep(.v-list-item-title) {
+  overflow: visible !important;
+}
+
+/* macOS hides overlay scrollbars, so a long name gave no hint it could scroll. */
+.tree-scroller::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.tree-scroller::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: rgba(var(--v-theme-on-surface), 0.25);
+}
+
+.tree-item-actions {
+  position: sticky;
+  right: 0;
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-left: auto;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  /* Covers the name it floats over; the second layer repeats the row's hover tint. */
+  background:
+    linear-gradient(rgba(var(--v-theme-primary), 0.1), rgba(var(--v-theme-primary), 0.1)),
+    rgb(var(--v-theme-surface));
+}
+.tree-item-container:hover .tree-item-actions {
+  opacity: 1;
 }
 
 .tree-item-container {
@@ -1548,6 +2067,71 @@ watch(projectId, () => {
   white-space: nowrap;
   flex: 1;
   min-width: 0;
+  font-size: 0.8125rem;
+}
+
+.tree-item-doc {
+  display: inline-block;
+  max-width: 260px;
+  margin-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  font-size: 0.75rem;
+}
+
+/* 14px like the warehouse rows: at 16px "All warehouses" did not fit beside
+   the two buttons at the default sidebar width. */
+.tree-picker :deep(.v-field) {
+  font-size: 0.875rem;
+}
+
+.pinned-section {
+  background: rgba(var(--v-theme-on-surface), 0.03);
+}
+.pinned-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.tree-item-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 4px;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  vertical-align: middle;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  background: rgba(var(--v-theme-on-surface), 0.06);
+}
+
+.tree-item-status {
+  font-style: italic;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.tree-item-status:hover {
+  text-decoration: none;
+}
+.tree-item-retry {
+  margin-left: 8px;
+  font-style: normal;
+  color: rgb(var(--v-theme-primary));
+}
+
+.tree-item-title--warehouse {
+  font-size: 0.875rem;
+}
+
+/* The expand toggle is a text v-btn and keeps focus after a click, which left a
+   grey disc on the last caret touched. The chevron is sized to the 13px labels;
+   at the default 24px it outweighed them. */
+.tree-view :deep(.v-list-item-action .v-btn .v-btn__overlay) {
+  opacity: 0 !important;
+}
+.tree-view :deep(.v-list-item-action .v-btn .v-icon) {
+  font-size: 16px;
 }
 
 .tree-item-title:hover {
@@ -1555,13 +2139,7 @@ watch(projectId, () => {
 }
 
 .tree-item-insert-btn {
-  opacity: 0 !important;
-  transition: opacity 0.2s ease;
   flex-shrink: 0;
-}
-
-.tree-item-container:hover .tree-item-insert-btn {
-  opacity: 1 !important;
 }
 
 .tree-item-active {
