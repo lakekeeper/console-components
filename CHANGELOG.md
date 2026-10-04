@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.1](https://github.com/lakekeeper/console-components/compare/v0.27.0...v0.27.1) (2026-10-04)
+
+
+### Bug Fixes
+
+* **ui:** name what each storage validation check looks at, not its passing outcome ([c8e79a7](https://github.com/lakekeeper/console-components/commit/c8e79a7f5c11e6f9b776c72004506a487ac657ab))
+* **ui:** name what each storage validation check looks at, not its passing outcome [#309](https://github.com/lakekeeper/console-components/issues/309) ([7a8d829](https://github.com/lakekeeper/console-components/commit/7a8d829674543bcf5b0868ccea05efb7edaa5d7f))
+
 ## [0.27.0](https://github.com/lakekeeper/console-components/compare/v0.26.0...v0.27.0) (2026-10-04)
 
 
