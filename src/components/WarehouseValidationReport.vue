@@ -95,29 +95,30 @@ const props = defineProps<{
 defineEmits<{ (e: 'close'): void }>();
 
 // Each backend check name is a stable wire identifier (see ValidationCheckName); this
-// maps it to the human-readable claim the check makes, for display in the report.
+// maps it to a title naming what the check looks at. Titles state no outcome, so they read
+// right next to any status; the check's error message says what was found.
 const checkLabels: Record<ValidationCheckName, string> = {
-  'profile-well-formed': 'Storage profile is well-formed',
-  'profile-compatible': 'Storage profile is compatible with the existing configuration',
-  'warehouse-name-valid': 'Warehouse name is valid and unique',
+  'profile-well-formed': 'Storage profile format',
+  'profile-compatible': 'Compatibility with the current storage profile',
+  'warehouse-name-valid': 'Warehouse name',
   // Advisory only: the check looks at the caller's own project, while warehouse
   // IDs are unique instance-wide, so create can still refuse one it cleared.
-  'warehouse-id-available': 'Requested warehouse ID is not already taken',
-  'location-exclusive': 'Storage location is not used by another warehouse',
-  'spec-mutable': 'Requested spec change is allowed',
-  'format-version-policy-consistent': 'Format-version policy is consistent',
-  'managed-by-allowed': 'Managed-by setting is allowed',
-  'storage-client-initialized': 'Storage client can be initialized',
-  'lakekeeper-read-write': 'Lakekeeper can read and write to storage',
-  'vended-credentials-issued': 'Vended credentials can be issued',
-  'vended-credentials-read-write': 'Vended credentials can read and write to storage',
-  'vended-credentials-scope-enforced': 'Vended credentials are scoped to the table location',
+  'warehouse-id-available': 'Warehouse ID availability',
+  'location-exclusive': 'Storage location overlap with other warehouses',
+  'spec-mutable': 'Spec change permission',
+  'format-version-policy-consistent': 'Format-version policy',
+  'managed-by-allowed': 'Managed-by setting',
+  'storage-client-initialized': 'Storage client setup',
+  'lakekeeper-read-write': 'Lakekeeper read and write access',
+  'vended-credentials-issued': 'Issuing vended credentials',
+  'vended-credentials-read-write': 'Read and write access with vended credentials',
+  'vended-credentials-scope-enforced': 'Scope of vended credentials',
   // What the bucket declares, answered by the catalog against the origin it
   // serves the console from. This replaced a client-side probe row, so it is now
   // the only CORS verdict here.
-  'cors-origin-allowed': 'Bucket CORS configuration allows this origin',
-  'bucket-access-restricted': 'Bucket is not publicly accessible',
-  cleanup: 'Test artifacts were cleaned up',
+  'cors-origin-allowed': 'CORS for this origin',
+  'bucket-access-restricted': 'Access by other credentials groups',
+  cleanup: 'Cleanup of test files',
 };
 
 function statusColor(status: string): string {
