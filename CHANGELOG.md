@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.27.0](https://github.com/lakekeeper/console-components/compare/v0.26.0...v0.27.0) (2026-10-04)
+
+
+### Features
+
+* **ui:** LoQE object browser usability pass ([4ef3f32](https://github.com/lakekeeper/console-components/commit/4ef3f3201fa0a62cd8884a673fbbd56aa0e5a6cb))
+* **ui:** warehouse tree on par with LoQE, with pins shared between both trees ([4ef3f32](https://github.com/lakekeeper/console-components/commit/4ef3f3201fa0a62cd8884a673fbbd56aa0e5a6cb))
+
+
+### Bug Fixes
+
+* **ui:** clarify role ID labels and nested-members toggle ([116ac77](https://github.com/lakekeeper/console-components/commit/116ac7711b62ecc6d9b2a8f772d169a8841a001e))
+* **ui:** dialogs opened from an actions menu no longer close with it ([39408d2](https://github.com/lakekeeper/console-components/commit/39408d201ef679ee68b50a15eae4f19544d816d1))
+* **ui:** LoQE refresh keeps a picked warehouse beyond the first page ([4ef3f32](https://github.com/lakekeeper/console-components/commit/4ef3f3201fa0a62cd8884a673fbbd56aa0e5a6cb))
+* **ui:** role members editable wherever manage_role_assignments allows it, with a sturdier add-member picker ([116ac77](https://github.com/lakekeeper/console-components/commit/116ac7711b62ecc6d9b2a8f772d169a8841a001e))
+* **ui:** single-tag editor without the list filters ([39408d2](https://github.com/lakekeeper/console-components/commit/39408d201ef679ee68b50a15eae4f19544d816d1))
+* **ui:** warehouse tree loads a filtered warehouse beyond the first page ([4ef3f32](https://github.com/lakekeeper/console-components/commit/4ef3f3201fa0a62cd8884a673fbbd56aa0e5a6cb))
+
 ## [0.26.0](https://github.com/lakekeeper/console-components/compare/v0.25.0...v0.26.0) (2026-09-29)
 
 
