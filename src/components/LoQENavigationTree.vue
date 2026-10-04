@@ -856,9 +856,27 @@ async function loadWarehouses() {
   }
 }
 
+/**
+ * Reload the warehouse list, keeping the pick.
+ *
+ * `loadWarehouses` resets the tree to its first page, so a picked warehouse from
+ * beyond it is parked again — and the picker's value has not changed, so its
+ * watcher never pages it back in and the tree goes blank. Page it in here, drop
+ * the pick if the warehouse was deleted meanwhile, and reopen it if it was open
+ * so Refresh reloads what you were looking at instead of collapsing it.
+ */
 async function refreshTree() {
+  const picked = selectedWarehouseId.value;
+  const wasOpen = !!picked && openedItems.value.includes(`wh-${picked}`);
   openedItems.value = [];
   await loadWarehouses();
+  if (!picked) return;
+  if (!warehouseChoices.value.some((wh) => wh.id === picked)) {
+    selectedWarehouseId.value = null;
+    return;
+  }
+  ensureWarehouseRendered(picked);
+  if (wasOpen) openedItems.value = [`wh-${picked}`];
 }
 
 // ── Load namespaces for warehouse ─────────────────────────────────────
