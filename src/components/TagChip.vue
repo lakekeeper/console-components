@@ -16,10 +16,14 @@
       <v-chip
         v-bind="canEditValue ? menuProps : {}"
         :size="size ?? 'small'"
-        :variant="inherited ? 'outlined' : 'tonal'"
+        :variant="plain ? 'text' : inherited ? 'outlined' : 'tonal'"
         :disabled="busy"
         class="tag-chip"
-        :class="{ 'tag-chip--inherited': inherited, 'tag-chip--confirming': confirmOpen }">
+        :class="{
+          'tag-chip--inherited': inherited,
+          'tag-chip--confirming': confirmOpen,
+          'tag-chip--plain': plain,
+        }">
         <v-icon v-if="inherited" size="12" class="mr-1">mdi-arrow-top-left</v-icon>
         <span class="tag-chip__name">{{ tag.name }}</span>
         <span v-if="hasValue && !hideValue" class="tag-chip__value">:&nbsp;{{ shown }}</span>
@@ -101,6 +105,9 @@ const props = defineProps<{
   size?: 'x-small' | 'small' | 'default';
   // The host shows the value beside the chip, in full.
   hideValue?: boolean;
+  // Text rather than a pill: the name column of a name → value list, where a
+  // pill beside plain text reads as two different kinds of thing.
+  plain?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -148,6 +155,13 @@ function remove() {
 </script>
 
 <style scoped>
+.tag-chip--plain {
+  padding-inline: 0;
+  height: 22px;
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: rgba(var(--v-theme-on-surface), var(--v-high-emphasis-opacity));
+}
 .tag-chip {
   max-width: 100%;
 }

@@ -1,7 +1,7 @@
 <template>
   <!-- The table details tab's layout: a header-less fact list, then tags and
        properties side by side under hairline headings. -->
-  <div ref="paneRef" class="nsx-page" :style="{ height: paneHeight ?? undefined }">
+  <div class="nsx-page">
     <section>
       <dl class="nsx-kv nsx-kv--pairs">
         <div v-for="row in factRows" :key="row.label" class="nsx-kv__row">
@@ -71,10 +71,10 @@
         </div>
         <div v-if="editingProps" class="nsx-fill">
           <EntityPropertiesPanel
-          entity-type="namespace"
-          :warehouse-id="warehouseId"
-          :namespace-path="namespacePath"
-          can-edit
+            entity-type="namespace"
+            :warehouse-id="warehouseId"
+            :namespace-path="namespacePath"
+            can-edit
             height="100%"
             @dirty="propsDirty = $event"
             @updated="load"
@@ -106,7 +106,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
-import { usePaneHeight } from '../common/paneHeight';
 import EntityTagsChips from './EntityTagsChips.vue';
 import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
 import PropertiesEditToggle from './PropertiesEditToggle.vue';
@@ -121,8 +120,6 @@ const props = defineProps<{
 }>();
 
 const functions = useFunctions();
-// The tab ends where the page ends, so the properties editor gets the room.
-const { paneRef, paneHeight } = usePaneHeight();
 const namespaceId = ref('');
 const properties = ref<Record<string, string>>({});
 // Set when the metadata could not be read: the id and the properties come from
@@ -195,6 +192,7 @@ watch(() => [props.warehouseId, props.namespacePath], load);
   display: flex;
   flex-direction: column;
   gap: 24px;
+  height: 100%;
   min-height: 0;
   padding: 16px;
 }

@@ -42,14 +42,14 @@
            an arbitrary count: the host bounds the section and it scrolls. A tag
            either carries a value or it does not, which the applied tag itself
            says — so the grouping holds for a reader who cannot list definitions. -->
-      <div v-if="labelTags.length" class="etc-group">
+      <div v-if="markerTags.length" class="etc-group">
         <div class="etc-label">
-          Labels
-          <span class="etc-count">{{ labelTags.length }}</span>
+          Markers
+          <span class="etc-count">{{ markerTags.length }}</span>
         </div>
         <div class="etc-row">
           <TagChip
-            v-for="t in labelTags"
+            v-for="t in markerTags"
             :key="t['tag-definition-id']"
             :tag="t"
             :definition="definitionByName.get(t.name)"
@@ -74,6 +74,7 @@
               <TagChip
                 :tag="t"
                 hide-value
+                plain
                 :definition="definitionByName.get(t.name)"
                 :removable="canEdit && rights.canRemove(t['tag-definition-id']) === true"
                 :editable="canEdit && rights.canApply(t['tag-definition-id']) === true"
@@ -200,10 +201,10 @@ function matches(t: TargetTag): boolean {
   );
 }
 const hasValue = (t: TargetTag) => t.value !== null && t.value !== undefined;
-const labelTags = computed(() => directTags.value.filter((t) => !hasValue(t) && matches(t)));
+const markerTags = computed(() => directTags.value.filter((t) => !hasValue(t) && matches(t)));
 const valueTags = computed(() => directTags.value.filter((t) => hasValue(t) && matches(t)));
 const anyMatch = computed(
-  () => labelTags.value.length + valueTags.value.length + inheritedGroups.value.length > 0,
+  () => markerTags.value.length + valueTags.value.length + inheritedGroups.value.length > 0,
 );
 
 // Nearest ancestor first: a namespace's tags say more about this object than
@@ -265,9 +266,9 @@ const AddControl = defineComponent({
             error: addError.value,
             definitionsError: definitionsError.value,
             onApply: (name: string, value?: string | null) => assign(name, value, 'add'),
-            onOpen: (ids: string[]) => {
+            checkRights: rights.ensure,
+            onOpen: () => {
               addError.value = null;
-              rights.ensure(ids);
             },
           })
         : null;
@@ -424,6 +425,7 @@ watch(
   min-height: 32px;
 }
 .etc-row {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -434,27 +436,27 @@ watch(
   align-items: center;
   color: rgb(var(--v-theme-error));
 }
-/* Label on the left, contents on the right, so the groups line up and the
-   eye can run down the labels. Stacks on a narrow column. */
+/* Each group's name sits on its own short line above what it holds, so the
+   chips and values get the full width rather than leaving a column of empty
+   space under a label. */
 .etc-group {
-  display: grid;
-  grid-template-columns: 96px minmax(0, 1fr);
-  column-gap: 12px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
-@media (max-width: 599px) {
-  .etc-group {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 4px;
-  }
+/* More room between groups than inside one, so each reads as its own block. */
+.etc-group + .etc-group {
+  margin-top: 12px;
 }
 .etc-label {
   font-size: 0.75rem;
-  line-height: 24px;
+  line-height: 18px;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 .etc-sublabel {
-  line-height: 1.2;
+  display: inline;
+  margin-left: 4px;
   font-style: italic;
 }
 .etc-count {
@@ -465,8 +467,8 @@ watch(
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr);
   column-gap: 12px;
-  row-gap: 6px;
-  align-items: start;
+  row-gap: 2px;
+  align-items: baseline;
 }
 .etc-pair__name {
   min-width: 0;

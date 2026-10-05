@@ -39,7 +39,6 @@ export function useColumnTags(opts: {
   const readError = ref<string | null>(null);
   const definitionsError = ref<string | null>(null);
   const cellErrors = reactive<Record<string, string>>({});
-  const bulkError = ref<string | null>(null);
   const rights = useTagRights();
 
   const columnDefinitions = computed(() =>
@@ -136,7 +135,6 @@ export function useColumnTags(opts: {
     const payload =
       definitionByName.value.get(tagName)?.['value-kind'] === 'marker' ? undefined : value;
     for (const path of paths) delete cellErrors[path];
-    bulkError.value = null;
     try {
       if (paths.length === 1) {
         // Quiet on refusal, so the refusal can be said on the row instead.
@@ -157,7 +155,6 @@ export function useColumnTags(opts: {
     } catch (e) {
       const text = tagRefusal(e, `apply '${tagName}' here`);
       if (paths.length === 1) cellErrors[paths[0]] = text;
-      else bulkError.value = text;
       // Whatever went on before the refusal is real; show it.
       if (paths.length > 1) visual.bumpTagsRefresh();
     } finally {
@@ -180,31 +177,6 @@ export function useColumnTags(opts: {
     } finally {
       busy.value = null;
     }
-  }
-
-  /** Removes what may be removed; tags the reader has no `remove` on are kept, and counted. */
-  async function removeAll(paths: string[]): Promise<{ removed: number; kept: number }> {
-    const w = opts.warehouseId.value;
-    const t = opts.tableId.value;
-    if (!w || !t) return { removed: 0, kept: 0 };
-    bulkError.value = null;
-    const all = paths.flatMap((path) => tagsFor(path).map((tag) => ({ path, tag })));
-    await rights.ensure(all.map(({ tag }) => tag['tag-definition-id']));
-    const allowed = all.filter(({ tag }) => rights.canRemove(tag['tag-definition-id']) === true);
-    const kept = all.length - allowed.length;
-    let removed = 0;
-    try {
-      for (const { path, tag } of allowed) {
-        await functions.deleteTableColumnTagSilent(w, t, path, tag.name);
-        removed++;
-      }
-    } catch (e) {
-      bulkError.value = tagRefusal(e, 'remove every tag');
-    }
-    if (removed) done('deleteTableColumnTag', `Removed ${removed} tag${removed === 1 ? '' : 's'}`);
-    if (kept && !bulkError.value)
-      bulkError.value = `${kept} tag${kept === 1 ? ' was' : 's were'} kept: you are not allowed to remove ${kept === 1 ? 'it' : 'them'}.`;
-    return { removed, kept };
   }
 
   watch(() => [opts.warehouseId.value, opts.tableId.value, opts.fields.value], load, {
@@ -231,13 +203,11 @@ export function useColumnTags(opts: {
     readError,
     definitionsError,
     cellErrors,
-    bulkError,
     canApply: rights.canApply,
     canRemove: rights.canRemove,
     ensureRights: rights.ensure,
     apply,
     remove,
-    removeAll,
     reload: load,
   };
 }

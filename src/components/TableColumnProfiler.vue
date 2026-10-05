@@ -53,17 +53,6 @@
         @click="dropResults">
         Drop samples
       </v-btn>
-      <!-- Single tags go on and off inline on any row; this is for the bulk
-           work — tick several fields, tag them at once, find what is left. -->
-      <v-btn
-        v-if="canTag"
-        variant="text"
-        size="small"
-        :color="tagMode ? 'primary' : undefined"
-        :prepend-icon="tagMode ? 'mdi-check' : 'mdi-tag-multiple-outline'"
-        @click="setTagMode(!tagMode)">
-        {{ tagMode ? 'Done' : 'Tag columns' }}
-      </v-btn>
       <v-btn
         variant="text"
         size="small"
@@ -81,71 +70,11 @@
         Column counts unavailable — {{ shortError(manifest.error.value) }}
       </div>
 
-      <!-- The selection bar exists only in tag mode, so "select all" has a home
-           and the bulk actions appear once something is ticked. -->
-      <div v-if="tagMode" class="tag-bar" :class="{ 'tag-bar--active': selected.length }">
-        <v-checkbox-btn
-          class="tag-check"
-          :model-value="allVisibleSelected"
-          :indeterminate="someVisibleSelected && !allVisibleSelected"
-          density="compact"
-          color="primary"
-          @update:model-value="toggleSelectAll"></v-checkbox-btn>
-        <span class="text-body-2">
-          {{
-            selected.length
-              ? `${selected.length} selected`
-              : `Select all (${selectableRows.length})`
-          }}
-        </span>
-        <template v-if="selected.length">
-          <TagAddMenu
-            :definitions="columnTags.columnDefinitions"
-            :busy="columnTags.busy"
-            :can-apply="columnTags.canApply"
-            :error="columnTags.bulkError"
-            :definitions-error="columnTags.definitionsError"
-            :target="`${selected.length} field${selected.length === 1 ? '' : 's'}`"
-            @open="columnTags.ensureRights"
-            @apply="(name, value) => columnTags.apply(selected, name, value)">
-            <template #activator="{ props: addProps }">
-              <v-btn
-                v-bind="addProps"
-                size="small"
-                color="primary"
-                variant="flat"
-                prepend-icon="mdi-tag-plus-outline">
-                Add tag
-              </v-btn>
-            </template>
-          </TagAddMenu>
-          <v-btn
-            size="small"
-            color="error"
-            variant="text"
-            prepend-icon="mdi-tag-off-outline"
-            :disabled="!selectedTagCount"
-            @click="openBulkRemove">
-            Remove all tags
-          </v-btn>
-          <v-btn size="small" variant="text" @click="selected = []">Clear</v-btn>
-        </template>
-        <v-spacer></v-spacer>
-        <v-btn-toggle v-model="tagFilter" mandatory density="compact" variant="outlined" divided>
-          <v-btn size="x-small" value="all">All</v-btn>
-          <v-btn size="x-small" value="tagged">Tagged</v-btn>
-          <v-btn size="x-small" value="untagged">Untagged</v-btn>
-        </v-btn-toggle>
-      </div>
       <div v-if="columnTags.readError" class="manifest-note">
         <v-icon size="14" class="mr-1">mdi-eye-off-outline</v-icon>
         {{ columnTags.readError }}
       </div>
-      <div v-if="tagMode && columnTags.bulkError" class="manifest-note tag-cell-error">
-        <v-icon size="14" class="mr-1">mdi-alert-circle-outline</v-icon>
-        {{ columnTags.bulkError }}
-      </div>
-      <div v-if="tagMode && columnTags.orphanTagCount" class="manifest-note">
+      <div v-if="columnTags.orphanTagCount" class="manifest-note">
         <v-icon size="14" class="mr-1">mdi-information-outline</v-icon>
         {{ columnTags.orphanTagCount }} tag{{ columnTags.orphanTagCount === 1 ? '' : 's' }}
         belong to columns no longer in the current schema and are not shown.
@@ -160,34 +89,17 @@
           style="height: 100%">
           <thead>
             <tr>
-              <th v-if="tagMode" class="col-check"></th>
               <th class="col-field">Field</th>
               <th class="col-type">Type</th>
               <th class="col-tags">Tags</th>
-              <!-- Tag mode hands the room to the tags; the facts come back after. -->
-              <template v-if="!tagMode">
-                <th class="text-right col-num">Values</th>
-                <th class="text-right col-num">Nulls</th>
-                <th class="text-right col-num">Size</th>
-              </template>
+              <th class="text-right col-num">Values</th>
+              <th class="text-right col-num">Nulls</th>
+              <th class="text-right col-num">Size</th>
             </tr>
           </thead>
           <tbody>
             <template v-for="row in visibleRows" :key="row.key">
-              <tr
-                :class="{
-                  'nested-row': row.depth > 0,
-                  'row--selected': tagMode && selected.includes(row.key),
-                }">
-                <td v-if="tagMode" class="col-check">
-                  <v-checkbox-btn
-                    v-if="row.taggable"
-                    class="tag-check"
-                    :model-value="selected.includes(row.key)"
-                    density="compact"
-                    color="primary"
-                    @update:model-value="toggleSelected(row.key)"></v-checkbox-btn>
-                </td>
+              <tr :class="{ 'nested-row': row.depth > 0 }">
                 <!-- Field -->
                 <td class="col-field">
                   <div class="d-flex tree-row" style="align-items: stretch; min-height: 42px">
@@ -282,7 +194,21 @@
                      carry their own (address.zip); nothing inside a list or a
                      map can, so those rows only ever show a dash. -->
                 <td class="col-tags">
-                  <div class="tag-cell" :class="{ 'tag-cell--mode': tagMode }">
+                  <div class="tag-cell">
+                    <!-- The add control leads the cell, always on screen: the row
+                         is where a column is tagged, without a mode to enter. -->
+                    <TagAddMenu
+                      v-if="canTag && row.taggable"
+                      compact
+                      :definitions="columnTags.columnDefinitions"
+                      :assigned-names="columnTags.tagsFor(row.key).map((t) => t.name)"
+                      :busy="columnTags.busy"
+                      :can-apply="columnTags.canApply"
+                      :error="columnTags.cellErrors[row.key]"
+                      :definitions-error="columnTags.definitionsError"
+                      :target="row.key"
+                      :check-rights="columnTags.ensureRights"
+                      @apply="(name, value) => columnTags.apply([row.key], name, value)" />
                     <TagChip
                       v-for="tag in cellTags(row)"
                       :key="tag['tag-definition-id']"
@@ -319,19 +245,9 @@
                       @click="toggleTagCell(row.key)">
                       less
                     </v-chip>
-                    <TagAddMenu
-                      v-if="canTag && row.taggable"
-                      compact
-                      :definitions="columnTags.columnDefinitions"
-                      :assigned-names="columnTags.tagsFor(row.key).map((t) => t.name)"
-                      :busy="columnTags.busy"
-                      :can-apply="columnTags.canApply"
-                      :error="columnTags.cellErrors[row.key]"
-                      :definitions-error="columnTags.definitionsError"
-                      :target="row.key"
-                      @open="columnTags.ensureRights"
-                      @apply="(name, value) => columnTags.apply([row.key], name, value)" />
-                    <span v-else-if="!columnTags.tagsFor(row.key).length" class="text-disabled">
+                    <span
+                      v-if="!(canTag && row.taggable) && !columnTags.tagsFor(row.key).length"
+                      class="text-disabled">
                       —
                     </span>
                   </div>
@@ -347,78 +263,39 @@
                   </div>
                 </td>
 
-                <template v-if="!tagMode">
-                  <!-- Facts from the manifests: exact, whole-table, and present
+                <!-- Facts from the manifests: exact, whole-table, and present
                      for nested leaves too, because they are keyed by field id
                      rather than by a column reference a query could name. -->
-                  <td class="text-right num col-num">
-                    <span v-if="statsFor(row)?.valueCount != null">
-                      {{ fmtCount(statsFor(row)!.valueCount!) }}
-                      <v-tooltip v-if="row.repeated" activator="parent" location="top">
-                        Elements across all rows — this field sits inside a list or a map.
-                      </v-tooltip>
+                <td class="text-right num col-num">
+                  <span v-if="statsFor(row)?.valueCount != null">
+                    {{ fmtCount(statsFor(row)!.valueCount!) }}
+                    <v-tooltip v-if="row.repeated" activator="parent" location="top">
+                      Elements across all rows — this field sits inside a list or a map.
+                    </v-tooltip>
+                  </span>
+                  <span v-else class="text-disabled" :title="noMetricsHint">—</span>
+                </td>
+                <td class="text-right num col-num">
+                  <template v-if="statsFor(row)?.nullCount != null">
+                    {{ fmtCount(statsFor(row)!.nullCount!) }}
+                    <span v-if="nullPct(row) !== null" class="text-medium-emphasis">
+                      ({{ nullPct(row) }}%)
                     </span>
-                    <span v-else class="text-disabled" :title="noMetricsHint">—</span>
-                  </td>
-                  <td class="text-right num col-num">
-                    <template v-if="statsFor(row)?.nullCount != null">
-                      {{ fmtCount(statsFor(row)!.nullCount!) }}
-                      <span v-if="nullPct(row) !== null" class="text-medium-emphasis">
-                        ({{ nullPct(row) }}%)
-                      </span>
-                    </template>
-                    <span v-else class="text-disabled" :title="noMetricsHint">—</span>
-                  </td>
-                  <td class="text-right num col-num">
-                    <span v-if="statsFor(row)?.sizeBytes != null">
-                      {{ fmtBytes(statsFor(row)!.sizeBytes!) }}
-                    </span>
-                    <span v-else class="text-disabled" :title="noMetricsHint">—</span>
-                  </td>
-                </template>
+                  </template>
+                  <span v-else class="text-disabled" :title="noMetricsHint">—</span>
+                </td>
+                <td class="text-right num col-num">
+                  <span v-if="statsFor(row)?.sizeBytes != null">
+                    {{ fmtBytes(statsFor(row)!.sizeBytes!) }}
+                  </span>
+                  <span v-else class="text-disabled" :title="noMetricsHint">—</span>
+                </td>
               </tr>
             </template>
           </tbody>
         </v-table>
       </div>
     </div>
-
-    <v-dialog v-model="bulkRemoveOpen" max-width="480">
-      <v-card>
-        <v-card-title class="text-subtitle-1 d-flex align-center ga-2 py-3">
-          <v-icon color="error">mdi-tag-off-outline</v-icon>
-          Remove all tags
-        </v-card-title>
-        <v-card-text>
-          <p class="mb-3">
-            This removes
-            <strong>{{ selectedTagCount }}</strong>
-            tag{{ selectedTagCount === 1 ? '' : 's' }} from
-            <strong>{{ selectedWithTags.length }}</strong>
-            of the {{ selected.length }} selected field{{ selected.length === 1 ? '' : 's' }}.
-          </p>
-          <v-text-field
-            v-model="bulkRemoveConfirm"
-            density="compact"
-            variant="outlined"
-            autocomplete="off"
-            label="Type REMOVE to confirm"
-            :error="bulkRemoveConfirm.length > 0 && !bulkRemoveConfirmed"
-            @keyup.enter="bulkRemoveConfirmed && doBulkRemove()"></v-text-field>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer></v-spacer>
-          <v-btn variant="text" text="Cancel" @click="bulkRemoveOpen = false"></v-btn>
-          <v-btn
-            color="error"
-            variant="flat"
-            :text="`Remove ${selectedTagCount} tags`"
-            :disabled="!bulkRemoveConfirmed"
-            :loading="bulkRemoving"
-            @click="doBulkRemove"></v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
 
     <!-- Distribution popup: histogram (numeric) or top-values bar (categorical) -->
     <v-dialog v-model="histDialogOpen" max-width="640" scrollable>
@@ -1008,15 +885,8 @@ const allNodes = computed<SchemaNode[]>(() => {
   return out;
 });
 
-// Flatten the tree to the rows currently visible (respecting expansion). The
-// tag filter lifts the expansion, so a match deep in a struct is still listed.
+// Flatten the tree to the rows currently visible (respecting expansion).
 const visibleRows = computed<SchemaNode[]>(() => {
-  if (tagMode.value && tagFilter.value !== 'all') {
-    const want = tagFilter.value === 'tagged';
-    return allNodes.value.filter((n) =>
-      want ? columnTags.tagsFor(n.key).length > 0 : n.taggable && !columnTags.tagsFor(n.key).length,
-    );
-  }
   const out: SchemaNode[] = [];
   const walk = (nodes: SchemaNode[]) => {
     for (const n of nodes) {
@@ -1212,67 +1082,6 @@ function toggleTagCell(key: string) {
   else expandedTagCells.add(key);
 }
 
-const tagMode = ref(false);
-const tagFilter = ref<'all' | 'tagged' | 'untagged'>('all');
-const selected = ref<string[]>([]);
-const selectableRows = computed(() => visibleRows.value.filter((r) => r.taggable));
-const allVisibleSelected = computed(
-  () =>
-    selectableRows.value.length > 0 &&
-    selectableRows.value.every((r) => selected.value.includes(r.key)),
-);
-const someVisibleSelected = computed(() =>
-  selectableRows.value.some((r) => selected.value.includes(r.key)),
-);
-function toggleSelected(key: string) {
-  selected.value = selected.value.includes(key)
-    ? selected.value.filter((k) => k !== key)
-    : [...selected.value, key];
-}
-function toggleSelectAll(value: boolean | null) {
-  selected.value = value ? selectableRows.value.map((r) => r.key) : [];
-}
-function setTagMode(on: boolean) {
-  tagMode.value = on;
-  if (!on) {
-    selected.value = [];
-    tagFilter.value = 'all';
-  }
-}
-
-const selectedWithTags = computed(() =>
-  selected.value.filter((k) => columnTags.tagsFor(k).length > 0),
-);
-const selectedTagCount = computed(() =>
-  selected.value.reduce((sum, k) => sum + columnTags.tagsFor(k).length, 0),
-);
-
-// Stripping every tag from a selection has no single thing to name, so it asks
-// for a word instead.
-const bulkRemoveOpen = ref(false);
-const bulkRemoveConfirm = ref('');
-const bulkRemoving = ref(false);
-const bulkRemoveConfirmed = computed(() => bulkRemoveConfirm.value.trim() === 'REMOVE');
-function openBulkRemove() {
-  bulkRemoveConfirm.value = '';
-  bulkRemoveOpen.value = true;
-}
-async function doBulkRemove() {
-  if (!bulkRemoveConfirmed.value) return;
-  bulkRemoving.value = true;
-  try {
-    await columnTags.removeAll([...selectedWithTags.value]);
-  } finally {
-    bulkRemoving.value = false;
-    bulkRemoveOpen.value = false;
-  }
-}
-
-watch(
-  () => [props.warehouseId, props.tableId],
-  () => setTagMode(false),
-);
-
 // Re-read when the table changes or commits: the manifest list belongs to the
 // current snapshot, so a new snapshot is new numbers.
 watch(
@@ -1375,55 +1184,25 @@ watch(
   white-space: normal;
   min-width: 260px;
 }
-.profiler-table :deep(.col-check) {
-  width: 1%;
-  padding-right: 0 !important;
-}
-.profiler-table :deep(.row--selected) td {
-  background: rgba(var(--v-theme-primary), 0.08);
-}
 .tag-cell {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 4px;
 }
-/* The per-row plus appears with the row under the pointer: 250 always-on plus
-   buttons are a column of noise. Touch screens have no hover, so they keep it,
-   and so does tag mode, where adding is the point. */
-@media (hover: hover) {
-  .tag-cell:not(.tag-cell--mode) :deep(.tag-add--compact) {
-    opacity: 0;
-    transition: opacity 0.1s ease;
-  }
-  .profiler-table :deep(tr:hover) .tag-cell :deep(.tag-add--compact),
-  .tag-cell :deep(.tag-add--compact:focus-visible),
-  .tag-cell :deep(.tag-add--compact[aria-expanded='true']) {
-    opacity: 1;
-  }
+/* The per-row plus is always there, quiet until its row is under the pointer,
+   so 250 of them read as a column of affordances rather than of noise. */
+.tag-cell :deep(.tag-add--compact) {
+  opacity: 0.55;
+  transition: opacity 0.1s ease;
+}
+.profiler-table :deep(tr:hover) .tag-cell :deep(.tag-add--compact),
+.tag-cell :deep(.tag-add--compact:focus-visible),
+.tag-cell :deep(.tag-add--compact[aria-expanded='true']) {
+  opacity: 1;
 }
 .tag-cell-error {
   color: rgb(var(--v-theme-error));
-}
-.tag-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 4px 12px;
-  margin-bottom: 8px;
-  border-radius: 8px;
-  flex: 0 0 auto;
-}
-.tag-bar--active {
-  background: rgba(var(--v-theme-on-surface), 0.05);
-}
-.tag-check {
-  flex: 0 0 auto;
-}
-.tag-check :deep(.v-selection-control) {
-  flex: 0 0 auto;
-  min-height: 0;
 }
 /* The fact columns take what they need and no more: three numbers should not
    push the tags column off a laptop screen. */

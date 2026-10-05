@@ -54,25 +54,19 @@
       <div v-if="definitionsError" class="text-body-2 text-medium-emphasis pa-3">
         {{ definitionsError }}
       </div>
-      <template v-else>
-        <v-progress-linear v-if="pending" indeterminate color="primary"></v-progress-linear>
-        <div
-          v-if="!pending && !permitted.length && candidates.length && !assignedDefs.length"
-          class="text-body-2 text-medium-emphasis pa-3">
-          None of the {{ candidates.length }} tags that fit here are ones you are allowed to apply.
-        </div>
-        <TagPickerList
-          v-else
-          :definitions="listed"
-          :assigned-names="assignedNames"
-          lock-assigned
-          :busy="busy"
-          @apply="(name, value) => emit('apply', name, value)"
-          @close="open = false" />
-        <div v-if="pending" class="text-caption text-medium-emphasis px-3 pb-2">
-          Checking which tags you may apply…
-        </div>
-      </template>
+      <!-- The whole list at once. Rights are asked only for the rows on
+           screen and for a row that is clicked before its answer is in, so
+           opening this costs a handful of requests rather than one per tag. -->
+      <TagPickerList
+        v-else
+        :definitions="definitions"
+        :assigned-names="assignedNames"
+        lock-assigned
+        :busy="busy"
+        :can-apply="canApply"
+        :check-rights="checkRights"
+        @apply="(name, value) => emit('apply', name, value)"
+        @close="open = false" />
     </v-card>
   </v-menu>
 </template>
@@ -96,8 +90,10 @@ const props = defineProps<{
   // A text button, for a section heading row.
   button?: boolean;
   // Whether the reader may apply this definition: undefined while unknown.
-  // Only what is allowed is offered — a picker must not produce a refusal.
+  // Refused ones are listed greyed with the reason, never offered for a write.
   canApply?: (definitionId: string) => boolean | undefined;
+  // Asks for the rights of the given definitions; see TagPickerList.
+  checkRights?: (definitionIds: string[]) => Promise<unknown>;
   // The last write refused, said in place.
   error?: string | null;
   // The definitions could not be listed at all.
@@ -106,50 +102,17 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'apply', tagName: string, value?: string | null): void;
-  // Opening is when the rights of every candidate are worth asking for.
-  (e: 'open', definitionIds: string[]): void;
+  // A fresh visit: the host clears a refusal left from the last one.
+  (e: 'open'): void;
 }>();
 
 const open = ref(false);
 const label = computed(() => (props.target ? `Add tag to ${props.target}` : 'Add tag'));
-const candidates = computed(() => {
-  const assigned = new Set(props.assignedNames ?? []);
-  return props.definitions.filter((d) => !assigned.has(d.name));
-});
-const permitted = computed(() =>
-  props.canApply
-    ? candidates.value.filter((d) => props.canApply!(d.id) === true)
-    : candidates.value,
-);
-const assignedDefs = computed(() => {
-  const assigned = new Set(props.assignedNames ?? []);
-  return props.definitions.filter((d) => assigned.has(d.name));
-});
-const listed = computed(() => [...permitted.value, ...assignedDefs.value]);
-const pending = computed(
-  () => !!props.canApply && candidates.value.some((d) => props.canApply!(d.id) === undefined),
-);
 
 watch(open, (isOpen) => {
-  if (isOpen)
-    emit(
-      'open',
-      candidates.value.map((d) => d.id),
-    );
+  if (isOpen) emit('open');
 });
-// Definitions can arrive after the menu is already open.
-watch(
-  () => candidates.value.length,
-  () => {
-    if (open.value)
-      emit(
-        'open',
-        candidates.value.map((d) => d.id),
-      );
-  },
-);
 </script>
-
 <style scoped>
 .v-chip.tag-add {
   border-style: dashed;
