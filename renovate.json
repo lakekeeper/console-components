@@ -26,6 +26,11 @@
     {
       "matchUpdateTypes": ["major"],
       "dependencyDashboardApproval": true
+    },
+    {
+      "matchPackageNames": ["@duckdb/duckdb-wasm"],
+      "automerge": false,
+      "semanticCommitType": "chore"
     }
   ]
 }
