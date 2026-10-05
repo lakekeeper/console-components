@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.27.2](https://github.com/lakekeeper/console-components/compare/v0.27.1...v0.27.2) (2026-10-05)
+
+
+### Bug Fixes
+
+* **deps:** update dependency @duckdb/duckdb-wasm to v1.33.1-dev65.0 ([#312](https://github.com/lakekeeper/console-components/issues/312)) ([171c1c0](https://github.com/lakekeeper/console-components/commit/171c1c06aa2135601854495506ddf9ee828ca118))
+
 ## [0.27.1](https://github.com/lakekeeper/console-components/compare/v0.27.0...v0.27.1) (2026-10-04)
 
 
