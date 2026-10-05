@@ -586,6 +586,7 @@
 </template>
 
 <script setup lang="ts">
+import { getErrorCode } from '../common/errorUtils';
 import { useWarehousePermissions } from '../composables/useCatalogPermissions';
 import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
@@ -944,11 +945,11 @@ async function loadTaskDetails(taskId: string) {
     console.error('Failed to load task details:', error);
 
     // Handle different error types
-    if (error?.response?.status === 403) {
+    if (getErrorCode(error) === 403) {
       taskDetailsError.value = 'You do not have permission to view task details.';
-    } else if (error?.response?.status === 404) {
+    } else if (getErrorCode(error) === 404) {
       taskDetailsError.value = 'Task not found. It may have been deleted or completed.';
-    } else if (error?.response?.status >= 500) {
+    } else if (getErrorCode(error) >= 500) {
       taskDetailsError.value = 'Server error occurred. Please try again later.';
     } else {
       taskDetailsError.value = error?.message || 'Failed to load task details. Please try again.';
@@ -1193,7 +1194,7 @@ async function listTasks() {
     hasError.value = true;
 
     // Handle different error types gracefully
-    if (error?.response?.status === 404 || error?.isTaskManagementError) {
+    if (getErrorCode(error) === 404 || error?.isTaskManagementError) {
       const entityId = getEntityId();
       if (entityId) {
         const entityName =
@@ -1209,9 +1210,9 @@ async function listTasks() {
       } else {
         errorMessage.value = `Task management is not available for this warehouse yet.`;
       }
-    } else if (error?.response?.status === 403) {
+    } else if (getErrorCode(error) === 403) {
       errorMessage.value = 'You do not have permission to view tasks.';
-    } else if (error?.response?.status >= 500) {
+    } else if (getErrorCode(error) >= 500) {
       errorMessage.value = 'Server error occurred. Please try again later.';
     } else {
       errorMessage.value = 'Failed to load tasks. Please check your connection and try again.';
@@ -1220,7 +1221,7 @@ async function listTasks() {
     console.error('Failed to load tasks:', error);
 
     // Show user-friendly notification for non-404 errors and non-task management errors
-    if (error?.response?.status !== 404 && !error?.isTaskManagementError) {
+    if (getErrorCode(error) !== 404 && !error?.isTaskManagementError) {
       visual.setSnackbarMsg({
         function: 'listTasks',
         text: errorMessage.value,

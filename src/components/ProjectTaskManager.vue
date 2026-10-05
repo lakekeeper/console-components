@@ -541,6 +541,7 @@
 </template>
 
 <script setup lang="ts">
+import { getErrorCode } from '../common/errorUtils';
 import { useProjectPermissions } from '../composables/useCatalogPermissions';
 import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
@@ -728,11 +729,11 @@ async function loadTaskDetails(taskId: string) {
     console.error('Failed to load task details:', error);
 
     // Handle different error types
-    if (error?.response?.status === 403) {
+    if (getErrorCode(error) === 403) {
       taskDetailsError.value = 'You do not have permission to view task details.';
-    } else if (error?.response?.status === 404) {
+    } else if (getErrorCode(error) === 404) {
       taskDetailsError.value = 'Task not found. It may have been deleted or completed.';
-    } else if (error?.response?.status >= 500) {
+    } else if (getErrorCode(error) >= 500) {
       taskDetailsError.value = 'Server error occurred. Please try again later.';
     } else {
       taskDetailsError.value = error?.message || 'Failed to load task details. Please try again.';
@@ -831,14 +832,14 @@ async function loadConfig() {
   } catch (error: any) {
     console.error('Failed to load task log cleanup config:', error);
 
-    if (error?.response?.status === 403) {
+    if (getErrorCode(error) === 403) {
       configError.value = 'You do not have permission to view this configuration.';
-    } else if (error?.response?.status === 404) {
+    } else if (getErrorCode(error) === 404) {
       configError.value = 'Configuration not found. Using default values.';
       // Set defaults
       configForm.retentionDays = 90;
       configForm.cleanupPeriodDays = 1;
-    } else if (error?.response?.status >= 500) {
+    } else if (getErrorCode(error) >= 500) {
       configError.value = 'Server error occurred. Please try again later.';
     } else {
       configError.value = error?.message || 'Failed to load configuration.';
@@ -868,9 +869,9 @@ async function saveConfig() {
     console.error('Failed to save task log cleanup config:', error);
 
     let errorMsg = 'Failed to save configuration.';
-    if (error?.response?.status === 403) {
+    if (getErrorCode(error) === 403) {
       errorMsg = 'You do not have permission to update this configuration.';
-    } else if (error?.response?.status >= 500) {
+    } else if (getErrorCode(error) >= 500) {
       errorMsg = 'Server error occurred. Please try again later.';
     } else if (error?.message) {
       errorMsg = error.message;
@@ -1071,11 +1072,11 @@ async function listTasks() {
     hasError.value = true;
 
     // Handle different error types gracefully
-    if (error?.response?.status === 404 || error?.isTaskManagementError) {
+    if (getErrorCode(error) === 404 || error?.isTaskManagementError) {
       errorMessage.value = `Task management is not available for this project yet.`;
-    } else if (error?.response?.status === 403) {
+    } else if (getErrorCode(error) === 403) {
       errorMessage.value = 'You do not have permission to view tasks.';
-    } else if (error?.response?.status >= 500) {
+    } else if (getErrorCode(error) >= 500) {
       errorMessage.value = 'Server error occurred. Please try again later.';
     } else {
       errorMessage.value = 'Failed to load tasks. Please check your connection and try again.';
@@ -1084,7 +1085,7 @@ async function listTasks() {
     console.error('Failed to load project tasks:', error);
 
     // Show user-friendly notification for non-404 errors and non-task management errors
-    if (error?.response?.status !== 404 && !error?.isTaskManagementError) {
+    if (getErrorCode(error) !== 404 && !error?.isTaskManagementError) {
       visual.setSnackbarMsg({
         function: 'listProjectTasks',
         text: errorMessage.value,
