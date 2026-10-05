@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.28.0](https://github.com/lakekeeper/console-components/compare/v0.27.1...v0.28.0) (2026-10-05)
+
+
+### Features
+
+* **ui:** edit tags and properties where they are shown ([3ed9a9a](https://github.com/lakekeeper/console-components/commit/3ed9a9adb0fc8e5cfbdaf00f5371cd3431876381))
+* **ui:** faster tag picker, inline column tagging without bulk mode, tidier tag groups ([3ed9a9a](https://github.com/lakekeeper/console-components/commit/3ed9a9adb0fc8e5cfbdaf00f5371cd3431876381))
+
+
+### Bug Fixes
+
+* **ui:** namespace, table and view pages gate row actions per item and say when metadata or protection is refused ([3ed9a9a](https://github.com/lakekeeper/console-components/commit/3ed9a9adb0fc8e5cfbdaf00f5371cd3431876381))
+* **ui:** permission composables report when they have answered; project rights for the named project; task pages recognise 403 ([3ed9a9a](https://github.com/lakekeeper/console-components/commit/3ed9a9adb0fc8e5cfbdaf00f5371cd3431876381))
+* **ui:** roles, users, projects and pickers say when a listing is refused instead of showing it empty ([3ed9a9a](https://github.com/lakekeeper/console-components/commit/3ed9a9adb0fc8e5cfbdaf00f5371cd3431876381))
+* **ui:** tag chips ignore stale loads; tag rights retry after errors other than a refusal ([3ed9a9a](https://github.com/lakekeeper/console-components/commit/3ed9a9adb0fc8e5cfbdaf00f5371cd3431876381))
+* **ui:** task pages, explorers and tag permissions report refusals in place and gate their controls ([3ed9a9a](https://github.com/lakekeeper/console-components/commit/3ed9a9adb0fc8e5cfbdaf00f5371cd3431876381))
+* **ui:** warehouse settings gated per right, refused reads and statistics said in place ([3ed9a9a](https://github.com/lakekeeper/console-components/commit/3ed9a9adb0fc8e5cfbdaf00f5371cd3431876381))
+
 ## [0.27.1](https://github.com/lakekeeper/console-components/compare/v0.27.0...v0.27.1) (2026-10-04)
 
 
