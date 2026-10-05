@@ -33,12 +33,18 @@ export function useTagRights() {
     if (hit && Date.now() - hit.at < TTL_MS) return hit.actions;
     const actions = functions
       .getTagCatalogActions(id, false)
-      .then((list: LakekeeperTagAction[]) => new Set(list.map((a: any) => a?.action ?? a)))
-      // A refusal is an answer: hold nothing.
-      .catch(() => new Set<string>())
-      .then((set) => {
+      .then((list: LakekeeperTagAction[]) => {
+        const set = new Set<string>(list.map((a: any) => a?.action ?? a));
         answers.set(id, set);
         return set;
+      })
+      .catch((e: unknown) => {
+        const none = new Set<string>();
+        // A refusal is an answer: hold nothing. Anything else is not, so it
+        // stays unknown and the next ensure asks again.
+        if (isForbiddenError(e)) answers.set(id, none);
+        else cache.delete(id);
+        return none;
       });
     cache.set(id, { at: Date.now(), actions });
     return actions;

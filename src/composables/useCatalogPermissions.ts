@@ -935,8 +935,10 @@ export function useGenericTablePermissions(
 
   async function loadPermissions() {
     if (!genericTableIdRef.value || !warehouseIdRef.value) {
-      // Clear stale permissions from a previous (id-bound) target.
+      // Clear stale permissions from a previous (id-bound) target. Not an
+      // answer: nothing was asked.
       permissions.value = [];
+      answered.value = false;
       return;
     }
 

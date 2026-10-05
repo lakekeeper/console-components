@@ -368,20 +368,25 @@ const api = computed<{ list: ListFn; set: SetFn; del: DelFn }>(() => {
   }
 });
 
+// Reloads overlap (entity change, tagsRefresh); only the latest one lands.
+let loadSeq = 0;
 async function load() {
   if (!props.entityId || !props.warehouseId) return;
+  const seq = ++loadSeq;
   loading.value = true;
   try {
     const res = await api.value.list(props.effective);
+    if (seq !== loadSeq) return;
     tags.value = res.tags ?? [];
     readError.value = null;
   } catch (e) {
+    if (seq !== loadSeq) return;
     tags.value = [];
     readError.value = isForbiddenError(e)
       ? `The tags on this ${props.scope} are not visible to you.`
       : tagRefusal(e, 'read the tags');
   } finally {
-    loading.value = false;
+    if (seq === loadSeq) loading.value = false;
   }
 }
 
