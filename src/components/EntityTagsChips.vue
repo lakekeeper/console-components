@@ -39,17 +39,19 @@
       size="18"></v-progress-circular>
     <template v-else>
       <!-- Everything is shown, grouped by what a tag is rather than folded at
-           an arbitrary count: the host bounds the section and it scrolls. A tag
-           either carries a value or it does not, which the applied tag itself
-           says — so the grouping holds for a reader who cannot list definitions. -->
-      <div v-if="markerTags.length" class="etc-group">
+           an arbitrary count: the host bounds the section and it scrolls.
+           Markers and enumerated tags are both picked from a fixed vocabulary
+           and stay short, so they share one row of chips (an enumerated one
+           reads "name: value"). Free text can run to paragraphs, so it gets
+           the full width under its name. -->
+      <div v-if="classificationTags.length" class="etc-group">
         <div class="etc-label">
-          Markers
-          <span class="etc-count">{{ markerTags.length }}</span>
+          Classifications
+          <span class="etc-count">{{ classificationTags.length }}</span>
         </div>
         <div class="etc-row">
           <TagChip
-            v-for="t in markerTags"
+            v-for="t in classificationTags"
             :key="t['tag-definition-id']"
             :tag="t"
             :definition="definitionByName.get(t.name)"
@@ -61,29 +63,65 @@
         </div>
       </div>
 
-      <!-- A value is read, not glanced at: name and the whole value side by
-           side, wrapped, the way Properties shows its pairs. -->
-      <div v-if="valueTags.length" class="etc-group">
+      <div v-if="freeTextTags.length" class="etc-group">
         <div class="etc-label">
-          Values
-          <span class="etc-count">{{ valueTags.length }}</span>
+          Free text
+          <span class="etc-count">{{ freeTextTags.length }}</span>
         </div>
-        <div class="etc-pairs">
-          <template v-for="t in valueTags" :key="t['tag-definition-id']">
-            <div class="etc-pair__name">
-              <TagChip
-                :tag="t"
-                hide-value
-                plain
-                :definition="definitionByName.get(t.name)"
-                :removable="canEdit && rights.canRemove(t['tag-definition-id']) === true"
-                :editable="canEdit && rights.canApply(t['tag-definition-id']) === true"
-                :busy="busy === t.name"
-                @apply="assign"
-                @remove="unassign" />
-            </div>
-            <div class="etc-pair__value">{{ t.value }}</div>
-          </template>
+        <!-- The name line carries the row's action right beside the name, so
+             it stays in reach however long the text below it runs. -->
+        <div v-for="t in freeTextTags" :key="t['tag-definition-id']" class="etc-free">
+          <div class="etc-free__head">
+            <TagChip
+              :tag="t"
+              hide-value
+              plain
+              :definition="definitionByName.get(t.name)"
+              :editable="canEdit && rights.canApply(t['tag-definition-id']) === true"
+              :busy="busy === t.name"
+              @apply="assign" />
+            <span class="etc-free__colon">:</span>
+            <v-menu
+              v-if="canEdit && rights.canRemove(t['tag-definition-id']) === true"
+              :model-value="confirmRow === t.name"
+              location="bottom start"
+              :close-on-content-click="false"
+              @update:model-value="(open: boolean) => (confirmRow = open ? t.name : null)">
+              <template #activator="{ props: menuProps }">
+                <v-btn
+                  v-bind="menuProps"
+                  icon="mdi-delete-outline"
+                  size="x-small"
+                  variant="text"
+                  class="etc-free__delete ml-1"
+                  :class="{ 'etc-free__delete--open': confirmRow === t.name }"
+                  :disabled="busy === t.name"
+                  :aria-label="`Remove ${t.name}`"
+                  :title="`Remove ${t.name}`"></v-btn>
+              </template>
+              <v-card min-width="240" class="pa-3">
+                <div class="text-body-2 mb-3">
+                  Remove
+                  <strong>{{ t.name }}</strong>
+                  ?
+                </div>
+                <div class="d-flex justify-end ga-2">
+                  <v-btn size="small" variant="text" @click="confirmRow = null">Cancel</v-btn>
+                  <v-btn
+                    size="small"
+                    color="error"
+                    variant="flat"
+                    @click="
+                      confirmRow = null;
+                      unassign(t.name);
+                    ">
+                    Remove
+                  </v-btn>
+                </div>
+              </v-card>
+            </v-menu>
+          </div>
+          <div class="etc-free__value">{{ t.value }}</div>
         </div>
       </div>
 
@@ -153,6 +191,7 @@ const loading = ref(false);
 const definitions = ref<TagDefinition[]>([]);
 const busy = ref<string | null>(null);
 const readError = ref<string | null>(null);
+const confirmRow = ref<string | null>(null);
 const definitionsError = ref<string | null>(null);
 // A refused add is said in the open picker; a refused remove or value change,
 // under the chips it was made on.
@@ -201,10 +240,22 @@ function matches(t: TargetTag): boolean {
   );
 }
 const hasValue = (t: TargetTag) => t.value !== null && t.value !== undefined;
-const markerTags = computed(() => directTags.value.filter((t) => !hasValue(t) && matches(t)));
-const valueTags = computed(() => directTags.value.filter((t) => hasValue(t) && matches(t)));
+// The kind lives on the definition. A reader who may not list definitions does
+// not have it, so a short single-line value is taken for a classification and
+// anything longer for free text — the same split the eye would make.
+function isFreeText(t: TargetTag): boolean {
+  if (!hasValue(t)) return false;
+  const kind = definitionByName.value.get(t.name)?.['value-kind'];
+  if (kind) return kind === 'free-text';
+  return t.value!.length > 32 || t.value!.includes('\n');
+}
+const classificationTags = computed(() =>
+  directTags.value.filter((t) => !isFreeText(t) && matches(t)),
+);
+const freeTextTags = computed(() => directTags.value.filter((t) => isFreeText(t) && matches(t)));
 const anyMatch = computed(
-  () => markerTags.value.length + valueTags.value.length + inheritedGroups.value.length > 0,
+  () =>
+    classificationTags.value.length + freeTextTags.value.length + inheritedGroups.value.length > 0,
 );
 
 // Nearest ancestor first: a namespace's tags say more about this object than
@@ -334,11 +385,12 @@ async function load() {
   }
 }
 
-// Definitions are only needed to add or edit, so a reader without the right
-// never pays for listing every tag in the project.
+// Definitions say each tag's kind (which group it goes in) and are what the
+// picker offers. Listed once, silently: a reader who may not list them still
+// gets the grouping, by the fallback in isFreeText.
 let definitionsLoaded = false;
 async function loadDefinitions() {
-  if (definitionsLoaded || !canEdit.value) return;
+  if (definitionsLoaded) return;
   definitionsLoaded = true;
   try {
     definitions.value = await functions.listAllTagDefinitions(undefined, false);
@@ -463,19 +515,31 @@ watch(
   margin-left: 4px;
   opacity: 0.7;
 }
-.etc-pairs {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr);
-  column-gap: 12px;
-  row-gap: 2px;
-  align-items: baseline;
-}
-.etc-pair__name {
+.etc-free {
   min-width: 0;
 }
-.etc-pair__value {
+.etc-free + .etc-free {
+  margin-top: 6px;
+}
+.etc-free__head {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+}
+.etc-free__colon {
+  margin-left: 1px;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+/* The delete comes with its entry under the pointer (or keyboard focus);
+   touch screens have no hover, so they keep it. */
+@media (hover: hover) {
+  .etc-free:not(:hover) .etc-free__delete:not(:focus-visible):not(.etc-free__delete--open) {
+    opacity: 0;
+  }
+}
+.etc-free__value {
   font-size: 0.875rem;
-  line-height: 24px;
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
