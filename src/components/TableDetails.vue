@@ -67,11 +67,27 @@
          a long list of key/values, each filling the rest of the tab. -->
     <div class="tdx-attached">
       <section v-if="tableId && warehouseId" class="tdx-section tdx-attached__tags">
-        <div class="tdx-head">
-          <v-icon icon="mdi-tag-multiple-outline" size="16" color="primary" class="mr-2"></v-icon>
-          Tags
-        </div>
-        <EntityTagsChips scope="table" :warehouse-id="warehouseId" :entity-id="tableId" effective />
+        <EntityTagsChips
+          scope="table"
+          :warehouse-id="warehouseId"
+          :entity-id="tableId"
+          effective
+          manageable>
+          <template #heading="{ count, add, filterToggle }">
+            <div class="tdx-head">
+              <v-icon
+                icon="mdi-tag-multiple-outline"
+                size="16"
+                color="primary"
+                class="mr-2"></v-icon>
+              Tags
+              <v-chip v-if="count" size="x-small" variant="tonal" class="ml-2">{{ count }}</v-chip>
+              <v-spacer></v-spacer>
+              <component :is="filterToggle" />
+              <component :is="add" />
+            </div>
+          </template>
+        </EntityTagsChips>
         <p class="tdx-note">
           Tags on individual columns live in the
           <a href="#" @click.prevent="$emit('open-tab', 'schema')">Schema</a>
@@ -85,27 +101,59 @@
           Properties
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
           <v-spacer></v-spacer>
-          <v-text-field
-            v-if="allPropertyItems.length > 8"
-            v-model="propertySearch"
-            density="compact"
-            variant="outlined"
-            hide-details
-            clearable
-            placeholder="Find a property"
-            prepend-inner-icon="mdi-magnify"
-            class="tdx-head__search"></v-text-field>
+          <!-- Same as Tags beside it: the filter folds behind its icon, and
+               closing it clears it, so a hidden filter never narrows the list. -->
+          <v-btn
+            v-if="!editingProps && allPropertyItems.length > 8"
+            :icon="propertyFilterOpen || propertySearch ? 'mdi-filter' : 'mdi-filter-outline'"
+            size="small"
+            variant="text"
+            :color="propertyFilterOpen || propertySearch ? 'secondary' : undefined"
+            :title="propertyFilterOpen ? 'Hide filter' : 'Filter properties'"
+            :aria-label="propertyFilterOpen ? 'Hide filter' : 'Filter properties'"
+            @click="togglePropertyFilter"></v-btn>
           <v-switch
-            v-if="systemPropCount > 0"
+            v-if="!editingProps && systemPropCount > 0"
             v-model="hideSystemProps"
             color="primary"
             density="compact"
             hide-details
             class="tdx-head__switch ml-3"
             :label="`Hide system (${systemPropCount})`"></v-switch>
+          <!-- Edited here rather than in Settings. A save is one Iceberg commit
+               for the whole batch, so this is a mode with Save, not a write per
+               click as tags are. -->
+          <PropertiesEditToggle
+            v-if="canEditProps"
+            v-model:editing="editingProps"
+            :dirty="propsDirty"
+            class="ml-2" />
         </div>
+        <div v-if="editingProps" class="tdx-attached__table">
+          <EntityPropertiesPanel
+            entity-type="table"
+            :warehouse-id="warehouseId!"
+            :namespace-path="namespacePath!"
+            :entity-name="tableName"
+            can-edit
+            height="100%"
+            @dirty="propsDirty = $event"
+            @updated="$emit('updated')"
+            @saved="editingProps = false" />
+        </div>
+        <v-text-field
+          v-else-if="propertyFilterOpen && allPropertyItems.length > 8"
+          v-model="propertySearch"
+          autofocus
+          density="compact"
+          variant="outlined"
+          hide-details
+          clearable
+          placeholder="Filter properties and values"
+          prepend-inner-icon="mdi-magnify"
+          class="tdx-filter"></v-text-field>
 
-        <div class="tdx-attached__table">
+        <div v-if="!editingProps" class="tdx-attached__table">
           <v-data-table-virtual
             v-if="propertyItems.length"
             :headers="propertyHeaders"
@@ -145,6 +193,8 @@
 import { computed, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import EntityTagsChips from './EntityTagsChips.vue';
+import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
+import PropertiesEditToggle from './PropertiesEditToggle.vue';
 import TableHealth from './TableHealth.vue';
 import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
 
@@ -152,6 +202,8 @@ import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/
 defineEmits<{
   /** Ask the host to show another of the table's tabs. */
   'open-tab': [tab: string];
+  /** Properties were committed; the host reloads the table. */
+  updated: [];
 }>();
 
 const props = defineProps<{
@@ -198,6 +250,18 @@ const systemPropCount = computed(() => allPropertyItems.value.filter((i) => i.sy
 // A table can carry dozens of properties, and the one being looked for is
 // usually known by name.
 const propertySearch = ref('');
+const propertyFilterOpen = ref(false);
+const editingProps = ref(false);
+const propsDirty = ref(false);
+// The editor addresses the table by namespace and name, so both must be known.
+const canEditProps = computed(() => !!props.canEdit && !!props.namespacePath && !!props.tableName);
+watch(editingProps, (on) => {
+  if (!on) propsDirty.value = false;
+});
+function togglePropertyFilter() {
+  propertyFilterOpen.value = !propertyFilterOpen.value;
+  if (!propertyFilterOpen.value) propertySearch.value = '';
+}
 const propertyItems = computed(() => {
   const q = (propertySearch.value ?? '').trim().toLowerCase();
   return allPropertyItems.value.filter((i) => {
@@ -534,9 +598,9 @@ const factRows = computed(() => {
   color: rgb(var(--v-theme-primary));
 }
 
-.tdx-head__search {
-  flex: 0 1 220px;
-  max-width: 220px;
+.tdx-filter {
+  flex: 0 0 auto;
+  margin: 4px 0 8px;
 }
 .tdx-prop-key {
   font-size: 0.8125rem;

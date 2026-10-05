@@ -144,13 +144,11 @@
                 </div>
               </v-col>
               <v-col v-if="warehouse.id" cols="12">
-                <div class="text-overline text-medium-emphasis">Tags</div>
-                <div class="mt-2">
-                  <EntityTagsChips
-                    scope="warehouse"
-                    :warehouse-id="warehouse.id"
-                    :entity-id="warehouse.id" />
-                </div>
+                <EntityTagsChips
+                  scope="warehouse"
+                  :warehouse-id="warehouse.id"
+                  :entity-id="warehouse.id"
+                  manageable />
               </v-col>
             </v-row>
           </v-card-text>

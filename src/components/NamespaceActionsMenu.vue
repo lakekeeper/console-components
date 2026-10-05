@@ -27,26 +27,9 @@
             v-bind="aProps"
             prepend-icon="mdi-cog-outline"
             title="Namespace settings"
-            subtitle="Protection · properties" />
+            subtitle="Protection" />
         </template>
       </EntitySettingsDialog>
-
-      <template v-if="canManageTags && namespaceId">
-        <v-divider class="my-1"></v-divider>
-        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
-        <EntityTagsManageDialog
-          scope="namespace"
-          :warehouse-id="warehouseId"
-          :entity-id="namespaceId"
-          :entity-name="displayName">
-          <template #activator="{ props: aProps }">
-            <v-list-item
-              v-bind="aProps"
-              prepend-icon="mdi-tag-multiple-outline"
-              title="Manage tags" />
-          </template>
-        </EntityTagsManageDialog>
-      </template>
 
       <template v-if="canMove && namespaceId">
         <v-divider class="my-1"></v-divider>
@@ -144,7 +127,6 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
-import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 import MoveNamespaceDialog from './MoveNamespaceDialog.vue';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 
@@ -173,11 +155,10 @@ const force = ref(false);
 const protectedState = ref(false);
 const namespaceId = ref('');
 
-const { canUpdateProperties, canSetProtection, hasPermission, canManageTags } =
-  useNamespacePermissions(
-    namespaceId,
-    computed(() => props.warehouseId),
-  );
+const { canUpdateProperties, canSetProtection, hasPermission } = useNamespacePermissions(
+  namespaceId,
+  computed(() => props.warehouseId),
+);
 const canDelete = computed(
   () => hasPermission('delete') || !config.enabledAuthentication || !config.enabledPermissions,
 );

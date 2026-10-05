@@ -75,14 +75,12 @@
          is one entry in the actions menu, not a second button per surface. -->
     <v-card v-if="genericTableId" flat class="mx-4 mb-4">
       <v-card-text>
-        <div class="text-overline text-medium-emphasis">Tags</div>
-        <div class="mt-2">
-          <EntityTagsChips
-            scope="generic-table"
-            :warehouse-id="warehouseId"
-            :entity-id="genericTableId"
-            effective />
-        </div>
+        <EntityTagsChips
+          scope="generic-table"
+          :warehouse-id="warehouseId"
+          :entity-id="genericTableId"
+          effective
+          manageable />
       </v-card-text>
     </v-card>
   </div>

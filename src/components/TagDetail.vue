@@ -27,7 +27,7 @@
       <v-tab value="details">Details</v-tab>
       <v-tab v-if="isOpenFga && !isSystem" value="permissions">Permissions</v-tab>
       <v-tab v-if="grantsSupported && !isSystem" value="grants">Grants</v-tab>
-      <v-tab v-if="showAttachments" value="attachments">Attachments</v-tab>
+      <v-tab value="attachments">Attachments</v-tab>
     </v-tabs>
     <v-divider></v-divider>
 
@@ -35,7 +35,18 @@
       <!-- Details -->
       <v-tabs-window-item value="details">
         <div class="pa-4">
-          <v-sheet rounded="lg" border>
+          <!-- Being able to list a tag is not being able to read it. Say so,
+               and show what the listing already told us, rather than a blank. -->
+          <v-alert
+            v-if="readRefusal"
+            type="info"
+            variant="tonal"
+            density="compact"
+            icon="mdi-eye-off-outline"
+            class="mb-4">
+            {{ readRefusal }}
+          </v-alert>
+          <v-sheet v-if="full.id" rounded="lg" border>
             <v-table density="compact">
               <tbody>
                 <tr>
@@ -60,7 +71,8 @@
                 <tr v-if="full['value-kind'] === 'enumerated'">
                   <td class="text-medium-emphasis">Allowed values</td>
                   <td>
-                    <template v-if="(full['allowed-values'] || []).length">
+                    <span v-if="readRefusal" class="text-medium-emphasis">Not visible to you</span>
+                    <template v-else-if="(full['allowed-values'] || []).length">
                       <v-chip
                         v-for="v in full['allowed-values']"
                         :key="v"
@@ -109,7 +121,7 @@
                anyone who could add a definition and withheld from anyone who
                could only rename this one. -->
           <div
-            v-if="(canUpdate || canDelete) && !isSystem"
+            v-if="(canUpdate || canDelete) && !isSystem && !readRefusal"
             class="d-flex ga-2 mt-4 align-center justify-end">
             <TagDefinitionDialog
               v-if="canUpdate"
@@ -158,16 +170,24 @@
                the project and the server — and a grant held there reaches this
                definition without appearing in this pane. The pane's own
                Hierarchy scope is where those show up. -->
+          <TagRefusal v-if="tagActionsAnswered && !canReadGrants">
+            You are not allowed to see the grants on this tag.
+          </TagRefusal>
           <GrantsPanel
-            v-if="tab === 'grants' && full.id"
+            v-else-if="tab === 'grants' && full.id"
             :resource="{ type: 'tag-definition', tagDefinitionId: full.id }"
             :resource-name="full.name" />
         </div>
       </v-tabs-window-item>
 
       <!-- Attachments -->
-      <v-tabs-window-item v-if="showAttachments" value="attachments">
-        <TagAttachmentsPanel v-if="tab === 'attachments' && full.id" :tag-definition-id="full.id" />
+      <v-tabs-window-item value="attachments">
+        <div v-if="tagActionsAnswered && !canReadAttachments" class="pa-4">
+          <TagRefusal>You are not allowed to see where this tag is applied.</TagRefusal>
+        </div>
+        <TagAttachmentsPanel
+          v-else-if="tab === 'attachments' && full.id"
+          :tag-definition-id="full.id" />
       </v-tabs-window-item>
     </v-tabs-window>
 
@@ -220,7 +240,8 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, defineComponent, h, onMounted, ref, watch } from 'vue';
+import { VAlert } from 'vuetify/components';
 import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
@@ -230,6 +251,8 @@ import TagPermissionsPanel from './TagPermissionsPanel.vue';
 import TagAttachmentsPanel from './TagAttachmentsPanel.vue';
 import GrantsPanel from './GrantsPanel.vue';
 import { useGrantsSupported } from '../composables/useGrants';
+import { tagRefusal } from '../composables/useTagRights';
+import { isForbiddenError } from '../common/errorUtils';
 import { PERMISSIONS_UI_ENABLED } from '../common/featureFlags';
 import {
   TagAttachment,
@@ -262,17 +285,30 @@ const full = ref<TagDefinition>({ id: '', name: '' } as TagDefinition);
 // create/list actions do not answer. Declared after `full` on purpose — the
 // composable's watcher evaluates this getter during setup, so reading the ref
 // from above its declaration is a temporal-dead-zone crash, not a lazy read.
+// Asked for the route's id, not the loaded definition's: a reader who may not
+// read the definition still gets an answer about everything else, instead of
+// panels waiting forever on an id that never arrives.
 const {
   canUpdate,
   canDelete,
   canReadAttachments,
+  canReadGrants,
   answered: tagActionsAnswered,
-} = useTagPermissions(computed(() => full.value.id ?? ''));
+} = useTagPermissions(computed(() => props.tagDefinitionId ?? ''));
 
-// Shown until the server says otherwise: the tag id arrives with the definition,
-// so the actions answer lands after the first render, and hiding the tab in the
-// meantime would pull it out from under whoever is allowed it.
-const showAttachments = computed(() => !tagActionsAnswered.value || canReadAttachments.value);
+// Each tab answers in place when its right is missing, rather than rendering a
+// blank pane that looks like an empty list.
+const TagRefusal = defineComponent({
+  name: 'TagRefusal',
+  setup(_, { slots }) {
+    return () =>
+      h(
+        VAlert,
+        { type: 'info', variant: 'tonal', density: 'compact', icon: 'mdi-lock-outline' },
+        slots,
+      );
+  },
+});
 
 const isSystem = computed(() => (full.value.name ?? '').startsWith('system.'));
 const nameSegments = computed(() => (full.value.name ?? '').split('.').filter(Boolean));
@@ -284,11 +320,30 @@ function fmtDate(v?: string | null): string {
   return v ? new Date(v).toLocaleString() : '—';
 }
 
+const readRefusal = ref<string | null>(null);
+
 async function loadFull() {
+  readRefusal.value = null;
   try {
     full.value = await functions.getTagDefinition(props.tagDefinitionId, false);
-  } catch {
-    // handled by functions.handleError
+  } catch (error) {
+    if (!isForbiddenError(error)) {
+      readRefusal.value = tagRefusal(error, 'read this tag');
+      return;
+    }
+    // The listing that brought the reader here carries name, kind, scope and
+    // description — everything but the allowed values.
+    try {
+      const listed = (await functions.listAllTagDefinitions(undefined, false)).find(
+        (d) => d.id === props.tagDefinitionId,
+      );
+      if (listed) full.value = listed;
+    } catch {
+      // nothing more to show
+    }
+    readRefusal.value = full.value.id
+      ? 'You can see that this tag exists, but you are not allowed to read its definition, so its allowed values are hidden.'
+      : 'You are not allowed to read this tag.';
   }
 }
 onMounted(loadFull);

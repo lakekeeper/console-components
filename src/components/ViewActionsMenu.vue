@@ -27,26 +27,9 @@
             v-bind="aProps"
             prepend-icon="mdi-cog-outline"
             title="View settings"
-            subtitle="Rename · protection · properties · metadata" />
+            subtitle="Rename · protection · metadata" />
         </template>
       </EntitySettingsDialog>
-
-      <template v-if="canManageTags && viewId">
-        <v-divider class="my-1"></v-divider>
-        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
-        <EntityTagsManageDialog
-          scope="view"
-          :warehouse-id="warehouseId"
-          :entity-id="viewId"
-          :entity-name="viewName">
-          <template #activator="{ props: aProps }">
-            <v-list-item
-              v-bind="aProps"
-              prepend-icon="mdi-tag-multiple-outline"
-              title="Manage tags" />
-          </template>
-        </EntityTagsManageDialog>
-      </template>
 
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
@@ -114,7 +97,6 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useViewPermissions } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
-import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 import type { LoadViewResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -135,10 +117,7 @@ const view = ref<LoadViewResult | null>(null);
 const viewId = ref('');
 const protectedState = ref(false);
 
-const { canCommit, canSetProtection, canDrop, canManageTags } = useViewPermissions(
-  viewId,
-  props.warehouseId,
-);
+const { canCommit, canSetProtection, canDrop } = useViewPermissions(viewId, props.warehouseId);
 
 const deleteOpen = ref(false);
 const deleting = ref(false);

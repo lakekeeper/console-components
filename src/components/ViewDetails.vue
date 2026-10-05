@@ -151,23 +151,42 @@
       </v-expansion-panel>
 
       <!-- View Properties -->
-      <v-expansion-panel v-if="allPropertyItems.length > 0">
+      <v-expansion-panel v-if="allPropertyItems.length > 0 || canEditProps">
         <v-expansion-panel-title>
           <v-icon class="mr-2" size="small">mdi-cog-outline</v-icon>
           View Properties
           <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
         </v-expansion-panel-title>
         <v-expansion-panel-text>
-          <div v-if="systemPropCount > 0" class="d-flex align-center mb-2">
+          <div
+            v-if="(systemPropCount > 0 && !editingProps) || canEditProps"
+            class="d-flex align-center mb-2">
             <v-switch
+              v-if="systemPropCount > 0 && !editingProps"
               v-model="hideSystemProps"
               color="primary"
               density="compact"
               hide-details
               :label="`Hide system properties (${systemPropCount})`"></v-switch>
+            <v-spacer></v-spacer>
+            <PropertiesEditToggle
+              v-if="canEditProps"
+              v-model:editing="editingProps"
+              :dirty="propsDirty" />
           </div>
+          <EntityPropertiesPanel
+            v-if="editingProps"
+            entity-type="view"
+            :warehouse-id="warehouseId!"
+            :namespace-path="namespacePath!"
+            :entity-name="viewName"
+            can-edit
+            height="360px"
+            @dirty="propsDirty = $event"
+            @updated="$emit('updated')"
+            @saved="editingProps = false" />
           <v-data-table-virtual
-            v-if="propertyItems.length"
+            v-else-if="propertyItems.length"
             :headers="propertyHeaders"
             :items="propertyItems"
             density="compact"
@@ -422,14 +441,14 @@
         <v-icon size="small" class="mr-2" color="primary">mdi-tag-multiple-outline</v-icon>
         Tags
       </div>
-      <!-- Read-only here, as on every other details page: managing tags is one
-           entry in the actions menu, not a second button per surface. -->
+      <!-- Edited where they are read, as on every other details page. -->
       <v-sheet rounded="lg" border class="mb-4 pa-3">
         <EntityTagsChips
           scope="view"
           :warehouse-id="warehouseId || ''"
           :entity-id="viewId"
-          effective />
+          effective
+          manageable />
       </v-sheet>
     </template>
   </v-card-text>
@@ -441,6 +460,8 @@ import { format as formatSQL } from 'sql-formatter';
 import { useFunctions } from '../plugins/functions';
 import SqlEditor from './SqlEditor.vue';
 import EntityTagsChips from './EntityTagsChips.vue';
+import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
+import PropertiesEditToggle from './PropertiesEditToggle.vue';
 import { transformFields } from '../common/schemaUtils';
 import type { LoadViewResult } from '../gen/iceberg/types.gen';
 
@@ -455,6 +476,13 @@ const props = defineProps<{
 }>();
 
 const viewId = computed(() => props.view.metadata?.['view-uuid'] || '');
+
+const editingProps = ref(false);
+const propsDirty = ref(false);
+const canEditProps = computed(() => !!props.canEdit && !!props.namespacePath && !!props.viewName);
+watch(editingProps, (on) => {
+  if (!on) propsDirty.value = false;
+});
 
 // Emits
 defineEmits<{

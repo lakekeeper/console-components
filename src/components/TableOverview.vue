@@ -8,7 +8,8 @@
       :namespace-path="props.namespaceId"
       :table-name="props.tableName"
       :can-edit="canCommit"
-      @open-tab="$emit('open-tab', $event)" />
+      @open-tab="$emit('open-tab', $event)"
+      @updated="loadTableData" />
   </div>
 </template>
 

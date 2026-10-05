@@ -52,16 +52,17 @@
         Governance
       </v-card-title>
       <v-card-text>
-        <div class="text-overline text-medium-emphasis">Tags</div>
-        <div class="mt-2">
-          <EntityTagsChips
-            v-if="namespaceId"
-            scope="namespace"
-            :warehouse-id="warehouseId"
-            :entity-id="namespaceId"
-            effective />
-          <span v-else class="text-disabled">—</span>
-        </div>
+        <EntityTagsChips
+          v-if="namespaceId"
+          scope="namespace"
+          :warehouse-id="warehouseId"
+          :entity-id="namespaceId"
+          effective
+          manageable />
+        <template v-else>
+          <div class="text-overline text-medium-emphasis">Tags</div>
+          <span class="text-disabled">—</span>
+        </template>
       </v-card-text>
     </v-card>
 
@@ -71,8 +72,24 @@
         <v-icon icon="mdi-cog-outline" class="mr-2" color="primary"></v-icon>
         Properties
         <v-chip size="x-small" variant="tonal" class="ml-2">{{ propertyItems.length }}</v-chip>
+        <v-spacer></v-spacer>
+        <PropertiesEditToggle
+          v-if="canEditProps"
+          v-model:editing="editingProps"
+          :dirty="propsDirty" />
       </v-card-title>
-      <v-table v-if="propertyItems.length" density="compact">
+      <div v-if="editingProps" class="pa-3">
+        <EntityPropertiesPanel
+          entity-type="namespace"
+          :warehouse-id="warehouseId"
+          :namespace-path="namespacePath"
+          can-edit
+          height="360px"
+          @dirty="propsDirty = $event"
+          @updated="load"
+          @saved="editingProps = false" />
+      </div>
+      <v-table v-else-if="propertyItems.length" density="compact">
         <tbody>
           <tr v-for="p in propertyItems" :key="p.key">
             <td class="text-medium-emphasis" style="width: 200px">{{ p.key }}</td>
@@ -89,6 +106,9 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import EntityTagsChips from './EntityTagsChips.vue';
+import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
+import PropertiesEditToggle from './PropertiesEditToggle.vue';
+import { useNamespacePermissions } from '../composables/useCatalogPermissions';
 import type { GetNamespaceResponse } from '../gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -99,6 +119,17 @@ const props = defineProps<{
 const functions = useFunctions();
 const namespaceId = ref('');
 const properties = ref<Record<string, string>>({});
+
+const { canUpdateProperties } = useNamespacePermissions(
+  namespaceId,
+  computed(() => props.warehouseId),
+);
+const editingProps = ref(false);
+const propsDirty = ref(false);
+const canEditProps = computed(() => !!namespaceId.value && canUpdateProperties.value);
+watch(editingProps, (on) => {
+  if (!on) propsDirty.value = false;
+});
 
 // eslint-disable-next-line no-control-regex
 const displayPath = computed(() => props.namespacePath.replace(/\x1F/g, '.'));

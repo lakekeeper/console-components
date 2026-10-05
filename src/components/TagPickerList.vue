@@ -34,14 +34,22 @@
       </div>
       <v-list v-else density="compact" class="py-0">
         <template v-for="def in filtered" :key="def.id">
-          <v-list-item :disabled="busy === def.name" rounded="lg" @click="onClick(def)">
+          <!-- Locked rows stay in the list so a search for a tag already on
+               the target finds it and says so, instead of "no match". -->
+          <v-list-item
+            :disabled="busy === def.name || isLocked(def)"
+            rounded="lg"
+            @click="onClick(def)">
             <template #prepend>
               <v-icon :color="assignedNames.includes(def.name) ? 'primary' : 'info'" size="small">
                 {{ assignedNames.includes(def.name) ? 'mdi-tag-check-outline' : 'mdi-tag-outline' }}
               </v-icon>
             </template>
             <v-list-item-title class="text-body-2">{{ def.name }}</v-list-item-title>
-            <v-list-item-subtitle v-if="def.description" class="text-caption">
+            <v-list-item-subtitle v-if="isLocked(def)" class="text-caption">
+              Already applied{{ def['value-kind'] === 'marker' ? '' : ' — change it on its chip' }}
+            </v-list-item-subtitle>
+            <v-list-item-subtitle v-else-if="def.description" class="text-caption">
               {{ def.description }}
             </v-list-item-subtitle>
             <template #append>
@@ -71,6 +79,12 @@
             <div v-if="def['value-kind'] === 'enumerated'">
               <div v-if="loadingValues" class="text-caption text-medium-emphasis">
                 Loading values…
+              </div>
+              <!-- A refused read is not an empty list: one cannot be applied
+                   until it is granted, the other until values are added. -->
+              <div v-else-if="valuesError" class="text-caption text-medium-emphasis">
+                <v-icon size="14" class="mr-1">mdi-lock-outline</v-icon>
+                {{ valuesError }}
               </div>
               <div v-else-if="!allowedValues.length" class="text-caption text-medium-emphasis">
                 This tag has no values to choose from.
@@ -130,6 +144,8 @@
 // data — the host decides what a click writes to.
 import { computed, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import { TagDefinition, TagValueKind } from '../gen/management/types.gen';
 
 const props = defineProps<{
@@ -142,6 +158,9 @@ const props = defineProps<{
   autoExpandId?: string | null;
   busy?: string | null;
   listMaxHeight?: string;
+  // Assigned tags are shown but cannot be picked: for an "add" list, where
+  // picking one again would silently overwrite its value.
+  lockAssigned?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -152,6 +171,9 @@ const emit = defineEmits<{
 const functions = useFunctions();
 
 const assignedNames = computed(() => props.assignedNames ?? []);
+function isLocked(def: TagDefinition): boolean {
+  return !!props.lockAssigned && assignedNames.value.includes(def.name);
+}
 const listMaxHeight = computed(() => props.listMaxHeight ?? '320px');
 
 const search = ref('');
@@ -183,19 +205,23 @@ const filtered = computed(() => {
 const expandedId = ref<string | null>(null);
 const allowedValues = ref<string[]>([]);
 const loadingValues = ref(false);
+const valuesError = ref<string | null>(null);
 const freeTextValue = ref('');
 
 // List responses omit `allowed-values`, so the single definition has to be
 // fetched before its choices can be offered.
 async function loadAllowedValues(def: TagDefinition) {
   allowedValues.value = def['allowed-values'] ?? [];
+  valuesError.value = null;
   if (allowedValues.value.length) return;
   loadingValues.value = true;
   try {
     const full = await functions.getTagDefinition(def.id, false);
     allowedValues.value = full['allowed-values'] ?? [];
-  } catch {
-    // handled
+  } catch (error) {
+    valuesError.value = isForbiddenError(error)
+      ? "You are not allowed to see this tag's values, so it cannot be applied here."
+      : tagRefusal(error, "load this tag's values");
   } finally {
     loadingValues.value = false;
   }
@@ -209,7 +235,7 @@ async function expand(def: TagDefinition) {
 }
 
 async function onClick(def: TagDefinition) {
-  if (props.busy) return;
+  if (props.busy || isLocked(def)) return;
   if (def['value-kind'] === 'marker') {
     emit('apply', def.name);
     return;
