@@ -178,18 +178,26 @@ async function load() {
   const token = ++loadToken;
   tableId.value = ''; // don't act on the previous table while reloading
   try {
+    // Silent: the page this menu sits on reports a refused table load itself.
     const loaded = (await functions.loadTableCustomized(
       props.warehouseId,
       props.namespaceId,
       props.tableName,
+      false,
     )) as LoadTableResult;
     if (token !== loadToken) return;
     table.value = loaded;
     tableId.value = table.value.metadata['table-uuid'] ?? '';
     if (tableId.value) {
-      const prot = await functions.getTableProtection(props.warehouseId, tableId.value);
-      if (token !== loadToken) return;
-      protectedState.value = prot.protected;
+      try {
+        // Silent too: the overview's Protection tile says when it is not
+        // visible, instead of a snackbar on every visit.
+        const prot = await functions.getTableProtection(props.warehouseId, tableId.value, false);
+        if (token !== loadToken) return;
+        protectedState.value = prot.protected;
+      } catch {
+        /* protection not visible to this reader — shown on the overview tile */
+      }
     }
   } catch (e) {
     if (token !== loadToken) return;

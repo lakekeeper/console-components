@@ -44,7 +44,9 @@
       <v-toolbar v-if="selected.length" color="primary" density="compact" flat class="px-2">
         <span class="text-body-2 font-weight-medium">{{ selected.length }} selected</span>
         <v-spacer></v-spacer>
+        <!-- Only once some selected row is one this user may drop. -->
         <v-btn
+          v-if="selected.some((v) => canDropRow(v))"
           size="small"
           variant="text"
           prepend-icon="mdi-delete-outline"
@@ -56,15 +58,17 @@
     </template>
     <template #item.actions="{ item }">
       <div class="d-flex justify-end align-center">
+        <!-- Offered only once the answer is yes: rename needs the right on
+             the view and create_view on the namespace for the new name. -->
         <v-btn
-          v-if="item.type === 'view'"
+          v-if="item.type === 'view' && canRenameRow(item)"
           icon="mdi-pencil-outline"
           variant="text"
           color="primary"
           size="small"
           @click="openRenameDialog(item)"></v-btn>
         <DeleteDialog
-          v-if="item.type === 'view'"
+          v-if="item.type === 'view' && canDropRow(item)"
           :type="item.type"
           :name="item.name"
           @delete-view-with-options="deleteViewWithOptions($event, item)"></DeleteDialog>
@@ -106,6 +110,9 @@
           Renaming is not available because the warehouse uses a non-default storage layout. View
           locations are derived from the view name, so renaming would break the storage path.
         </v-alert>
+        <v-alert v-if="renameError" type="error" variant="tonal" density="compact" class="mt-3">
+          {{ renameError }}
+        </v-alert>
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
@@ -141,6 +148,11 @@
         <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
           This permanently removes the selected views and cannot be undone.
           {{ bulkForce ? '' : 'Delete-protected views will be skipped.' }}
+        </v-alert>
+        <v-alert v-if="bulkRefusedCount" type="info" variant="tonal" density="compact" class="mb-3">
+          {{ bulkRefusedCount }} of the selected
+          {{ bulkRefusedCount === 1 ? 'is a view' : 'are views' }} you are not allowed to delete;
+          {{ bulkRefusedCount === 1 ? 'it stays' : 'they stay' }}.
         </v-alert>
         <v-switch v-model="bulkForce" color="info" density="compact">
           <template #label>
@@ -193,6 +205,8 @@ import { Type } from '../common/enums';
 import type { Header, Options } from '../common/interfaces';
 import type { TableIdentifier } from '../gen/iceberg/types.gen';
 import { isForbiddenError } from '../common/errorUtils';
+import { useItemRights, type ItemTarget } from '../composables/useItemRights';
+import { tagRefusal } from '../composables/useTagRights';
 
 export type ViewIdentifierExtended = TableIdentifier & {
   actions: string[];
@@ -223,6 +237,32 @@ const renameDialog = ref(false);
 const renameOldName = ref('');
 const renameNewName = ref('');
 const renameLoading = ref(false);
+const renameError = ref('');
+
+// --- Rights per row ---------------------------------------------------------
+const rights = useItemRights();
+const namespaceTarget = computed<ItemTarget>(() => ({
+  kind: 'namespace',
+  warehouseId: props.warehouseId,
+  namespace: props.namespacePath.split('\x1F'),
+}));
+function rowTarget(item: ViewIdentifierExtended): ItemTarget {
+  return {
+    kind: 'view',
+    warehouseId: props.warehouseId,
+    namespace: props.namespacePath.split('\x1F'),
+    name: item.name,
+  };
+}
+function canDropRow(item: ViewIdentifierExtended): boolean {
+  return rights.can(rowTarget(item), 'drop') === true;
+}
+function canRenameRow(item: ViewIdentifierExtended): boolean {
+  return (
+    rights.can(rowTarget(item), 'rename') === true &&
+    rights.can(namespaceTarget.value, 'create_view') === true
+  );
+}
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
@@ -307,6 +347,11 @@ const bulkDeleting = ref(false);
 const bulkDone = ref(false);
 const bulkResults = ref<Array<{ name: string; ok: boolean; reason?: string }>>([]);
 
+// Selected rows whose answer is a definite no: kept, and said so in the dialog.
+const bulkRefusedCount = computed(
+  () => selected.value.filter((v) => rights.can(rowTarget(v), 'drop') === false).length,
+);
+
 function openBulkDelete() {
   bulkForce.value = false;
   bulkDone.value = false;
@@ -317,7 +362,10 @@ function openBulkDelete() {
 async function confirmBulkDelete() {
   bulkDeleting.value = true;
   bulkResults.value = [];
-  for (const view of [...selected.value]) {
+  // Rows from other pages may not have been asked yet.
+  await rights.ensure(selected.value.map(rowTarget), ['drop']);
+  const allowed = selected.value.filter((v) => rights.can(rowTarget(v), 'drop') !== false);
+  for (const view of allowed) {
     try {
       await functions.dropView(
         props.warehouseId,
@@ -340,9 +388,10 @@ async function confirmBulkDelete() {
   bulkDone.value = true;
   const ok = bulkResults.value.filter((r) => r.ok).length;
   const failed = bulkResults.value.length - ok;
+  const kept = selected.value.length - allowed.length;
   visual.setSnackbarMsg({
     function: 'bulkDeleteViews',
-    text: `${ok} deleted${failed ? `, ${failed} failed` : ''}.`,
+    text: `${ok} deleted${failed ? `, ${failed} failed` : ''}${kept ? `, ${kept} kept (not allowed)` : ''}.`,
     ttl: 5000,
     ts: Date.now(),
     type: failed ? Type.WARNING : Type.SUCCESS,
@@ -384,6 +433,7 @@ async function routeToView(item: ViewIdentifierExtended) {
 function openRenameDialog(item: ViewIdentifierExtended) {
   renameOldName.value = item.name;
   renameNewName.value = '';
+  renameError.value = '';
   renameDialog.value = true;
 }
 
@@ -397,18 +447,28 @@ async function executeRename() {
   if (!renameNewName.value) return;
 
   renameLoading.value = true;
+  renameError.value = '';
   try {
+    // notify=false: a refusal is shown in the dialog, not as a snackbar.
     await functions.renameView(
       props.warehouseId,
       props.namespacePath,
       renameOldName.value,
       renameNewName.value,
-      notify,
+      false,
     );
+    // The silent call drops the wrapper's success snackbar too; say it here.
+    visual.setSnackbarMsg({
+      function: 'renameView',
+      text: `View renamed to '${renameNewName.value}'`,
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.SUCCESS,
+    });
     closeRenameDialog();
     await loadViews();
-  } catch {
-    // error handled by functions plugin
+  } catch (e) {
+    renameError.value = tagRefusal(e, 'rename this view');
   } finally {
     renameLoading.value = false;
   }

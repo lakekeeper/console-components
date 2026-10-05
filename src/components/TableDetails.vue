@@ -196,6 +196,8 @@ import EntityTagsChips from './EntityTagsChips.vue';
 import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
 import PropertiesEditToggle from './PropertiesEditToggle.vue';
 import TableHealth from './TableHealth.vue';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
 
 // Props
@@ -360,6 +362,10 @@ const activeSortOrder = computed(() => {
 // rather than read off the table metadata.
 const protectionState = ref<boolean | null>(null);
 const protectionUpdatedAt = ref('');
+// Set when the lookup was refused or failed: "unknown" alone read as "the
+// server has no answer", when the answer is that this reader may not see it.
+const protectionError = ref('');
+const protectionRefused = ref(false);
 
 // The host reloads with `Object.assign(table, …)`, so the table object's own
 // identity never changes — `metadata` is what is replaced, and watching it is
@@ -368,21 +374,28 @@ watch(
   () => [props.warehouseId, props.table.metadata] as const,
   async () => {
     const tableUuid = (props.table.metadata as any)?.['table-uuid'];
+    protectionError.value = '';
+    protectionRefused.value = false;
     if (!props.warehouseId || !tableUuid) {
       protectionState.value = null;
       return;
     }
     try {
-      const prot = await functions.getTableProtection(props.warehouseId, tableUuid);
+      // Silent: a refusal is shown on the tile, not as a snackbar on every load.
+      const prot = await functions.getTableProtection(props.warehouseId, tableUuid, false);
       protectionState.value = prot.protected;
       protectionUpdatedAt.value = prot.updated_at
         ? formatTimestamp(Date.parse(prot.updated_at))
         : '';
-    } catch {
-      // A reader without `get_protection` still gets every other tile; the
-      // dash says "not known here", which is the truth.
+    } catch (e) {
+      // A reader without the right still gets every other tile; this one says
+      // why it has no value.
       protectionState.value = null;
       protectionUpdatedAt.value = '';
+      protectionRefused.value = isForbiddenError(e);
+      protectionError.value = protectionRefused.value
+        ? 'Protection: not visible to you'
+        : tagRefusal(e, 'read the protection state');
     }
   },
   { immediate: true },
@@ -463,14 +476,20 @@ const factRows = computed(() => {
     // A chip, and amber when it is off: "this table can be dropped" is the
     // state worth noticing, and plain text next to a grey icon was not it.
     chips: [
-      protectionState.value === null
-        ? { text: 'unknown', icon: 'mdi-help-circle-outline' }
-        : protectionState.value
-          ? { text: 'On', color: 'info', icon: 'mdi-lock-outline' }
-          : { text: 'Off', color: 'warning', icon: 'mdi-lock-open-variant-outline' },
+      protectionError.value
+        ? {
+            text: protectionRefused.value ? 'not visible to you' : 'unavailable',
+            icon: 'mdi-eye-off-outline',
+          }
+        : protectionState.value === null
+          ? { text: 'unknown', icon: 'mdi-help-circle-outline' }
+          : protectionState.value
+            ? { text: 'On', color: 'info', icon: 'mdi-lock-outline' }
+            : { text: 'Off', color: 'warning', icon: 'mdi-lock-open-variant-outline' },
     ],
-    title:
-      protectionState.value === null
+    title: protectionError.value
+      ? protectionError.value
+      : protectionState.value === null
         ? 'Deletion protection'
         : protectionState.value
           ? `Deletion protection is on${protectionUpdatedAt.value ? ` · set ${protectionUpdatedAt.value}` : ''} — drop and expiration are refused until it is turned off`

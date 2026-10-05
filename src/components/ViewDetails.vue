@@ -473,6 +473,8 @@ const props = defineProps<{
   viewName?: string;
   canEdit?: boolean;
   protectedState?: boolean | null;
+  /** Why the protection state is missing, when it was refused or failed. */
+  protectionError?: string;
 }>();
 
 const viewId = computed(() => props.view.metadata?.['view-uuid'] || '');
@@ -594,8 +596,19 @@ const statTiles = computed(() => {
     },
     {
       label: 'Protection',
-      value: props.protectedState == null ? '—' : props.protectedState ? 'On' : 'Off',
-      icon: props.protectedState ? 'mdi-lock' : 'mdi-lock-open-variant-outline',
+      // A refusal says so instead of the dash, which read as "not set".
+      value: props.protectionError
+        ? props.protectionError
+        : props.protectedState == null
+          ? '—'
+          : props.protectedState
+            ? 'On'
+            : 'Off',
+      icon: props.protectionError
+        ? 'mdi-eye-off-outline'
+        : props.protectedState
+          ? 'mdi-lock'
+          : 'mdi-lock-open-variant-outline',
       color: props.protectedState ? 'success' : undefined,
     },
   ];

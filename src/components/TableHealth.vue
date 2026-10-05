@@ -444,6 +444,8 @@ import { computed, ref, watch, nextTick, onBeforeUnmount, onMounted, inject } fr
 import * as d3 from 'd3';
 import { useFunctions } from '../plugins/functions';
 import { loqeVendingReason } from '../common/vendedCredentials';
+import { isForbiddenError, isNotFoundError, logError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import EngineErrorAlert from './EngineErrorAlert.vue';
@@ -497,14 +499,22 @@ async function loadTableData() {
   tableLoading.value = true;
   tableError.value = null;
   try {
+    // Silent: the alert above the checks is the report.
     loadedTable.value = (await functions.loadTableCustomized(
       props.warehouseId,
       props.namespaceId,
       props.tableName,
+      false,
     )) as LoadTableResult;
   } catch (err: any) {
-    console.error('Failed to load table metadata:', err);
-    tableError.value = err.message || String(err);
+    // The wrapper throws `{ error: { code, message } }`, which `String()` made
+    // "[object Object]".
+    logError('TableHealth.loadTableData', err);
+    tableError.value = isForbiddenError(err)
+      ? "You are not allowed to read this table's metadata."
+      : isNotFoundError(err)
+        ? 'This table does not exist or is not visible to you.'
+        : tagRefusal(err, 'load this table');
   } finally {
     tableLoading.value = false;
   }

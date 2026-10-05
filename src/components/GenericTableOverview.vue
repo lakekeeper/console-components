@@ -1,6 +1,10 @@
 <template>
   <div>
-    <v-card flat class="mx-4 mb-4">
+    <!-- In place of the facts: "—" everywhere read as a table with no format. -->
+    <v-alert v-if="loadError" type="warning" variant="tonal" class="mx-4 mb-4">
+      {{ loadError }}
+    </v-alert>
+    <v-card v-else flat class="mx-4 mb-4">
       <v-card-text>
         <v-row dense>
           <v-col cols="12" md="6">
@@ -92,6 +96,8 @@ import { useFunctions } from '@/plugins/functions';
 import { useStorageExplorer, type StorageLoadResult } from '@/composables/useStorageExplorer';
 import { useVisualStore } from '@/stores/visual';
 import EntityTagsChips from './EntityTagsChips.vue';
+import { isForbiddenError, isNotFoundError } from '@/common/errorUtils';
+import { tagRefusal } from '@/composables/useTagRights';
 import type { GenericTableData } from '@/gen/generic-table/types.gen';
 
 const props = defineProps<{
@@ -107,6 +113,7 @@ const explorer = useStorageExplorer();
 const visual = useVisualStore();
 const table = reactive<Partial<GenericTableData>>({});
 const storageRes = ref<StorageLoadResult | null>(null);
+const loadError = ref('');
 
 const hasProperties = computed(() => table.properties && Object.keys(table.properties).length > 0);
 
@@ -122,11 +129,15 @@ async function loadTableData() {
   for (const key of Object.keys(table)) delete (table as Record<string, unknown>)[key];
   stats.value = visual.getDatasetStats(props.warehouseId, props.namespaceId, props.tableName);
   statsError.value = null;
+  loadError.value = '';
   try {
+    // Silent: it raised one snackbar here and handleError a second; the
+    // refusal is now said once, in place.
     const response = await functions.loadGenericTable(
       props.warehouseId,
       props.namespaceId,
       props.tableName,
+      false,
     );
     Object.assign(table, response.table);
     storageRes.value = {
@@ -135,7 +146,12 @@ async function loadTableData() {
       'storage-credentials': (response as any)?.['storage-credentials'],
     };
   } catch (error) {
-    functions.handleError(error, 'loading generic table data', true);
+    const what = props.entityLabel ?? 'generic table';
+    loadError.value = isForbiddenError(error)
+      ? `You are not allowed to read this ${what}.`
+      : isNotFoundError(error)
+        ? `This ${what} does not exist or is not visible to you.`
+        : tagRefusal(error, `load this ${what}`);
   }
 }
 

@@ -1,6 +1,11 @@
 <template>
   <div>
-    <v-alert v-if="error" type="error" variant="tonal" density="compact" class="ma-4">
+    <v-alert
+      v-if="error"
+      :type="errorRefused ? 'warning' : 'error'"
+      variant="tonal"
+      density="compact"
+      class="ma-4">
       {{ error }}
     </v-alert>
 
@@ -22,8 +27,9 @@
       hover>
       <template #top>
         <v-toolbar color="transparent" density="compact" flat>
+          <!-- Only once some selected row is one this user may drop. -->
           <v-btn
-            v-if="selected.length"
+            v-if="selected.some((n) => canDropName(n))"
             color="error"
             variant="text"
             size="small"
@@ -33,7 +39,10 @@
             Delete ({{ selected.length }})
           </v-btn>
           <v-spacer></v-spacer>
+          <!-- A dataset is a generic table: creating one needs
+               create_generic_table on the namespace. -->
           <DatasetCreate
+            v-if="rights.can(namespaceTarget, 'create_generic_table') === true"
             :warehouse-id="warehouseId"
             :namespace-path="namespacePath"
             @created="reload" />
@@ -54,12 +63,14 @@
       <template #item.actions="{ item }">
         <div class="d-flex justify-end align-center">
           <v-btn
+            v-if="canRenameName(item.name)"
             icon="mdi-pencil-outline"
             size="small"
             variant="text"
             title="Rename"
             @click.stop="openRename(item)"></v-btn>
           <v-btn
+            v-if="canDropName(item.name)"
             icon="mdi-delete-outline"
             size="small"
             variant="text"
@@ -70,7 +81,10 @@
       </template>
 
       <template #no-data>
+        <!-- A refused list is said above; "No datasets" would contradict it. -->
+        <div v-if="error"></div>
         <v-empty-state
+          v-else
           icon="mdi-folder-multiple-outline"
           text="No datasets in this namespace"></v-empty-state>
       </template>
@@ -97,6 +111,9 @@
               (v: string) => !/\s/.test(v) || 'No spaces allowed',
               (v: string) => v !== renameTarget || 'Must be different from current name',
             ]" />
+          <v-alert v-if="renameError" type="error" variant="tonal" density="compact" class="mt-3">
+            {{ renameError }}
+          </v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -136,6 +153,9 @@
             autocomplete="off"
             :label="`Type &quot;${deleteTarget}&quot; to confirm`"
             :error="deleteConfirmInput.length > 0 && deleteConfirmInput !== deleteTarget" />
+          <v-alert v-if="deleteError" type="error" variant="tonal" density="compact" class="mt-3">
+            {{ deleteError }}
+          </v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer></v-spacer>
@@ -172,6 +192,11 @@
               v-for="name in selected"
               :key="name"
               :title="name"
+              :subtitle="
+                bulkErrors[name] ??
+                (canDropName(name) ? '' : 'You are not allowed to delete it; it stays.')
+              "
+              :class="bulkErrors[name] ? 'text-error' : ''"
               prepend-icon="mdi-folder-multiple-outline" />
           </v-list>
         </v-card-text>
@@ -190,8 +215,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import { useFunctions } from '@/plugins/functions';
+import { isForbiddenError } from '@/common/errorUtils';
+import { useItemRights, type ItemTarget } from '@/composables/useItemRights';
+import { tagRefusal } from '@/composables/useTagRights';
 import DatasetCreate from './DatasetCreate.vue';
 
 const props = defineProps<{
@@ -208,7 +236,33 @@ const functions = useFunctions();
 const datasets = ref<any[]>([]);
 const loading = ref(false);
 const error = ref<string | null>(null);
+const errorRefused = ref(false);
 const selected = ref<string[]>([]);
+
+// --- Rights per row ---------------------------------------------------------
+const rights = useItemRights();
+const namespaceTarget = computed<ItemTarget>(() => ({
+  kind: 'namespace',
+  warehouseId: props.warehouseId,
+  namespace: props.namespacePath.split('\x1F'),
+}));
+function rowTarget(name: string): ItemTarget {
+  return {
+    kind: 'generic-table',
+    warehouseId: props.warehouseId,
+    namespace: props.namespacePath.split('\x1F'),
+    name,
+  };
+}
+function canDropName(name: string): boolean {
+  return rights.can(rowTarget(name), 'drop') === true;
+}
+function canRenameName(name: string): boolean {
+  return (
+    rights.can(rowTarget(name), 'rename') === true &&
+    rights.can(namespaceTarget.value, 'create_generic_table') === true
+  );
+}
 
 const headers = [
   { title: 'Name', key: 'name', align: 'start' as const },
@@ -220,20 +274,24 @@ const renameOpen = ref(false);
 const renameTarget = ref('');
 const renameValue = ref('');
 const renameLoading = ref(false);
+const renameError = ref('');
 
 // Single delete
 const deleteOpen = ref(false);
 const deleteTarget = ref('');
 const deleteConfirmInput = ref('');
 const deleteLoading = ref(false);
+const deleteError = ref('');
 
 // Bulk delete
 const bulkDeleteOpen = ref(false);
 const bulkDeleting = ref(false);
+const bulkErrors = ref<Record<string, string>>({});
 
 async function load() {
   loading.value = true;
   error.value = null;
+  errorRefused.value = false;
   try {
     const data = await functions.listGenericTables(
       props.warehouseId,
@@ -244,8 +302,12 @@ async function load() {
     );
     datasets.value = (data.identifiers ?? []).filter((g: any) => g.format === 'dataset');
   } catch (e: any) {
-    error.value = e?.error?.message || e?.message || 'Failed to load datasets';
-    functions.handleError(e, 'listGenericTables');
+    // In place only: the alert above is the report, a snackbar would repeat it.
+    datasets.value = [];
+    errorRefused.value = isForbiddenError(e);
+    error.value = errorRefused.value
+      ? 'You are not allowed to list datasets in this namespace.'
+      : tagRefusal(e, 'list datasets');
   } finally {
     loading.value = false;
   }
@@ -267,12 +329,14 @@ function handleSelect(item: any) {
 function openRename(item: any) {
   renameTarget.value = item.name;
   renameValue.value = '';
+  renameError.value = '';
   renameOpen.value = true;
 }
 
 async function executeRename() {
   if (!renameValue.value || renameValue.value === renameTarget.value) return;
   renameLoading.value = true;
+  renameError.value = '';
   try {
     await functions.renameGenericTable(
       props.warehouseId,
@@ -280,12 +344,12 @@ async function executeRename() {
       renameTarget.value,
       props.namespacePath,
       renameValue.value,
-      true,
+      false,
     );
     renameOpen.value = false;
     await load();
-  } catch {
-    // handled by functions plugin
+  } catch (e) {
+    renameError.value = tagRefusal(e, 'rename this dataset');
   } finally {
     renameLoading.value = false;
   }
@@ -294,43 +358,55 @@ async function executeRename() {
 function openDelete(item: any) {
   deleteTarget.value = item.name;
   deleteConfirmInput.value = '';
+  deleteError.value = '';
   deleteOpen.value = true;
 }
 
 async function executeDelete() {
   deleteLoading.value = true;
+  deleteError.value = '';
   try {
     await functions.dropGenericTable(
       props.warehouseId,
       props.namespacePath,
       deleteTarget.value,
-      true,
+      false,
     );
     deleteOpen.value = false;
     await load();
-  } catch {
-    // handled by functions plugin
+  } catch (e) {
+    deleteError.value = tagRefusal(e, 'delete this dataset');
   } finally {
     deleteLoading.value = false;
   }
 }
 
 function confirmBulkDelete() {
+  bulkErrors.value = {};
   bulkDeleteOpen.value = true;
 }
 
 async function executeBulkDelete() {
   bulkDeleting.value = true;
+  bulkErrors.value = {};
   try {
-    await Promise.all(
-      selected.value.map((name) =>
+    // Rows from other pages may not have been asked yet; the refused stay.
+    await rights.ensure(selected.value.map(rowTarget), ['drop']);
+    const allowed = selected.value.filter((n) => rights.can(rowTarget(n), 'drop') !== false);
+    const outcomes = await Promise.allSettled(
+      allowed.map((name) =>
         functions.dropGenericTable(props.warehouseId, props.namespacePath, name, false),
       ),
     );
-    bulkDeleteOpen.value = false;
-    await reload();
-  } catch {
-    // handled by functions plugin
+    // A failure is reported on its row in the dialog, which stays open for it.
+    const errors: Record<string, string> = {};
+    outcomes.forEach((o, i) => {
+      if (o.status === 'rejected') errors[allowed[i]] = tagRefusal(o.reason, 'delete it');
+    });
+    bulkErrors.value = errors;
+    if (!Object.keys(errors).length) bulkDeleteOpen.value = false;
+    await load();
+    selected.value = selected.value.filter((n) => errors[n] || !allowed.includes(n));
   } finally {
     bulkDeleting.value = false;
   }

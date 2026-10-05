@@ -2,7 +2,12 @@
   <!-- The host's window item is already bounded and scrolls; this passes that
        height through so the details pane can end where the tab ends. -->
   <div style="height: 100%; min-height: 0">
+    <!-- A failed load said nothing and left a "format v0" skeleton behind. -->
+    <v-alert v-if="loadError" type="warning" variant="tonal" class="ma-4">
+      {{ loadError }}
+    </v-alert>
     <TableDetails
+      v-else
       :table="table"
       :warehouse-id="props.warehouseId"
       :namespace-path="props.namespaceId"
@@ -18,6 +23,8 @@ import { ref, reactive, onMounted, watch, computed } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import TableDetails from './TableDetails.vue';
+import { isForbiddenError, isNotFoundError, logError } from '@/common/errorUtils';
+import { tagRefusal } from '@/composables/useTagRights';
 import type { LoadTableResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -33,6 +40,7 @@ defineEmits<{
 
 const functions = useFunctions();
 const tableId = ref('');
+const loadError = ref('');
 
 // Table permissions (rename / properties edit are gated on commit)
 const { canCommit } = useTablePermissions(
@@ -52,13 +60,25 @@ watch(() => [props.warehouseId, props.namespaceId, props.tableName], loadTableDa
 
 async function loadTableData() {
   try {
+    // Silent: a refusal is rendered in place of the details.
     Object.assign(
       table,
-      await functions.loadTableCustomized(props.warehouseId, props.namespaceId, props.tableName),
+      await functions.loadTableCustomized(
+        props.warehouseId,
+        props.namespaceId,
+        props.tableName,
+        false,
+      ),
     );
     tableId.value = table.metadata['table-uuid'];
+    loadError.value = '';
   } catch (error) {
-    console.error('Failed to load table data:', error);
+    logError('TableOverview.loadTableData', error);
+    loadError.value = isForbiddenError(error)
+      ? "You are not allowed to read this table's metadata."
+      : isNotFoundError(error)
+        ? 'This table does not exist or is not visible to you.'
+        : tagRefusal(error, 'load this table');
   }
 }
 
