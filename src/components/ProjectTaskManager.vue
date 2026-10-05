@@ -523,14 +523,29 @@
 
         <v-divider></v-divider>
 
+        <v-alert
+          v-if="configSaveError"
+          type="error"
+          variant="tonal"
+          density="compact"
+          class="mx-4 mt-3">
+          {{ configSaveError }}
+        </v-alert>
+        <div
+          v-else-if="queueConfigReadOnly && !configError && !configLoading"
+          class="text-caption text-medium-emphasis mx-4 mt-3">
+          You are not allowed to change this configuration.
+        </div>
+
         <v-card-actions>
           <v-spacer></v-spacer>
           <v-btn variant="text" @click="closeConfigDialog">Cancel</v-btn>
           <v-btn
+            v-if="canModifyQueueConfig"
             color="primary"
             variant="flat"
             :loading="configSaving"
-            :disabled="!isConfigValid"
+            :disabled="!isConfigValid || !!configError"
             @click="saveConfig">
             Save Configuration
           </v-btn>
@@ -543,7 +558,6 @@
 <script setup lang="ts">
 import { getErrorCode } from '../common/errorUtils';
 import { useProjectPermissions } from '../composables/useCatalogPermissions';
-import { Type } from '../common/enums';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
 import { reactive, ref, onMounted, computed, inject } from 'vue';
 import TaskDetails from './TaskDetails.vue';
@@ -565,10 +579,18 @@ const props = defineProps<{
 
 // Composables
 const functions = inject<any>('functions')!;
-const visual = inject<any>('visual')!;
 
-const { canControlProjectTasks } = useProjectPermissions(computed(() => props.projectId));
-const canControlTasks = canControlProjectTasks;
+// Only a definite yes shows a control — an unanswered check is not a grant.
+const projectPerms = useProjectPermissions(computed(() => props.projectId));
+const canControlTasks = computed(
+  () => projectPerms.answered.value && projectPerms.canControlProjectTasks.value === true,
+);
+const canModifyQueueConfig = computed(
+  () => projectPerms.answered.value && projectPerms.hasPermission('modify_task_queue_config'),
+);
+const queueConfigReadOnly = computed(
+  () => projectPerms.answered.value && !projectPerms.hasPermission('modify_task_queue_config'),
+);
 
 // Queue configuration
 const queueManager = useQueueConfig();
@@ -608,6 +630,7 @@ const showConfigDialog = ref(false);
 const configLoading = ref(false);
 const configSaving = ref(false);
 const configError = ref('');
+const configSaveError = ref('');
 const configForm = reactive({
   retentionDays: 90,
   cleanupPeriodDays: 1,
@@ -712,13 +735,17 @@ function closeTaskDetailsDialog() {
   taskDetailsError.value = '';
 }
 
+// Remembered separately: a refused load leaves no details to retry from.
+const detailsTaskId = ref('');
+
 async function retryLoadTaskDetails() {
-  if (selectedTaskDetails.value) {
-    await loadTaskDetails(selectedTaskDetails.value['task-id']);
+  if (detailsTaskId.value) {
+    await loadTaskDetails(detailsTaskId.value);
   }
 }
 
 async function loadTaskDetails(taskId: string) {
+  detailsTaskId.value = taskId;
   taskDetailsLoading.value = true;
   taskDetailsError.value = '';
 
@@ -801,6 +828,7 @@ function openConfigDialog() {
 function closeConfigDialog() {
   showConfigDialog.value = false;
   configError.value = '';
+  configSaveError.value = '';
 }
 
 async function loadConfig() {
@@ -853,6 +881,7 @@ async function saveConfig() {
   if (!isConfigValid.value) return;
 
   configSaving.value = true;
+  configSaveError.value = '';
 
   try {
     const config: SetTaskLogCleanupConfig = {
@@ -868,22 +897,15 @@ async function saveConfig() {
   } catch (error: any) {
     console.error('Failed to save task log cleanup config:', error);
 
-    let errorMsg = 'Failed to save configuration.';
+    // Shown in the dialog, where the save was attempted.
     if (getErrorCode(error) === 403) {
-      errorMsg = 'You do not have permission to update this configuration.';
+      configSaveError.value = 'You do not have permission to update this configuration.';
     } else if (getErrorCode(error) >= 500) {
-      errorMsg = 'Server error occurred. Please try again later.';
-    } else if (error?.message) {
-      errorMsg = error.message;
+      configSaveError.value = 'Server error occurred. Please try again later.';
+    } else {
+      configSaveError.value =
+        error?.error?.message || error?.message || 'Failed to save configuration.';
     }
-
-    visual.setSnackbarMsg({
-      function: 'setProjectTaskLogCleanupConfig',
-      text: errorMsg,
-      ttl: 5000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
   } finally {
     configSaving.value = false;
   }
@@ -1015,7 +1037,7 @@ async function listTasks() {
       }),
     };
 
-    const response: ListProjectTasksResponse = await functions.listProjectTasks(request);
+    const response: ListProjectTasksResponse = await functions.listProjectTasks(request, false);
 
     let filteredTasks = response.tasks || [];
 
@@ -1079,21 +1101,15 @@ async function listTasks() {
     } else if (getErrorCode(error) >= 500) {
       errorMessage.value = 'Server error occurred. Please try again later.';
     } else {
-      errorMessage.value = 'Failed to load tasks. Please check your connection and try again.';
+      errorMessage.value =
+        error?.error?.message ||
+        error?.message ||
+        'Failed to load tasks. Please check your connection and try again.';
     }
 
-    console.error('Failed to load project tasks:', error);
-
-    // Show user-friendly notification for non-404 errors and non-task management errors
-    if (getErrorCode(error) !== 404 && !error?.isTaskManagementError) {
-      visual.setSnackbarMsg({
-        function: 'listProjectTasks',
-        text: errorMessage.value,
-        ttl: 5000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    }
+    // Reported in place (the empty state); the call is silent (notify=false)
+    // so the reader gets one message, not a second one in a snackbar.
+    if (getErrorCode(error) >= 500) console.error('Failed to load project tasks:', error);
   }
 }
 

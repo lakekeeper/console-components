@@ -123,10 +123,11 @@
             item-title="title"
             item-value="value"
             :loading="projectOptionsLoading"
-            no-data-text="No projects available"
+            :no-data-text="projectOptionsError || 'No projects available'"
+            :error-messages="projectOptionsError || undefined"
             variant="outlined"
             density="compact"
-            hide-details></v-autocomplete>
+            :hide-details="!projectOptionsError"></v-autocomplete>
           <v-list
             v-if="projectId"
             density="compact"
@@ -181,7 +182,10 @@
               prepend-icon="mdi-tag-outline"
               :title="t.name"
               @click="selectedTagId = t.id"></v-list-item>
-            <v-list-item v-if="!tagsLoading && !filteredTags.length">
+            <v-list-item v-if="!tagsLoading && tagsError">
+              <span class="text-caption text-medium-emphasis">{{ tagsError }}</span>
+            </v-list-item>
+            <v-list-item v-else-if="!tagsLoading && !filteredTags.length">
               <span class="text-caption text-disabled">No tags.</span>
             </v-list-item>
           </v-list>
@@ -227,6 +231,14 @@
             :relation-type="activeSelection.relationType"
             :warehouse-id="activeSelection.warehouseId"
             hide-managed-access />
+          <!-- A refused pick says so in place. Keeping the previous object on
+               screen read as if its permissions belonged to the new one. -->
+          <div
+            v-else-if="scope === 'warehouses' && pickError"
+            class="pa-8 text-medium-emphasis d-flex align-center ga-2">
+            <v-icon icon="mdi-lock-outline"></v-icon>
+            {{ pickError }}
+          </div>
           <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
             <v-icon icon="mdi-arrow-left"></v-icon>
             Pick an object to view and manage its permissions.
@@ -246,6 +258,8 @@ import WarehousesNavigationTree from './WarehousesNavigationTree.vue';
 import PermissionManager from './PermissionManager.vue';
 import TagPermissionsPanel from './TagPermissionsPanel.vue';
 import type { TagDefinition } from '../gen/management/types.gen';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 
 interface PickItem {
   type: string;
@@ -302,14 +316,18 @@ function formatDate(d: string): string {
 const projectId = ref('');
 const projectOptions = ref<{ title: string; value: string }[]>([]);
 const projectOptionsLoading = ref(false);
+const projectOptionsError = ref('');
 
 // Warehouse-tree pick (resolved to a UUID selection).
 const resolving = ref(false);
 const pickedNode = ref<Selection | null>(null);
+/** Why the last pick shows nothing, when it was refused or could not resolve. */
+const pickError = ref('');
 
 // Tags scope: list of tag definitions + the selected one.
 const tags = ref<TagDefinition[]>([]);
 const tagsLoading = ref(false);
+const tagsError = ref('');
 const tagSearch = ref('');
 const selectedTagId = ref('');
 const selectedTagName = computed(
@@ -323,15 +341,21 @@ const filteredTags = computed(() => {
 async function loadTags() {
   if (tags.value.length || tagsLoading.value) return;
   tagsLoading.value = true;
+  tagsError.value = '';
   try {
     tags.value = await functions.listAllTagDefinitions(undefined, false);
-  } catch {
-    // handled
+  } catch (e: any) {
+    // Silent call (notify=false): a refusal must not read as "No tags."
+    tags.value = [];
+    tagsError.value = isForbiddenError(e)
+      ? 'You are not allowed to list tag definitions in this project.'
+      : tagRefusal(e, 'list tag definitions');
   } finally {
     tagsLoading.value = false;
   }
 }
 watch(scope, (s) => {
+  pickError.value = '';
   if (s === 'tags') loadTags();
 });
 
@@ -359,14 +383,19 @@ function toApiNs(dotted?: string): string {
 
 async function loadProjectOptions() {
   projectOptionsLoading.value = true;
+  projectOptionsError.value = '';
   try {
-    const data = await functions.loadProjectList();
+    const data = await functions.loadProjectList(false);
     projectOptions.value = (Array.isArray(data) ? data : []).map((p: any) => ({
       title: p['project-name'],
       value: p['project-id'],
     }));
-  } catch {
-    // handled
+  } catch (e: any) {
+    // Silent call (notify=false): a refusal must not read as "No projects".
+    projectOptions.value = [];
+    projectOptionsError.value = isForbiddenError(e)
+      ? 'You are not permitted to list projects.'
+      : tagRefusal(e, 'list projects');
   } finally {
     projectOptionsLoading.value = false;
   }
@@ -376,6 +405,7 @@ async function loadProjectOptions() {
 // Resolve it per pick via the existing load/list helpers (no shared-wrapper changes).
 async function onPick(item: PickItem) {
   resolving.value = true;
+  pickError.value = '';
   const wh = item.warehouseId;
   const apiNs = toApiNs(item.namespaceId);
   try {
@@ -411,9 +441,19 @@ async function onPick(item: PickItem) {
         break;
       }
     }
-    if (next) pickedNode.value = next;
-  } catch {
-    // handled by functions.handleError
+    if (next) {
+      pickedNode.value = next;
+    } else {
+      pickedNode.value = null;
+      pickError.value = `Could not resolve ${item.name}, so its grants can't be shown.`;
+    }
+  } catch (e: any) {
+    // Silent call (notify=false): reported here, where the pick was made — and
+    // the previous object must not stay on screen as if it were this one.
+    pickedNode.value = null;
+    pickError.value = isForbiddenError(e)
+      ? `You are not allowed to read ${item.name}, so its grants can't be shown.`
+      : tagRefusal(e, `read ${item.name}`);
   } finally {
     resolving.value = false;
   }

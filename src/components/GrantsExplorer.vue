@@ -115,7 +115,10 @@
                   prepend-icon="mdi-tag-outline"
                   :title="t.name"
                   @click="selectedTagId = t.id"></v-list-item>
-                <v-list-item v-if="!tagsLoading && !filteredTags.length">
+                <v-list-item v-if="!tagsLoading && tagsError">
+                  <span class="text-caption text-medium-emphasis">{{ tagsError }}</span>
+                </v-list-item>
+                <v-list-item v-else-if="!tagsLoading && !filteredTags.length">
                   <span class="text-caption text-disabled">No tags.</span>
                 </v-list-item>
               </v-list>
@@ -252,6 +255,14 @@
                   <slot name="notice" :resource="activeResource"></slot>
                 </template>
               </GrantsPanel>
+              <!-- A refused pick says so in place. Keeping the previous object's
+                   grants on screen read as if they belonged to the new one. -->
+              <div
+                v-else-if="scope === 'warehouses' && pickError"
+                class="pa-8 text-medium-emphasis d-flex align-center ga-2">
+                <v-icon icon="mdi-lock-outline"></v-icon>
+                {{ pickError }}
+              </div>
               <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
                 <v-icon icon="mdi-arrow-left"></v-icon>
                 {{ emptyHint }}
@@ -297,6 +308,7 @@ import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
 import GrantPrivilegeReference from './GrantPrivilegeReference.vue';
 import WarehousesNavigationTree from './WarehousesNavigationTree.vue';
 import { isForbiddenError, isNotFoundError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import type { GrantResourceRef } from '../common/interfaces';
 import type { TagDefinition } from '../gen/management/types.gen';
 
@@ -606,8 +618,20 @@ function toApiNs(dotted?: string): string {
  * The tree hands back names and paths; grants are addressed by id, so each pick
  * is resolved before the panel can read anything.
  */
+/** Why the last pick shows nothing, when it was refused or could not resolve. */
+const pickError = ref('');
+
+/** The panel must not keep showing the previous object while this one is refused. */
+function clearPick(reason: string) {
+  pickedRef.value = null;
+  pickedName.value = '';
+  pickedNamespace.value = '';
+  pickError.value = reason;
+}
+
 async function onPick(item: PickItem) {
   resolving.value = true;
+  pickError.value = '';
   const wh = item.warehouseId;
   const apiNs = toApiNs(item.namespaceId);
   try {
@@ -651,9 +675,16 @@ async function onPick(item: PickItem) {
       pickedRef.value = next;
       pickedName.value = item.name;
       pickedNamespace.value = item.namespaceId ?? '';
+    } else {
+      clearPick(`Could not resolve ${item.name}, so its grants can't be shown.`);
     }
-  } catch {
-    // surfaced by the functions plugin
+  } catch (e: any) {
+    // Silent call (notify=false): reported here, where the pick was made.
+    clearPick(
+      isForbiddenError(e)
+        ? `You are not allowed to read ${item.name}, so its grants can't be shown.`
+        : tagRefusal(e, `read ${item.name}`),
+    );
   } finally {
     resolving.value = false;
   }
@@ -662,6 +693,7 @@ async function onPick(item: PickItem) {
 /** Tags scope. */
 const tags = ref<TagDefinition[]>([]);
 const tagsLoading = ref(false);
+const tagsError = ref('');
 const tagSearch = ref('');
 const selectedTagId = ref('');
 const selectedTagName = computed(
@@ -675,10 +707,15 @@ const filteredTags = computed(() => {
 async function loadTags() {
   if (tags.value.length || tagsLoading.value) return;
   tagsLoading.value = true;
+  tagsError.value = '';
   try {
     tags.value = await functions.listAllTagDefinitions(undefined, false);
-  } catch {
-    // surfaced by the functions plugin
+  } catch (e: any) {
+    // Silent call (notify=false): a refusal must not read as "No tags."
+    tags.value = [];
+    tagsError.value = isForbiddenError(e)
+      ? 'You are not allowed to list tag definitions in this project.'
+      : tagRefusal(e, 'list tag definitions');
   } finally {
     tagsLoading.value = false;
   }
@@ -797,6 +834,7 @@ watch(currentProjectId, () => {
   principal.value = null;
 });
 watch(scope, (s) => {
+  pickError.value = '';
   if (s === 'tags') loadTags();
 });
 

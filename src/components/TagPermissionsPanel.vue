@@ -21,6 +21,7 @@
           class="mr-4"
           style="max-width: 300px"></v-text-field>
         <PermissionAssignDialog
+          v-if="canManage"
           :status="assignStatus"
           action-type="grant"
           assignee=""
@@ -29,6 +30,16 @@
           :relation="RelationType.Tag"
           @assignments="onAssign" />
       </v-toolbar>
+      <v-alert
+        v-if="writeError"
+        type="error"
+        variant="tonal"
+        density="compact"
+        closable
+        class="mx-4 mb-2"
+        @click:close="writeError = ''">
+        {{ writeError }}
+      </v-alert>
     </template>
 
     <template #item.name="{ item }">
@@ -56,7 +67,9 @@
     </template>
 
     <template #item.actions="{ item }">
-      <span style="display: flex; align-items: center; gap: 8px; justify-content: flex-end">
+      <span
+        v-if="canManage"
+        style="display: flex; align-items: center; gap: 8px; justify-content: flex-end">
         <PermissionAssignDialog
           :status="assignStatus"
           action-type="edit"
@@ -76,7 +89,8 @@
     </template>
 
     <template #no-data>
-      <span class="text-disabled">No permissions assigned.</span>
+      <span v-if="readError" class="text-medium-emphasis">{{ readError }}</span>
+      <span v-else class="text-disabled">No permissions assigned.</span>
     </template>
   </v-data-table>
 
@@ -111,6 +125,9 @@ import { StatusIntent } from '../common/enums';
 import PermissionAssignDialog from './PermissionAssignDialog.vue';
 import { TagAssignment, TagRelation } from '../gen/management/types.gen';
 import { principalRef } from '../common/principal';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
+import { useTagPermissions } from '../composables/useCatalogPermissions';
 
 const props = defineProps<{ tagDefinitionId: string; tagName?: string }>();
 
@@ -122,6 +139,18 @@ const assignments = ref<TagAssignment[]>([]);
 const nameCache = ref<Record<string, string>>({});
 const searchQuery = ref('');
 const assignStatus = ref(StatusIntent.INACTIVE);
+const readError = ref('');
+const writeError = ref('');
+
+const REFUSED = 'You are not allowed to see who has access to this tag.';
+// The wrapper resolves false rather than throwing, so the cause is not known here.
+const WRITE_FAILED = 'Could not change who has access to this tag.';
+
+// Reading and changing this tag's assignments are one right on the server
+// (`can_read_assignments` = may grant apply or change ownership), published as
+// `read_grants`. Only a definite yes shows the controls.
+const tagPerms = useTagPermissions(computed(() => props.tagDefinitionId));
+const canManage = computed(() => tagPerms.answered.value && tagPerms.canReadGrants.value === true);
 
 const assignableObj = computed(() => ({
   id: props.tagDefinitionId,
@@ -217,24 +246,47 @@ async function resolveNames() {
 
 async function load() {
   if (!props.tagDefinitionId) return;
+  readError.value = '';
+  // A definite no is known before asking: say so rather than send a request
+  // whose refusal would only arrive as a snackbar from the shared wrapper.
+  if (tagPerms.answered.value && !tagPerms.canReadGrants.value) {
+    assignments.value = [];
+    readError.value = REFUSED;
+    return;
+  }
   loading.value = true;
   try {
     const res = await functions.getTagAssignmentsById(props.tagDefinitionId);
     assignments.value = res.assignments ?? [];
     await resolveNames();
-  } catch {
-    // handled by functions.handleError
+  } catch (e: any) {
+    assignments.value = [];
+    readError.value = isForbiddenError(e)
+      ? REFUSED
+      : tagRefusal(e, 'read who has access to this tag');
   } finally {
     loading.value = false;
   }
 }
 
-onMounted(load);
+// Waits for the rights answer, so a refusal is told in place without a request.
+onMounted(() => {
+  if (tagPerms.answered.value) load();
+});
+// The action list is replaced on every answer — including the one for a new
+// id — so this, not the id, is what starts a load.
+watch(
+  () => tagPerms.permissions.value,
+  () => {
+    if (tagPerms.answered.value) load();
+  },
+);
 watch(
   () => props.tagDefinitionId,
   () => {
     assignments.value = [];
-    load();
+    readError.value = '';
+    writeError.value = '';
   },
 );
 
@@ -250,16 +302,20 @@ async function onAssign(payload: { del: AssignmentCollection; writes: Assignment
     return;
   }
   saving.value = true;
+  writeError.value = '';
   try {
-    const ok = await functions.updateTagAssignmentsById(props.tagDefinitionId, del, writes, true);
+    // Silent on error (notify=false): the failure is told here, not in a snackbar.
+    const ok = await functions.updateTagAssignmentsById(props.tagDefinitionId, del, writes, false);
     if (ok) {
       assignStatus.value = StatusIntent.SUCCESS;
       await load();
     } else {
       assignStatus.value = StatusIntent.FAILURE;
+      writeError.value = WRITE_FAILED;
     }
   } catch {
     assignStatus.value = StatusIntent.FAILURE;
+    writeError.value = WRITE_FAILED;
   } finally {
     saving.value = false;
   }
@@ -278,14 +334,16 @@ async function doRevokeAll() {
   confirmRevokeOpen.value = false;
   if (!row) return;
   saving.value = true;
+  writeError.value = '';
   try {
     const ok = await functions.updateTagAssignmentsById(
       props.tagDefinitionId,
       row.assignments,
       [],
-      true,
+      false,
     );
     if (ok) await load();
+    else writeError.value = WRITE_FAILED;
   } finally {
     saving.value = false;
   }

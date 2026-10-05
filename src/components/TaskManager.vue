@@ -587,8 +587,12 @@
 
 <script setup lang="ts">
 import { getErrorCode } from '../common/errorUtils';
-import { useWarehousePermissions } from '../composables/useCatalogPermissions';
-import { Type } from '../common/enums';
+import {
+  useWarehousePermissions,
+  useTablePermissions,
+  useViewPermissions,
+  useGenericTablePermissions,
+} from '../composables/useCatalogPermissions';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
 import { reactive, ref, onMounted, computed, inject, watch } from 'vue';
 import TaskDetails from './TaskDetails.vue';
@@ -621,7 +625,25 @@ const props = defineProps<{
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
 
-const { canControlTasks } = useWarehousePermissions(props.warehouseId);
+// Controlling a task needs `control_all_tasks` on the warehouse, or
+// `control_tasks` on the task's entity (backend: tasks.rs control_tasks). Only a
+// definite yes shows a control — an unanswered check is not a grant.
+const warehousePerms = useWarehousePermissions(props.warehouseId);
+// The entity type is fixed for the component's life, so only that entity's
+// rights are asked for.
+const entityPerms =
+  props.entityType === 'table' && props.tableId
+    ? useTablePermissions(props.tableId, props.warehouseId)
+    : props.entityType === 'view' && props.viewId
+      ? useViewPermissions(props.viewId, props.warehouseId)
+      : props.entityType === 'generic-table' && props.genericTableId
+        ? useGenericTablePermissions(props.genericTableId, props.warehouseId)
+        : null;
+const canControlTasks = computed(
+  () =>
+    (warehousePerms.answered.value && warehousePerms.canControlTasks.value === true) ||
+    (!!entityPerms && entityPerms.answered.value && entityPerms.canControlTasks.value === true),
+);
 
 // Helper functions to handle entity type differences
 const getEntityId = () => {
@@ -928,13 +950,17 @@ function closeTaskDetailsDialog() {
   taskDetailsError.value = '';
 }
 
+// Remembered separately: a refused load leaves no details to retry from.
+const detailsTaskId = ref('');
+
 async function retryLoadTaskDetails() {
-  if (selectedTaskDetails.value) {
-    await loadTaskDetails(selectedTaskDetails.value['task-id']);
+  if (detailsTaskId.value) {
+    await loadTaskDetails(detailsTaskId.value);
   }
 }
 
 async function loadTaskDetails(taskId: string) {
+  detailsTaskId.value = taskId;
   taskDetailsLoading.value = true;
   taskDetailsError.value = '';
 
@@ -1136,7 +1162,11 @@ async function listTasks() {
       }),
     };
 
-    const response: ListTasksResponse = await functions.listTasks(props.warehouseId, request);
+    const response: ListTasksResponse = await functions.listTasks(
+      props.warehouseId,
+      request,
+      false,
+    );
 
     let filteredTasks = response.tasks || [];
 
@@ -1215,21 +1245,15 @@ async function listTasks() {
     } else if (getErrorCode(error) >= 500) {
       errorMessage.value = 'Server error occurred. Please try again later.';
     } else {
-      errorMessage.value = 'Failed to load tasks. Please check your connection and try again.';
+      errorMessage.value =
+        error?.error?.message ||
+        error?.message ||
+        'Failed to load tasks. Please check your connection and try again.';
     }
 
-    console.error('Failed to load tasks:', error);
-
-    // Show user-friendly notification for non-404 errors and non-task management errors
-    if (getErrorCode(error) !== 404 && !error?.isTaskManagementError) {
-      visual.setSnackbarMsg({
-        function: 'listTasks',
-        text: errorMessage.value,
-        ttl: 5000,
-        ts: Date.now(),
-        type: Type.ERROR,
-      });
-    }
+    // Reported in place (the empty state above the table); no snackbar — the
+    // call is silent (notify=false) so the reader gets one message, not two.
+    if (getErrorCode(error) >= 500) console.error('Failed to load tasks:', error);
   }
 }
 
