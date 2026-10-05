@@ -16,8 +16,14 @@ beforeAll(async () => {
   const require = createRequire(import.meta.url);
   db = await duckdb.createDuckDB(
     {
-      mvp: { mainModule: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm') },
-      eh: { mainModule: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-eh.wasm') },
+      mvp: {
+        mainModule: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm'),
+        mainWorker: '',
+      },
+      eh: {
+        mainModule: require.resolve('@duckdb/duckdb-wasm/dist/duckdb-eh.wasm'),
+        mainWorker: '',
+      },
     },
     new duckdb.VoidLogger(),
     duckdb.NODE_RUNTIME,

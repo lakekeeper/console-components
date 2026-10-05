@@ -4,7 +4,7 @@ import { ref } from 'vue';
 import { Field, Int32, Int64, List, Map_, Struct, Utf8, vectorFromArray } from 'apache-arrow';
 import { createResultValueReader } from './resultValues';
 
-const mapType = new Map_(
+const mapType = new Map_<Utf8, Int64>(
   new Field(
     'entries',
     new Struct([new Field('key', new Utf8(), false), new Field('value', new Int64(), true)]),
