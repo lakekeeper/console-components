@@ -11,6 +11,25 @@ const TIMESTAMP_PRECISION = {
 export function createResultValueReader(vector: Vector | null): (index: number) => unknown {
   if (!vector) return () => undefined;
   const type = vector.type;
+  if (
+    DataType.isStruct(type) ||
+    DataType.isMap(type) ||
+    DataType.isList(type) ||
+    DataType.isFixedSizeList(type)
+  ) {
+    // Arrow StructRow/MapRow proxies violate isExtensible invariants when Vue
+    // tries to wrap them. Result grids already render these cells as JSON text.
+    return (index) => {
+      const value = vector.get(index);
+      if (value == null) return null;
+      return JSON.stringify(value, (_, nested) => {
+        if (typeof nested === 'bigint') return nested.toString();
+        if (typeof nested === 'number' && !Number.isFinite(nested)) return String(nested);
+        if (ArrayBuffer.isView(nested)) return Array.from(nested as Uint8Array);
+        return nested;
+      });
+    };
+  }
   if (!DataType.isTimestamp(type)) return (index) => vector.get(index);
 
   const precision = TIMESTAMP_PRECISION[type.unit];
