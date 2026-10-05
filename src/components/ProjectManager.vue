@@ -112,6 +112,7 @@
             <template #item.actions="{ item }">
               <div class="d-inline-flex ga-2 align-center">
                 <ProjectNameAddOrEditDialog
+                  v-if="item.actions?.includes('rename')"
                   :id="item['project-id']"
                   :action-type="'edit'"
                   :name="item['project-name']"
@@ -126,7 +127,17 @@
             </template>
 
             <template #no-data>
+              <!-- A refused listing is not a server without projects. -->
+              <v-alert
+                v-if="listError"
+                type="info"
+                variant="tonal"
+                density="compact"
+                icon="mdi-lock-outline"
+                class="ma-2"
+                :text="listError"></v-alert>
               <v-empty-state
+                v-else
                 icon="mdi-folder-off-outline"
                 title="No projects available"
                 size="small"></v-empty-state>
@@ -186,7 +197,8 @@ import { useUserStore } from '../stores/user';
 import { useFunctions } from '../plugins/functions';
 import { useProjectPermissions, useServerPermissions } from '../composables/useCatalogPermissions';
 import { useProjectAuthorizerPermissions } from '../composables/useAuthorizerPermissions';
-import { usePermissionStore } from '../stores/permissions';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import {
   CreateProjectRequest,
   GetProjectResponse,
@@ -258,6 +270,8 @@ const availableProjects = reactive<(GetProjectResponse & { actions: string[]; in
 );
 
 const searchQuery = ref('');
+// Set when the listing was refused or failed, so it does not read as "no projects".
+const listError = ref('');
 
 // Computed property to filter projects based on search query
 const filteredProjects = computed(() => {
@@ -293,12 +307,19 @@ async function loadProjectTasks() {
 async function loadProjects() {
   try {
     availableProjects.splice(0, availableProjects.length);
+    listError.value = '';
 
-    Object.assign(availableProjects, await functions.loadProjectList());
+    try {
+      Object.assign(availableProjects, await functions.loadProjectList());
+    } catch (error) {
+      listError.value = isForbiddenError(error)
+        ? 'You are not permitted to list projects.'
+        : tagRefusal(error, 'list projects');
+      return;
+    }
 
-    const permissionStore = usePermissionStore();
-
-    // Load permissions for all projects in parallel
+    // Each row's own rights, not the selected project's: rename and delete act
+    // on the row they sit in.
     await Promise.all(
       availableProjects.map(async (p) => {
         if (p['project-id'] === project.value['project-id']) {
@@ -308,7 +329,11 @@ async function loadProjects() {
         }
 
         p.actions = [];
-        const access = await permissionStore.getProjectPermissions();
+        // notify=false: a project the reader may not administer answers 403, and
+        // that is the answer, not an error worth a snackbar.
+        const access = await functions
+          .getProjectCatalogActionsFor(p['project-id'], false)
+          .catch(() => []);
         p.actions.push(...access.map((permission) => permission.action));
       }),
     );

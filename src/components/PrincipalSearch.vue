@@ -11,9 +11,26 @@
       <v-btn value="role" size="small" prepend-icon="mdi-account-group">Role</v-btn>
     </v-btn-toggle>
 
+    <!-- Role search is offered only in projects that allow it. While that is
+         being asked, say so rather than offering every project. -->
+    <div
+      v-if="type === 'role' && loadingProjects"
+      class="d-flex align-center ga-2 mb-3 text-caption text-medium-emphasis">
+      <v-progress-circular indeterminate size="16" width="2"></v-progress-circular>
+      Checking which projects you may search roles in…
+    </div>
+    <v-alert
+      v-if="type === 'role' && projectListError && !loadingProjects"
+      type="info"
+      variant="tonal"
+      density="compact"
+      icon="mdi-lock-outline"
+      class="mb-3"
+      :text="projectListError"></v-alert>
+
     <!-- Project selector for role search (roles are project-scoped) -->
     <v-select
-      v-if="type === 'role' && !lockProjectId && userProjects.length > 1"
+      v-if="type === 'role' && !lockProjectId && !loadingProjects && userProjects.length > 1"
       v-model="selectedProject"
       :items="userProjects"
       item-title="project-name"
@@ -55,8 +72,17 @@
         color="primary"></v-switch>
     </div>
 
+    <!-- Nowhere to search: said in place of a search that can only be refused. -->
+    <v-alert
+      v-if="roleSearchRefused"
+      type="info"
+      variant="tonal"
+      density="compact"
+      icon="mdi-lock-outline"
+      text="You are not allowed to search roles here."></v-alert>
+
     <v-autocomplete
-      v-if="!byId"
+      v-else-if="!byId"
       :model-value="modelValue"
       :items="candidates"
       :loading="searching"
@@ -73,7 +99,7 @@
       density="compact"
       variant="outlined"
       :hide-details="!(type === 'role' && lockProjectId)"
-      :no-data-text="`No ${type}s found`"
+      :no-data-text="searchError || `No ${type}s found`"
       @update:search="onSearch"
       @update:model-value="$emit('update:modelValue', $event)"></v-autocomplete>
 
@@ -89,6 +115,17 @@
       :loading="searching"
       @update:model-value="onIdSearch"></v-text-field>
 
+    <!-- A refused search is not "no such principal": kept visible under the
+         field, since the menu that would carry it closes on blur. -->
+    <v-alert
+      v-if="searchError && !roleSearchRefused"
+      type="info"
+      variant="tonal"
+      density="compact"
+      icon="mdi-lock-outline"
+      class="mt-2"
+      :text="searchError"></v-alert>
+
     <div v-if="modelValue" class="text-caption text-medium-emphasis mt-2">
       Selected:
       <strong>{{ modelValue.title }}</strong>
@@ -101,6 +138,9 @@
 import { onMounted, onUnmounted, reactive, ref, computed, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
+import { hasAction } from '../composables/useCatalogPermissions';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 
 export interface SelectedPrincipal {
   id: string;
@@ -141,11 +181,25 @@ const idInput = ref('');
 const search = ref('');
 const searching = ref(false);
 const candidates = ref<SelectedPrincipal[]>([]);
+// Set when the last search was refused or failed, so it does not read as "none found".
+const searchError = ref('');
 
 // Project selector (role search only)
 const userProjects = reactive<any[]>([]);
 const loadingProjects = ref(false);
 const selectedProject = ref<string | null>(null);
+// Set when the project listing itself was refused; role search still works in
+// the active project, so this qualifies the picker rather than replacing it.
+const projectListError = ref('');
+// Whether the projects have been checked and none of them allow role search.
+const projectsChecked = ref(false);
+const roleSearchRefused = computed(
+  () =>
+    type.value === 'role' &&
+    projectsChecked.value &&
+    !loadingProjects.value &&
+    !selectedProject.value,
+);
 const currentProjectId = computed(() => visual.projectSelected['project-id'] || null);
 const lockedProjectHint = computed(
   () => `Only roles in ${lockedProjectLabel.value} — roles are project-scoped.`,
@@ -165,21 +219,54 @@ const lockedProjectLabel = computed(() => {
   return 'the selected project';
 });
 
-async function loadProjects() {
-  if (userProjects.length) return;
-  loadingProjects.value = true;
+/** Whether this project lets the caller search its roles (`search_roles`). */
+async function maySearchRoles(projectId: string): Promise<boolean> {
   try {
-    const projects = await functions.loadProjectList();
-    userProjects.splice(0, userProjects.length, ...projects);
-    if (props.lockProjectId) {
-      selectedProject.value = props.lockProjectId;
-    } else if (!selectedProject.value) {
-      selectedProject.value =
-        projects.length === 1 ? projects[0]['project-id'] : currentProjectId.value;
-    }
+    // notify=false: a project the reader may not search answers 403, and that
+    // is the answer, not an error worth a snackbar.
+    const actions = await functions.getProjectCatalogActionsFor(projectId, false);
+    return hasAction(actions, 'search_roles');
   } catch {
-    /* surfaced by the functions plugin */
+    return false;
+  }
+}
+
+async function loadProjects() {
+  if (projectsChecked.value || loadingProjects.value) return;
+  loadingProjects.value = true;
+  projectListError.value = '';
+  try {
+    let projects: any[] = [];
+    if (props.lockProjectId) {
+      // Pinned: only that project matters, and only whether it may be searched.
+      const match = visual.projectList.find((p: any) => p['project-id'] === props.lockProjectId);
+      projects = [match ?? { 'project-id': props.lockProjectId, 'project-name': '' }];
+    } else {
+      try {
+        projects = (await functions.loadProjectList()) ?? [];
+      } catch (e) {
+        // The active project is still one the reader works in; offer that.
+        projectListError.value = isForbiddenError(e)
+          ? 'You are not permitted to list projects.'
+          : tagRefusal(e, 'list projects');
+        projects = visual.projectSelected['project-id'] ? [{ ...visual.projectSelected }] : [];
+      }
+    }
+    // Only projects where the search can succeed are offered.
+    const allowed = await Promise.all(projects.map((p) => maySearchRoles(p['project-id'])));
+    const searchable = projects.filter((_, i) => allowed[i]);
+    userProjects.splice(0, userProjects.length, ...searchable);
+    const ids = new Set(searchable.map((p) => p['project-id']));
+    if (props.lockProjectId) {
+      selectedProject.value = ids.has(props.lockProjectId) ? props.lockProjectId : null;
+    } else if (!selectedProject.value || !ids.has(selectedProject.value)) {
+      selectedProject.value =
+        currentProjectId.value && ids.has(currentProjectId.value)
+          ? currentProjectId.value
+          : (searchable[0]?.['project-id'] ?? null);
+    }
   } finally {
+    projectsChecked.value = true;
     loadingProjects.value = false;
   }
 }
@@ -188,6 +275,7 @@ function onTypeChange(v: 'user' | 'role') {
   type.value = v;
   emit('update:modelValue', null);
   candidates.value = [];
+  searchError.value = '';
   search.value = '';
   idInput.value = '';
   if (v === 'role') loadProjects();
@@ -216,8 +304,10 @@ function rerun() {
 async function runSearch(q: string) {
   if (!q) {
     candidates.value = [];
+    searchError.value = '';
     return;
   }
+  if (type.value === 'role' && (loadingProjects.value || !selectedProject.value)) return;
   searching.value = true;
   try {
     let list: SelectedPrincipal[] = [];
@@ -246,8 +336,12 @@ async function runSearch(q: string) {
       if (resolved) list.unshift(resolved);
     }
     candidates.value = list;
-  } catch {
+    searchError.value = '';
+  } catch (e) {
     candidates.value = [];
+    searchError.value = isForbiddenError(e)
+      ? `You are not allowed to search ${type.value}s here.`
+      : tagRefusal(e, `search ${type.value}s`);
   } finally {
     searching.value = false;
   }

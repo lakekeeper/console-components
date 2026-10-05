@@ -24,7 +24,17 @@
 
     <v-divider></v-divider>
 
-    <v-card-text v-if="role.id">
+    <!-- Gated on the read's answer, not on an id that only a successful read
+         delivers: a refused read says so here instead of leaving a blank tab. -->
+    <v-card-text v-if="readError">
+      <v-alert
+        type="info"
+        variant="tonal"
+        density="compact"
+        icon="mdi-lock-outline"
+        :text="readError"></v-alert>
+    </v-card-text>
+    <v-card-text v-else-if="role.id">
       <v-row dense>
         <v-col cols="12" md="6">
           <div class="text-overline text-medium-emphasis">Description</div>
@@ -111,11 +121,13 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, reactive } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useRolePermissions } from '../composables/useCatalogPermissions';
 import { useIsSyncManagedRole, useRoleOwnership } from '../composables/useRoleProviders';
 import type { Role } from '../gen/management/types.gen';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 
 const props = defineProps<{
   roleId: string;
@@ -129,10 +141,14 @@ const emit = defineEmits<{
 
 const functions = useFunctions();
 
-// Use the role permissions composable
-const { canUpdate } = useRolePermissions(props.roleId);
+// A ref, not the prop's value at setup: the host keeps this pane mounted while
+// moving between roles, and the rights must follow the role on screen.
+const roleIdRef = computed(() => props.roleId);
+const { canUpdate } = useRolePermissions(roleIdRef);
 
-const role = reactive<Role>({
+const readError = ref('');
+
+const emptyRole: Role = {
   id: '',
   ident: '',
   name: '',
@@ -142,7 +158,8 @@ const role = reactive<Role>({
   'project-id': '',
   'provider-id': '',
   'source-id': '',
-});
+};
+const role = reactive<Role>({ ...emptyRole });
 
 const isSyncManagedRole = useIsSyncManagedRole();
 const syncManaged = computed(() => isSyncManagedRole.value(role['provider-id']));
@@ -153,9 +170,32 @@ onMounted(async () => {
 });
 
 async function loadRole() {
-  Object.assign(role, await functions.getRole(props.roleId));
-  emit('roleLoaded', role);
+  // A late answer for the previous role must not land under the new one.
+  const roleId = props.roleId;
+  try {
+    const loaded = await functions.getRole(roleId);
+    if (roleId !== props.roleId) return;
+    readError.value = '';
+    Object.assign(role, loaded);
+    emit('roleLoaded', role);
+  } catch (e) {
+    if (roleId !== props.roleId) return;
+    Object.assign(role, emptyRole);
+    readError.value = isForbiddenError(e)
+      ? 'You are not allowed to read this role.'
+      : tagRefusal(e, 'read this role');
+  }
 }
+
+watch(
+  () => props.roleId,
+  (id, old) => {
+    if (!id || id === old) return;
+    Object.assign(role, emptyRole);
+    readError.value = '';
+    loadRole();
+  },
+);
 
 async function editRole(roleIn: { name: string; description: string }) {
   await functions.updateRole(role.id, roleIn.name, roleIn.description, true);

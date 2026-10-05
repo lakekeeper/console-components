@@ -76,16 +76,23 @@ export function useServerPermissions(serverId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
   const config = useConfig();
   const loading = ref(false);
+  // Whether the server has answered for the current target. Until then an empty
+  // action list means "not known yet", not "refused" — a gate that hides on it
+  // flashes a denial at everyone who is in fact allowed.
+  const answered = ref(false);
   const permissions = ref<LakekeeperServerAction[]>([]);
 
   const serverIdRef = computed(() => (typeof serverId === 'string' ? serverId : serverId.value));
 
   async function loadPermissions() {
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getServerPermissions();
     } finally {
       loading.value = false;
+      answered.value = true;
     }
   }
 
@@ -131,6 +138,7 @@ export function useServerPermissions(serverId: Ref<string> | string) {
 
   return {
     loading,
+    answered,
     permissions,
     hasPermission,
     hasAnyPermission,
@@ -153,16 +161,23 @@ export function useServerPermissions(serverId: Ref<string> | string) {
 export function useRolePermissions(roleId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
   const loading = ref(false);
+  // Whether the server has answered for the current target. Until then an empty
+  // action list means "not known yet", not "refused" — a gate that hides on it
+  // flashes a denial at everyone who is in fact allowed.
+  const answered = ref(false);
   const permissions = ref<LakekeeperRoleActionKind[]>([]);
 
   const roleIdRef = computed(() => (typeof roleId === 'string' ? roleId : roleId.value));
 
   async function loadPermissions() {
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getRolePermissions(roleIdRef.value);
     } finally {
       loading.value = false;
+      answered.value = true;
     }
   }
 
@@ -203,6 +218,7 @@ export function useRolePermissions(roleId: Ref<string> | string) {
 
   return {
     loading,
+    answered,
     permissions,
     hasPermission,
     hasAnyPermission,
@@ -311,6 +327,10 @@ export function useTagPermissions(tagDefinitionId: Ref<string> | string) {
 export function useProjectPermissions(projectId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
   const loading = ref(false);
+  // Whether the server has answered for the current target. Until then an empty
+  // action list means "not known yet", not "refused" — a gate that hides on it
+  // flashes a denial at everyone who is in fact allowed.
+  const answered = ref(false);
   const permissions = ref<LakekeeperProjectAction[]>([]);
 
   const projectIdRef = computed(() =>
@@ -319,10 +339,13 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
 
   async function loadPermissions() {
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
-      permissions.value = await permissionStore.getProjectPermissions();
+      permissions.value = await permissionStore.getProjectPermissions(projectIdRef.value);
     } finally {
       loading.value = false;
+      answered.value = true;
     }
   }
 
@@ -375,6 +398,7 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
 
   return {
     loading,
+    answered,
     permissions,
     hasPermission,
     hasAnyPermission,
@@ -405,6 +429,10 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const permissionStore = usePermissionStore();
   const config = useConfig();
   const loading = ref(false);
+  // Whether the server has answered for the current target. Until then an empty
+  // action list means "not known yet", not "refused" — a gate that hides on it
+  // flashes a denial at everyone who is in fact allowed.
+  const answered = ref(false);
   const permissions = ref<LakekeeperWarehouseAction[]>([]);
 
   const warehouseIdRef = computed(() =>
@@ -413,10 +441,13 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
 
   async function loadPermissions() {
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getWarehousePermissions(warehouseIdRef.value);
     } finally {
       loading.value = false;
+      answered.value = true;
     }
   }
 
@@ -455,6 +486,13 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const canSetFormatVersionPolicy = computed(
     () =>
       hasPermission('set_format_version_policy') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
+  // The warehouse's delete profile (soft deletion and its expiry).
+  const canModifySoftDeletion = computed(
+    () =>
+      hasPermission('modify_soft_deletion') ||
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
@@ -501,6 +539,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
 
   return {
     loading,
+    answered,
     permissions,
     hasPermission,
     hasAnyPermission,
@@ -515,6 +554,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canSetProtection,
     canManageTags,
     canSetFormatVersionPolicy,
+    canModifySoftDeletion,
     canGetEndpointStatistics,
     showTasksTab,
     showStatisticsTab,
@@ -536,6 +576,10 @@ export function useNamespacePermissions(
   const permissionStore = usePermissionStore();
   const config = useConfig();
   const loading = ref(false);
+  // Whether the server has answered for the current target. Until then an empty
+  // action list means "not known yet", not "refused" — a gate that hides on it
+  // flashes a denial at everyone who is in fact allowed.
+  const answered = ref(false);
   const permissions = ref<LakekeeperNamespaceAction[]>([]);
 
   const namespaceIdRef = computed(() =>
@@ -549,6 +593,8 @@ export function useNamespacePermissions(
     if (!namespaceIdRef.value || !warehouseIdRef.value) return;
 
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getNamespacePermissions(
         namespaceIdRef.value,
@@ -556,6 +602,7 @@ export function useNamespacePermissions(
       );
     } finally {
       loading.value = false;
+      answered.value = true;
     }
   }
 
@@ -615,6 +662,7 @@ export function useNamespacePermissions(
 
   return {
     loading,
+    answered,
     permissions,
     hasPermission,
     hasAnyPermission,
@@ -642,6 +690,10 @@ export function useTablePermissions(
 ) {
   const functions = useFunctions();
   const loading = ref(false);
+  // Whether the server has answered for the current target. Until then an empty
+  // action list means "not known yet", not "refused" — a gate that hides on it
+  // flashes a denial at everyone who is in fact allowed.
+  const answered = ref(false);
   const permissions = ref<LakekeeperTableAction[]>([]);
   const config = useConfig();
 
@@ -654,6 +706,8 @@ export function useTablePermissions(
     if (!tableIdRef.value || !warehouseIdRef.value) return;
 
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await functions.getTableCatalogActions(
         tableIdRef.value,
@@ -661,6 +715,7 @@ export function useTablePermissions(
       );
     } finally {
       loading.value = false;
+      answered.value = true;
     }
   }
 
@@ -723,6 +778,7 @@ export function useTablePermissions(
 
   return {
     loading,
+    answered,
     permissions,
     hasPermission,
     hasAnyPermission,
@@ -752,6 +808,10 @@ export function useViewPermissions(
 ) {
   const functions = useFunctions();
   const loading = ref(false);
+  // Whether the server has answered for the current target. Until then an empty
+  // action list means "not known yet", not "refused" — a gate that hides on it
+  // flashes a denial at everyone who is in fact allowed.
+  const answered = ref(false);
   const permissions = ref<LakekeeperViewAction[]>([]);
   const config = useConfig();
 
@@ -764,6 +824,8 @@ export function useViewPermissions(
     if (!viewIdRef.value || !warehouseIdRef.value) return;
 
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await functions.getViewCatalogActions(
         viewIdRef.value,
@@ -771,6 +833,7 @@ export function useViewPermissions(
       );
     } finally {
       loading.value = false;
+      answered.value = true;
     }
   }
 
@@ -831,6 +894,7 @@ export function useViewPermissions(
 
   return {
     loading,
+    answered,
     permissions,
     hasPermission,
     hasAnyPermission,
@@ -855,6 +919,10 @@ export function useGenericTablePermissions(
 ) {
   const functions = useFunctions();
   const loading = ref(false);
+  // Whether the server has answered for the current target. Until then an empty
+  // action list means "not known yet", not "refused" — a gate that hides on it
+  // flashes a denial at everyone who is in fact allowed.
+  const answered = ref(false);
   const permissions = ref<LakekeeperGenericTableAction[]>([]);
   const config = useConfig();
 
@@ -867,12 +935,16 @@ export function useGenericTablePermissions(
 
   async function loadPermissions() {
     if (!genericTableIdRef.value || !warehouseIdRef.value) {
-      // Clear stale permissions from a previous (id-bound) target.
+      // Clear stale permissions from a previous (id-bound) target. Not an
+      // answer: nothing was asked.
       permissions.value = [];
+      answered.value = false;
       return;
     }
 
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await functions.getGenericTableCatalogActions(
         genericTableIdRef.value,
@@ -880,6 +952,7 @@ export function useGenericTablePermissions(
       );
     } finally {
       loading.value = false;
+      answered.value = true;
     }
   }
 
@@ -932,6 +1005,7 @@ export function useGenericTablePermissions(
 
   return {
     loading,
+    answered,
     permissions,
     hasPermission,
     hasAnyPermission,

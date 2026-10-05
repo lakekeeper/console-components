@@ -125,6 +125,17 @@
                 <v-progress-linear indeterminate color="primary" rounded />
               </div>
 
+              <!-- A refused read is not an empty history: say so instead of
+                   drawing empty charts. -->
+              <v-alert
+                v-else-if="endpointsError"
+                type="info"
+                variant="tonal"
+                density="compact"
+                icon="mdi-lock-outline">
+                {{ endpointsError }}
+              </v-alert>
+
               <!-- Charts view -->
               <div v-else-if="activeView === 'charts'">
                 <v-row>
@@ -224,6 +235,15 @@
                 <v-progress-linear indeterminate color="primary" rounded />
               </div>
 
+              <v-alert
+                v-else-if="objectsError"
+                type="info"
+                variant="tonal"
+                density="compact"
+                icon="mdi-lock-outline">
+                {{ objectsError }}
+              </v-alert>
+
               <!-- Chart -->
               <div v-else-if="objectsView === 'chart'">
                 <div class="text-subtitle-2 mb-2">Tables &amp; Views Over Time</div>
@@ -270,6 +290,8 @@ import { Header } from '../common/interfaces';
 import { useFunctions } from '../plugins/functions';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
@@ -287,6 +309,8 @@ const section = ref<'endpoints' | 'objects'>('endpoints');
 // ─── Endpoint Statistics State ───────────────────────────────────────────────
 const activeView = ref<'charts' | 'table'>('charts');
 const loading = ref(false);
+// Set when the endpoint-statistics read fails; checked before the empty charts.
+const endpointsError = ref<string | null>(null);
 const aggregation = ref<'hour' | 'day' | 'week' | 'month' | 'year'>('day');
 const areaChartRef = ref<HTMLElement | null>(null);
 const donutChartRef = ref<HTMLElement | null>(null);
@@ -316,6 +340,7 @@ const aggregatedRows = ref<FlatRow[]>([]);
 const objectsView = ref<'chart' | 'table'>('chart');
 const objectsAggregation = ref<'hour' | 'day' | 'week' | 'month' | 'year'>('day');
 const objectsLoading = ref(false);
+const objectsError = ref<string | null>(null);
 const objectsChartRef = ref<HTMLElement | null>(null);
 const objectsData = ref<WarehouseStatistics[]>([]);
 const aggregatedObjectsData = ref<WarehouseStatistics[]>([]);
@@ -415,11 +440,22 @@ async function fetchEndpointStatistics() {
       return;
     }
 
-    const result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
+    endpointsError.value = null;
+    // Silent: a refusal is reported in the tab, not as a snackbar.
+    const result = await functions.getEndpointStatistics(
+      warehouseFilter,
+      rangeSpec,
+      statusCodes,
+      false,
+    );
     tableRows.value = flatten(result);
     aggregateRows();
   } catch (error) {
-    functions.handleError(error, 'loadEndpointStatistics');
+    tableRows.value = [];
+    aggregateRows();
+    endpointsError.value = isForbiddenError(error)
+      ? 'You are not allowed to read statistics for this warehouse.'
+      : tagRefusal(error, 'read statistics for this warehouse');
   } finally {
     loading.value = false;
     await nextTick();
@@ -432,12 +468,13 @@ async function fetchEndpointStatistics() {
 // ─── Fetch Warehouse Object Statistics ───────────────────────────────────────
 async function fetchObjectStatistics() {
   objectsLoading.value = true;
+  objectsError.value = null;
   try {
     const allStats: WarehouseStatistics[] = [];
     let pageToken: string | undefined;
 
     do {
-      const resp = await functions.getWarehouseStatistics(props.warehouseId, 100, pageToken);
+      const resp = await functions.getWarehouseStatistics(props.warehouseId, 100, pageToken, false);
       allStats.push(...resp.stats);
       pageToken = resp['next-page-token'] ?? undefined;
     } while (pageToken);
@@ -447,7 +484,9 @@ async function fetchObjectStatistics() {
     );
     aggregateObjectsData();
   } catch (error) {
-    functions.handleError(error, 'fetchObjectStatistics');
+    objectsData.value = [];
+    aggregateObjectsData();
+    objectsError.value = tagRefusal(error, 'read table and view statistics for this warehouse');
   } finally {
     objectsLoading.value = false;
     await nextTick();

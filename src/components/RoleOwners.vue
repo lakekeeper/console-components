@@ -4,7 +4,9 @@
       <v-toolbar-title class="text-subtitle-1">
         <v-icon class="mr-2" color="primary">mdi-shield-account</v-icon>
         Owners
-        <v-chip size="x-small" variant="tonal" class="ml-2">{{ owners.length }}</v-chip>
+        <v-chip v-if="!readError" size="x-small" variant="tonal" class="ml-2">
+          {{ owners.length }}
+        </v-chip>
       </v-toolbar-title>
       <v-spacer></v-spacer>
       <v-btn-toggle
@@ -80,7 +82,17 @@
           @click="requestRemove([item])"></v-btn>
       </template>
       <template #no-data>
+        <!-- A refusal is not an ownerless role: say which it is. -->
+        <v-alert
+          v-if="readError"
+          type="info"
+          variant="tonal"
+          density="compact"
+          icon="mdi-lock-outline"
+          class="ma-2"
+          :text="readError"></v-alert>
         <v-empty-state
+          v-else
           icon="mdi-account-off-outline"
           title="No owners"
           size="small"></v-empty-state>
@@ -141,6 +153,8 @@ import { useVisualStore } from '../stores/visual';
 import type { RoleAssignment } from '../gen/management/types.gen';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 import { toPrincipal } from '../common/principal';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 
 const props = defineProps<{
   roleId: string;
@@ -162,6 +176,8 @@ interface OwnerRow {
 
 const loading = ref(false);
 const owners = ref<OwnerRow[]>([]);
+// Set when the listing was refused or failed, so it is not shown as "No owners".
+const readError = ref('');
 const ownerFilter = ref<'all' | 'user' | 'role'>('all');
 const filteredOwners = computed(() =>
   ownerFilter.value === 'all'
@@ -176,6 +192,7 @@ const ownerHeaders = [
 
 async function load() {
   loading.value = true;
+  readError.value = '';
   try {
     const assignments = (await functions.getRoleAssignmentsById(props.roleId)) as RoleAssignment[];
     const ownerships = (assignments ?? []).filter((a: any) => a.type === 'ownership');
@@ -190,8 +207,11 @@ async function load() {
       }
     }
     owners.value = rows;
-  } catch {
-    /* surfaced by the functions plugin */
+  } catch (e) {
+    owners.value = [];
+    readError.value = isForbiddenError(e)
+      ? "You are not allowed to see this role's owners."
+      : tagRefusal(e, "list this role's owners");
   } finally {
     loading.value = false;
   }

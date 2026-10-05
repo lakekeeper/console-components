@@ -27,26 +27,9 @@
             v-bind="aProps"
             prepend-icon="mdi-cog-outline"
             title="Namespace settings"
-            subtitle="Protection · properties" />
+            subtitle="Protection" />
         </template>
       </EntitySettingsDialog>
-
-      <template v-if="canManageTags && namespaceId">
-        <v-divider class="my-1"></v-divider>
-        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
-        <EntityTagsManageDialog
-          scope="namespace"
-          :warehouse-id="warehouseId"
-          :entity-id="namespaceId"
-          :entity-name="displayName">
-          <template #activator="{ props: aProps }">
-            <v-list-item
-              v-bind="aProps"
-              prepend-icon="mdi-tag-multiple-outline"
-              title="Manage tags" />
-          </template>
-        </EntityTagsManageDialog>
-      </template>
 
       <template v-if="canMove && namespaceId">
         <v-divider class="my-1"></v-divider>
@@ -67,13 +50,24 @@
       </template>
 
       <template v-if="canDelete">
-        <v-divider class="my-1"></v-divider>
+        <v-divider v-if="namespaceId" class="my-1"></v-divider>
         <v-list-item
           base-color="error"
           prepend-icon="mdi-delete-outline"
           title="Delete namespace"
           @click="openDelete" />
       </template>
+
+      <!-- Without the metadata there is no id to address settings or a move
+           by, and without `delete` nothing is left: say so rather than open an
+           empty menu. -->
+      <v-list-item v-if="!loaded" disabled title="Loading…" />
+      <v-list-item
+        v-else-if="!namespaceId && !canDelete"
+        prepend-icon="mdi-eye-off-outline"
+        class="text-medium-emphasis"
+        title="No settings available to you."
+        :subtitle="metadataRefused ? METADATA_REFUSED : ''" />
     </v-list>
   </v-menu>
 
@@ -143,8 +137,8 @@ import { ref, computed, onMounted, watch, inject } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
+import { isForbiddenError, isNotFoundError } from '@/common/errorUtils';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
-import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 import MoveNamespaceDialog from './MoveNamespaceDialog.vue';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 
@@ -173,11 +167,14 @@ const force = ref(false);
 const protectedState = ref(false);
 const namespaceId = ref('');
 
-const { canUpdateProperties, canSetProtection, hasPermission, canManageTags } =
-  useNamespacePermissions(
-    namespaceId,
-    computed(() => props.warehouseId),
-  );
+const { canUpdateProperties, canSetProtection, hasPermission } = useNamespacePermissions(
+  namespaceId,
+  computed(() => props.warehouseId),
+);
+// The metadata request has come back (with or without an id).
+const loaded = ref(false);
+const metadataRefused = ref(false);
+const METADATA_REFUSED = "This namespace's metadata is not visible to you.";
 const canDelete = computed(
   () => hasPermission('delete') || !config.enabledAuthentication || !config.enabledPermissions,
 );
@@ -198,6 +195,8 @@ let loadToken = 0;
 async function load() {
   const token = ++loadToken;
   namespaceId.value = ''; // don't act on the previous namespace while reloading
+  loaded.value = false;
+  metadataRefused.value = false;
   try {
     const meta = (await functions.loadNamespaceMetadata(
       props.warehouseId,
@@ -206,9 +205,16 @@ async function load() {
     )) as GetNamespaceResponse;
     if (token !== loadToken) return;
     namespaceId.value = meta.properties?.namespace_id || (meta as any)['namespace-uuid'] || '';
+    loaded.value = true;
     if (namespaceId.value) {
       try {
-        const prot = await functions.getNamespaceProtection(props.warehouseId, namespaceId.value);
+        // Silent: a refusal here only means the settings pane cannot show the
+        // current state; a snackbar on every visit said nothing more.
+        const prot = await functions.getNamespaceProtection(
+          props.warehouseId,
+          namespaceId.value,
+          false,
+        );
         if (token !== loadToken) return;
         protectedState.value = prot.protected;
       } catch {
@@ -217,7 +223,10 @@ async function load() {
     }
   } catch (e) {
     if (token !== loadToken) return;
-    console.error('[NamespaceActionsMenu] load failed', e);
+    loaded.value = true;
+    // 404 is the catalog's "not found or access denied" for what may not be seen.
+    metadataRefused.value = isForbiddenError(e) || isNotFoundError(e);
+    if (!metadataRefused.value) console.error('[NamespaceActionsMenu] load failed', e);
   }
 }
 

@@ -29,30 +29,12 @@
             v-bind="aProps"
             prepend-icon="mdi-cog-outline"
             title="Table settings"
-            subtitle="Rename · protection · properties · metadata" />
+            subtitle="Rename · protection · metadata" />
         </template>
       </EntitySettingsDialog>
 
       <!-- Premium maintenance actions (schedule / advanced overrides) -->
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
-
-      <template v-if="canManageTags && tableId">
-        <v-divider class="my-1"></v-divider>
-        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
-        <TableTagsManageDialog
-          :warehouse-id="warehouseId"
-          :table-id="tableId"
-          :columns="tableColumns"
-          :table-name="tableName">
-          <template #activator="{ props: aProps }">
-            <v-list-item
-              v-bind="aProps"
-              prepend-icon="mdi-tag-multiple-outline"
-              title="Manage tags"
-              subtitle="Table & column tags" />
-          </template>
-        </TableTagsManageDialog>
-      </template>
 
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
@@ -125,7 +107,6 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
-import TableTagsManageDialog from './TableTagsManageDialog.vue';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
 import type { LoadTableResult } from '@/gen/iceberg/types.gen';
 
@@ -147,22 +128,7 @@ const table = ref<LoadTableResult | null>(null);
 const tableId = ref('');
 const protectedState = ref(false);
 
-const { canCommit, canSetProtection, canDrop, canManageTags } = useTablePermissions(
-  tableId,
-  props.warehouseId,
-);
-
-// Current-schema fields for the column-tag manage dialog, passed through with
-// their raw Iceberg types: the panel renders list/map shapes and walks struct
-// fields, which are taggable under a dotted path (address.zip).
-const tableColumns = computed(() => {
-  const meta = table.value?.metadata;
-  if (!meta) return [];
-  const schemas = meta.schemas ?? [];
-  const current =
-    schemas.find((s: any) => s['schema-id'] === meta['current-schema-id']) ?? schemas[0];
-  return (current?.fields ?? []) as { name: string; type: any }[];
-});
+const { canCommit, canSetProtection, canDrop } = useTablePermissions(tableId, props.warehouseId);
 
 const deleteOpen = ref(false);
 const deleting = ref(false);
@@ -212,18 +178,26 @@ async function load() {
   const token = ++loadToken;
   tableId.value = ''; // don't act on the previous table while reloading
   try {
+    // Silent: the page this menu sits on reports a refused table load itself.
     const loaded = (await functions.loadTableCustomized(
       props.warehouseId,
       props.namespaceId,
       props.tableName,
+      false,
     )) as LoadTableResult;
     if (token !== loadToken) return;
     table.value = loaded;
     tableId.value = table.value.metadata['table-uuid'] ?? '';
     if (tableId.value) {
-      const prot = await functions.getTableProtection(props.warehouseId, tableId.value);
-      if (token !== loadToken) return;
-      protectedState.value = prot.protected;
+      try {
+        // Silent too: the overview's Protection tile says when it is not
+        // visible, instead of a snackbar on every visit.
+        const prot = await functions.getTableProtection(props.warehouseId, tableId.value, false);
+        if (token !== loadToken) return;
+        protectedState.value = prot.protected;
+      } catch {
+        /* protection not visible to this reader — shown on the overview tile */
+      }
     }
   } catch (e) {
     if (token !== loadToken) return;

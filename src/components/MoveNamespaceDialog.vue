@@ -79,6 +79,13 @@
                 <span v-if="item.isSelf" class="text-caption text-disabled">
                   cannot move into itself
                 </span>
+                <!-- A refused listing is not "no children". -->
+                <span v-else-if="item.listError" class="text-caption text-medium-emphasis">
+                  {{ item.listError }}
+                </span>
+                <span v-else-if="destRight(item) === false" class="text-caption text-disabled">
+                  you may not move it here
+                </span>
               </template>
             </v-treeview>
           </v-sheet>
@@ -172,6 +179,9 @@ import {
   type StorageLayoutInfo,
 } from '@/common/namespaceMove';
 import { useMenuBoundary } from '@/composables/useMenuBoundary';
+import { useItemRights, type ItemTarget } from '@/composables/useItemRights';
+import { isForbiddenError } from '@/common/errorUtils';
+import { tagRefusal } from '@/composables/useTagRights';
 
 // Opened from an actions menu: keep its menus out of that menu's close chain.
 useMenuBoundary();
@@ -215,6 +225,30 @@ interface DestNode {
   loaded?: boolean;
   /** `[]` until fetched. Absent only on the source, which cannot be expanded. */
   children?: DestNode[];
+  /** Why the children could not be listed, when they could not. */
+  listError?: string;
+}
+
+// A destination takes `create_namespace` and `accept_moved_namespace` there —
+// on the warehouse when it is the root. Asked per row as rows render.
+const rights = useItemRights();
+function destTarget(node: DestNode): ItemTarget {
+  return node.key === ROOT_KEY
+    ? { kind: 'warehouse', warehouseId: props.warehouseId, namespace: [] }
+    : { kind: 'namespace', warehouseId: props.warehouseId, namespace: node.path };
+}
+/** true / false once both answers are in, undefined while either is not. */
+function destRight(node: DestNode | null | undefined): boolean | undefined {
+  if (!node || node.isSelf) return undefined;
+  const t = destTarget(node);
+  const create = rights.can(t, 'create_namespace');
+  const accept = rights.can(t, 'accept_moved_namespace');
+  if (create === false || accept === false) return false;
+  return create && accept ? true : undefined;
+}
+
+function listRefusal(e: any): string {
+  return isForbiddenError(e) ? 'contents not visible to you' : tagRefusal(e, 'list its contents');
 }
 
 /** The warehouse root is a real, selectable node — moving there is a real move. */
@@ -290,9 +324,10 @@ async function loadOpened(keys: string[]) {
     try {
       node.children = await fetchChildren(node.path);
       node.loaded = true;
-    } catch {
+    } catch (e) {
       node.children = [];
       node.loaded = true;
+      node.listError = listRefusal(e);
     } finally {
       listing.value = false;
     }
@@ -354,8 +389,13 @@ watch(open, async (isOpen) => {
       icon: 'mdi-database-outline',
       isSelf: false,
       loaded: true,
-      children: await fetchChildren([]),
+      children: [],
     };
+    try {
+      root.children = await fetchChildren([]);
+    } catch (e) {
+      root.listError = listRefusal(e);
+    }
     destItems.value = [root];
 
     const ancestors = currentPath.value.slice(0, -1);
@@ -364,9 +404,16 @@ watch(open, async (isOpen) => {
       const path = ancestors.slice(0, i + 1);
       const node = findNode(destItems.value, path.join(SEP));
       if (!node) break;
-      node.children = await fetchChildren(path);
-      node.loaded = true;
       openKeys.push(node.key);
+      node.loaded = true;
+      try {
+        node.children = await fetchChildren(path);
+      } catch (e) {
+        // Say so on the node and stop descending: below it nothing is known.
+        node.children = [];
+        node.listError = listRefusal(e);
+        break;
+      }
     }
     destOpened.value = openKeys;
     destActivated.value = [ancestors.length ? ancestors.join(SEP) : ROOT_KEY];
@@ -402,6 +449,13 @@ const validationMessage = computed(() => {
   // being moved, so this only fires if that guard is ever bypassed.
   if (destKey.startsWith(currentKey.value + SEP))
     return `A namespace cannot be moved inside itself. "${displayName.value}" is already the start of that path.`;
+  // The destination's rights, before the layout: offering a move the server
+  // will refuse is the thing the picker must not do.
+  const parentNode = destActivated.value[0] === ROOT_KEY ? destItems.value[0] : selectedNode.value;
+  const right = destRight(parentNode);
+  if (right === false)
+    return `You are not allowed to move a namespace into "${parentNode?.key === ROOT_KEY ? 'the warehouse root' : browsePath.value.join('.')}".`;
+  if (right === undefined) return 'Checking whether you may move it here…';
   // Last, so the cheaper structural problems are reported first: this one is a
   // property of the destination, and only worth explaining once there is a
   // coherent destination to explain it about.

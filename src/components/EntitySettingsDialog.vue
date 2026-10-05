@@ -49,15 +49,6 @@
                   mdi-circle
                 </v-icon>
               </v-tab>
-              <v-tab v-if="hasProperties" value="PROPERTIES">
-                <v-icon size="20" class="mr-3">mdi-text-box-multiple-outline</v-icon>
-                Properties
-                <!-- The rail carries the unsaved state, so a pane you are not
-                     looking at can still tell you it is waiting on a save. -->
-                <v-icon v-if="propertiesDirty" color="primary" size="10" class="ml-2">
-                  mdi-circle
-                </v-icon>
-              </v-tab>
             </v-tabs>
 
             <!-- The scroller is the wrapper, not the form: the pane is capped and
@@ -152,20 +143,6 @@
                     </v-btn>
                   </div>
                 </div>
-
-                <div v-show="pane === 'PROPERTIES'">
-                  <EntityPropertiesPanel
-                    v-if="dialogOpen && hasProperties"
-                    ref="propsPanel"
-                    :entity-type="propertiesEntityType"
-                    :warehouse-id="warehouseId"
-                    :namespace-path="namespacePath"
-                    :entity-name="entityName"
-                    :can-edit="canCommit"
-                    height="auto"
-                    @dirty="propertiesDirty = $event"
-                    @updated="emit('updated')" />
-                </div>
               </div>
             </div>
           </div>
@@ -205,7 +182,6 @@
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
-import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
 import {
   namespaceMoveRefusal,
   namespaceMoveCapability,
@@ -245,9 +221,6 @@ const route = useRoute();
 
 const label = computed(() => props.entityLabel ?? props.entityType.replace('-', ' '));
 const labelCap = computed(() => label.value.charAt(0).toUpperCase() + label.value.slice(1));
-// Only Iceberg tables, views and namespaces carry editable properties; a generic
-// table has no properties endpoint, so that pane does not exist for it.
-const hasProperties = computed(() => props.entityType !== 'generic-table');
 // Every entity here can be renamed. A namespace goes through `move_namespace`
 // with its parent unchanged — there is no separate rename endpoint, because its
 // path is its identity. The move dialog covers re-parenting; this the name alone.
@@ -289,10 +262,6 @@ const renameRefusal = computed(() => {
 });
 // The route names the entity differently depending on what it is.
 const routeParam = computed(() => (props.entityType === 'view' ? 'vid' : 'tid'));
-// The properties editor knows three kinds; a generic table never reaches it.
-const propertiesEntityType = computed<'table' | 'view' | 'namespace'>(() =>
-  props.entityType === 'view' || props.entityType === 'namespace' ? props.entityType : 'table',
-);
 
 const dialogOpen = ref(false);
 const pane = ref('SETTINGS');
@@ -300,8 +269,6 @@ const nameInput = ref('');
 const protectedPending = ref(props.protectedState);
 const settingsError = ref<string | null>(null);
 const saving = ref(false);
-const propsPanel = ref<{ reload: () => void } | null>(null);
-const propertiesDirty = ref(false);
 
 const settingsDirty = computed(
   () =>
@@ -335,10 +302,6 @@ watch(dialogOpen, async (open) => {
         ((warehouse as any)?.['storage-profile']?.['storage-layout'] as
           StorageLayoutInfo | undefined) ?? null;
     }
-  } else {
-    // The panel unmounts on close, so nothing would ever emit dirty:false and
-    // the next open would start marked — and refuse to close.
-    propertiesDirty.value = false;
   }
 });
 watch(
@@ -453,14 +416,8 @@ function downloadJson() {
 
 // Unsaved work lives in the panes, so the modal asks before throwing it away.
 const confirmCloseOpen = ref(false);
-const hasUnsaved = computed(() => settingsDirty.value || propertiesDirty.value);
-const unsavedSummary = computed(() => {
-  const panes = [
-    settingsDirty.value ? 'Settings' : null,
-    propertiesDirty.value ? 'Properties' : null,
-  ].filter(Boolean);
-  return `Unsaved changes in ${panes.join(' and ')}`;
-});
+const hasUnsaved = computed(() => settingsDirty.value);
+const unsavedSummary = computed(() => 'Unsaved changes in Settings');
 
 function attemptClose() {
   if (hasUnsaved.value) confirmCloseOpen.value = true;

@@ -28,13 +28,10 @@ import TagAttachmentsPanel from './components/TagAttachmentsPanel.vue';
 import TagPermissionsPanel from './components/TagPermissionsPanel.vue';
 import TagDetail from './components/TagDetail.vue';
 import EntityTagsChips from './components/EntityTagsChips.vue';
-import EntityTagsManageDialog from './components/EntityTagsManageDialog.vue';
-import TableTagsManageDialog from './components/TableTagsManageDialog.vue';
 import EntitySettingsDialog from './components/EntitySettingsDialog.vue';
-import EntityTagsManagePanel from './components/EntityTagsManagePanel.vue';
 import TagPickerList from './components/TagPickerList.vue';
-import ColumnTagsManagePanel from './components/ColumnTagsManagePanel.vue';
-import ColumnTags from './components/ColumnTags.vue';
+import TagChip from './components/TagChip.vue';
+import TagAddMenu from './components/TagAddMenu.vue';
 import RoleMembers from './components/RoleMembers.vue';
 import RoleOwners from './components/RoleOwners.vue';
 import RoleDetail from './components/RoleDetail.vue';
@@ -160,13 +157,10 @@ export {
   TagPermissionsPanel,
   TagDetail,
   EntityTagsChips,
-  EntityTagsManageDialog,
-  TableTagsManageDialog,
   EntitySettingsDialog,
-  EntityTagsManagePanel,
   TagPickerList,
-  ColumnTagsManagePanel,
-  ColumnTags,
+  TagChip,
+  TagAddMenu,
   RoleMembers,
   RoleOwners,
   RoleDetail,
@@ -301,6 +295,7 @@ export * from './composables/useAuth';
 // air-gapped deployments fall back to offline-safe paths.
 export { useConnectivity, type ConnectivityStatus } from './composables/useConnectivity';
 export { useMenuBoundary } from './composables/useMenuBoundary';
+export { useColumnTags, type ColumnTagField } from './composables/useColumnTags';
 
 // What the configured authorizer lets the console do, beyond per-object rights.
 export {
@@ -495,13 +490,10 @@ const components = {
   TagPermissionsPanel,
   TagDetail,
   EntityTagsChips,
-  EntityTagsManageDialog,
-  TableTagsManageDialog,
   EntitySettingsDialog,
-  EntityTagsManagePanel,
   TagPickerList,
-  ColumnTagsManagePanel,
-  ColumnTags,
+  TagChip,
+  TagAddMenu,
   RoleMembers,
   RoleOwners,
   RoleDetail,

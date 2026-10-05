@@ -144,7 +144,7 @@
              project's numbers under this one's name, the tab says so. -->
         <v-alert v-if="!isActive" type="info" variant="tonal" density="compact" class="ma-2">
           Statistics are reported for the active project. Activate
-          <strong>{{ projectName }}</strong>
+          <strong>{{ projectName || projectId }}</strong>
           to see its numbers.
         </v-alert>
         <ProjectStatistics

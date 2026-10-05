@@ -26,6 +26,7 @@
     </div>
 
     <div
+      ref="scroller"
       class="px-1 pb-2"
       :class="{ 'pt-2': definitions.length <= 1 }"
       :style="{ maxHeight: listMaxHeight, overflowY: 'auto', minHeight: 0 }">
@@ -34,14 +35,28 @@
       </div>
       <v-list v-else density="compact" class="py-0">
         <template v-for="def in filtered" :key="def.id">
-          <v-list-item :disabled="busy === def.name" rounded="lg" @click="onClick(def)">
+          <!-- Locked rows stay in the list so a search for a tag already on
+               the target finds it and says so, instead of "no match". -->
+          <!-- Refused rows stay too, for the same reason: a search for a tag
+               the reader may not apply says why rather than "no match". -->
+          <v-list-item
+            :data-tag-id="def.id"
+            :disabled="busy === def.name || isLocked(def) || isRefused(def)"
+            rounded="lg"
+            @click="onClick(def)">
             <template #prepend>
               <v-icon :color="assignedNames.includes(def.name) ? 'primary' : 'info'" size="small">
                 {{ assignedNames.includes(def.name) ? 'mdi-tag-check-outline' : 'mdi-tag-outline' }}
               </v-icon>
             </template>
             <v-list-item-title class="text-body-2">{{ def.name }}</v-list-item-title>
-            <v-list-item-subtitle v-if="def.description" class="text-caption">
+            <v-list-item-subtitle v-if="isLocked(def)" class="text-caption">
+              Already applied{{ def['value-kind'] === 'marker' ? '' : ' — change it on its chip' }}
+            </v-list-item-subtitle>
+            <v-list-item-subtitle v-else-if="isRefused(def)" class="text-caption">
+              You are not allowed to apply this tag
+            </v-list-item-subtitle>
+            <v-list-item-subtitle v-else-if="def.description" class="text-caption">
               {{ def.description }}
             </v-list-item-subtitle>
             <template #append>
@@ -54,7 +69,7 @@
                 class="ml-2 d-inline-flex justify-center align-center"
                 style="width: 16px; flex: 0 0 16px">
                 <v-progress-circular
-                  v-if="busy === def.name"
+                  v-if="busy === def.name || checkingId === def.id"
                   indeterminate
                   size="16"
                   width="2"
@@ -71,6 +86,12 @@
             <div v-if="def['value-kind'] === 'enumerated'">
               <div v-if="loadingValues" class="text-caption text-medium-emphasis">
                 Loading values…
+              </div>
+              <!-- A refused read is not an empty list: one cannot be applied
+                   until it is granted, the other until values are added. -->
+              <div v-else-if="valuesError" class="text-caption text-medium-emphasis">
+                <v-icon size="14" class="mr-1">mdi-lock-outline</v-icon>
+                {{ valuesError }}
               </div>
               <div v-else-if="!allowedValues.length" class="text-caption text-medium-emphasis">
                 This tag has no values to choose from.
@@ -128,8 +149,10 @@
 // The tag half of any "apply a tag to this thing" surface: search, kind filter,
 // and a value editor for the kinds a single click cannot satisfy. It owns no
 // data — the host decides what a click writes to.
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useFunctions } from '../plugins/functions';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import { TagDefinition, TagValueKind } from '../gen/management/types.gen';
 
 const props = defineProps<{
@@ -142,6 +165,15 @@ const props = defineProps<{
   autoExpandId?: string | null;
   busy?: string | null;
   listMaxHeight?: string;
+  // Assigned tags are shown but cannot be picked: for an "add" list, where
+  // picking one again would silently overwrite its value.
+  lockAssigned?: boolean;
+  // Whether the reader may apply a definition: undefined while not yet known.
+  canApply?: (definitionId: string) => boolean | undefined;
+  // Asks for the rights of these definitions. Called for the rows that scroll
+  // into view, and for a clicked row whose answer has not arrived — never for
+  // the whole list, which can run to hundreds of requests.
+  checkRights?: (definitionIds: string[]) => Promise<unknown>;
 }>();
 
 const emit = defineEmits<{
@@ -152,7 +184,40 @@ const emit = defineEmits<{
 const functions = useFunctions();
 
 const assignedNames = computed(() => props.assignedNames ?? []);
+function isLocked(def: TagDefinition): boolean {
+  return !!props.lockAssigned && assignedNames.value.includes(def.name);
+}
 const listMaxHeight = computed(() => props.listMaxHeight ?? '320px');
+
+function isRefused(def: TagDefinition): boolean {
+  return !!props.canApply && !isLocked(def) && props.canApply(def.id) === false;
+}
+
+// ---- rights for what is on screen -------------------------------------------
+const scroller = ref<HTMLElement | null>(null);
+const checkingId = ref<string | null>(null);
+let observer: IntersectionObserver | null = null;
+let queued = new Set<string>();
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function queue(id: string) {
+  if (!props.checkRights || !props.canApply || props.canApply(id) !== undefined) return;
+  queued.add(id);
+  if (flushTimer) return;
+  // Gathered for a moment so a scroll asks in one batch, not row by row.
+  flushTimer = setTimeout(() => {
+    const ids = [...queued];
+    queued = new Set();
+    flushTimer = null;
+    if (ids.length) props.checkRights?.(ids);
+  }, 80);
+}
+
+function observeRows() {
+  if (!observer || !scroller.value) return;
+  observer.disconnect();
+  scroller.value.querySelectorAll('[data-tag-id]').forEach((el) => observer!.observe(el));
+}
 
 const search = ref('');
 const kindOptions: TagValueKind[] = ['marker', 'free-text', 'enumerated'];
@@ -183,19 +248,23 @@ const filtered = computed(() => {
 const expandedId = ref<string | null>(null);
 const allowedValues = ref<string[]>([]);
 const loadingValues = ref(false);
+const valuesError = ref<string | null>(null);
 const freeTextValue = ref('');
 
 // List responses omit `allowed-values`, so the single definition has to be
 // fetched before its choices can be offered.
 async function loadAllowedValues(def: TagDefinition) {
   allowedValues.value = def['allowed-values'] ?? [];
+  valuesError.value = null;
   if (allowedValues.value.length) return;
   loadingValues.value = true;
   try {
     const full = await functions.getTagDefinition(def.id, false);
     allowedValues.value = full['allowed-values'] ?? [];
-  } catch {
-    // handled
+  } catch (error) {
+    valuesError.value = isForbiddenError(error)
+      ? "You are not allowed to see this tag's values, so it cannot be applied here."
+      : tagRefusal(error, "load this tag's values");
   } finally {
     loadingValues.value = false;
   }
@@ -209,7 +278,18 @@ async function expand(def: TagDefinition) {
 }
 
 async function onClick(def: TagDefinition) {
-  if (props.busy) return;
+  if (props.busy || isLocked(def) || isRefused(def) || checkingId.value) return;
+  // Not answered yet: ask for this one before writing, so a refusal is said on
+  // the row instead of coming back from the write.
+  if (props.canApply && props.checkRights && props.canApply(def.id) === undefined) {
+    checkingId.value = def.id;
+    try {
+      await props.checkRights([def.id]);
+    } finally {
+      checkingId.value = null;
+    }
+    if (props.canApply(def.id) !== true) return;
+  }
   if (def['value-kind'] === 'marker') {
     emit('apply', def.name);
     return;
@@ -230,7 +310,29 @@ watch(
 );
 
 onMounted(async () => {
+  if (props.checkRights && typeof IntersectionObserver !== 'undefined') {
+    observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = (entry.target as HTMLElement).dataset.tagId;
+          if (entry.isIntersecting && id) queue(id);
+        }
+      },
+      { root: scroller.value, rootMargin: '120px 0px' },
+    );
+    await nextTick();
+    observeRows();
+  }
   const def = props.definitions.find((d) => d.id === props.autoExpandId);
   if (def) await expand(def);
+});
+// A new filter result is new rows to watch.
+watch(filtered, async () => {
+  await nextTick();
+  observeRows();
+});
+onBeforeUnmount(() => {
+  observer?.disconnect();
+  if (flushTimer) clearTimeout(flushTimer);
 });
 </script>

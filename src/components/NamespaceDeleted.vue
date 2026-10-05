@@ -1,5 +1,9 @@
 <template>
+  <v-alert v-if="readError" type="warning" variant="tonal" class="ma-4">
+    {{ readError }}
+  </v-alert>
   <v-data-table
+    v-else
     items-per-page="50"
     height="65vh"
     density="compact"
@@ -61,13 +65,21 @@
       </v-tooltip>
     </template>
     <template #item.actions="{ item }">
-      <v-btn
-        icon="mdi-restore"
-        variant="text"
-        color="primary"
-        size="small"
-        title="Restore"
-        @click="undropTabular(item)"></v-btn>
+      <!-- Restore needs `undrop` on the item itself; offered once that is a yes. -->
+      <div class="d-flex justify-end align-center">
+        <span v-if="rowErrors[item.id]" class="text-caption text-error mr-2">
+          {{ rowErrors[item.id] }}
+        </span>
+        <v-btn
+          v-if="canRestore(item)"
+          icon="mdi-restore"
+          variant="text"
+          color="primary"
+          size="small"
+          title="Restore"
+          :loading="restoring === item.id"
+          @click="undropTabular(item)"></v-btn>
+      </div>
     </template>
     <template #no-data>
       <div>No deleted tabulars in this namespace</div>
@@ -78,6 +90,9 @@
 <script setup lang="ts">
 import { reactive, ref, watch, onMounted } from 'vue';
 import { useFunctions } from '../plugins/functions';
+import { isForbiddenError, isNotFoundError } from '../common/errorUtils';
+import { useItemRights } from '../composables/useItemRights';
+import { tagRefusal } from '../composables/useTagRights';
 import type { Header } from '../common/interfaces';
 import type { DeletedTabularResponse } from '../gen/management/types.gen';
 import { formatDistanceToNow, parseISO } from 'date-fns';
@@ -98,6 +113,21 @@ const searchDeleted = ref('');
 const loadedDeleted: DeletedTabularResponseExtended[] = reactive([]);
 const loading = ref(false);
 const namespaceId = ref('');
+// Set when the list could not be read, so a refusal is not "No deleted tabulars".
+const readError = ref('');
+const rowErrors = ref<Record<string, string>>({});
+const restoring = ref('');
+
+// A soft-deleted tabular has no name lookup any more, so its rights are asked by id.
+const rights = useItemRights();
+function canRestore(item: DeletedTabularResponseExtended): boolean {
+  return (
+    rights.can(
+      { kind: item.typ, warehouseId: props.warehouseId, namespace: [], id: item.id },
+      'undrop',
+    ) === true
+  );
+}
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
@@ -121,20 +151,41 @@ onMounted(loadNamespaceAndData);
 watch(() => props.namespacePath, loadNamespaceAndData);
 
 async function loadNamespaceAndData() {
+  readError.value = '';
+  loadedDeleted.splice(0, loadedDeleted.length);
   try {
-    const namespace = await functions.loadNamespaceMetadata(props.warehouseId, props.namespacePath);
+    // Silent: the refusal is rendered in place of the list.
+    const namespace = await functions.loadNamespaceMetadata(
+      props.warehouseId,
+      props.namespacePath,
+      false,
+    );
     namespaceId.value = namespace.properties?.namespace_id || '';
-    await loadDeletedTabulars();
   } catch (error) {
-    console.error('Failed to load namespace:', error);
+    namespaceId.value = '';
+    // 404 is the catalog's "not found or access denied" for what may not be seen.
+    readError.value = isForbiddenError(error)
+      ? "You are not allowed to read this namespace's metadata."
+      : isNotFoundError(error)
+        ? 'This namespace does not exist or is not visible to you.'
+        : tagRefusal(error, "read this namespace's metadata");
+    return;
   }
+  await loadDeletedTabulars();
 }
 
 async function loadDeletedTabulars() {
   try {
     if (!namespaceId.value) return;
 
-    const data = await functions.listDeletedTabulars(props.warehouseId, namespaceId.value);
+    const data = await functions.listDeletedTabulars(
+      props.warehouseId,
+      namespaceId.value,
+      undefined,
+      undefined,
+      false,
+    );
+    readError.value = '';
     const loadedDeletedTmp: DeletedTabularResponseExtended[] = [];
     Object.assign(loadedDeletedTmp, data.tabulars);
 
@@ -146,19 +197,28 @@ async function loadDeletedTabulars() {
     loadedDeleted.splice(0, loadedDeleted.length);
     Object.assign(loadedDeleted, loadedDeletedTmp);
   } catch (error) {
-    console.error(error);
+    loadedDeleted.splice(0, loadedDeleted.length);
+    readError.value = isForbiddenError(error)
+      ? 'You are not allowed to list deleted tables/views here.'
+      : tagRefusal(error, 'list deleted tables/views here');
   }
 }
 
 async function undropTabular(item: DeletedTabularResponseExtended) {
+  const next = { ...rowErrors.value };
+  delete next[item.id];
+  rowErrors.value = next;
   try {
     loading.value = true;
+    restoring.value = item.id;
     await functions.undropTabular(props.warehouseId, item.id, item.typ, true);
     await loadDeletedTabulars();
   } catch (error) {
-    console.error(`Failed to undrop table-${item.name}`, error);
+    // Reported on the row it was tried on.
+    rowErrors.value = { ...rowErrors.value, [item.id]: tagRefusal(error, 'restore it') };
   } finally {
     loading.value = false;
+    restoring.value = '';
   }
 }
 

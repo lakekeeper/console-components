@@ -27,26 +27,9 @@
             v-bind="aProps"
             prepend-icon="mdi-cog-outline"
             title="View settings"
-            subtitle="Rename · protection · properties · metadata" />
+            subtitle="Rename · protection · metadata" />
         </template>
       </EntitySettingsDialog>
-
-      <template v-if="canManageTags && viewId">
-        <v-divider class="my-1"></v-divider>
-        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
-        <EntityTagsManageDialog
-          scope="view"
-          :warehouse-id="warehouseId"
-          :entity-id="viewId"
-          :entity-name="viewName">
-          <template #activator="{ props: aProps }">
-            <v-list-item
-              v-bind="aProps"
-              prepend-icon="mdi-tag-multiple-outline"
-              title="Manage tags" />
-          </template>
-        </EntityTagsManageDialog>
-      </template>
 
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
@@ -112,9 +95,8 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
-import { useViewPermissions } from '@/composables/useCatalogPermissions';
+import { useConfig, useViewPermissions } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
-import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 import type { LoadViewResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -135,10 +117,15 @@ const view = ref<LoadViewResult | null>(null);
 const viewId = ref('');
 const protectedState = ref(false);
 
-const { canCommit, canSetProtection, canDrop, canManageTags } = useViewPermissions(
-  viewId,
-  props.warehouseId,
-);
+const {
+  canCommit,
+  canSetProtection,
+  canDrop,
+  answered,
+  loading: permsLoading,
+  hasPermission,
+} = useViewPermissions(viewId, props.warehouseId);
+const config = useConfig();
 
 const deleteOpen = ref(false);
 const deleting = ref(false);
@@ -149,21 +136,34 @@ const deleteConfirmed = computed(() => confirmName.value.trim() === props.viewNa
 
 async function load() {
   try {
+    // Silent: the page this menu sits on reports a refused view load itself.
     view.value = (await functions.loadView(
       props.warehouseId,
       props.namespaceId,
       props.viewName,
+      false,
     )) as LoadViewResult;
     viewId.value = view.value.metadata['view-uuid'] ?? '';
-    if (viewId.value) {
-      protectedState.value = (
-        await functions.getViewProtection(props.warehouseId, viewId.value)
-      ).protected;
-    }
   } catch (e) {
     console.error('[ViewActionsMenu] load failed', e);
   }
 }
+
+// The protection endpoint wants `get_metadata` on the view, and its wrapper
+// raises a snackbar on refusal whatever it is told — so it is asked only once
+// the view's rights say it can answer. The overview's tile says when it is not.
+watch([viewId, answered, permsLoading], async () => {
+  if (!viewId.value || !answered.value || permsLoading.value) return;
+  const unrestricted = !config.enabledAuthentication.value || !config.enabledPermissions.value;
+  if (!unrestricted && !hasPermission('get_metadata')) return;
+  try {
+    protectedState.value = (
+      await functions.getViewProtection(props.warehouseId, viewId.value, false)
+    ).protected;
+  } catch {
+    /* not visible to this reader — shown on the overview tile */
+  }
+});
 
 onMounted(load);
 watch(() => [props.warehouseId, props.namespaceId, props.viewName], load);

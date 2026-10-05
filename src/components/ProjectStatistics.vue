@@ -141,6 +141,17 @@
         <v-progress-linear indeterminate color="primary" rounded />
       </div>
 
+      <!-- A refusal is not an idle project: said in place, once, instead of a
+           snackbar over empty charts. -->
+      <v-alert
+        v-else-if="statsError"
+        type="info"
+        variant="tonal"
+        density="compact"
+        icon="mdi-lock-outline"
+        class="ma-2"
+        :text="statsError"></v-alert>
+
       <!-- Charts view -->
       <div v-else-if="activeView === 'charts'">
         <v-row>
@@ -211,6 +222,8 @@ import { Header } from '../common/interfaces';
 import { useFunctions } from '../plugins/functions';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 const props = defineProps<{
@@ -233,6 +246,8 @@ const visual = useVisualStore();
 // ─── State ───────────────────────────────────────────────────────────────────
 const activeView = ref<'charts' | 'table'>('charts');
 const loading = ref(false);
+// Set when the statistics were refused or failed, so they do not read as "no traffic".
+const statsError = ref('');
 type Unit = 'hour' | 'day' | 'week' | 'month' | 'year';
 
 // Spans offered, in hours. Seven days is the default: short enough to load
@@ -441,7 +456,14 @@ async function fetchStatistics() {
       return;
     }
 
-    const result = await functions.getEndpointStatistics(warehouseFilter, rangeSpec, statusCodes);
+    // Silent: the refusal is rendered in place rather than as a snackbar.
+    const result = await functions.getEndpointStatistics(
+      warehouseFilter,
+      rangeSpec,
+      statusCodes,
+      false,
+    );
+    statsError.value = '';
     tableRows.value = flatten(result);
 
     // The grouping follows what came back. Measured from the rows rather than
@@ -451,7 +473,16 @@ async function fetchStatistics() {
     dataSpanMs.value = times.length > 1 ? Math.max(...times) - Math.min(...times) : 0;
     aggregateRows();
   } catch (error) {
-    functions.handleError(error, 'loadStatistics');
+    tableRows.value = [];
+    aggregateRows();
+    const scope =
+      (selectedWarehouse.value && selectedWarehouse.value !== '__all__') ||
+      props.warehouseFilter?.type === 'warehouse-id'
+        ? 'warehouse'
+        : 'project';
+    statsError.value = isForbiddenError(error)
+      ? `You are not allowed to read statistics for this ${scope}.`
+      : tagRefusal(error, 'load the statistics');
   } finally {
     loading.value = false;
     await nextTick();

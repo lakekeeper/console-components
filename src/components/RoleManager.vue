@@ -110,10 +110,14 @@
         </span>
       </template>
     </v-data-table>
-    <div v-else class="pa-8 text-medium-emphasis d-flex align-center ga-2">
+    <!-- Only a definite no is a denial: until the rights answer, an empty
+         action list is "unknown", and saying "no permission" then flashes a
+         refusal at everyone who is in fact allowed. -->
+    <div v-else-if="permissionsAnswered" class="pa-8 text-medium-emphasis d-flex align-center ga-2">
       <v-icon>mdi-lock-outline</v-icon>
       You don't have permission to list roles.
     </div>
+    <v-progress-linear v-else indeterminate color="primary"></v-progress-linear>
   </v-card>
 </template>
 
@@ -187,7 +191,11 @@ const displayedResults = computed(() => {
 const projectId = computed(() => visual.projectSelected['project-id']);
 
 // Use composable for project permissions
-const { canListRoles, canCreateRole } = useProjectPermissions(projectId);
+const {
+  canListRoles,
+  canCreateRole,
+  answered: permissionsAnswered,
+} = useProjectPermissions(projectId);
 
 // Helper function to batch-load permissions for roles
 async function loadPermissionsForRoles(roles: ExtendedRole[]): Promise<void> {

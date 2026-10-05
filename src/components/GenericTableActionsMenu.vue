@@ -33,23 +33,6 @@
         </template>
       </EntitySettingsDialog>
 
-      <template v-if="canManageTags && tableId">
-        <v-divider class="my-1"></v-divider>
-        <v-list-subheader class="text-uppercase">Governance</v-list-subheader>
-        <EntityTagsManageDialog
-          scope="generic-table"
-          :warehouse-id="warehouseId"
-          :entity-id="tableId"
-          :entity-name="tableName">
-          <template #activator="{ props: aProps }">
-            <v-list-item
-              v-bind="aProps"
-              prepend-icon="mdi-tag-multiple-outline"
-              title="Manage tags" />
-          </template>
-        </EntityTagsManageDialog>
-      </template>
-
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
         <v-list-item
@@ -110,7 +93,6 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useGenericTablePermissions, useConfig } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
-import EntityTagsManageDialog from './EntityTagsManageDialog.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -134,7 +116,7 @@ const genericTable = ref<Record<string, any> | null>(null);
 const tableId = ref('');
 const protectedState = ref(false);
 
-const { canSetProtection, canDrop, canManageTags, hasPermission } = useGenericTablePermissions(
+const { canSetProtection, canDrop, hasPermission } = useGenericTablePermissions(
   tableId,
   props.warehouseId,
 );

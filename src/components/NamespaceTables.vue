@@ -48,7 +48,9 @@
         <span class="text-body-2 font-weight-medium">{{ selected.length }} selected</span>
         <v-spacer></v-spacer>
         <slot name="bulk-actions" :selected="selected" :selected-iceberg="selectedIcebergTables" />
+        <!-- Only once some selected row is one this user may drop. -->
         <v-btn
+          v-if="selected.some((r) => canDropRow(r))"
           size="small"
           variant="text"
           prepend-icon="mdi-delete-outline"
@@ -71,13 +73,17 @@
     </template>
     <template #item.actions="{ item }">
       <div class="d-flex justify-end align-center">
+        <!-- Offered only once the answer is yes: rename needs the right on
+             the table and the create right on the namespace for the new name. -->
         <v-btn
+          v-if="canRenameRow(item)"
           icon="mdi-pencil-outline"
           variant="text"
           color="primary"
           size="small"
           @click="openRenameDialog(item)"></v-btn>
         <DeleteDialog
+          v-if="canDropRow(item)"
           :type="item.source === 'generic' ? 'generic-table' : 'table'"
           :name="item.name"
           @delete-table-with-options="onDelete($event, item)"></DeleteDialog>
@@ -119,6 +125,9 @@
           Renaming is not available because the warehouse uses a non-default storage layout. Table
           locations are derived from the table name, so renaming would break the storage path.
         </v-alert>
+        <v-alert v-if="renameError" type="error" variant="tonal" density="compact" class="mt-3">
+          {{ renameError }}
+        </v-alert>
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
@@ -154,6 +163,11 @@
         <v-alert type="warning" variant="tonal" density="compact" class="mb-3">
           This permanently removes the selected tables and cannot be undone.
           {{ bulkForce ? '' : 'Delete-protected tables will be skipped.' }}
+        </v-alert>
+        <v-alert v-if="bulkRefusedCount" type="info" variant="tonal" density="compact" class="mb-3">
+          {{ bulkRefusedCount }} of the selected
+          {{ bulkRefusedCount === 1 ? 'is a table' : 'are tables' }} you are not allowed to delete;
+          {{ bulkRefusedCount === 1 ? 'it stays' : 'they stay' }}.
         </v-alert>
         <v-switch
           v-if="selectedIcebergTables.length"
@@ -232,6 +246,8 @@ import type { Header, Options } from '@/common/interfaces';
 import type { TableIdentifier } from '@/gen/iceberg/types.gen';
 import type { GenericTableIdentifier } from '@/gen/generic-table/types.gen';
 import { isForbiddenError } from '@/common/errorUtils';
+import { useItemRights, type ItemTarget } from '@/composables/useItemRights';
+import { tagRefusal } from '@/composables/useTagRights';
 import icebergIcon from '@/assets/iceberg.svg';
 import deltaIcon from '@/assets/delta.svg';
 import vortexLightIcon from '@/assets/vortex_logo.svg';
@@ -274,6 +290,33 @@ const renameOldName = ref('');
 const renameNewName = ref('');
 const renameLoading = ref(false);
 const renameTarget = ref<TableRow | null>(null);
+const renameError = ref('');
+
+// --- Rights per row ---------------------------------------------------------
+const rights = useItemRights();
+const namespaceTarget = computed<ItemTarget>(() => ({
+  kind: 'namespace',
+  warehouseId: props.warehouseId,
+  namespace: props.namespacePath.split('\x1F'),
+}));
+function rowTarget(item: TableRow): ItemTarget {
+  return {
+    kind: item.source === 'generic' ? 'generic-table' : 'table',
+    warehouseId: props.warehouseId,
+    namespace: props.namespacePath.split('\x1F'),
+    name: item.name,
+  };
+}
+function canDropRow(item: TableRow): boolean {
+  return rights.can(rowTarget(item), 'drop') === true;
+}
+function canRenameRow(item: TableRow): boolean {
+  const create = item.source === 'generic' ? 'create_generic_table' : 'create_table';
+  return (
+    rights.can(rowTarget(item), 'rename') === true &&
+    rights.can(namespaceTarget.value, create) === true
+  );
+}
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
@@ -323,6 +366,11 @@ const bulkDeleting = ref(false);
 const bulkDone = ref(false);
 const bulkResults = ref<Array<{ name: string; ok: boolean; reason?: string }>>([]);
 
+// Selected rows whose answer is a definite no: kept, and said so in the dialog.
+const bulkRefusedCount = computed(
+  () => selected.value.filter((r) => rights.can(rowTarget(r), 'drop') === false).length,
+);
+
 function openBulkDelete() {
   bulkPurge.value = false;
   bulkForce.value = false;
@@ -334,8 +382,11 @@ function openBulkDelete() {
 async function confirmBulkDelete() {
   bulkDeleting.value = true;
   bulkResults.value = [];
+  // Rows from other pages may not have been asked yet.
+  await rights.ensure(selected.value.map(rowTarget), ['drop']);
+  const allowed = selected.value.filter((r) => rights.can(rowTarget(r), 'drop') !== false);
   // Continue through failures; report each outcome rather than stopping.
-  for (const row of [...selected.value]) {
+  for (const row of allowed) {
     try {
       if (row.source === 'generic') {
         await functions.dropGenericTable(props.warehouseId, props.namespacePath, row.name, false);
@@ -362,12 +413,13 @@ async function confirmBulkDelete() {
   bulkDone.value = true;
   const ok = bulkResults.value.filter((r) => r.ok).length;
   const failed = bulkResults.value.length - ok;
+  const kept = selected.value.length - allowed.length;
   // Once for the batch: the per-table call reloaded the node N times for one
   // observable change, and there is nothing to refresh if nothing was deleted.
   if (ok > 0) visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
   visual.setSnackbarMsg({
     function: 'bulkDeleteTables',
-    text: `${ok} deleted${failed ? `, ${failed} failed` : ''}.`,
+    text: `${ok} deleted${failed ? `, ${failed} failed` : ''}${kept ? `, ${kept} kept (not allowed)` : ''}.`,
     ttl: 5000,
     ts: Date.now(),
     type: (failed ? 'warning' : 'success') as any,
@@ -480,6 +532,7 @@ function openRenameDialog(item: TableRow) {
   renameTarget.value = item;
   renameOldName.value = item.name;
   renameNewName.value = '';
+  renameError.value = '';
   renameDialog.value = true;
 }
 
@@ -494,7 +547,10 @@ async function executeRename() {
   if (!renameNewName.value || !renameTarget.value) return;
 
   renameLoading.value = true;
+  renameError.value = '';
+  const kind = renameTarget.value.source === 'generic' ? 'generic table' : 'table';
   try {
+    // notify=false: a refusal is shown in the dialog, not as a snackbar.
     if (renameTarget.value.source === 'generic') {
       await functions.renameGenericTable(
         props.warehouseId,
@@ -502,7 +558,7 @@ async function executeRename() {
         renameOldName.value,
         props.namespacePath,
         renameNewName.value,
-        notify,
+        false,
       );
     } else {
       await functions.renameTable(
@@ -510,14 +566,22 @@ async function executeRename() {
         props.namespacePath,
         renameOldName.value,
         renameNewName.value,
-        notify,
+        false,
       );
     }
+    // The silent call drops the wrapper's success snackbar too; say it here.
+    visual.setSnackbarMsg({
+      function: 'renameTable',
+      text: `Renamed to '${renameNewName.value}'`,
+      ttl: 3000,
+      ts: Date.now(),
+      type: 'success' as any,
+    });
     closeRenameDialog();
     visual.refreshNavTree(props.warehouseId, namespacePathForTree.value);
     await loadAll();
-  } catch {
-    // error handled by functions plugin
+  } catch (e) {
+    renameError.value = tagRefusal(e, `rename this ${kind}`);
   } finally {
     renameLoading.value = false;
   }

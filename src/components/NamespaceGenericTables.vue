@@ -45,13 +45,17 @@
     </template>
     <template #item.actions="{ item }">
       <div class="d-flex justify-end align-center">
+        <!-- Offered only once the answer is yes: rename needs the right on the
+             table and create_generic_table on the namespace for the new name. -->
         <v-btn
+          v-if="canRenameRow(item)"
           icon="mdi-pencil-outline"
           variant="text"
           color="primary"
           size="small"
           @click="openRenameDialog(item)"></v-btn>
         <DeleteDialog
+          v-if="canDropRow(item)"
           type="generic-table"
           :name="item.name"
           @delete-table-with-options="deleteGenericTable(item)"></DeleteDialog>
@@ -86,6 +90,9 @@
             (v: string) => v !== renameOldName || 'Must be different from current name',
           ]"
           :placeholder="renameOldName"></v-text-field>
+        <v-alert v-if="renameError" type="error" variant="tonal" density="compact" class="mt-3">
+          {{ renameError }}
+        </v-alert>
       </v-card-text>
       <v-card-actions>
         <v-spacer></v-spacer>
@@ -109,7 +116,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch, onMounted } from 'vue';
+import { computed, reactive, ref, watch, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
@@ -117,6 +124,8 @@ import { Type } from '@/common/enums';
 import type { Header, Options } from '@/common/interfaces';
 import type { GenericTableIdentifier } from '@/gen/generic-table/types.gen';
 import { isForbiddenError } from '@/common/errorUtils';
+import { useItemRights, type ItemTarget } from '@/composables/useItemRights';
+import { tagRefusal } from '@/composables/useTagRights';
 import DeleteDialog from './DeleteDialog.vue';
 
 export type GenericTableIdentifierExtended = GenericTableIdentifier & {
@@ -143,6 +152,32 @@ const renameDialog = ref(false);
 const renameOldName = ref('');
 const renameNewName = ref('');
 const renameLoading = ref(false);
+const renameError = ref('');
+
+// --- Rights per row ---------------------------------------------------------
+const rights = useItemRights();
+const namespaceTarget = computed<ItemTarget>(() => ({
+  kind: 'namespace',
+  warehouseId: props.warehouseId,
+  namespace: props.namespacePath.split('\x1F'),
+}));
+function rowTarget(item: GenericTableIdentifierExtended): ItemTarget {
+  return {
+    kind: 'generic-table',
+    warehouseId: props.warehouseId,
+    namespace: props.namespacePath.split('\x1F'),
+    name: item.name,
+  };
+}
+function canDropRow(item: GenericTableIdentifierExtended): boolean {
+  return rights.can(rowTarget(item), 'drop') === true;
+}
+function canRenameRow(item: GenericTableIdentifierExtended): boolean {
+  return (
+    rights.can(rowTarget(item), 'rename') === true &&
+    rights.can(namespaceTarget.value, 'create_generic_table') === true
+  );
+}
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
@@ -252,6 +287,7 @@ async function routeToGenericTable(item: GenericTableIdentifierExtended) {
 function openRenameDialog(item: GenericTableIdentifierExtended) {
   renameOldName.value = item.name;
   renameNewName.value = '';
+  renameError.value = '';
   renameDialog.value = true;
 }
 
@@ -265,19 +301,29 @@ async function executeRename() {
   if (!renameNewName.value) return;
 
   renameLoading.value = true;
+  renameError.value = '';
   try {
+    // notify=false: a refusal is shown in the dialog, not as a snackbar.
     await functions.renameGenericTable(
       props.warehouseId,
       props.namespacePath,
       renameOldName.value,
       props.namespacePath,
       renameNewName.value,
-      notify,
+      false,
     );
+    // The silent call drops the wrapper's success snackbar too; say it here.
+    visual.setSnackbarMsg({
+      function: 'renameGenericTable',
+      text: `Generic table renamed to '${renameNewName.value}'`,
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.SUCCESS,
+    });
     closeRenameDialog();
     await loadGenericTables();
-  } catch {
-    // error handled by functions plugin
+  } catch (e) {
+    renameError.value = tagRefusal(e, 'rename this generic table');
   } finally {
     renameLoading.value = false;
   }

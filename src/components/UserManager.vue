@@ -12,12 +12,14 @@
       { title: '25', value: 25 },
       { title: '50', value: 50 },
     ]"
-    :loading="loading"
+    :loading="loading || !permissionsAnswered"
     @update:options="paginationCheck">
     <template #top>
       <v-toolbar color="transparent" density="compact" flat>
         <v-spacer></v-spacer>
+        <!-- Searching takes the same right as listing; not offered without it. -->
         <v-text-field
+          v-if="canListUsers"
           v-model="searchUsers"
           label="Search users"
           prepend-inner-icon="mdi-magnify"
@@ -78,7 +80,7 @@
           <v-icon v-else class="mr-2">mdi-account-circle-outline</v-icon>
           {{ item.name }}
           <user-rename-dialog
-            v-if="item.actions.includes('rename')"
+            v-if="item.actions.includes('rename') && canUpdateUsers"
             :id="item.id"
             class="ml-1"
             :name="item.name"
@@ -99,7 +101,20 @@
     </template>
 
     <template #no-data>
-      <v-empty-state icon="mdi-account-off-outline" title="No users found"></v-empty-state>
+      <!-- Until the rights answer nothing is known, so nothing is claimed; a
+           refusal says so rather than reading as an empty user list. -->
+      <v-alert
+        v-if="permissionsAnswered && (!canListUsers || usersError)"
+        type="info"
+        variant="tonal"
+        density="compact"
+        icon="mdi-lock-outline"
+        class="ma-2"
+        :text="usersError || 'You are not allowed to list users.'"></v-alert>
+      <v-empty-state
+        v-else-if="permissionsAnswered"
+        icon="mdi-account-off-outline"
+        title="No users found"></v-empty-state>
     </template>
   </v-data-table>
 
@@ -171,6 +186,13 @@
         </div>
         <!-- Same table as the role page's Member of tab: the id is part of the
              answer, and a row is clickable through to that role. -->
+        <v-alert
+          v-else-if="rolesError"
+          type="info"
+          variant="tonal"
+          density="compact"
+          icon="mdi-lock-outline"
+          :text="rolesError"></v-alert>
         <v-data-table
           v-else
           :headers="roleHeaders"
@@ -231,7 +253,8 @@
 import { User } from '../gen/management/types.gen';
 import { reactive, ref, onMounted, watch, inject } from 'vue';
 import { Header } from '../common/interfaces';
-import { isNotImplementedError } from '../common/errorUtils';
+import { isForbiddenError, isNotImplementedError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import { useRoleNavigation } from '../composables/useRoleNavigation';
 import {
   TRANSITIVE_UNSUPPORTED,
@@ -277,6 +300,8 @@ const rolesScope = ref<'direct' | 'transitive'>('direct');
 const rolesTransitiveSupported = useTransitiveMembershipSupported();
 const rolesLoading = ref(false);
 const userRoles = ref<Array<{ id: string; name?: string; ident?: string }>>([]);
+// Set when the listing was refused or failed, so it is not read as "no roles".
+const rolesError = ref('');
 const directRoleIds = ref<Set<string>>(new Set());
 
 const roleHeaders = [
@@ -290,6 +315,7 @@ function openRoles(item: { id: string; name: string }) {
   rolesScope.value = 'direct';
   userRoles.value = [];
   directRoleIds.value = new Set();
+  rolesError.value = '';
   rolesOpen.value = true;
   loadUserRoles();
 }
@@ -298,6 +324,7 @@ async function loadUserRoles() {
   const user = rolesUser.value;
   if (!user) return;
   rolesLoading.value = true;
+  rolesError.value = '';
   try {
     if (rolesScope.value === 'transitive') {
       // The direct listing comes too, so the closure can mark what is only
@@ -320,7 +347,11 @@ async function loadUserRoles() {
       rolesScope.value = 'direct';
       return;
     }
-    /* otherwise surfaced by the functions plugin */
+    if (rolesUser.value !== user) return;
+    userRoles.value = [];
+    rolesError.value = isForbiddenError(e)
+      ? "You are not allowed to see this user's roles."
+      : tagRefusal(e, "list this user's roles");
   } finally {
     rolesLoading.value = false;
   }
@@ -332,7 +363,14 @@ watch(rolesScope, () => {
 
 // Get server ID and permissions
 const serverId = ref('');
-const { canDeleteUsers, canListUsers } = useServerPermissions(serverId);
+const {
+  canDeleteUsers,
+  canListUsers,
+  canUpdateUsers,
+  answered: permissionsAnswered,
+} = useServerPermissions(serverId);
+// Set when the listing itself was refused or failed despite the right.
+const usersError = ref('');
 
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
@@ -366,6 +404,7 @@ async function loadUsers() {
 
   try {
     loading.value = true;
+    usersError.value = '';
     loadedUsers.splice(0, loadedUsers.length);
 
     // Load more than the default display amount to always stay ahead
@@ -390,6 +429,9 @@ async function loadUsers() {
     });
   } catch (error) {
     console.error('Error in loadUsers:', error);
+    usersError.value = isForbiddenError(error)
+      ? 'You are not allowed to list users.'
+      : tagRefusal(error, 'list users');
   } finally {
     loading.value = false;
   }

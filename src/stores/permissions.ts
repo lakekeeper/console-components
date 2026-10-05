@@ -40,9 +40,13 @@ export const usePermissionStore = defineStore('permissions', () => {
   }
 
   // Project Permissions - returns catalog (operational) actions
-  async function getProjectPermissions(): Promise<LakekeeperProjectAction[]> {
+  // For the given project when one is named — a project page asks about its
+  // own project, not whichever one happens to be selected in the app bar.
+  async function getProjectPermissions(projectId?: string): Promise<LakekeeperProjectAction[]> {
     try {
-      const permissions = await functions.getProjectCatalogActions();
+      const permissions = projectId
+        ? await functions.getProjectCatalogActionsFor(projectId, false)
+        : await functions.getProjectCatalogActions();
       return permissions;
     } catch (error) {
       logError('getProjectPermissions', error);
