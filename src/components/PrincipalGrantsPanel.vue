@@ -36,6 +36,17 @@
       </v-btn>
     </div>
 
+    <!-- A refusal is an answer, not a failure: retrying asks the same question
+         of the same rights, so no Retry is offered for it. -->
+    <v-alert
+      v-else-if="listRefused"
+      type="info"
+      variant="tonal"
+      density="compact"
+      icon="mdi-lock-outline">
+      You are not allowed to list this principal's grants.
+    </v-alert>
+
     <div v-else-if="loadError">
       <v-alert type="error" variant="tonal" density="compact">{{ loadError }}</v-alert>
       <v-btn class="mt-3" size="small" variant="outlined" prepend-icon="mdi-refresh" @click="load">
@@ -364,6 +375,7 @@ import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.v
 import type { GrantResourceRef } from '../common/interfaces';
 import type { GrantEntry, GrantResponse, GrantablePrivilege } from '../gen/management/types.gen';
 import { toPrincipal } from '../common/principal';
+import { isForbiddenError } from '../common/errorUtils';
 
 // Registers the <l-helix> custom element. Idempotent.
 helix.register();
@@ -413,6 +425,8 @@ type GrantRow = {
 const grants = ref<GrantResponse[]>([]);
 const loading = ref(false);
 const loadError = ref<string | null>(null);
+// The listing itself was refused (403), as opposed to failing.
+const listRefused = ref(false);
 const notImplemented = ref(false);
 const backendUnavailable = ref(false);
 /** Narrows the listing to one kind of object; null shows everything. */
@@ -788,6 +802,7 @@ async function load() {
   if (!props.principalId) return;
   loading.value = true;
   loadError.value = null;
+  listRefused.value = false;
   notImplemented.value = false;
   backendUnavailable.value = false;
   grants.value = [];
@@ -804,6 +819,7 @@ async function load() {
   } catch (e: any) {
     if (isGrantListingNotImplemented(e)) notImplemented.value = true;
     else if (isAuthorizationBackendUnavailable(e)) backendUnavailable.value = true;
+    else if (isForbiddenError(e)) listRefused.value = true;
     // Should not happen — a principal is always supplied — but the endpoint has
     // a dedicated error for it, so name it rather than showing a bare 400.
     else if (isMissingGrantPrincipal(e)) {

@@ -4,7 +4,9 @@
       <v-toolbar-title class="text-subtitle-1">
         <v-icon class="mr-2" color="primary">mdi-account-multiple</v-icon>
         Members
-        <v-chip size="x-small" variant="tonal" class="ml-2">{{ members.length }}</v-chip>
+        <v-chip v-if="!readError" size="x-small" variant="tonal" class="ml-2">
+          {{ members.length }}
+        </v-chip>
         <!-- Who owns the list, next to the count it qualifies. The section
              keeps its name for every role; only this says the number is a
              floor rather than the group's size. -->
@@ -145,7 +147,17 @@
           @click="requestRemove([item])"></v-btn>
       </template>
       <template #no-data>
+        <!-- A refusal is not an empty role: say which it is. -->
+        <v-alert
+          v-if="readError"
+          type="info"
+          variant="tonal"
+          density="compact"
+          icon="mdi-lock-outline"
+          class="ma-2"
+          :text="readError"></v-alert>
         <v-empty-state
+          v-else
           icon="mdi-account-off-outline"
           :title="providerOwned ? 'No members have signed in yet' : 'No members'"
           size="small"></v-empty-state>
@@ -220,7 +232,8 @@ import { useVisualStore } from '../stores/visual';
 import { Type } from '../common/enums';
 import type { RoleMember } from '../gen/management/types.gen';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
-import { isNotImplementedError } from '../common/errorUtils';
+import { isForbiddenError, isNotImplementedError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import { useRoleNavigation } from '../composables/useRoleNavigation';
 import {
   TRANSITIVE_UNSUPPORTED,
@@ -283,6 +296,8 @@ type MemberRow = RoleMember & {
   inherited?: boolean;
 };
 const members = ref<MemberRow[]>([]);
+// Set when the listing was refused or failed, so it is not shown as "No members".
+const readError = ref('');
 
 /**
  * Which question the list answers: the direct assignments, or everyone this role
@@ -320,6 +335,7 @@ const memberHeaders = [
 
 async function load() {
   loading.value = true;
+  readError.value = '';
   try {
     let list: any[];
     if (scope.value === 'transitive') {
@@ -358,7 +374,10 @@ async function load() {
       scope.value = 'direct';
       return;
     }
-    /* otherwise surfaced by the functions plugin */
+    members.value = [];
+    readError.value = isForbiddenError(e)
+      ? "You are not allowed to see this role's members."
+      : tagRefusal(e, "list this role's members");
   } finally {
     loading.value = false;
   }

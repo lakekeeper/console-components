@@ -17,7 +17,14 @@
         @click="backToRoles"></v-btn>
       <div style="min-width: 0">
         <div class="d-flex align-center ga-2" style="min-width: 0">
-          <div class="text-h6 text-truncate" :title="roleName">{{ roleName || '—' }}</div>
+          <!-- Without the right to read the role's metadata there is no name to
+               show; the id is the next best handle, not a dash. -->
+          <div
+            class="text-h6 text-truncate"
+            :class="{ 'font-monospace': !roleName }"
+            :title="roleName || roleId">
+            {{ roleName || roleId }}
+          </div>
           <!-- Who owns this role travels with its name, so it is answered
                before any tab is opened. -->
           <RoleProviderChip v-if="providerId" :provider-id="providerId" size="x-small" />
@@ -64,7 +71,9 @@
           <v-tab value="member-of">
             <v-icon size="20" class="mr-3">mdi-account-arrow-up</v-icon>
             Member of
-            <v-chip size="x-small" variant="tonal" class="ml-2">{{ memberOf.length }}</v-chip>
+            <v-chip v-if="!memberOfError" size="x-small" variant="tonal" class="ml-2">
+              {{ memberOf.length }}
+            </v-chip>
           </v-tab>
         </v-tabs>
       </div>
@@ -119,7 +128,7 @@
               <v-toolbar-title class="text-subtitle-1">
                 <v-icon class="mr-2" color="primary">mdi-account-arrow-up</v-icon>
                 Member of
-                <v-chip size="x-small" variant="tonal" class="ml-2">
+                <v-chip v-if="!memberOfError" size="x-small" variant="tonal" class="ml-2">
                   {{ memberOf.length }}
                 </v-chip>
               </v-toolbar-title>
@@ -190,7 +199,16 @@
                 <span v-else class="text-caption text-medium-emphasis">direct</span>
               </template>
               <template #no-data>
-                <div class="text-medium-emphasis py-4">
+                <!-- A refusal is not "belongs to no role": say which it is. -->
+                <v-alert
+                  v-if="memberOfError"
+                  type="info"
+                  variant="tonal"
+                  density="compact"
+                  icon="mdi-lock-outline"
+                  class="ma-2"
+                  :text="memberOfError"></v-alert>
+                <div v-else class="text-medium-emphasis py-4">
                   {{
                     memberOfScope === 'transitive'
                       ? 'This role reaches no other role, directly or through a nested one.'
@@ -218,7 +236,8 @@ import RoleProviderChip from './RoleProviderChip.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
 import { hasAction } from '../composables/useCatalogPermissions';
 import { useGrantPrincipalListingSupported } from '../composables/useGrants';
-import { isNotImplementedError } from '../common/errorUtils';
+import { isForbiddenError, isNotImplementedError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 import { useRoleNavigation } from '../composables/useRoleNavigation';
 import {
   TRANSITIVE_UNSUPPORTED,
@@ -282,6 +301,14 @@ const memberOf = ref<RoleMembership[]>([]);
 const memberOfScope = ref<'direct' | 'transitive'>('direct');
 const memberOfTransitiveSupported = useTransitiveMembershipSupported();
 const directMemberOfIds = ref<Set<string>>(new Set());
+// Set when the membership listing was refused or failed, so the tab does not
+// claim the role belongs to nothing.
+const memberOfError = ref('');
+function memberOfRefusal(e: any): string {
+  return isForbiddenError(e)
+    ? 'You are not allowed to see which roles this role belongs to.'
+    : tagRefusal(e, 'list the roles this role belongs to');
+}
 
 const memberOfHeaders = [
   { title: 'Role', key: 'name', sortable: false },
@@ -300,9 +327,10 @@ async function load() {
   try {
     const [meta, mo] = await Promise.all([
       functions.getRoleMetadata(roleId).catch(() => null),
-      functions.listRoleMemberOf(roleId).catch(() => ({ roles: [] })),
+      functions.listRoleMemberOf(roleId).catch((e: any) => ({ roles: [], error: e })),
     ]);
     if (roleId !== props.roleId) return;
+    memberOfError.value = (mo as any)?.error ? memberOfRefusal((mo as any).error) : '';
     roleName.value = (meta as any)?.name ?? '';
     providerId.value = (meta as any)?.['provider-id'] ?? '';
     roleProjectId.value = (meta as any)?.['project-id'] ?? '';
@@ -325,22 +353,30 @@ async function load() {
 // loaded with the page.
 watch(memberOfScope, async (value) => {
   if (value === 'direct') {
-    memberOf.value = await functions
-      .listRoleMemberOf(props.roleId)
-      .then((r: any) => (r?.roles ?? []) as RoleMembership[])
-      .catch(() => memberOf.value);
+    try {
+      const r: any = await functions.listRoleMemberOf(props.roleId);
+      memberOf.value = (r?.roles ?? []) as RoleMembership[];
+      memberOfError.value = '';
+    } catch (e) {
+      memberOf.value = [];
+      memberOfError.value = memberOfRefusal(e);
+    }
     return;
   }
   try {
     const res: any = await functions.listRoleTransitiveMemberOf(props.roleId);
     markTransitiveMembershipSupported();
     memberOf.value = (res?.roles ?? []) as RoleMembership[];
+    memberOfError.value = '';
   } catch (e) {
     // Not answerable on this authorizer — withdraw the offer and stay put.
     if (isNotImplementedError(e)) {
       markTransitiveMembershipUnsupported();
       memberOfScope.value = 'direct';
+      return;
     }
+    memberOf.value = [];
+    memberOfError.value = memberOfRefusal(e);
   }
 });
 
@@ -355,6 +391,7 @@ watch(
     grantCount.value = null;
     providerId.value = '';
     roleProjectId.value = '';
+    memberOfError.value = '';
     canManageMembers.value = false;
     memberOfScope.value = 'direct';
     load();

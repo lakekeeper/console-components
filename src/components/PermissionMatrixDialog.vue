@@ -61,6 +61,16 @@
                       no-data-text="No identity types available"
                       @update:model-value="onIdentityTypeChange"></v-select>
 
+                    <!-- A refused project listing is not a server without projects. -->
+                    <v-alert
+                      v-if="selectedIdentityType === 'role' && projectsError"
+                      type="info"
+                      variant="tonal"
+                      density="compact"
+                      icon="mdi-lock-outline"
+                      class="mt-2"
+                      :text="projectsError"></v-alert>
+
                     <!-- Project Selector for Roles -->
                     <v-select
                       v-if="selectedIdentityType === 'role' && userProjects.length > 0"
@@ -104,7 +114,8 @@
                       closable-chips
                       density="compact"
                       :loading="loadingUsers"
-                      no-data-text="No users available">
+                      :messages="usersError || undefined"
+                      :no-data-text="usersError || 'No users available'">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-account</v-icon>
@@ -126,7 +137,8 @@
                       density="compact"
                       :loading="loadingRoles"
                       :disabled="!selectedProjectForRoles"
-                      no-data-text="No roles available"
+                      :messages="rolesError || undefined"
+                      :no-data-text="rolesError || 'No roles available'"
                       :placeholder="
                         !selectedProjectForRoles ? 'Please select a project first' : ''
                       ">
@@ -168,7 +180,8 @@
                       closable-chips
                       density="compact"
                       :loading="loadingWarehouses"
-                      no-data-text="No warehouses available">
+                      :messages="warehousesError || undefined"
+                      :no-data-text="warehousesError || 'No warehouses available'">
                       <template #chip="{ props: chipProps, item }">
                         <v-chip v-bind="chipProps" size="small">
                           <v-icon start size="small">mdi-warehouse</v-icon>
@@ -417,6 +430,8 @@ import { ref, computed, inject, watch } from 'vue';
 import type { User, Role } from '@/gen/management/types.gen';
 import { permissionActions } from '@/common/permissionActions';
 import { toPrincipal } from '@/common/principal';
+import { isForbiddenError } from '@/common/errorUtils';
+import { tagRefusal } from '@/composables/useTagRights';
 
 const functions = inject<any>('functions');
 
@@ -436,6 +451,17 @@ const selectedIdentityType = ref<'user' | 'role'>('user');
 const selectedUsers = ref<string[]>([]);
 const selectedRoles = ref<string[]>([]);
 const availableUsers = ref<User[]>([]);
+// Each picker's own refusal, so a list the reader may not see does not read as
+// an empty one.
+const usersError = ref('');
+const rolesError = ref('');
+const warehousesError = ref('');
+const projectsError = ref('');
+function listRefusal(error: any, what: string): string {
+  return isForbiddenError(error)
+    ? `You are not allowed to list ${what}.`
+    : tagRefusal(error, `list ${what}`);
+}
 const selectedProjectForRoles = ref<string | null>(null);
 const userProjects = ref<Array<{ 'project-id': string; 'project-name': string }>>([]);
 const availableRoles = ref<Role[]>([]);
@@ -617,10 +643,12 @@ async function loadUsers() {
   if (!functions) return;
   try {
     loadingUsers.value = true;
+    usersError.value = '';
     const result = await functions.listUser();
     availableUsers.value = result.users || [];
   } catch (error) {
-    console.error('Failed to load users:', error);
+    availableUsers.value = [];
+    usersError.value = listRefusal(error, 'users');
   } finally {
     loadingUsers.value = false;
   }
@@ -630,6 +658,7 @@ async function loadProjects() {
   if (!functions) return;
   try {
     loadingProjects.value = true;
+    projectsError.value = '';
     const projects = await functions.loadProjectList();
     userProjects.value = projects || [];
 
@@ -642,7 +671,10 @@ async function loadProjects() {
       }
     }
   } catch (error) {
-    console.error('Failed to load projects:', error);
+    userProjects.value = [];
+    projectsError.value = isForbiddenError(error)
+      ? 'You are not permitted to list projects.'
+      : tagRefusal(error, 'list projects');
   } finally {
     loadingProjects.value = false;
   }
@@ -652,6 +684,7 @@ async function loadRoles() {
   if (!functions || !selectedProjectForRoles.value) return;
   try {
     loadingRoles.value = true;
+    rolesError.value = '';
     // Use searchRole with empty search to get all roles for the project
     const searchRequest = {
       search: '',
@@ -660,7 +693,8 @@ async function loadRoles() {
     const roles = await functions.searchRole(searchRequest);
     availableRoles.value = roles || [];
   } catch (error) {
-    console.error('Failed to load roles:', error);
+    availableRoles.value = [];
+    rolesError.value = listRefusal(error, 'roles in this project');
   } finally {
     loadingRoles.value = false;
   }
@@ -670,6 +704,7 @@ async function loadWarehouses() {
   if (!functions) return;
   try {
     loadingWarehouses.value = true;
+    warehousesError.value = '';
     const result = await functions.listWarehouses();
     availableWarehouses.value =
       result.warehouses?.map((wh: any) => ({
@@ -677,7 +712,8 @@ async function loadWarehouses() {
         name: wh.name,
       })) || [];
   } catch (error) {
-    console.error('Failed to load warehouses:', error);
+    availableWarehouses.value = [];
+    warehousesError.value = listRefusal(error, 'warehouses');
   } finally {
     loadingWarehouses.value = false;
   }

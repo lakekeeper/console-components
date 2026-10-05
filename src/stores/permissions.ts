@@ -45,7 +45,7 @@ export const usePermissionStore = defineStore('permissions', () => {
   async function getProjectPermissions(projectId?: string): Promise<LakekeeperProjectAction[]> {
     try {
       const permissions = projectId
-        ? await functions.getProjectCatalogActionsFor(projectId)
+        ? await functions.getProjectCatalogActionsFor(projectId, false)
         : await functions.getProjectCatalogActions();
       return permissions;
     } catch (error) {

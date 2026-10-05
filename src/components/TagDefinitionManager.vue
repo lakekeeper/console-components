@@ -179,7 +179,12 @@
         </div>
       </div>
     </div>
-    <div v-else class="pa-4">You don't have permission to list tag definitions</div>
+    <!-- Only a definite no is a denial; before the rights answer it would
+         flash at everyone who is in fact allowed. -->
+    <div v-else-if="permissionsAnswered" class="pa-4">
+      You don't have permission to list tag definitions
+    </div>
+    <v-progress-linear v-else indeterminate color="primary"></v-progress-linear>
   </v-card>
 </template>
 
@@ -251,7 +256,11 @@ function onRowClick(_e: unknown, ctx: { item: TagDefinition }) {
 }
 
 const projectId = computed(() => visual.projectSelected['project-id']);
-const { canListTags, canCreateTag } = useProjectPermissions(projectId);
+const {
+  canListTags,
+  canCreateTag,
+  answered: permissionsAnswered,
+} = useProjectPermissions(projectId);
 
 // Client-side filter — the API only supports exact-name lookup, and the tag
 // vocabulary is small enough to filter in the browser.
