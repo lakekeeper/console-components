@@ -10,9 +10,23 @@
       <v-icon v-else color="secondary" size="20">mdi-database</v-icon>
     </template>
 
+    <template #chips>
+      <!-- In place of the chips a refused read cannot fill: without it the row
+           would describe an active, unprotected warehouse. -->
+      <span v-if="readError" class="text-caption text-medium-emphasis">
+        <v-icon size="12">mdi-lock-outline</v-icon>
+        {{ readError }}
+      </span>
+    </template>
+
     <template #actions>
+      <!-- Settings edits what was read; with nothing read there is nothing to
+           show or change, unless the app adds maintenance entries of its own. -->
       <WarehouseActionsMenu
+        v-if="!readError || slots.maintenance"
         :process-status="processStatus"
+        :readable="!readError"
+        :save-errors="saveErrors"
         :warehouse="warehouse"
         @close="processStatus = 'starting'"
         @rename-warehouse="renameWarehouse"
@@ -28,7 +42,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, computed, inject } from 'vue';
+import { ref, reactive, watch, onMounted, computed, inject, useSlots } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { useLoQE } from '@/composables/useLoQE';
@@ -43,18 +57,24 @@ import type {
   TabularDeleteProfile,
 } from '@/gen/management/types.gen';
 import { Type } from '@/common/enums';
-import { logError } from '@/common/errorUtils';
+import { isForbiddenError, logError } from '@/common/errorUtils';
+import { tagRefusal } from '@/composables/useTagRights';
 
 const props = defineProps<{
   warehouseId: string;
 }>();
 
+const slots = useSlots();
 const functions = useFunctions();
 const visual = useVisualStore();
 const appConfig = inject<{ baseUrlPrefix?: string }>('appConfig', {});
 const loqe = useLoQE({ baseUrlPrefix: appConfig.baseUrlPrefix ?? '' });
-const notify = true;
 const processStatus = ref('starting');
+// Why the configuration is not shown, when it is not.
+const readError = ref('');
+// Save refusals, handed to the settings dialog so each is said beside the pane
+// it came from rather than as a snackbar at the edge of the screen.
+const saveErrors = reactive({ name: '', settings: '', storage: '' });
 
 const warehouse = reactive<GetWarehouseResponse>({
   'delete-profile': { type: 'hard' },
@@ -82,12 +102,17 @@ const warehouse = reactive<GetWarehouseResponse>({
 // Provider icon (AWS / Azure / GCS / OneLake / …) shown next to the name.
 const storageIcon = computed(() => storageProviderIcon(warehouse, visual.themeLight));
 
-const warehouseUuid = computed(() => warehouse['warehouse-id'] || warehouse.id || '');
+// The route's id when nothing was read: it is the one being asked about.
+const warehouseUuid = computed(() =>
+  readError.value ? props.warehouseId : warehouse['warehouse-id'] || warehouse.id || '',
+);
 
 // Only the facts that change how the warehouse behaves. A chip per field would
 // turn the identity row into the overview tab it sits above.
 const chips = computed<IdentityChip[]>(() => {
   const out: IdentityChip[] = [];
+  // Nothing was read, so the defaults would only invent facts.
+  if (readError.value) return out;
   if (warehouse.status && warehouse.status !== 'active') {
     out.push({
       text: warehouse.status,
@@ -118,21 +143,50 @@ const chips = computed<IdentityChip[]>(() => {
 
 async function loadWarehouse() {
   try {
-    const whResponse = await functions.getWarehouse(props.warehouseId);
+    // Silent: the details tab asks for the same warehouse, and each says a
+    // refusal in place.
+    const whResponse = await functions.getWarehouse(props.warehouseId, false);
     if (whResponse) {
       Object.assign(warehouse, whResponse);
       visual.wahrehouseName = whResponse.name;
       visual.whId = whResponse.id;
+      readError.value = '';
     }
   } catch (error) {
-    logError('WarehouseHeader.loadWarehouse', error);
+    if (!isForbiddenError(error)) {
+      readError.value = tagRefusal(error, "read this warehouse's configuration");
+      return;
+    }
+    readError.value = "You are not allowed to read this warehouse's configuration.";
+    // Listing a warehouse is a separate right from reading it: the listing that
+    // brought the reader here still names it. Asked every time, so a previously
+    // shown warehouse's name does not linger on this one.
+    try {
+      const listed = (await functions.listWarehouses(false))?.warehouses?.find(
+        (w: any) => (w['warehouse-id'] ?? w.id) === props.warehouseId,
+      );
+      warehouse.name = listed?.name ?? '';
+    } catch (e) {
+      warehouse.name = '';
+      logError('WarehouseHeader.loadWarehouse.list', e);
+    }
   }
 }
 
 async function renameWarehouse(name: string) {
   const previousName = warehouse.name;
+  saveErrors.name = '';
   try {
-    await functions.renameWarehouse(props.warehouseId, name, notify);
+    // Errors silent: the dialog shows them under the name field.
+    await functions.renameWarehouse(props.warehouseId, name, false);
+    // The wrapper confirms only when notifying, which would also snackbar a refusal.
+    visual.setSnackbarMsg({
+      function: 'renameWarehouse',
+      text: `Warehouse renamed to '${name}'`,
+      ttl: 3000,
+      ts: Date.now(),
+      type: Type.SUCCESS,
+    });
     await loadWarehouse();
     visual.refreshWarehouseList();
     if (previousName && previousName !== name) {
@@ -150,12 +204,13 @@ async function renameWarehouse(name: string) {
       }
     }
   } catch (error) {
-    console.error('Failed to rename warehouse:', error);
+    saveErrors.name = tagRefusal(error, 'rename this warehouse');
   }
 }
 
 async function updateCredentials(credentials: StorageCredential) {
   processStatus.value = 'running';
+  saveErrors.storage = '';
   try {
     await functions.updateStorageCredential(props.warehouseId, credentials, true);
     // Reload before reporting success: the settings dialog re-seeds its panes from
@@ -164,7 +219,7 @@ async function updateCredentials(credentials: StorageCredential) {
     processStatus.value = 'success';
   } catch (error) {
     processStatus.value = 'error';
-    console.error('Failed to update credentials:', error);
+    saveErrors.storage = tagRefusal(error, 'update the storage credentials');
   }
 }
 
@@ -175,6 +230,7 @@ async function updateProfile(newProfile: {
   credentials?: StorageCredential;
 }) {
   processStatus.value = 'running';
+  saveErrors.storage = '';
   try {
     await functions.updateStorageProfile(
       props.warehouseId,
@@ -186,7 +242,7 @@ async function updateProfile(newProfile: {
     processStatus.value = 'success';
   } catch (error) {
     processStatus.value = 'error';
-    console.error('Failed to update storage profile:', error);
+    saveErrors.storage = tagRefusal(error, 'update the storage profile');
   }
 }
 
@@ -201,6 +257,7 @@ async function updateCatalogSettings(payload: {
   // the loadWarehouse() reconciliation and leave the UI inconsistent with what
   // actually persisted. allSettled lets us report exact failures and always
   // refresh.
+  saveErrors.settings = '';
   const calls: Promise<unknown>[] = [];
   const labels: string[] = [];
   if (payload.deleteProfile) {
@@ -222,7 +279,7 @@ async function updateCatalogSettings(payload: {
   }
   if (payload.managedBy !== undefined) {
     calls.push(functions.setWarehouseManagedBy(props.warehouseId, payload.managedBy, false));
-    labels.push('managed-by');
+    labels.push('managed-by setting');
   }
   if (payload.protected !== undefined) {
     calls.push(functions.setWarehouseProtection(props.warehouseId, payload.protected, false));
@@ -259,13 +316,11 @@ async function updateCatalogSettings(payload: {
     return;
   }
 
-  for (const f of failures) {
-    functions.handleError(
-      (f.r as PromiseRejectedResult).reason,
-      `Failed to update ${f.label}`,
-      true,
-    );
-  }
+  // Said in the settings pane, one sentence per part that did not land; the
+  // parts that did are already reloaded above.
+  saveErrors.settings = failures
+    .map((f) => tagRefusal((f.r as PromiseRejectedResult).reason, `change the ${f.label}`))
+    .join(' ');
 }
 
 // Load warehouse and statistics on mount and when warehouse ID changes

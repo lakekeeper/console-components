@@ -13,14 +13,17 @@
         <v-list-item-subtitle>Spec changes are restricted</v-list-item-subtitle>
       </v-list-item>
 
-      <v-list-subheader class="text-uppercase">General</v-list-subheader>
+      <!-- Both entries below show and edit what was read; a refused read leaves
+           them nothing but defaults, so they are not offered. -->
+      <v-list-subheader v-if="readable" class="text-uppercase">General</v-list-subheader>
       <!-- One entry covers the whole warehouse: name, retention, format policy,
            protection, credentials and profile — each pane saves for itself. -->
       <WarehouseAddDialog
-        v-if="!locked"
+        v-if="readable && !locked"
         :intent="Intent.UPDATE"
         :object-type="ObjectType.CATALOG_SETTINGS"
         :process-status="processStatus"
+        :save-errors="saveErrors"
         :warehouse="warehouse"
         @cancel="menuOpen = false"
         @close="$emit('close')"
@@ -31,7 +34,7 @@
       <!-- Connection strings and storage checks are panes of that modal now. A
            locked warehouse has no modal to open, so it keeps the standalone
            dialog rather than losing the connection strings entirely. -->
-      <ComputeConnectDialog v-if="locked" :warehouse="warehouse" />
+      <ComputeConnectDialog v-if="readable && locked" :warehouse="warehouse" />
 
       <!-- Premium maintenance actions (schedule / configure) injected by the app. -->
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
@@ -75,9 +78,18 @@ const emit = defineEmits<{
   (e: 'close'): void;
 }>();
 
-const { warehouse, processStatus } = defineProps<{
+const {
+  warehouse,
+  processStatus,
+  readable = true,
+  saveErrors = undefined,
+} = defineProps<{
   warehouse: GetWarehouseResponse;
   processStatus: string;
+  // False when the warehouse could not be read: `warehouse` is then defaults.
+  readable?: boolean;
+  // Save refusals from the parent, said in the settings dialog's panes.
+  saveErrors?: { name: string; settings: string; storage: string };
 }>();
 
 onMounted(async () => {});

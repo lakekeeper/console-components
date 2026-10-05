@@ -154,16 +154,32 @@
                     label="Warehouse Name"
                     placeholder="my-warehouse"
                     prepend-inner-icon="mdi-rename-outline"
+                    :readonly="!mayRename"
                     :hint="
                       nameTaken
                         ? 'A warehouse with this name already exists in this project'
-                        : 'Shown throughout the console and used by clients to address this warehouse'
+                        : deniedRename
+                          ? 'You are not allowed to rename this warehouse.'
+                          : 'Shown throughout the console and used by clients to address this warehouse'
                     "
                     persistent-hint
                     :rules="[rules.required, rules.noSlash]"
-                    :error="!warehouseName.trim() || nameTaken"
-                    :error-messages="nameTaken ? 'Name already taken' : []"
+                    :error="!warehouseName.trim() || nameTaken || !!saveErrors?.name"
+                    :error-messages="
+                      nameTaken ? 'Name already taken' : saveErrors?.name ? saveErrors.name : []
+                    "
                     class="mb-4"></v-text-field>
+
+                  <!-- A part of the last save that did not land, said where it
+                       was asked for rather than as a snackbar. -->
+                  <v-alert
+                    v-if="isSettingsFlow && saveErrors?.settings"
+                    type="error"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-4">
+                    {{ saveErrors.settings }}
+                  </v-alert>
 
                   <v-card variant="flat" class="mb-4">
                     <v-card-item class="pb-1">
@@ -192,6 +208,7 @@
                               <div class="text-caption text-medium-emphasis mb-1">Allowed</div>
                               <v-btn-toggle
                                 v-model="policyAllowed"
+                                :disabled="!mayFormat"
                                 multiple
                                 mandatory
                                 variant="outlined"
@@ -207,11 +224,15 @@
                               <v-select
                                 v-model="policyDefault"
                                 :items="policyDefaultItems"
+                                :readonly="!mayFormat"
                                 variant="outlined"
                                 density="comfortable"
                                 no-data-text="No format versions selected"
                                 hide-details />
                             </div>
+                          </div>
+                          <div v-if="deniedFormat" class="text-caption text-medium-emphasis mt-1">
+                            You are not allowed to change the format policy of this warehouse.
                           </div>
                         </v-col>
                         <!-- Sits beside the format policy rather than in a card of
@@ -222,6 +243,7 @@
                           </div>
                           <v-switch
                             :model-value="csProtected"
+                            :readonly="!mayProtect"
                             color="primary"
                             hide-details
                             density="compact"
@@ -231,7 +253,11 @@
                             :label="csProtected ? 'Deletion protected' : 'Deletion protection off'"
                             @update:model-value="csProtected = $event === true"></v-switch>
                           <div class="text-caption text-medium-emphasis ml-10">
-                            Prevent this warehouse from being deleted.
+                            {{
+                              deniedProtect
+                                ? 'You are not allowed to change deletion protection on this warehouse.'
+                                : 'Prevent this warehouse from being deleted.'
+                            }}
                           </div>
                           <template v-if="isInstanceAdmin">
                             <v-switch
@@ -262,13 +288,18 @@
                           <div class="text-caption text-medium-emphasis mb-1">Soft deletion</div>
                           <v-switch
                             v-model="delProfileSoftActive"
+                            :readonly="!maySoftDeletion"
                             color="primary"
                             hide-details
                             density="compact"
                             :label="delProfileSoftActive ? 'Enabled' : 'Disabled'"></v-switch>
+                          <div v-if="deniedSoftDeletion" class="text-caption text-medium-emphasis">
+                            You are not allowed to change soft deletion on this warehouse.
+                          </div>
                           <v-slider
                             v-if="delProfileSoftActive"
                             v-model="slider"
+                            :readonly="!maySoftDeletion"
                             class="mt-3"
                             hide-details
                             label="Days"
@@ -278,6 +309,7 @@
                             <template #append>
                               <v-text-field
                                 v-model="slider"
+                                :readonly="!maySoftDeletion"
                                 density="compact"
                                 hide-details
                                 single-line
@@ -293,8 +325,10 @@
                   <!-- The stored check belongs to the warehouse rather than to
                        the form being edited: it asks whether what is running right
                        now still reaches its storage, and answers in place. -->
+                  <!-- The check runs under the storage-update right, so it is only
+                       offered to whoever holds that. -->
                   <div
-                    v-if="isSettingsFlow"
+                    v-if="isSettingsFlow && mayStorage"
                     class="d-flex align-center flex-wrap mt-6"
                     style="gap: 8px">
                     <v-btn
@@ -326,7 +360,17 @@
 
                 <div v-show="isProviderPane">
                   <v-alert
-                    v-if="isSettingsFlow"
+                    v-if="deniedStorage"
+                    type="info"
+                    variant="tonal"
+                    density="compact"
+                    icon="mdi-lock-outline"
+                    class="mb-4">
+                    You are not allowed to change the storage of this warehouse. The profile is
+                    shown read-only.
+                  </v-alert>
+                  <v-alert
+                    v-else-if="isSettingsFlow"
                     type="info"
                     variant="tonal"
                     density="compact"
@@ -336,42 +380,55 @@
                     endpoint is set.
                   </v-alert>
 
-                  <WarehouseStorageFormS3
-                    v-if="s3Flavor"
-                    ref="storageFormRef"
-                    :key="`${storageCredentialType}-${importKey}`"
-                    :flavor="s3Flavor"
-                    :initial="currentInitial"
-                    :lock-location="isSettingsFlow"
-                    @dirty="onStorageDirty"></WarehouseStorageFormS3>
-                  <WarehouseStorageFormAzure
-                    v-else-if="storageCredentialType === 'AZURE'"
-                    ref="storageFormRef"
-                    :key="`AZURE-${importKey}`"
-                    :initial="currentInitial"
-                    :lock-location="isSettingsFlow"
-                    @dirty="onStorageDirty"></WarehouseStorageFormAzure>
-                  <WarehouseStorageFormGCS
-                    v-else-if="storageCredentialType === 'GCS'"
-                    ref="storageFormRef"
-                    :key="`GCS-${importKey}`"
-                    :initial="currentInitial"
-                    :lock-location="isSettingsFlow"
-                    @dirty="onStorageDirty"></WarehouseStorageFormGCS>
-                  <WarehouseStorageFormOneLake
-                    v-else-if="storageCredentialType === 'ONELAKE'"
-                    ref="storageFormRef"
-                    :key="`ONELAKE-${importKey}`"
-                    :initial="currentInitial"
-                    :lock-location="isSettingsFlow"
-                    @dirty="onStorageDirty"></WarehouseStorageFormOneLake>
-                  <WarehouseStorageFormStackit
-                    v-else-if="storageCredentialType === 'STACKIT'"
-                    ref="storageFormRef"
-                    :key="`STACKIT-${importKey}`"
-                    :initial="currentInitial"
-                    :lock-location="isSettingsFlow"
-                    @dirty="onStorageDirty"></WarehouseStorageFormStackit>
+                  <v-alert
+                    v-if="isSettingsFlow && saveErrors?.storage"
+                    type="error"
+                    variant="tonal"
+                    density="compact"
+                    class="mb-4">
+                    {{ saveErrors.storage }}
+                  </v-alert>
+
+                  <!-- Read-only for whoever may not update storage: the forms are
+                       other components, so the lock reaches them as defaults. -->
+                  <v-defaults-provider :defaults="storageFormDefaults">
+                    <WarehouseStorageFormS3
+                      v-if="s3Flavor"
+                      ref="storageFormRef"
+                      :key="`${storageCredentialType}-${importKey}`"
+                      :flavor="s3Flavor"
+                      :initial="currentInitial"
+                      :lock-location="isSettingsFlow"
+                      @dirty="onStorageDirty"></WarehouseStorageFormS3>
+                    <WarehouseStorageFormAzure
+                      v-else-if="storageCredentialType === 'AZURE'"
+                      ref="storageFormRef"
+                      :key="`AZURE-${importKey}`"
+                      :initial="currentInitial"
+                      :lock-location="isSettingsFlow"
+                      @dirty="onStorageDirty"></WarehouseStorageFormAzure>
+                    <WarehouseStorageFormGCS
+                      v-else-if="storageCredentialType === 'GCS'"
+                      ref="storageFormRef"
+                      :key="`GCS-${importKey}`"
+                      :initial="currentInitial"
+                      :lock-location="isSettingsFlow"
+                      @dirty="onStorageDirty"></WarehouseStorageFormGCS>
+                    <WarehouseStorageFormOneLake
+                      v-else-if="storageCredentialType === 'ONELAKE'"
+                      ref="storageFormRef"
+                      :key="`ONELAKE-${importKey}`"
+                      :initial="currentInitial"
+                      :lock-location="isSettingsFlow"
+                      @dirty="onStorageDirty"></WarehouseStorageFormOneLake>
+                    <WarehouseStorageFormStackit
+                      v-else-if="storageCredentialType === 'STACKIT'"
+                      ref="storageFormRef"
+                      :key="`STACKIT-${importKey}`"
+                      :initial="currentInitial"
+                      :lock-location="isSettingsFlow"
+                      @dirty="onStorageDirty"></WarehouseStorageFormStackit>
+                  </v-defaults-provider>
 
                   <!-- Do not invite an action the buttons currently refuse. -->
                   <v-alert
@@ -473,7 +530,7 @@
         <!-- Reset discards the edits of the pane being looked at; Verify and
              Connect Compute have none to discard. -->
         <v-btn
-          v-if="pane === 'SETTINGS'"
+          v-if="pane === 'SETTINGS' && mayEditSettings"
           size="small"
           variant="outlined"
           prepend-icon="mdi-restore"
@@ -482,7 +539,7 @@
           Reset
         </v-btn>
         <v-btn
-          v-else-if="isProviderPane"
+          v-else-if="isProviderPane && mayStorage"
           size="small"
           variant="outlined"
           prepend-icon="mdi-restore"
@@ -502,7 +559,8 @@
         </v-chip>
         <v-spacer></v-spacer>
 
-        <template v-if="pane === 'SETTINGS'">
+        <!-- Only for whoever may change something in the pane. -->
+        <template v-if="pane === 'SETTINGS' && mayEditSettings">
           <!-- Greyed out, like Reset, until there is something to save: a filled
                variant reads as available even when disabled. -->
           <v-btn
@@ -516,7 +574,7 @@
           </v-btn>
         </template>
 
-        <template v-if="isProviderPane">
+        <template v-if="isProviderPane && mayStorage">
           <!-- Beside the update it qualifies, as Verify sits beside Create in the
                create flow. Credentials are never returned by the API, so an
                untouched settings form has none to verify with; the tooltip sits on
@@ -618,6 +676,7 @@ import { WarehousObject } from '@/common/interfaces';
 import { applyStorageProviderPreferences } from '../common/storageProviderOrder';
 import { useUserStore } from '../stores/user';
 import { useMenuBoundary } from '@/composables/useMenuBoundary';
+import { useWarehousePermissions } from '@/composables/useCatalogPermissions';
 
 // Opened from an actions menu: keep its menus out of that menu's close chain.
 useMenuBoundary();
@@ -713,6 +772,9 @@ const props = defineProps<{
   intent: Intent;
   objectType: ObjectType;
   processStatus: string;
+  // Save refusals from the parent, which does the saving: said in the pane the
+  // save was asked from.
+  saveErrors?: { name: string; settings: string; storage: string };
 }>();
 
 // Two flows share this dialog: creating a warehouse, and editing an existing one.
@@ -720,6 +782,55 @@ const props = defineProps<{
 const isCreateFlow = computed(() => props.objectType === ObjectType.WAREHOUSE);
 const isSettingsFlow = computed(() => !isCreateFlow.value);
 const updating = computed(() => props.processStatus === 'running');
+
+// --- What this user may change (settings flow) -------------------------------
+// Each part of the settings pane is its own endpoint with its own right. A part
+// is editable only once the server has said yes, and says it is refused only
+// once the server has said no — unknown is neither. The create flow has a
+// project-level right instead and keeps everything editable.
+const warehousePerms = useWarehousePermissions(
+  computed(() => props.warehouse?.['warehouse-id'] || props.warehouse?.id || ''),
+);
+function mayChange(right: boolean): boolean {
+  return isCreateFlow.value || (warehousePerms.answered.value && right);
+}
+function deniedChange(right: boolean): boolean {
+  return isSettingsFlow.value && warehousePerms.answered.value && !right;
+}
+const mayRename = computed(() => mayChange(warehousePerms.canRename.value));
+const mayFormat = computed(() => mayChange(warehousePerms.canSetFormatVersionPolicy.value));
+const mayProtect = computed(() => mayChange(warehousePerms.canSetProtection.value));
+const maySoftDeletion = computed(() => mayChange(warehousePerms.canModifySoftDeletion.value));
+const mayStorage = computed(() => mayChange(warehousePerms.canUpdateStorage.value));
+const deniedRename = computed(() => deniedChange(warehousePerms.canRename.value));
+const deniedFormat = computed(() => deniedChange(warehousePerms.canSetFormatVersionPolicy.value));
+const deniedProtect = computed(() => deniedChange(warehousePerms.canSetProtection.value));
+const deniedSoftDeletion = computed(() => deniedChange(warehousePerms.canModifySoftDeletion.value));
+const deniedStorage = computed(() => deniedChange(warehousePerms.canUpdateStorage.value));
+// Save and Reset are offered only when something in the pane can change.
+const mayEditSettings = computed(
+  () =>
+    mayRename.value ||
+    mayFormat.value ||
+    mayProtect.value ||
+    maySoftDeletion.value ||
+    isInstanceAdmin.value,
+);
+// The storage forms are separate components; their inputs are locked through
+// Vuetify defaults rather than a prop on each.
+const storageFormDefaults = computed(() =>
+  mayStorage.value
+    ? {}
+    : {
+        VTextField: { readonly: true },
+        VTextarea: { readonly: true },
+        VSelect: { readonly: true },
+        VCombobox: { readonly: true },
+        VSwitch: { readonly: true },
+        VBtnToggle: { disabled: true },
+        VBtn: { disabled: true },
+      },
+);
 
 // Bumping this remounts the storage pane, which is how it re-reads its seed —
 // used by Import, by Reset, and after a successful update.
@@ -1085,10 +1196,12 @@ async function preloadWarehouseJSON(wh: CreateWarehouseRequest) {
 }
 
 // True when any non-name catalog setting differs from the loaded warehouse state.
-const settingsChanged = computed(() => {
-  const deletionChanged =
+const deletionChanged = computed(
+  () =>
     slider.value !== loadedDeltionSeconds.value ||
-    delProfileSoftActive.value !== loadedDelProfileSoftActive.value;
+    delProfileSoftActive.value !== loadedDelProfileSoftActive.value,
+);
+const policyChanged = computed(() => {
   const serverAllowed = (props.warehouse?.['allowed-format-versions'] ?? []) as number[];
   const serverDefault = (props.warehouse?.['default-format-version'] ?? null) as number | null;
   const resolvedServerDefault =
@@ -1103,9 +1216,12 @@ const settingsChanged = computed(() => {
     serverAllowed.length !== policyAllowed.value.length ||
     serverAllowed.some((v) => !policyAllowed.value.includes(v));
   const defaultChanged = policyDefault.value !== resolvedServerDefault;
+  return allowedChanged || defaultChanged;
+});
+const settingsChanged = computed(() => {
   const accessChanged =
     csManagedBy.value !== loadedManagedBy.value || csProtected.value !== loadedProtected.value;
-  return deletionChanged || allowedChanged || defaultChanged || accessChanged;
+  return deletionChanged.value || policyChanged.value || accessChanged;
 });
 
 const nameChanged = computed(() => warehouseName.value.trim() !== loadedName.value);
@@ -1139,13 +1255,18 @@ function emitCatalogSettings() {
   const effectiveDefault = policyAllowed.value.includes(policyDefault.value)
     ? policyDefault.value
     : pickDefaultFromAllowed(policyAllowed.value);
+  // Only what changed: each part is its own endpoint and right, and sending an
+  // unchanged one would be refused for a user who holds only the others.
   emit('updateCatalogSettings', {
-    deleteProfile: delProfile,
-    formatPolicy: {
-      allowed: [...policyAllowed.value].sort((a, b) => a - b),
-      default: effectiveDefault,
-    },
-    // Only include access/protection fields that actually changed.
+    ...(deletionChanged.value ? { deleteProfile: delProfile } : {}),
+    ...(policyChanged.value
+      ? {
+          formatPolicy: {
+            allowed: [...policyAllowed.value].sort((a, b) => a - b),
+            default: effectiveDefault,
+          },
+        }
+      : {}),
     ...(csManagedBy.value !== loadedManagedBy.value ? { managedBy: csManagedBy.value } : {}),
     ...(csProtected.value !== loadedProtected.value ? { protected: csProtected.value } : {}),
   });

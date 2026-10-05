@@ -4,7 +4,12 @@
        comes from the tab item (the page gives it `height: 100%`), never from
        viewport arithmetic — the chrome above this is not a constant. -->
   <v-container fluid class="pa-6 details-scroll">
-    <v-row>
+    <!-- A refused read is said in place of the page: the defaults below would
+         otherwise read as an active, unprotected S3 warehouse with no bucket. -->
+    <v-alert v-if="readError" type="info" variant="tonal" density="compact" icon="mdi-lock-outline">
+      {{ readError }}
+    </v-alert>
+    <v-row v-else>
       <!-- General Information Section -->
       <v-col cols="12">
         <v-card variant="outlined" class="mb-4">
@@ -530,8 +535,9 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, onMounted, inject } from 'vue';
-import { logError } from '@/common/errorUtils';
+import { reactive, ref, computed, onMounted, inject } from 'vue';
+import { isForbiddenError } from '@/common/errorUtils';
+import { tagRefusal } from '@/composables/useTagRights';
 import oneLakeIcon from '@/assets/onelake.png';
 import stackitLightIcon from '@/assets/stackit-logo.svg';
 import stackitDarkIcon from '@/assets/stackit-logo-dark.svg';
@@ -679,9 +685,14 @@ const warehouse = reactive<any>({
   protected: false,
 });
 
+// Why the configuration is not shown, when it is not.
+const readError = ref('');
+
 async function loadWarehouse() {
+  readError.value = '';
   try {
-    const whResponse = await functions.getWarehouse(props.warehouseId);
+    // Silent: the header asks for the same warehouse, and a refusal is said here.
+    const whResponse = await functions.getWarehouse(props.warehouseId, false);
     if (whResponse) {
       Object.assign(warehouse, whResponse);
       visual.wahrehouseName = whResponse.name;
@@ -693,7 +704,9 @@ async function loadWarehouse() {
         runStorageCorsCheck(whResponse.id, whResponse['storage-profile'] as any);
     }
   } catch (error) {
-    logError('WarehouseDetails.loadWarehouse', error);
+    readError.value = isForbiddenError(error)
+      ? "You are not allowed to read this warehouse's configuration."
+      : tagRefusal(error, "read this warehouse's configuration");
   }
 }
 

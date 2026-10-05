@@ -86,6 +86,8 @@ export function useServerPermissions(serverId: Ref<string> | string) {
 
   async function loadPermissions() {
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getServerPermissions();
     } finally {
@@ -169,6 +171,8 @@ export function useRolePermissions(roleId: Ref<string> | string) {
 
   async function loadPermissions() {
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getRolePermissions(roleIdRef.value);
     } finally {
@@ -335,6 +339,8 @@ export function useProjectPermissions(projectId: Ref<string> | string) {
 
   async function loadPermissions() {
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getProjectPermissions(projectIdRef.value);
     } finally {
@@ -435,6 +441,8 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
 
   async function loadPermissions() {
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getWarehousePermissions(warehouseIdRef.value);
     } finally {
@@ -478,6 +486,13 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
   const canSetFormatVersionPolicy = computed(
     () =>
       hasPermission('set_format_version_policy') ||
+      !config.enabledAuthentication.value ||
+      !config.enabledPermissions.value,
+  );
+  // The warehouse's delete profile (soft deletion and its expiry).
+  const canModifySoftDeletion = computed(
+    () =>
+      hasPermission('modify_soft_deletion') ||
       !config.enabledAuthentication.value ||
       !config.enabledPermissions.value,
   );
@@ -539,6 +554,7 @@ export function useWarehousePermissions(warehouseId: Ref<string> | string) {
     canSetProtection,
     canManageTags,
     canSetFormatVersionPolicy,
+    canModifySoftDeletion,
     canGetEndpointStatistics,
     showTasksTab,
     showStatisticsTab,
@@ -577,6 +593,8 @@ export function useNamespacePermissions(
     if (!namespaceIdRef.value || !warehouseIdRef.value) return;
 
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await permissionStore.getNamespacePermissions(
         namespaceIdRef.value,
@@ -688,6 +706,8 @@ export function useTablePermissions(
     if (!tableIdRef.value || !warehouseIdRef.value) return;
 
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await functions.getTableCatalogActions(
         tableIdRef.value,
@@ -804,6 +824,8 @@ export function useViewPermissions(
     if (!viewIdRef.value || !warehouseIdRef.value) return;
 
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await functions.getViewCatalogActions(
         viewIdRef.value,
@@ -919,6 +941,8 @@ export function useGenericTablePermissions(
     }
 
     loading.value = true;
+    // A new target is unknown again until its own answer lands.
+    answered.value = false;
     try {
       permissions.value = await functions.getGenericTableCatalogActions(
         genericTableIdRef.value,

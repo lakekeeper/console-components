@@ -18,9 +18,25 @@
           <v-icon size="small" color="secondary">mdi-file-tree</v-icon>
           <span class="text-body-2 font-weight-bold">Estate</span>
           <v-spacer />
-          <span v-if="!loading" class="text-caption text-medium-emphasis">
-            {{ occupied }} of {{ warehouses.toLocaleString() }} warehouses hold objects
+          <span v-if="!loading && !warehousesUnavailable" class="text-caption text-medium-emphasis">
+            {{ occupied }} of {{ (warehouses - hiddenWarehouses).toLocaleString() }} warehouses hold
+            objects
           </span>
+        </div>
+
+        <div v-if="warehousesUnavailable" class="text-caption text-medium-emphasis mb-3">
+          <v-icon size="12" color="warning">mdi-lock-outline</v-icon>
+          {{ warehousesUnavailable }}
+        </div>
+        <!-- A warehouse whose statistics are refused is left out of the sums
+             rather than counted as empty, and the gap is stated. -->
+        <div
+          v-else-if="!loading && hiddenWarehouses > 0"
+          class="text-caption text-medium-emphasis mb-3">
+          <v-icon size="12" color="warning">mdi-lock-outline</v-icon>
+          {{ hiddenWarehouses.toLocaleString() }}
+          {{ hiddenWarehouses === 1 ? 'warehouse' : 'warehouses' }} not visible to you — left out of
+          the table and view totals.
         </div>
 
         <div v-if="projectsUnavailable" class="text-caption text-medium-emphasis mb-3">
@@ -59,7 +75,7 @@
     </v-card>
 
     <!-- API Calls Chart -->
-    <v-card v-if="showChart && !chartForbidden" variant="outlined" class="chart-card">
+    <v-card v-if="showChart" variant="outlined" class="chart-card">
       <v-card-text class="pa-3">
         <div class="d-flex align-center flex-wrap mb-1" style="gap: 8px">
           <v-icon size="small" color="secondary">mdi-chart-areaspline</v-icon>
@@ -76,8 +92,13 @@
             </span>
           </div>
         </div>
+        <!-- Checked before the empty state: a refused read is not a quiet server. -->
+        <div v-if="chartError && !chartLoading" class="pa-4 text-caption text-medium-emphasis">
+          <v-icon size="12" color="warning">mdi-lock-outline</v-icon>
+          {{ chartError }}
+        </div>
         <div
-          v-if="noChartData && !chartLoading"
+          v-else-if="noChartData && !chartLoading"
           class="text-center pa-4 text-caption text-medium-emphasis">
           No API activity in the last {{ WINDOW_DAYS }} days
         </div>
@@ -103,6 +124,8 @@ import { useFunctions } from '../plugins/functions';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
 import StackedAreaChart from './StackedAreaChart.vue';
+import { isForbiddenError } from '../common/errorUtils';
+import { tagRefusal } from '../composables/useTagRights';
 
 // Only the counts that have a page behind them are offered as destinations.
 // Tables and views are counted across the whole estate and live inside a
@@ -169,7 +192,8 @@ const STATS_CONCURRENCY = 8;
 const loading = ref(true);
 const chartLoading = ref(true);
 const noChartData = ref(false);
-const chartForbidden = ref(false);
+// Why the chart has nothing to draw, when the reason is the server's answer.
+const chartError = ref('');
 const projects = ref(0);
 const warehouses = ref(0);
 const tables = ref(0);
@@ -178,6 +202,11 @@ const views = ref(0);
 // back past the window).
 // Why the project count is missing, when it is.
 const projectsUnavailable = ref('');
+// Why the warehouse listing is missing, when it is. The table and view totals
+// are sums over that listing, so they go with it.
+const warehousesUnavailable = ref('');
+// Listed warehouses whose statistics were refused or failed.
+const hiddenWarehouses = ref(0);
 const tablesDelta = ref<number | null>(null);
 const viewsDelta = ref<number | null>(null);
 
@@ -201,7 +230,7 @@ const totals = computed(() => [
   },
   {
     label: 'warehouses',
-    unavailable: '',
+    unavailable: warehousesUnavailable.value,
     value: warehouses.value,
     icon: 'mdi-warehouse',
     color: 'info',
@@ -210,7 +239,7 @@ const totals = computed(() => [
   },
   {
     label: 'tables',
-    unavailable: '',
+    unavailable: warehousesUnavailable.value,
     value: tables.value,
     icon: 'mdi-table',
     color: 'success',
@@ -219,7 +248,7 @@ const totals = computed(() => [
   },
   {
     label: 'views',
-    unavailable: '',
+    unavailable: warehousesUnavailable.value,
     value: views.value,
     icon: 'mdi-eye',
     color: 'warning',
@@ -401,10 +430,18 @@ interface WarehouseCounts {
   baseViews: number | null;
 }
 
-async function loadWarehouseCounts(warehouseId: string): Promise<WarehouseCounts> {
+// null when the statistics could not be read: not an empty warehouse, so it is
+// left out of the sums instead of counted as zero.
+async function loadWarehouseCounts(warehouseId: string): Promise<WarehouseCounts | null> {
   const empty: WarehouseCounts = { tables: 0, views: 0, baseTables: 0, baseViews: 0 };
   try {
-    const resp = await functions.getWarehouseStatistics(warehouseId, WH_STATS_PAGE);
+    // Silent: one snackbar per refused warehouse would bury the page.
+    const resp = await functions.getWarehouseStatistics(
+      warehouseId,
+      WH_STATS_PAGE,
+      undefined,
+      false,
+    );
     const stats: WarehouseStatistics[] = [...(resp?.stats ?? [])].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
@@ -426,8 +463,7 @@ async function loadWarehouseCounts(warehouseId: string): Promise<WarehouseCounts
       baseViews: baseline ? baseline['number-of-views'] : historyComplete ? 0 : null,
     };
   } catch {
-    // Skip warehouses that fail — counts are best-effort.
-    return empty;
+    return null;
   }
 }
 
@@ -448,24 +484,41 @@ async function loadCounts(seq: number) {
         error?.error?.message || 'Projects could not be listed for this user.';
     }
 
-    const whResp = await functions.listWarehouses(false);
-    const whList = whResp?.warehouses ?? [];
+    let whList: any[];
+    try {
+      const whResp = await functions.listWarehouses(false);
+      whList = whResp?.warehouses ?? [];
+      warehousesUnavailable.value = '';
+    } catch (error) {
+      if (seq !== loadSeq) return;
+      warehouses.value = 0;
+      tables.value = 0;
+      views.value = 0;
+      hiddenWarehouses.value = 0;
+      warehouseObjects.value = [];
+      warehousesUnavailable.value = isForbiddenError(error)
+        ? 'You are not allowed to list the warehouses of this project.'
+        : tagRefusal(error, 'list the warehouses of this project');
+      return;
+    }
     warehouses.value = whList.length;
 
-    const counts = await mapPool(whList, STATS_CONCURRENCY, (wh: any) =>
+    const results = await mapPool(whList, STATS_CONCURRENCY, (wh: any) =>
       loadWarehouseCounts(wh['warehouse-id'] ?? wh.id),
     );
+    const counts = results.filter((c): c is WarehouseCounts => c !== null);
 
     // The fan-out over every warehouse is slow enough that a second project
     // switch lands mid-flight; without this the first project's estate arrives
     // afterwards and is emitted under the second one's name.
     if (seq !== loadSeq) return;
 
+    hiddenWarehouses.value = results.length - counts.length;
     warehouseObjects.value = whList.map((wh: any, i: number) => ({
       id: wh['warehouse-id'] ?? wh.id,
       name: wh.name ?? wh['warehouse-id'] ?? wh.id,
-      tables: counts[i]?.tables ?? 0,
-      views: counts[i]?.views ?? 0,
+      tables: results[i]?.tables ?? 0,
+      views: results[i]?.views ?? 0,
     }));
     emit('estate', warehouseObjects.value);
 
@@ -496,7 +549,7 @@ async function loadChart(seq: number) {
   // A refusal belongs to the project that was asked, not to this component: a
   // project the reader may not read statistics for used to hide the chart for
   // every project they switched to afterwards.
-  chartForbidden.value = false;
+  chartError.value = '';
   try {
     const canFetch =
       visual.getServerInfo()['authz-backend'] === 'allow-all' ||
@@ -563,12 +616,9 @@ async function loadChart(seq: number) {
     noChartData.value = rows.length === 0;
   } catch (error: any) {
     if (seq !== loadSeq) return;
-    const status = error?.error?.code || error?.status || error?.response?.status || 0;
-    if (status === 403) {
-      chartForbidden.value = true;
-    } else {
-      functions.handleError(error, 'HomeStatistics:loadChart');
-    }
+    chartError.value = isForbiddenError(error)
+      ? 'You are not allowed to read API call statistics for this project.'
+      : tagRefusal(error, 'read API call statistics for this project');
     noChartData.value = true;
   } finally {
     if (seq === loadSeq) chartLoading.value = false;
