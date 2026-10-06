@@ -27,8 +27,7 @@
       <v-alert type="warning" variant="tonal" density="comfortable">
         <div class="text-body-2 font-weight-medium mb-1">Authorization service unavailable</div>
         <div class="text-body-2">
-          The catalog could not reach its authorizer. This is a server-side outage, not a
-          permissions problem.
+          {{ AUTHORIZER_UNREACHABLE_MESSAGE }}
         </div>
       </v-alert>
       <v-btn class="mt-3" size="small" variant="outlined" prepend-icon="mdi-refresh" @click="load">
@@ -114,6 +113,21 @@
           Revoke all
         </v-btn>
       </div>
+
+      <!-- A row that could not be opened for editing: said over the listing,
+           which stays, since the rest of it is still good. -->
+      <v-alert
+        v-if="editError"
+        class="mb-2"
+        type="warning"
+        variant="tonal"
+        density="compact"
+        closable
+        style="flex: 0 0 auto"
+        @click:close="editError = null">
+        <div class="text-body-2">{{ editError.label }} could not be opened for editing.</div>
+        <div class="text-caption">{{ editError.message }}</div>
+      </v-alert>
 
       <v-alert
         v-if="revokeErrors.length"
@@ -365,6 +379,8 @@ import {
   isGrantListingNotImplemented,
   isMissingGrantPrincipal,
   isAuthorizationBackendUnavailable,
+  AUTHORIZER_UNREACHABLE_MESSAGE,
+  grantErrorMessage,
   refFromResponse,
   resourceIcon,
   resourceLabel,
@@ -588,6 +604,8 @@ const preparing = ref<string | null>(null);
 const saving = ref(false);
 const saveError = ref<string | null>(null);
 const editPrivileges = ref<GrantablePrivilege[]>([]);
+/** A row whose grantable privileges could not be read, so its edit did not open. */
+const editError = ref<{ label: string; message: string } | null>(null);
 const editing = ref<{ key: string; ref: GrantResourceRef; label: string } | null>(null);
 
 const editPrincipal = computed<GrantPrincipalRow>(() => ({
@@ -613,12 +631,16 @@ async function openEdit(group: { key: string; ref: GrantResourceRef | null; labe
   if (!group.ref) return;
   preparing.value = group.key;
   saveError.value = null;
+  editError.value = null;
   try {
     editPrivileges.value = await grantsApi.grantablePrivileges(group.ref);
     editing.value = { key: group.key, ref: group.ref, label: group.label };
     editOpen.value = true;
   } catch (e: any) {
-    loadError.value = e?.error?.message || e?.message || 'Failed to read grantable privileges';
+    editError.value = {
+      label: group.label,
+      message: grantErrorMessage(e, 'Failed to read grantable privileges'),
+    };
   } finally {
     preparing.value = null;
   }
@@ -657,7 +679,7 @@ async function applyEdit(payload: { principal: GrantPrincipalRow; privileges: st
     editOpen.value = false;
     await load();
   } catch (e: any) {
-    saveError.value = e?.error?.message || e?.message || 'Failed to apply grants';
+    saveError.value = grantErrorMessage(e, 'Failed to apply grants');
   } finally {
     saving.value = false;
   }
@@ -749,7 +771,7 @@ async function runRevoke() {
       } catch (e: any) {
         revokeErrors.value = [
           ...revokeErrors.value,
-          { label: row.label, message: e?.error?.message || e?.message || 'Revoke failed' },
+          { label: row.label, message: grantErrorMessage(e, 'Revoke failed') },
         ];
       } finally {
         revokeDone.value++;
@@ -803,6 +825,7 @@ async function load() {
   loading.value = true;
   loadError.value = null;
   listRefused.value = false;
+  editError.value = null;
   notImplemented.value = false;
   backendUnavailable.value = false;
   grants.value = [];
@@ -824,13 +847,20 @@ async function load() {
     // a dedicated error for it, so name it rather than showing a bare 400.
     else if (isMissingGrantPrincipal(e)) {
       loadError.value = 'This listing needs a user or role to report on.';
-    } else loadError.value = e?.error?.message || e?.message || 'Failed to load grants';
+    } else loadError.value = grantErrorMessage(e, 'Failed to load grants');
   } finally {
     loading.value = false;
   }
 }
 
-watch(() => [props.principalId, props.principalType, props.projectId], load);
+// Another principal: what failed for the previous one does not apply.
+watch(
+  () => [props.principalId, props.principalType, props.projectId],
+  () => {
+    revokeErrors.value = [];
+    load();
+  },
+);
 onMounted(load);
 
 defineExpose({ reload: load });

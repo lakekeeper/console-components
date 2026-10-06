@@ -255,6 +255,16 @@
                     still reach the levels below.
                   </v-tooltip>
                 </v-icon>
+                <v-icon
+                  v-else-if="failedLevels.has(level.key)"
+                  size="14"
+                  color="warning"
+                  class="flex-shrink-0">
+                  mdi-alert-circle-outline
+                  <v-tooltip activator="parent" location="bottom" max-width="300">
+                    {{ failedLevels.get(level.key) }}
+                  </v-tooltip>
+                </v-icon>
                 <span v-else class="text-caption text-medium-emphasis flex-shrink-0">
                   {{ countFor(level.key) }}
                 </span>
@@ -302,7 +312,7 @@
                       <div class="text-caption text-medium-emphasis">
                         <template v-if="belowUnsupported">Not offered by this authorizer</template>
                         <template v-else-if="belowForbidden">Not visible to you</template>
-                        <template v-else-if="belowError">{{ belowError }}</template>
+                        <template v-else-if="belowError">Could not be read</template>
                         <template v-else>
                           {{ belowNodes.length }}
                           {{ belowNodes.length === 1 ? 'object' : 'objects' }}
@@ -373,13 +383,18 @@
           </v-list>
 
           <div v-if="chainError" class="text-caption text-warning px-4 pb-3">{{ chainError }}</div>
-          <div
-            v-else-if="unreadableLevels.size"
-            class="text-caption text-medium-emphasis px-4 pb-3">
-            {{ unreadableLevels.size }}
-            {{ unreadableLevels.size === 1 ? 'level is' : 'levels are' }}
-            hidden by permissions. Everything you may read is shown.
-          </div>
+          <template v-else>
+            <div v-if="failedLevels.size" class="text-caption text-warning px-4 pb-3">
+              {{ failedLevels.size }}
+              {{ failedLevels.size === 1 ? 'level' : 'levels' }}
+              could not be read. Hover the warning sign for the reason.
+            </div>
+            <div v-if="unreadableLevels.size" class="text-caption text-medium-emphasis px-4 pb-3">
+              {{ unreadableLevels.size }}
+              {{ unreadableLevels.size === 1 ? 'level is' : 'levels are' }}
+              hidden by permissions. Everything you may read is shown.
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -665,13 +680,7 @@
               </template>
 
               <template #no-data>
-                <span class="text-disabled">
-                  {{
-                    !levelFilter && !filterText
-                      ? 'Nothing is granted on this object or anywhere above it.'
-                      : 'Nothing matches this selection.'
-                  }}
-                </span>
+                <span class="text-disabled">{{ noDataText }}</span>
               </template>
             </v-data-table-virtual>
           </div>
@@ -737,6 +746,7 @@ import { useVisualStore } from '../stores/visual';
 import {
   derivePrivilegeCategory,
   formatGrantedSummary,
+  grantErrorMessage,
   principalKey,
   refFromResponse,
   privilegeCategoryRank,
@@ -1304,7 +1314,7 @@ async function openEdit(row: Row) {
     };
     editOpen.value = true;
   } catch (e: any) {
-    chainError.value = e?.error?.message || e?.message || 'Failed to read grantable privileges';
+    chainError.value = grantErrorMessage(e, 'Failed to read grantable privileges');
   } finally {
     preparing.value = null;
   }
@@ -1334,7 +1344,7 @@ async function requestRevokeAll(row: Row) {
     pendingRevoke.value = row;
     confirmRevokeOpen.value = true;
   } catch (e: any) {
-    chainError.value = e?.error?.message || e?.message || 'Failed to read grantable privileges';
+    chainError.value = grantErrorMessage(e, 'Failed to read grantable privileges');
   } finally {
     revoking.value = null;
   }
@@ -1364,7 +1374,7 @@ async function doRevokeAll() {
     confirmRevokeOpen.value = false;
     pendingRevoke.value = null;
   } catch (e: any) {
-    revokeError.value = e?.error?.message || e?.message || 'Failed to revoke grants';
+    revokeError.value = grantErrorMessage(e, 'Failed to revoke grants');
   } finally {
     revoking.value = null;
   }
@@ -1399,7 +1409,7 @@ async function applyEdit(payload: { principal: GrantPrincipalRow; privileges: st
     await loadAllLevels();
     emit('saved');
   } catch (e: any) {
-    saveError.value = e?.error?.message || e?.message || 'Failed to apply grants';
+    saveError.value = grantErrorMessage(e, 'Failed to apply grants');
   } finally {
     saving.value = false;
   }
@@ -1430,6 +1440,7 @@ async function loadAllLevels() {
   loading.value = true;
   const next: Row[] = [];
   const refused = new Set<string>();
+  const failed = new Map<string, string>();
   try {
     await Promise.all(
       chain.value.map(async (level, depth) => {
@@ -1440,9 +1451,11 @@ async function loadAllLevels() {
           // A level this caller may not read is expected here — reading grants
           // on a namespace does not imply reading them on the server above it.
           // Recorded so the rail can say "not visible to you", which an empty
-          // level would otherwise be indistinguishable from. Anything that is
-          // not a refusal stays silent as before, but is not claimed as empty.
+          // level would otherwise be indistinguishable from. Any other failure
+          // is recorded with its message, so the level reads as unread rather
+          // than as holding nothing.
           if (isForbiddenError(e)) refused.add(level.key);
+          else failed.set(level.key, grantErrorMessage(e, 'The grants here could not be read.'));
           return;
         }
         const byPrincipal = new Map<string, any[]>();
@@ -1488,6 +1501,7 @@ async function loadAllLevels() {
     if (seq !== levelsSeq) return;
     rows.value = next;
     unreadableLevels.value = refused;
+    failedLevels.value = failed;
   } finally {
     if (seq === levelsSeq) loading.value = false;
   }
@@ -1589,7 +1603,7 @@ async function loadBelowPage(pageToken?: string) {
     const code = e?.error?.code || e?.status || 0;
     if (code === 501) belowUnsupported.value = true;
     else if (isForbiddenError(e)) belowForbidden.value = true;
-    else belowError.value = e?.error?.message || e?.message || 'could not be read';
+    else belowError.value = grantErrorMessage(e, 'The grants inside could not be read.');
   } finally {
     if (seq === belowSeq) {
       loadingBelow.value = false;
@@ -1655,6 +1669,23 @@ watch(
  * from as much as failing the whole dialog would.
  */
 const unreadableLevels = ref<Set<string>>(new Set());
+/** Levels whose listing failed for a reason other than a refusal, with why. */
+const failedLevels = ref<Map<string, string>>(new Map());
+
+/**
+ * What an empty table means. A level that could not be read holds an unknown
+ * set, so the empty table does not claim that nothing is granted there.
+ */
+const noDataText = computed(() => {
+  if (levelFilter.value && failedLevels.value.has(levelFilter.value)) {
+    return failedLevels.value.get(levelFilter.value);
+  }
+  if (levelFilter.value || filterText.value) return 'Nothing matches this selection.';
+  if (failedLevels.value.size || unreadableLevels.value.size) {
+    return 'Nothing is granted on the levels you could read.';
+  }
+  return 'Nothing is granted on this object or anywhere above it.';
+});
 const buildingChain = ref(false);
 const chainError = ref<string | null>(null);
 

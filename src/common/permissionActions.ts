@@ -55,6 +55,7 @@ const catalogProjectActions: LakekeeperProjectAction[] = [
   { action: 'get_project_tasks' },
   { action: 'control_project_tasks' },
   { action: 'read_grants' },
+  { action: 'read_subtree_grants' },
   { action: 'create_tag' },
   { action: 'list_tags' },
   { action: 'get_task_queue_config' },

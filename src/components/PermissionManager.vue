@@ -317,8 +317,9 @@ if (props.relationType === RelationType.Server) {
 const canManageGrants = computed(() => authzPerms?.canManageGrants.value ?? false);
 
 // Whether the user may read this object's assignments. When false we must NOT
-// call the assignments endpoint: some scopes (e.g. server for a project admin)
-// return 401, which the global error handler turns into a login redirect.
+// call the assignments endpoint. Without read permission (e.g. a project admin
+// at server scope) it refuses: 403, or 401 on older servers, and the global
+// error handler turns a 401 into a login redirect.
 const canReadAssignments = computed(() => (authzPerms as any)?.canReadAssignments?.value ?? false);
 const authzLoading = computed(() => (authzPerms as any)?.loading?.value ?? false);
 // Show an inline "no permission" message once authorizer perms have resolved
@@ -400,8 +401,9 @@ async function loadObjectData() {
 }
 
 async function fetchAssignments() {
-  // Never hit the assignments endpoint without read permission — it can 401
-  // (e.g. server scope for a project admin) and trigger a login redirect.
+  // Never hit the assignments endpoint without read permission: it refuses with
+  // 403, or 401 on older servers, which the global handler turns into a login
+  // redirect.
   if (!canReadAssignments.value) return [];
   try {
     let assignments: any[] = [];

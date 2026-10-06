@@ -432,8 +432,11 @@ import { permissionActions } from '@/common/permissionActions';
 import { toPrincipal } from '@/common/principal';
 import { isForbiddenError } from '@/common/errorUtils';
 import { tagRefusal } from '@/composables/useTagRights';
+import { answerableCatalogActions } from '@/composables/useGrants';
+import { useVisualStore } from '@/stores/visual';
 
 const functions = inject<any>('functions');
+const visual = useVisualStore();
 
 // Dialog state
 const dialog = ref(false);
@@ -529,7 +532,14 @@ const genericTableActions: string[] = permissionActions.catalogGenericTableActio
 );
 
 // Computed
-const availableActions = computed(() => {
+// The subtree grant actions are left out where the authorizer keeps its own
+// grants: the operations behind them answer 501 there, so "allowed" would
+// promise something the server refuses.
+const availableActions = computed(() =>
+  answerableCatalogActions(actionsForType(), visual.getServerInfo()?.['authz-backend']),
+);
+
+function actionsForType(): string[] {
   if (selectedResourceType.value === 'warehouse') {
     return warehouseActions;
   } else if (selectedResourceType.value === 'namespace') {
@@ -546,7 +556,7 @@ const availableActions = computed(() => {
     return projectActions;
   }
   return [];
-});
+}
 
 const canRunMatrix = computed(() => {
   const hasIdentities =

@@ -1,6 +1,7 @@
 import { inject } from 'vue';
 import { permissionActions } from '@/common/permissionActions';
 import {
+  errorMessage,
   logError,
   isClientError,
   isNotFoundError,
@@ -375,7 +376,7 @@ function setError(error: any, ttl: number, functionCaused: string, type: Type, n
       }
     } else {
       const api_error_type = error?.error?.type || '';
-      const msg = error?.error?.message || error?.message || 'An unknown error occurred';
+      const msg = errorMessage(error, 'An unknown error occurred');
       const statusCode = error?.error?.code || error?.status || error?.response?.status || 0;
 
       // Check if message indicates authentication failure
