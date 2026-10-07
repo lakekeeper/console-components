@@ -268,11 +268,15 @@ const rowGroups = computed(() => {
       if (!q) return true;
       return (
         r.name.toLowerCase().includes(q) ||
-        r.levels.some(
-          (l) =>
-            l.displayName.toLowerCase().includes(q) ||
-            (l.description ?? '').toLowerCase().includes(q),
-        )
+        // With a level selected, the row shows that level's wording, so only
+        // that wording may match.
+        r.levels
+          .filter((l) => !typeFilter.value || l.type === typeFilter.value)
+          .some(
+            (l) =>
+              l.displayName.toLowerCase().includes(q) ||
+              (l.description ?? '').toLowerCase().includes(q),
+          )
       );
     })
     .map((r) => ({ ...r, ...privilegeRowText(r.levels, typeFilter.value) }));

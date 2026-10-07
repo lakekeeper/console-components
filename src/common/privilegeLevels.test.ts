@@ -60,4 +60,16 @@ describe('privilegeRowText', () => {
       perLevel: [],
     });
   });
+
+  // The description comes from a later level with another label, so the
+  // breakdown names that level rather than pairing it with the first label.
+  it('names the level a lone description comes from when its label differs', () => {
+    const lone: PrivilegeLevel[] = [
+      { type: 'project', displayName: 'Manage grants and roles', description: null },
+      { type: 'table', displayName: 'Manage grants', description: 'Grant on this table.' },
+    ];
+    expect(privilegeRowText(lone, null).perLevel).toEqual([
+      { types: ['table'], displayName: 'Manage grants', description: 'Grant on this table.' },
+    ]);
+  });
 });

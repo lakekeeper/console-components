@@ -80,7 +80,13 @@
       variant="tonal"
       density="compact"
       class="mb-3"
-      :text="roleCheckError"></v-alert>
+      :text="roleCheckError">
+      <template #append>
+        <v-btn size="small" variant="text" prepend-icon="mdi-refresh" @click="loadProjects">
+          Retry
+        </v-btn>
+      </template>
+    </v-alert>
 
     <!-- Nowhere to search: said in place of a search that can only be refused. -->
     <v-alert

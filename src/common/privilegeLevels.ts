@@ -66,5 +66,10 @@ export function privilegeRowText(
         description: l.description,
       });
   }
-  return { displayName, description, perLevel: groups.size > 1 ? [...groups.values()] : [] };
+  // One group still needs its heading when its label is not the row's: the
+  // description then comes from a later level than the label shown.
+  const perLevel = [...groups.values()];
+  const needsHeadings =
+    perLevel.length > 1 || (perLevel.length === 1 && perLevel[0].displayName !== displayName);
+  return { displayName, description, perLevel: needsHeadings ? perLevel : [] };
 }

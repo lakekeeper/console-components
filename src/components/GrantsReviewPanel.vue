@@ -1680,6 +1680,9 @@ const noDataText = computed(() => {
   if (levelFilter.value && failedLevels.value.has(levelFilter.value)) {
     return failedLevels.value.get(levelFilter.value);
   }
+  if (levelFilter.value && unreadableLevels.value.has(levelFilter.value)) {
+    return 'The grants on this level are hidden by your permissions.';
+  }
   if (levelFilter.value || filterText.value) return 'Nothing matches this selection.';
   if (failedLevels.value.size || unreadableLevels.value.size) {
     return 'Nothing is granted on the levels you could read.';
