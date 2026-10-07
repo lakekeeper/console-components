@@ -43,7 +43,11 @@
       variant="tonal"
       density="compact"
       icon="mdi-lock-outline">
-      You are not allowed to list this principal's grants.
+      {{
+        access.isSelf(principalType, principalId)
+          ? 'You are not allowed to list your own grants in this project.'
+          : "You are not allowed to list this principal's grants. That needs the right to read grants across the whole project."
+      }}
     </v-alert>
 
     <div v-else-if="loadError">
@@ -386,6 +390,7 @@ import {
   resourceLabel,
   formatGrantedSummary,
   RESOURCE_TYPE_ORDER,
+  usePrincipalGrantsAccess,
 } from '../composables/useGrants';
 import GrantAssignDialog, { type GrantPrincipalRow } from './GrantAssignDialog.vue';
 import type { GrantResourceRef } from '../common/interfaces';
@@ -423,6 +428,7 @@ const emit = defineEmits<{
 const visual = useVisualStore();
 const router = useRouter();
 const grantsApi = useGrants();
+const access = usePrincipalGrantsAccess(() => props.projectId);
 
 /** One resource, with everything this principal holds on it. */
 type GrantRow = {
@@ -823,12 +829,20 @@ async function resolvePaths() {
 async function load() {
   if (!props.principalId) return;
   loading.value = true;
+  // The rights answer first: a definite no is shown in place without asking
+  // the listing for a 403 it is already known to give.
+  if (!access.answered.value) return;
   loadError.value = null;
   listRefused.value = false;
   editError.value = null;
   notImplemented.value = false;
   backendUnavailable.value = false;
   grants.value = [];
+  if (!access.canList(props.principalType, props.principalId)) {
+    listRefused.value = true;
+    loading.value = false;
+    return;
+  }
   try {
     const filter =
       props.principalType === 'user'
@@ -855,7 +869,7 @@ async function load() {
 
 // Another principal: what failed for the previous one does not apply.
 watch(
-  () => [props.principalId, props.principalType, props.projectId],
+  () => [props.principalId, props.principalType, props.projectId, access.answered.value],
   () => {
     revokeErrors.value = [];
     load();

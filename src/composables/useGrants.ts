@@ -1,8 +1,9 @@
-import { computed, effectScope, ref, watch } from 'vue';
+import { computed, effectScope, ref, toValue, watch, type MaybeRefOrGetter } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
 import { errorMessage, getErrorCode } from '../common/errorUtils';
+import { useProjectPermissions } from './useCatalogPermissions';
 import type {
   GrantListOptions,
   GrantPrincipalFilter,
@@ -557,6 +558,36 @@ export function useGrantPrincipalListingSupported() {
       supported.value === true &&
       supportsPrincipalGrantListing(visual.getServerInfo()?.['authz-backend']),
   );
+}
+
+/**
+ * Whether the caller may list everything one principal holds in a project.
+ *
+ * Your own grants need the project's `get_metadata`; anyone else's need
+ * `read_subtree_grants`, since the answer spans every resource in the project.
+ * `canList` is true only once the project's rights have answered, so a gate on
+ * it never flashes a control on and then off.
+ */
+export function usePrincipalGrantsAccess(projectId?: MaybeRefOrGetter<string | undefined>) {
+  const visual = useVisualStore();
+  const userStore = useUserStore();
+  const target = computed(() => toValue(projectId) || visual.projectSelected['project-id'] || '');
+  const perms = useProjectPermissions(target);
+
+  function isSelf(principalType: 'user' | 'role', principalId: string) {
+    return (
+      principalType === 'user' && !!userStore.principalId && userStore.principalId === principalId
+    );
+  }
+
+  function canList(principalType: 'user' | 'role', principalId: string): boolean {
+    if (!perms.answered.value) return false;
+    return perms.hasPermission(
+      isSelf(principalType, principalId) ? 'get_metadata' : 'read_subtree_grants',
+    );
+  }
+
+  return { answered: perms.answered, canList, isSelf };
 }
 
 /**

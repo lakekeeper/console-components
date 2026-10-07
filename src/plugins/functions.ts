@@ -4595,6 +4595,7 @@ async function whoAmI(notify?: boolean) {
     // Surface instance-admin status for managed-by controls (lakekeeper#1828).
     try {
       useUserStore().isInstanceAdmin = (data as any)?.['is-instance-admin'] === true;
+      useUserStore().principalId = (data as any)?.id ?? null;
     } catch {
       /* store not active in this context */
     }

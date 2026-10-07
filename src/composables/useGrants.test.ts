@@ -13,12 +13,32 @@ const api = vi.hoisted(() => ({
 
 vi.mock('../plugins/functions', () => ({ useFunctions: () => api }));
 
+// The caller and the project's rights, set per test.
+const rights = vi.hoisted(() => ({
+  principalId: null as string | null,
+  answered: { value: false },
+  actions: [] as string[],
+}));
+vi.mock('../stores/user', () => ({
+  useUserStore: () => ({ principalId: rights.principalId }),
+}));
+vi.mock('../stores/visual', () => ({
+  useVisualStore: () => ({ projectSelected: { 'project-id': 'p1' }, getServerInfo: () => ({}) }),
+}));
+vi.mock('./useCatalogPermissions', () => ({
+  useProjectPermissions: () => ({
+    answered: rights.answered,
+    hasPermission: (a: string) => rights.actions.includes(a),
+  }),
+}));
+
 import {
   allowsServerGrantToRole,
   answerableCatalogActions,
   grantErrorMessage,
   isAuthorizationBackendUnavailable,
   useGrants,
+  usePrincipalGrantsAccess,
 } from './useGrants';
 import { isAuthorizationInternalError } from '../common/errorUtils';
 import type { GrantResourceRef } from '../common/interfaces';
@@ -173,5 +193,41 @@ describe('applyGrants reporting', () => {
       expect(api[fn]).toHaveBeenCalledTimes(1);
       expect(api[fn].mock.calls[0].at(-1)).toBe(false);
     }
+  });
+});
+
+describe('usePrincipalGrantsAccess', () => {
+  function given(principalId: string | null, actions: string[], answered = true) {
+    rights.principalId = principalId;
+    rights.actions = actions;
+    rights.answered.value = answered;
+    return usePrincipalGrantsAccess('p1');
+  }
+
+  it("lists another principal's grants only with read_subtree_grants", () => {
+    expect(given('me', ['get_metadata']).canList('user', 'other')).toBe(false);
+    expect(given('me', ['get_metadata']).canList('role', 'r1')).toBe(false);
+    expect(given('me', ['read_subtree_grants']).canList('user', 'other')).toBe(true);
+    expect(given('me', ['read_subtree_grants']).canList('role', 'r1')).toBe(true);
+  });
+
+  it('lists your own grants with get_metadata alone', () => {
+    const access = given('me', ['get_metadata']);
+    expect(access.isSelf('user', 'me')).toBe(true);
+    expect(access.canList('user', 'me')).toBe(true);
+  });
+
+  // A role never is the caller, even when its id matches.
+  it('treats a role as someone else', () => {
+    expect(given('me', ['get_metadata']).canList('role', 'me')).toBe(false);
+  });
+
+  // Unknown caller (whoami not answered, or authentication disabled).
+  it('treats everyone as someone else while the caller is unknown', () => {
+    expect(given(null, ['get_metadata']).canList('user', 'me')).toBe(false);
+  });
+
+  it('answers no until the project rights have answered', () => {
+    expect(given('me', ['read_subtree_grants'], false).canList('user', 'other')).toBe(false);
   });
 });

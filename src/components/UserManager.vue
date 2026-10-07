@@ -34,7 +34,7 @@
       <!-- Users have no detail page, so what a user can do is answered from
            their row rather than somewhere else. -->
       <v-btn
-        v-if="grantsSupported"
+        v-if="grantsSupported && grantsAccess.canList('user', item.id)"
         class="mr-2"
         size="small"
         variant="text"
@@ -266,7 +266,10 @@ import { StatusIntent } from '../common/enums';
 import { useServerPermissions } from '../composables/useCatalogPermissions';
 import DeleteConfirmDialog from './DeleteConfirmDialog.vue';
 import PrincipalGrantsPanel from './PrincipalGrantsPanel.vue';
-import { useGrantPrincipalListingSupported } from '../composables/useGrants';
+import {
+  useGrantPrincipalListingSupported,
+  usePrincipalGrantsAccess,
+} from '../composables/useGrants';
 import UserRenameDialog from './UserRenameDialog.vue';
 
 const functions = inject<any>('functions')!;
@@ -276,6 +279,9 @@ const functions = inject<any>('functions')!;
 // every authorizer indexes for. OpenFGA cannot, so the surface is not offered
 // there rather than offered and then explaining itself.
 const grantsSupported = useGrantPrincipalListingSupported();
+// Your own row needs only project metadata; anyone else's needs project-wide
+// grant reading. Hidden on a definite no rather than opening onto a refusal.
+const grantsAccess = usePrincipalGrantsAccess();
 const grantsOpen = ref(false);
 const grantsUser = ref<{ id: string; name: string } | null>(null);
 
