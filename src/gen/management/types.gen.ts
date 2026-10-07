@@ -234,7 +234,8 @@ export type CatalogActionsBatchCheckResult = {
     allowed: boolean;
     /**
      * What determined this decision: the policies that matched, each with its
-     * identifier, optional name and source, or a system-authority override.
+     * identifier, optional name and source, a system-authority override, or an
+     * admission gate that would refuse the user.
      *
      * Absent when the configured authorizer produces no per-decision
      * diagnostics.
@@ -581,16 +582,36 @@ export type DeletedTabularResponse = {
 /**
  * A single factor that contributed to an authorization decision.
  *
- * Discriminated by `type`: `policy` names a policy the authorizer matched, and
- * `system-authority` records that a built-in authority tier decided the request. The
- * schema is a closed `oneOf` over those two, so a further kind is a schema change a
- * generated client has to be rebuilt for rather than one it absorbs on its own.
+ * Discriminated by `type`: `policy` names a policy the authorizer matched,
+ * `system-authority` records that a built-in authority tier decided the request, and
+ * `admission-gate` records that an admission gate would refuse the user. The schema is
+ * a closed `oneOf` over those three, so a further kind is a schema change that generated
+ * clients have to be rebuilt for.
  */
 export type DeterminingFactor = ({
     type: 'policy';
 } & DeterminingFactorPolicy) | ({
     type: 'system-authority';
-} & DeterminingFactorSystemAuthority);
+} & DeterminingFactorSystemAuthority) | ({
+    type: 'admission-gate';
+} & DeterminingFactorAdmissionGate);
+
+/**
+ * The user would be refused at admission by this gate, so the request is
+ * denied whatever the policies say.
+ */
+export type DeterminingFactorAdmissionGate = {
+    /**
+     * The gate's check that refused the user. Absent when the gate names
+     * none.
+     */
+    check?: string | null;
+    /**
+     * Name of the admission gate that would refuse the user.
+     */
+    gate: string;
+    type: 'admission-gate';
+};
 
 /**
  * A policy that determined the decision, surfaced by a policy-based
@@ -608,8 +629,8 @@ export type DeterminingFactorPolicy = {
      */
     name?: string | null;
     /**
-     * Stable, authorizer-assigned identifier of the policy (e.g. the Cedar
-     * `PolicyId`). Always present.
+     * Stable, authorizer-assigned identifier of the policy, such as a Cedar policy
+     * id. Always present.
      */
     'policy-id': string;
     /**
@@ -1403,6 +1424,16 @@ export type LakekeeperGenericTableActionControlTasks = {
 
 export type LakekeeperGenericTableActionDrop = {
     action: 'drop';
+    /**
+     * Whether the warehouse-configured soft-deletion is bypassed: the generic table is
+     * hard-deleted at once, not kept for the configured grace period. Extra destructive —
+     * irreversible right away.
+     */
+    force?: boolean;
+    /**
+     * Whether the underlying data files are physically purged from storage.
+     */
+    purge?: boolean;
 };
 
 export type LakekeeperGenericTableActionGetMetadata = {
@@ -1417,6 +1448,9 @@ export type LakekeeperGenericTableActionIncludeInList = {
     action: 'include_in_list';
 };
 
+/**
+ * Attach/detach governance tags on this generic table.
+ */
 export type LakekeeperGenericTableActionManageTags = {
     action: 'manage_tags';
 };
@@ -1425,6 +1459,9 @@ export type LakekeeperGenericTableActionReadData = {
     action: 'read_data';
 };
 
+/**
+ * Can list the grants held on this generic table.
+ */
 export type LakekeeperGenericTableActionReadGrants = {
     action: 'read_grants';
 };
@@ -1490,7 +1527,7 @@ export type LakekeeperNamespaceAction = ({
 /**
  * Accept a namespace being moved in from elsewhere as a child of this entity.
  *
- * Distinct from `CreateNamespace`: creating adds an *empty* child, so exposing it to
+ * Distinct from `create_namespace`: creating adds an *empty* child, so exposing it to
  * this subtree's grantees exposes nothing. A move arrives carrying existing contents
  * and their direct grants, which is why this is gated on grant authority in addition to
  * `create` — without it, a namespace could be populated and granted somewhere
@@ -1570,9 +1607,8 @@ export type LakekeeperNamespaceActionCreateView = {
 export type LakekeeperNamespaceActionDelete = {
     action: 'delete';
     /**
-     * Whether the warehouse-configured soft-deletion is bypassed, i.e.
-     * contained tabulars are hard-deleted immediately instead of being
-     * recoverable for the configured grace period.
+     * Whether the warehouse-configured soft-deletion is bypassed: contained tabulars are
+     * hard-deleted at once, not kept for the configured grace period.
      */
     force?: boolean;
     /**
@@ -1778,7 +1814,7 @@ export type LakekeeperNamespaceActionReadGrants = {
 /**
  * Can list and read every grant in the subtree rooted here: the namespace's own and
  * those on every descendant namespace and tabular. Strictly stronger than
- * `ReadGrants`, which covers this one resource; granted separately because it
+ * `read_grants`, which covers this one resource; granted separately because it
  * enumerates the subtree.
  *
  * `scope` states what the listing covers — the resource kinds it reaches, how far its
@@ -1801,7 +1837,7 @@ export type LakekeeperNamespaceActionReadSubtreeGrants = {
  * the whole batch. An authorizer must answer it as authority over everything
  * beneath — or refuse the subtree routes.
  *
- * `scope` states what the revoke covers, on the same terms as `ReadSubtreeGrants`.
+ * `scope` states what the revoke covers, on the same terms as `read_subtree_grants`.
  */
 export type LakekeeperNamespaceActionRevokeSubtreeGrants = {
     action: 'revoke_subtree_grants';
@@ -1854,7 +1890,9 @@ export type LakekeeperProjectAction = ({
     action: 'list_tags';
 } & LakekeeperProjectActionListTags) | ({
     action: 'read_grants';
-} & LakekeeperProjectActionReadGrants);
+} & LakekeeperProjectActionReadGrants) | ({
+    action: 'read_subtree_grants';
+} & LakekeeperProjectActionReadSubtreeGrants);
 
 export type LakekeeperProjectActionControlProjectTasks = {
     action: 'control_project_tasks';
@@ -1946,7 +1984,9 @@ export type LakekeeperProjectActionKind = ({
     action: 'list_tags';
 } & LakekeeperProjectActionKindListTags) | ({
     action: 'read_grants';
-} & LakekeeperProjectActionKindReadGrants);
+} & LakekeeperProjectActionKindReadGrants) | ({
+    action: 'read_subtree_grants';
+} & LakekeeperProjectActionKindReadSubtreeGrants);
 
 export type LakekeeperProjectActionKindControlProjectTasks = {
     action: 'control_project_tasks';
@@ -2008,6 +2048,10 @@ export type LakekeeperProjectActionKindReadGrants = {
     action: 'read_grants';
 };
 
+export type LakekeeperProjectActionKindReadSubtreeGrants = {
+    action: 'read_subtree_grants';
+};
+
 export type LakekeeperProjectActionKindRename = {
     action: 'rename';
 };
@@ -2040,6 +2084,22 @@ export type LakekeeperProjectActionModifyTaskQueueConfig = {
  */
 export type LakekeeperProjectActionReadGrants = {
     action: 'read_grants';
+};
+
+/**
+ * Can list every grant one principal holds anywhere in this project: on the project,
+ * its warehouses, namespaces, tables, views, generic tables and tag definitions.
+ * Covers more than `read_grants`, which covers the project's own grants. Not listed in
+ * project actions where the authorizer keeps its own grants (OpenFGA), because the
+ * listing is not available there.
+ *
+ * `scope` states what the listing covers, on the same terms as the warehouse's
+ * `read_subtree_grants`. Every enforced check carries it; an absent scope is the
+ * base-capability question permission introspection asks.
+ */
+export type LakekeeperProjectActionReadSubtreeGrants = {
+    action: 'read_subtree_grants';
+    scope?: null | SubtreeGrantScope;
 };
 
 export type LakekeeperProjectActionRename = {
@@ -2248,9 +2308,9 @@ export type LakekeeperTableActionControlTasks = {
 export type LakekeeperTableActionDrop = {
     action: 'drop';
     /**
-     * Whether the warehouse-configured soft-deletion is bypassed, i.e. the
-     * table is hard-deleted immediately instead of being recoverable for the
-     * configured grace period. Extra destructive — irreversible right away.
+     * Whether the warehouse-configured soft-deletion is bypassed: the table is hard-deleted at
+     * once, not kept for the configured grace period. Extra destructive — irreversible right
+     * away.
      */
     force?: boolean;
     /**
@@ -2496,9 +2556,9 @@ export type LakekeeperViewActionControlTasks = {
 export type LakekeeperViewActionDrop = {
     action: 'drop';
     /**
-     * Whether the warehouse-configured soft-deletion is bypassed, i.e. the
-     * view is hard-deleted immediately instead of being recoverable for the
-     * configured grace period. Extra destructive — irreversible right away.
+     * Whether the warehouse-configured soft-deletion is bypassed: the view is hard-deleted at
+     * once, not kept for the configured grace period. Extra destructive — irreversible right
+     * away.
      */
     force?: boolean;
     /**
@@ -2680,7 +2740,7 @@ export type LakekeeperWarehouseAction = ({
 /**
  * Accept a namespace being moved in from elsewhere as a child of this entity.
  *
- * Distinct from `CreateNamespace`: creating adds an *empty* child, so exposing it to
+ * Distinct from `create_namespace`: creating adds an *empty* child, so exposing it to
  * this subtree's grantees exposes nothing. A move arrives carrying existing contents
  * and their direct grants, which is why this is gated on grant authority in addition to
  * `create` — without it, a namespace could be populated and granted somewhere
@@ -2720,6 +2780,11 @@ export type LakekeeperWarehouseActionDeactivate = {
 
 export type LakekeeperWarehouseActionDelete = {
     action: 'delete';
+    /**
+     * Whether protection is bypassed, so a warehouse marked protected is deleted with
+     * everything in it.
+     */
+    force?: boolean;
 };
 
 export type LakekeeperWarehouseActionGetAllTasks = {
@@ -2940,7 +3005,7 @@ export type LakekeeperWarehouseActionReadGrants = {
 
 /**
  * Can list and read every grant in the warehouse: the warehouse's own and those on
- * every namespace and tabular inside it. Strictly stronger than `ReadGrants`, which
+ * every namespace and tabular inside it. Strictly stronger than `read_grants`, which
  * covers this one resource; granted separately because it enumerates the subtree.
  *
  * `scope` states what the listing covers — the resource kinds it reaches, how far its
@@ -2967,7 +3032,7 @@ export type LakekeeperWarehouseActionRename = {
  * batch. An authorizer must answer it as authority over everything beneath — or
  * refuse the subtree routes.
  *
- * `scope` states what the revoke covers, on the same terms as `ReadSubtreeGrants`.
+ * `scope` states what the revoke covers, on the same terms as `read_subtree_grants`.
  */
 export type LakekeeperWarehouseActionRevokeSubtreeGrants = {
     action: 'revoke_subtree_grants';
@@ -3640,14 +3705,8 @@ export type ResourceGrantablePrivilegesResponse = {
  * The kinds of resource a grant can be held on.
  *
  * Every value is also the URL segment that addresses that kind of resource, so a
- * client can build request paths straight from a vocabulary response. Kept link-free:
- * this doc comment is published verbatim in the `OpenAPI` description, where an
- * intra-doc link would render as a raw Rust module path.
- *
- * This is the vocabulary the API speaks. A store is free to persist a coarser one —
- * tables, views and generic tables are one kind to a catalog that already records
- * which of the three an id refers to — so this deliberately carries no storage
- * mapping.
+ * client can build request paths straight from a vocabulary response. The audit log
+ * spells these kinds the same way.
  */
 export type ResourceType = 'server' | 'project' | 'warehouse' | 'namespace' | 'table' | 'view' | 'generic-table' | 'tag-definition';
 
@@ -7192,8 +7251,8 @@ export type GetProjectGrantablePrivilegesData = {
     query?: {
         /**
          * Report which privileges this user may administer, instead of the caller. Requires
-         * authority to read the resource's grants, since it discloses another principal's
-         * access. Mutually exclusive with `principalRole`.
+         * permission to check what others may do on the resource
+         * (`403 CannotInspectPermissions` otherwise). Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
@@ -8144,8 +8203,8 @@ export type GetServerGrantablePrivilegesData = {
     query?: {
         /**
          * Report which privileges this user may administer, instead of the caller. Requires
-         * authority to read the resource's grants, since it discloses another principal's
-         * access. Mutually exclusive with `principalRole`.
+         * permission to check what others may do on the resource
+         * (`403 CannotInspectPermissions` otherwise). Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
@@ -8542,8 +8601,8 @@ export type GetTagGrantablePrivilegesData = {
     query?: {
         /**
          * Report which privileges this user may administer, instead of the caller. Requires
-         * authority to read the resource's grants, since it discloses another principal's
-         * access. Mutually exclusive with `principalRole`.
+         * permission to check what others may do on the resource
+         * (`403 CannotInspectPermissions` otherwise). Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
@@ -9283,8 +9342,8 @@ export type GetGenericTableGrantablePrivilegesData = {
     query?: {
         /**
          * Report which privileges this user may administer, instead of the caller. Requires
-         * authority to read the resource's grants, since it discloses another principal's
-         * access. Mutually exclusive with `principalRole`.
+         * permission to check what others may do on the resource
+         * (`403 CannotInspectPermissions` otherwise). Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
@@ -9589,8 +9648,8 @@ export type GetWarehouseGrantablePrivilegesData = {
     query?: {
         /**
          * Report which privileges this user may administer, instead of the caller. Requires
-         * authority to read the resource's grants, since it discloses another principal's
-         * access. Mutually exclusive with `principalRole`.
+         * permission to check what others may do on the resource
+         * (`403 CannotInspectPermissions` otherwise). Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
@@ -9912,8 +9971,8 @@ export type GetNamespaceGrantablePrivilegesData = {
     query?: {
         /**
          * Report which privileges this user may administer, instead of the caller. Requires
-         * authority to read the resource's grants, since it discloses another principal's
-         * access. Mutually exclusive with `principalRole`.
+         * permission to check what others may do on the resource
+         * (`403 CannotInspectPermissions` otherwise). Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
@@ -10819,8 +10878,8 @@ export type GetTableGrantablePrivilegesData = {
     query?: {
         /**
          * Report which privileges this user may administer, instead of the caller. Requires
-         * authority to read the resource's grants, since it discloses another principal's
-         * access. Mutually exclusive with `principalRole`.
+         * permission to check what others may do on the resource
+         * (`403 CannotInspectPermissions` otherwise). Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**
@@ -11444,8 +11503,8 @@ export type GetViewGrantablePrivilegesData = {
     query?: {
         /**
          * Report which privileges this user may administer, instead of the caller. Requires
-         * authority to read the resource's grants, since it discloses another principal's
-         * access. Mutually exclusive with `principalRole`.
+         * permission to check what others may do on the resource
+         * (`403 CannotInspectPermissions` otherwise). Mutually exclusive with `principalRole`.
          */
         principalUser?: string | null;
         /**

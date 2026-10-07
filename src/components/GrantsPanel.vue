@@ -97,6 +97,7 @@ import { GrantsNoticeKey } from '../common/grantsNotice';
 import { GrantsSubtreeKey, type SubtreeGrantSource } from '../common/grantsSubtree';
 import {
   useGrants,
+  grantErrorMessage,
   principalKey,
   resourceIcon,
   resourceKey,
@@ -246,7 +247,7 @@ async function openGrant() {
   } catch (e: any) {
     // Open anyway, saying so: granting to someone new does not depend on this,
     // and refusing to open would be a worse answer than a warning.
-    saveError.value = e?.error?.message || e?.message || 'Could not read the current grants';
+    saveError.value = grantErrorMessage(e, 'Could not read the current grants');
   } finally {
     preparing.value = false;
     assignOpen.value = true;
@@ -289,7 +290,7 @@ async function applyAssignment(payload: { principal: GrantPrincipalRow; privileg
     await reviewRef.value?.reload();
     emit('saved');
   } catch (e: any) {
-    saveError.value = e?.error?.message || e?.message || 'Failed to apply grants';
+    saveError.value = grantErrorMessage(e, 'Failed to apply grants');
   } finally {
     saving.value = false;
   }

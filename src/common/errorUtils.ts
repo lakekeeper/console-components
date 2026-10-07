@@ -48,6 +48,32 @@ export function isNotFoundError(error: any): boolean {
 }
 
 /**
+ * True when the authorizer failed on its own side while deciding (500
+ * `AuthorizationInternalError`). Retrying yields the same answer, and nothing
+ * about it says the caller lacks a permission.
+ */
+export function isAuthorizationInternalError(error: any): boolean {
+  return error?.error?.type === 'AuthorizationInternalError';
+}
+
+/**
+ * What to say for an `AuthorizationInternalError`. The server's own text,
+ * "Authorization failed due to an internal error", reads like a denial.
+ */
+export const AUTHORIZATION_INTERNAL_ERROR_MESSAGE =
+  'The authorizer failed while checking this request. This is a server-side error, not a missing permission; the server log has the details.';
+
+/**
+ * The message to show for a failed request: the server's own, except where it
+ * would mislead, and then the caller's fallback.
+ */
+export function errorMessage(error: any, fallback = ''): string {
+  if (isAuthorizationInternalError(error)) return AUTHORIZATION_INTERNAL_ERROR_MESSAGE;
+  if (typeof error === 'string') return error || fallback;
+  return error?.error?.message || error?.message || fallback;
+}
+
+/**
  * Log an error with appropriate severity based on the HTTP status code.
  * - 4xx errors are expected client errors (permissions, not found, etc.) → silent
  * - 5xx and unknown errors are unexpected server issues → console.error

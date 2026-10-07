@@ -10,6 +10,9 @@ export const useUserStore = defineStore(
     // Whether the authenticated principal is a Lakekeeper instance admin
     // (whoami.is-instance-admin). Drives managed-by controls (lakekeeper#1828).
     const isInstanceAdmin = ref(false);
+    // The caller's own principal id (whoami.id). Null until whoAmI answers, and
+    // with authentication disabled, where there is no principal.
+    const principalId = ref<string | null>(null);
 
     const user: User = reactive({
       access_token: '',
@@ -44,6 +47,7 @@ export const useUserStore = defineStore(
     function unsetUser() {
       isAuthenticated.value = false;
       isInstanceAdmin.value = false;
+      principalId.value = null;
       user.access_token = '';
       user.id_token = '';
       user.refresh_token = '';
@@ -58,7 +62,16 @@ export const useUserStore = defineStore(
       user.access_token = accessToken;
     }
 
-    return { isAuthenticated, isInstanceAdmin, user, unsetUser, setUser, getUser, renewAT };
+    return {
+      isAuthenticated,
+      isInstanceAdmin,
+      principalId,
+      user,
+      unsetUser,
+      setUser,
+      getUser,
+      renewAT,
+    };
   },
   {
     persistedState: {

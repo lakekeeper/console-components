@@ -1,8 +1,9 @@
-import { computed, effectScope, ref, watch } from 'vue';
+import { computed, effectScope, ref, toValue, watch, type MaybeRefOrGetter } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useVisualStore } from '../stores/visual';
 import { useUserStore } from '../stores/user';
-import { getErrorCode } from '../common/errorUtils';
+import { errorMessage, getErrorCode } from '../common/errorUtils';
+import { useProjectPermissions } from './useCatalogPermissions';
 import type {
   GrantListOptions,
   GrantPrincipalFilter,
@@ -194,6 +195,46 @@ export function supportsPrincipalGrantListing(authzBackend: string | undefined |
 }
 
 /**
+ * Authorizers that keep grants in their own store (OpenFGA).
+ *
+ * Everywhere else grants live in the catalog, which decides two things the
+ * console has to follow: server privileges go to users only (a write naming a
+ * role is refused with `400 ServerGrantToRole`), and the subtree and
+ * project-wide grant listings exist. An authorizer with its own store accepts
+ * roles on the server and answers those listings with 501.
+ */
+export const OWN_GRANT_STORE_AUTHZ_BACKENDS = ['openfga'];
+
+/** Whether this server's authorizer keeps its own grants. */
+export function keepsOwnGrants(authzBackend: string | undefined | null): boolean {
+  return !!authzBackend && OWN_GRANT_STORE_AUTHZ_BACKENDS.includes(authzBackend.toLowerCase());
+}
+
+/**
+ * Whether a server grant may name a role. Unknown reads as no: a users-only
+ * offer is never refused.
+ */
+export function allowsServerGrantToRole(authzBackend: string | undefined | null): boolean {
+  return keepsOwnGrants(authzBackend);
+}
+
+/**
+ * Catalog actions that gate the subtree and project-wide grant listings. The
+ * server leaves them out of its action lists where the authorizer keeps its own
+ * grants, because the operations behind them answer 501 there.
+ */
+export const SUBTREE_GRANT_ACTIONS = ['read_subtree_grants', 'revoke_subtree_grants'];
+
+/** The actions whose operations this server's authorizer can carry out. */
+export function answerableCatalogActions(
+  actions: string[],
+  authzBackend: string | undefined | null,
+): string[] {
+  if (!keepsOwnGrants(authzBackend)) return actions;
+  return actions.filter((a) => !SUBTREE_GRANT_ACTIONS.includes(a));
+}
+
+/**
  * Principal id -> display name, shared for the session.
  *
  * Grants carry ids; every view of them wants names. Resolving is one request
@@ -283,9 +324,44 @@ export function isMissingGrantPrincipal(error: any): boolean {
  * nothing is wrong with the request, the authorization service is simply down,
  * so the honest response is to say so and offer a retry rather than to render
  * an empty matrix that reads as "no one holds anything".
+ *
+ * Matched by type: the server answers 503 for other reasons too, such as
+ * read-only maintenance mode or a catalog database error, and those carry
+ * their own message.
  */
 export function isAuthorizationBackendUnavailable(error: any): boolean {
-  return getErrorCode(error) === 503 || error?.error?.type === 'AuthorizationBackendError';
+  return error?.error?.type === 'AuthorizationBackendError';
+}
+
+/** What to say when the catalog cannot reach its authorizer. */
+export const AUTHORIZER_UNREACHABLE_MESSAGE =
+  'The catalog could not reach its authorizer. This is a server-side outage, not a permissions problem.';
+
+/** The users-only rule for server grants, as the grant dialog states it. */
+export const SERVER_GRANTS_USERS_ONLY =
+  'Server privileges go to users only. Grant roles privileges on a project or below.';
+
+/**
+ * A failed grant request, in words that say which kind of failure it is.
+ *
+ * The server's message is used as it stands where it already reads well. The
+ * answers below get their own wording: one names a rule of the target, one a
+ * user who has to sign in first, one a refusal to look at someone else's
+ * access, and two are server-side failures that must not read as a missing
+ * permission.
+ */
+export function grantErrorMessage(error: any, fallback: string): string {
+  const message = errorMessage(error);
+  switch (error?.error?.type) {
+    case 'ServerGrantToRole':
+      return `${SERVER_GRANTS_USERS_ONLY} To give a role's members server privileges, grant them to each member.`;
+    case 'GrantUserNotFound':
+      return `${message ? `${message}. ` : ''}Ask them to sign in to the console once, or to connect with a catalog client; then grant again.`;
+    case 'CannotInspectPermissions':
+      return 'You are not allowed to check what other users or roles may do here.';
+  }
+  if (isAuthorizationBackendUnavailable(error)) return AUTHORIZER_UNREACHABLE_MESSAGE;
+  return message || fallback;
 }
 
 /** Stable identity for a principal, matching the `UserOrRole` union. */
@@ -482,6 +558,36 @@ export function useGrantPrincipalListingSupported() {
       supported.value === true &&
       supportsPrincipalGrantListing(visual.getServerInfo()?.['authz-backend']),
   );
+}
+
+/**
+ * Whether the caller may list everything one principal holds in a project.
+ *
+ * Your own grants need the project's `get_metadata`; anyone else's need
+ * `read_subtree_grants`, since the answer spans every resource in the project.
+ * `canList` is true only once the project's rights have answered, so a gate on
+ * it never flashes a control on and then off.
+ */
+export function usePrincipalGrantsAccess(projectId?: MaybeRefOrGetter<string | undefined>) {
+  const visual = useVisualStore();
+  const userStore = useUserStore();
+  const target = computed(() => toValue(projectId) || visual.projectSelected['project-id'] || '');
+  const perms = useProjectPermissions(target);
+
+  function isSelf(principalType: 'user' | 'role', principalId: string) {
+    return (
+      principalType === 'user' && !!userStore.principalId && userStore.principalId === principalId
+    );
+  }
+
+  function canList(principalType: 'user' | 'role', principalId: string): boolean {
+    if (!perms.answered.value) return false;
+    return perms.hasPermission(
+      isSelf(principalType, principalId) ? 'get_metadata' : 'read_subtree_grants',
+    );
+  }
+
+  return { answered: perms.answered, canList, isSelf };
 }
 
 /**
@@ -721,23 +827,26 @@ export function useGrants() {
       ...(deletes.length ? { deletes } : {}),
     };
 
+    // Silent: every caller reports the failure where the change was made, in
+    // words from `grantErrorMessage`, so a snackbar would repeat it raw.
+    const notify = false;
     switch (ref.type) {
       case 'server':
-        return functions.applyServerGrants(body, true);
+        return functions.applyServerGrants(body, notify);
       case 'project':
-        return functions.applyProjectGrants(body, ref.projectId, true);
+        return functions.applyProjectGrants(body, ref.projectId, notify);
       case 'warehouse':
-        return functions.applyWarehouseGrants(ref.warehouseId, body, true);
+        return functions.applyWarehouseGrants(ref.warehouseId, body, notify);
       case 'namespace':
-        return functions.applyNamespaceGrants(ref.warehouseId, ref.namespaceId, body, true);
+        return functions.applyNamespaceGrants(ref.warehouseId, ref.namespaceId, body, notify);
       case 'table':
-        return functions.applyTableGrants(ref.warehouseId, ref.tableId, body, true);
+        return functions.applyTableGrants(ref.warehouseId, ref.tableId, body, notify);
       case 'view':
-        return functions.applyViewGrants(ref.warehouseId, ref.viewId, body, true);
+        return functions.applyViewGrants(ref.warehouseId, ref.viewId, body, notify);
       case 'generic-table':
-        return functions.applyGenericTableGrants(ref.warehouseId, ref.genericTableId, body, true);
+        return functions.applyGenericTableGrants(ref.warehouseId, ref.genericTableId, body, notify);
       case 'tag-definition':
-        return functions.applyTagGrants(ref.tagDefinitionId, body, true);
+        return functions.applyTagGrants(ref.tagDefinitionId, body, notify);
     }
   }
 

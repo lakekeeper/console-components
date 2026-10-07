@@ -1,6 +1,7 @@
 <template>
   <div>
     <v-btn-toggle
+      v-if="!usersOnly"
       :model-value="type"
       mandatory
       density="compact"
@@ -72,6 +73,21 @@
         color="primary"></v-switch>
     </div>
 
+    <!-- Some projects could not be checked; the others are still offered. -->
+    <v-alert
+      v-if="type === 'role' && roleCheckError && !loadingProjects && !roleCheckBlocked"
+      type="warning"
+      variant="tonal"
+      density="compact"
+      class="mb-3"
+      :text="roleCheckError">
+      <template #append>
+        <v-btn size="small" variant="text" prepend-icon="mdi-refresh" @click="loadProjects">
+          Retry
+        </v-btn>
+      </template>
+    </v-alert>
+
     <!-- Nowhere to search: said in place of a search that can only be refused. -->
     <v-alert
       v-if="roleSearchRefused"
@@ -80,6 +96,21 @@
       density="compact"
       icon="mdi-lock-outline"
       text="You are not allowed to search roles here."></v-alert>
+
+    <!-- The check failed and left nowhere to search: said in place of the
+         search, which could only come back empty. Not a refusal, so it says
+         what went wrong and offers to ask again. -->
+    <div v-else-if="roleCheckBlocked">
+      <v-alert
+        type="warning"
+        variant="tonal"
+        density="compact"
+        class="mb-2"
+        :text="roleCheckError"></v-alert>
+      <v-btn size="small" variant="outlined" prepend-icon="mdi-refresh" @click="loadProjects">
+        Retry
+      </v-btn>
+    </div>
 
     <v-autocomplete
       v-else-if="!byId"
@@ -167,6 +198,11 @@ const props = defineProps<{
    * others would just be a slower way to reach a server-side rejection.
    */
   lockProjectId?: string;
+  /**
+   * Offers users only, for a target that refuses roles. The host says why next
+   * to the search.
+   */
+  usersOnly?: boolean;
 }>();
 const emit = defineEmits<{
   (e: 'update:modelValue', v: SelectedPrincipal | null): void;
@@ -193,11 +229,23 @@ const selectedProject = ref<string | null>(null);
 const projectListError = ref('');
 // Whether the projects have been checked and none of them allow role search.
 const projectsChecked = ref(false);
+// Set when a project could not be checked for role search at all, so a failure
+// does not read as a refusal.
+const roleCheckError = ref('');
 const roleSearchRefused = computed(
   () =>
     type.value === 'role' &&
     projectsChecked.value &&
     !loadingProjects.value &&
+    !selectedProject.value &&
+    !roleCheckError.value,
+);
+// A failed check left no project to search in.
+const roleCheckBlocked = computed(
+  () =>
+    type.value === 'role' &&
+    !loadingProjects.value &&
+    !!roleCheckError.value &&
     !selectedProject.value,
 );
 const currentProjectId = computed(() => visual.projectSelected['project-id'] || null);
@@ -219,20 +267,26 @@ const lockedProjectLabel = computed(() => {
   return 'the selected project';
 });
 
-/** Whether this project lets the caller search its roles (`search_roles`). */
-async function maySearchRoles(projectId: string): Promise<boolean> {
+/**
+ * Whether this project lets the caller search its roles (`search_roles`): yes,
+ * no, or the failure that kept the question from being answered. Only a 403 is
+ * a no; an authorizer or network failure says nothing about the caller's rights.
+ */
+async function maySearchRoles(projectId: string): Promise<boolean | { error: unknown }> {
   try {
     // notify=false: a project the reader may not search answers 403, and that
     // is the answer, not an error worth a snackbar.
     const actions = await functions.getProjectCatalogActionsFor(projectId, false);
     return hasAction(actions, 'search_roles');
-  } catch {
-    return false;
+  } catch (e) {
+    return isForbiddenError(e) ? false : { error: e };
   }
 }
 
 async function loadProjects() {
-  if (projectsChecked.value || loadingProjects.value) return;
+  // A failed check is asked again (Retry, or the next switch to roles); an
+  // answer is kept.
+  if ((projectsChecked.value && !roleCheckError.value) || loadingProjects.value) return;
   loadingProjects.value = true;
   projectListError.value = '';
   try {
@@ -253,8 +307,17 @@ async function loadProjects() {
       }
     }
     // Only projects where the search can succeed are offered.
-    const allowed = await Promise.all(projects.map((p) => maySearchRoles(p['project-id'])));
-    const searchable = projects.filter((_, i) => allowed[i]);
+    const answers = await Promise.all(projects.map((p) => maySearchRoles(p['project-id'])));
+    const searchable = projects.filter((_, i) => answers[i] === true);
+    const failed = answers.find((a): a is { error: unknown } => typeof a === 'object');
+    roleCheckError.value = failed
+      ? tagRefusal(
+          failed.error,
+          props.lockProjectId
+            ? 'check whether you may search roles here'
+            : 'check whether you may search roles in every project',
+        )
+      : '';
     userProjects.splice(0, userProjects.length, ...searchable);
     const ids = new Set(searchable.map((p) => p['project-id']));
     if (props.lockProjectId) {
@@ -412,6 +475,14 @@ async function resolveById(id: string): Promise<SelectedPrincipal | null> {
   }
   return null;
 }
+
+// Turning `usersOnly` on drops an open role search.
+watch(
+  () => props.usersOnly,
+  (only) => {
+    if (only && type.value === 'role') onTypeChange('user');
+  },
+);
 
 watch(byId, () => {
   emit('update:modelValue', null);

@@ -1,7 +1,12 @@
 import { computed, reactive } from 'vue';
 import { useFunctions } from '../plugins/functions';
 import { useConfig } from './useCatalogPermissions';
-import { getErrorCode, isForbiddenError, isNotFoundError } from '../common/errorUtils';
+import {
+  errorMessage,
+  getErrorCode,
+  isForbiddenError,
+  isNotFoundError,
+} from '../common/errorUtils';
 import type { LakekeeperTagAction } from '../gen/management/types.gen';
 
 /**
@@ -82,7 +87,7 @@ export function useTagRights() {
 export function tagRefusal(error: any, what: string): string {
   if (isForbiddenError(error)) return `You are not allowed to ${what}.`;
   if (isNotFoundError(error)) return `Could not ${what}: it no longer exists.`;
-  const message = error?.error?.message ?? error?.message ?? '';
+  const message = errorMessage(error);
   const code = getErrorCode(error);
   return `Could not ${what}${message ? `: ${message}` : code ? ` (${code})` : ''}.`;
 }

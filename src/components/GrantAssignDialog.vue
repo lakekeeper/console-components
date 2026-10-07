@@ -38,7 +38,16 @@
           <!-- Grants can only name principals in the resource's own project, so
                the search is pinned there rather than letting a doomed pick
                through to a server-side rejection. -->
-          <PrincipalSearch v-model="picked" :lock-project-id="projectId"></PrincipalSearch>
+          <PrincipalSearch
+            v-model="picked"
+            :lock-project-id="projectId"
+            :users-only="usersOnly"></PrincipalSearch>
+          <div
+            v-if="usersOnly"
+            class="text-caption text-medium-emphasis mt-2 d-flex align-center ga-1">
+            <v-icon size="14">mdi-information-outline</v-icon>
+            {{ SERVER_GRANTS_USERS_ONLY }}
+          </div>
           <div
             v-if="alreadyListed"
             class="text-caption text-medium-emphasis mt-2 d-flex align-center ga-1">
@@ -49,7 +58,7 @@
         </template>
 
         <div v-if="!targetPrincipal" class="text-body-2 text-medium-emphasis py-4">
-          Search for a user or role to grant privileges to.
+          Search for a {{ usersOnly ? 'user' : 'user or role' }} to grant privileges to.
         </div>
 
         <template v-else>
@@ -146,7 +155,13 @@
 
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue';
-import { groupPrivileges, resourceLabel } from '../composables/useGrants';
+import {
+  allowsServerGrantToRole,
+  groupPrivileges,
+  resourceLabel,
+  SERVER_GRANTS_USERS_ONLY,
+} from '../composables/useGrants';
+import { useVisualStore } from '../stores/visual';
 import PrincipalSearch, { type SelectedPrincipal } from './PrincipalSearch.vue';
 import type { GrantablePrivilege, ResourceType } from '../gen/management/types.gen';
 
@@ -186,7 +201,20 @@ const emit = defineEmits<{
   (e: 'apply', v: { principal: GrantPrincipalRow; privileges: string[] }): void;
 }>();
 
+const visual = useVisualStore();
+
 const picked = ref<SelectedPrincipal | null>(null);
+
+/**
+ * Server grants go to users wherever grants are stored in the catalog, and a
+ * role is refused with `400 ServerGrantToRole`; only an authorizer with its own
+ * grant store accepts one. Below the server every authorizer takes both.
+ */
+const usersOnly = computed(
+  () =>
+    props.resourceType === 'server' &&
+    !allowsServerGrantToRole(visual.getServerInfo()?.['authz-backend']),
+);
 const selected = ref<string[]>([]);
 
 const isEdit = computed(() => !!props.principal);

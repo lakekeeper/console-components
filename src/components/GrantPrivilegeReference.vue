@@ -126,7 +126,15 @@
                         activator="parent"
                         location="right"
                         max-width="420">
-                        {{ row.description }}
+                        <!-- Worded per level by the authorizer: each wording
+                             names the levels it applies to. -->
+                        <template v-if="row.perLevel.length">
+                          <div v-for="g in row.perLevel" :key="g.types.join()" class="mb-1">
+                            <strong>{{ levelGroupHeading(g, row.displayName) }}:</strong>
+                            {{ g.description }}
+                          </div>
+                        </template>
+                        <template v-else>{{ row.description }}</template>
                       </v-tooltip>
                     </th>
                     <!-- With a level selected, the other columns fade back: the
@@ -170,12 +178,19 @@ import { helix } from 'ldrs';
 import {
   useGrants,
   derivePrivilegeCategory,
+  grantErrorMessage,
   privilegeCategoryRank,
   resourceIcon,
   resourceLabel,
   RESOURCE_TYPE_ORDER,
 } from '../composables/useGrants';
 import type { PrivilegeDescriptor } from '../gen/management/types.gen';
+import {
+  privilegeRowText,
+  type PrivilegeLevel,
+  type PrivilegeLevelGroup,
+  type PrivilegeRowText,
+} from '../common/privilegeLevels';
 
 // Registers the <l-helix> custom element. Idempotent.
 helix.register();
@@ -206,53 +221,65 @@ const types = computed(() => {
   return [...known, ...extra];
 });
 
-interface Row {
+interface Row extends PrivilegeRowText {
   name: string;
-  displayName: string;
-  description: string | null;
   category: string;
   types: Set<string>;
+  /** Each publishing level's own wording, in column order. */
+  levels: PrivilegeLevel[];
 }
 
 /**
  * One row per distinct privilege name, carrying the set of levels that publish
- * it. The same name can appear under several types; the first descriptor wins
- * for the label and description, which is what makes the matrix readable.
+ * it. An authorizer may word a privilege differently per level, so the row
+ * shows the selected level's wording, or with no level selected the first
+ * level's label and a per-level breakdown of the descriptions.
  */
 const rowGroups = computed(() => {
-  const byName = new Map<string, Row>();
+  const byName = new Map<string, Omit<Row, keyof PrivilegeRowText>>();
   for (const type of types.value) {
     for (const p of vocab.value[type] ?? []) {
       let row = byName.get(p.name);
       if (!row) {
         row = {
           name: p.name,
-          displayName: p['display-name'] || p.name,
-          description: p.description ?? null,
           // The authorizer's own grouping wins; a CRUD bucket is inferred only
           // where it publishes none, so the matrix does not degenerate into one
           // undifferentiated block.
           category: p.category ?? derivePrivilegeCategory(p.name),
           types: new Set<string>(),
+          levels: [],
         };
         byName.set(p.name, row);
       }
-      // A later level may carry a description where an earlier one had none.
-      if (!row.description && p.description) row.description = p.description;
       row.types.add(type);
+      row.levels.push({
+        type,
+        displayName: p['display-name'] || p.name,
+        description: p.description ?? null,
+      });
     }
   }
 
   const q = filterText.value?.toLowerCase().trim();
-  const rows = [...byName.values()].filter((r) => {
-    if (typeFilter.value && !r.types.has(typeFilter.value)) return false;
-    if (!q) return true;
-    return (
-      r.name.toLowerCase().includes(q) ||
-      r.displayName.toLowerCase().includes(q) ||
-      (r.description ?? '').toLowerCase().includes(q)
-    );
-  });
+  const rows: Row[] = [...byName.values()]
+    .filter((r) => {
+      if (typeFilter.value && !r.types.has(typeFilter.value)) return false;
+      if (!q) return true;
+      return (
+        r.name.toLowerCase().includes(q) ||
+        // With a level selected, the row shows that level's wording, so only
+        // that wording may match.
+        r.levels
+          .filter((l) => !typeFilter.value || l.type === typeFilter.value)
+          .some(
+            (l) =>
+              l.displayName.toLowerCase().includes(q) ||
+              (l.description ?? '').toLowerCase().includes(q),
+          )
+      );
+    })
+    .map((r) => ({ ...r, ...privilegeRowText(r.levels, typeFilter.value) }));
 
   const byCategory = new Map<string, Row[]>();
   for (const r of rows) {
@@ -272,6 +299,12 @@ const rowGroups = computed(() => {
     }));
 });
 
+/** The levels one wording applies to, with its label where it differs from the row's. */
+function levelGroupHeading(group: PrivilegeLevelGroup, shownName: string): string {
+  const levels = group.types.map((t) => resourceLabel(t)).join(', ');
+  return group.displayName === shownName ? levels : `${levels} (${group.displayName})`;
+}
+
 /**
  * Whether any privilege carries a description. An authorizer that has written
  * none reports null rather than guessing, and pointing at a tooltip that will
@@ -288,7 +321,7 @@ async function load() {
     vocab.value = await grants.vocabulary();
     loaded.value = true;
   } catch (e: any) {
-    loadError.value = e?.error?.message || e?.message || 'Failed to load the privilege vocabulary';
+    loadError.value = grantErrorMessage(e, 'Failed to load the privilege vocabulary');
   } finally {
     loading.value = false;
   }
