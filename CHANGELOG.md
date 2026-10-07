@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.29.0](https://github.com/lakekeeper/console-components/compare/v0.28.0...v0.29.0) (2026-10-07)
+
+
+### Features
+
+* **ui:** follow Lakekeeper 0.14 grant changes ([6217c14](https://github.com/lakekeeper/console-components/commit/6217c14e85212cbcb547cc60e4ccb5a51daf02dd))
+* **ui:** list another principal's grants only with read_subtree_grants ([6217c14](https://github.com/lakekeeper/console-components/commit/6217c14e85212cbcb547cc60e4ccb5a51daf02dd))
+
+
+### Bug Fixes
+
+* **ui:** address review findings on grant wording, empty state and role-check retry ([6217c14](https://github.com/lakekeeper/console-components/commit/6217c14e85212cbcb547cc60e4ccb5a51daf02dd))
+
 ## [0.28.0](https://github.com/lakekeeper/console-components/compare/v0.27.1...v0.28.0) (2026-10-05)
 
 
