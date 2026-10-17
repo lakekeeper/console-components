@@ -408,6 +408,12 @@
 </template>
 
 <script setup lang="ts">
+import {
+  histogramBoundary,
+  numericHistogramQuery,
+  numericProfileScale,
+  numericSummaryQuery,
+} from '@/composables/numericProfile';
 import { computed, inject, nextTick, reactive, ref, watch } from 'vue';
 import * as d3 from 'd3';
 import VueJsonPretty from 'vue-json-pretty';
@@ -646,15 +652,15 @@ function newSvgGroup(el: HTMLElement, height: number, margin: any) {
 // Numeric value-distribution histogram.
 function renderHistogram(el: HTMLElement, h: NonNullable<ProfileData['histogram']>) {
   const { g, cw, ch } = newSvgGroup(el, 260, { top: 16, right: 18, bottom: 40, left: 56 });
-  const binWidth = (h.max - h.min) / h.bins.length;
-  const x = d3.scaleLinear().domain([h.min, h.max]).range([0, cw]);
+  const boundary = (i: number) => histogramBoundary(h.min, h.max, i, h.bins.length);
+  const x = d3.scaleLinear().domain([0, h.bins.length]).range([0, cw]);
   const y = d3.scaleLinear().domain([0, h.peak]).nice().range([ch, 0]);
-  const bw = Math.max(1, x(h.min + binWidth) - x(h.min) - 2);
+  const bw = Math.max(1, x(1) - x(0) - 2);
 
   g.selectAll('rect')
     .data(h.bins)
     .join('rect')
-    .attr('x', (_d, i) => x(h.min + i * binWidth) + 1)
+    .attr('x', (_d, i) => x(i) + 1)
     .attr('width', bw)
     .attr('y', (d) => y(d))
     .attr('height', (d) => ch - y(d))
@@ -662,8 +668,7 @@ function renderHistogram(el: HTMLElement, h: NonNullable<ProfileData['histogram'
     .style('fill', 'rgb(var(--v-theme-secondary))')
     .append('title')
     .text(
-      (d, i) =>
-        `${fmtNum(h.min + i * binWidth)} – ${fmtNum(h.min + (i + 1) * binWidth)}: ${d.toLocaleString()} rows`,
+      (d, i) => `${fmtNum(boundary(i))} – ${fmtNum(boundary(i + 1))}: ${d.toLocaleString()} rows`,
     );
 
   g.append('g')
@@ -672,7 +677,7 @@ function renderHistogram(el: HTMLElement, h: NonNullable<ProfileData['histogram'
       d3
         .axisBottom(x)
         .ticks(6)
-        .tickFormat(d3.format('~s') as any),
+        .tickFormat((i) => d3.format('~s')(boundary(Number(i)))),
     )
     .call(colorAxis);
   g.append('g')
@@ -953,8 +958,6 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
       'max(c) AS max_v',
       ...(numeric
         ? [
-            'avg(c) AS mean_v',
-            'stddev_samp(c) AS stddev_v',
             'approx_quantile(c, 0.5) AS p50',
             'approx_quantile(c, 0.95) AS p95',
             'approx_quantile(c, 0.99) AS p99',
@@ -970,6 +973,17 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
     const total = Number(String(get('total') ?? 0).replace(/"/g, ''));
     const nonNull = Number(String(get('non_null') ?? 0).replace(/"/g, ''));
     const nullPct = total > 0 ? (((total - nonNull) / total) * 100).toFixed(1) : '0.0';
+    const minN = Number(String(get('min_v') ?? '').replace(/"/g, ''));
+    const maxN = Number(String(get('max_v') ?? '').replace(/"/g, ''));
+    let mean: unknown = null;
+    let std: unknown = null;
+    if (numeric && nonNull > 0 && Number.isFinite(minN) && Number.isFinite(maxN)) {
+      const summary = await loqe.query(
+        numericSummaryQuery(source, numericProfileScale(minN, maxN)),
+      );
+      mean = summary.rows[0]?.[summary.columns.indexOf('mean_v')];
+      std = summary.rows[0]?.[summary.columns.indexOf('stddev_v')];
+    }
 
     let topValues: { value: string; count: number }[] = [];
     if (!numeric) {
@@ -984,20 +998,13 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
       }));
     }
 
-    // Histogram for numeric columns — width_bucket over [min, max] on the same scan.
+    // Histogram for numeric columns, normalized before subtraction to avoid overflow.
     let histogram: Histogram | null = null;
     if (numeric) {
-      const minN = Number(String(get('min_v') ?? '').replace(/"/g, ''));
-      const maxN = Number(String(get('max_v') ?? '').replace(/"/g, ''));
       if (Number.isFinite(minN) && Number.isFinite(maxN) && maxN > minN) {
         const NB = 24;
-        const binWidth = (maxN - minN) / NB;
-        // width_bucket isn't in this DuckDB build — bin with floor() + clamp.
-        const hRes = await loqe.query(
-          `SELECT least(${NB - 1}, greatest(0, floor((c - ${minN}) / ${binWidth}))) AS b,
-                  count(*) AS cnt
-           FROM ${source} WHERE c IS NOT NULL GROUP BY b ORDER BY b`,
-        );
+        // Bin with floor() + clamp; width_bucket isn't in this DuckDB build.
+        const hRes = await loqe.query(numericHistogramQuery(source, minN, maxN, NB));
         const bIdx = hRes.columns.indexOf('b');
         const cIdx = hRes.columns.indexOf('cnt');
         const bins = new Array(NB).fill(0);
@@ -1017,8 +1024,8 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
       distinct: fmtNum(get('ndv')),
       min: fmtNum(get('min_v')),
       max: fmtNum(get('max_v')),
-      mean: numeric ? fmtNum(get('mean_v')) : null,
-      std: numeric ? fmtNum(get('stddev_v')) : null,
+      mean: numeric ? fmtNum(mean) : null,
+      std: numeric ? fmtNum(std) : null,
       p50: numeric ? fmtNum(get('p50')) : null,
       p95: numeric ? fmtNum(get('p95')) : null,
       p99: numeric ? fmtNum(get('p99')) : null,
