@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.30.0](https://github.com/lakekeeper/console-components/compare/v0.29.0...v0.30.0) (2026-11-02)
+
+
+### Features
+
+* **ui:** add an STS session-policy principal switch for S3 ([6266d92](https://github.com/lakekeeper/console-components/commit/6266d925aaf2bcc8265608733e315e1858cd4d7a))
+* **ui:** move a table, view or generic table to another namespace ([6266d92](https://github.com/lakekeeper/console-components/commit/6266d925aaf2bcc8265608733e315e1858cd4d7a))
+* **ui:** regenerate the management client for Lakekeeper 0.15 ([6266d92](https://github.com/lakekeeper/console-components/commit/6266d925aaf2bcc8265608733e315e1858cd4d7a))
+
+
+### Bug Fixes
+
+* **ui:** offer namespace delete and move when authentication is disabled ([6266d92](https://github.com/lakekeeper/console-components/commit/6266d925aaf2bcc8265608733e315e1858cd4d7a))
+* **ui:** send the renamed stackit-access-key credential type ([6266d92](https://github.com/lakekeeper/console-components/commit/6266d925aaf2bcc8265608733e315e1858cd4d7a))
+
 ## [0.29.0](https://github.com/lakekeeper/console-components/compare/v0.28.0...v0.29.0) (2026-10-07)
 
 
