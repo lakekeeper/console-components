@@ -3507,6 +3507,73 @@ async function renameTable(
   }
 }
 
+// Moving a tabular is the same Iceberg call as renaming it, with a different
+// destination namespace — but a different authorization: `move` on the tabular
+// and `accept_moved_tabular` on the destination, where a rename asks neither.
+// Separate wrappers rather than a destination argument on `renameTable`, so the
+// in-place rename every list row uses keeps its signature.
+async function moveTable(
+  warehouseId: string,
+  namespacePath: string,
+  tableName: string,
+  destinationNamespace: string[],
+  newName?: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    const client = iceClient.client;
+    const source = normalizeNamespacePath(namespacePath).split('\x1F');
+    const { error } = await ice.renameTable({
+      client,
+      path: { prefix: warehouseId },
+      body: {
+        source: { namespace: source, name: tableName },
+        destination: { namespace: destinationNamespace, name: newName || tableName },
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('moveTable', `Table moved to '${destinationNamespace.join('.')}'`, notify);
+    }
+    return true;
+  } catch (error: any) {
+    handleError(error, 'moveTable', notify);
+    throw error;
+  }
+}
+
+async function moveView(
+  warehouseId: string,
+  namespacePath: string,
+  viewName: string,
+  destinationNamespace: string[],
+  newName?: string,
+  notify?: boolean,
+): Promise<boolean> {
+  try {
+    const client = iceClient.client;
+    const source = normalizeNamespacePath(namespacePath).split('\x1F');
+    const { error } = await ice.renameView({
+      client,
+      path: { prefix: warehouseId },
+      body: {
+        source: { namespace: source, name: viewName },
+        destination: { namespace: destinationNamespace, name: newName || viewName },
+      },
+    });
+    if (error) throw error;
+
+    if (notify) {
+      handleSuccess('moveView', `View moved to '${destinationNamespace.join('.')}'`, notify);
+    }
+    return true;
+  } catch (error: any) {
+    handleError(error, 'moveView', notify);
+    throw error;
+  }
+}
+
 async function renameView(
   warehouseId: string,
   namespacePath: string,
@@ -7353,6 +7420,8 @@ export function useFunctions(config?: any) {
     dropTable,
     renameTable,
     renameView,
+    moveTable,
+    moveView,
     registerTable,
     createIcebergTable,
     listUser,
