@@ -348,6 +348,21 @@
                 Send legacy MD5 checksums, for older S3-compatible systems that require them.
               </div>
             </v-col>
+            <v-col v-if="profile['sts-enabled']" cols="12" md="6">
+              <v-switch
+                v-model="profile['sts-session-policy-principal']"
+                color="primary"
+                density="compact"
+                hide-details
+                label="Principal in STS session policy"></v-switch>
+              <div class="text-caption text-medium-emphasis mt-1">
+                Add
+                <code>"Principal": "*"</code>
+                to every statement of the session policy. Some S3-compatible STS implementations
+                reject a session policy without one; AWS and MinIO reject one that has it. Leave off
+                unless vending fails without it.
+              </div>
+            </v-col>
           </v-row>
 
           <v-select
@@ -539,6 +554,7 @@ function getData() {
       'sts-endpoint',
       'sts-token-validity-seconds',
       'sts-session-tags',
+      'sts-session-policy-principal',
       'aws-kms-key-arn',
     ])
       delete cleanProfile[k];

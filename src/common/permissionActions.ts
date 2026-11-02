@@ -115,6 +115,7 @@ const catalogNamespaceActions: LakekeeperNamespaceAction[] = [
   // capability, and it cannot be answered by a blanket list. The move menu entry
   // has its own authentication-disabled fallback.
   { action: 'accept_moved_namespace' },
+  { action: 'accept_moved_tabular' },
 ];
 
 const catalogTableActions: LakekeeperTableAction[] = [
@@ -124,6 +125,7 @@ const catalogTableActions: LakekeeperTableAction[] = [
   { action: 'get_metadata' },
   { action: 'commit' },
   { action: 'rename' },
+  { action: 'move' },
   { action: 'include_in_list' },
   { action: 'undrop' },
   { action: 'get_tasks' },
@@ -140,6 +142,7 @@ const catalogViewActions: LakekeeperViewAction[] = [
   { action: 'commit' },
   { action: 'include_in_list' },
   { action: 'rename' },
+  { action: 'move' },
   { action: 'undrop' },
   { action: 'get_tasks' },
   { action: 'control_tasks' },
@@ -154,6 +157,7 @@ const catalogGenericTableActions: LakekeeperGenericTableAction[] = [
   { action: 'write_data' },
   { action: 'get_metadata' },
   { action: 'rename' },
+  { action: 'move' },
   { action: 'include_in_list' },
   { action: 'undrop' },
   { action: 'get_tasks' },

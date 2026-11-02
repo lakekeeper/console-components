@@ -916,7 +916,7 @@ const warehouseObjectStackit = reactive<WarehousObject>({
   },
   'storage-credential': {
     type: 'stackit',
-    'credential-type': 'access-key',
+    'credential-type': 'stackit-access-key',
     'access-key-id': '',
     'secret-access-key': '',
   },

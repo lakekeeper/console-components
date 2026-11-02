@@ -118,16 +118,28 @@ export type ApplyGrantsRequest = {
     writes?: Array<GrantEntry>;
 };
 
-export type AzCredential = {
+export type AzCredential = ({
+    'credential-type': 'client-credentials';
+} & AzCredentialClientCredentials) | ({
+    'credential-type': 'shared-access-key';
+} & AzCredentialSharedAccessKey) | ({
+    'credential-type': 'azure-system-identity';
+} & AzCredentialManagedIdentity);
+
+export type AzCredentialClientCredentials = {
     'client-id': string;
     'client-secret': string;
     'credential-type': 'client-credentials';
     'tenant-id': string;
-} | {
+};
+
+export type AzCredentialManagedIdentity = {
+    'credential-type': 'azure-system-identity';
+};
+
+export type AzCredentialSharedAccessKey = {
     'credential-type': 'shared-access-key';
     key: string;
-} | {
-    'credential-type': 'azure-system-identity';
 };
 
 /**
@@ -377,7 +389,8 @@ export type ControlTaskActionRunNow = {
 };
 
 /**
- * Stop the task gracefully. The task will be retried.
+ * Stop the task gracefully. The task will be retried. An attempt that does not stop before
+ * its heartbeat times out counts as failed; after its last try, the task fails.
  */
 export type ControlTaskActionStop = {
     'action-type': 'stop';
@@ -848,10 +861,29 @@ export type ErrorModel = {
  * }
  * ```
  */
-export type GcsCredential = {
+export type GcsCredential = ({
+    'credential-type': 'service-account-key';
+} & GcsCredentialServiceAccountKey) | ({
+    'credential-type': 'gcp-system-identity';
+} & GcsCredentialSystemIdentity);
+
+/**
+ * Service Account Key
+ *
+ * The key is the JSON object obtained when creating a service account key in the GCP console.
+ */
+export type GcsCredentialServiceAccountKey = {
     'credential-type': 'service-account-key';
     key: GcsServiceKey;
-} | {
+};
+
+/**
+ * GCP System Identity
+ *
+ * Use the service account that the application is running as.
+ * This can be a Compute Engine default service account or a user-assigned service account.
+ */
+export type GcsCredentialSystemIdentity = {
     'credential-type': 'gcp-system-identity';
 };
 
@@ -892,7 +924,7 @@ export type GcsServiceKey = {
     universe_domain: string;
 };
 
-export type GenericTableAction = 'drop' | 'undrop' | 'write_data' | 'read_data' | 'get_metadata' | 'rename' | 'include_in_list' | 'get_tasks' | 'control_tasks' | 'set_protection' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+export type GenericTableAction = 'drop' | 'undrop' | 'write_data' | 'read_data' | 'get_metadata' | 'rename' | 'move' | 'include_in_list' | 'get_tasks' | 'control_tasks' | 'set_protection' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
 export type GenericTableAssignment = ({
     type: 'ownership';
@@ -1403,6 +1435,8 @@ export type LakekeeperGenericTableAction = ({
 } & LakekeeperGenericTableActionGetMetadata) | ({
     action: 'rename';
 } & LakekeeperGenericTableActionRename) | ({
+    action: 'move';
+} & LakekeeperGenericTableActionMove) | ({
     action: 'include_in_list';
 } & LakekeeperGenericTableActionIncludeInList) | ({
     action: 'undrop';
@@ -1453,6 +1487,22 @@ export type LakekeeperGenericTableActionIncludeInList = {
  */
 export type LakekeeperGenericTableActionManageTags = {
     action: 'manage_tags';
+};
+
+/**
+ * Rename this generic table into another namespace. Asked in addition to `rename` when a
+ * rename changes the namespace.
+ *
+ * The move changes which grants the generic table inherits, as moving a namespace does, so it
+ * is gated on grant authority in addition to write access. The destination is gated by
+ * the matching `create_*` action plus `accept_moved_tabular`.
+ */
+export type LakekeeperGenericTableActionMove = {
+    action: 'move';
+    /**
+     * Namespace the generic table is being moved to.
+     */
+    destination?: Array<string>;
 };
 
 export type LakekeeperGenericTableActionReadData = {
@@ -1517,6 +1567,8 @@ export type LakekeeperNamespaceAction = ({
 } & LakekeeperNamespaceActionMove) | ({
     action: 'accept_moved_namespace';
 } & LakekeeperNamespaceActionAcceptMovedNamespace) | ({
+    action: 'accept_moved_tabular';
+} & LakekeeperNamespaceActionAcceptMovedTabular) | ({
     action: 'read_grants';
 } & LakekeeperNamespaceActionReadGrants) | ({
     action: 'read_subtree_grants';
@@ -1529,15 +1581,27 @@ export type LakekeeperNamespaceAction = ({
  *
  * Distinct from `create_namespace`: creating adds an *empty* child, so exposing it to
  * this subtree's grantees exposes nothing. A move arrives carrying existing contents
- * and their direct grants, which is why this is gated on grant authority in addition to
- * `create` — without it, a namespace could be populated and granted somewhere
- * permissive and then moved into a `managed_access` subtree, smuggling grants past the
- * control that subtree exists to enforce.
+ * and their direct grants, so an authorizer may require grant authority here in
+ * addition to `create`. OpenFGA does when this entity is under managed access.
  */
 export type LakekeeperNamespaceActionAcceptMovedNamespace = {
     action: 'accept_moved_namespace';
     /**
      * Path the namespace is being moved from.
+     */
+    source?: Array<string>;
+};
+
+/**
+ * Accept a table, view or generic table being moved in from another namespace.
+ *
+ * The tabular counterpart of `accept_moved_namespace`, asked together with the matching
+ * `create_*` action: a moved tabular arrives carrying its direct grants.
+ */
+export type LakekeeperNamespaceActionAcceptMovedTabular = {
+    action: 'accept_moved_tabular';
+    /**
+     * Namespace the tabular is being moved from.
      */
     source?: Array<string>;
 };
@@ -1665,6 +1729,8 @@ export type LakekeeperNamespaceActionKind = ({
 } & LakekeeperNamespaceActionKindMove) | ({
     action: 'accept_moved_namespace';
 } & LakekeeperNamespaceActionKindAcceptMovedNamespace) | ({
+    action: 'accept_moved_tabular';
+} & LakekeeperNamespaceActionKindAcceptMovedTabular) | ({
     action: 'read_grants';
 } & LakekeeperNamespaceActionKindReadGrants) | ({
     action: 'read_subtree_grants';
@@ -1674,6 +1740,10 @@ export type LakekeeperNamespaceActionKind = ({
 
 export type LakekeeperNamespaceActionKindAcceptMovedNamespace = {
     action: 'accept_moved_namespace';
+};
+
+export type LakekeeperNamespaceActionKindAcceptMovedTabular = {
+    action: 'accept_moved_tabular';
 };
 
 export type LakekeeperNamespaceActionKindCreateGenericTable = {
@@ -2269,6 +2339,8 @@ export type LakekeeperTableAction = ({
 } & LakekeeperTableActionCommit) | ({
     action: 'rename';
 } & LakekeeperTableActionRename) | ({
+    action: 'move';
+} & LakekeeperTableActionMove) | ({
     action: 'include_in_list';
 } & LakekeeperTableActionIncludeInList) | ({
     action: 'undrop';
@@ -2344,6 +2416,8 @@ export type LakekeeperTableActionKind = ({
 } & LakekeeperTableActionKindCommit) | ({
     action: 'rename';
 } & LakekeeperTableActionKindRename) | ({
+    action: 'move';
+} & LakekeeperTableActionKindMove) | ({
     action: 'include_in_list';
 } & LakekeeperTableActionKindIncludeInList) | ({
     action: 'undrop';
@@ -2387,6 +2461,10 @@ export type LakekeeperTableActionKindManageTags = {
     action: 'manage_tags';
 };
 
+export type LakekeeperTableActionKindMove = {
+    action: 'move';
+};
+
 export type LakekeeperTableActionKindReadData = {
     action: 'read_data';
 };
@@ -2416,6 +2494,22 @@ export type LakekeeperTableActionKindWriteData = {
  */
 export type LakekeeperTableActionManageTags = {
     action: 'manage_tags';
+};
+
+/**
+ * Rename this table into another namespace. Asked in addition to `rename` when a
+ * rename changes the namespace.
+ *
+ * The move changes which grants the table inherits, as moving a namespace does, so it
+ * is gated on grant authority in addition to write access. The destination is gated by
+ * the matching `create_*` action plus `accept_moved_tabular`.
+ */
+export type LakekeeperTableActionMove = {
+    action: 'move';
+    /**
+     * Namespace the table is being moved to.
+     */
+    destination?: Array<string>;
 };
 
 export type LakekeeperTableActionReadData = {
@@ -2528,6 +2622,8 @@ export type LakekeeperViewAction = ({
 } & LakekeeperViewActionIncludeInList) | ({
     action: 'rename';
 } & LakekeeperViewActionRename) | ({
+    action: 'move';
+} & LakekeeperViewActionMove) | ({
     action: 'undrop';
 } & LakekeeperViewActionUndrop) | ({
     action: 'get_tasks';
@@ -2592,6 +2688,8 @@ export type LakekeeperViewActionKind = ({
 } & LakekeeperViewActionKindIncludeInList) | ({
     action: 'rename';
 } & LakekeeperViewActionKindRename) | ({
+    action: 'move';
+} & LakekeeperViewActionKindMove) | ({
     action: 'undrop';
 } & LakekeeperViewActionKindUndrop) | ({
     action: 'get_tasks';
@@ -2633,6 +2731,10 @@ export type LakekeeperViewActionKindManageTags = {
     action: 'manage_tags';
 };
 
+export type LakekeeperViewActionKindMove = {
+    action: 'move';
+};
+
 export type LakekeeperViewActionKindReadGrants = {
     action: 'read_grants';
 };
@@ -2658,6 +2760,22 @@ export type LakekeeperViewActionKindUndrop = {
  */
 export type LakekeeperViewActionManageTags = {
     action: 'manage_tags';
+};
+
+/**
+ * Rename this view into another namespace. Asked in addition to `rename` when a
+ * rename changes the namespace.
+ *
+ * The move changes which grants the view inherits, as moving a namespace does, so it
+ * is gated on grant authority in addition to write access. The destination is gated by
+ * the matching `create_*` action plus `accept_moved_tabular`.
+ */
+export type LakekeeperViewActionMove = {
+    action: 'move';
+    /**
+     * Namespace the view is being moved to.
+     */
+    destination?: Array<string>;
 };
 
 /**
@@ -2742,10 +2860,8 @@ export type LakekeeperWarehouseAction = ({
  *
  * Distinct from `create_namespace`: creating adds an *empty* child, so exposing it to
  * this subtree's grantees exposes nothing. A move arrives carrying existing contents
- * and their direct grants, which is why this is gated on grant authority in addition to
- * `create` — without it, a namespace could be populated and granted somewhere
- * permissive and then moved into a `managed_access` subtree, smuggling grants past the
- * control that subtree exists to enforce.
+ * and their direct grants, so an authorizer may require grant authority here in
+ * addition to `create`. OpenFGA does when this entity is under managed access.
  */
 export type LakekeeperWarehouseActionAcceptMovedNamespace = {
     action: 'accept_moved_namespace';
@@ -3153,6 +3269,11 @@ export type ListProjectTasksRequest = {
      */
     'page-token'?: string | null;
     /**
+     * Only list the tasks whose parent is this task. Older servers ignore it and list all tasks;
+     * a client that depends on it checks `parent-task-id` of each returned task.
+     */
+    'parent-task-id'?: string | null;
+    /**
      * Filter by one or more queue names
      */
     'queue-name'?: Array<string> | null;
@@ -3283,6 +3404,11 @@ export type ListTasksRequest = {
      */
     'page-token'?: string | null;
     /**
+     * Only list the tasks whose parent is this task. Older servers ignore it and list all tasks;
+     * a client that depends on it checks `parent-task-id` of each returned task.
+     */
+    'parent-task-id'?: string | null;
+    /**
      * Filter by one or more queue names
      */
     'queue-name'?: Array<string> | null;
@@ -3313,6 +3439,28 @@ export type ListWarehousesResponse = {
      * List of warehouses in the project.
      */
     warehouses: Array<GetWarehouseResponse>;
+};
+
+export type MaintenanceMode = 'off' | 'read-only';
+
+/**
+ * Maintenance mode of the process that served the request. Each process holds
+ * its own mode; call every replica on its own address to change them all.
+ */
+export type MaintenanceModeResponse = {
+    /**
+     * Host name of the serving process (the pod name on Kubernetes), if known.
+     */
+    hostname?: string | null;
+    /**
+     * Mode in effect after the request.
+     */
+    mode: MaintenanceMode;
+    /**
+     * Mode set by `LAKEKEEPER__MAINTENANCE_MODE` at startup. A restart returns the
+     * process to it.
+     */
+    'startup-mode': MaintenanceMode;
 };
 
 /**
@@ -3368,7 +3516,7 @@ export type MoveNamespaceResponse = {
     'parent-namespace-id'?: string | null;
 };
 
-export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'move' | 'accept_moved_namespace' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'set_protection';
+export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'move' | 'accept_moved_namespace' | 'accept_moved_tabular' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'set_protection';
 
 export type NamespaceAssignment = ({
     type: 'ownership';
@@ -3625,6 +3773,11 @@ export type ProjectTaskInfo = {
      * Name of the queue processing this task
      */
     'queue-name': string;
+    /**
+     * How much worker capacity the task needs, in a unit its queue chooses; unset if the task
+     * has none.
+     */
+    'resource-demand'?: number | null;
     /**
      * When the latest attempt of the task is scheduled for
      */
@@ -4021,15 +4174,45 @@ export type S3CloudflareR2Credential = {
     token: string;
 };
 
-export type S3Credential = (S3AccessKeyCredential & {
+export type S3Credential = ({
     'credential-type': 'access-key';
-}) | (S3AwsSystemIdentityCredential & {
+} & S3CredentialAccessKey) | ({
     'credential-type': 'aws-system-identity';
-}) | (S3CloudflareR2Credential & {
+} & S3CredentialAwsSystemIdentity) | ({
     'credential-type': 'cloudflare-r2';
-}) | (S3AccessKeyCredential & {
+} & S3CredentialCloudflareR2) | ({
     'credential-type': 'aliyun-oss';
-});
+} & S3CredentialAliyunOss);
+
+/**
+ * Authenticate to AWS using access-key and secret-key.
+ */
+export type S3CredentialAccessKey = S3AccessKeyCredential & {
+    'credential-type': 'access-key';
+};
+
+/**
+ * **Beta:** Alibaba Cloud OSS support is in beta. The API and behavior may change in a
+ * future release.
+ *
+ * Authenticate to Alibaba Cloud OSS using access-key and secret-key.
+ * Temporary credentials are vended via the Alibaba Cloud STS `AssumeRole` API.
+ */
+export type S3CredentialAliyunOss = S3AccessKeyCredential & {
+    'credential-type': 'aliyun-oss';
+};
+
+/**
+ * Authenticate to AWS using the identity configured on the system
+ * that runs lakekeeper. The AWS SDK is used to load the credentials.
+ */
+export type S3CredentialAwsSystemIdentity = S3AwsSystemIdentityCredential & {
+    'credential-type': 'aws-system-identity';
+};
+
+export type S3CredentialCloudflareR2 = S3CloudflareR2Credential & {
+    'credential-type': 'cloudflare-r2';
+};
 
 /**
  * The type of S3 credential.
@@ -4146,6 +4329,13 @@ export type S3Profile = {
      * Either `assume_role_arn` or `sts_role_arn` must be provided if `sts_enabled` is true.
      */
     'sts-role-arn'?: string | null;
+    /**
+     * Add `"Principal": "*"` to every statement of the STS session policy.
+     * Some S3-compatible STS implementations, such as Yandex Object Storage, reject
+     * session policies without a principal, while AWS and MinIO reject policies that
+     * have one. Defaults to false.
+     */
+    'sts-session-policy-principal'?: boolean | null;
     /**
      * Optional session tags for STS assume role operations.
      */
@@ -4382,6 +4572,17 @@ export type ServerInfo = {
 
 export type ServerRelation = 'admin' | 'operator';
 
+/**
+ * Request to switch this process into or out of read-only maintenance mode.
+ */
+export type SetMaintenanceModeRequest = {
+    /**
+     * Mode to switch to. `off` is rejected while `LAKEKEEPER__MAINTENANCE_MODE`
+     * sets `read-only`.
+     */
+    mode: MaintenanceMode;
+};
+
 export type SetManagedAccessRequest = {
     'managed-access': boolean;
 };
@@ -4446,18 +4647,24 @@ export type StackitAccessKeyCredential = {
 };
 
 /**
- * StackitCredentialAccessKey
+ * Credentials for STACKIT Object Storage.
  *
+ * Its own enum rather than a reuse of `S3Credential`, so STACKIT can gain
+ * authentication methods without inheriting AWS-only ones.
+ */
+export type StackitCredential = StackitCredentialAccessKey;
+
+/**
  * Access key and secret, created inside a STACKIT credentials group.
  */
-export type StackitCredential = StackitAccessKeyCredential & {
-    'credential-type': 'access-key';
+export type StackitCredentialAccessKey = StackitAccessKeyCredential & {
+    'credential-type': 'stackit-access-key';
 };
 
 /**
  * The type of STACKIT credential.
  */
-export type StackitCredentialType = 'access-key';
+export type StackitCredentialType = 'stackit-access-key';
 
 /**
  * Storage profile for STACKIT Object Storage.
@@ -4546,15 +4753,92 @@ export type StackitStorageService = 'object-storage' | 'data-platform';
 /**
  * Storage secret for a warehouse.
  */
-export type StorageCredential = (S3Credential & {
+export type StorageCredential = ({
+    'credential-type': 'access-key';
+} & StorageCredentialAccessKey) | ({
+    'credential-type': 'aws-system-identity';
+} & StorageCredentialAwsSystemIdentity) | ({
+    'credential-type': 'cloudflare-r2';
+} & StorageCredentialCloudflareR2) | ({
+    'credential-type': 'aliyun-oss';
+} & StorageCredentialAliyunOss) | ({
+    'credential-type': 'stackit-access-key';
+} & StorageCredentialStackitAccessKey) | ({
+    'credential-type': 'client-credentials';
+} & StorageCredentialClientCredentials) | ({
+    'credential-type': 'shared-access-key';
+} & StorageCredentialSharedAccessKey) | ({
+    'credential-type': 'azure-system-identity';
+} & StorageCredentialAzureSystemIdentity) | ({
+    'credential-type': 'service-account-key';
+} & StorageCredentialServiceAccountKey) | ({
+    'credential-type': 'gcp-system-identity';
+} & StorageCredentialGcpSystemIdentity);
+
+export type StorageCredentialAccessKey = S3AccessKeyCredential & {
+    'credential-type': 'access-key';
+} & {
     type: 's3';
-}) | (StackitCredential & {
-    type: 'stackit';
-}) | (AzCredential & {
+};
+
+export type StorageCredentialAliyunOss = S3AccessKeyCredential & {
+    'credential-type': 'aliyun-oss';
+} & {
+    type: 's3';
+};
+
+export type StorageCredentialAwsSystemIdentity = S3AwsSystemIdentityCredential & {
+    'credential-type': 'aws-system-identity';
+} & {
+    type: 's3';
+};
+
+export type StorageCredentialAzureSystemIdentity = {
+    'credential-type': 'azure-system-identity';
+} & {
     type: 'az';
-}) | (GcsCredential & {
+};
+
+export type StorageCredentialClientCredentials = {
+    'client-id': string;
+    'client-secret': string;
+    'credential-type': 'client-credentials';
+    'tenant-id': string;
+} & {
+    type: 'az';
+};
+
+export type StorageCredentialCloudflareR2 = S3CloudflareR2Credential & {
+    'credential-type': 'cloudflare-r2';
+} & {
+    type: 's3';
+};
+
+export type StorageCredentialGcpSystemIdentity = {
+    'credential-type': 'gcp-system-identity';
+} & {
     type: 'gcs';
-});
+};
+
+export type StorageCredentialServiceAccountKey = {
+    'credential-type': 'service-account-key';
+    key: GcsServiceKey;
+} & {
+    type: 'gcs';
+};
+
+export type StorageCredentialSharedAccessKey = {
+    'credential-type': 'shared-access-key';
+    key: string;
+} & {
+    type: 'az';
+};
+
+export type StorageCredentialStackitAccessKey = StackitAccessKeyCredential & {
+    'credential-type': 'stackit-access-key';
+} & {
+    type: 'stackit';
+};
 
 /**
  * The type of storage credential configured for a warehouse, without secret values.
@@ -4636,7 +4920,7 @@ export type StorageLayout = ({
     type: 'tabular-only';
 } & StorageLayoutTabularOnly) | ({
     type: 'full-hierarchy';
-} & StorageLayoutFullHierarchyVariant);
+} & StorageLayoutFullHierarchy);
 
 export type StorageLayoutDefault = {
     type: 'default';
@@ -4658,12 +4942,12 @@ export type StorageLayoutFlat = {
  * For a tabular `my_tabular` (uuid `…003`) in `grandparent_ns` / `parent_ns` the path is:
  * `<base>/<grandparent-segment>/<parent-segment>/<tabular-segment>`.
  */
-export type StorageLayoutFullHierarchy = {
+export type StorageLayoutFull = {
     namespace: StorageLayoutNamespaceTemplate;
     tabular: StorageLayoutTabularTemplate;
 };
 
-export type StorageLayoutFullHierarchyVariant = StorageLayoutFullHierarchy & {
+export type StorageLayoutFullHierarchy = StorageLayoutFull & {
     type: 'full-hierarchy';
 };
 
@@ -4808,7 +5092,7 @@ export type SubtreeGrantScope = {
     root_level: RootLevelGrants;
 };
 
-export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
+export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'move' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
 export type TableAssignment = ({
     type: 'ownership';
@@ -5162,6 +5446,11 @@ export type TaskAttempt = {
      */
     progress: number;
     /**
+     * How much worker capacity this attempt needed, in a unit its queue chooses; unset if it
+     * had none.
+     */
+    'resource-demand'?: number | null;
+    /**
      * When this attempt was scheduled for
      */
     'scheduled-for': string;
@@ -5178,7 +5467,7 @@ export type TaskAttempt = {
 export type TaskLogCleanupConfig = {
     /**
      * How often to run the cleanup task in ISO8601 duration format. Defaults to once a day (P1D).
-     * If a value below 1 day is provided, it will be set to the default of 1 day.
+     * Values below 1 day are raised to 1 day; values above 100 years are lowered to 100 years.
      */
     'cleanup-period'?: string | null;
     /**
@@ -5519,7 +5808,7 @@ export type ValidationCheckName = 'profile-well-formed' | 'profile-compatible' |
  */
 export type ValidationCheckStatus = 'passed' | 'failed' | 'skipped' | 'warning';
 
-export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
+export type ViewAction = 'drop' | 'commit' | 'get_metadata' | 'select' | 'rename' | 'move' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
 export type ViewAssignment = ({
     type: 'ownership';
@@ -5797,6 +6086,11 @@ export type WarehouseTaskInfo = {
      * Name of the queue processing this task
      */
     'queue-name': string;
+    /**
+     * How much worker capacity the task needs, in a unit its queue chooses; unset if the task
+     * has none.
+     */
+    'resource-demand'?: number | null;
     /**
      * When the latest attempt of the task is scheduled for
      */
@@ -8230,6 +8524,28 @@ export type GetServerGrantablePrivilegesResponses = {
 };
 
 export type GetServerGrantablePrivilegesResponse = GetServerGrantablePrivilegesResponses[keyof GetServerGrantablePrivilegesResponses];
+
+export type SetMaintenanceModeData = {
+    body: SetMaintenanceModeRequest;
+    path?: never;
+    query?: never;
+    url: '/management/v1/server/maintenance-mode';
+};
+
+export type SetMaintenanceModeErrors = {
+    '4XX': IcebergErrorResponse;
+};
+
+export type SetMaintenanceModeError = SetMaintenanceModeErrors[keyof SetMaintenanceModeErrors];
+
+export type SetMaintenanceModeResponses = {
+    /**
+     * Maintenance mode of the serving process
+     */
+    200: MaintenanceModeResponse;
+};
+
+export type SetMaintenanceModeResponse = SetMaintenanceModeResponses[keyof SetMaintenanceModeResponses];
 
 export type ListTagDefinitionsData = {
     body?: never;

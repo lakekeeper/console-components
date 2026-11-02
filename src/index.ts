@@ -70,6 +70,7 @@ import NamespaceDetails from './components/NamespaceDetails.vue';
 import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
 import NamespacePropertiesDialog from './components/NamespacePropertiesDialog.vue';
 import MoveNamespaceDialog from './components/MoveNamespaceDialog.vue';
+import MoveTabularDialog from './components/MoveTabularDialog.vue';
 import TableHeader from './components/TableHeader.vue';
 import TableSchema from './components/TableSchema.vue';
 import TableActionsMenu from './components/TableActionsMenu.vue';
@@ -223,6 +224,7 @@ export {
   NamespaceDetails,
   NamespaceActionsMenu,
   MoveNamespaceDialog,
+  MoveTabularDialog,
   NamespacePropertiesDialog,
   TableHeader,
   TableSchema,
@@ -564,6 +566,7 @@ const components = {
   NamespaceDetails,
   NamespaceActionsMenu,
   MoveNamespaceDialog,
+  MoveTabularDialog,
   NamespacePropertiesDialog,
   TableHeader,
   TableSchema,

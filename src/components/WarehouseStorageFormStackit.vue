@@ -318,7 +318,7 @@ const profile = reactive<Record<string, any>>({
 // wire type is `stackit` on both halves of the pair.
 const credential = reactive<Record<string, any>>({
   type: 'stackit',
-  'credential-type': 'access-key',
+  'credential-type': 'stackit-access-key',
 });
 
 onMounted(() => {
@@ -429,7 +429,7 @@ function getData() {
 
   const cleanCredential: Record<string, any> = {
     type: 'stackit',
-    'credential-type': 'access-key',
+    'credential-type': 'stackit-access-key',
   };
   for (const k of ['access-key-id', 'secret-access-key']) {
     if (credential[k] !== undefined && credential[k] !== '') cleanCredential[k] = credential[k];
