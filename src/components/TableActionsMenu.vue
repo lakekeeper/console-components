@@ -158,7 +158,7 @@ const config = useConfig();
 // the entry stays hidden rather than offering a call that would 403.
 const canMove = computed(
   () =>
-    hasPermission('move') ||
+    (hasPermission('move') && hasPermission('rename')) ||
     !config.enabledAuthentication.value ||
     !config.enabledPermissions.value,
 );
