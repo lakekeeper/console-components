@@ -176,12 +176,18 @@ const loaded = ref(false);
 const metadataRefused = ref(false);
 const METADATA_REFUSED = "This namespace's metadata is not visible to you.";
 const canDelete = computed(
-  () => hasPermission('delete') || !config.enabledAuthentication || !config.enabledPermissions,
+  () =>
+    hasPermission('delete') ||
+    !config.enabledAuthentication.value ||
+    !config.enabledPermissions.value,
 );
 // `move` arrived with the move endpoint, so a server that predates it reports no
 // such action and the entry stays hidden — which is what we want.
 const canMove = computed(
-  () => hasPermission('move') || !config.enabledAuthentication || !config.enabledPermissions,
+  () =>
+    hasPermission('move') ||
+    !config.enabledAuthentication.value ||
+    !config.enabledPermissions.value,
 );
 
 const displayName = computed(() => props.namespacePath.split('\x1F').join('.'));
