@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/lakekeeper/console-components/compare/v0.30.0...v0.30.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **ui:** correct the rights, paging and reopen handling of a tabular move ([bdba01e](https://github.com/lakekeeper/console-components/commit/bdba01e862cb3a9266952a1952a7b32cc09c10b2))
+
 ## [0.30.0](https://github.com/lakekeeper/console-components/compare/v0.29.0...v0.30.0) (2026-11-02)
 
 
