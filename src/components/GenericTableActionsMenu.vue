@@ -33,6 +33,24 @@
         </template>
       </EntitySettingsDialog>
 
+      <!-- A move is its own entry rather than a field in settings: it asks for
+           rights at both ends, so it can be refused when a rename is allowed. -->
+      <MoveTabularDialog
+        v-if="canMove"
+        kind="generic-table"
+        :warehouse-id="warehouseId"
+        :namespace-path="namespaceId"
+        :name="tableName"
+        @moved="onMoved">
+        <template #activator="{ props: mProps }">
+          <v-list-item
+            v-bind="mProps"
+            prepend-icon="mdi-file-move-outline"
+            :title="`Move ${label}`"
+            subtitle="To another namespace" />
+        </template>
+      </MoveTabularDialog>
+
       <template v-if="canDrop">
         <v-divider class="my-1"></v-divider>
         <v-list-item
@@ -93,6 +111,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useGenericTablePermissions, useConfig } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
+import MoveTabularDialog from './MoveTabularDialog.vue';
 
 const props = defineProps<{
   warehouseId: string;
@@ -126,6 +145,21 @@ const canRename = computed(
     !config.enabledAuthentication.value ||
     !config.enabledPermissions.value,
 );
+// `move` is new in Lakekeeper 0.15; an older server never reports it, so the
+// entry stays hidden rather than offering a call that would 403.
+const canMove = computed(
+  () =>
+    (hasPermission('move') && hasPermission('rename')) ||
+    !config.enabledAuthentication.value ||
+    !config.enabledPermissions.value,
+);
+
+async function onMoved(destination: string[], movedName: string) {
+  menuOpen.value = false;
+  await router.replace(
+    `/warehouse/${props.warehouseId}/namespace/${destination.join('\u001F')}/generic-table/${encodeURIComponent(movedName)}`,
+  );
+}
 
 const deleteOpen = ref(false);
 const deleting = ref(false);

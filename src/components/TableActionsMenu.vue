@@ -33,6 +33,25 @@
         </template>
       </EntitySettingsDialog>
 
+      <!-- A move is its own entry rather than a field in table settings: it
+           asks for rights at both ends, so it can be refused when a rename is
+           allowed. -->
+      <MoveTabularDialog
+        v-if="canMove"
+        kind="table"
+        :warehouse-id="warehouseId"
+        :namespace-path="namespaceId"
+        :name="tableName"
+        @moved="onMoved">
+        <template #activator="{ props: mProps }">
+          <v-list-item
+            v-bind="mProps"
+            prepend-icon="mdi-file-move-outline"
+            title="Move table"
+            subtitle="To another namespace" />
+        </template>
+      </MoveTabularDialog>
+
       <!-- Premium maintenance actions (schedule / advanced overrides) -->
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
 
@@ -108,6 +127,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useTablePermissions } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
+import MoveTabularDialog from './MoveTabularDialog.vue';
+import { useConfig } from '@/composables/useCatalogPermissions';
 import type { LoadTableResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
@@ -128,7 +149,29 @@ const table = ref<LoadTableResult | null>(null);
 const tableId = ref('');
 const protectedState = ref(false);
 
-const { canCommit, canSetProtection, canDrop } = useTablePermissions(tableId, props.warehouseId);
+const { canCommit, canSetProtection, canDrop, hasPermission } = useTablePermissions(
+  tableId,
+  props.warehouseId,
+);
+const config = useConfig();
+// `move` is new in Lakekeeper 0.15; an older server simply never reports it, so
+// the entry stays hidden rather than offering a call that would 403.
+const canMove = computed(
+  () =>
+    (hasPermission('move') && hasPermission('rename')) ||
+    !config.enabledAuthentication.value ||
+    !config.enabledPermissions.value,
+);
+
+async function onMoved(destination: string[], movedName: string) {
+  // The table now lives elsewhere: follow it rather than leaving the page on a
+  // path that no longer resolves. The namespace segment is unit-separated, the
+  // same shape the table routes are built with elsewhere.
+  menuOpen.value = false;
+  await router.replace(
+    `/warehouse/${props.warehouseId}/namespace/${destination.join('\u001F')}/table/${encodeURIComponent(movedName)}`,
+  );
+}
 
 const deleteOpen = ref(false);
 const deleting = ref(false);
