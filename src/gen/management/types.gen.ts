@@ -924,7 +924,7 @@ export type GcsServiceKey = {
     universe_domain: string;
 };
 
-export type GenericTableAction = 'drop' | 'undrop' | 'write_data' | 'read_data' | 'get_metadata' | 'rename' | 'move' | 'include_in_list' | 'get_tasks' | 'control_tasks' | 'set_protection' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+export type GenericTableAction = 'drop' | 'undrop' | 'write_data' | 'read_data' | 'get_metadata' | 'rename' | 'move' | 'include_in_list' | 'get_tasks' | 'control_tasks' | 'set_protection' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_write_data' | 'grant_modify' | 'change_ownership';
 
 export type GenericTableAssignment = ({
     type: 'ownership';
@@ -937,6 +937,8 @@ export type GenericTableAssignment = ({
 } & GenericTableAssignmentDescribe) | ({
     type: 'select';
 } & GenericTableAssignmentSelect) | ({
+    type: 'write_data';
+} & GenericTableAssignmentWriteData) | ({
     type: 'modify';
 } & GenericTableAssignmentModify) | ({
     type: 'manage_tags';
@@ -970,7 +972,11 @@ export type GenericTableAssignmentSelect = UserOrRole & {
     type: 'select';
 };
 
-export type GenericTableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
+export type GenericTableAssignmentWriteData = UserOrRole & {
+    type: 'write_data';
+};
+
+export type GenericTableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'write_data' | 'modify' | 'manage_tags';
 
 export type GetEndpointStatisticsRequest = {
     'range-specifier'?: null | TimeWindowSelector;
@@ -2365,7 +2371,8 @@ export type LakekeeperTableActionCommit = {
      */
     target_refs?: Array<string>;
     /**
-     * The kinds of metadata updates this commit contains.
+     * The kinds of metadata updates this commit contains. A check that names none
+     * asks about a commit of any kind.
      */
     update_kinds?: Array<TableUpdateKind>;
     updated_properties?: {
@@ -3516,7 +3523,7 @@ export type MoveNamespaceResponse = {
     'parent-namespace-id'?: string | null;
 };
 
-export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'move' | 'accept_moved_namespace' | 'accept_moved_tabular' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'set_protection';
+export type NamespaceAction = 'create_table' | 'create_view' | 'create_generic_table' | 'create_namespace' | 'delete' | 'move' | 'accept_moved_namespace' | 'accept_moved_tabular' | 'update_properties' | 'get_metadata' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_write_data' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'set_protection';
 
 export type NamespaceAssignment = ({
     type: 'ownership';
@@ -3531,6 +3538,8 @@ export type NamespaceAssignment = ({
 } & NamespaceAssignmentSelect) | ({
     type: 'create';
 } & NamespaceAssignmentCreate) | ({
+    type: 'write_data';
+} & NamespaceAssignmentWriteData) | ({
     type: 'modify';
 } & NamespaceAssignmentModify) | ({
     type: 'manage_tags';
@@ -3568,6 +3577,10 @@ export type NamespaceAssignmentSelect = UserOrRole & {
     type: 'select';
 };
 
+export type NamespaceAssignmentWriteData = UserOrRole & {
+    type: 'write_data';
+};
+
 /**
  * Identifier for a namespace, either a UUID or its name and warehouse ID
  */
@@ -3579,7 +3592,7 @@ export type NamespaceIdentOrUuid = {
     'warehouse-id': string;
 };
 
-export type NamespaceRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify' | 'manage_tags';
+export type NamespaceRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'write_data' | 'modify' | 'manage_tags';
 
 /**
  * Storage profile for a Microsoft Fabric / `OneLake` lakehouse.
@@ -3627,21 +3640,21 @@ export type OneLakeProfile = {
     'workspace-id': string;
 };
 
-export type OpenFgaGenericTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+export type OpenFgaGenericTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_write_data' | 'grant_modify' | 'change_ownership';
 
-export type OpenFgaNamespaceAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags';
+export type OpenFgaNamespaceAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_write_data' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags';
 
-export type OpenFgaProjectAction = 'read_assignments' | 'grant_role_creator' | 'grant_tag_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin';
+export type OpenFgaProjectAction = 'read_assignments' | 'grant_role_creator' | 'grant_tag_creator' | 'grant_create' | 'grant_describe' | 'grant_write_data' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin';
 
 export type OpenFgaRoleAction = 'assume' | 'can_grant_assignee' | 'can_change_ownership' | 'read_assignments';
 
 export type OpenFgaServerAction = 'read_assignments' | 'grant_admin';
 
-export type OpenFgaTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
+export type OpenFgaTableAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_write_data' | 'grant_modify' | 'change_ownership';
 
 export type OpenFgaViewAction = 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership';
 
-export type OpenFgaWarehouseAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership';
+export type OpenFgaWarehouseAction = 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_write_data' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership';
 
 /**
  * Whether a determining policy permits or forbids.
@@ -3680,7 +3693,7 @@ export type PrivilegeDescriptor = {
     'resource-type': ResourceType;
 };
 
-export type ProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'list_warehouses' | 'create_role' | 'list_roles' | 'search_roles' | 'read_assignments' | 'grant_role_creator' | 'grant_tag_creator' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin' | 'get_endpoint_statistics';
+export type ProjectAction = 'create_warehouse' | 'delete' | 'rename' | 'list_warehouses' | 'create_role' | 'list_roles' | 'search_roles' | 'read_assignments' | 'grant_role_creator' | 'grant_tag_creator' | 'grant_create' | 'grant_describe' | 'grant_write_data' | 'grant_modify' | 'grant_select' | 'grant_project_admin' | 'grant_security_admin' | 'grant_data_admin' | 'get_endpoint_statistics';
 
 export type ProjectAssignment = ({
     type: 'project_admin';
@@ -3699,6 +3712,8 @@ export type ProjectAssignment = ({
 } & ProjectAssignmentSelect) | ({
     type: 'create';
 } & ProjectAssignmentCreate) | ({
+    type: 'write_data';
+} & ProjectAssignmentWriteData) | ({
     type: 'modify';
 } & ProjectAssignmentModify);
 
@@ -3738,7 +3753,11 @@ export type ProjectAssignmentTagCreator = UserOrRole & {
     type: 'tag_creator';
 };
 
-export type ProjectRelation = 'project_admin' | 'security_admin' | 'data_admin' | 'role_creator' | 'tag_creator' | 'describe' | 'select' | 'create' | 'modify';
+export type ProjectAssignmentWriteData = UserOrRole & {
+    type: 'write_data';
+};
+
+export type ProjectRelation = 'project_admin' | 'security_admin' | 'data_admin' | 'role_creator' | 'tag_creator' | 'describe' | 'select' | 'create' | 'write_data' | 'modify';
 
 export type ProjectTaskInfo = {
     /**
@@ -5092,7 +5111,7 @@ export type SubtreeGrantScope = {
     root_level: RootLevelGrants;
 };
 
-export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'move' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
+export type TableAction = 'drop' | 'write_data' | 'read_data' | 'get_metadata' | 'commit' | 'rename' | 'move' | 'read_assignments' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'grant_describe' | 'grant_select' | 'grant_write_data' | 'grant_modify' | 'change_ownership' | 'get_tasks' | 'control_tasks' | 'set_protection';
 
 export type TableAssignment = ({
     type: 'ownership';
@@ -5105,6 +5124,8 @@ export type TableAssignment = ({
 } & TableAssignmentDescribe) | ({
     type: 'select';
 } & TableAssignmentSelect) | ({
+    type: 'write_data';
+} & TableAssignmentWriteData) | ({
     type: 'modify';
 } & TableAssignmentModify) | ({
     type: 'manage_tags';
@@ -5138,7 +5159,11 @@ export type TableAssignmentSelect = UserOrRole & {
     type: 'select';
 };
 
-export type TableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
+export type TableAssignmentWriteData = UserOrRole & {
+    type: 'write_data';
+};
+
+export type TableRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'write_data' | 'modify' | 'manage_tags';
 
 /**
  * The kind of a table metadata update, identified by its Iceberg action name
@@ -5165,7 +5190,9 @@ export type TabularDeleteProfileSoft = {
  * Identifier for a tabular (table, view, or generic table) — either a UUID
  * or its name and namespace. Wire format primary names are `table-id` and
  * `table`; `view_id` / `view` and `generic_table_id` / `generic_table` are
- * accepted as input aliases for client ergonomics.
+ * accepted as input aliases for client ergonomics. A name addresses the live
+ * tabular. A dropped tabular that can still be restored and a staged table that
+ * was not committed yet are addressed by their UUID.
  */
 export type TabularIdentOrUuid = {
     'table-id': string;
@@ -5856,7 +5883,7 @@ export type ViewAssignmentSelect = UserOrRole & {
 
 export type ViewRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'modify' | 'manage_tags';
 
-export type WarehouseAction = 'create_namespace' | 'accept_moved_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'set_format_version_policy' | 'get_endpoint_statistics';
+export type WarehouseAction = 'create_namespace' | 'accept_moved_namespace' | 'delete' | 'modify_storage' | 'modify_storage_credential' | 'get_config' | 'get_metadata' | 'list_namespaces' | 'include_in_list' | 'deactivate' | 'activate' | 'rename' | 'list_deleted_tabulars' | 'read_assignments' | 'grant_create' | 'grant_describe' | 'grant_write_data' | 'grant_modify' | 'grant_select' | 'grant_pass_grants' | 'grant_manage_grants' | 'grant_manage_tags' | 'change_ownership' | 'get_all_tasks' | 'control_all_tasks' | 'set_protection' | 'set_format_version_policy' | 'get_endpoint_statistics';
 
 export type WarehouseAssignment = ({
     type: 'ownership';
@@ -5871,6 +5898,8 @@ export type WarehouseAssignment = ({
 } & WarehouseAssignmentSelect) | ({
     type: 'create';
 } & WarehouseAssignmentCreate) | ({
+    type: 'write_data';
+} & WarehouseAssignmentWriteData) | ({
     type: 'modify';
 } & WarehouseAssignmentModify) | ({
     type: 'manage_tags';
@@ -5908,6 +5937,10 @@ export type WarehouseAssignmentSelect = UserOrRole & {
     type: 'select';
 };
 
+export type WarehouseAssignmentWriteData = UserOrRole & {
+    type: 'write_data';
+};
+
 export type WarehouseFilter = ({
     type: 'warehouse-id';
 } & WarehouseFilterWarehouseId) | ({
@@ -5938,7 +5971,7 @@ export type WarehouseFilterWarehouseId = {
     type: 'warehouse-id';
 };
 
-export type WarehouseRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'modify' | 'manage_tags';
+export type WarehouseRelation = 'ownership' | 'pass_grants' | 'manage_grants' | 'describe' | 'select' | 'create' | 'write_data' | 'modify' | 'manage_tags';
 
 export type WarehouseStatistics = {
     /**

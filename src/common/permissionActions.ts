@@ -205,6 +205,7 @@ const authorizerProjectActions: OpenFgaProjectAction[] = [
   'grant_describe',
   'grant_modify',
   'grant_select',
+  'grant_write_data',
   'grant_project_admin',
   'grant_security_admin',
   'grant_data_admin',
@@ -216,6 +217,7 @@ const authorizerWarehouseActions: OpenFgaWarehouseAction[] = [
   'grant_describe',
   'grant_modify',
   'grant_select',
+  'grant_write_data',
   'grant_pass_grants',
   'grant_manage_grants',
   'change_ownership',
@@ -227,6 +229,7 @@ const authorizerNamespaceActions: OpenFgaNamespaceAction[] = [
   'grant_describe',
   'grant_modify',
   'grant_select',
+  'grant_write_data',
   'grant_pass_grants',
   'grant_manage_grants',
 ];
@@ -237,6 +240,7 @@ const authorizerTableActions: OpenFgaTableAction[] = [
   'grant_manage_grants',
   'grant_describe',
   'grant_select',
+  'grant_write_data',
   'grant_modify',
   'change_ownership',
 ];
@@ -256,6 +260,7 @@ const authorizerGenericTableActions: OpenFgaGenericTableAction[] = [
   'grant_manage_grants',
   'grant_describe',
   'grant_select',
+  'grant_write_data',
   'grant_modify',
   'change_ownership',
 ];
