@@ -287,7 +287,7 @@ const tableRelation: TableRelation[] = [
   'manage_grants',
   'describe',
   'select',
-  'write',
+  'write_data',
   'modify',
 ];
 const viewRelation: ViewRelation[] = [
@@ -304,7 +304,7 @@ const genericTableRelation: GenericTableRelation[] = [
   'manage_grants',
   'describe',
   'select',
-  'write',
+  'write_data',
   'modify',
 ];
 const warehouseRelation: WarehouseRelation[] = [
@@ -314,7 +314,7 @@ const warehouseRelation: WarehouseRelation[] = [
   'describe',
   'select',
   'create',
-  'write',
+  'write_data',
   'modify',
 ];
 const namespaceRelation: NamespaceRelation[] = [
@@ -324,7 +324,7 @@ const namespaceRelation: NamespaceRelation[] = [
   'describe',
   'select',
   'create',
-  'write',
+  'write_data',
   'modify',
 ];
 const projectRelation: ProjectRelation[] = [
@@ -335,7 +335,7 @@ const projectRelation: ProjectRelation[] = [
   'describe',
   'select',
   'create',
-  'write',
+  'write_data',
   'modify',
 ];
 
