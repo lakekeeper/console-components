@@ -254,6 +254,8 @@ import vortexLightIcon from '@/assets/vortex_logo.svg';
 import vortexDarkIcon from '@/assets/vortex_logo_dark_theme.svg';
 import lanceIcon from '@/assets/lance.png';
 import paimonIcon from '@/assets/paimon.svg';
+import zarrIcon from '@/assets/zarr.png';
+import icechunkIcon from '@/assets/icechunk.png';
 
 type TableRow = {
   name: string;
@@ -335,6 +337,10 @@ function formatIcon(format?: string): string | null {
       return lanceIcon;
     case 'paimon':
       return paimonIcon;
+    case 'zarr':
+      return zarrIcon;
+    case 'icechunk':
+      return icechunkIcon;
     case 'vortex':
       return visual.themeLight ? vortexLightIcon : vortexDarkIcon;
     default:
