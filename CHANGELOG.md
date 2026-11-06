@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.33.0](https://github.com/lakekeeper/console-components/compare/v0.32.0...v0.33.0) (2026-11-06)
+
+
+### Features
+
+* **ui:** follow LoQE query tabs opened from outside the explorer ([d9a79ef](https://github.com/lakekeeper/console-components/commit/d9a79ef2ba8c69c1daf672a4e7d3c981da5d485d))
+
 ## [0.32.0](https://github.com/lakekeeper/console-components/compare/v0.31.0...v0.32.0) (2026-11-06)
 
 
