@@ -663,6 +663,9 @@ export type {
   LoQEPersistedCatalog,
   AttachedCatalog,
 } from './composables/loqe/types';
+// SQL for LoQE: names and values quoted, e.g. a "Query in LoQE" tab's text is
+// String(sql`SELECT * FROM ${tableIdent(warehouse, namespaceId, table)} LIMIT 100;`).
+export { sql, ident, literal, num, tableIdent, type Sql } from './composables/loqe/sql';
 
 // Runtime action lists (the enums are types only). Exported so panes that let a
 // user pick an action — e.g. the Cedar resolve/check pane in the Plus console —

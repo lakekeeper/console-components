@@ -295,6 +295,7 @@ LoQE (Local Query Engine) provides in-browser SQL queries via DuckDB WASM:
 - **`LoQEEngine`** class (`composables/loqe/LoQEEngine.ts`): initializes DuckDB WASM, attaches Iceberg catalogs via `ATTACH`, manages connection pool
 - **`useLoQE(config)`** composable: wraps engine with Vue reactivity — `executeQuery()`, `fetchCompletions()`, `attachCatalog()`, `detachCatalog()`, `isInitialized`
 - **`useLoQEStore()`**: persists extensions, attached catalogs, query history
+- **SQL** (`composables/loqe/sql.ts`): LoQE runs only `Sql` values. Build them with the `sql` tagged template and `ident()`/`literal()`/`num()`; `userSql()` is only for text the user typed. The type check and ESLint enforce this.
 - **`useDuckDBSettingsStore()`**: row limits, DuckDB settings
 - Bundles served from app's public directory (`/duckdb/duckdb-*.wasm`)
 - Completions: catalog → schema → table → column with smart entity resolution
