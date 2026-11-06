@@ -505,6 +505,8 @@ Some API responses contain i64 values exceeding `Number.MAX_SAFE_INTEGER` (e.g.,
 | `just check-lint`                 | `npm run lint:check`                              |
 | `just format`                     | `npm run format`                                  |
 | `just check-format`               | `npm run format:check`                            |
+| `just check-types`                | `vue-tsc --noEmit` over sources and tests         |
+| `just test`                       | `npm test` — Vitest unit tests                    |
 | `just fix-all`                    | format + fix-lint                                 |
 | `just check-all`                  | check-format + fix-lint                           |
 | `just generate-clients`           | Regenerate both SDK clients from OpenAPI specs    |
