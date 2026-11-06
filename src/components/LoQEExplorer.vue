@@ -1270,6 +1270,20 @@ function handleTabClick(tabId: string) {
   }
 }
 
+// A tab can also be opened from outside — the console's nav menu adds one holding
+// a query over a pinned table — so the editor follows the store's active tab,
+// not only clicks here. Read on the id alone: the auto-save below rewrites the
+// content on every keystroke.
+watch(
+  () => visualStore.getActiveSqlTab(LOQE_TAB_KEY)?.id,
+  (id) => {
+    const tab = id && visualStore.getActiveSqlTab(LOQE_TAB_KEY);
+    if (!tab) return;
+    activeTabIndex.value = currentLoqeTabs.value.findIndex((t) => t.id === tab.id);
+    if (sqlQuery.value !== tab.content) sqlQuery.value = tab.content;
+  },
+);
+
 // Auto-save sqlQuery changes to active tab
 watch(sqlQuery, (newValue) => {
   const activeTab = visualStore.getActiveSqlTab(LOQE_TAB_KEY);
