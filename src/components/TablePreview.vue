@@ -210,6 +210,7 @@ import { ref, computed, onMounted, toRef, watch, inject } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useLoQE } from '@/composables/useLoQE';
+import { num, sql, tableIdent } from '@/composables/loqe/sql';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 import { useCellViewer } from '@/composables/useCellViewer';
@@ -277,7 +278,7 @@ const userStore = useUserStore();
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const csvDownload = useCsvDownload();
 
-// Namespace display: convert \x1F separators to dots for display and DuckDB SQL
+// Namespace display: convert \x1F separators to dots
 const namespaceDisplay = computed(() => {
   const ns = props.namespaceId;
   if (ns.includes('\x1F')) return ns.split('\x1F').join('.');
@@ -581,16 +582,16 @@ async function loadPreview() {
       force: true,
     });
 
-    const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
+    const tablePath = tableIdent(warehouseName, props.namespaceId, props.tableName);
 
     // Optional time-travel clause (snapshot IDs are BigInt-safe strings).
     // VARIANT columns that can't be Arrow-serialized are handled by the engine
     // (it retries with a text cast), so a plain SELECT * is enough here.
     const fromClause = selectedSnapshot.value
-      ? `${tablePath} AT (VERSION => ${selectedSnapshot.value})`
+      ? sql`${tablePath} AT (VERSION => ${num(BigInt(selectedSnapshot.value))})`
       : tablePath;
 
-    const results = await loqe.query(`SELECT * FROM ${fromClause} LIMIT 1000;`);
+    const results = await loqe.query(sql`SELECT * FROM ${fromClause} LIMIT 1000;`);
     queryResults.value = results;
   } catch (err: any) {
     console.error('Failed to load table preview:', err);

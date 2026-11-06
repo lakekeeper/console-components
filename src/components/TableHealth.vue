@@ -447,6 +447,7 @@ import { loqeVendingReason } from '../common/vendedCredentials';
 import { isForbiddenError, isNotFoundError, logError } from '../common/errorUtils';
 import { tagRefusal } from '../composables/useTagRights';
 import { useLoQE } from '../composables/useLoQE';
+import { sql, tableIdent } from '../composables/loqe/sql';
 import { useUserStore } from '../stores/user';
 import EngineErrorAlert from './EngineErrorAlert.vue';
 import TableHealthActions from './TableHealthActions.vue';
@@ -474,14 +475,6 @@ const functions = useFunctions();
 const config = inject<any>('appConfig', { enabledAuthentication: false });
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const userStore = useUserStore();
-
-// Namespace display: convert \x1F separators to dots for DuckDB SQL
-const namespaceDisplay = computed(() => {
-  const ns = props.namespaceId;
-  if (!ns) return '';
-  if (ns.includes('\x1F')) return ns.split('\x1F').join('.');
-  return ns;
-});
 
 // Self-loading: if no table prop is passed, load it internally
 const loadedTable = ref<LoadTableResult | null>(null);
@@ -1650,7 +1643,7 @@ const partitionSkewRatio = computed<number | null>(() => {
 });
 
 async function loadPartitionData() {
-  if (!props.warehouseId || !props.catalogUrl) return;
+  if (!props.warehouseId || !props.namespaceId || !props.tableName || !props.catalogUrl) return;
   partitionLoading.value = true;
   partitionError.value = null;
 
@@ -1676,9 +1669,9 @@ async function loadPartitionData() {
       });
     }
 
-    const tablePath = `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
+    const tablePath = tableIdent(warehouseName, props.namespaceId, props.tableName);
 
-    const sql = `
+    const result = await loqe.query(sql`
       WITH files AS (
         SELECT
           record_count AS rcount,
@@ -1697,9 +1690,7 @@ async function loadPartitionData() {
       FROM files
       GROUP BY partition_value
       ORDER BY total_records DESC
-    `;
-
-    const result = await loqe.query(sql);
+    `);
 
     const partColIdx = result.columns.indexOf('partition_value');
     const filesColIdx = result.columns.indexOf('file_count');

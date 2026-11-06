@@ -5,6 +5,8 @@ import { useLoQEStore } from '../stores/loqe';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
 import { persistedCatalogKey } from './loqe/catalogIdentity';
+import { ident, literal, sql, sqlText, type Sql } from './loqe/sql';
+import type { SqlConnection } from './loqe/SqlConnection';
 
 // ── DuckDB error rewriting ────────────────────────────────────────────
 
@@ -276,7 +278,8 @@ export function useLoQE(config: LoQEConfig) {
     }
   }
 
-  async function query(sql: string): Promise<LoQEQueryResult> {
+  async function query(statement: Sql): Promise<LoQEQueryResult> {
+    const text = sqlText(statement);
     if (!isInitialized.value) await initialize();
 
     isQuerying.value = true;
@@ -284,12 +287,12 @@ export function useLoQE(config: LoQEConfig) {
     const start = Date.now();
 
     try {
-      const result = await engine.query(sql);
+      const result = await engine.query(statement);
       lastResult.value = result;
 
       store.addHistoryEntry({
         id: crypto.randomUUID(),
-        sql,
+        sql: text,
         executedAt: start,
         durationMs: result.executionTimeMs,
         rowCount: result.rowCount,
@@ -302,7 +305,7 @@ export function useLoQE(config: LoQEConfig) {
 
       store.addHistoryEntry({
         id: crypto.randomUUID(),
-        sql,
+        sql: text,
         executedAt: start,
         durationMs: Date.now() - start,
         rowCount: 0,
@@ -337,16 +340,14 @@ export function useLoQE(config: LoQEConfig) {
    * object (parquet/csv) without DuckDB needing its own storage/CORS access —
    * we supply the bytes ourselves.
    */
-  async function queryBuffer(fileName: string, bytes: Uint8Array, sql: string) {
+  async function queryBuffer(fileName: string, bytes: Uint8Array, statement: Sql) {
     if (!isInitialized.value) await initialize();
-    const db = engine.getDB();
-    if (!db) throw new Error('DuckDB is not available');
-    await db.registerFileBuffer(fileName, bytes);
+    await engine.registerFileBuffer(fileName, bytes);
     try {
-      return await engine.query(sql);
+      return await engine.query(statement);
     } finally {
       try {
-        await db.dropFile(fileName);
+        await engine.dropFile(fileName);
       } catch {
         /* best-effort cleanup */
       }
@@ -427,7 +428,7 @@ export function useLoQE(config: LoQEConfig) {
       try {
         const names = await queryColumn(
           pooled.connection,
-          `SELECT DISTINCT database_name FROM duckdb_databases()
+          sql`SELECT DISTINCT database_name FROM duckdb_databases()
            WHERE database_name NOT IN ('system', 'temp')
            ORDER BY database_name LIMIT 200`,
         );
@@ -449,8 +450,8 @@ export function useLoQE(config: LoQEConfig) {
         // Try as catalog → return schema names
         names = await queryColumn(
           pooled.connection,
-          `SELECT DISTINCT schema_name FROM duckdb_schemas()
-           WHERE database_name = '${esc(parts[0])}'
+          sql`SELECT DISTINCT schema_name FROM duckdb_schemas()
+           WHERE database_name = ${literal(parts[0])}
              AND schema_name NOT IN ('information_schema', 'pg_catalog')
            ORDER BY schema_name LIMIT 2000`,
         );
@@ -458,8 +459,8 @@ export function useLoQE(config: LoQEConfig) {
         if (names.length === 0) {
           names = await queryColumn(
             pooled.connection,
-            `SELECT column_name FROM duckdb_columns()
-             WHERE table_name = '${esc(parts[0])}'
+            sql`SELECT column_name FROM duckdb_columns()
+             WHERE table_name = ${literal(parts[0])}
                AND database_name NOT IN ('system', 'temp')
                AND schema_name NOT IN ('information_schema', 'pg_catalog')
              ORDER BY column_index LIMIT 2000`,
@@ -469,19 +470,19 @@ export function useLoQE(config: LoQEConfig) {
         // Try as catalog.schema → return table/view names
         names = await queryColumn(
           pooled.connection,
-          `SELECT DISTINCT table_name FROM duckdb_tables()
-           WHERE database_name = '${esc(parts[0])}' AND schema_name = '${esc(parts[1])}'
+          sql`SELECT DISTINCT table_name FROM duckdb_tables()
+           WHERE database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])}
            UNION
            SELECT DISTINCT view_name FROM duckdb_views()
-           WHERE database_name = '${esc(parts[0])}' AND schema_name = '${esc(parts[1])}'
+           WHERE database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])}
            ORDER BY 1 LIMIT 2000`,
         );
         // Fallback: schema.table → return columns
         if (names.length === 0) {
           names = await queryColumn(
             pooled.connection,
-            `SELECT column_name FROM duckdb_columns()
-             WHERE schema_name = '${esc(parts[0])}' AND table_name = '${esc(parts[1])}'
+            sql`SELECT column_name FROM duckdb_columns()
+             WHERE schema_name = ${literal(parts[0])} AND table_name = ${literal(parts[1])}
                AND database_name NOT IN ('system', 'temp')
              ORDER BY column_index LIMIT 2000`,
           );
@@ -491,8 +492,10 @@ export function useLoQE(config: LoQEConfig) {
         // Try DESCRIBE first — it works reliably for Iceberg / REST-catalog tables
         // even when duckdb_columns() has stale or incomplete metadata.
         try {
-          const sql = `SELECT column_name FROM (DESCRIBE "${parts[0]}"."${parts[1]}"."${parts[2]}")`;
-          names = await queryColumn(pooled.connection, sql);
+          names = await queryColumn(
+            pooled.connection,
+            sql`SELECT column_name FROM (DESCRIBE ${ident(parts[0], parts[1], parts[2])})`,
+          );
         } catch {
           // DESCRIBE may fail if table doesn't exist — fall through
         }
@@ -500,8 +503,8 @@ export function useLoQE(config: LoQEConfig) {
         if (names.length === 0) {
           names = await queryColumn(
             pooled.connection,
-            `SELECT column_name FROM duckdb_columns()
-             WHERE database_name = '${esc(parts[0])}' AND schema_name = '${esc(parts[1])}' AND table_name = '${esc(parts[2])}'
+            sql`SELECT column_name FROM duckdb_columns()
+             WHERE database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])} AND table_name = ${literal(parts[2])}
              ORDER BY column_index LIMIT 2000`,
           );
         }
@@ -520,19 +523,14 @@ export function useLoQE(config: LoQEConfig) {
   }
 
   /** Helper: run a query and return the first column as string[]. */
-  async function queryColumn(conn: any, sql: string): Promise<string[]> {
-    const result = await conn.query(sql);
+  async function queryColumn(conn: SqlConnection, statement: Sql): Promise<string[]> {
+    const result = await conn.query(statement);
     const out: string[] = [];
     for (let i = 0; i < result.numRows; i++) {
       const v = result.getChildAt(0)?.get(i);
       if (v != null) out.push(String(v));
     }
     return out;
-  }
-
-  /** Escape single quotes in SQL identifiers. */
-  function esc(s: string): string {
-    return s.replace(/'/g, "''");
   }
 
   /** Clear the completion cache (e.g. after catalog attach/detach). */

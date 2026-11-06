@@ -1,4 +1,4 @@
-import type { AsyncDuckDBConnection } from '@duckdb/duckdb-wasm';
+import type { SqlConnection } from './SqlConnection';
 
 // ── Engine Configuration ──────────────────────────────────────────────
 
@@ -58,7 +58,7 @@ export interface LoQEExtension {
 
 export interface PooledConnection {
   id: number;
-  connection: AsyncDuckDBConnection;
+  connection: SqlConnection;
   inUse: boolean;
   lastUsed: number;
 }
