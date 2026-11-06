@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.32.0](https://github.com/lakekeeper/console-components/compare/v0.31.0...v0.32.0) (2026-11-06)
+
+
+### Features
+
+* rename the write_data relation to write in the permission dialog ([7e8d4cf](https://github.com/lakekeeper/console-components/commit/7e8d4cf36f9544310f4c756040f712edf7847938))
+
+
+### Bug Fixes
+
+* **loqe:** ask for commit, not drop or rename, when an ALTER is refused ([7e8d4cf](https://github.com/lakekeeper/console-components/commit/7e8d4cf36f9544310f4c756040f712edf7847938))
+* **ui:** gate the namespace Settings menu on real permissions ([e2f5f28](https://github.com/lakekeeper/console-components/commit/e2f5f288898f1071bb0bf4ceadf5d63c0e7922d7))
+
 ## [0.31.0](https://github.com/lakekeeper/console-components/compare/v0.30.1...v0.31.0) (2026-11-04)
 
 
