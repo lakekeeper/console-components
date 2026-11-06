@@ -1495,8 +1495,9 @@ export const validateWarehouse = <ThrowOnError extends boolean = false>(options:
 /**
  * Delete Warehouse
  *
- * Permanently removes a warehouse and all its associated resources.
- * Use the `force` parameter to delete protected warehouses.
+ * Deletes an empty warehouse. Unfinished tasks block the delete, except tasks of queues that
+ * are cancelled when their warehouse is deleted; those are cancelled, running ones included.
+ * Use the `force` parameter to delete a protected warehouse.
  */
 export const deleteWarehouse = <ThrowOnError extends boolean = false>(options: Options<DeleteWarehouseData, ThrowOnError>): RequestResult<DeleteWarehouseResponses, DeleteWarehouseErrors, ThrowOnError> => (options.client ?? client).delete<DeleteWarehouseResponses, DeleteWarehouseErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
