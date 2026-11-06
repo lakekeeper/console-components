@@ -457,6 +457,8 @@ const emit = defineEmits<{
       warehouseName: string;
       namespaceId?: string;
       name: string;
+      /** A field's name and those of the fields it is nested in, outermost first. */
+      fieldPath?: string[];
     },
   ): void;
   /** User expanded a warehouse that is not yet attached — request auto-attach */
@@ -544,8 +546,8 @@ interface TreeItem {
    */
   statusKind?: 'error' | 'forbidden' | 'empty';
   retryOf?: string;
-  /** Dotted path from the top-level column, for nested fields. */
-  fieldPath?: string;
+  /** Names from the top-level column down to this field. */
+  fieldPath?: string[];
   parentType?: 'table' | 'view';
   parentName?: string;
   /** Storage profile type — only set on warehouse nodes. */
@@ -845,7 +847,7 @@ async function revealObjectNow(target: {
     await nextTick();
     await nextTick();
     document
-      .querySelector(`[data-node-id="${nodeId}"]`)
+      .querySelector(`[data-node-id="${CSS.escape(nodeId)}"]`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     return;
   }
@@ -873,7 +875,7 @@ async function revealObjectNow(target: {
   // Scroll the node into view after DOM settles
   await nextTick();
   await nextTick();
-  const el = document.querySelector(`[data-node-id="${itemNodeId}"]`);
+  const el = document.querySelector(`[data-node-id="${CSS.escape(itemNodeId)}"]`);
   el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
@@ -1225,7 +1227,7 @@ async function loadFieldsForTableOrView(item: TreeItem) {
           const schema = metadata.metadata.schemas?.find((s: any) => s['schema-id'] === schemaId);
           ctx.identifierIds = new Set(schema?.['identifier-field-ids'] ?? []);
           schema?.fields?.forEach((field: any) => {
-            fields.push(makeFieldItem(item, field, '', ctx));
+            fields.push(makeFieldItem(item, field, [], ctx));
           });
         }
       }
@@ -1237,7 +1239,7 @@ async function loadFieldsForTableOrView(item: TreeItem) {
         );
         ctx.identifierIds = new Set(schema?.['identifier-field-ids'] ?? []);
         schema?.fields?.forEach((field: any) => {
-          fields.push(makeFieldItem(item, field, '', ctx));
+          fields.push(makeFieldItem(item, field, [], ctx));
         });
       }
     }
@@ -1256,18 +1258,18 @@ async function loadFieldsForTableOrView(item: TreeItem) {
  *
  * The Iceberg schema already describes nested types in full, so a struct/list/map
  * column expands rather than being flattened into a JSON blob. Nested nodes keep
- * a dotted path as their name so inserting one into the editor yields something
- * usable (`address.street`).
+ * the path of names down to them, so inserting one into the editor yields
+ * something usable (`"address"."street"`).
  */
 function makeFieldItem(
   parent: TreeItem,
   field: any,
-  namePath = '',
+  namePath: string[] = [],
   ctx: FieldContext = EMPTY_FIELD_CONTEXT,
 ): TreeItem {
-  const path = namePath ? `${namePath}.${field.name}` : field.name;
+  const path = [...namePath, field.name];
   const item: TreeItem = {
-    id: `field-${parent.id}-${path}-${field.id}`,
+    id: `field-${parent.id}-${path.join('.')}-${field.id}`,
     name: field.name,
     type: 'field',
     fieldType: formatIcebergType(field.type),
@@ -1295,7 +1297,7 @@ function makeFieldItem(
 function makeNestedFieldItems(
   parent: TreeItem,
   type: any,
-  path: string,
+  path: string[],
   ctx: FieldContext,
 ): TreeItem[] {
   if (!type || typeof type === 'string') return [];
@@ -1308,7 +1310,7 @@ function makeNestedFieldItems(
     return [
       makeFieldItem(
         parent,
-        { id: `${path}-element`, name: 'element', type: type.element },
+        { id: `${path.join('.')}-element`, name: 'element', type: type.element },
         path,
         ctx,
       ),
@@ -1317,8 +1319,18 @@ function makeNestedFieldItems(
 
   if (type.type === 'map') {
     return [
-      makeFieldItem(parent, { id: `${path}-key`, name: 'key', type: type.key }, path, ctx),
-      makeFieldItem(parent, { id: `${path}-value`, name: 'value', type: type.value }, path, ctx),
+      makeFieldItem(
+        parent,
+        { id: `${path.join('.')}-key`, name: 'key', type: type.key },
+        path,
+        ctx,
+      ),
+      makeFieldItem(
+        parent,
+        { id: `${path.join('.')}-value`, name: 'value', type: type.value },
+        path,
+        ctx,
+      ),
     ];
   }
 
@@ -1780,9 +1792,10 @@ function handleInsertField(item: TreeItem) {
     warehouseId: item.warehouseId,
     warehouseName: item.warehouseName || '',
     namespaceId: item.namespaceId,
-    // Nested fields insert their dotted path — `address.street` is what a query
-    // needs, where `street` alone would not resolve.
-    name: item.fieldPath || item.name,
+    name: item.name,
+    // Nested fields insert their whole path — `"address"."street"` is what a
+    // query needs, where `"street"` alone would not resolve.
+    fieldPath: item.fieldPath,
   });
 }
 

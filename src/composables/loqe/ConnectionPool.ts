@@ -1,5 +1,6 @@
 import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import type { PooledConnection } from './types';
+import { SqlConnection } from './SqlConnection';
 
 /**
  * ConnectionPool — fixed-size pool of DuckDB WASM connections.
@@ -39,7 +40,7 @@ export class ConnectionPool {
 
     // 2. Grow the pool if there is room
     if (this.pool.length < this.maxSize) {
-      const conn = await this.db.connect();
+      const conn = await SqlConnection.open(this.db);
       const pooled: PooledConnection = {
         id: this.nextId++,
         connection: conn,
