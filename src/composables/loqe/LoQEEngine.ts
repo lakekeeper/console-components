@@ -8,6 +8,7 @@ import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings
 import { explainQueryFailure } from './queryError';
 import { createWorkerBootstrap } from './workerBootstrap';
 import { toPlainCellValue } from './arrowValue';
+import { createResultValueReader } from './resultValues';
 
 /**
  * Format an arbitrary thrown value for logging. DuckDB-WASM errors frequently
@@ -381,13 +382,15 @@ export class LoQEEngine {
       // Yield to the browser event loop every BATCH_SIZE rows so the
       // main thread stays responsive during large result sets.
       const BATCH_SIZE = 2000;
+      const valueReaders = columns.map((_: string, j: number) =>
+        createResultValueReader(result.getChildAt(j)),
+      );
 
       for (let i = 0; i < rowsToRead; i++) {
         const row: any[] = [];
         for (let j = 0; j < result.numCols; j++) {
-          // Flattened here, at the boundary: an Arrow struct/map row is a proxy
-          // that Vue's reactive() cannot wrap (see toPlainCellValue).
-          row.push(toPlainCellValue(result.getChildAt(j)?.get(i)));
+          // Preserve the upstream normalizer for non-timestamp Arrow values.
+          row.push(toPlainCellValue(valueReaders[j](i)));
         }
         rows.push(row);
 
