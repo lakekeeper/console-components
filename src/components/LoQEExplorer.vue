@@ -1961,9 +1961,12 @@ const activeStatementSql = computed(() => {
 function extractTableRefs(sql: string): { catalog: string; namespace: string; table: string }[] {
   const refs: { catalog: string; namespace: string; table: string }[] = [];
   const clause =
-    /\b(?:from|join)\s+((?:"[^"]+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"[^"]+"|[A-Za-z_][\w$]*)){2})/gi;
+    /\b(?:from|join)\s+((?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)(?:\s*\.\s*(?:"(?:[^"]|"")+"|[A-Za-z_][\w$]*)){2})/gi;
   for (const match of sql.matchAll(clause)) {
-    const parts = [...match[1].matchAll(/"([^"]+)"|([A-Za-z_][\w$]*)/g)].map((p) => p[1] ?? p[2]);
+    // A quote inside a quoted name is written twice (`"a""b"` is `a"b`).
+    const parts = [...match[1].matchAll(/"((?:[^"]|"")+)"|([A-Za-z_][\w$]*)/g)].map((p) =>
+      p[1] !== undefined ? p[1].replace(/""/g, '"') : p[2],
+    );
     if (parts.length === 3) {
       refs.push({ catalog: parts[0], namespace: parts[1], table: parts[2] });
     }
