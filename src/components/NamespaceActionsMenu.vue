@@ -133,10 +133,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch, inject } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
-import { useNamespacePermissions } from '@/composables/useCatalogPermissions';
+import { useNamespacePermissions, useConfig } from '@/composables/useCatalogPermissions';
 import { isForbiddenError, isNotFoundError } from '@/common/errorUtils';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
 import MoveNamespaceDialog from './MoveNamespaceDialog.vue';
@@ -152,10 +152,12 @@ defineEmits<{ (e: 'updated'): void }>();
 const functions = useFunctions();
 const router = useRouter();
 const route = useRoute();
-const config = inject<any>('appConfig', {
-  enabledAuthentication: false,
-  enabledPermissions: false,
-});
+// useConfig(), not a raw inject: `appConfig` is a plain object of booleans, so
+// `config.enabledPermissions.value` on it is undefined and every `!…value`
+// gate below would read as "permissions are off" — offering Delete and Move to
+// everyone. useConfig() wraps both flags in computeds and prefers the server's
+// own authz-backend over the build-time env.
+const config = useConfig();
 
 const menuOpen = ref(false);
 const deleteOpen = ref(false);

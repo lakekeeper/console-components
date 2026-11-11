@@ -41,6 +41,12 @@ format:
 check-format: 
     npm run format:check
 
+check-types:
+    npx vue-tsc --noEmit -p tsconfig.json
+
+test:
+    npm test
+
 check-all: check-format fix-lint
 
 fix-all: format fix-lint

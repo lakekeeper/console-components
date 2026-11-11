@@ -247,4 +247,15 @@ describe('a status the catalog already stated', () => {
 
     expect(splitEngineError(out.message).explanation).toContain('read_data');
   });
+
+  it.each([
+    ['INSERT INTO "wh"."ns"."t" VALUES (1)', '`write_data`'],
+    ['ALTER TABLE "wh"."ns"."t" ADD COLUMN c INT', '`commit`'],
+    ['ALTER TABLE "wh"."ns"."t" RENAME TO t2', '`rename`'],
+    ['DROP TABLE "wh"."ns"."t"', '`drop`'],
+  ])('asks for the right privilege on %s', (sql, privilege) => {
+    const out = friendlyQueryError(original, RAW_403, [], sql) as Error;
+
+    expect(splitEngineError(out.message).explanation).toContain(privilege);
+  });
 });

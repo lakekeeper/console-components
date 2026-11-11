@@ -8,6 +8,8 @@ import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings
 import { explainQueryFailure } from './queryError';
 import { createWorkerBootstrap } from './workerBootstrap';
 import { toPlainCellValue } from './arrowValue';
+import { ident, join, literal, splitStatements, sql, sqlText, type Sql } from './sql';
+import type { SqlConnection } from './SqlConnection';
 
 /**
  * Format an arbitrary thrown value for logging. DuckDB-WASM errors frequently
@@ -136,7 +138,7 @@ export class LoQEEngine {
   private initPromise: Promise<void> | null = null;
   private _pool: ConnectionPool | null = null;
   private installedExtensions = new Set<string>();
-  private _activeConnection: any = null;
+  private _activeConnection: SqlConnection | null = null;
   private _cancelRequested = false;
   // Bundled (self-hosted) extension repository, resolved at init from the app
   // origin. Used by default so extensions load offline instead of from the CDN.
@@ -249,15 +251,12 @@ export class LoQEEngine {
         if (repo) {
           const conn = await this._pool.acquire();
           try {
-            // Escape single quotes to keep a user-supplied repo URL from breaking
-            // the statement (SQL string-literal escaping is doubling the quote).
-            const escapedRepo = repo.replace(/'/g, "''");
-            await conn.connection.query(`SET custom_extension_repository = '${escapedRepo}'`);
+            await conn.connection.query(sql`SET custom_extension_repository = ${literal(repo)}`);
             // Newer DuckDB uses a dedicated setting for autoload; best-effort so an
             // older core that lacks it doesn't fail init.
             try {
               await conn.connection.query(
-                `SET autoinstall_extension_repository = '${escapedRepo}'`,
+                sql`SET autoinstall_extension_repository = ${literal(repo)}`,
               );
             } catch (e) {
               console.debug('[LoQE] autoinstall_extension_repository not supported', e);
@@ -297,7 +296,7 @@ export class LoQEEngine {
    */
   static readonly MAX_RESULT_ROWS = DUCKDB_DEFAULTS.maxResultRows;
 
-  async query(sql: string): Promise<LoQEQueryResult> {
+  async query(statement: Sql): Promise<LoQEQueryResult> {
     if (!this._isInitialized || !this._pool) {
       await this.initialize();
     }
@@ -320,7 +319,7 @@ export class LoQEEngine {
 
     try {
       // ── Timeout guardrail ─────────────────────────────────────────
-      const exec = async (q: string): Promise<any> => {
+      const exec = async (q: Sql): Promise<any> => {
         if (timeoutMs > 0) {
           const queryPromise = pooled.connection.query(q);
           const timeoutPromise = new Promise<never>((_, reject) => {
@@ -342,24 +341,24 @@ export class LoQEEngine {
 
       let result: any;
       try {
-        result = await exec(sql);
+        result = await exec(statement);
       } catch (err: any) {
         // Log the failing statement and the FULL error — DuckDB's `.message` is
         // often empty (e.g. "Invalid Configuration Error:"), so dump everything.
-        console.error(`[LoQE] query FAILED on SQL:\n${sql}\n`, describeError(err));
+        console.error(`[LoQE] query FAILED on SQL:\n${statement}\n`, describeError(err));
         const msg = String(err?.message ?? err);
 
         // Retry A: DuckDB can't serialize VARIANT (and a few other types) to Arrow
         // for transport to JS. Retry once casting those columns to text so the
         // result is at least viewable (value shown as JSON/text).
         const casted = /unsupported arrow type/i.test(msg)
-          ? await this.buildArrowSafeQuery(pooled.connection, sql)
+          ? await this.buildArrowSafeQuery(pooled.connection, statement)
           : null;
         if (!casted) {
           throw await explainQueryFailure(
             err,
             msg,
-            sql,
+            sqlText(statement),
             this.catalogs.getAttachedCatalogs().map((c) => c.catalogName),
           );
         }
@@ -422,14 +421,20 @@ export class LoQEEngine {
    * query and CAST those columns to VARCHAR. Returns null when the query isn't a
    * single SELECT/WITH, can't be described, or has no VARIANT columns.
    */
-  private async buildArrowSafeQuery(connection: any, sql: string): Promise<string | null> {
-    const trimmed = sql.trim().replace(/;\s*$/, '');
+  private async buildArrowSafeQuery(
+    connection: SqlConnection,
+    statement: Sql,
+  ): Promise<Sql | null> {
     // Only wrap a single SELECT/WITH statement — never DDL, PRAGMA, multi-stmt.
-    if (!/^(select|with)\b/i.test(trimmed) || /;/.test(trimmed)) return null;
+    const statements = splitStatements(statement);
+    if (statements.length !== 1) return null;
+    const single = statements[0].sql;
+    if (!/^(select|with)\b/i.test(sqlText(single))) return null;
 
+    // The newline after the statement ends a `--` comment at its end.
     let desc: any;
     try {
-      desc = await connection.query(`DESCRIBE ${trimmed}`);
+      desc = await connection.query(sql`DESCRIBE ${single}\n`);
     } catch {
       return null;
     }
@@ -439,24 +444,24 @@ export class LoQEEngine {
     if (!names || !types) return null;
 
     let hasVariant = false;
-    const projection: string[] = [];
+    const projection: Sql[] = [];
     for (let i = 0; i < desc.numRows; i++) {
       const name = String(names.get(i));
       const type = String(types.get(i) ?? '');
-      const q = `"${name.replace(/"/g, '""')}"`;
+      const q = ident(name);
       if (/variant/i.test(type)) {
         hasVariant = true;
         // CAST(... AS JSON) yields real JSON text and serializes to Arrow as a
         // string (unlike VARIANT, which has no Arrow type). CAST(... AS VARCHAR)
         // would instead give DuckDB's struct notation ({'k': v}), not JSON.
-        projection.push(`CAST(${q} AS JSON) AS ${q}`);
+        projection.push(sql`CAST(${q} AS JSON) AS ${q}`);
       } else {
         projection.push(q);
       }
     }
     if (!hasVariant) return null;
 
-    return `SELECT ${projection.join(', ')} FROM (${trimmed}) AS _loqe_arrow_safe`;
+    return sql`SELECT ${join(projection)} FROM (${single}\n) AS _loqe_arrow_safe`;
   }
 
   // ── Extension management ────────────────────────────────────────────
@@ -495,12 +500,12 @@ export class LoQEEngine {
     const pooled = await this._pool.acquire();
     try {
       try {
-        await pooled.connection.query('CHECKPOINT');
+        await pooled.connection.query(sql`CHECKPOINT`);
       } catch {
         /* non-critical */
       }
       try {
-        await pooled.connection.query('PRAGMA shrink_memory');
+        await pooled.connection.query(sql`PRAGMA shrink_memory`);
       } catch {
         /* shrink_memory may not exist in older builds — ignore */
       }
@@ -532,7 +537,7 @@ export class LoQEEngine {
       // Only if LOAD fails (the extension isn't builtin in this build) do we fall
       // back to INSTALL from the configured repo.
       try {
-        await pooled.connection.query(`LOAD ${name}`);
+        await pooled.connection.query(sql`LOAD ${ident(name)}`);
       } catch (loadErr) {
         console.warn(
           `[LoQE] LOAD ${name} not builtin; falling back to INSTALL from repo\n`,
@@ -541,10 +546,10 @@ export class LoQEEngine {
         const settingsStore = useDuckDBSettingsStore();
         const repo = (settingsStore.extensionRepository ?? '').trim() || this.bundledExtensionRepo;
         if (repo) {
-          await pooled.connection.query(`SET custom_extension_repository = '${repo}'`);
+          await pooled.connection.query(sql`SET custom_extension_repository = ${literal(repo)}`);
         }
-        await pooled.connection.query(`INSTALL ${name}`);
-        await pooled.connection.query(`LOAD ${name}`);
+        await pooled.connection.query(sql`INSTALL ${ident(name)}`);
+        await pooled.connection.query(sql`LOAD ${ident(name)}`);
       }
       this.installedExtensions.add(name);
     } finally {
@@ -576,7 +581,7 @@ export class LoQEEngine {
     if (!this._isInitialized) return [];
 
     const result = await this.query(
-      `SELECT extension_name, installed, loaded
+      sql`SELECT extension_name, installed, loaded
        FROM duckdb_extensions()
        WHERE installed = true`,
     );
@@ -647,9 +652,15 @@ export class LoQEEngine {
 
   // ── Internals ───────────────────────────────────────────────────────
 
-  /** Expose the raw AsyncDuckDB for advanced consumers. */
-  getDB(): AsyncDuckDB | null {
-    return this.db;
+  /** Make `bytes` readable by queries as the file `name`, e.g. `read_avro('name')`. */
+  async registerFileBuffer(name: string, bytes: Uint8Array): Promise<void> {
+    if (!this.db) throw new Error('[LoQE] Not initialised');
+    await this.db.registerFileBuffer(name, bytes);
+  }
+
+  /** Forget a file registered with `registerFileBuffer`. */
+  async dropFile(name: string): Promise<void> {
+    await this.db?.dropFile(name);
   }
 
   private destroy(): void {

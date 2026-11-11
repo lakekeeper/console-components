@@ -223,19 +223,23 @@ function destRight(node: DestNode | null | undefined): boolean | undefined {
   return accept && create ? true : undefined;
 }
 
-// The tabular's own `move`. Unknown while the answer is in flight, and a plain
-// `false` is worth saying up front rather than at the end of a destination walk.
-const sourceRight = computed(() =>
-  rights.can(
-    {
-      kind: props.kind,
-      warehouseId: props.warehouseId,
-      namespace: currentNamespace.value,
-      name: props.name,
-    },
-    'move',
-  ),
-);
+// The tabular's own rights. The server checks `rename` on every rename —
+// including one that crosses namespaces — and `move` only on top of it, so a
+// move needs both; `move` alone would offer a button the server refuses.
+// Unknown while either answer is in flight, and a plain `false` is worth saying
+// up front rather than at the end of a destination walk.
+const sourceTarget = computed<ItemTarget>(() => ({
+  kind: props.kind,
+  warehouseId: props.warehouseId,
+  namespace: currentNamespace.value,
+  name: props.name,
+}));
+const sourceRight = computed(() => {
+  const move = rights.can(sourceTarget.value, 'move');
+  const rename = rights.can(sourceTarget.value, 'rename');
+  if (move === false || rename === false) return false;
+  return move && rename ? true : undefined;
+});
 
 function listRefusal(e: any): string {
   return isForbiddenError(e) ? 'contents not visible to you' : tagRefusal(e, 'list its contents');
@@ -254,8 +258,17 @@ const selectedNode = computed<DestNode | null>(() => {
 
 async function fetchChildren(path: string[]): Promise<DestNode[]> {
   const parent = path.length ? path.join(SEP) : undefined;
-  const res = await functions.listNamespaces(props.warehouseId, parent, undefined, false);
-  return (res.namespaces ?? []).map((ns: string[]) => {
+  // The listing pages at 100: a warehouse with more namespaces under one parent
+  // would otherwise hide the rest of them, and a destination that is not in the
+  // tree cannot be picked at all.
+  const namespaces: string[][] = [];
+  let pageToken: string | undefined;
+  do {
+    const res = await functions.listNamespaces(props.warehouseId, parent, pageToken, false);
+    namespaces.push(...((res.namespaces ?? []) as string[][]));
+    pageToken = res['next-page-token'] ?? undefined;
+  } while (pageToken);
+  return namespaces.map((ns: string[]) => {
     const key = ns.join(SEP);
     return {
       key,
@@ -299,10 +312,19 @@ async function loadOpened(keys: string[]) {
 
 watch(destOpened, loadOpened);
 
+// Seeding the tree is several requests, so a close-and-reopen while they are in
+// flight would otherwise let the first opening's answers land on the second
+// one's tree.
+let seedToken = 0;
+
 // Opening is what seeds the tree: a menu that listed namespaces for every row it
 // rendered would pay for answers nobody reads.
 watch(open, async (isOpen) => {
-  if (!isOpen) return;
+  if (!isOpen) {
+    seedToken++;
+    return;
+  }
+  const token = ++seedToken;
   newName.value = props.name;
   moveError.value = null;
   blocker.value = null;
@@ -311,7 +333,9 @@ watch(open, async (isOpen) => {
   destActivated.value = [];
   listing.value = true;
   try {
-    destItems.value = await fetchChildren([]);
+    const roots = await fetchChildren([]);
+    if (token !== seedToken) return;
+    destItems.value = roots;
     // Open down to where it lives now, so a near-by destination needs no walking.
     const openKeys: string[] = [];
     for (let i = 0; i < currentNamespace.value.length; i++) {
@@ -321,19 +345,24 @@ watch(open, async (isOpen) => {
       openKeys.push(node.key);
       node.loaded = true;
       try {
-        node.children = await fetchChildren(path);
+        const children = await fetchChildren(path);
+        if (token !== seedToken) return;
+        node.children = children;
       } catch (e) {
+        if (token !== seedToken) return;
         node.children = [];
         node.listError = listRefusal(e);
         break;
       }
     }
+    if (token !== seedToken) return;
     destOpened.value = openKeys;
   } catch (e: any) {
+    if (token !== seedToken) return;
     blocker.value =
       e?.error?.message || e?.message || 'Could not load the namespaces of this warehouse.';
   } finally {
-    listing.value = false;
+    if (token === seedToken) listing.value = false;
   }
 });
 

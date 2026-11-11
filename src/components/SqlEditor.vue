@@ -24,6 +24,7 @@ import {
 } from '@codemirror/autocomplete';
 import { useTheme } from 'vuetify';
 import { format as formatSQL } from 'sql-formatter';
+import { ident } from '../composables/loqe/sql';
 
 const props = withDefaults(
   defineProps<{
@@ -70,6 +71,11 @@ const aliasCompartment = new Compartment();
 
 // ── Lazy alias-aware completion ──────────────────────────────────────
 
+/** The name inside a quoted identifier: `""` becomes `"`, and `.` is kept apart from the path's dots. */
+function unquote(inner: string, dot: string): string {
+  return inner.replaceAll('""', '"').replaceAll('.', dot);
+}
+
 /**
  * Parse SQL text for table aliases:
  *   FROM catalog.schema.table AS alias
@@ -79,14 +85,15 @@ const aliasCompartment = new Compartment();
  */
 function parseAliases(doc: string): Map<string, string> {
   const aliases = new Map<string, string>();
-  const re = /(?:FROM|JOIN)\s+((?:\w+|"[^"]*")(?:\.(?:\w+|"[^"]*"))*)\s+(?:AS\s+)?(\w+)/gi;
+  const re =
+    /(?:FROM|JOIN)\s+((?:\w+|"(?:[^"]|"")*")(?:\.(?:\w+|"(?:[^"]|"")*"))*)\s+(?:AS\s+)?(\w+)/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(doc)) !== null) {
     // Parse the table reference into \x1F-separated parts, preserving dots inside quotes.
     // Example: demo."f-inance".products6 → demo\x1Ff-inance\x1Fproducts6
     const PLACEHOLDER = '\uFFFF';
     const table = m[1]
-      .replace(/"([^"]*)"/g, (_, inner: string) => inner.replaceAll('.', PLACEHOLDER))
+      .replace(/"((?:[^"]|"")*)"/g, (_, inner: string) => unquote(inner, PLACEHOLDER))
       .split('.')
       .map((p) => p.replaceAll(PLACEHOLDER, '.'))
       .join('\x1F');
@@ -142,7 +149,9 @@ function buildCompletionSource(fetchFn: ((qualifier: string) => Promise<string[]
   async function completer(ctx: CompletionContext) {
     // 1. Dot-qualifier completions (catalog.schema.table. etc.)
     // Regex also matches quoted identifiers like demo."f-inance.sss".table.
-    const dotMatch = ctx.matchBefore(/((\w+|"[^"]*")(\.(\w+|"[^"]*"))*)\.(\w*|"[^"]*")/);
+    const dotMatch = ctx.matchBefore(
+      /((\w+|"(?:[^"]|"")*")(\.(\w+|"(?:[^"]|"")*"))*)\.(\w*|"(?:[^"]|"")*")/,
+    );
     if (dotMatch) {
       const lastDotIdx = dotMatch.text.lastIndexOf('.');
       const rawQualifier = dotMatch.text.slice(0, lastDotIdx);
@@ -152,7 +161,7 @@ function buildCompletionSource(fetchFn: ((qualifier: string) => Promise<string[]
       // Example: demo."f-inance.sss" → demo\x1Ff-inance.sss
       const PLACEHOLDER = '\uFFFF';
       let qualifier = rawQualifier
-        .replace(/"([^"]*)"/g, (_, inner: string) => inner.replaceAll('.', PLACEHOLDER))
+        .replace(/"((?:[^"]|"")*)"/g, (_, inner: string) => unquote(inner, PLACEHOLDER))
         .split('.')
         .map((p) => p.replaceAll(PLACEHOLDER, '.'))
         .join('\x1F');
@@ -186,7 +195,7 @@ function buildCompletionSource(fetchFn: ((qualifier: string) => Promise<string[]
         type: 'property',
         boost: 99,
         // Quote identifiers that contain special characters
-        ...(needsQuoting(name) ? { apply: `"${name}"` } : {}),
+        ...(needsQuoting(name) ? { apply: String(ident(name)) } : {}),
       }));
 
       return {
@@ -221,7 +230,7 @@ function buildCompletionSource(fetchFn: ((qualifier: string) => Promise<string[]
         label: name,
         type: 'keyword',
         boost: 50,
-        ...(needsQuoting(name) ? { apply: `"${name}"` } : {}),
+        ...(needsQuoting(name) ? { apply: String(ident(name)) } : {}),
       }));
 
       return { from: identStart, options };
