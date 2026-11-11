@@ -66,6 +66,7 @@ const catalogWarehouseActions: LakekeeperWarehouseAction[] = [
   { action: 'create_namespace' },
   { action: 'delete' },
   { action: 'update_storage' },
+  { action: 'update_storage_credential' },
   { action: 'get_metadata' },
   { action: 'get_config' },
   { action: 'list_namespaces' },

@@ -5,6 +5,39 @@ import pluginVue from 'eslint-plugin-vue';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import pluginPrettier from 'eslint-plugin-prettier';
 
+// SQL for DuckDB is an `Sql` built with `src/composables/loqe/sql.ts`; these keep
+// string-built SQL from coming back.
+const sqlRestrictions = [
+  {
+    selector:
+      'CallExpression[callee.property.name=/^(query|queryBuffer)$/] > TemplateLiteral[expressions.length>0]',
+    message:
+      'Build SQL with the sql`…` template and ident()/literal()/num(), not a template string.',
+  },
+  {
+    selector:
+      "CallExpression[callee.property.name=/^(query|queryBuffer)$/] > BinaryExpression[operator='+']",
+    message:
+      'Build SQL with the sql`…` template and ident()/literal()/num(), not by concatenation.',
+  },
+  {
+    selector:
+      "CallExpression[callee.name='userSql'] > :matches(TemplateLiteral[expressions.length>0], BinaryExpression[operator='+'])",
+    message: 'userSql() takes the text the user typed as it is, not text built here.',
+  },
+  {
+    selector:
+      "TSAsExpression[typeAnnotation.typeName.name='Sql'], TSTypeAssertion[typeAnnotation.typeName.name='Sql']",
+    message: 'Do not cast to Sql: build it with sql`…`, ident(), literal(), num() or userSql().',
+  },
+];
+// `userSql` is for text the user typed; each file that may take such text is listed below.
+const userSqlRestriction = {
+  selector: "CallExpression[callee.name='userSql']",
+  message: 'userSql() is only for SQL the user typed. Build SQL from names and values with sql`…`.',
+};
+const userSqlFiles = ['src/components/LoQEExplorer.vue', 'src/composables/loqe/sql.test.ts'];
+
 /** @type {import('eslint').Linter.Config[]} */
 export default [
   eslintConfigPrettier,
@@ -88,6 +121,13 @@ export default [
             '`crossfade` makes window panes invisible on a light surface (permanent mix-blend-mode: plus-lighter). Omit it.',
         },
       ],
+      'no-restricted-syntax': ['error', ...sqlRestrictions, userSqlRestriction],
+    },
+  },
+  {
+    files: userSqlFiles,
+    rules: {
+      'no-restricted-syntax': ['error', ...sqlRestrictions],
     },
   },
 ];

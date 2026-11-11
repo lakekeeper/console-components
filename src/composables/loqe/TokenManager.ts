@@ -1,5 +1,6 @@
 import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import { icebergSecretSql } from './icebergSecret';
+import { SqlConnection } from './SqlConnection';
 
 /**
  * TokenManager — keeps DuckDB `SECRET` objects in sync with the
@@ -56,7 +57,7 @@ export class TokenManager {
 
     let conn;
     try {
-      conn = await this.db.connect();
+      conn = await SqlConnection.open(this.db);
 
       for (const [secretName, { type, projectId }] of this.registeredSecrets) {
         try {

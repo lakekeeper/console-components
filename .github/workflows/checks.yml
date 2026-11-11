@@ -31,5 +31,11 @@ jobs:
       - name: Run ESLint Check
         run: just check-lint
 
+      - name: Type check
+        run: just check-types
+
+      - name: Run tests
+        run: just test
+
       - name: Type check and build
         run: just build

@@ -552,6 +552,7 @@ import 'vue-json-pretty/lib/styles.css';
 import { onBeforeRouteLeave } from 'vue-router';
 import { useFunctions } from '../plugins/functions';
 import { useLoQE } from '../composables/useLoQE';
+import { literal, sql, type Sql } from '../composables/loqe/sql';
 import {
   useStorageExplorer,
   StorageListError,
@@ -963,19 +964,19 @@ async function openPreview(node: TreeNode) {
       const bytes = await maybeGunzip(raw); // some files (e.g. .json.gz) are gzipped
       const seq = ++previewSeq;
       let fname: string;
-      let reader: string;
+      let reader: Sql;
       let ensureExt: string | null = null;
       if (isAvro) {
         fname = `preview_${seq}.avro`;
-        reader = `read_avro('${fname}')`;
+        reader = sql`read_avro(${literal(fname)})`;
         ensureExt = 'avro';
       } else if (isParquet) {
         fname = `preview_${seq}.parquet`;
-        reader = `read_parquet('${fname}')`;
+        reader = sql`read_parquet(${literal(fname)})`;
         ensureExt = 'parquet';
       } else {
         fname = `preview_${seq}.csv`;
-        reader = `read_csv_auto('${fname}')`;
+        reader = sql`read_csv_auto(${literal(fname)})`;
       }
       if (ensureExt) {
         try {
@@ -984,7 +985,11 @@ async function openPreview(node: TreeNode) {
           /* builtin in this build; ignore */
         }
       }
-      const result: any = await loqe.queryBuffer(fname, bytes, `SELECT * FROM ${reader} LIMIT 200`);
+      const result: any = await loqe.queryBuffer(
+        fname,
+        bytes,
+        sql`SELECT * FROM ${reader} LIMIT 200`,
+      );
       // Stringify cells up front: DuckDB rows can contain nested structs / Arrow
       // objects that Vue cannot proxy (it throws on non-extensible objects).
       previewColumns.value = result.columns || [];

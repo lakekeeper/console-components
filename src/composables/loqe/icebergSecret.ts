@@ -1,3 +1,5 @@
+import { ident, keyword, literal, sql, type Sql } from './sql';
+
 /**
  * SQL for the DuckDB `SECRET` that authenticates the Iceberg REST catalog.
  *
@@ -17,14 +19,12 @@ export function icebergSecretSql(
   token: string,
   projectId?: string,
   type = 'iceberg',
-): string {
+): Sql {
   const headers = projectId
-    ? `,\n      EXTRA_HTTP_HEADERS MAP{'x-project-id': '${q(projectId)}'}`
-    : '';
-  return `CREATE OR REPLACE SECRET ${secretName} (
-      TYPE ${type},
-      TOKEN '${q(token)}'${headers}
+    ? sql`,\n      EXTRA_HTTP_HEADERS MAP{'x-project-id': ${literal(projectId)}}`
+    : sql``;
+  return sql`CREATE OR REPLACE SECRET ${ident(secretName)} (
+      TYPE ${keyword(type)},
+      TOKEN ${literal(token)}${headers}
     )`;
 }
-
-const q = (value: string): string => value.replace(/'/g, "''");

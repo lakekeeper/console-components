@@ -2,6 +2,7 @@ import { ref, shallowRef } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useStorageExplorer, parseLocation } from '@/composables/useStorageExplorer';
 import type { StorageLoadResult } from '@/composables/useStorageExplorer';
+import { ident, join, literal, sql, type Sql } from '@/composables/loqe/sql';
 
 /**
  * Per-column facts read from the table's own manifests.
@@ -40,8 +41,11 @@ export type ManifestStats = {
 
 type Loqe = {
   initialize: () => Promise<void>;
-  query: (sql: string) => Promise<{ rows: any[][] }>;
-  engine: { getDB: () => any | null };
+  query: (statement: Sql) => Promise<{ rows: any[][] }>;
+  engine: {
+    registerFileBuffer: (name: string, bytes: Uint8Array) => Promise<void>;
+    dropFile: (name: string) => Promise<void>;
+  };
 };
 
 /**
@@ -77,10 +81,6 @@ export function useTableManifestStats(loqe: Loqe) {
     error.value = null;
   }
 
-  function sqlString(value: string): string {
-    return `'${value.replace(/'/g, "''")}'`;
-  }
-
   /**
    * The manifest list belongs to a snapshot, so the snapshot the table is
    * currently at decides which files are counted.
@@ -103,14 +103,9 @@ export function useTableManifestStats(loqe: Loqe) {
     return slash === -1 ? '' : rest.slice(slash + 1);
   }
 
-  async function registerAvro(
-    db: any,
-    res: StorageLoadResult,
-    uri: string,
-    name: string,
-  ): Promise<string> {
+  async function registerAvro(res: StorageLoadResult, uri: string, name: string): Promise<string> {
     const bytes = await explorer.getObject(res, objectKey(uri));
-    await db.registerFileBuffer(name, bytes);
+    await loqe.engine.registerFileBuffer(name, bytes);
     return name;
   }
 
@@ -122,7 +117,7 @@ export function useTableManifestStats(loqe: Loqe) {
   async function describeManifest(
     name: string,
   ): Promise<{ top: Set<string>; dataFile: Set<string> }> {
-    const described = await loqe.query(`DESCRIBE SELECT * FROM read_avro(${sqlString(name)})`);
+    const described = await loqe.query(sql`DESCRIBE SELECT * FROM read_avro(${literal(name)})`);
     const top = new Set<string>();
     let dataFileType = '';
     for (const row of described.rows) {
@@ -142,7 +137,6 @@ export function useTableManifestStats(loqe: Loqe) {
     loading.value = true;
     error.value = null;
     const registered: string[] = [];
-    let db: any = null;
     try {
       // Loaded again rather than taken from the caller: this needs the vended
       // credentials that come with the response, which the metadata alone does
@@ -169,14 +163,12 @@ export function useTableManifestStats(loqe: Loqe) {
       }
 
       await loqe.initialize();
-      db = loqe.engine.getDB();
-      if (!db) throw new Error('The local query engine is not available');
 
       const listName = `lk_${token}_manifest_list.avro`;
-      registered.push(await registerAvro(db, res, listUri, listName));
+      registered.push(await registerAvro(res, listUri, listName));
 
       const listResult = await loqe.query(
-        `SELECT manifest_path FROM read_avro(${sqlString(listName)})`,
+        sql`SELECT manifest_path FROM read_avro(${literal(listName)})`,
       );
       const manifestUris = listResult.rows
         .map((r) => String(r[0] ?? ''))
@@ -189,7 +181,7 @@ export function useTableManifestStats(loqe: Loqe) {
       // Fetched in parallel: they are kilobytes each, and a table with a few
       // hundred manifests would otherwise pay a round trip per file in series.
       const names = await Promise.all(
-        manifestUris.map((uri, i) => registerAvro(db, res, uri, `lk_${token}_manifest_${i}.avro`)),
+        manifestUris.map((uri, i) => registerAvro(res, uri, `lk_${token}_manifest_${i}.avro`)),
       );
       registered.push(...names);
 
@@ -220,23 +212,23 @@ export function useTableManifestStats(loqe: Loqe) {
         // equality deletes, whose counts would otherwise be added to the columns
         // they delete from. A v1 manifest has neither column and needs no filter:
         // it cannot hold delete files at all.
-        const where: string[] = [];
-        if (shape.top.has('status')) where.push('status <> 2');
-        if (shape.dataFile.has('content')) where.push('coalesce(data_file.content, 0) = 0');
-        const live = `
+        const where: Sql[] = [];
+        if (shape.top.has('status')) where.push(sql`status <> 2`);
+        if (shape.dataFile.has('content')) where.push(sql`coalesce(data_file.content, 0) = 0`);
+        const live = sql`
           SELECT data_file
-          FROM read_avro(${sqlString(name)})
-          ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+          FROM read_avro(${literal(name)})
+          ${where.length ? sql`WHERE ${join(where, sql` AND `)}` : sql``}
         `;
 
         if (shape.dataFile.has('record_count')) {
-          const totals = await loqe.query(`
+          const totals = await loqe.query(sql`
             SELECT coalesce(sum(data_file.record_count), 0), count(*) FROM (${live})
           `);
           recordCount += Number(totals.rows[0]?.[0] ?? 0);
           dataFileCount += Number(totals.rows[0]?.[1] ?? 0);
         } else {
-          const totals = await loqe.query(`SELECT count(*) FROM (${live})`);
+          const totals = await loqe.query(sql`SELECT count(*) FROM (${live})`);
           dataFileCount += Number(totals.rows[0]?.[0] ?? 0);
         }
 
@@ -251,17 +243,17 @@ export function useTableManifestStats(loqe: Loqe) {
         const parts = metrics
           .filter(([, avroField]) => shape.dataFile.has(avroField))
           .map(
-            ([metric, avroField]) => `
-              SELECT ${sqlString(metric)} AS metric, e.key AS field_id, sum(e.value) AS total
-              FROM live, unnest(map_entries(live.data_file.${avroField})) AS t(e)
+            ([metric, avroField]) => sql`
+              SELECT ${literal(metric)} AS metric, e.key AS field_id, sum(e.value) AS total
+              FROM live, unnest(map_entries(${ident('live', 'data_file', avroField)})) AS t(e)
               GROUP BY 1, 2
             `,
           );
         if (!parts.length) continue;
 
-        const perColumn = await loqe.query(`
+        const perColumn = await loqe.query(sql`
           WITH live AS (${live})
-          ${parts.join(' UNION ALL ')}
+          ${join(parts, sql` UNION ALL `)}
         `);
 
         for (const row of perColumn.rows) {
@@ -292,11 +284,7 @@ export function useTableManifestStats(loqe: Loqe) {
     } finally {
       // The buffers are the manifests themselves; leaving them registered would
       // also leave a stale answer behind after the next commit.
-      if (db) {
-        await Promise.all(
-          registered.map((name) => Promise.resolve(db.dropFile?.(name)).catch(() => {})),
-        );
-      }
+      await Promise.all(registered.map((name) => loqe.engine.dropFile(name).catch(() => {})));
       if (token === runToken) loading.value = false;
     }
   }
