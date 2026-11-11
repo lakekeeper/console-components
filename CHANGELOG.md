@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.33.0](https://github.com/lakekeeper/console-components/compare/v0.32.0...v0.33.0) (2026-11-06)
+
+
+### Features
+
+* **ui:** follow LoQE query tabs opened from outside the explorer ([d9a79ef](https://github.com/lakekeeper/console-components/commit/d9a79ef2ba8c69c1daf672a4e7d3c981da5d485d))
+
+## [0.32.0](https://github.com/lakekeeper/console-components/compare/v0.31.0...v0.32.0) (2026-11-06)
+
+
+### Features
+
+* rename the write_data relation to write in the permission dialog ([7e8d4cf](https://github.com/lakekeeper/console-components/commit/7e8d4cf36f9544310f4c756040f712edf7847938))
+
+
+### Bug Fixes
+
+* **loqe:** ask for commit, not drop or rename, when an ALTER is refused ([7e8d4cf](https://github.com/lakekeeper/console-components/commit/7e8d4cf36f9544310f4c756040f712edf7847938))
+* **ui:** gate the namespace Settings menu on real permissions ([e2f5f28](https://github.com/lakekeeper/console-components/commit/e2f5f288898f1071bb0bf4ceadf5d63c0e7922d7))
+
+## [0.31.0](https://github.com/lakekeeper/console-components/compare/v0.30.1...v0.31.0) (2026-11-04)
+
+
+### Features
+
+* **ui:** add Zarr and Icechunk generic table icons ([#325](https://github.com/lakekeeper/console-components/issues/325)) ([3d60b35](https://github.com/lakekeeper/console-components/commit/3d60b35fe2a8127cd235c049d125d78535410bf5))
+* **ui:** offer the new write_data relation in the permission dialog ([12f6134](https://github.com/lakekeeper/console-components/commit/12f6134f8a19a918e0d39cfe7a5a1fec70bb0748))
+
 ## [0.30.1](https://github.com/lakekeeper/console-components/compare/v0.30.0...v0.30.1) (2026-11-02)
 
 

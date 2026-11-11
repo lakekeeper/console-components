@@ -2,6 +2,30 @@ import type { AsyncDuckDB } from '@duckdb/duckdb-wasm';
 import type { LoQECatalogConfig, AttachedCatalog } from './types';
 import type { TokenManager } from './TokenManager';
 import { icebergSecretSql } from './icebergSecret';
+import { ident, literal, sql, type Sql } from './sql';
+import { SqlConnection } from './SqlConnection';
+
+/**
+ * ATTACH an Iceberg REST catalog under the warehouse's name.
+ *
+ * NB: the option is `STAGE_CREATE_TABLES` — DuckDB's iceberg extension renamed
+ * it from `SUPPORT_STAGE_CREATE` in 1.5.x. Unknown ATTACH options are silently
+ * collected instead of rejected, so the old name would just disable staging.
+ */
+function attachSql(
+  projectId: string,
+  catalogName: string,
+  secretName: string,
+  restUri: string,
+): Sql {
+  return sql`ATTACH IF NOT EXISTS ${literal(`${projectId}/${catalogName}`)} AS ${ident(catalogName)} (
+    TYPE iceberg,
+    SUPPORT_NESTED_NAMESPACES true,
+    STAGE_CREATE_TABLES true,
+    SECRET ${ident(secretName)},
+    ENDPOINT ${literal(restUri)}
+  )`;
+}
 
 /**
  * CatalogManager — tracks Iceberg REST catalogs that have been ATTACHed
@@ -47,24 +71,13 @@ export class CatalogManager {
 
     let conn;
     try {
-      conn = await this.db.connect();
+      conn = await SqlConnection.open(this.db);
 
       // Create a dedicated secret for this catalog
       await conn.query(icebergSecretSql(secretName, token, config.projectId));
 
       // Attach the Iceberg REST catalog.
-      // NB: the option is `STAGE_CREATE_TABLES` — DuckDB's iceberg extension renamed
-      // it from `SUPPORT_STAGE_CREATE` in 1.5.x. Unknown ATTACH options are silently
-      // collected instead of rejected, so the old name would just disable staging.
-      await conn.query(
-        `ATTACH IF NOT EXISTS '${projectId}/${config.catalogName}' AS "${config.catalogName}" (
-          TYPE iceberg,
-          SUPPORT_NESTED_NAMESPACES true,
-          STAGE_CREATE_TABLES true,
-          SECRET ${secretName},
-          ENDPOINT '${config.restUri}'
-        )`,
-      );
+      await conn.query(attachSql(projectId, config.catalogName, secretName, config.restUri));
 
       // Register with token manager for auto-refresh
       this.tokenManager.registerSecret(secretName, config.catalogName, 'iceberg', config.projectId);
@@ -96,9 +109,9 @@ export class CatalogManager {
 
     let conn;
     try {
-      conn = await this.db.connect();
-      await conn.query(`DETACH DATABASE IF EXISTS "${catalogName}"`);
-      await conn.query(`DROP SECRET IF EXISTS ${catalog.secretName}`);
+      conn = await SqlConnection.open(this.db);
+      await conn.query(sql`DETACH DATABASE IF EXISTS ${ident(catalogName)}`);
+      await conn.query(sql`DROP SECRET IF EXISTS ${ident(catalog.secretName)}`);
       this.tokenManager.unregisterSecret(catalog.secretName);
       this.catalogs.delete(catalogName);
     } finally {
@@ -154,26 +167,18 @@ export class CatalogManager {
 
     let conn;
     try {
-      conn = await this.db.connect();
+      conn = await SqlConnection.open(this.db);
 
       for (const [name, cat] of entries) {
         try {
           // 1. Detach the old binding (DATABASE keyword required with IF EXISTS)
-          await conn.query(`DETACH DATABASE IF EXISTS "${name}"`);
+          await conn.query(sql`DETACH DATABASE IF EXISTS ${ident(name)}`);
 
           // 2. Re-create the secret with the fresh token (idempotent)
           await conn.query(icebergSecretSql(cat.secretName, newToken, cat.headerProjectId));
 
           // 3. Re-attach with the same config
-          await conn.query(
-            `ATTACH IF NOT EXISTS '${cat.projectId}/${name}' AS "${name}" (
-              TYPE iceberg,
-              SUPPORT_NESTED_NAMESPACES true,
-              STAGE_CREATE_TABLES true,
-              SECRET ${cat.secretName},
-              ENDPOINT '${cat.restUri}'
-            )`,
-          );
+          await conn.query(attachSql(cat.projectId, name, cat.secretName, cat.restUri));
         } catch (e) {
           console.error(`[LoQE] Failed to refresh catalog "${name}":`, e);
           // Remove from in-memory map so restoreMissingCatalogs can retry
@@ -215,18 +220,18 @@ export class CatalogManager {
 
     let conn;
     try {
-      conn = await this.db.connect();
+      conn = await SqlConnection.open(this.db);
 
       // 1. Drop DuckDB's auto-created storage secrets holding the expired creds.
       try {
         const res: any = await conn.query(
-          `SELECT name FROM duckdb_secrets() WHERE lower(type) IN ('s3', 'gcs', 'azure', 'r2', 'huggingface')`,
+          sql`SELECT name FROM duckdb_secrets() WHERE lower(type) IN ('s3', 'gcs', 'azure', 'r2', 'huggingface')`,
         );
         for (const row of res.toArray()) {
           const name = row.name ?? row[0];
           if (name) {
             console.debug(`[LoQE] dropping stale storage secret: ${name}`);
-            await conn.query(`DROP SECRET IF EXISTS "${String(name).replace(/"/g, '""')}"`);
+            await conn.query(sql`DROP SECRET IF EXISTS ${ident(String(name))}`);
           }
         }
       } catch (e) {
@@ -236,16 +241,8 @@ export class CatalogManager {
       // 2. Detach + reattach each catalog so the next scan re-loadTables.
       for (const [name, cat] of entries) {
         try {
-          await conn.query(`DETACH DATABASE IF EXISTS "${name}"`);
-          await conn.query(
-            `ATTACH IF NOT EXISTS '${cat.projectId}/${name}' AS "${name}" (
-              TYPE iceberg,
-              SUPPORT_NESTED_NAMESPACES true,
-              STAGE_CREATE_TABLES true,
-              SECRET ${cat.secretName},
-              ENDPOINT '${cat.restUri}'
-            )`,
-          );
+          await conn.query(sql`DETACH DATABASE IF EXISTS ${ident(name)}`);
+          await conn.query(attachSql(cat.projectId, name, cat.secretName, cat.restUri));
         } catch (e) {
           console.error(`[LoQE] Failed to reattach catalog "${name}":`, e);
         }

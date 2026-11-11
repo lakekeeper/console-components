@@ -900,7 +900,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted, onBeforeUnmount, inject, computed, watch } from 'vue';
+import { ref, shallowRef, onMounted, onBeforeUnmount, inject, computed, watch } from 'vue';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
@@ -912,6 +912,19 @@ import { useFunctions } from '../plugins/functions';
 import { stsDisabled } from '../common/vendedCredentials';
 import { Type } from '../common/enums';
 import type { LoQEQueryResult } from '../composables/loqe/types';
+import {
+  ident,
+  isKeyword,
+  join,
+  keyword,
+  lineComment,
+  literal,
+  splitStatements,
+  sql,
+  tableIdent,
+  userSql,
+  type Sql,
+} from '../composables/loqe/sql';
 import type {
   TableMetadataWritable,
   ViewMetadataWritable,
@@ -1011,7 +1024,7 @@ const isPreviewLoading = ref(false);
 const previewResult = ref<LoQEQueryResult | null>(null);
 const previewError = ref<string | null>(null);
 const previewTitle = ref('');
-const previewTablePath = ref('');
+const previewTablePath = shallowRef<Sql | null>(null);
 
 const previewHeaders = computed(() => {
   if (!previewResult.value) return [];
@@ -1270,6 +1283,20 @@ function handleTabClick(tabId: string) {
   }
 }
 
+// A tab can also be opened from outside — the console's nav menu adds one holding
+// a query over a pinned table — so the editor follows the store's active tab,
+// not only clicks here. Read on the id alone: the auto-save below rewrites the
+// content on every keystroke.
+watch(
+  () => visualStore.getActiveSqlTab(LOQE_TAB_KEY)?.id,
+  (id) => {
+    const tab = id && visualStore.getActiveSqlTab(LOQE_TAB_KEY);
+    if (!tab) return;
+    activeTabIndex.value = currentLoqeTabs.value.findIndex((t) => t.id === tab.id);
+    if (sqlQuery.value !== tab.content) sqlQuery.value = tab.content;
+  },
+);
+
 // Auto-save sqlQuery changes to active tab
 watch(sqlQuery, (newValue) => {
   const activeTab = visualStore.getActiveSqlTab(LOQE_TAB_KEY);
@@ -1326,23 +1353,13 @@ async function executeQuery() {
   // Split input into individual statements, keeping track of positions
   // so we can highlight the relevant statement when the user clicks a tab.
   const sourceText = selectedText || sqlQuery.value;
-  // const selectionOffset = selectedText ? sourceText.indexOf(textToRun) : 0;
-  const statements: { sql: string; from: number; to: number }[] = [];
-  let cursor = 0;
-  for (const part of sourceText.split(';')) {
-    const trimmed = part.trim();
-    if (trimmed.length > 0) {
-      const start = sourceText.indexOf(trimmed, cursor);
-      statements.push({ sql: trimmed, from: start, to: start + trimmed.length });
-    }
-    cursor += part.length + 1; // +1 for the semicolon
-  }
+  const statements = splitStatements(userSql(sourceText));
 
   for (let i = 0; i < statements.length; i++) {
-    const { sql, from, to } = statements[i];
+    const { sql: statement, from, to } = statements[i];
     const label = statements.length === 1 ? 'Result' : `Query ${i + 1}`;
     try {
-      const result = await loqe.query(sql);
+      const result = await loqe.query(statement);
       queryResults.value.push({ label, result, error: null, from, to });
     } catch {
       queryResults.value.push({
@@ -1372,18 +1389,19 @@ function handleTreeItemSelected(item: {
   warehouseName: string;
   namespaceId?: string;
   name: string;
+  fieldPath?: string[];
 }) {
   let textToInsert = '';
 
   if (item.type === 'field') {
-    textToInsert = item.name;
+    textToInsert = String(ident(...(item.fieldPath ?? [item.name])));
   } else if (
     (item.type === 'table' || item.type === 'view') &&
     item.warehouseName &&
     item.namespaceId
   ) {
-    textToInsert = buildTablePath(
-      item as { warehouseName: string; namespaceId: string; name: string },
+    textToInsert = String(
+      buildTablePath(item as { warehouseName: string; namespaceId: string; name: string }),
     );
   }
 
@@ -1404,11 +1422,8 @@ async function handleFreeMemory() {
   }
 }
 
-function buildTablePath(item: { warehouseName: string; namespaceId: string; name: string }) {
-  const nsDisplay = item.namespaceId.includes('\x1F')
-    ? item.namespaceId.split('\x1F').join('.')
-    : item.namespaceId;
-  return `"${item.warehouseName}"."${nsDisplay}"."${item.name}"`;
+function buildTablePath(item: { warehouseName: string; namespaceId: string; name: string }): Sql {
+  return tableIdent(item.warehouseName, item.namespaceId, item.name);
 }
 
 async function handlePreviewTable(item: {
@@ -1428,7 +1443,7 @@ async function handlePreviewTable(item: {
   showPreviewDialog.value = true;
 
   try {
-    const result = await loqe.query(`SELECT * FROM ${tablePath} LIMIT 50`);
+    const result = await loqe.query(sql`SELECT * FROM ${tablePath} LIMIT 50`);
     if (token !== previewRequestToken) return; // stale response
     previewResult.value = result;
   } catch (err: any) {
@@ -1455,14 +1470,13 @@ function insertAtCursor(text: string) {
 
 function insertPreviewQuery() {
   if (!previewTablePath.value) return;
-  const query = `SELECT * FROM ${previewTablePath.value} LIMIT 50`;
-  insertAtCursor(query);
+  insertAtCursor(String(sql`SELECT * FROM ${previewTablePath.value} LIMIT 50`));
   showPreviewDialog.value = false;
 }
 
 async function copyPreviewPath() {
   if (!previewTablePath.value) return;
-  await copyToClipboard(previewTablePath.value, 'Path copied to clipboard');
+  await copyToClipboard(String(previewTablePath.value), 'Path copied to clipboard');
 }
 
 // ── DDL / Copy Path handlers ──────────────────────────────────────────
@@ -1502,24 +1516,27 @@ async function copyToClipboard(text: string, successMsg: string) {
 /**
  * Serialise an Iceberg Type to its DDL string representation.
  */
-function typeToString(t: IcebergType): string {
-  if (typeof t === 'string') return t;
+function typeToString(t: IcebergType): Sql {
+  if (typeof t === 'string') return isKeyword(t) ? keyword(t) : ident(t);
   if (t.type === 'struct') {
     const st = t as StructType;
-    const inner = st.fields
-      .map((f: StructField) => `${f.name}: ${typeToString(f.type)}${f.required ? ' NOT NULL' : ''}`)
-      .join(', ');
-    return `struct<${inner}>`;
+    const inner = join(
+      st.fields.map(
+        (f: StructField) =>
+          sql`${ident(f.name)}: ${typeToString(f.type)}${f.required ? sql` NOT NULL` : sql``}`,
+      ),
+    );
+    return sql`struct<${inner}>`;
   }
   if (t.type === 'list') {
     const lt = t as ListType;
-    return `list<${typeToString(lt.element)}>`;
+    return sql`list<${typeToString(lt.element)}>`;
   }
   if (t.type === 'map') {
     const mt = t as MapType;
-    return `map<${typeToString(mt.key)}, ${typeToString(mt.value)}>`;
+    return sql`map<${typeToString(mt.key)}, ${typeToString(mt.value)}>`;
   }
-  return String(t);
+  return ident(String(t));
 }
 
 type SqlTemplateKind = 'create' | 'insert' | 'delete' | 'drop';
@@ -1538,74 +1555,78 @@ function currentSchema(
  * A placeholder literal for an Iceberg type, valid as a DuckDB expression so the
  * generated INSERT runs as-is once the values are edited.
  */
-function sampleValueForType(t: IcebergType): string {
+function sampleValueForType(t: IcebergType): Sql {
   const name = typeof t === 'string' ? t : (t as any).type;
-  if (name === 'boolean') return 'false';
-  if (name === 'int' || name === 'long') return '0';
-  if (name === 'float' || name === 'double' || name.startsWith('decimal')) return '0.0';
-  if (name === 'date') return "DATE '1970-01-01'";
-  if (name === 'time') return "TIME '00:00:00'";
-  if (name.startsWith('timestamp')) return "TIMESTAMP '1970-01-01 00:00:00'";
-  if (name === 'string') return "''";
-  if (name === 'uuid') return "'00000000-0000-0000-0000-000000000000'";
-  return 'NULL';
+  if (name === 'boolean') return sql`false`;
+  if (name === 'int' || name === 'long') return sql`0`;
+  if (name === 'float' || name === 'double' || name.startsWith('decimal')) return sql`0.0`;
+  if (name === 'date') return sql`DATE '1970-01-01'`;
+  if (name === 'time') return sql`TIME '00:00:00'`;
+  if (name.startsWith('timestamp')) return sql`TIMESTAMP '1970-01-01 00:00:00'`;
+  if (name === 'string') return sql`''`;
+  if (name === 'uuid') return sql`'00000000-0000-0000-0000-000000000000'`;
+  return sql`NULL`;
 }
 
 /** INSERT … VALUES skeleton with one placeholder row, typed per column. */
-function generateInsertDML(tablePath: string, metadata: TableMetadataWritable): string {
+function generateInsertDML(tablePath: Sql, metadata: TableMetadataWritable): Sql {
   const schema = currentSchema(metadata.schemas as any[], metadata['current-schema-id']);
   const fields = schema?.fields || [];
-  if (!fields.length) return `INSERT INTO ${tablePath} VALUES ();\n`;
+  if (!fields.length) return sql`INSERT INTO ${tablePath} VALUES ();\n`;
 
-  const cols = fields.map((f: StructField) => `  ${f.name}`).join(',\n');
-  const width = Math.max(...fields.map((f: StructField) => sampleValueForType(f.type).length));
-  const values = fields
-    .map((f: StructField) => {
-      const v = sampleValueForType(f.type);
-      return `  ${v.padEnd(width)} -- ${f.name}: ${typeToString(f.type)}${f.required ? ' NOT NULL' : ''}`;
-    })
-    .join(',\n');
+  const cols = join(
+    fields.map((f: StructField) => sql`  ${ident(f.name)}`),
+    sql`,\n`,
+  );
+  // Each value ends its line with a comma (but the last), then a comment naming the column.
+  const values = join(
+    fields.map((f: StructField, i: number) => {
+      const comma = i < fields.length - 1 ? sql`,` : sql``;
+      const about = `${f.name}: ${typeToString(f.type)}${f.required ? ' NOT NULL' : ''}`;
+      return sql`  ${sampleValueForType(f.type)}${comma} ${lineComment(about)}`;
+    }),
+    sql``,
+  );
 
-  return `INSERT INTO ${tablePath} (\n${cols}\n) VALUES (\n${values}\n);\n`;
+  return sql`INSERT INTO ${tablePath} (\n${cols}\n) VALUES (\n${values});\n`;
 }
 
 /** DELETE skeleton with the first column as an editable predicate. */
-function generateDeleteDML(tablePath: string, metadata: TableMetadataWritable): string {
+function generateDeleteDML(tablePath: Sql, metadata: TableMetadataWritable): Sql {
   const schema = currentSchema(metadata.schemas as any[], metadata['current-schema-id']);
   const first = schema?.fields?.[0];
-  const lines = ['-- Review the predicate before running: without it every row is deleted.'];
-  if (first) {
-    lines.push(`DELETE FROM ${tablePath}`);
-    lines.push(`WHERE ${first.name} = ${sampleValueForType(first.type)};`);
-  } else {
-    lines.push(`DELETE FROM ${tablePath}`);
-    lines.push('WHERE true;');
-  }
-  return lines.join('\n') + '\n';
+  const predicate = first
+    ? sql`${ident(first.name)} = ${sampleValueForType(first.type)}`
+    : sql`true`;
+  const lines = [
+    sql`-- Review the predicate before running: without it every row is deleted.`,
+    sql`DELETE FROM ${tablePath}`,
+    sql`WHERE ${predicate};`,
+  ];
+  return sql`${join(lines, sql`\n`)}\n`;
 }
 
-function generateDropDDL(path: string, kind: 'table' | 'view'): string {
-  const keyword = kind === 'view' ? 'VIEW' : 'TABLE';
-  return `-- Dropping is irreversible.\nDROP ${keyword} ${path};\n`;
+function generateDropDDL(path: Sql, kind: 'table' | 'view'): Sql {
+  const objectKind = kind === 'view' ? sql`VIEW` : sql`TABLE`;
+  return sql`-- Dropping is irreversible.\nDROP ${objectKind} ${path};\n`;
 }
 
-function generateTableDDL(tablePath: string, metadata: TableMetadataWritable): string {
-  const lines: string[] = [];
+function generateTableDDL(tablePath: Sql, metadata: TableMetadataWritable): Sql {
+  const lines: Sql[] = [];
   const schemaId = metadata['current-schema-id'] ?? 0;
   const schemas = metadata.schemas || [];
   const schema = schemas.find((s) => (s as any)['schema-id'] === schemaId) || schemas[0];
 
-  lines.push(`CREATE TABLE ${tablePath} (`);
+  lines.push(sql`CREATE TABLE ${tablePath} (`);
   if (schema?.fields?.length) {
     const cols = schema.fields.map((f: StructField) => {
-      let col = `  ${f.name} ${typeToString(f.type)}`;
-      if (f.required) col += ' NOT NULL';
-      if (f.doc) col += ` COMMENT '${f.doc.replace(/'/g, "''")}'`;
-      return col;
+      const notNull = f.required ? sql` NOT NULL` : sql``;
+      const comment = f.doc ? sql` COMMENT ${literal(f.doc)}` : sql``;
+      return sql`  ${ident(f.name)} ${typeToString(f.type)}${notNull}${comment}`;
     });
-    lines.push(cols.join(',\n'));
+    lines.push(join(cols, sql`,\n`));
   }
-  lines.push(')');
+  lines.push(sql`)`);
 
   // Partition spec
   const specId = metadata['default-spec-id'] ?? 0;
@@ -1616,10 +1637,10 @@ function generateTableDDL(tablePath: string, metadata: TableMetadataWritable): s
       ? Object.fromEntries(schema.fields.map((f: StructField) => [f.id, f.name]))
       : {};
     const parts = partSpec.fields.map((pf: PartitionField) => {
-      const colName = sourceNames[pf['source-id']] || `col_${pf['source-id']}`;
-      return pf.transform === 'identity' ? colName : `${pf.transform}(${colName})`;
+      const col = ident(sourceNames[pf['source-id']] || `col_${pf['source-id']}`);
+      return pf.transform === 'identity' ? col : sql`${keyword(pf.transform)}(${col})`;
     });
-    lines.push(`PARTITIONED BY (${parts.join(', ')})`);
+    lines.push(sql`PARTITIONED BY (${join(parts)})`);
   }
 
   // Sort order
@@ -1631,11 +1652,12 @@ function generateTableDDL(tablePath: string, metadata: TableMetadataWritable): s
       ? Object.fromEntries(schema.fields.map((f: StructField) => [f.id, f.name]))
       : {};
     const sorts = sortOrder.fields.map((sf: SortField) => {
-      const colName = sourceNames[sf['source-id']] || `col_${sf['source-id']}`;
-      const expr = sf.transform === 'identity' ? colName : `${sf.transform}(${colName})`;
-      return `${expr} ${sf.direction} ${sf['null-order']}`;
+      const col = ident(sourceNames[sf['source-id']] || `col_${sf['source-id']}`);
+      const expr = sf.transform === 'identity' ? col : sql`${keyword(sf.transform)}(${col})`;
+      const nullOrder = sf['null-order'] === 'nulls-first' ? sql`nulls-first` : sql`nulls-last`;
+      return sql`${expr} ${keyword(sf.direction)} ${nullOrder}`;
     });
-    lines.push(`SORTED BY (${sorts.join(', ')})`);
+    lines.push(sql`SORTED BY (${join(sorts)})`);
   }
 
   // No LOCATION: the catalog owns the table location, and DuckDB/Iceberg writes
@@ -1643,17 +1665,18 @@ function generateTableDDL(tablePath: string, metadata: TableMetadataWritable): s
 
   // Properties
   if (metadata.properties && Object.keys(metadata.properties).length) {
-    const props = Object.entries(metadata.properties)
-      .map(([k, v]) => `  '${k}' = '${String(v).replace(/'/g, "''")}'`)
-      .join(',\n');
-    lines.push(`TBLPROPERTIES (\n${props}\n)`);
+    const props = Object.entries(metadata.properties).map(
+      ([k, v]) => sql`  ${literal(k)} = ${literal(String(v))}`,
+    );
+    lines.push(sql`TBLPROPERTIES (\n${join(props, sql`,\n`)}\n)`);
   }
 
-  return lines.join('\n') + '\n';
+  return sql`${join(lines, sql`\n`)}\n`;
 }
 
-function generateViewDDL(viewPath: string, metadata: ViewMetadataWritable): string {
-  const lines: string[] = [];
+/** CREATE VIEW with the view's stored SQL as its body, shown as text. */
+function generateViewDDL(viewPath: Sql, metadata: ViewMetadataWritable): string {
+  const lines: Sql[] = [];
   const versionId = metadata['current-version-id'];
   const version: ViewVersion | undefined =
     metadata.versions.find((v) => v['version-id'] === versionId) || metadata.versions[0];
@@ -1665,34 +1688,30 @@ function generateViewDDL(viewPath: string, metadata: ViewMetadataWritable): stri
 
   // Standard CREATE VIEW: only column names in the parenthesised list
   if (schema?.fields?.length) {
-    const colNames = schema.fields.map((f: StructField) => `  ${f.name}`).join(',\n');
-    lines.push(`CREATE VIEW ${viewPath} (`);
-    lines.push(colNames);
-    lines.push(') AS');
+    const colNames = schema.fields.map((f: StructField) => sql`  ${ident(f.name)}`);
+    lines.push(sql`CREATE VIEW ${viewPath} (`);
+    lines.push(join(colNames, sql`,\n`));
+    lines.push(sql`) AS`);
   } else {
-    lines.push(`CREATE VIEW ${viewPath} AS`);
+    lines.push(sql`CREATE VIEW ${viewPath} AS`);
   }
 
   // SQL representation
   const sqlRep: SqlViewRepresentation | undefined = version?.representations?.find(
     (r): r is SqlViewRepresentation => r.type === 'sql',
   );
-  if (sqlRep?.sql) {
-    lines.push(sqlRep.sql);
-  } else {
-    lines.push('-- (no SQL representation available)');
-  }
+  const body = sqlRep?.sql || '-- (no SQL representation available)';
+  let ddl = `${join(lines, sql`\n`)}\n${body}\n`;
 
   // Properties as comments
   if (metadata.properties && Object.keys(metadata.properties).length) {
-    lines.push('');
-    lines.push('-- View properties:');
-    for (const [k, v] of Object.entries(metadata.properties)) {
-      lines.push(`--   ${k} = ${v}`);
-    }
+    const comments = Object.entries(metadata.properties).map(([k, v]) =>
+      lineComment(`  ${k} = ${v}`),
+    );
+    ddl += `\n-- View properties:\n${comments.join('')}`;
   }
 
-  return lines.join('\n') + '\n';
+  return ddl;
 }
 
 async function handleShowDDL(item: {
@@ -1720,7 +1739,7 @@ async function handleShowDDL(item: {
         create: generateViewDDL(tablePath, result.metadata),
         insert: '',
         delete: '',
-        drop: generateDropDDL(tablePath, 'view'),
+        drop: String(generateDropDDL(tablePath, 'view')),
       };
     } else {
       const result = await functions.loadTable(
@@ -1731,10 +1750,10 @@ async function handleShowDDL(item: {
       );
       if (token !== ddlRequestToken) return;
       ddlStatements.value = {
-        create: generateTableDDL(tablePath, result.metadata),
-        insert: generateInsertDML(tablePath, result.metadata),
-        delete: generateDeleteDML(tablePath, result.metadata),
-        drop: generateDropDDL(tablePath, 'table'),
+        create: String(generateTableDDL(tablePath, result.metadata)),
+        insert: String(generateInsertDML(tablePath, result.metadata)),
+        delete: String(generateDeleteDML(tablePath, result.metadata)),
+        drop: String(generateDropDDL(tablePath, 'table')),
       };
     }
   } catch (err: any) {
@@ -1758,10 +1777,12 @@ function handleInsertSelect(item: {
 }) {
   if (!item.warehouseName || !item.namespaceId) return;
   const cols = item.columns.length
-    ? item.columns.map((c) => `  "${c.replace(/"/g, '""')}"`).join(',\n')
-    : '  *';
-  const sql = `SELECT\n${cols}\nFROM ${buildTablePath(item)}\nLIMIT 100;`;
-  insertAtCursor(sql);
+    ? join(
+        item.columns.map((c) => sql`  ${ident(c)}`),
+        sql`,\n`,
+      )
+    : sql`  *`;
+  insertAtCursor(String(sql`SELECT\n${cols}\nFROM ${buildTablePath(item)}\nLIMIT 100;`));
 }
 
 async function handleCopyPath(item: {
@@ -1772,7 +1793,7 @@ async function handleCopyPath(item: {
   name: string;
 }) {
   const tablePath = buildTablePath(item);
-  await copyToClipboard(tablePath, 'Path copied to clipboard');
+  await copyToClipboard(String(tablePath), 'Path copied to clipboard');
 }
 
 async function copyDDLToClipboard() {

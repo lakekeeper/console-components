@@ -66,6 +66,7 @@ const catalogWarehouseActions: LakekeeperWarehouseAction[] = [
   { action: 'create_namespace' },
   { action: 'delete' },
   { action: 'update_storage' },
+  { action: 'update_storage_credential' },
   { action: 'get_metadata' },
   { action: 'get_config' },
   { action: 'list_namespaces' },
@@ -205,6 +206,7 @@ const authorizerProjectActions: OpenFgaProjectAction[] = [
   'grant_describe',
   'grant_modify',
   'grant_select',
+  'grant_write',
   'grant_project_admin',
   'grant_security_admin',
   'grant_data_admin',
@@ -216,6 +218,7 @@ const authorizerWarehouseActions: OpenFgaWarehouseAction[] = [
   'grant_describe',
   'grant_modify',
   'grant_select',
+  'grant_write',
   'grant_pass_grants',
   'grant_manage_grants',
   'change_ownership',
@@ -227,6 +230,7 @@ const authorizerNamespaceActions: OpenFgaNamespaceAction[] = [
   'grant_describe',
   'grant_modify',
   'grant_select',
+  'grant_write',
   'grant_pass_grants',
   'grant_manage_grants',
 ];
@@ -237,6 +241,7 @@ const authorizerTableActions: OpenFgaTableAction[] = [
   'grant_manage_grants',
   'grant_describe',
   'grant_select',
+  'grant_write',
   'grant_modify',
   'change_ownership',
 ];
@@ -256,6 +261,7 @@ const authorizerGenericTableActions: OpenFgaGenericTableAction[] = [
   'grant_manage_grants',
   'grant_describe',
   'grant_select',
+  'grant_write',
   'grant_modify',
   'change_ownership',
 ];

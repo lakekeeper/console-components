@@ -76,7 +76,10 @@ function privilegeFor(sql: string | undefined): string {
   // table, and `write_data` is not the grant that would have let this through.
   if (/^\s*create\s+schema\b/i.test(sql || ''))
     return '`create_namespace` on the warehouse (or on the parent namespace)';
-  if (/^\s*(drop|alter|rename)\b/i.test(sql || '')) return '`drop` or `rename` on the object';
+  if (/^\s*drop\b/i.test(sql || '')) return '`drop` on the object';
+  if (/^\s*(rename\b|alter\b.*\brename\s+to\b)/is.test(sql || '')) return '`rename` on the object';
+  // A schema or property change is an Iceberg commit, not a drop or rename.
+  if (/^\s*alter\b/i.test(sql || '')) return '`commit` on the table';
   if (isWriteStatement(sql) === 'write') return '`write_data` on the table';
   return '`read_data` on the table (or on a namespace or warehouse above it)';
 }

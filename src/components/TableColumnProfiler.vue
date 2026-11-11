@@ -419,6 +419,7 @@ import {
   type ManifestColumnStats,
 } from '../composables/useTableManifestStats';
 import { useLoQE } from '../composables/useLoQE';
+import { ident, join, num, sql, tableIdent, type Sql } from '../composables/loqe/sql';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
 import { useLoQEStore } from '../stores/loqe';
@@ -900,12 +901,6 @@ const visibleRows = computed<SchemaNode[]>(() => {
 
 const isNumeric = (type: string) => /^(int|long|float|double|decimal)/i.test(type);
 
-const namespaceDisplay = computed(() => {
-  const ns = props.namespaceId;
-  if (!ns) return '';
-  return ns.includes('\x1F') ? ns.split('\x1F').join('.') : ns;
-});
-
 function fmtNum(v: any): string {
   if (v === null || v === undefined) return '—';
   const n = Number(String(v).replace(/"/g, ''));
@@ -914,7 +909,7 @@ function fmtNum(v: any): string {
 }
 
 // Resolve + attach the catalog once, returning the qualified table path.
-async function resolveTablePath(): Promise<string> {
+async function resolveTablePath(): Promise<Sql> {
   await loqe.initialize();
   const wh = await functions.getWarehouse(props.warehouseId!);
   // Profiling reads the data files in the browser, so a warehouse that vends no
@@ -931,38 +926,38 @@ async function resolveTablePath(): Promise<string> {
       projectId: wh['project-id'],
     });
   }
-  return `"${warehouseName}"."${namespaceDisplay.value}"."${props.tableName}"`;
+  return tableIdent(warehouseName, props.namespaceId!, props.tableName!);
 }
 
-async function profile(col: { name: string; type: string }, tablePath: string) {
+async function profile(col: { name: string; type: string }, tablePath: Sql) {
   if (!results[col.name]) results[col.name] = { loading: false, error: null, data: null };
   const state = results[col.name];
   state.loading = true;
   state.error = null;
   try {
     // LIMIT (not USING SAMPLE): a sample scans the whole table, LIMIT stops early.
-    const limitClause = rowLimit.value > 0 ? ` LIMIT ${rowLimit.value}` : '';
-    const source = `(SELECT "${col.name}" AS c FROM ${tablePath}${limitClause})`;
+    const limitClause = rowLimit.value > 0 ? sql` LIMIT ${num(rowLimit.value)}` : sql``;
+    const source = sql`(SELECT ${ident(col.name)} AS c FROM ${tablePath}${limitClause})`;
     const numeric = isNumeric(col.type);
 
-    const aggCols = [
-      'count(*) AS total',
-      'count(c) AS non_null',
-      'approx_count_distinct(c) AS ndv',
-      'min(c) AS min_v',
-      'max(c) AS max_v',
+    const aggCols = join([
+      sql`count(*) AS total`,
+      sql`count(c) AS non_null`,
+      sql`approx_count_distinct(c) AS ndv`,
+      sql`min(c) AS min_v`,
+      sql`max(c) AS max_v`,
       ...(numeric
         ? [
-            'avg(c) AS mean_v',
-            'stddev_samp(c) AS stddev_v',
-            'approx_quantile(c, 0.5) AS p50',
-            'approx_quantile(c, 0.95) AS p95',
-            'approx_quantile(c, 0.99) AS p99',
+            sql`avg(c) AS mean_v`,
+            sql`stddev_samp(c) AS stddev_v`,
+            sql`approx_quantile(c, 0.5) AS p50`,
+            sql`approx_quantile(c, 0.95) AS p95`,
+            sql`approx_quantile(c, 0.99) AS p99`,
           ]
         : []),
-    ].join(', ');
+    ]);
 
-    const res = await loqe.query(`SELECT ${aggCols} FROM ${source}`);
+    const res = await loqe.query(sql`SELECT ${aggCols} FROM ${source}`);
     const idx = (n: string) => res.columns.indexOf(n);
     const row = (res.rows[0] ?? []) as any[];
     const get = (n: string) => row[idx(n)];
@@ -974,7 +969,7 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
     let topValues: { value: string; count: number }[] = [];
     if (!numeric) {
       const topRes = await loqe.query(
-        `SELECT c AS val, count(*) AS cnt FROM ${source} WHERE c IS NOT NULL GROUP BY c ORDER BY cnt DESC LIMIT 5`,
+        sql`SELECT c AS val, count(*) AS cnt FROM ${source} WHERE c IS NOT NULL GROUP BY c ORDER BY cnt DESC LIMIT 5`,
       );
       const vIdx = topRes.columns.indexOf('val');
       const cIdx = topRes.columns.indexOf('cnt');
@@ -994,7 +989,7 @@ async function profile(col: { name: string; type: string }, tablePath: string) {
         const binWidth = (maxN - minN) / NB;
         // width_bucket isn't in this DuckDB build — bin with floor() + clamp.
         const hRes = await loqe.query(
-          `SELECT least(${NB - 1}, greatest(0, floor((c - ${minN}) / ${binWidth}))) AS b,
+          sql`SELECT least(${num(NB - 1)}, greatest(0, floor((c - ${num(minN)}) / ${num(binWidth)}))) AS b,
                   count(*) AS cnt
            FROM ${source} WHERE c IS NOT NULL GROUP BY b ORDER BY b`,
         );
