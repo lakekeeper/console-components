@@ -68,60 +68,63 @@
           Free text
           <span class="etc-count">{{ freeTextTags.length }}</span>
         </div>
-        <!-- The name line carries the row's action right beside the name, so
-             it stays in reach however long the text below it runs. -->
-        <div v-for="t in freeTextTags" :key="t['tag-definition-id']" class="etc-free">
-          <div class="etc-free__head">
-            <TagChip
-              :tag="t"
-              hide-value
-              plain
-              :definition="definitionByName.get(t.name)"
-              :editable="canEdit && rights.canApply(t['tag-definition-id']) === true"
-              :busy="busy === t.name"
-              @apply="assign" />
-            <span class="etc-free__colon">:</span>
-            <v-menu
-              v-if="canEdit && rights.canRemove(t['tag-definition-id']) === true"
-              :model-value="confirmRow === t.name"
-              location="bottom start"
-              :close-on-content-click="false"
-              @update:model-value="(open: boolean) => (confirmRow = open ? t.name : null)">
-              <template #activator="{ props: menuProps }">
-                <v-btn
-                  v-bind="menuProps"
-                  icon="mdi-delete-outline"
-                  size="x-small"
-                  variant="text"
-                  class="etc-free__delete ml-1"
-                  :class="{ 'etc-free__delete--open': confirmRow === t.name }"
-                  :disabled="busy === t.name"
-                  :aria-label="`Remove ${t.name}`"
-                  :title="`Remove ${t.name}`"></v-btn>
-              </template>
-              <v-card min-width="240" class="pa-3">
-                <div class="text-body-2 mb-3">
-                  Remove
-                  <strong>{{ t.name }}</strong>
-                  ?
-                </div>
-                <div class="d-flex justify-end ga-2">
-                  <v-btn size="small" variant="text" @click="confirmRow = null">Cancel</v-btn>
+        <!-- Each tag is a note in the chips' own tint: its name small and quiet
+             on top, the value under it at full width, so a long text wraps
+             inside its own block and never runs into the next. The action sits
+             on the name line, so it stays in reach however long the value runs. -->
+        <div class="etc-free-list">
+          <div v-for="t in freeTextTags" :key="t['tag-definition-id']" class="etc-free">
+            <div class="etc-free__head">
+              <TagChip
+                :tag="t"
+                hide-value
+                plain
+                :definition="definitionByName.get(t.name)"
+                :editable="canEdit && rights.canApply(t['tag-definition-id']) === true"
+                :busy="busy === t.name"
+                @apply="assign" />
+              <v-menu
+                v-if="canEdit && rights.canRemove(t['tag-definition-id']) === true"
+                :model-value="confirmRow === t.name"
+                location="bottom start"
+                :close-on-content-click="false"
+                @update:model-value="(open: boolean) => (confirmRow = open ? t.name : null)">
+                <template #activator="{ props: menuProps }">
                   <v-btn
-                    size="small"
-                    color="error"
-                    variant="flat"
-                    @click="
-                      confirmRow = null;
-                      unassign(t.name);
-                    ">
+                    v-bind="menuProps"
+                    icon="mdi-delete-outline"
+                    size="x-small"
+                    variant="text"
+                    class="etc-free__delete ml-auto"
+                    :class="{ 'etc-free__delete--open': confirmRow === t.name }"
+                    :disabled="busy === t.name"
+                    :aria-label="`Remove ${t.name}`"
+                    :title="`Remove ${t.name}`"></v-btn>
+                </template>
+                <v-card min-width="240" class="pa-3">
+                  <div class="text-body-2 mb-3">
                     Remove
-                  </v-btn>
-                </div>
-              </v-card>
-            </v-menu>
+                    <strong>{{ t.name }}</strong>
+                    ?
+                  </div>
+                  <div class="d-flex justify-end ga-2">
+                    <v-btn size="small" variant="text" @click="confirmRow = null">Cancel</v-btn>
+                    <v-btn
+                      size="small"
+                      color="error"
+                      variant="flat"
+                      @click="
+                        confirmRow = null;
+                        unassign(t.name);
+                      ">
+                      Remove
+                    </v-btn>
+                  </div>
+                </v-card>
+              </v-menu>
+            </div>
+            <div class="etc-free__value">{{ t.value }}</div>
           </div>
-          <div class="etc-free__value">{{ t.value }}</div>
         </div>
       </div>
 
@@ -520,19 +523,28 @@ watch(
   margin-left: 4px;
   opacity: 0.7;
 }
+.etc-free-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* The tint Vuetify's tonal chips lay under on-surface text, so the notes
+   read as the same kind of thing as the classification chips above. */
 .etc-free {
   min-width: 0;
-}
-.etc-free + .etc-free {
-  margin-top: 6px;
+  padding: 6px 12px 8px;
+  border-radius: 12px;
+  background: rgba(var(--v-theme-on-surface), 0.12);
 }
 .etc-free__head {
   display: flex;
   align-items: center;
-  min-height: 24px;
+  min-width: 0;
+  min-height: 20px;
 }
-.etc-free__colon {
-  margin-left: 1px;
+.etc-free__head :deep(.tag-chip--plain) {
+  height: 18px;
+  font-size: 0.75rem;
   color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 /* The delete comes with its entry under the pointer (or keyboard focus);
