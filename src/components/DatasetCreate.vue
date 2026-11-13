@@ -1,12 +1,15 @@
 <template>
-  <v-btn prepend-icon="mdi-plus" variant="flat" color="primary" @click="open = true">
-    New Dataset
-  </v-btn>
+  <!-- A host can supply its own trigger, e.g. an entry in a "New" menu. -->
+  <slot name="activator" :props="{ onClick: () => (open = true) }">
+    <v-btn prepend-icon="mdi-plus" variant="flat" color="primary" @click="open = true">
+      New Dataset
+    </v-btn>
+  </slot>
 
   <v-dialog v-model="open" max-width="500" @after-leave="resetForm">
     <v-card>
       <v-card-title class="d-flex align-center text-subtitle-1 py-3">
-        <v-icon class="mr-2" color="amber-darken-2">mdi-folder-multiple-outline</v-icon>
+        <v-icon class="mr-2" color="amber-darken-2">mdi-file-multiple-outline</v-icon>
         Create Dataset
         <v-spacer></v-spacer>
         <v-btn icon="mdi-close" variant="text" size="small" @click="open = false"></v-btn>

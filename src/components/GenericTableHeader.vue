@@ -1,7 +1,7 @@
 <template>
   <EntityIdentityRow
     collapsible
-    :icon="entityLabel === 'dataset' ? 'mdi-folder-multiple-outline' : 'mdi-table-multiple'"
+    :icon="entityLabel === 'dataset' ? 'mdi-file-multiple-outline' : 'mdi-table-multiple'"
     :parent-path="parentPath"
     :name="tableName"
     :id="genericTableId"

@@ -1,5 +1,7 @@
 <template>
-  <v-menu v-model="menuOpen" location="start" offset-y="20px">
+  <!-- Eager, so the settings dialog exists before the menu was ever opened: a
+       details chip can open it directly. -->
+  <v-menu v-model="menuOpen" location="start" offset-y="20px" eager>
     <template #activator="{ props }">
       <!-- Labelled rather than a bare cog: the glyph alone left people
            guessing. No tooltip — the word is already on screen, and a
@@ -20,6 +22,7 @@
            protection, credentials and profile — each pane saves for itself. -->
       <WarehouseAddDialog
         v-if="readable && !locked"
+        ref="settingsRef"
         :intent="Intent.UPDATE"
         :object-type="ObjectType.CATALOG_SETTINGS"
         :process-status="processStatus"
@@ -54,6 +57,14 @@ import { Intent, ObjectType } from '../common/enums';
 import { useUserStore } from '../stores/user';
 
 const menuOpen = ref(false);
+const settingsRef = ref<{ open: (focus?: 'soft-deletion') => void } | null>(null);
+/** Opens Warehouse settings without the menu; false when it is not offered. */
+function openSettings(focus?: 'soft-deletion'): boolean {
+  if (!settingsRef.value) return false;
+  settingsRef.value.open(focus);
+  return true;
+}
+defineExpose({ openSettings });
 const userStore = useUserStore();
 // Lock spec-mutating actions on instance-admin-managed warehouses for non-admins.
 const locked = computed(

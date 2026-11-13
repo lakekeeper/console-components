@@ -94,7 +94,7 @@
           <v-icon size="small" v-else-if="item.type === 'warehouse'">mdi-database</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'namespace'">mdi-folder-outline</v-icon>
           <v-icon size="x-small" v-else-if="item.type === 'dataset'" color="amber-darken-2">
-            mdi-folder-multiple-outline
+            mdi-file-multiple-outline
           </v-icon>
           <v-icon
             size="small"

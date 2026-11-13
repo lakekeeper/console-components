@@ -24,6 +24,7 @@
            show or change, unless the app adds maintenance entries of its own. -->
       <WarehouseActionsMenu
         v-if="!readError || slots.maintenance"
+        ref="actionsRef"
         :process-status="processStatus"
         :readable="!readError"
         :save-errors="saveErrors"
@@ -67,6 +68,17 @@ const props = defineProps<{
 const slots = useSlots();
 const functions = useFunctions();
 const visual = useVisualStore();
+const actionsRef = ref<{ openSettings: (focus?: 'soft-deletion') => boolean } | null>(null);
+
+// A details chip asked for the settings (e.g. the deletion profile).
+watch(
+  () => visual.requestedWarehouseSettings,
+  (req) => {
+    if (!req || req.warehouseId !== props.warehouseId) return;
+    visual.requestedWarehouseSettings = null;
+    actionsRef.value?.openSettings(req.focus);
+  },
+);
 const appConfig = inject<{ baseUrlPrefix?: string }>('appConfig', {});
 const loqe = useLoQE({ baseUrlPrefix: appConfig.baseUrlPrefix ?? '' });
 const processStatus = ref('starting');

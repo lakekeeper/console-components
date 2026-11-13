@@ -252,11 +252,11 @@ app.use(auth);
 
 ### Warehouse
 
-`WarehouseManager` (warehouse list), `WarehouseHeader` (warehouse detail header), `WarehouseDetails` (warehouse settings), `WarehouseAddDialog` (multi-step create), `WarehouseRenameDialog`, `WarehouseActionsMenu` (context menu), `WarehouseNamespaces` (namespace tree), `WarehousesNavigationTree` (sidebar nav tree), `WarehouseStorageS3`, `WarehouseStorageAzure`, `WarehouseStorageGCS`, `WarehouseStorageJSON` (storage config forms), `WarehouseStatisticsDialog` (usage charts)
+`WarehouseManager` (warehouse list), `WarehouseHeader` (warehouse detail header), `WarehouseDetails` (warehouse settings), `WarehouseAddDialog` (multi-step create), `WarehouseRenameDialog`, `WarehouseActionsMenu` (context menu), `WarehousesNavigationTree` (sidebar nav tree), `WarehouseStorageS3`, `WarehouseStorageAzure`, `WarehouseStorageGCS`, `WarehouseStorageJSON` (storage config forms), `WarehouseStatisticsDialog` (usage charts)
 
 ### Namespace
 
-`NamespaceAddDialog`, `NamespaceNamespaces` (nested namespaces), `NamespaceTables`, `NamespaceDeleted` (soft-deleted tabulars), `NamespaceViews`, `NamespaceHeader`
+`NamespaceAddDialog`, `NamespaceContents` (one table for child namespaces, tables, generic tables, views, datasets and soft-deleted items; type chips filter it), `NamespaceHeader`
 
 ### Table
 

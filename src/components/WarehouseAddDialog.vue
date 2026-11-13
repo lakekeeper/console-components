@@ -288,6 +288,7 @@
                           <div class="text-caption text-medium-emphasis mb-1">Soft deletion</div>
                           <v-switch
                             v-model="delProfileSoftActive"
+                            :class="{ 'wad-hint': softDeletionHint }"
                             :readonly="!maySoftDeletion"
                             color="primary"
                             hide-details
@@ -1841,4 +1842,49 @@ watch(
     cancelDialog();
   },
 );
+
+// Set while the soft-deletion switch pulses: the dialog was opened from the
+// deletion profile itself. The first change of the switch ends it.
+const softDeletionHint = ref(false);
+watch(
+  () => delProfileSoftActive.value,
+  () => (softDeletionHint.value = false),
+);
+
+/** Open the settings, optionally pointing at one control. */
+function open(focus?: 'soft-deletion') {
+  pane.value = 'SETTINGS';
+  isDialogActive.value = true;
+  // Only when the reader may change it: pointing at a locked switch says "act
+  // here" where nothing can be done.
+  softDeletionHint.value = focus === 'soft-deletion' && maySoftDeletion.value;
+}
+
+defineExpose({ open });
 </script>
+
+<style scoped>
+/* An amber ring from the switch thumb, three times, then still — the same hint
+   the table's protection switch gets when opened from its chip. */
+.wad-hint :deep(.v-switch__thumb) {
+  animation: wad-pulse 1.2s ease-out 0.4s 3;
+}
+
+@keyframes wad-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-warning), 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(var(--v-theme-warning), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-warning), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wad-hint :deep(.v-switch__thumb) {
+    animation: none;
+  }
+}
+</style>

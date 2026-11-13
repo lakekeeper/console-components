@@ -198,7 +198,7 @@
             v-else-if="item.type === 'generic-table' && item.format === 'dataset'"
             size="x-small"
             color="amber-darken-2">
-            mdi-folder-multiple-outline
+            mdi-file-multiple-outline
           </v-icon>
           <!-- A plain `img`, not `v-img`: that component brings an
                intersection observer, a loading state machine and a
@@ -332,7 +332,7 @@
                   <v-list-item @click="navigateToTab(item, 'datasets')" density="compact">
                     <v-list-item-title class="text-caption">
                       <v-icon size="x-small" class="mr-1" color="amber-darken-2">
-                        mdi-folder-multiple-outline
+                        mdi-file-multiple-outline
                       </v-icon>
                       Datasets
                     </v-list-item-title>
