@@ -647,6 +647,7 @@ export type {
   LoQEHistoryEntry,
   LoQEPersistedCatalog,
   AttachedCatalog,
+  SqlCompletionItem,
 } from './composables/loqe/types';
 // SQL for LoQE: names and values quoted, e.g. a "Query in LoQE" tab's text is
 // String(sql`SELECT * FROM ${tableIdent(warehouse, namespaceId, table)} LIMIT 100;`).

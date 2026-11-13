@@ -2,6 +2,14 @@ import type { SqlConnection } from './SqlConnection';
 
 // ── Engine Configuration ──────────────────────────────────────────────
 
+/** A name the SQL editor can complete, with what it is. */
+export interface SqlCompletionItem {
+  name: string;
+  kind: 'catalog' | 'schema' | 'table' | 'view' | 'column';
+  /** For a column, its type, e.g. `VARCHAR`. */
+  detail?: string;
+}
+
 export interface LoQEConfig {
   /** Base URL prefix for locating DuckDB WASM/worker assets (e.g. '' or '/ui') */
   baseUrlPrefix: string;

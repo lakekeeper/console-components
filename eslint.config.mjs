@@ -36,7 +36,11 @@ const userSqlRestriction = {
   selector: "CallExpression[callee.name='userSql']",
   message: 'userSql() is only for SQL the user typed. Build SQL from names and values with sql`…`.',
 };
-const userSqlFiles = ['src/components/LoQEExplorer.vue', 'src/composables/loqe/sql.test.ts'];
+const userSqlFiles = [
+  'src/components/LoQEExplorer.vue',
+  'src/components/SqlEditor.vue',
+  'src/composables/loqe/sql.test.ts',
+];
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [

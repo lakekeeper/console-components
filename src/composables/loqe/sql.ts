@@ -265,3 +265,12 @@ export function splitStatements(text: Sql): Statement[] {
   }
   return statements;
 }
+
+/**
+ * The statement holding `cursor` in `text`. Between two statements the one
+ * before the cursor counts, as in other SQL editors; before the first, the first.
+ */
+export function statementAt(text: Sql, cursor: number): Statement | undefined {
+  const statements = splitStatements(text);
+  return statements.findLast((s) => s.from <= cursor) ?? statements[0];
+}

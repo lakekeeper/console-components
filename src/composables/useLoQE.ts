@@ -1,6 +1,11 @@
 import { ref, computed, watch, effectScope, onBeforeUnmount, type Ref } from 'vue';
 import { LoQEEngine } from './loqe/LoQEEngine';
-import type { LoQEConfig, LoQEQueryResult, LoQECatalogConfig } from './loqe/types';
+import type {
+  LoQEConfig,
+  LoQEQueryResult,
+  LoQECatalogConfig,
+  SqlCompletionItem,
+} from './loqe/types';
 import { useLoQEStore } from '../stores/loqe';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
@@ -405,115 +410,102 @@ export function useLoQE(config: LoQEConfig) {
 
   /**
    * Lazy completion fetcher — given a dot-qualifier typed in the editor,
-   * returns the list of names to offer after the last dot.
+   * returns the names to offer after the last dot, each with its kind.
    *
    * Handles every qualification level via targeted DuckDB metadata queries:
+   *   empty                         → catalogs
    *   1 part  ("catalog.")          → schemas in that catalog
    *   2 parts ("catalog.schema.")   → tables/views in that schema
    *   3 parts ("catalog.schema.t.") → columns in that table
    *   1 part  ("table.")            → columns (fallback when no schemas match)
    *   2 parts ("schema.table.")     → columns (fallback when no tables match)
    */
-  const _completionCache = new Map<string, string[]>();
+  const _completionCache = new Map<string, SqlCompletionItem[]>();
 
-  async function fetchCompletions(qualifier: string): Promise<string[]> {
+  async function fetchCompletionItems(qualifier: string): Promise<SqlCompletionItem[]> {
     const cached = _completionCache.get(qualifier);
     if (cached) return cached;
 
     if (!engine.isInitialized || !engine.pool) return [];
 
-    // Empty qualifier = list all catalog names
-    if (!qualifier) {
-      const pooled = await engine.pool.acquire();
-      try {
-        const names = await queryColumn(
-          pooled.connection,
-          sql`SELECT DISTINCT database_name FROM duckdb_databases()
+    const parts = qualifier ? qualifier.split('\x1F') : [];
+    const pooled = await engine.pool.acquire();
+    const conn = pooled.connection;
+    const columnsWhere = (where: Sql) =>
+      queryItems(
+        conn,
+        sql`SELECT column_name, 'column', data_type FROM duckdb_columns()
+         WHERE ${where} ORDER BY column_index LIMIT 2000`,
+      );
+    try {
+      let items: SqlCompletionItem[] = [];
+
+      if (parts.length === 0) {
+        items = await queryItems(
+          conn,
+          sql`SELECT DISTINCT database_name, 'catalog', NULL FROM duckdb_databases()
            WHERE database_name NOT IN ('system', 'temp')
            ORDER BY database_name LIMIT 200`,
         );
-        if (names.length > 0) _completionCache.set(qualifier, names);
-        return names;
-      } catch {
-        return [];
-      } finally {
-        engine.pool.release(pooled);
-      }
-    }
-
-    const parts = qualifier.split('\x1F');
-    const pooled = await engine.pool.acquire();
-    try {
-      let names: string[] = [];
-
-      if (parts.length === 1) {
+      } else if (parts.length === 1) {
         // Try as catalog → return schema names
-        names = await queryColumn(
-          pooled.connection,
-          sql`SELECT DISTINCT schema_name FROM duckdb_schemas()
+        items = await queryItems(
+          conn,
+          sql`SELECT DISTINCT schema_name, 'schema', NULL FROM duckdb_schemas()
            WHERE database_name = ${literal(parts[0])}
              AND schema_name NOT IN ('information_schema', 'pg_catalog')
            ORDER BY schema_name LIMIT 2000`,
         );
         // Fallback: try as bare table name → return columns
-        if (names.length === 0) {
-          names = await queryColumn(
-            pooled.connection,
-            sql`SELECT column_name FROM duckdb_columns()
-             WHERE table_name = ${literal(parts[0])}
+        if (items.length === 0) {
+          items = await columnsWhere(
+            sql`table_name = ${literal(parts[0])}
                AND database_name NOT IN ('system', 'temp')
-               AND schema_name NOT IN ('information_schema', 'pg_catalog')
-             ORDER BY column_index LIMIT 2000`,
+               AND schema_name NOT IN ('information_schema', 'pg_catalog')`,
           );
         }
       } else if (parts.length === 2) {
         // Try as catalog.schema → return table/view names
-        names = await queryColumn(
-          pooled.connection,
-          sql`SELECT DISTINCT table_name FROM duckdb_tables()
+        items = await queryItems(
+          conn,
+          sql`SELECT DISTINCT table_name, 'table', NULL FROM duckdb_tables()
            WHERE database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])}
            UNION
-           SELECT DISTINCT view_name FROM duckdb_views()
+           SELECT DISTINCT view_name, 'view', NULL FROM duckdb_views()
            WHERE database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])}
            ORDER BY 1 LIMIT 2000`,
         );
         // Fallback: schema.table → return columns
-        if (names.length === 0) {
-          names = await queryColumn(
-            pooled.connection,
-            sql`SELECT column_name FROM duckdb_columns()
-             WHERE schema_name = ${literal(parts[0])} AND table_name = ${literal(parts[1])}
-               AND database_name NOT IN ('system', 'temp')
-             ORDER BY column_index LIMIT 2000`,
+        if (items.length === 0) {
+          items = await columnsWhere(
+            sql`schema_name = ${literal(parts[0])} AND table_name = ${literal(parts[1])}
+               AND database_name NOT IN ('system', 'temp')`,
           );
         }
-      } else if (parts.length >= 3) {
+      } else {
         // catalog.schema.table → return columns
         // Try DESCRIBE first — it works reliably for Iceberg / REST-catalog tables
         // even when duckdb_columns() has stale or incomplete metadata.
         try {
-          names = await queryColumn(
-            pooled.connection,
-            sql`SELECT column_name FROM (DESCRIBE ${ident(parts[0], parts[1], parts[2])})`,
+          items = await queryItems(
+            conn,
+            sql`SELECT column_name, 'column', column_type FROM (DESCRIBE ${ident(parts[0], parts[1], parts[2])})`,
           );
         } catch {
           // DESCRIBE may fail if table doesn't exist — fall through
         }
         // Fallback to duckdb_columns() if DESCRIBE returned nothing
-        if (names.length === 0) {
-          names = await queryColumn(
-            pooled.connection,
-            sql`SELECT column_name FROM duckdb_columns()
-             WHERE database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])} AND table_name = ${literal(parts[2])}
-             ORDER BY column_index LIMIT 2000`,
+        if (items.length === 0) {
+          items = await columnsWhere(
+            sql`database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])} AND table_name = ${literal(parts[2])}`,
           );
         }
       }
 
-      if (names.length > 0) {
-        _completionCache.set(qualifier, names);
+      if (items.length > 0) {
+        _completionCache.set(qualifier, items);
       }
-      return names;
+      return items;
     } catch (e) {
       console.warn(`[LoQE] Completion fetch failed for "${qualifier}":`, e);
       return [];
@@ -522,13 +514,24 @@ export function useLoQE(config: LoQEConfig) {
     }
   }
 
-  /** Helper: run a query and return the first column as string[]. */
-  async function queryColumn(conn: SqlConnection, statement: Sql): Promise<string[]> {
+  /** The names alone, for callers that predate `fetchCompletionItems`. */
+  async function fetchCompletions(qualifier: string): Promise<string[]> {
+    return (await fetchCompletionItems(qualifier)).map((item) => item.name);
+  }
+
+  /** Helper: run a query of (name, kind, detail) rows. */
+  async function queryItems(conn: SqlConnection, statement: Sql): Promise<SqlCompletionItem[]> {
     const result = await conn.query(statement);
-    const out: string[] = [];
+    const out: SqlCompletionItem[] = [];
     for (let i = 0; i < result.numRows; i++) {
-      const v = result.getChildAt(0)?.get(i);
-      if (v != null) out.push(String(v));
+      const name = result.getChildAt(0)?.get(i);
+      if (name == null) continue;
+      const detail = result.getChildAt(2)?.get(i);
+      out.push({
+        name: String(name),
+        kind: String(result.getChildAt(1)?.get(i)) as SqlCompletionItem['kind'],
+        ...(detail != null ? { detail: String(detail) } : {}),
+      });
     }
     return out;
   }
@@ -578,6 +581,7 @@ export function useLoQE(config: LoQEConfig) {
     freeMemory,
     resetDatabase,
     fetchCompletions,
+    fetchCompletionItems,
     clearCompletionCache,
 
     // Advanced

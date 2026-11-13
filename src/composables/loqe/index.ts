@@ -15,4 +15,5 @@ export type {
   LoQEPersistedCatalog,
   AttachedCatalog,
   PooledConnection,
+  SqlCompletionItem,
 } from './types';

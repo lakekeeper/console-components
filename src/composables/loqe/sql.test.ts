@@ -7,6 +7,7 @@ import {
   literal,
   num,
   splitStatements,
+  statementAt,
   sql,
   sqlText,
   tableIdent,
@@ -117,5 +118,29 @@ describe('splitStatements', () => {
   it('keeps an unterminated quote or comment to the end', () => {
     expect(split(`SELECT 'a; SELECT 2`)).toEqual([`SELECT 'a; SELECT 2`]);
     expect(split('SELECT 1; -- a; b')).toEqual(['SELECT 1', '-- a; b']);
+  });
+});
+
+describe('statementAt', () => {
+  const text = 'SELECT 1;\n\nSELECT 2;  SELECT 3';
+  const at = (cursor: number) => {
+    const s = statementAt(userSql(text), cursor);
+    return s && text.slice(s.from, s.to);
+  };
+
+  it('picks the statement holding the cursor', () => {
+    expect(at(3)).toBe('SELECT 1');
+    expect(at(text.indexOf('2'))).toBe('SELECT 2');
+    expect(at(text.length)).toBe('SELECT 3');
+  });
+
+  it('picks the statement before the cursor between two statements', () => {
+    expect(at(text.indexOf('\n'))).toBe('SELECT 1');
+    expect(at(text.indexOf('  SELECT 3') + 1)).toBe('SELECT 2');
+  });
+
+  it('picks the first statement before any text and nothing in an empty script', () => {
+    expect(statementAt(userSql('  SELECT 1'), 0)?.from).toBe(2);
+    expect(statementAt(userSql('  '), 0)).toBeUndefined();
   });
 });
