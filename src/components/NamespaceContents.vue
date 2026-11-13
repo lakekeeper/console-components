@@ -180,6 +180,23 @@
           <template #item.type="{ item }">
             <span class="text-medium-emphasis">{{ typeLabel(item) }}</span>
           </template>
+          <template #item.protected="{ item }">
+            <v-icon
+              v-if="item.protected"
+              size="small"
+              color="amber-darken-2"
+              title="Protected: refuses delete until protection is turned off">
+              mdi-lock
+            </v-icon>
+            <v-icon
+              v-else-if="item.protected === false"
+              size="small"
+              class="text-disabled"
+              title="Not protected">
+              mdi-lock-open-variant-outline
+            </v-icon>
+            <span v-else class="text-disabled" title="Not reported for this type">–</span>
+          </template>
           <template #item.deletedAt="{ item }">
             <span :title="item.deletedAt">{{ relative(item.deletedAt) }}</span>
           </template>
@@ -415,6 +432,9 @@ type ContentRow = {
   format?: string;
   /** Full path of a child namespace. */
   path?: string[];
+  /** Protection, as the list answered it; undefined where the list carries none
+      (generic tables, datasets, deleted items) or the server left it out. */
+  protected?: boolean;
   /** A deleted item: its id, what it was, and when it went and goes for good. */
   id?: string;
   typ?: 'table' | 'view' | 'generic-table';
@@ -488,6 +508,22 @@ const ACTIONS_HEADER = {
   align: 'end' as const,
   width: '120px',
 };
+// Protected first when sorted descending; rows without a flag sort last.
+const PROTECTION_HEADER = {
+  title: 'Protection',
+  key: 'protected',
+  sortable: true,
+  align: 'center' as const,
+  width: '110px',
+  value: (row: ContentRow) => (row.protected === undefined ? -1 : row.protected ? 1 : 0),
+};
+// Only namespaces, tables and views carry the flag; a column of dashes for a
+// generic-only selection would say nothing.
+const showsProtection = computed(
+  () =>
+    !props.selection.length ||
+    props.selection.some((k) => k === 'namespaces' || k === 'tables' || k === 'views'),
+);
 // Name A–Z unless the reader picks another column; reset per namespace.
 const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'name', order: 'asc' }]);
 // Sorting is the table's own, over what has loaded; with no sort the rows keep
@@ -504,6 +540,7 @@ const headers = computed(() =>
     : [
         { title: 'Name', key: 'name', sortable: true },
         { title: 'Type', key: 'type', sortable: true, width: '200px', value: typeLabel },
+        ...(showsProtection.value ? [PROTECTION_HEADER] : []),
         ACTIONS_HEADER,
       ],
 );
@@ -735,57 +772,41 @@ async function readPage(
         })),
       };
     }
-    if (list === 'namespaces') {
-      const data = await functions.listNamespaces(
+    if (list === 'namespaces' || list === 'tables' || list === 'views') {
+      // Protection rides along with the list, so the column costs no request.
+      const data = await functions.listWithProtection(
         props.warehouseId,
-        props.namespacePath || undefined,
-        pageToken,
-        false,
-        PAGE_SIZE,
-      );
-      return {
-        next: data['next-page-token'] || '',
-        rows: (data.namespaces ?? []).map((path: string[]) => ({
-          key: `namespace:${path.join('\x1F')}`,
-          kind: 'namespace' as const,
-          name: path[path.length - 1],
-          path,
-        })),
-      };
-    }
-    if (list === 'tables') {
-      const data = await functions.listTables(
-        props.warehouseId,
+        list,
         props.namespacePath,
         pageToken,
-        false,
         PAGE_SIZE,
+        false,
       );
       return {
-        next: data['next-page-token'] || '',
-        rows: (data.identifiers ?? []).map((t: { name: string }) => ({
-          key: `table:${t.name}`,
-          kind: 'table' as const,
-          name: t.name,
-          format: 'iceberg',
-        })),
-      };
-    }
-    if (list === 'views') {
-      const data = await functions.listViews(
-        props.warehouseId,
-        props.namespacePath,
-        pageToken,
-        false,
-        PAGE_SIZE,
-      );
-      return {
-        next: data['next-page-token'] || '',
-        rows: (data.identifiers ?? []).map((v: { name: string }) => ({
-          key: `view:${v.name}`,
-          kind: 'view' as const,
-          name: v.name,
-        })),
+        next: data.next,
+        rows: data.items.map(({ path, protected: prot }) => {
+          const name = path[path.length - 1];
+          const flag = prot ?? undefined;
+          if (list === 'namespaces') {
+            return {
+              key: `namespace:${path.join('\x1F')}`,
+              kind: 'namespace' as const,
+              name,
+              path,
+              protected: flag,
+            };
+          }
+          if (list === 'tables') {
+            return {
+              key: `table:${name}`,
+              kind: 'table' as const,
+              name,
+              format: 'iceberg',
+              protected: flag,
+            };
+          }
+          return { key: `view:${name}`, kind: 'view' as const, name, protected: flag };
+        }),
       };
     }
     // Generic tables carry both: a `dataset` format is a dataset, any other
