@@ -17,6 +17,7 @@ import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { tags } from '@lezer/highlight';
 import { HighlightStyle, syntaxHighlighting, bracketMatching } from '@codemirror/language';
 import {
+  acceptCompletion,
   closeBrackets,
   closeBracketsKeymap,
   type CompletionContext,
@@ -388,7 +389,14 @@ onMounted(async () => {
       bracketMatching(),
       closeBrackets(),
       aliasCompartment.of(buildCompletionSource(props.fetchCompletions)),
-      keymap.of([...defaultKeymap, ...closeBracketsKeymap, indentWithTab]),
+      // Tab takes an open completion first, as in most SQL editors; with no
+      // completion open `acceptCompletion` declines and Tab indents.
+      keymap.of([
+        ...defaultKeymap,
+        ...closeBracketsKeymap,
+        { key: 'Tab', run: acceptCompletion },
+        indentWithTab,
+      ]),
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
           const newValue = update.state.doc.toString();
