@@ -129,7 +129,7 @@
       <v-btn size="small" variant="text" icon="mdi-close" @click="selected = []"></v-btn>
     </div>
 
-    <div ref="mainRef" class="nsc-main">
+    <div class="nsc-main">
       <div class="nsc-body">
         <v-alert v-if="allRefused" type="warning" variant="tonal" class="ma-4">
           {{ refusedText }}
@@ -263,20 +263,10 @@
 
       <!-- Details of the clicked row, one request when it opens. Folds by width,
          so the table grows back rather than jumping. -->
-      <div
-        class="nsc-detail"
-        :class="{ 'nsc-detail--out': !detailRow, 'nsc-detail--dragging': dragging }"
-        :style="{ width: detailRow ? `${panelWidth}px` : '0px' }">
-        <!-- Drag to resize; double-click switches between half and the default. -->
-        <div
-          class="nsc-grip"
-          title="Drag to resize · double-click for half width"
-          @pointerdown="startDrag"
-          @dblclick="toggleHalf"></div>
+      <DetailsSidePanel :open="!!detailRow" storage-key="lakekeeper.contents.detailsWidth">
         <ContentDetailsPanel
           v-if="shownDetail"
           ref="detailsRef"
-          :style="{ width: `${panelWidth}px` }"
           :warehouse-id="warehouseId"
           :namespace-path="namespacePath"
           :row="shownDetail"
@@ -286,7 +276,7 @@
           :brand-icon="rowBrandIcon(shownDetail)"
           @close="detailRow = null"
           @open="open(shownDetail)" />
-      </div>
+      </DetailsSidePanel>
     </div>
 
     <!-- Rename -->
@@ -442,6 +432,7 @@ import TableCreate from './TableCreate.vue';
 import TableRegister from './TableRegister.vue';
 import DeleteDialog from './DeleteDialog.vue';
 import ContentDetailsPanel from './ContentDetailsPanel.vue';
+import DetailsSidePanel from './DetailsSidePanel.vue';
 
 type Kind = 'namespace' | 'table' | 'generic' | 'view' | 'dataset' | 'deleted';
 type ListKey = 'namespaces' | 'tables' | 'views' | 'generic' | 'deleted';
@@ -1394,66 +1385,6 @@ watch(
   },
 );
 
-// ── Panel width ───────────────────────────────────────────────────────
-
-const PANEL_DEFAULT = 420;
-const PANEL_MIN = 300;
-/** The table keeps at least this much, however wide the panel is dragged. */
-const TABLE_MIN = 360;
-const WIDTH_KEY = 'lakekeeper.contents.detailsWidth';
-const mainRef = ref<HTMLElement | null>(null);
-const dragging = ref(false);
-
-function storedWidth(): number {
-  try {
-    const v = Number(localStorage.getItem(WIDTH_KEY));
-    return Number.isFinite(v) && v >= PANEL_MIN ? v : PANEL_DEFAULT;
-  } catch {
-    return PANEL_DEFAULT;
-  }
-}
-const panelWidth = ref(storedWidth());
-
-function clampWidth(w: number): number {
-  const room = (mainRef.value?.clientWidth ?? 1200) - TABLE_MIN;
-  return Math.round(Math.max(PANEL_MIN, Math.min(w, Math.max(PANEL_MIN, room))));
-}
-
-function keepWidth() {
-  try {
-    localStorage.setItem(WIDTH_KEY, String(panelWidth.value));
-  } catch {
-    // Private window or blocked storage: the width just isn't remembered.
-  }
-}
-
-function startDrag(e: PointerEvent) {
-  const grip = e.currentTarget as HTMLElement;
-  grip.setPointerCapture(e.pointerId);
-  const startX = e.clientX;
-  const startW = panelWidth.value;
-  dragging.value = true;
-  const move = (ev: PointerEvent) => {
-    panelWidth.value = clampWidth(startW + (startX - ev.clientX));
-  };
-  const up = () => {
-    dragging.value = false;
-    grip.removeEventListener('pointermove', move);
-    grip.removeEventListener('pointerup', up);
-    grip.removeEventListener('pointercancel', up);
-    keepWidth();
-  };
-  grip.addEventListener('pointermove', move);
-  grip.addEventListener('pointerup', up);
-  grip.addEventListener('pointercancel', up);
-}
-
-function toggleHalf() {
-  const half = clampWidth((mainRef.value?.clientWidth ?? 0) / 2);
-  panelWidth.value = Math.abs(panelWidth.value - half) < 8 ? PANEL_DEFAULT : half;
-  keepWidth();
-}
-
 /** A click on a row opens its details; the name, buttons and checkbox keep
  *  their own meaning. A second click on the same row closes them. */
 function onRowClick(event: MouseEvent, item: ContentRow) {
@@ -1527,6 +1458,7 @@ defineExpose({ reload: load });
 }
 
 .nsc-main {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
@@ -1538,44 +1470,6 @@ defineExpose({ reload: load });
   min-height: 0;
   display: flex;
   flex-direction: column;
-}
-
-/* Same fold as every pane column (DESIGN.md "Folding"): width to zero, never unmount. */
-.nsc-detail {
-  position: relative;
-  flex: none;
-  min-height: 0;
-  overflow: hidden;
-  border-left: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
-  transition: width 0.2s ease;
-}
-/* The edge follows the pointer, not a transition (DESIGN.md "Folding"). */
-.nsc-detail--dragging {
-  transition: none;
-  user-select: none;
-}
-.nsc-grip {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 6px;
-  z-index: 1;
-  cursor: col-resize;
-  touch-action: none;
-}
-.nsc-grip:hover,
-.nsc-detail--dragging .nsc-grip {
-  background: rgba(var(--v-theme-primary), 0.35);
-}
-.nsc-detail--out {
-  width: 0;
-  border-left-width: 0;
-}
-@media (prefers-reduced-motion: reduce) {
-  .nsc-detail {
-    transition: none;
-  }
 }
 
 .nsc-table :deep(tbody tr) {

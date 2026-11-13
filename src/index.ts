@@ -60,6 +60,7 @@ import WarehouseHeader from './components/WarehouseHeader.vue';
 import WarehouseStatistics from './components/WarehouseStatistics.vue';
 import HomeStatistics from './components/HomeStatistics.vue';
 import NamespaceContents from './components/NamespaceContents.vue';
+import DetailsSidePanel from './components/DetailsSidePanel.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
 import NamespaceDetails from './components/NamespaceDetails.vue';
 import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
@@ -209,6 +210,7 @@ export {
   WarehouseStatistics,
   HomeStatistics,
   NamespaceContents,
+  DetailsSidePanel,
   NamespaceHeader,
   NamespaceDetails,
   NamespaceActionsMenu,
@@ -545,6 +547,7 @@ const components = {
   HomeStatistics,
   WarehousesNavigationTree,
   NamespaceContents,
+  DetailsSidePanel,
   NamespaceHeader,
   NamespaceDetails,
   NamespaceActionsMenu,

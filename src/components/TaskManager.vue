@@ -306,129 +306,155 @@
       </v-btn>
     </div>
 
-    <div style="flex: 1; min-height: 0">
-      <v-data-table
-        v-if="!hasError"
-        :loading="tasksLoading"
-        :headers="taskHeaders"
-        :items="tasks"
-        :items-per-page="currentPaginationOptions.itemsPerPage"
-        :items-per-page-options="[
-          { title: '25', value: 25 },
-          { title: '50', value: 50 },
-          { title: '100', value: 100 },
-        ]"
-        hover
-        density="compact"
-        fixed-header
-        height="100%"
-        @update:options="handlePaginationUpdate">
-        <template #item.entity-name="{ item }">
-          <span
-            class="text-wrap"
-            style="
-              word-break: break-all;
-              white-space: normal;
-              line-height: 1.2;
-              max-width: 120px;
-              display: inline-block;
-              overflow-wrap: anywhere;
-            ">
-            {{
-              Array.isArray(item['entity-name'])
-                ? item['entity-name'].join('.')
-                : item['entity-name']
-            }}
-          </span>
-        </template>
-        <template #item.status="{ item }">
-          <v-chip :color="getStatusColor(item.status)" size="x-small" variant="flat">
-            {{ item.status }}
-          </v-chip>
-        </template>
+    <!-- The list and, beside it, the details of the task clicked: reading one
+         task after another is a click each, with the list still in view. -->
+    <div class="tm-main">
+      <div class="tm-list">
+        <v-data-table
+          v-if="!hasError"
+          :row-props="taskRowProps"
+          :loading="tasksLoading"
+          :headers="taskHeaders"
+          :items="tasks"
+          :items-per-page="currentPaginationOptions.itemsPerPage"
+          :items-per-page-options="[
+            { title: '25', value: 25 },
+            { title: '50', value: 50 },
+            { title: '100', value: 100 },
+          ]"
+          hover
+          density="compact"
+          fixed-header
+          height="100%"
+          @update:options="handlePaginationUpdate"
+          @click:row="onTaskRowClick">
+          <template #item.entity-name="{ item }">
+            <span
+              class="text-wrap"
+              style="
+                word-break: break-all;
+                white-space: normal;
+                line-height: 1.2;
+                max-width: 120px;
+                display: inline-block;
+                overflow-wrap: anywhere;
+              ">
+              {{
+                Array.isArray(item['entity-name'])
+                  ? item['entity-name'].join('.')
+                  : item['entity-name']
+              }}
+            </span>
+          </template>
+          <template #item.status="{ item }">
+            <v-chip :color="getStatusColor(item.status)" size="x-small" variant="flat">
+              {{ item.status }}
+            </v-chip>
+          </template>
 
-        <template #item.task-id="{ item }">
-          <div class="d-flex align-center" style="gap: 2px">
-            <code class="text-caption" :title="item['task-id']">
-              {{ item['task-id'].slice(0, 8) }}…
-            </code>
+          <template #item.task-id="{ item }">
+            <div class="d-flex align-center" style="gap: 2px">
+              <code class="text-caption" :title="item['task-id']">
+                {{ item['task-id'].slice(0, 8) }}…
+              </code>
+              <v-btn
+                icon="mdi-content-copy"
+                size="x-small"
+                variant="text"
+                density="comfortable"
+                @click="functions.copyToClipboard(item['task-id'])"></v-btn>
+            </div>
+          </template>
+
+          <template #item.queue-name="{ item }">
+            {{ formatQueueName(item['queue-name']) }}
+          </template>
+
+          <template #item.progress="{ item }">
+            <v-progress-linear
+              :model-value="item.progress * 100"
+              :color="getStatusColor(item.status)"
+              height="6"
+              rounded></v-progress-linear>
+            <span class="text-caption">{{ Math.round(item.progress * 100) }}%</span>
+          </template>
+
+          <template #item.created-at="{ item }">
+            {{ formatDateTime(item['created-at']) }}
+          </template>
+
+          <template #item.scheduled-for="{ item }">
+            {{ formatDateTime(item['scheduled-for']) }}
+          </template>
+
+          <template #item.actions="{ item }">
             <v-btn
-              icon="mdi-content-copy"
+              icon="mdi-information"
               size="x-small"
               variant="text"
-              density="comfortable"
-              @click="functions.copyToClipboard(item['task-id'])"></v-btn>
-          </div>
-        </template>
+              @click="viewTaskDetails(item)"></v-btn>
+            <v-btn
+              v-if="item.status === 'RUNNING' && canControlTasks"
+              icon="mdi-stop"
+              size="x-small"
+              variant="text"
+              color="warning"
+              @click="stopTask(item)"></v-btn>
+            <v-btn
+              v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
+              icon="mdi-cancel"
+              size="x-small"
+              variant="text"
+              color="error"
+              @click="cancelTask(item)"></v-btn>
+            <v-btn
+              v-if="item.status === 'SCHEDULED' && canControlTasks"
+              icon="mdi-play"
+              size="x-small"
+              variant="text"
+              color="success"
+              @click="runTaskNow(item)"></v-btn>
+          </template>
 
-        <template #item.queue-name="{ item }">
-          {{ formatQueueName(item['queue-name']) }}
-        </template>
+          <template #no-data>
+            <v-empty-state
+              v-if="hasError"
+              icon="mdi-alert-circle-outline"
+              color="warning"
+              title="Unable to load tasks"
+              :text="errorMessage">
+              <template #actions>
+                <v-btn color="primary" variant="outlined" @click="refreshTasks">Try Again</v-btn>
+              </template>
+            </v-empty-state>
+            <v-empty-state
+              v-else
+              icon="mdi-clipboard-list-outline"
+              title="No tasks found"
+              :text="`No tasks have been created for this ${props.entityType || 'warehouse'} yet.`"></v-empty-state>
+          </template>
+        </v-data-table>
+      </div>
 
-        <template #item.progress="{ item }">
-          <v-progress-linear
-            :model-value="item.progress * 100"
-            :color="getStatusColor(item.status)"
-            height="6"
-            rounded></v-progress-linear>
-          <span class="text-caption">{{ Math.round(item.progress * 100) }}%</span>
-        </template>
-
-        <template #item.created-at="{ item }">
-          {{ formatDateTime(item['created-at']) }}
-        </template>
-
-        <template #item.scheduled-for="{ item }">
-          {{ formatDateTime(item['scheduled-for']) }}
-        </template>
-
-        <template #item.actions="{ item }">
-          <v-btn
-            icon="mdi-information"
-            size="x-small"
-            variant="text"
-            @click="viewTaskDetails(item)"></v-btn>
-          <v-btn
-            v-if="item.status === 'RUNNING' && canControlTasks"
-            icon="mdi-stop"
-            size="x-small"
-            variant="text"
-            color="warning"
-            @click="stopTask(item)"></v-btn>
-          <v-btn
-            v-if="['SCHEDULED', 'RUNNING'].includes(item.status) && canControlTasks"
-            icon="mdi-cancel"
-            size="x-small"
-            variant="text"
-            color="error"
-            @click="cancelTask(item)"></v-btn>
-          <v-btn
-            v-if="item.status === 'SCHEDULED' && canControlTasks"
-            icon="mdi-play"
-            size="x-small"
-            variant="text"
-            color="success"
-            @click="runTaskNow(item)"></v-btn>
-        </template>
-
-        <template #no-data>
-          <v-empty-state
-            v-if="hasError"
-            icon="mdi-alert-circle-outline"
-            color="warning"
-            title="Unable to load tasks"
-            :text="errorMessage">
-            <template #actions>
-              <v-btn color="primary" variant="outlined" @click="refreshTasks">Try Again</v-btn>
-            </template>
-          </v-empty-state>
-          <v-empty-state
-            v-else
-            icon="mdi-clipboard-list-outline"
-            title="No tasks found"
-            :text="`No tasks have been created for this ${props.entityType || 'warehouse'} yet.`"></v-empty-state>
-        </template>
-      </v-data-table>
+      <DetailsSidePanel
+        :open="showTaskDetailsDialog"
+        storage-key="lakekeeper.tasks.detailsWidth"
+        :default-width="460">
+        <TaskDetailsPanel
+          :task="detailsTask"
+          :task-id="detailsTaskId"
+          :details="selectedTaskDetails"
+          :loading="taskDetailsLoading"
+          :error="taskDetailsError"
+          :can-control="canControlTasks"
+          :format-queue-name="formatQueueName"
+          @close="closeTaskDetailsDialog"
+          @retry="retryLoadTaskDetails"
+          @copy="functions.copyToClipboard"
+          @run-now="runTaskNow"
+          @stop="stopTask"
+          @cancel="cancelTask" />
+      </DetailsSidePanel>
     </div>
 
     <!-- Error state display when data table is hidden -->
@@ -444,42 +470,6 @@
         </v-btn>
       </template>
     </v-empty-state>
-
-    <!-- Task Details Modal -->
-    <v-dialog v-model="showTaskDetailsDialog" max-width="800" scrollable>
-      <v-card>
-        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
-          <v-spacer></v-spacer>
-          <v-btn icon="mdi-close" variant="text" @click="closeTaskDetailsDialog"></v-btn>
-        </v-card-title>
-
-        <v-card-text v-if="taskDetailsLoading" class="text-center pa-8">
-          <v-progress-circular indeterminate color="primary" size="64"></v-progress-circular>
-          <div class="text-h6 mt-4">Loading task details...</div>
-        </v-card-text>
-
-        <v-card-text v-else-if="taskDetailsError" class="text-center pa-8">
-          <v-empty-state
-            icon="mdi-alert-circle-outline"
-            color="error"
-            title="Failed to load task details"
-            :text="taskDetailsError">
-            <template #actions>
-              <v-btn color="primary" variant="outlined" @click="retryLoadTaskDetails">
-                Try Again
-              </v-btn>
-            </template>
-          </v-empty-state>
-        </v-card-text>
-
-        <v-card-text v-else class="pa-0">
-          <TaskDetails
-            :task="selectedTaskDetails"
-            :format-queue-name="formatQueueName"
-            @copy="functions.copyToClipboard" />
-        </v-card-text>
-      </v-card>
-    </v-dialog>
 
     <!-- Cancel Task Confirmation Modal -->
     <v-dialog v-model="showCancelConfirmDialog" max-width="440">
@@ -595,7 +585,8 @@ import {
 } from '../composables/useCatalogPermissions';
 import { useQueueConfig, type QueueOption } from '../common/queueConfig';
 import { reactive, ref, onMounted, computed, inject, watch } from 'vue';
-import TaskDetails from './TaskDetails.vue';
+import DetailsSidePanel from './DetailsSidePanel.vue';
+import TaskDetailsPanel from './TaskDetailsPanel.vue';
 import { getStatusColor, formatDateTime } from '../common/taskUtils';
 import type {
   WarehouseTaskInfo as Task,
@@ -1056,6 +1047,10 @@ async function refreshTasks() {
   if (tasksNextPageToken.value && tasks.length > 0 && tasks.length < targetMinimumItems) {
     await loadMoreTasks();
   }
+  // An open task's attempts and status moved on with the list.
+  if (showTaskDetailsDialog.value && detailsTaskId.value) {
+    await loadTaskDetails(detailsTaskId.value);
+  }
 }
 
 async function loadMoreTasks() {
@@ -1094,10 +1089,32 @@ async function handlePaginationUpdate(options: any) {
   }
 }
 
+/** The list's row for the open task: its status drives the panel's actions. */
+const detailsTask = computed(
+  () => tasks.find((t: Task) => t['task-id'] === detailsTaskId.value) ?? null,
+);
+
 async function viewTaskDetails(task: Task) {
   selectedTaskDetails.value = null; // Reset details data
   showTaskDetailsDialog.value = true;
   await loadTaskDetails(task['task-id']);
+}
+
+/** A row click opens its details; a second click on the same row closes them.
+ *  Buttons in the row (copy, stop, cancel, run) keep their own meaning. */
+function onTaskRowClick(event: MouseEvent, { item }: { item: Task }) {
+  if ((event.target as HTMLElement | null)?.closest('button, a, input')) return;
+  if (showTaskDetailsDialog.value && detailsTaskId.value === item['task-id']) {
+    closeTaskDetailsDialog();
+    return;
+  }
+  viewTaskDetails(item);
+}
+
+function taskRowProps({ item }: { item: Task }) {
+  return showTaskDetailsDialog.value && detailsTaskId.value === item['task-id']
+    ? { class: 'tm-row--active' }
+    : {};
 }
 
 async function stopTask(task: Task) {
@@ -1307,3 +1324,26 @@ defineExpose({
   listTasks,
 });
 </script>
+
+<style scoped>
+/* Bounded by the tab: the list scrolls in its column, the details in theirs. */
+.tm-main {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.tm-list {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.tm-list :deep(tbody tr) {
+  cursor: pointer;
+}
+.tm-list :deep(tr.tm-row--active td) {
+  background: rgba(var(--v-theme-primary), 0.1);
+}
+</style>
