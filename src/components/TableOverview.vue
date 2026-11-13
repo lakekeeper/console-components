@@ -13,6 +13,7 @@
       :namespace-path="props.namespaceId"
       :table-name="props.tableName"
       :can-edit="canCommit"
+      :can-set-protection="canSetProtection"
       @open-tab="$emit('open-tab', $event)"
       @updated="loadTableData" />
   </div>
@@ -43,7 +44,7 @@ const tableId = ref('');
 const loadError = ref('');
 
 // Table permissions (rename / properties edit are gated on commit)
-const { canCommit } = useTablePermissions(
+const { canCommit, canSetProtection } = useTablePermissions(
   computed(() => tableId.value),
   computed(() => props.warehouseId),
 );

@@ -97,6 +97,7 @@
                     <v-card-text>
                       <v-switch
                         :model-value="protectedPending"
+                        :class="{ 'esd-protect-hint': protectionHint }"
                         color="primary"
                         hide-details
                         density="compact"
@@ -105,7 +106,10 @@
                           protectedPending ? 'mdi-lock' : 'mdi-lock-open-variant-outline'
                         "
                         :label="protectedPending ? 'Deletion protected' : 'Deletion protection off'"
-                        @update:model-value="protectedPending = $event === true"></v-switch>
+                        @update:model-value="
+                          protectedPending = $event === true;
+                          protectionHint = false;
+                        "></v-switch>
                       <div class="text-caption text-medium-emphasis ml-10">
                         Prevent this {{ label }} from being deleted.
                       </div>
@@ -207,6 +211,9 @@ const props = defineProps<{
   canSetProtection?: boolean;
   /** Overrides the noun in labels — generic tables call themselves datasets. */
   entityLabel?: string;
+  /** Opened from the protection state itself: the switch pulses on open, so
+      the reader sees where to act. Only when they may change it. */
+  hintProtection?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -264,6 +271,8 @@ const renameRefusal = computed(() => {
 const routeParam = computed(() => (props.entityType === 'view' ? 'vid' : 'tid'));
 
 const dialogOpen = ref(false);
+// Set while the protection switch pulses; the first touch of the switch ends it.
+const protectionHint = ref(false);
 const pane = ref('SETTINGS');
 const nameInput = ref('');
 const protectedPending = ref(props.protectedState);
@@ -290,6 +299,7 @@ function resetSettings() {
 // Seed on open rather than on mount: the menu keeps this component alive, so a
 // rename or a protection change elsewhere would otherwise show stale values.
 watch(dialogOpen, async (open) => {
+  protectionHint.value = open && !!props.hintProtection && !!props.canSetProtection;
   if (open) {
     resetSettings();
     pane.value = 'SETTINGS';
@@ -431,3 +441,47 @@ function discardAndClose() {
 
 defineExpose({ open: () => (dialogOpen.value = true) });
 </script>
+
+<style scoped>
+/* An amber ring — the Off chip's colour, and visible on dark surfaces where
+   primary blue was not — swells from the switch thumb three times, then stops. The
+   animation runs once per open and leaves the switch exactly as it was. */
+.esd-protect-hint :deep(.v-switch__thumb) {
+  animation: esd-protect-pulse 1.2s ease-out 0.4s 3;
+}
+
+/* The lock beside it blinks amber in step with the ring. */
+.esd-protect-hint :deep(.v-input__prepend .v-icon) {
+  animation: esd-protect-blink 1.2s ease-out 0.4s 3;
+}
+
+@keyframes esd-protect-blink {
+  0%,
+  45% {
+    color: rgb(var(--v-theme-warning));
+    opacity: 1;
+  }
+  100% {
+    opacity: var(--v-medium-emphasis-opacity);
+  }
+}
+
+@keyframes esd-protect-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-warning), 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(var(--v-theme-warning), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-warning), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esd-protect-hint :deep(.v-switch__thumb),
+  .esd-protect-hint :deep(.v-input__prepend .v-icon) {
+    animation: none;
+  }
+}
+</style>

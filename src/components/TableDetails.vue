@@ -26,7 +26,37 @@
           <dt>{{ row.label }}</dt>
           <dd :title="row.title">
             <v-icon v-if="row.icon" :color="row.iconColor" size="16">{{ row.icon }}</v-icon>
-            <template v-if="row.chips">
+            <!-- The protection chip is where people look for the switch, so it
+                 opens the same settings modal as Settings → Table settings. -->
+            <EntitySettingsDialog
+              v-if="row.opensSettings && warehouseId && tableName && tableId"
+              entity-type="table"
+              :warehouse-id="warehouseId"
+              :namespace-path="namespacePath ?? ''"
+              :entity-name="tableName"
+              :entity-id="tableId"
+              :metadata="table.metadata"
+              :protected-state="protectionState === true"
+              :can-commit="canEdit"
+              :can-set-protection="canSetProtection"
+              hint-protection
+              @updated="$emit('updated')"
+              @protection-changed="protectionState = $event">
+              <template #activator="{ props: aProps }">
+                <v-chip
+                  v-for="chip in row.chips"
+                  v-bind="aProps"
+                  :key="chip.text"
+                  size="x-small"
+                  :color="chip.color"
+                  :prepend-icon="chip.icon"
+                  variant="tonal"
+                  link>
+                  {{ chip.text }}
+                </v-chip>
+              </template>
+            </EntitySettingsDialog>
+            <template v-else-if="row.chips">
               <v-chip
                 v-for="chip in row.chips"
                 :key="chip.text"
@@ -196,6 +226,7 @@ import EntityTagsChips from './EntityTagsChips.vue';
 import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
 import PropertiesEditToggle from './PropertiesEditToggle.vue';
 import TableHealth from './TableHealth.vue';
+import EntitySettingsDialog from './EntitySettingsDialog.vue';
 import { isForbiddenError } from '../common/errorUtils';
 import { tagRefusal } from '../composables/useTagRights';
 import type { LoadTableResult, PartitionField, SortField } from '../gen/iceberg/types.gen';
@@ -217,6 +248,8 @@ const props = defineProps<{
   /** Whether the reader may commit — the properties block is offered empty to
       someone who can add one, and hidden from someone who cannot. */
   canEdit?: boolean;
+  /** Whether the reader may change deletion protection in the settings modal. */
+  canSetProtection?: boolean;
 }>();
 
 // Governance tags: bind against the table UUID.
@@ -407,6 +440,8 @@ type FactRow = {
   value?: string | number;
   /** Values that are chips rather than text: partition and sort fields. */
   chips?: Array<{ text: string; color?: string; icon?: string }>;
+  /** Clicking the chips opens the table settings modal. */
+  opensSettings?: boolean;
   /** A trailing chip that qualifies the value, e.g. which spec it came from. */
   suffix?: string;
   mono?: boolean;
@@ -494,6 +529,8 @@ const factRows = computed(() => {
         : protectionState.value
           ? `Deletion protection is on${protectionUpdatedAt.value ? ` · set ${protectionUpdatedAt.value}` : ''} — drop and expiration are refused until it is turned off`
           : 'Deletion protection is off — this table can be dropped',
+    // Only once the state is known: the modal's switch starts from it.
+    opensSettings: !protectionError.value && protectionState.value !== null,
   });
 
   rows.push({
