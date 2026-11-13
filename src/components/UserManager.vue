@@ -91,15 +91,6 @@
       </td>
     </template>
 
-    <template #item.last-updated-with="{ item }">
-      <v-chip
-        size="small"
-        :color="updatedByLabels[item['last-updated-with']]?.color"
-        variant="tonal">
-        {{ updatedByLabels[item['last-updated-with']]?.text ?? item['last-updated-with'] }}
-      </v-chip>
-    </template>
-
     <template #no-data>
       <!-- Until the rights answer nothing is known, so nothing is claimed; a
            refusal says so rather than reading as an empty user list. -->
@@ -381,17 +372,9 @@ const usersError = ref('');
 const headers: readonly Header[] = Object.freeze([
   { title: 'Name', key: 'name', align: 'start' },
   { title: 'Email', key: 'email', align: 'start' },
-  { title: 'Updated By', key: 'last-updated-with', align: 'start' },
   { title: 'Id', key: 'id', align: 'start' },
   { title: 'Actions', key: 'actions', align: 'end', sortable: false },
 ]);
-
-const updatedByLabels: Record<string, { text: string; color: string }> = {
-  'create-endpoint': { text: 'Created', color: 'info' },
-  'config-call-creation': { text: 'Config', color: 'warning' },
-  'update-endpoint': { text: 'Updated', color: 'success' },
-  'role-provider': { text: 'Role Provider', color: 'secondary' },
-};
 
 const emit = defineEmits<{
   (e: 'deletedUser', user: User): void;

@@ -28,6 +28,19 @@ function attachSql(
 }
 
 /**
+ * One secret per catalog, named so that distinct catalog names never share one:
+ * every character outside `[a-z0-9]` is written as `_<hex code point>_`. A plain
+ * `_` substitution would give `sales-eu` and `sales_eu` the same secret, and
+ * detaching either would then drop the other's.
+ */
+export function secretNameFor(catalogName: string): string {
+  const encoded = [...catalogName]
+    .map((ch) => (/[a-z0-9]/.test(ch) ? ch : `_${ch.codePointAt(0)!.toString(16)}_`))
+    .join('');
+  return `loqe_secret_${encoded}`;
+}
+
+/**
  * CatalogManager — tracks Iceberg REST catalogs that have been ATTACHed
  * to the DuckDB instance, wires each one into the TokenManager for
  * automatic secret rotation.
@@ -66,7 +79,7 @@ export class CatalogManager {
     }
 
     const projectId = config.projectId || 'default';
-    const secretName = `loqe_secret_${config.catalogName.replace(/[^a-zA-Z0-9_]/g, '_')}`;
+    const secretName = secretNameFor(config.catalogName);
     const token = config.accessToken || this.tokenManager.currentToken;
 
     let conn;
