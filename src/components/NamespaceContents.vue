@@ -129,143 +129,164 @@
       <v-btn size="small" variant="text" icon="mdi-close" @click="selected = []"></v-btn>
     </div>
 
-    <div class="nsc-body">
-      <v-alert v-if="allRefused" type="warning" variant="tonal" class="ma-4">
-        {{ refusedText }}
-      </v-alert>
-
-      <template v-else>
-        <!-- A list that failed for another reason than a refusal says so; in
-             "All" a refused list is simply absent, since a mixed list never
-             claims to be complete for one type. -->
-        <v-alert
-          v-for="f in failures"
-          :key="f.kind"
-          type="error"
-          variant="tonal"
-          density="compact"
-          class="mx-4 mb-2 flex-0-0">
-          {{ f.message }}
+    <div ref="mainRef" class="nsc-main">
+      <div class="nsc-body">
+        <v-alert v-if="allRefused" type="warning" variant="tonal" class="ma-4">
+          {{ refusedText }}
         </v-alert>
 
-        <v-data-table-virtual
-          ref="tableRef"
-          v-model="selected"
-          v-model:sort-by="sortBy"
-          :row-props="rowProps"
-          height="100%"
-          :headers="headers"
-          :items="visibleRows"
-          :loading="loading"
-          item-value="key"
-          return-object
-          :show-select="!atWarehouse"
-          density="compact"
-          fixed-header
-          hover
-          class="nsc-table">
-          <template #item.name="{ item }">
-            <td :class="{ 'nsc-name': item.kind !== 'deleted' }" @click="open(item)">
-              <span class="d-flex align-center">
-                <v-icon v-if="rowBrandIcon(item)" size="small" class="mr-2">
-                  <v-img :src="rowBrandIcon(item)!" width="18" height="18" />
-                </v-icon>
-                <v-icon v-else size="small" class="mr-2" :color="KIND_META[item.kind].color">
-                  {{ KIND_META[item.kind].icon }}
-                </v-icon>
-                {{ item.name }}
-              </span>
-            </td>
-          </template>
-          <template #item.type="{ item }">
-            <span class="text-medium-emphasis">{{ typeLabel(item) }}</span>
-          </template>
-          <template #item.protected="{ item }">
-            <v-icon
-              v-if="item.protected"
-              size="small"
-              color="amber-darken-2"
-              title="Protected: refuses delete until protection is turned off">
-              mdi-lock
-            </v-icon>
-            <v-icon
-              v-else-if="item.protected === false"
-              size="small"
-              class="text-disabled"
-              title="Not protected">
-              mdi-lock-open-variant-outline
-            </v-icon>
-            <span v-else class="text-disabled" title="Not reported for this type">–</span>
-          </template>
-          <template #item.deletedAt="{ item }">
-            <span :title="item.deletedAt">{{ relative(item.deletedAt) }}</span>
-          </template>
-          <template #item.expiresAt="{ item }">
-            <span :title="item.expiresAt">{{ relative(item.expiresAt) }}</span>
-          </template>
-          <template #item.actions="{ item }">
-            <!-- Restore needs `undrop` on the item itself; asked by id, since a
-                 deleted item has no name lookup any more. -->
-            <div v-if="item.kind === 'deleted'" class="d-flex justify-end align-center">
-              <span v-if="rowErrors[item.key]" class="text-caption text-error mr-2">
-                {{ rowErrors[item.key] }}
-              </span>
-              <v-btn
-                v-if="canRestore(item)"
-                icon="mdi-restore"
-                variant="text"
-                color="primary"
-                size="small"
-                title="Restore"
-                :loading="restoring === item.key"
-                @click="restore(item)"></v-btn>
-            </div>
-            <div v-else class="d-flex justify-end align-center">
-              <!-- Offered only once the answer is yes: a rename needs the right
-                   on the item and the create right on this namespace. -->
-              <v-btn
-                v-if="canRename(item)"
-                icon="mdi-rename-outline"
-                variant="text"
-                color="primary"
-                size="small"
-                title="Rename"
-                @click="openRename(item)"></v-btn>
-              <DeleteDialog
-                v-if="canDrop(item)"
-                :type="deleteType(item)"
-                :name="item.name"
-                @delete-with-options="dropRow(item, $event)"
-                @delete-table-with-options="dropRow(item, $event)"
-                @delete-view-with-options="dropRow(item, $event)"></DeleteDialog>
-            </div>
-          </template>
-          <template #no-data>
-            <div v-if="loading"></div>
-            <div v-else-if="search" class="text-medium-emphasis">
-              Nothing loaded matches "{{ search }}".
-            </div>
-            <div v-else class="text-medium-emphasis">{{ emptyText }}</div>
-          </template>
-        </v-data-table-virtual>
+        <template v-else>
+          <!-- A list that failed for another reason than a refusal says so; in
+             "All" a refused list is simply absent, since a mixed list never
+             claims to be complete for one type. -->
+          <v-alert
+            v-for="f in failures"
+            :key="f.kind"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mx-4 mb-2 flex-0-0">
+            {{ f.message }}
+          </v-alert>
 
-        <!-- Read a page at a time as the reader scrolls; this line is the
+          <v-data-table-virtual
+            ref="tableRef"
+            v-model="selected"
+            v-model:sort-by="sortBy"
+            :row-props="rowProps"
+            height="100%"
+            :headers="headers"
+            :items="visibleRows"
+            :loading="loading"
+            item-value="key"
+            return-object
+            :show-select="!atWarehouse"
+            density="compact"
+            fixed-header
+            hover
+            class="nsc-table">
+            <template #item.name="{ item }">
+              <td :class="{ 'nsc-name': item.kind !== 'deleted' }" @click="open(item)">
+                <span class="d-flex align-center">
+                  <v-icon v-if="rowBrandIcon(item)" size="small" class="mr-2">
+                    <v-img :src="rowBrandIcon(item)!" width="18" height="18" />
+                  </v-icon>
+                  <v-icon v-else size="small" class="mr-2" :color="KIND_META[item.kind].color">
+                    {{ KIND_META[item.kind].icon }}
+                  </v-icon>
+                  <span class="nsc-name__text">{{ item.name }}</span>
+                </span>
+              </td>
+            </template>
+            <template #item.type="{ item }">
+              <span class="text-medium-emphasis">{{ typeLabel(item) }}</span>
+            </template>
+            <template #item.deletedAt="{ item }">
+              <span :title="item.deletedAt">{{ relative(item.deletedAt) }}</span>
+            </template>
+            <template #item.expiresAt="{ item }">
+              <span :title="item.expiresAt">{{ relative(item.expiresAt) }}</span>
+            </template>
+            <template #item.actions="{ item }">
+              <!-- Restore needs `undrop` on the item itself; asked by id, since a
+                 deleted item has no name lookup any more. -->
+              <div v-if="item.kind === 'deleted'" class="d-flex justify-end align-center">
+                <span v-if="rowErrors[item.key]" class="text-caption text-error mr-2">
+                  {{ rowErrors[item.key] }}
+                </span>
+                <v-btn
+                  v-if="canRestore(item)"
+                  icon="mdi-restore"
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  title="Restore"
+                  :loading="restoring === item.key"
+                  @click="restore(item)"></v-btn>
+              </div>
+              <div v-else class="d-flex justify-end align-center">
+                <!-- The plain way in: a row click shows details, this goes there. -->
+                <v-btn
+                  variant="text"
+                  size="small"
+                  class="nsc-open"
+                  :title="`Open ${typeLabel(item).toLowerCase()}`"
+                  @click="open(item)">
+                  Open
+                </v-btn>
+                <!-- Offered only once the answer is yes: a rename needs the right
+                   on the item and the create right on this namespace. -->
+                <v-btn
+                  v-if="canRename(item)"
+                  icon="mdi-rename-outline"
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  title="Rename"
+                  @click="openRename(item)"></v-btn>
+                <DeleteDialog
+                  v-if="canDrop(item)"
+                  :type="deleteType(item)"
+                  :name="item.name"
+                  @delete-with-options="dropRow(item, $event)"
+                  @delete-table-with-options="dropRow(item, $event)"
+                  @delete-view-with-options="dropRow(item, $event)"></DeleteDialog>
+              </div>
+            </template>
+            <template #no-data>
+              <div v-if="loading"></div>
+              <div v-else-if="search" class="text-medium-emphasis">
+                Nothing loaded matches "{{ search }}".
+              </div>
+              <div v-else class="text-medium-emphasis">{{ emptyText }}</div>
+            </template>
+          </v-data-table-virtual>
+
+          <!-- Read a page at a time as the reader scrolls; this line is the
              progress, and says when the list is not yet the whole answer. -->
-        <div v-if="loadingMore || (hasMore && !loading)" class="nsc-more">
-          <v-progress-linear
-            v-if="loadingMore"
-            indeterminate
-            color="primary"
-            class="nsc-more__bar"></v-progress-linear>
-          <span class="text-caption text-medium-emphasis">
-            {{
-              loadingMore
-                ? `Loading more… ${rows.length} so far`
-                : `${rows.length} loaded — scroll to the end for more`
-            }}
-          </span>
-        </div>
-      </template>
+          <div v-if="loadingMore || (hasMore && !loading)" class="nsc-more">
+            <v-progress-linear
+              v-if="loadingMore"
+              indeterminate
+              color="primary"
+              class="nsc-more__bar"></v-progress-linear>
+            <span class="text-caption text-medium-emphasis">
+              {{
+                loadingMore
+                  ? `Loading more… ${rows.length} so far`
+                  : `${rows.length} loaded — scroll to the end for more`
+              }}
+            </span>
+          </div>
+        </template>
+      </div>
+
+      <!-- Details of the clicked row, one request when it opens. Folds by width,
+         so the table grows back rather than jumping. -->
+      <div
+        class="nsc-detail"
+        :class="{ 'nsc-detail--out': !detailRow, 'nsc-detail--dragging': dragging }"
+        :style="{ width: detailRow ? `${panelWidth}px` : '0px' }">
+        <!-- Drag to resize; double-click switches between half and the default. -->
+        <div
+          class="nsc-grip"
+          title="Drag to resize · double-click for half width"
+          @pointerdown="startDrag"
+          @dblclick="toggleHalf"></div>
+        <ContentDetailsPanel
+          v-if="shownDetail"
+          ref="detailsRef"
+          :style="{ width: `${panelWidth}px` }"
+          :warehouse-id="warehouseId"
+          :namespace-path="namespacePath"
+          :row="shownDetail"
+          :type-label="typeLabel(shownDetail)"
+          :icon="KIND_META[shownDetail.kind].icon"
+          :icon-color="KIND_META[shownDetail.kind].color"
+          :brand-icon="rowBrandIcon(shownDetail)"
+          @close="detailRow = null"
+          @open="open(shownDetail)" />
+      </div>
     </div>
 
     <!-- Rename -->
@@ -420,6 +441,7 @@ import DatasetCreate from './DatasetCreate.vue';
 import TableCreate from './TableCreate.vue';
 import TableRegister from './TableRegister.vue';
 import DeleteDialog from './DeleteDialog.vue';
+import ContentDetailsPanel from './ContentDetailsPanel.vue';
 
 type Kind = 'namespace' | 'table' | 'generic' | 'view' | 'dataset' | 'deleted';
 type ListKey = 'namespaces' | 'tables' | 'views' | 'generic' | 'deleted';
@@ -435,6 +457,8 @@ type ContentRow = {
   /** Protection, as the list answered it; undefined where the list carries none
       (generic tables, datasets, deleted items) or the server left it out. */
   protected?: boolean;
+  /** A generic table's or dataset's id, as the list gives it. */
+  uuid?: string;
   /** A deleted item: its id, what it was, and when it went and goes for good. */
   id?: string;
   typ?: 'table' | 'view' | 'generic-table';
@@ -506,24 +530,8 @@ const ACTIONS_HEADER = {
   key: 'actions',
   sortable: false,
   align: 'end' as const,
-  width: '120px',
+  width: '170px',
 };
-// Protected first when sorted descending; rows without a flag sort last.
-const PROTECTION_HEADER = {
-  title: 'Protection',
-  key: 'protected',
-  sortable: true,
-  align: 'center' as const,
-  width: '110px',
-  value: (row: ContentRow) => (row.protected === undefined ? -1 : row.protected ? 1 : 0),
-};
-// Only namespaces, tables and views carry the flag; a column of dashes for a
-// generic-only selection would say nothing.
-const showsProtection = computed(
-  () =>
-    !props.selection.length ||
-    props.selection.some((k) => k === 'namespaces' || k === 'tables' || k === 'views'),
-);
 // Name A–Z unless the reader picks another column; reset per namespace.
 const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'name', order: 'asc' }]);
 // Sorting is the table's own, over what has loaded; with no sort the rows keep
@@ -540,7 +548,6 @@ const headers = computed(() =>
     : [
         { title: 'Name', key: 'name', sortable: true },
         { title: 'Type', key: 'type', sortable: true, width: '200px', value: typeLabel },
-        ...(showsProtection.value ? [PROTECTION_HEADER] : []),
         ACTIONS_HEADER,
       ],
 );
@@ -820,15 +827,22 @@ async function readPage(
     );
     return {
       next: data['next-page-token'] || '',
-      rows: (data.identifiers ?? []).map((g: { name: string; format?: string | null }) =>
-        g.format === 'dataset'
-          ? { key: `dataset:${g.name}`, kind: 'dataset' as const, name: g.name }
-          : {
-              key: `generic:${g.name}`,
-              kind: 'generic' as const,
-              name: g.name,
-              format: g.format || 'generic',
-            },
+      rows: (data.identifiers ?? []).map(
+        (g: { name: string; format?: string | null; id?: string | null }) =>
+          g.format === 'dataset'
+            ? {
+                key: `dataset:${g.name}`,
+                kind: 'dataset' as const,
+                name: g.name,
+                uuid: g.id ?? undefined,
+              }
+            : {
+                key: `generic:${g.name}`,
+                kind: 'generic' as const,
+                name: g.name,
+                format: g.format || 'generic',
+                uuid: g.id ?? undefined,
+              },
       ),
     };
   } catch (error) {
@@ -889,10 +903,16 @@ function rowProps({ item }: { item: ContentRow }) {
   const classes = [];
   if (freshKeys.value.has(item.key)) classes.push('nsc-row--fresh');
   if (item.kind === 'deleted') classes.push('nsc-row--deleted');
-  return classes.length ? { class: classes.join(' ') } : {};
+  if (detailRow.value?.key === item.key) classes.push('nsc-row--active');
+  // The virtual table does not emit `click:row`; the row's own listener does.
+  return {
+    class: classes.join(' ') || undefined,
+    onClick: (event: MouseEvent) => onRowClick(event, item),
+  };
 }
 
 async function load() {
+  detailsRef.value?.reload();
   const mine = ++loadToken;
   const started = Date.now();
   loading.value = true;
@@ -987,6 +1007,8 @@ watch(
 
 /** After a create, rename or delete: reload the list and the tree node. */
 async function afterChange() {
+  // The row it described may be renamed or gone; a stale card says nothing true.
+  detailRow.value = null;
   if (atWarehouse.value) visual.refreshNavTree(props.warehouseId);
   else visual.refreshNavTree(props.warehouseId, dottedPath.value);
   await load();
@@ -1356,6 +1378,90 @@ onMounted(probeLeftovers);
 
 // ── Opening ───────────────────────────────────────────────────────────
 
+/** The row whose details are open; null folds the panel. */
+const detailRow = ref<ContentRow | null>(null);
+/** What the panel shows: kept while it folds away, so it does not empty first. */
+const shownDetail = ref<ContentRow | null>(null);
+const detailsRef = ref<InstanceType<typeof ContentDetailsPanel> | null>(null);
+watch(detailRow, (row) => {
+  if (row) shownDetail.value = row;
+});
+watch(
+  () => [props.warehouseId, props.namespacePath],
+  () => {
+    detailRow.value = null;
+    shownDetail.value = null;
+  },
+);
+
+// ── Panel width ───────────────────────────────────────────────────────
+
+const PANEL_DEFAULT = 420;
+const PANEL_MIN = 300;
+/** The table keeps at least this much, however wide the panel is dragged. */
+const TABLE_MIN = 360;
+const WIDTH_KEY = 'lakekeeper.contents.detailsWidth';
+const mainRef = ref<HTMLElement | null>(null);
+const dragging = ref(false);
+
+function storedWidth(): number {
+  try {
+    const v = Number(localStorage.getItem(WIDTH_KEY));
+    return Number.isFinite(v) && v >= PANEL_MIN ? v : PANEL_DEFAULT;
+  } catch {
+    return PANEL_DEFAULT;
+  }
+}
+const panelWidth = ref(storedWidth());
+
+function clampWidth(w: number): number {
+  const room = (mainRef.value?.clientWidth ?? 1200) - TABLE_MIN;
+  return Math.round(Math.max(PANEL_MIN, Math.min(w, Math.max(PANEL_MIN, room))));
+}
+
+function keepWidth() {
+  try {
+    localStorage.setItem(WIDTH_KEY, String(panelWidth.value));
+  } catch {
+    // Private window or blocked storage: the width just isn't remembered.
+  }
+}
+
+function startDrag(e: PointerEvent) {
+  const grip = e.currentTarget as HTMLElement;
+  grip.setPointerCapture(e.pointerId);
+  const startX = e.clientX;
+  const startW = panelWidth.value;
+  dragging.value = true;
+  const move = (ev: PointerEvent) => {
+    panelWidth.value = clampWidth(startW + (startX - ev.clientX));
+  };
+  const up = () => {
+    dragging.value = false;
+    grip.removeEventListener('pointermove', move);
+    grip.removeEventListener('pointerup', up);
+    grip.removeEventListener('pointercancel', up);
+    keepWidth();
+  };
+  grip.addEventListener('pointermove', move);
+  grip.addEventListener('pointerup', up);
+  grip.addEventListener('pointercancel', up);
+}
+
+function toggleHalf() {
+  const half = clampWidth((mainRef.value?.clientWidth ?? 0) / 2);
+  panelWidth.value = Math.abs(panelWidth.value - half) < 8 ? PANEL_DEFAULT : half;
+  keepWidth();
+}
+
+/** A click on a row opens its details; the name, buttons and checkbox keep
+ *  their own meaning. A second click on the same row closes them. */
+function onRowClick(event: MouseEvent, item: ContentRow) {
+  const target = event.target as HTMLElement | null;
+  if (target?.closest('button, a, input, .v-selection-control, .nsc-name, .v-overlay')) return;
+  detailRow.value = detailRow.value?.key === item.key ? null : item;
+}
+
 function open(row: ContentRow) {
   if (row.kind === 'deleted') return;
   const base = `/warehouse/${props.warehouseId}/namespace`;
@@ -1420,11 +1526,63 @@ defineExpose({ reload: load });
   background: rgba(var(--v-theme-primary), 0.12);
 }
 
-.nsc-body {
+.nsc-main {
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
+}
+
+.nsc-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
   flex-direction: column;
+}
+
+/* Same fold as every pane column (DESIGN.md "Folding"): width to zero, never unmount. */
+.nsc-detail {
+  position: relative;
+  flex: none;
+  min-height: 0;
+  overflow: hidden;
+  border-left: thin solid rgba(var(--v-border-color), var(--v-border-opacity));
+  transition: width 0.2s ease;
+}
+/* The edge follows the pointer, not a transition (DESIGN.md "Folding"). */
+.nsc-detail--dragging {
+  transition: none;
+  user-select: none;
+}
+.nsc-grip {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 6px;
+  z-index: 1;
+  cursor: col-resize;
+  touch-action: none;
+}
+.nsc-grip:hover,
+.nsc-detail--dragging .nsc-grip {
+  background: rgba(var(--v-theme-primary), 0.35);
+}
+.nsc-detail--out {
+  width: 0;
+  border-left-width: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nsc-detail {
+    transition: none;
+  }
+}
+
+.nsc-table :deep(tbody tr) {
+  cursor: pointer;
+}
+.nsc-table :deep(tr.nsc-row--active td) {
+  background: rgba(var(--v-theme-primary), 0.1);
 }
 
 .nsc-table {
@@ -1463,8 +1621,21 @@ defineExpose({ reload: load });
   }
 }
 
+.nsc-open {
+  min-width: 0;
+  padding: 0 8px;
+  margin-right: 4px;
+}
+
+/* The name reads as a link: it opens the item, while the rest of the row
+   opens its details. */
 .nsc-name {
   cursor: pointer;
+}
+.nsc-name:hover .nsc-name__text {
+  color: rgb(var(--v-theme-primary));
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .nsc-more {
