@@ -252,11 +252,11 @@ app.use(auth);
 
 ### Warehouse
 
-`WarehouseManager` (warehouse list), `WarehouseHeader` (warehouse detail header), `WarehouseDetails` (warehouse settings), `WarehouseAddDialog` (multi-step create), `WarehouseRenameDialog`, `WarehouseActionsMenu` (context menu), `WarehouseNamespaces` (namespace tree), `WarehousesNavigationTree` (sidebar nav tree), `WarehouseStorageS3`, `WarehouseStorageAzure`, `WarehouseStorageGCS`, `WarehouseStorageJSON` (storage config forms), `WarehouseStatisticsDialog` (usage charts)
+`WarehouseManager` (warehouse list), `WarehouseHeader` (warehouse detail header), `WarehouseDetails` (warehouse settings), `WarehouseAddDialog` (multi-step create), `WarehouseRenameDialog`, `WarehouseActionsMenu` (context menu), `WarehousesNavigationTree` (sidebar nav tree), `WarehouseStorageS3`, `WarehouseStorageAzure`, `WarehouseStorageGCS`, `WarehouseStorageJSON` (storage config forms), `WarehouseStatisticsDialog` (usage charts)
 
 ### Namespace
 
-`NamespaceAddDialog`, `NamespaceNamespaces` (nested namespaces), `NamespaceTables`, `NamespaceDeleted` (soft-deleted tabulars), `NamespaceViews`, `NamespaceHeader`
+`NamespaceAddDialog`, `NamespaceContents` (one table for child namespaces, tables, generic tables, views, datasets and soft-deleted items; type chips filter it; a row click opens `ContentDetailsPanel`), `DetailsSidePanel` (the frame of a details column beside a list: folds, resizes, remembers its width, lies over the list when narrow — use it instead of a details dialog), `NamespaceHeader`
 
 ### Table
 
@@ -276,7 +276,7 @@ app.use(auth);
 
 ### Tasks
 
-`TaskManager` (warehouse task list), `TaskDetails`, `TaskConfigDialog` (queue config)
+`TaskManager` (warehouse task list), `TaskDetails`, `TaskDetailsPanel` (a task's details, header and actions inside a `DetailsSidePanel`), `TaskConfigDialog` (queue config)
 
 ### SQL / LoQE
 

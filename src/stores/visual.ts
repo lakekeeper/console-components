@@ -80,6 +80,12 @@ export const useVisualStore = defineStore(
     // Requested tab for namespace detail page (set by navigation tree context menu)
     const requestedNamespaceTab = ref<string | null>(null);
 
+    // Asks the warehouse header to open Warehouse settings, pointing at one
+    // control — set by a details chip that shows what that control changes.
+    const requestedWarehouseSettings = ref<{ warehouseId: string; focus: 'soft-deletion' } | null>(
+      null,
+    );
+
     // Offline reason captured by router guard when server is unreachable
     const offlineReason = ref<OfflineReason | null>(null);
 
@@ -170,6 +176,19 @@ export const useVisualStore = defineStore(
         counter: navTreeRefreshSignal.value.counter + 1,
         warehouseId,
         namespaceId,
+      };
+    }
+
+    // A warehouse's settings were saved: views holding their own copy re-read it.
+    const warehouseChangedSignal = ref<{ counter: number; warehouseId: string }>({
+      counter: 0,
+      warehouseId: '',
+    });
+
+    function warehouseChanged(warehouseId: string) {
+      warehouseChangedSignal.value = {
+        counter: warehouseChangedSignal.value.counter + 1,
+        warehouseId,
       };
     }
 
@@ -482,6 +501,7 @@ export const useVisualStore = defineStore(
       tagsRefresh,
       bumpTagsRefresh,
       requestedNamespaceTab,
+      requestedWarehouseSettings,
       warehouseTreeState,
       grantsExplorerSelection,
       grantsReviewSelection,
@@ -489,6 +509,8 @@ export const useVisualStore = defineStore(
       refreshNavTree,
       warehouseListRefreshSignal,
       refreshWarehouseList,
+      warehouseChangedSignal,
+      warehouseChanged,
       offlineReason,
       setOfflineReason,
       clearOfflineReason,

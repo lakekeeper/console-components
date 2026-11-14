@@ -24,6 +24,7 @@
            show or change, unless the app adds maintenance entries of its own. -->
       <WarehouseActionsMenu
         v-if="!readError || slots.maintenance"
+        ref="actionsRef"
         :process-status="processStatus"
         :readable="!readError"
         :save-errors="saveErrors"
@@ -42,7 +43,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, computed, inject, useSlots } from 'vue';
+import { ref, reactive, watch, onMounted, computed, inject, useSlots, nextTick } from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { useLoQE } from '@/composables/useLoQE';
@@ -67,6 +68,23 @@ const props = defineProps<{
 const slots = useSlots();
 const functions = useFunctions();
 const visual = useVisualStore();
+const actionsRef = ref<{ openSettings: (focus?: 'soft-deletion') => boolean } | null>(null);
+
+// A details chip asked for the settings (e.g. the deletion profile). The request
+// is used up only once Settings opened: before the warehouse is read the menu
+// offers none, so it waits and is tried again after the read.
+function openRequestedSettings() {
+  const req = visual.requestedWarehouseSettings;
+  if (!req || req.warehouseId !== props.warehouseId) return;
+  if (actionsRef.value?.openSettings(req.focus)) visual.requestedWarehouseSettings = null;
+}
+watch(() => visual.requestedWarehouseSettings, openRequestedSettings);
+
+/** After a save: re-read, and tell other views of this warehouse to do the same. */
+async function reloadAfterSave() {
+  await loadWarehouse();
+  visual.warehouseChanged(props.warehouseId);
+}
 const appConfig = inject<{ baseUrlPrefix?: string }>('appConfig', {});
 const loqe = useLoQE({ baseUrlPrefix: appConfig.baseUrlPrefix ?? '' });
 const processStatus = ref('starting');
@@ -151,6 +169,8 @@ async function loadWarehouse() {
       visual.wahrehouseName = whResponse.name;
       visual.whId = whResponse.id;
       readError.value = '';
+      // The settings dialog mounts once the read is in; a waiting request opens it.
+      nextTick(openRequestedSettings);
     }
   } catch (error) {
     if (!isForbiddenError(error)) {
@@ -187,7 +207,7 @@ async function renameWarehouse(name: string) {
       ts: Date.now(),
       type: Type.SUCCESS,
     });
-    await loadWarehouse();
+    await reloadAfterSave();
     visual.refreshWarehouseList();
     if (previousName && previousName !== name) {
       // DuckDB ATTACHes catalogs by warehouse name; detach the stale
@@ -215,7 +235,7 @@ async function updateCredentials(credentials: StorageCredential) {
     await functions.updateStorageCredential(props.warehouseId, credentials, true);
     // Reload before reporting success: the settings dialog re-seeds its panes from
     // `warehouse` when it sees 'success', and would otherwise re-read stale values.
-    await loadWarehouse();
+    await reloadAfterSave();
     processStatus.value = 'success';
   } catch (error) {
     processStatus.value = 'error';
@@ -238,7 +258,7 @@ async function updateProfile(newProfile: {
       newProfile.profile,
       true,
     );
-    await loadWarehouse();
+    await reloadAfterSave();
     processStatus.value = 'success';
   } catch (error) {
     processStatus.value = 'error';
@@ -300,7 +320,7 @@ async function updateCatalogSettings(payload: {
     .filter((x) => x.r.status === 'rejected');
 
   try {
-    await loadWarehouse();
+    await reloadAfterSave();
   } catch (error) {
     functions.handleError(error, 'reloading warehouse after catalog settings update', true);
   }

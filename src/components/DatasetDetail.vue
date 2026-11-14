@@ -13,7 +13,7 @@
     <template v-if="!loading && !loadError && tableData">
       <!-- Header row -->
       <v-toolbar color="transparent" density="compact" flat class="px-2">
-        <v-icon color="amber-darken-2" class="mr-2">mdi-folder-multiple-outline</v-icon>
+        <v-icon color="amber-darken-2" class="mr-2">mdi-file-multiple-outline</v-icon>
         <span class="text-subtitle-1 font-weight-medium">{{ props.tableName }}</span>
         <v-spacer></v-spacer>
         <GenericTableActionsMenu

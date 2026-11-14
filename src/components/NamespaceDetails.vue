@@ -18,6 +18,75 @@
               @click="functions.copyToClipboard(row.value)"></v-btn>
           </dd>
         </div>
+
+        <!-- Deletion protection, as on a table: the chip is where people look
+             for the switch, so it opens the settings that hold it. -->
+        <div class="nsx-kv__row">
+          <dt>Protection</dt>
+          <dd>
+            <span v-if="protectionError" class="text-medium-emphasis">{{ protectionError }}</span>
+            <span v-else-if="protectionState === null" class="text-disabled">—</span>
+            <EntitySettingsDialog
+              v-else
+              entity-type="namespace"
+              :warehouse-id="warehouseId"
+              :namespace-path="namespacePath"
+              :entity-name="lastSegment"
+              :entity-id="namespaceId"
+              :protected-state="protectionState === true"
+              :can-commit="canUpdateProperties"
+              :can-set-protection="canSetProtection"
+              hint-protection
+              @updated="load"
+              @protection-changed="protectionState = $event">
+              <template #activator="{ props: aProps }">
+                <v-chip
+                  v-bind="aProps"
+                  size="x-small"
+                  variant="tonal"
+                  link
+                  :color="protectionState ? 'info' : 'warning'"
+                  :prepend-icon="
+                    protectionState ? 'mdi-lock-outline' : 'mdi-lock-open-variant-outline'
+                  "
+                  :title="
+                    protectionState
+                      ? 'Deletion protection is on — drop is refused until it is turned off'
+                      : 'Deletion protection is off — this namespace can be dropped'
+                  ">
+                  {{ protectionState ? 'On' : 'Off' }}
+                </v-chip>
+              </template>
+            </EntitySettingsDialog>
+          </dd>
+        </div>
+
+        <!-- The warehouse's, shown here because it decides what a drop in this
+             namespace does. Changed on the warehouse, so it links there. -->
+        <div class="nsx-kv__row">
+          <dt>Deletion profile</dt>
+          <dd>
+            <span v-if="deleteProfileError" class="text-medium-emphasis">
+              {{ deleteProfileError }}
+            </span>
+            <span v-else-if="!deleteProfile" class="text-disabled">—</span>
+            <template v-else>
+              <v-chip
+                size="x-small"
+                variant="tonal"
+                link
+                :color="deleteProfile.type === 'hard' ? 'error' : 'info'"
+                title="Set on the warehouse — open its details"
+                @click="openWarehouseDetails">
+                {{ deleteProfile.type }}
+              </v-chip>
+              <span v-if="deleteProfile.type === 'soft'" class="text-medium-emphasis text-body-2">
+                expires after {{ expiryDays }}
+              </span>
+              <span class="text-caption text-medium-emphasis">from the warehouse</span>
+            </template>
+          </dd>
+        </div>
       </dl>
     </section>
 
@@ -109,6 +178,8 @@ import { useFunctions } from '../plugins/functions';
 import EntityTagsChips from './EntityTagsChips.vue';
 import EntityPropertiesPanel from './EntityPropertiesPanel.vue';
 import PropertiesEditToggle from './PropertiesEditToggle.vue';
+import EntitySettingsDialog from './EntitySettingsDialog.vue';
+import { useRouter } from 'vue-router';
 import { useNamespacePermissions } from '../composables/useCatalogPermissions';
 import type { GetNamespaceResponse } from '../gen/iceberg/types.gen';
 import { isForbiddenError, isNotFoundError } from '../common/errorUtils';
@@ -126,7 +197,8 @@ const properties = ref<Record<string, string>>({});
 // it, so without this a refusal read as "no id" and "No properties set".
 const metaError = ref('');
 
-const { canUpdateProperties } = useNamespacePermissions(
+const router = useRouter();
+const { canUpdateProperties, canSetProtection } = useNamespacePermissions(
   namespaceId,
   computed(() => props.warehouseId),
 );
@@ -144,6 +216,66 @@ const factRows = computed(() => [
   { label: 'Namespace ID', value: namespaceId.value, copy: true, error: metaError.value },
   { label: 'Warehouse ID', value: props.warehouseId, copy: true },
 ]);
+const lastSegment = computed(() => props.namespacePath.split('\x1F').pop() || '');
+
+// Protection: null until read; a refusal says so instead of a dash.
+const protectionState = ref<boolean | null>(null);
+const protectionError = ref('');
+// The warehouse's deletion profile, read-only here.
+const deleteProfile = ref<{ type: 'hard' | 'soft'; 'expiration-seconds'?: number } | null>(null);
+const deleteProfileError = ref('');
+const expiryDays = computed(() => {
+  const secs = deleteProfile.value?.['expiration-seconds'] ?? 0;
+  const days = Math.round(secs / 86400);
+  return days === 1 ? '1 day' : `${days} days`;
+});
+
+// Each read owns the state only while it is the latest of its kind: a slow
+// answer for the namespace left behind must not land on the one shown now.
+let loadGen = 0;
+let profileGen = 0;
+
+async function loadProtection(gen: number) {
+  protectionState.value = null;
+  protectionError.value = '';
+  if (!namespaceId.value) return;
+  try {
+    // Silent: a refusal is shown on the row, not as a snackbar on every visit.
+    const prot = await functions.getNamespaceProtection(
+      props.warehouseId,
+      namespaceId.value,
+      false,
+    );
+    if (gen !== loadGen) return;
+    protectionState.value = prot.protected;
+  } catch (e) {
+    if (gen !== loadGen) return;
+    protectionError.value = isForbiddenError(e)
+      ? 'not visible to you'
+      : tagRefusal(e, 'read the protection state');
+  }
+}
+
+async function loadDeleteProfile() {
+  const gen = ++profileGen;
+  deleteProfile.value = null;
+  deleteProfileError.value = '';
+  try {
+    const wh = await functions.getWarehouse(props.warehouseId, false);
+    if (gen !== profileGen) return;
+    deleteProfile.value = (wh as any)?.['delete-profile'] ?? null;
+  } catch (e) {
+    if (gen !== profileGen) return;
+    deleteProfileError.value = isForbiddenError(e)
+      ? 'not visible to you'
+      : tagRefusal(e, "read the warehouse's deletion profile");
+  }
+}
+
+function openWarehouseDetails() {
+  router.push({ path: `/warehouse/${props.warehouseId}`, query: { tab: 'details' } });
+}
+
 const propertyItems = computed(() =>
   Object.entries(properties.value)
     .filter(([k]) => k !== 'namespace_id')
@@ -151,9 +283,14 @@ const propertyItems = computed(() =>
 );
 
 async function load() {
+  const gen = ++loadGen;
   namespaceId.value = '';
   properties.value = {};
   metaError.value = '';
+  // Cleared before anything can fail, so a refused read here never leaves the
+  // last namespace's protection on screen.
+  protectionState.value = null;
+  protectionError.value = '';
   if (!props.warehouseId || !props.namespacePath) return;
   try {
     const meta = (await functions.loadNamespaceMetadata(
@@ -161,9 +298,12 @@ async function load() {
       props.namespacePath,
       false,
     )) as GetNamespaceResponse;
+    if (gen !== loadGen) return;
     properties.value = meta?.properties ?? {};
     namespaceId.value = meta?.properties?.namespace_id || meta?.['namespace-uuid'] || '';
+    loadProtection(gen);
   } catch (e) {
+    if (gen !== loadGen) return;
     // The catalog answers 404 "not found or access denied" for a namespace the
     // reader may not see at all, so that one cannot be told apart from gone.
     metaError.value = isForbiddenError(e)
@@ -174,8 +314,12 @@ async function load() {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  load();
+  loadDeleteProfile();
+});
 watch(() => [props.warehouseId, props.namespacePath], load);
+watch(() => props.warehouseId, loadDeleteProfile);
 </script>
 
 <style scoped>

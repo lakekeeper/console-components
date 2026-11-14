@@ -1,14 +1,17 @@
 <template>
   <v-dialog v-model="dialog" max-width="1000" persistent>
     <template #activator="{ props: dialogProps }">
-      <v-btn
-        v-bind="dialogProps"
-        size="small"
-        color="primary"
-        variant="flat"
-        prepend-icon="mdi-table-arrow-down">
-        Register Table
-      </v-btn>
+      <!-- A host can supply its own trigger, e.g. an entry in a "New" menu. -->
+      <slot name="activator" :props="dialogProps">
+        <v-btn
+          v-bind="dialogProps"
+          size="small"
+          color="primary"
+          variant="flat"
+          prepend-icon="mdi-table-arrow-down">
+          Register Table
+        </v-btn>
+      </slot>
     </template>
 
     <v-card>

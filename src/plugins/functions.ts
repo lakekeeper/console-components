@@ -6703,6 +6703,63 @@ async function listViewUuids(
   }
 }
 
+/**
+ * One page of a namespace's namespaces, tables or views, each with its
+ * protection flag. A separate wrapper so the shared list functions keep their
+ * shape; the flag comes with the list, so no per-item request is needed.
+ * `protected` is null where the server did not answer the flag.
+ */
+async function listWithProtection(
+  warehouseId: string,
+  list: 'namespaces' | 'tables' | 'views',
+  namespacePath: string,
+  pageToken?: string,
+  pageSize: number = 100,
+  notify?: boolean,
+): Promise<{ items: Array<{ path: string[]; protected: boolean | null }>; next: string }> {
+  try {
+    const client = iceClient.client;
+    const query = {
+      pageToken: pageToken || undefined,
+      pageSize,
+      returnProtectionStatus: true,
+    };
+    let names: string[][] = [];
+    let flags: boolean[] | undefined;
+    let next: string | null | undefined;
+    if (list === 'namespaces') {
+      const { data, error } = await ice.listNamespaces({
+        client,
+        path: { prefix: warehouseId },
+        query: { ...query, parent: namespacePath || undefined },
+      });
+      if (error) throw error;
+      names = (data.namespaces ?? []) as string[][];
+      flags = data['protection-status'];
+      next = data['next-page-token'];
+    } else {
+      const call = list === 'tables' ? ice.listTables : ice.listViews;
+      const { data, error } = await call({
+        client,
+        path: { prefix: warehouseId, namespace: namespacePath },
+        query,
+      });
+      if (error) throw error;
+      const result = data as ListTablesResponse;
+      names = (result.identifiers ?? []).map((i: any) => [...(i.namespace ?? []), i.name]);
+      flags = result['protection-status'];
+      next = result['next-page-token'];
+    }
+    return {
+      items: names.map((path, i) => ({ path, protected: flags?.[i] ?? null })),
+      next: next || '',
+    };
+  } catch (error: any) {
+    handleError(error, 'listWithProtection', notify);
+    throw error;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Grants [Preview]
 //
@@ -7319,6 +7376,7 @@ export function useFunctions(config?: any) {
     listNamespaces,
     createNamespace,
     listTables,
+    listWithProtection,
     dropNamespace,
     setError,
     createUser,

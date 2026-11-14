@@ -135,9 +135,18 @@
               <v-col cols="12" sm="6" md="4">
                 <div class="text-overline text-medium-emphasis">Deletion profile</div>
                 <div class="mt-2 d-flex align-center" style="gap: 8px">
+                  <!-- Where people look for the switch, so it opens the settings
+                       that change it — unless spec changes are locked here. -->
                   <v-chip
                     :color="warehouse['delete-profile'].type === 'hard' ? 'error' : 'info'"
-                    size="small">
+                    :link="!isManagedLocked"
+                    :title="
+                      isManagedLocked
+                        ? 'Managed by the instance admin'
+                        : 'Change the deletion profile in Warehouse settings'
+                    "
+                    size="small"
+                    @click="openDeletionSettings">
                     {{ warehouse['delete-profile'].type }}
                   </v-chip>
                   <span
@@ -535,13 +544,14 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted, inject } from 'vue';
+import { reactive, ref, computed, onMounted, inject, watch } from 'vue';
 import { isForbiddenError } from '@/common/errorUtils';
 import { tagRefusal } from '@/composables/useTagRights';
 import oneLakeIcon from '@/assets/onelake.png';
 import stackitLightIcon from '@/assets/stackit-logo.svg';
 import stackitDarkIcon from '@/assets/stackit-logo-dark.svg';
 import { useUserStore } from '@/stores/user';
+import { useVisualStore } from '@/stores/visual';
 import EntityTagsChips from './EntityTagsChips.vue';
 import CorsConfigDialog from './CorsConfigDialog.vue';
 import { storageProbeUrl } from '@/common/storageProbeUrl';
@@ -556,6 +566,7 @@ const props = defineProps<{
 const functions = inject<any>('functions')!;
 const visual = inject<any>('visual')!;
 const userStore = useUserStore();
+const visualStore = useVisualStore();
 
 // --- Storage layout ---------------------------------------------------------
 // Absent means `default`: the server treats an omitted layout as the flat one,
@@ -664,6 +675,14 @@ const isManagedLocked = computed(
   () => managedBy.value === 'instance-admin' && !isInstanceAdmin.value,
 );
 
+function openDeletionSettings() {
+  if (isManagedLocked.value || !props.warehouseId) return;
+  visualStore.requestedWarehouseSettings = {
+    warehouseId: props.warehouseId,
+    focus: 'soft-deletion',
+  };
+}
+
 const warehouse = reactive<any>({
   'delete-profile': { type: 'hard' },
   id: '',
@@ -726,6 +745,13 @@ const resolvedDefaultFormatVersion = computed<number | null>(() => {
 onMounted(() => {
   loadWarehouse();
 });
+// Saved in Settings (the header's menu): this tab holds its own copy.
+watch(
+  () => visualStore.warehouseChangedSignal.counter,
+  () => {
+    if (visualStore.warehouseChangedSignal.warehouseId === props.warehouseId) loadWarehouse();
+  },
+);
 
 function copyToClipboard(text: string) {
   functions.copyToClipboard(text);

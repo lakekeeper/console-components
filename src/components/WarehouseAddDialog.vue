@@ -288,6 +288,7 @@
                           <div class="text-caption text-medium-emphasis mb-1">Soft deletion</div>
                           <v-switch
                             v-model="delProfileSoftActive"
+                            :class="{ 'wad-hint': softDeletionHint }"
                             :readonly="!maySoftDeletion"
                             color="primary"
                             hide-details
@@ -1568,6 +1569,13 @@ function attemptClose() {
 
 function discardAndClose() {
   confirmCloseOpen.value = false;
+  // The dialog stays mounted inside the actions menu, so closing alone would
+  // keep the edits for the next open: put both panes back to what is stored.
+  if (isSettingsFlow.value && props.warehouse) {
+    seedStorageFromWarehouse(props.warehouse);
+    resetProviderPane();
+    resetSettingsPane();
+  }
   cancelDialog();
 }
 
@@ -1803,6 +1811,19 @@ onMounted(() => {
   }
 });
 
+// The menu mounts this dialog eagerly, often before the warehouse has been read,
+// so the storage pane may have been seeded from placeholders. Re-seed whenever
+// the stored profile changes — unless the reader is mid-edit there.
+watch(
+  () => [props.warehouse?.['storage-profile'], props.warehouse?.['storage-credential-type']],
+  () => {
+    if (!isSettingsFlow.value || !props.warehouse || storageFormDirty.value) return;
+    seedStorageFromWarehouse(props.warehouse);
+    importKey.value++;
+  },
+  { deep: true },
+);
+
 // Keep the rename baseline in sync with the parent after a successful rename, so
 // nameChanged doesn't stay true and re-emit renameWarehouse on the next save.
 watch(
@@ -1841,4 +1862,49 @@ watch(
     cancelDialog();
   },
 );
+
+// Set while the soft-deletion switch pulses: the dialog was opened from the
+// deletion profile itself. The first change of the switch ends it.
+const softDeletionHint = ref(false);
+watch(
+  () => delProfileSoftActive.value,
+  () => (softDeletionHint.value = false),
+);
+
+/** Open the settings, optionally pointing at one control. */
+function open(focus?: 'soft-deletion') {
+  pane.value = 'SETTINGS';
+  isDialogActive.value = true;
+  // Only when the reader may change it: pointing at a locked switch says "act
+  // here" where nothing can be done.
+  softDeletionHint.value = focus === 'soft-deletion' && maySoftDeletion.value;
+}
+
+defineExpose({ open });
 </script>
+
+<style scoped>
+/* An amber ring from the switch thumb, three times, then still — the same hint
+   the table's protection switch gets when opened from its chip. */
+.wad-hint :deep(.v-switch__thumb) {
+  animation: wad-pulse 1.2s ease-out 0.4s 3;
+}
+
+@keyframes wad-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-warning), 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(var(--v-theme-warning), 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(var(--v-theme-warning), 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wad-hint :deep(.v-switch__thumb) {
+    animation: none;
+  }
+}
+</style>

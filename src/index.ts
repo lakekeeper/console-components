@@ -59,12 +59,8 @@ import EntityIdentityRow from './components/EntityIdentityRow.vue';
 import WarehouseHeader from './components/WarehouseHeader.vue';
 import WarehouseStatistics from './components/WarehouseStatistics.vue';
 import HomeStatistics from './components/HomeStatistics.vue';
-import WarehouseNamespaces from './components/WarehouseNamespaces.vue';
-import NamespaceNamespaces from './components/NamespaceNamespaces.vue';
-import NamespaceTables from './components/NamespaceTables.vue';
-import NamespaceGenericTables from './components/NamespaceGenericTables.vue';
-import NamespaceDeleted from './components/NamespaceDeleted.vue';
-import NamespaceViews from './components/NamespaceViews.vue';
+import NamespaceContents from './components/NamespaceContents.vue';
+import DetailsSidePanel from './components/DetailsSidePanel.vue';
 import NamespaceHeader from './components/NamespaceHeader.vue';
 import NamespaceDetails from './components/NamespaceDetails.vue';
 import NamespaceActionsMenu from './components/NamespaceActionsMenu.vue';
@@ -97,7 +93,6 @@ import GenericTableActionsMenu from './components/GenericTableActionsMenu.vue';
 import StorageExplorer from './components/StorageExplorer.vue';
 import StorageNavigationTree from './components/StorageNavigationTree.vue';
 import DatasetCreate from './components/DatasetCreate.vue';
-import DatasetsList from './components/DatasetsList.vue';
 import DatasetDetail from './components/DatasetDetail.vue';
 import ViewHistoryTab from './components/ViewHistoryTab.vue';
 import ViewOverview from './components/ViewOverview.vue';
@@ -214,12 +209,8 @@ export {
   WarehouseHeader,
   WarehouseStatistics,
   HomeStatistics,
-  WarehouseNamespaces,
-  NamespaceNamespaces,
-  NamespaceTables,
-  NamespaceGenericTables,
-  NamespaceDeleted,
-  NamespaceViews,
+  NamespaceContents,
+  DetailsSidePanel,
   NamespaceHeader,
   NamespaceDetails,
   NamespaceActionsMenu,
@@ -258,7 +249,6 @@ export {
   WarehousesNavigationTree,
   StorageNavigationTree,
   DatasetCreate,
-  DatasetsList,
   DatasetDetail,
   LoQEExplorer,
   ReportBuilderPanel,
@@ -555,13 +545,9 @@ const components = {
   WarehouseHeader,
   WarehouseStatistics,
   HomeStatistics,
-  WarehouseNamespaces,
   WarehousesNavigationTree,
-  NamespaceNamespaces,
-  NamespaceTables,
-  NamespaceGenericTables,
-  NamespaceDeleted,
-  NamespaceViews,
+  NamespaceContents,
+  DetailsSidePanel,
   NamespaceHeader,
   NamespaceDetails,
   NamespaceActionsMenu,
@@ -601,7 +587,6 @@ const components = {
   ReportBuilderPanel,
   StorageNavigationTree,
   DatasetCreate,
-  DatasetsList,
   DatasetDetail,
 };
 
@@ -671,3 +656,15 @@ export { sql, ident, literal, num, tableIdent, userSql, type Sql } from './compo
 // user pick an action — e.g. the Cedar resolve/check pane in the Plus console —
 // read the same list the permission UI does instead of copying the union.
 export { permissionActions } from './common/permissionActions';
+
+// Namespace Contents tab: its selection, and how old per-type `?tab=` links map onto it.
+export {
+  contentSelectionFromQuery,
+  contentSelectionToQuery,
+  normalizeSelection,
+  CONTENT_KINDS,
+  LEGACY_CONTENT_TABS,
+  type ContentKind,
+  type ContentSelection,
+  type ContentType,
+} from './common/namespaceContents';

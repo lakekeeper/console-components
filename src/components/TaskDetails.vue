@@ -1,6 +1,7 @@
 <template>
-  <v-card v-if="task">
-    <v-card-title class="text-subtitle-1 d-flex align-center py-3">
+  <v-card v-if="task" :flat="embedded" :class="{ 'td-embedded': embedded }">
+    <!-- Embedded in a side panel, the panel's own header names the task. -->
+    <v-card-title v-if="!embedded" class="text-subtitle-1 d-flex align-center py-3">
       <v-icon class="mr-2">mdi-information-outline</v-icon>
       Task Details
       <v-spacer></v-spacer>
@@ -9,7 +10,7 @@
       </v-chip>
     </v-card-title>
 
-    <v-divider></v-divider>
+    <v-divider v-if="!embedded"></v-divider>
 
     <v-card-text class="pa-0">
       <!-- Basic Task Information -->
@@ -336,6 +337,8 @@ withDefaults(
   defineProps<{
     task: GetTaskDetailsResponse | null;
     formatQueueName?: (queueName: string) => string;
+    /** Inside a side panel: no title of its own, no card frame, long ids wrap. */
+    embedded?: boolean;
   }>(),
   {
     formatQueueName: (queueName: string) => queueConfig.formatQueueName(queueName),
@@ -431,6 +434,32 @@ function formatTaskDataValue(value: any): string {
 </script>
 
 <style scoped>
+.td-embedded {
+  background: transparent;
+}
+/* A narrow column: ids and values wrap rather than being cut off. */
+.td-embedded :deep(.v-list-item-subtitle) {
+  -webkit-line-clamp: unset;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.td-embedded .task-data-item {
+  flex-wrap: wrap;
+}
+/* Label over value, sized like the other details panels: the label is the
+   quiet part, the value what is read. */
+.td-embedded :deep(.v-list-item-title) {
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+.td-embedded :deep(.v-list-item-subtitle) {
+  font-size: 0.875rem;
+  opacity: 1;
+}
+.td-embedded :deep(.v-list-item) {
+  min-height: 40px;
+}
+
 .font-mono {
   font-family: 'Roboto Mono', monospace;
   font-size: 0.875rem;
