@@ -1267,6 +1267,13 @@ const canSaveSettings = computed(
 );
 const canUpdateStorage = computed(() => storageFormDirty.value && !updating.value);
 
+// A name typed while renaming was allowed must not ride along once it is not
+// (the warehouse became admin-managed, or the right was withdrawn): drop it, so
+// the other settings still save without a rename the server would refuse.
+watch(mayRename, (may) => {
+  if (!may && isSettingsFlow.value) warehouseName.value = loadedName.value;
+});
+
 function emitCatalogSettings() {
   // Rename first, if the name changed and is valid.
   const newName = warehouseName.value.trim();
