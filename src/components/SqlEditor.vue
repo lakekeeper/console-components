@@ -648,14 +648,6 @@ onMounted(async () => {
           // Cmd-I as well (as in VS Code); Ctrl-Space stays bound everywhere.
           { mac: 'Mod-i', run: startCompletion },
           {
-            key: 'Shift-Alt-f',
-            run: () => {
-              if (props.readonly || props.disabled) return false;
-              formatContent();
-              return true;
-            },
-          },
-          {
             // Only while a query runs; otherwise Esc keeps its editor meaning
             // (close the completion list, or Esc then Tab to leave the editor).
             key: 'Escape',
@@ -666,6 +658,25 @@ onMounted(async () => {
             },
           },
         ]),
+      ),
+      // Shift-Alt-F formats. Matched on the physical key: on macOS CodeMirror
+      // treats Alt combinations as typed characters (Shift-Alt-F types "Ï"), so a
+      // keymap entry for it never fires there.
+      Prec.highest(
+        EditorView.domEventHandlers({
+          keydown: (event) => {
+            const isFormat =
+              event.code === 'KeyF' &&
+              event.shiftKey &&
+              event.altKey &&
+              !event.metaKey &&
+              !event.ctrlKey;
+            if (!isFormat || props.readonly || props.disabled) return false;
+            event.preventDefault();
+            formatContent();
+            return true;
+          },
+        }),
       ),
       // Tab takes an open completion first, as in most SQL editors; with no
       // completion open `acceptCompletion` declines and Tab indents.

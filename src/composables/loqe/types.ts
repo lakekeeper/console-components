@@ -80,6 +80,10 @@ export interface LoQEHistoryEntry {
   durationMs: number;
   rowCount: number;
   error?: string;
+  /** The LoQE query tab that ran it; absent for entries from before tabs had history. */
+  tabId?: string;
+  /** A name the user gave this run. */
+  name?: string;
 }
 
 export interface LoQEPersistedCatalog {

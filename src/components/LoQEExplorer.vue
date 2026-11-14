@@ -159,6 +159,7 @@
                 <v-expansion-panel-title class="text-subtitle-2">
                   <v-icon size="small" class="mr-2">mdi-history</v-icon>
                   History
+                  <span class="text-caption text-medium-emphasis ml-2">all tabs</span>
                   <v-spacer />
                   <v-btn
                     v-if="loqe.store.queryHistory.length"
@@ -182,11 +183,19 @@
                           {{ entry.error ? 'mdi-close-circle' : 'mdi-check-circle' }}
                         </v-icon>
                       </template>
+                      <v-list-item-title
+                        v-if="entry.name"
+                        class="text-caption font-weight-medium text-truncate">
+                        {{ entry.name }}
+                      </v-list-item-title>
                       <v-list-item-title class="text-caption font-monospace text-truncate">
                         {{ entry.sql.substring(0, 80) }}{{ entry.sql.length > 80 ? '…' : '' }}
                       </v-list-item-title>
                       <v-list-item-subtitle class="text-caption">
                         {{ entry.rowCount }} rows · {{ entry.durationMs.toFixed(0) }}ms
+                        <template v-if="entry.tabId">
+                          · {{ tabNames.get(entry.tabId) ?? 'closed tab' }}
+                        </template>
                       </v-list-item-subtitle>
                     </v-list-item>
                   </v-list>
@@ -386,30 +395,47 @@
                     </v-tooltip>
                   </div>
 
-                  <!-- SQL Editor — fun loader while engine initialises -->
-                  <div
-                    v-if="loqe.isInitializing.value"
-                    class="loqe-skeleton-editor d-flex flex-column align-center justify-center"
-                    :style="{ minHeight: editorHeight + 'vh', overflow: 'hidden' }">
-                    <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
-                    <span class="text-caption text-medium-emphasis mt-4">
-                      Initialising DuckDB engine…
-                    </span>
+                  <!-- History of this tab's runs beside the editor -->
+                  <div class="d-flex" style="min-height: 0">
+                    <LoQEHistoryRail
+                      v-model:expanded="historyRailExpanded"
+                      :entries="tabHistory"
+                      :style="{ height: editorHeight + 'vh' }"
+                      @replace="replaceFromHistory"
+                      @open-new-tab="openHistoryInNewTab"
+                      @insert="insertFromHistory"
+                      @rename="loqe.store.renameHistoryEntry"
+                      @delete="loqe.store.removeHistoryEntry" />
+                    <div style="flex: 1 1 auto; min-width: 0">
+                      <!-- SQL Editor — fun loader while engine initialises -->
+                      <div
+                        v-if="loqe.isInitializing.value"
+                        class="loqe-skeleton-editor d-flex flex-column align-center justify-center"
+                        :style="{ minHeight: editorHeight + 'vh', overflow: 'hidden' }">
+                        <l-helix
+                          size="45"
+                          speed="2.5"
+                          color="rgb(var(--v-theme-primary))"></l-helix>
+                        <span class="text-caption text-medium-emphasis mt-4">
+                          Initialising DuckDB engine…
+                        </span>
+                      </div>
+                      <SqlEditor
+                        v-else
+                        ref="sqlEditorRef"
+                        v-model="sqlQuery"
+                        placeholder="SELECT 42 AS answer;"
+                        :schema="editorSchema"
+                        :fetch-completions="lazyFetchCompletions"
+                        :min-height="editorHeight + 'vh'"
+                        @click="updateCursorPosition"
+                        @keyup="updateCursorPosition"
+                        :running="loqe.isQuerying.value"
+                        @run="executeQuery()"
+                        @run-statement="runStatementAtCursor"
+                        @cancel="loqe.cancelQuery()" />
+                    </div>
                   </div>
-                  <SqlEditor
-                    v-else
-                    ref="sqlEditorRef"
-                    v-model="sqlQuery"
-                    placeholder="SELECT 42 AS answer;"
-                    :schema="editorSchema"
-                    :fetch-completions="lazyFetchCompletions"
-                    :min-height="editorHeight + 'vh'"
-                    @click="updateCursorPosition"
-                    @keyup="updateCursorPosition"
-                    :running="loqe.isQuerying.value"
-                    @run="executeQuery()"
-                    @run-statement="runStatementAtCursor"
-                    @cancel="loqe.cancelQuery()" />
 
                   <!-- Status bar: where the cursor is and what Run would do -->
                   <div
@@ -999,7 +1025,7 @@ import { useLoQEStore } from '../stores/loqe';
 import { useFunctions } from '../plugins/functions';
 import { stsDisabled } from '../common/vendedCredentials';
 import { Type } from '../common/enums';
-import type { LoQEQueryResult } from '../composables/loqe/types';
+import type { LoQEHistoryEntry, LoQEQueryResult } from '../composables/loqe/types';
 import {
   ident,
   isKeyword,
@@ -1031,6 +1057,7 @@ import SqlEditor from './SqlEditor.vue';
 import LoQENavigationTree from './LoQENavigationTree.vue';
 import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
 import EngineErrorAlert from './EngineErrorAlert.vue';
+import LoQEHistoryRail from './LoQEHistoryRail.vue';
 import { errorLocation, splitEngineError } from '../composables/loqe/queryError';
 import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
@@ -1203,6 +1230,65 @@ const keys = isMac
     };
 const runShortcutHint = `${keys.run} run · ${keys.runStatement} run statement at cursor`;
 
+// ── Per-tab history rail ──────────────────────────────────────────────
+
+const activeTabId = computed(() => currentLoqeTabs.value[activeTabIndex.value]?.id);
+const tabHistory = computed(() =>
+  activeTabId.value ? loqe.store.historyForTab(activeTabId.value) : [],
+);
+const historyRailExpanded = computed({
+  get: () => loqe.store.historyRailExpanded,
+  set: (value: boolean) => (loqe.store.historyRailExpanded = value),
+});
+const tabNames = computed(() => new Map(currentLoqeTabs.value.map((t) => [t.id, t.name])));
+
+/** Put a past query in the editor in place of its text, to adjust before running; undo brings the old text back. */
+function replaceFromHistory(text: string) {
+  sqlQuery.value = text;
+}
+
+/**
+ * Open a past query in a new tab named after the run: the name it was given, or
+ * `History 2026-11-13 20:34:12` in the same form as other tab names. The tab is created holding the text: the
+ * editor follows the store's active tab, so setting the editor alone would be
+ * overwritten by the new tab's empty content.
+ */
+function openHistoryInNewTab(entry: LoQEHistoryEntry) {
+  const text = entry.sql;
+  const d = new Date(entry.executedAt);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const base =
+    `History ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const taken = new Set(currentLoqeTabs.value.map((t) => t.name));
+  const wanted = entry.name ?? base;
+  let name = wanted;
+  for (let n = 2; taken.has(name); n++) name = `${wanted} (${n})`;
+
+  const tab = visualStore.addSqlTab(LOQE_TAB_KEY);
+  visualStore.renameSqlTab(LOQE_TAB_KEY, tab.id, name);
+  visualStore.updateSqlTabContent(LOQE_TAB_KEY, tab.id, text);
+  activeTabIndex.value = currentLoqeTabs.value.length - 1;
+  sqlQuery.value = text;
+}
+
+function insertFromHistory(text: string) {
+  sqlEditorRef.value?.insertAtCursor?.(text);
+}
+
+/**
+ * Esc cancels a running query wherever the focus is — after a click on Run it
+ * sits on the button, not in the editor. The editor handles Esc itself (and
+ * marks the event handled); an open dialog or menu keeps Esc for closing.
+ */
+function cancelOnEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || event.defaultPrevented || !loqe.isQuerying.value) return;
+  if (document.querySelector('.v-overlay--active')) return;
+  loqe.cancelQuery();
+}
+onMounted(() => window.addEventListener('keydown', cancelOnEscape));
+onBeforeUnmount(() => window.removeEventListener('keydown', cancelOnEscape));
+
 /** The shortcuts sheet, one row per key. */
 const shortcutRows = [
   { keys: keys.run, action: 'Run the selection, or everything' },
@@ -1242,8 +1328,8 @@ const hasAnyResults = computed(() => queryResults.value.length > 0);
 // Highlight the corresponding statement in the editor when the user switches result tabs
 watch(activeResultTab, (idx) => {
   const entry = queryResults.value[idx];
+  const offset = lastRunOffset.value;
   if (entry && queryResults.value.length > 1) {
-    const offset = lastRunOffset.value;
     sqlEditorRef.value?.setSelection?.(offset + entry.from, offset + entry.to);
   }
 });
@@ -1521,7 +1607,7 @@ async function executeQuery(source?: { text: string; from: number }) {
     const { sql: statement, from, to } = statements[i];
     const label = statements.length === 1 ? 'Result' : `Query ${i + 1}`;
     try {
-      const result = await loqe.query(statement);
+      const result = await loqe.query(statement, { tabId: activeTab?.id });
       queryResults.value.push({ label, result, error: null, from, to });
     } catch {
       const message = loqe.error.value;

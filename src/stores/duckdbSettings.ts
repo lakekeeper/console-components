@@ -70,7 +70,12 @@ export const DUCKDB_DEFAULTS = {
    * Example: `https://my-proxy.corp.com/duckdb-extensions`
    */
   extensionRepository: '',
+  /** Query runs kept in history per query tab; older runs drop off. */
+  historyPerTab: 50,
 };
+
+/** Presets for how many runs each query tab keeps in its history. */
+export const HISTORY_PER_TAB_OPTIONS: number[] = [10, 25, 50, 100];
 
 /** Row count presets for the UI selector. */
 export const ROW_LIMIT_OPTIONS = [
@@ -94,6 +99,7 @@ export interface DuckDBSettings {
   memoryLimitMB: number;
   maxResultSizeMB: number;
   extensionRepository: string;
+  historyPerTab: number;
 }
 
 /**
@@ -113,6 +119,7 @@ export const useDuckDBSettingsStore = defineStore(
     const memoryLimitMB = ref(DUCKDB_DEFAULTS.memoryLimitMB);
     const maxResultSizeMB = ref(DUCKDB_DEFAULTS.maxResultSizeMB);
     const extensionRepository = ref<string>(DUCKDB_DEFAULTS.extensionRepository);
+    const historyPerTab = ref<number>(DUCKDB_DEFAULTS.historyPerTab);
 
     // ── Getters ─────────────────────────────────────────────────────
 
@@ -129,6 +136,7 @@ export const useDuckDBSettingsStore = defineStore(
       memoryLimitMB: memoryLimitMB.value,
       maxResultSizeMB: maxResultSizeMB.value,
       extensionRepository: extensionRepository.value,
+      historyPerTab: historyPerTab.value,
     }));
 
     // ── Actions ─────────────────────────────────────────────────────
@@ -140,6 +148,7 @@ export const useDuckDBSettingsStore = defineStore(
       memoryLimitMB.value = DUCKDB_DEFAULTS.memoryLimitMB;
       maxResultSizeMB.value = DUCKDB_DEFAULTS.maxResultSizeMB;
       extensionRepository.value = DUCKDB_DEFAULTS.extensionRepository;
+      historyPerTab.value = DUCKDB_DEFAULTS.historyPerTab;
     }
 
     // ── Memory helpers ──────────────────────────────────────────────
@@ -244,6 +253,7 @@ export const useDuckDBSettingsStore = defineStore(
       memoryLimitMB,
       maxResultSizeMB,
       extensionRepository,
+      historyPerTab,
       // Getters
       queryTimeoutMs,
       settings,

@@ -283,7 +283,8 @@ export function useLoQE(config: LoQEConfig) {
     }
   }
 
-  async function query(statement: Sql): Promise<LoQEQueryResult> {
+  /** Run a statement; `tabId` files its history entry under that query tab. */
+  async function query(statement: Sql, options: { tabId?: string } = {}): Promise<LoQEQueryResult> {
     const text = sqlText(statement);
     if (!isInitialized.value) await initialize();
 
@@ -301,6 +302,7 @@ export function useLoQE(config: LoQEConfig) {
         executedAt: start,
         durationMs: result.executionTimeMs,
         rowCount: result.rowCount,
+        ...(options.tabId ? { tabId: options.tabId } : {}),
       });
 
       return result;
@@ -315,6 +317,7 @@ export function useLoQE(config: LoQEConfig) {
         durationMs: Date.now() - start,
         rowCount: 0,
         error: msg,
+        ...(options.tabId ? { tabId: options.tabId } : {}),
       });
 
       throw e;
@@ -458,10 +461,12 @@ export function useLoQE(config: LoQEConfig) {
         );
         // Fallback: try as bare table name → return columns
         if (items.length === 0) {
-          items = await columnsWhere(
-            sql`table_name = ${literal(parts[0])}
+          items = realColumns(
+            await columnsWhere(
+              sql`table_name = ${literal(parts[0])}
                AND database_name NOT IN ('system', 'temp')
                AND schema_name NOT IN ('information_schema', 'pg_catalog')`,
+            ),
           );
         }
       } else if (parts.length === 2) {
@@ -477,27 +482,46 @@ export function useLoQE(config: LoQEConfig) {
         );
         // Fallback: schema.table → return columns
         if (items.length === 0) {
-          items = await columnsWhere(
-            sql`schema_name = ${literal(parts[0])} AND table_name = ${literal(parts[1])}
+          items = realColumns(
+            await columnsWhere(
+              sql`schema_name = ${literal(parts[0])} AND table_name = ${literal(parts[1])}
                AND database_name NOT IN ('system', 'temp')`,
+            ),
           );
         }
       } else {
         // catalog.schema.table → return columns
-        // Try DESCRIBE first — it works reliably for Iceberg / REST-catalog tables
-        // even when duckdb_columns() has stale or incomplete metadata.
-        try {
-          items = await queryItems(
-            conn,
-            sql`SELECT column_name, 'column', column_type FROM (DESCRIBE ${ident(parts[0], parts[1], parts[2])})`,
-          );
-        } catch {
-          // DESCRIBE may fail if table doesn't exist — fall through
+        // DESCRIBE works for Iceberg / REST-catalog tables, but a table DuckDB has
+        // only listed (not loaded) still carries the extension's placeholder
+        // column; reading zero rows loads it, then DESCRIBE has the real schema.
+        const table = ident(parts[0], parts[1], parts[2]);
+        const describe = async () => {
+          try {
+            return realColumns(
+              await queryItems(
+                conn,
+                sql`SELECT column_name, 'column', column_type FROM (DESCRIBE ${table})`,
+              ),
+            );
+          } catch {
+            return []; // DESCRIBE may fail if the table doesn't exist
+          }
+        };
+        items = await describe();
+        if (items.length === 0) {
+          try {
+            await conn.query(sql`SELECT * FROM ${table} LIMIT 0`);
+            items = await describe();
+          } catch {
+            // Not readable (missing, or no read rights) — fall through
+          }
         }
         // Fallback to duckdb_columns() if DESCRIBE returned nothing
         if (items.length === 0) {
-          items = await columnsWhere(
-            sql`database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])} AND table_name = ${literal(parts[2])}`,
+          items = realColumns(
+            await columnsWhere(
+              sql`database_name = ${literal(parts[0])} AND schema_name = ${literal(parts[1])} AND table_name = ${literal(parts[2])}`,
+            ),
           );
         }
       }
@@ -517,6 +541,14 @@ export function useLoQE(config: LoQEConfig) {
   /** The names alone, for callers that predate `fetchCompletionItems`. */
   async function fetchCompletions(qualifier: string): Promise<string[]> {
     return (await fetchCompletionItems(qualifier)).map((item) => item.name);
+  }
+
+  /**
+   * Columns without the Iceberg extension's placeholder: a table it has listed
+   * but not yet loaded reports one column `__` of type UNKNOWN.
+   */
+  function realColumns(items: SqlCompletionItem[]): SqlCompletionItem[] {
+    return items.filter((i) => !(i.name === '__' && i.detail?.toUpperCase() === 'UNKNOWN'));
   }
 
   /** Helper: run a query of (name, kind, detail) rows. */
