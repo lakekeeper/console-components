@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.34.0](https://github.com/lakekeeper/console-components/compare/v0.33.0...v0.34.0) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **ui:** one Contents table for namespaces and warehouses, replacing the per-type tabs and removing their components
+* **loqe:** names with quotes or semicolons work in previews, generated SQL and Run, and LoQE builds SQL through a typed API exported as sql, ident, literal, num and tableIdent
+* **ui:** useLoQE().query(), useLoQE().queryBuffer() and LoQEEngine.query() take an Sql instead of a string, and LoQEEngine.getDB() is replaced by registerFileBuffer() and dropFile(). The console and console-plus use none of them.
+
+### Features
+
+* **loqe:** names with quotes or semicolons work in previews, generated SQL and Run, and LoQE builds SQL through a typed API exported as sql, ident, literal, num and tableIdent ([efa81ba](https://github.com/lakekeeper/console-components/commit/efa81ba7fbe86cdb24960a439873898f3e5fdc8a))
+* **ui:** deletion profile and protection chips open their settings with a hint ([c179103](https://github.com/lakekeeper/console-components/commit/c179103a4aff64639c2c6d17354090f1480c0f75))
+* **ui:** details side panel in Contents with Iceberg metadata, view SQL, tags and properties ([c179103](https://github.com/lakekeeper/console-components/commit/c179103a4aff64639c2c6d17354090f1480c0f75))
+* **ui:** LoQE editor keyboard: Tab accepts suggestions, run, run statement, cancel, format and a shortcuts dialog ([16d837e](https://github.com/lakekeeper/console-components/commit/16d837e1a407525b9abbe1a1d2ae8a73252e953f))
+* **ui:** LoQE query history per tab with naming, delete, replace and open in new tab, and a runs-per-tab setting ([16d837e](https://github.com/lakekeeper/console-components/commit/16d837e1a407525b9abbe1a1d2ae8a73252e953f))
+* **ui:** LoQE suggestions for catalogs, schemas, tables and columns with types, hover info and error underlines ([16d837e](https://github.com/lakekeeper/console-components/commit/16d837e1a407525b9abbe1a1d2ae8a73252e953f))
+* **ui:** one Contents table for namespaces and warehouses, replacing the per-type tabs and removing their components ([c179103](https://github.com/lakekeeper/console-components/commit/c179103a4aff64639c2c6d17354090f1480c0f75))
+* **ui:** refreshed LoQE layout with labelled toolbar, tabs row, status bar and smooth explorer fold ([16d837e](https://github.com/lakekeeper/console-components/commit/16d837e1a407525b9abbe1a1d2ae8a73252e953f))
+* **ui:** task details in a side panel beside the task lists, and export DetailsSidePanel ([c179103](https://github.com/lakekeeper/console-components/commit/c179103a4aff64639c2c6d17354090f1480c0f75))
+
+
+### Bug Fixes
+
+* **loqe:** accept the open completion with Tab before indenting ([131c867](https://github.com/lakekeeper/console-components/commit/131c8677fa96a29017de9ea148d66dea51ce9a77))
+* **loqe:** export userSql, read doubled quotes in table refs, unique secret per catalog ([131c867](https://github.com/lakekeeper/console-components/commit/131c8677fa96a29017de9ea148d66dea51ce9a77))
+* **ui:** lay out free-text tags as separated tonal notes ([131c867](https://github.com/lakekeeper/console-components/commit/131c8677fa96a29017de9ea148d66dea51ce9a77))
+* **ui:** list the update_storage_credential warehouse action ([efa81ba](https://github.com/lakekeeper/console-components/commit/efa81ba7fbe86cdb24960a439873898f3e5fdc8a))
+* **ui:** open table settings from the protection chip and point at the switch ([131c867](https://github.com/lakekeeper/console-components/commit/131c8677fa96a29017de9ea148d66dea51ce9a77))
+* **ui:** remove Updated By column from users list ([131c867](https://github.com/lakekeeper/console-components/commit/131c8677fa96a29017de9ea148d66dea51ce9a77))
+
 ## [0.33.0](https://github.com/lakekeeper/console-components/compare/v0.32.0...v0.33.0) (2026-11-06)
 
 
