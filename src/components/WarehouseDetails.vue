@@ -105,8 +105,8 @@
                   variant="tonal"
                   density="compact"
                   class="mt-2">
-                  This warehouse is managed by an instance administrator. Spec changes (rename,
-                  delete, storage, activation) are restricted to instance admins.
+                  This warehouse is managed by an instance administrator. Rename, deletion, storage
+                  and credentials, status and protection are restricted to instance admins.
                 </v-alert>
               </v-col>
               <v-col v-if="allowedFormatVersions.length > 0" cols="12">
@@ -136,15 +136,11 @@
                 <div class="text-overline text-medium-emphasis">Deletion profile</div>
                 <div class="mt-2 d-flex align-center" style="gap: 8px">
                   <!-- Where people look for the switch, so it opens the settings
-                       that change it — unless spec changes are locked here. -->
+                       that change it. Not admin-only on a managed warehouse. -->
                   <v-chip
                     :color="warehouse['delete-profile'].type === 'hard' ? 'error' : 'info'"
-                    :link="!isManagedLocked"
-                    :title="
-                      isManagedLocked
-                        ? 'Managed by the instance admin'
-                        : 'Change the deletion profile in Warehouse settings'
-                    "
+                    link
+                    title="Change the deletion profile in Warehouse settings"
                     size="small"
                     @click="openDeletionSettings">
                     {{ warehouse['delete-profile'].type }}
@@ -676,7 +672,7 @@ const isManagedLocked = computed(
 );
 
 function openDeletionSettings() {
-  if (isManagedLocked.value || !props.warehouseId) return;
+  if (!props.warehouseId) return;
   visualStore.requestedWarehouseSettings = {
     warehouseId: props.warehouseId,
     focus: 'soft-deletion',
