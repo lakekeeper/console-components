@@ -159,7 +159,9 @@
                       nameTaken
                         ? 'A warehouse with this name already exists in this project'
                         : deniedRename
-                          ? 'You are not allowed to rename this warehouse.'
+                          ? managedLocked
+                            ? MANAGED_REASON
+                            : 'You are not allowed to rename this warehouse.'
                           : 'Shown throughout the console and used by clients to address this warehouse'
                     "
                     persistent-hint
@@ -255,7 +257,9 @@
                           <div class="text-caption text-medium-emphasis ml-10">
                             {{
                               deniedProtect
-                                ? 'You are not allowed to change deletion protection on this warehouse.'
+                                ? managedLocked
+                                  ? MANAGED_REASON
+                                  : 'You are not allowed to change deletion protection on this warehouse.'
                                 : 'Prevent this warehouse from being deleted.'
                             }}
                           </div>
@@ -367,8 +371,12 @@
                     density="compact"
                     icon="mdi-lock-outline"
                     class="mb-4">
-                    You are not allowed to change the storage of this warehouse. The profile is
-                    shown read-only.
+                    {{
+                      managedLocked
+                        ? 'This warehouse is managed by an instance admin: only instance admins can change its storage.'
+                        : 'You are not allowed to change the storage of this warehouse.'
+                    }}
+                    The profile is shown read-only.
                   </v-alert>
                   <v-alert
                     v-else-if="isSettingsFlow"
@@ -798,16 +806,36 @@ function mayChange(right: boolean): boolean {
 function deniedChange(right: boolean): boolean {
   return isSettingsFlow.value && warehousePerms.answered.value && !right;
 }
-const mayRename = computed(() => mayChange(warehousePerms.canRename.value));
+// An instance-admin-managed warehouse keeps its spec — name, storage and
+// credentials, protection, status, deletion — for instance admins. The deletion
+// profile and the format-version policy stay with the usual grants.
+const managedLocked = computed(
+  () =>
+    isSettingsFlow.value &&
+    props.warehouse?.['managed-by'] === 'instance-admin' &&
+    !isInstanceAdmin.value,
+);
+const MANAGED_REASON = 'Managed by an instance admin: only instance admins can change this.';
+const mayRename = computed(() => !managedLocked.value && mayChange(warehousePerms.canRename.value));
 const mayFormat = computed(() => mayChange(warehousePerms.canSetFormatVersionPolicy.value));
-const mayProtect = computed(() => mayChange(warehousePerms.canSetProtection.value));
+const mayProtect = computed(
+  () => !managedLocked.value && mayChange(warehousePerms.canSetProtection.value),
+);
 const maySoftDeletion = computed(() => mayChange(warehousePerms.canModifySoftDeletion.value));
-const mayStorage = computed(() => mayChange(warehousePerms.canUpdateStorage.value));
-const deniedRename = computed(() => deniedChange(warehousePerms.canRename.value));
+const mayStorage = computed(
+  () => !managedLocked.value && mayChange(warehousePerms.canUpdateStorage.value),
+);
+const deniedRename = computed(
+  () => managedLocked.value || deniedChange(warehousePerms.canRename.value),
+);
 const deniedFormat = computed(() => deniedChange(warehousePerms.canSetFormatVersionPolicy.value));
-const deniedProtect = computed(() => deniedChange(warehousePerms.canSetProtection.value));
+const deniedProtect = computed(
+  () => managedLocked.value || deniedChange(warehousePerms.canSetProtection.value),
+);
 const deniedSoftDeletion = computed(() => deniedChange(warehousePerms.canModifySoftDeletion.value));
-const deniedStorage = computed(() => deniedChange(warehousePerms.canUpdateStorage.value));
+const deniedStorage = computed(
+  () => managedLocked.value || deniedChange(warehousePerms.canUpdateStorage.value),
+);
 // Save and Reset are offered only when something in the pane can change.
 const mayEditSettings = computed(
   () =>

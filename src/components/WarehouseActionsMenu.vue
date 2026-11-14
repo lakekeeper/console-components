@@ -12,16 +12,18 @@
     <v-list activatable density="compact">
       <v-list-item v-if="locked" disabled prepend-icon="mdi-shield-lock">
         <v-list-item-title>Managed by instance admin</v-list-item-title>
-        <v-list-item-subtitle>Spec changes are restricted</v-list-item-subtitle>
+        <v-list-item-subtitle>Storage, name and protection are admin-only</v-list-item-subtitle>
       </v-list-item>
 
       <!-- Both entries below show and edit what was read; a refused read leaves
            them nothing but defaults, so they are not offered. -->
       <v-list-subheader v-if="readable" class="text-uppercase">General</v-list-subheader>
       <!-- One entry covers the whole warehouse: name, retention, format policy,
-           protection, credentials and profile — each pane saves for itself. -->
+           protection, credentials and profile — each pane saves for itself. On
+           an admin-managed warehouse it still opens: the deletion profile and
+           format policy stay editable, and the dialog locks the rest. -->
       <WarehouseAddDialog
-        v-if="readable && !locked"
+        v-if="readable"
         ref="settingsRef"
         :intent="Intent.UPDATE"
         :object-type="ObjectType.CATALOG_SETTINGS"
@@ -34,10 +36,6 @@
         @update-catalog-settings="updateCatalogSettings"
         @update-credentials="updateStorageCredential"
         @update-profile="updateStorageProfile" />
-      <!-- Connection strings and storage checks are panes of that modal now. A
-           locked warehouse has no modal to open, so it keeps the standalone
-           dialog rather than losing the connection strings entirely. -->
-      <ComputeConnectDialog v-if="readable && locked" :warehouse="warehouse" />
 
       <!-- Premium maintenance actions (schedule / configure) injected by the app. -->
       <slot name="maintenance" :close="() => (menuOpen = false)"></slot>
@@ -66,7 +64,8 @@ function openSettings(focus?: 'soft-deletion'): boolean {
 }
 defineExpose({ openSettings });
 const userStore = useUserStore();
-// Lock spec-mutating actions on instance-admin-managed warehouses for non-admins.
+// Instance-admin-managed and the reader is not one: said in the menu; the
+// settings dialog locks the admin-only parts itself.
 const locked = computed(
   () =>
     (warehouse['managed-by'] as string) === 'instance-admin' && userStore.isInstanceAdmin !== true,
