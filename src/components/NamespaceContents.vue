@@ -194,6 +194,15 @@
                 <span v-if="rowErrors[item.key]" class="text-caption text-error mr-2">
                   {{ rowErrors[item.key] }}
                 </span>
+                <!-- The row click's twin, for the keyboard. -->
+                <v-btn
+                  icon="mdi-information-outline"
+                  variant="text"
+                  size="small"
+                  :aria-label="`Details of ${item.name}`"
+                  :aria-pressed="detailRow?.key === item.key"
+                  title="Details"
+                  @click="toggleDetails(item)"></v-btn>
                 <v-btn
                   v-if="canRestore(item)"
                   icon="mdi-restore"
@@ -205,6 +214,15 @@
                   @click="restore(item)"></v-btn>
               </div>
               <div v-else class="d-flex justify-end align-center">
+                <!-- The row click's twin, for the keyboard. -->
+                <v-btn
+                  icon="mdi-information-outline"
+                  variant="text"
+                  size="small"
+                  :aria-label="`Details of ${item.name}`"
+                  :aria-pressed="detailRow?.key === item.key"
+                  title="Details"
+                  @click="toggleDetails(item)"></v-btn>
                 <!-- The plain way in: a row click shows details, this goes there. -->
                 <v-btn
                   variant="text"
@@ -521,7 +539,7 @@ const ACTIONS_HEADER = {
   key: 'actions',
   sortable: false,
   align: 'end' as const,
-  width: '170px',
+  width: '210px',
 };
 // Name A–Z unless the reader picks another column; reset per namespace.
 const sortBy = ref<Array<{ key: string; order: 'asc' | 'desc' }>>([{ key: 'name', order: 'asc' }]);
@@ -600,7 +618,8 @@ const lists = computed<ListKey[]>(() => {
 });
 /** Row kinds kept, or null for every kind the lists return. */
 const keptKinds = computed<Set<Kind> | null>(() =>
-  isAll.value ? null : new Set(props.selection.map((k) => SOURCE[k].kind)),
+  // A warehouse lists only namespaces, whatever selection the URL carries.
+  atWarehouse.value || isAll.value ? null : new Set(props.selection.map((k) => SOURCE[k].kind)),
 );
 /** The chip group's model: "all" stands for the empty selection. */
 const chipModel = computed<ContentType[]>(() => (isAll.value ? ['all'] : props.selection));
@@ -742,6 +761,7 @@ const LIST_LABELS: Record<ListKey, string> = {
 
 /** One page of one list, and the token it continues with ('' when it ended). */
 async function readPage(
+  mine: number,
   list: ListKey,
   pageToken?: string,
 ): Promise<{ rows: ContentRow[]; next: string }> {
@@ -837,6 +857,8 @@ async function readPage(
       ),
     };
   } catch (error) {
+    // A superseded read says nothing about the list now shown.
+    if (mine !== loadToken) return { rows: [], next: '' };
     if (isForbiddenError(error)) {
       refused[list] = true;
     } else {
@@ -846,14 +868,13 @@ async function readPage(
   }
 }
 
-/** Read the next page of the list in hand; move on once it has ended. */
 /**
  * Read the next page of the list in hand and move the cursor on; returns the
  * page's new rows without showing them, so the caller decides when they appear.
  */
 async function readNext(mine: number, have: ContentRow[]): Promise<ContentRow[] | null> {
   const list = lists.value[cursor.list];
-  const page = await readPage(list, cursor.token || undefined);
+  const page = await readPage(mine, list, cursor.token || undefined);
   if (mine !== loadToken) return null;
   const keep = keptKinds.value;
   // Within a page: generic tables before datasets, each by name.
@@ -947,6 +968,9 @@ async function loadMore() {
     markFresh(added);
   } finally {
     loadingMore.value = false;
+    // A newer load asked to fill the view while this stale page held the busy
+    // flag, and was turned away; ask again for it now that the flag is free.
+    if (mine !== loadToken && !loading.value) nextTick(fillViewport);
   }
   await nextTick();
   fillViewport();
@@ -991,6 +1015,18 @@ watch(
   () => {
     search.value = '';
     load();
+  },
+);
+// A rename belongs to the namespace it was opened in. Clearing the target also
+// voids a namespace check still in flight (it compares against the target).
+watch(
+  () => [props.warehouseId, props.namespacePath],
+  () => {
+    renameOpen.value = false;
+    renameTarget.value = null;
+    renameChecking.value = false;
+    renameRefusal.value = null;
+    renameError.value = '';
   },
 );
 
@@ -1101,7 +1137,12 @@ async function checkNamespaceRename(row: ContentRow) {
       functions.getWarehouse(props.warehouseId, false),
     ]);
     if (renameTarget.value !== row) return;
-    renameNamespaceId.value = (meta as any)?.properties?.namespace_id || '';
+    renameNamespaceId.value = namespaceIdOf(meta);
+    if (!renameNamespaceId.value) {
+      renameRefusal.value =
+        'The catalog did not return an id for this namespace, so it cannot be renamed here.';
+      return;
+    }
     if ((children?.namespaces ?? []).length) {
       renameRefusal.value =
         'This namespace has child namespaces. Renaming goes through the move endpoint, which does not support moving a subtree, so it has to be empty of namespaces first.';
@@ -1124,6 +1165,7 @@ async function executeRename() {
   try {
     // notify=false: a refusal is shown in the dialog, not as a snackbar.
     if (row.kind === 'namespace') {
+      if (!renameNamespaceId.value) throw new Error('This namespace has no id to rename it by.');
       // Same parent, new leaf: a rename expressed as a move.
       const path = row.path ?? [row.name];
       await functions.moveNamespace(
@@ -1202,30 +1244,43 @@ function openBulkDelete() {
 async function confirmBulkDelete() {
   bulkDeleting.value = true;
   bulkResults.value = [];
+  // The rows were confirmed in this namespace: every request names it, never
+  // whatever the page shows by the time a later request goes out.
+  const warehouseId = props.warehouseId;
+  const namespacePath = props.namespacePath;
+  const stillHere = () =>
+    props.warehouseId === warehouseId && props.namespacePath === namespacePath;
   const tabular = selected.value.filter((r) => r.kind !== 'namespace' && r.kind !== 'deleted');
+  const targetIn = (row: ContentRow): ItemTarget => ({
+    ...targetOf(row),
+    warehouseId,
+    namespace: namespacePath.split('\x1F'),
+  });
   // Rows scrolled past may not have been asked yet.
-  await rights.ensure(tabular.map(targetOf), ['drop']);
-  const allowed = tabular.filter((r) => rights.can(targetOf(r), 'drop') !== false);
+  await rights.ensure(tabular.map(targetIn), ['drop']);
+  const allowed = tabular.filter((r) => rights.can(targetIn(r), 'drop') !== false);
   for (const row of allowed) {
+    // Left for another namespace: stop rather than act on a page no longer shown.
+    if (!stillHere()) break;
     try {
       if (row.kind === 'table') {
         await functions.dropTable(
-          props.warehouseId,
-          props.namespacePath,
+          warehouseId,
+          namespacePath,
           row.name,
           { purgeRequested: bulkPurge.value, force: bulkForce.value },
           false,
         );
       } else if (row.kind === 'view') {
         await functions.dropView(
-          props.warehouseId,
-          props.namespacePath,
+          warehouseId,
+          namespacePath,
           row.name,
           { force: bulkForce.value },
           false,
         );
       } else {
-        await functions.dropGenericTable(props.warehouseId, props.namespacePath, row.name, false);
+        await functions.dropGenericTable(warehouseId, namespacePath, row.name, false);
       }
       bulkResults.value.push({ name: row.name, ok: true });
     } catch (error: any) {
@@ -1249,10 +1304,15 @@ async function confirmBulkDelete() {
     ts: Date.now(),
     type: (failed ? 'warning' : 'success') as any,
   });
-  if (ok > 0) await afterChange();
+  if (ok > 0 && stillHere()) await afterChange();
 }
 
 // ── Deleted ───────────────────────────────────────────────────────────
+
+/** A namespace's id as its metadata carries it: the property, else the field. */
+function namespaceIdOf(meta: any): string {
+  return meta?.properties?.namespace_id || meta?.['namespace-uuid'] || '';
+}
 
 let namespaceIdPromise: Promise<string> | null = null;
 /** The namespace's id, read once per namespace (the deleted list needs it). */
@@ -1260,7 +1320,7 @@ function namespaceIdOnce(): Promise<string> {
   if (!namespaceIdPromise) {
     namespaceIdPromise = functions
       .loadNamespaceMetadata(props.warehouseId, props.namespacePath, false)
-      .then((ns: any) => ns?.properties?.namespace_id || '')
+      .then((ns: any) => namespaceIdOf(ns))
       .catch((error: unknown) => {
         namespaceIdPromise = null;
         throw error;
@@ -1390,6 +1450,11 @@ watch(
 function onRowClick(event: MouseEvent, item: ContentRow) {
   const target = event.target as HTMLElement | null;
   if (target?.closest('button, a, input, .v-selection-control, .nsc-name, .v-overlay')) return;
+  toggleDetails(item);
+}
+
+/** Open a row's details, or fold them when that row's are already open. */
+function toggleDetails(item: ContentRow) {
   detailRow.value = detailRow.value?.key === item.key ? null : item;
 }
 

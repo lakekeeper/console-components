@@ -1569,6 +1569,13 @@ function attemptClose() {
 
 function discardAndClose() {
   confirmCloseOpen.value = false;
+  // The dialog stays mounted inside the actions menu, so closing alone would
+  // keep the edits for the next open: put both panes back to what is stored.
+  if (isSettingsFlow.value && props.warehouse) {
+    seedStorageFromWarehouse(props.warehouse);
+    resetProviderPane();
+    resetSettingsPane();
+  }
   cancelDialog();
 }
 
@@ -1803,6 +1810,19 @@ onMounted(() => {
     seedSettingsFromWarehouse();
   }
 });
+
+// The menu mounts this dialog eagerly, often before the warehouse has been read,
+// so the storage pane may have been seeded from placeholders. Re-seed whenever
+// the stored profile changes — unless the reader is mid-edit there.
+watch(
+  () => [props.warehouse?.['storage-profile'], props.warehouse?.['storage-credential-type']],
+  () => {
+    if (!isSettingsFlow.value || !props.warehouse || storageFormDirty.value) return;
+    seedStorageFromWarehouse(props.warehouse);
+    importKey.value++;
+  },
+  { deep: true },
+);
 
 // Keep the rename baseline in sync with the parent after a successful rename, so
 // nameChanged doesn't stay true and re-emit renameWarehouse on the next save.

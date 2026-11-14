@@ -43,7 +43,10 @@ export function normalizeSelection(kinds: readonly string[]): ContentSelection {
  * `null` (the caller keeps what it has).
  */
 export function contentSelectionFromQuery(tab: unknown, type: unknown): ContentSelection | null {
-  if (typeof tab === 'string' && LEGACY_CONTENT_TABS[tab]) return [LEGACY_CONTENT_TABS[tab]];
+  // Own keys only: an inherited name such as `toString` is not a tab.
+  if (typeof tab === 'string' && Object.hasOwn(LEGACY_CONTENT_TABS, tab)) {
+    return [LEGACY_CONTENT_TABS[tab]];
+  }
   if (typeof type !== 'string') return null;
   if (type === '' || type === 'all') return [];
   const parts = type.split(',').map((p) => p.trim());

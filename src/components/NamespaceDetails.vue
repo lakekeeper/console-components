@@ -230,7 +230,12 @@ const expiryDays = computed(() => {
   return days === 1 ? '1 day' : `${days} days`;
 });
 
-async function loadProtection() {
+// Each read owns the state only while it is the latest of its kind: a slow
+// answer for the namespace left behind must not land on the one shown now.
+let loadGen = 0;
+let profileGen = 0;
+
+async function loadProtection(gen: number) {
   protectionState.value = null;
   protectionError.value = '';
   if (!namespaceId.value) return;
@@ -241,8 +246,10 @@ async function loadProtection() {
       namespaceId.value,
       false,
     );
+    if (gen !== loadGen) return;
     protectionState.value = prot.protected;
   } catch (e) {
+    if (gen !== loadGen) return;
     protectionError.value = isForbiddenError(e)
       ? 'not visible to you'
       : tagRefusal(e, 'read the protection state');
@@ -250,12 +257,15 @@ async function loadProtection() {
 }
 
 async function loadDeleteProfile() {
+  const gen = ++profileGen;
   deleteProfile.value = null;
   deleteProfileError.value = '';
   try {
     const wh = await functions.getWarehouse(props.warehouseId, false);
+    if (gen !== profileGen) return;
     deleteProfile.value = (wh as any)?.['delete-profile'] ?? null;
   } catch (e) {
+    if (gen !== profileGen) return;
     deleteProfileError.value = isForbiddenError(e)
       ? 'not visible to you'
       : tagRefusal(e, "read the warehouse's deletion profile");
@@ -273,9 +283,14 @@ const propertyItems = computed(() =>
 );
 
 async function load() {
+  const gen = ++loadGen;
   namespaceId.value = '';
   properties.value = {};
   metaError.value = '';
+  // Cleared before anything can fail, so a refused read here never leaves the
+  // last namespace's protection on screen.
+  protectionState.value = null;
+  protectionError.value = '';
   if (!props.warehouseId || !props.namespacePath) return;
   try {
     const meta = (await functions.loadNamespaceMetadata(
@@ -283,10 +298,12 @@ async function load() {
       props.namespacePath,
       false,
     )) as GetNamespaceResponse;
+    if (gen !== loadGen) return;
     properties.value = meta?.properties ?? {};
     namespaceId.value = meta?.properties?.namespace_id || meta?.['namespace-uuid'] || '';
-    loadProtection();
+    loadProtection(gen);
   } catch (e) {
+    if (gen !== loadGen) return;
     // The catalog answers 404 "not found or access denied" for a namespace the
     // reader may not see at all, so that one cannot be told apart from gone.
     metaError.value = isForbiddenError(e)

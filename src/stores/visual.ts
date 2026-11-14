@@ -179,6 +179,19 @@ export const useVisualStore = defineStore(
       };
     }
 
+    // A warehouse's settings were saved: views holding their own copy re-read it.
+    const warehouseChangedSignal = ref<{ counter: number; warehouseId: string }>({
+      counter: 0,
+      warehouseId: '',
+    });
+
+    function warehouseChanged(warehouseId: string) {
+      warehouseChangedSignal.value = {
+        counter: warehouseChangedSignal.value.counter + 1,
+        warehouseId,
+      };
+    }
+
     // Signal to tell WarehousesNavigationTree to reload the full warehouse list
     const warehouseListRefreshSignal = ref(0);
 
@@ -496,6 +509,8 @@ export const useVisualStore = defineStore(
       refreshNavTree,
       warehouseListRefreshSignal,
       refreshWarehouseList,
+      warehouseChangedSignal,
+      warehouseChanged,
       offlineReason,
       setOfflineReason,
       clearOfflineReason,

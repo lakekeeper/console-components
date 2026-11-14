@@ -936,6 +936,9 @@ watch(
 
 // Task details modal functions
 function closeTaskDetailsDialog() {
+  // A request still out belongs to a panel no longer shown.
+  detailsGen++;
+  taskDetailsLoading.value = false;
   showTaskDetailsDialog.value = false;
   selectedTaskDetails.value = null;
   taskDetailsError.value = '';
@@ -943,6 +946,9 @@ function closeTaskDetailsDialog() {
 
 // Remembered separately: a refused load leaves no details to retry from.
 const detailsTaskId = ref('');
+// Only the latest details request may change the panel: clicking B while A is
+// still loading must not show A's answer under B.
+let detailsGen = 0;
 
 async function retryLoadTaskDetails() {
   if (detailsTaskId.value) {
@@ -951,14 +957,17 @@ async function retryLoadTaskDetails() {
 }
 
 async function loadTaskDetails(taskId: string) {
+  const gen = ++detailsGen;
   detailsTaskId.value = taskId;
   taskDetailsLoading.value = true;
   taskDetailsError.value = '';
 
   try {
     const details = await functions.getTaskDetails(props.warehouseId, taskId);
+    if (gen !== detailsGen) return;
     selectedTaskDetails.value = details;
   } catch (error: any) {
+    if (gen !== detailsGen) return;
     console.error('Failed to load task details:', error);
 
     // Handle different error types
@@ -972,7 +981,7 @@ async function loadTaskDetails(taskId: string) {
       taskDetailsError.value = error?.message || 'Failed to load task details. Please try again.';
     }
   } finally {
-    taskDetailsLoading.value = false;
+    if (gen === detailsGen) taskDetailsLoading.value = false;
   }
 }
 

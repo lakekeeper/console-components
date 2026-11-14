@@ -6,6 +6,11 @@ import {
 } from './namespaceContents';
 
 describe('contentSelectionFromQuery', () => {
+  it('ignores inherited names as a legacy tab and falls through to the type', () => {
+    expect(contentSelectionFromQuery('toString', undefined)).toBeNull();
+    expect(contentSelectionFromQuery('constructor', 'views')).toEqual(['views']);
+  });
+
   it('maps the old per-type tabs onto Contents', () => {
     expect(contentSelectionFromQuery('tables', undefined)).toEqual(['tables']);
     expect(contentSelectionFromQuery('datasets', 'views')).toEqual(['datasets']);

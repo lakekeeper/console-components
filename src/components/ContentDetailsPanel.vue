@@ -588,6 +588,8 @@ async function load() {
     return;
   }
   if (row.kind === 'deleted') {
+    // An earlier row's request may still own the bar; this one needs none.
+    loading.value = false;
     show({ facts: deletedFacts(), properties: {} });
     return;
   }

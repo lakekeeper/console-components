@@ -544,7 +544,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted, inject } from 'vue';
+import { reactive, ref, computed, onMounted, inject, watch } from 'vue';
 import { isForbiddenError } from '@/common/errorUtils';
 import { tagRefusal } from '@/composables/useTagRights';
 import oneLakeIcon from '@/assets/onelake.png';
@@ -745,6 +745,13 @@ const resolvedDefaultFormatVersion = computed<number | null>(() => {
 onMounted(() => {
   loadWarehouse();
 });
+// Saved in Settings (the header's menu): this tab holds its own copy.
+watch(
+  () => visualStore.warehouseChangedSignal.counter,
+  () => {
+    if (visualStore.warehouseChangedSignal.warehouseId === props.warehouseId) loadWarehouse();
+  },
+);
 
 function copyToClipboard(text: string) {
   functions.copyToClipboard(text);

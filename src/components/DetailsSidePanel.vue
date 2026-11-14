@@ -12,7 +12,8 @@
       'dsp--overlay': overlay,
     }"
     :style="{ width: open ? `${shownWidth}px` : '0px' }"
-    :aria-hidden="!open">
+    :aria-hidden="!open"
+    :inert="!open">
     <div
       v-if="!overlay"
       class="dsp-grip"
@@ -26,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 const props = withDefaults(
   defineProps<{
@@ -111,6 +112,26 @@ function toggleHalf() {
   width.value = Math.abs(shownWidth.value - half) < 8 ? props.defaultWidth : half;
   keep();
 }
+
+// Folded, the panel is inert, so focus left inside it would be lost: hand it
+// back to whatever had it when the panel opened.
+let opener: HTMLElement | null = null;
+watch(
+  () => props.open,
+  (open) => {
+    const active = document.activeElement as HTMLElement | null;
+    if (open) {
+      if (!frameRef.value?.contains(active)) opener = active;
+      return;
+    }
+    if (active && frameRef.value?.contains(active)) {
+      if (opener?.isConnected) opener.focus();
+      else active.blur();
+    }
+    opener = null;
+  },
+  { immediate: true },
+);
 
 let observer: ResizeObserver | null = null;
 onMounted(() => {
