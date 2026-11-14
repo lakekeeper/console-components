@@ -90,6 +90,7 @@ const catalogWarehouseActions: LakekeeperWarehouseAction[] = [
   { action: 'revoke_subtree_grants' },
   { action: 'manage_tags' },
   { action: 'accept_moved_namespace' },
+  { action: 'register_table' },
 ];
 
 const catalogNamespaceActions: LakekeeperNamespaceAction[] = [
@@ -150,6 +151,7 @@ const catalogViewActions: LakekeeperViewAction[] = [
   { action: 'set_protection' },
   { action: 'read_grants' },
   { action: 'manage_tags' },
+  { action: 'change_security_mode' },
 ];
 
 const catalogGenericTableActions: LakekeeperGenericTableAction[] = [

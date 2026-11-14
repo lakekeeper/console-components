@@ -228,6 +228,18 @@ export type CatalogActionCheckOperation = {
      */
     'view-in-definer-view': TabularIdentOrUuid;
 } | {
+    /**
+     * May the identity replace this view, as Trino's `CREATE OR REPLACE VIEW` does?
+     *
+     * Such a check cannot say whether the replacement keeps the view's security mode. So it
+     * needs `commit` on the view, and `change_security_mode` too if the view runs as another
+     * user: its `trino.run-as-owner` property names someone other than the identity, compared
+     * with the identity's user id within its identity provider. Lakekeeper checks a replacement
+     * that makes a view run as its owner when the engine commits it. The audit log records
+     * this check as `commit` on the view.
+     */
+    'view-replace': TabularIdentOrUuid;
+} | {
     'generic-table': TabularIdentOrUuid & {
         action: LakekeeperGenericTableAction;
     };
@@ -2656,7 +2668,18 @@ export type LakekeeperViewAction = ({
     action: 'manage_tags';
 } & LakekeeperViewActionManageTags) | ({
     action: 'read_grants';
-} & LakekeeperViewActionReadGrants);
+} & LakekeeperViewActionReadGrants) | ({
+    action: 'change_security_mode';
+} & LakekeeperViewActionChangeSecurityMode);
+
+/**
+ * Switch the view between running as its owner and running as the caller: a commit that
+ * adds or removes an engine owner property such as `trino.run-as-owner`. A commit that adds
+ * one also asks it for the user the property names.
+ */
+export type LakekeeperViewActionChangeSecurityMode = {
+    action: 'change_security_mode';
+};
 
 export type LakekeeperViewActionCommit = {
     action: 'commit';
@@ -2721,7 +2744,13 @@ export type LakekeeperViewActionKind = ({
     action: 'manage_tags';
 } & LakekeeperViewActionKindManageTags) | ({
     action: 'read_grants';
-} & LakekeeperViewActionKindReadGrants);
+} & LakekeeperViewActionKindReadGrants) | ({
+    action: 'change_security_mode';
+} & LakekeeperViewActionKindChangeSecurityMode);
+
+export type LakekeeperViewActionKindChangeSecurityMode = {
+    action: 'change_security_mode';
+};
 
 export type LakekeeperViewActionKindCommit = {
     action: 'commit';
@@ -2866,6 +2895,8 @@ export type LakekeeperWarehouseAction = ({
 } & LakekeeperWarehouseActionSetFormatVersionPolicy) | ({
     action: 'get_endpoint_statistics';
 } & LakekeeperWarehouseActionGetEndpointStatistics) | ({
+    action: 'register_table';
+} & LakekeeperWarehouseActionRegisterTable) | ({
     action: 'manage_tags';
 } & LakekeeperWarehouseActionManageTags) | ({
     action: 'accept_moved_namespace';
@@ -2995,6 +3026,8 @@ export type LakekeeperWarehouseActionKind = ({
 } & LakekeeperWarehouseActionKindSetFormatVersionPolicy) | ({
     action: 'get_endpoint_statistics';
 } & LakekeeperWarehouseActionKindGetEndpointStatistics) | ({
+    action: 'register_table';
+} & LakekeeperWarehouseActionKindRegisterTable) | ({
     action: 'manage_tags';
 } & LakekeeperWarehouseActionKindManageTags) | ({
     action: 'accept_moved_namespace';
@@ -3086,6 +3119,10 @@ export type LakekeeperWarehouseActionKindReadSubtreeGrants = {
     action: 'read_subtree_grants';
 };
 
+export type LakekeeperWarehouseActionKindRegisterTable = {
+    action: 'register_table';
+};
+
 export type LakekeeperWarehouseActionKindRename = {
     action: 'rename';
 };
@@ -3166,6 +3203,17 @@ export type LakekeeperWarehouseActionReadGrants = {
 export type LakekeeperWarehouseActionReadSubtreeGrants = {
     action: 'read_subtree_grants';
     scope?: null | SubtreeGrantScope;
+};
+
+/**
+ * Register files that are already in the warehouse's storage, for example orphaned files
+ * of a dropped table: register a table from an existing metadata file, or create a
+ * generic table on a location that holds files.
+ * Asked together with the create action on the namespace. The files may be anywhere in
+ * the warehouse's storage, so it is a right on the warehouse.
+ */
+export type LakekeeperWarehouseActionRegisterTable = {
+    action: 'register_table';
 };
 
 export type LakekeeperWarehouseActionRename = {
@@ -3510,11 +3558,11 @@ export type MaintenanceModeResponse = {
  *
  * `self-managed` (the default) leaves the spec mutable by the warehouse's own
  * owners through the usual grants. When set to `instance-admin`, spec changes —
- * storage profile, credentials, delete profile, rename, status, protection,
- * format-version policy, and deletion — are accepted only from instance
- * administrators; other callers are rejected even when their grants would
- * otherwise allow it. Child resources (namespaces, tables, grants), task-queue
- * configuration, and data access are unaffected.
+ * storage profile, credentials, rename, status, protection, and deletion — are
+ * accepted only from instance administrators; other callers are rejected even
+ * when their grants would otherwise allow it. The delete profile, the
+ * format-version policy, task-queue configuration, child resources (namespaces,
+ * tables, grants), and data access stay with the usual grants.
  */
 export type ManagedBy = 'self-managed' | 'instance-admin';
 
@@ -4455,8 +4503,7 @@ export type SearchTabular = {
 
 export type SearchTabularRequest = {
     /**
-     * Search string for fuzzy search.
-     * Length is truncated to 64 characters.
+     * Name, UUID, or storage path of a table or view. A name is cut to 64 characters.
      */
     search: string;
 };
@@ -6203,6 +6250,12 @@ export type WhoamiResponse = User & {
 
 export type BatchCheckActionsData = {
     body: CatalogActionsBatchCheckRequest;
+    headers?: {
+        /**
+         * Project ID (optional). Used only for project checks whose body omits `project-id`; a `project-id` in the body takes precedence. In a batch check this applies to each item. If neither is set, the default project is used when it is enabled; otherwise the check fails.
+         */
+        'x-project-id'?: string | null;
+    };
     path?: never;
     query?: never;
     url: '/management/v1/action/batch-check';
@@ -6251,6 +6304,12 @@ export type BootstrapResponse = BootstrapResponses[keyof BootstrapResponses];
 
 export type GetEndpointStatisticsData = {
     body: GetEndpointStatisticsRequest;
+    headers?: {
+        /**
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
+         */
+        'x-project-id'?: string | null;
+    };
     path?: never;
     query?: never;
     url: '/management/v1/endpoint-statistics';
@@ -6275,7 +6334,7 @@ export type ListGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -6373,6 +6432,12 @@ export type GetServerInfoResponse = GetServerInfoResponses[keyof GetServerInfoRe
 
 export type CheckData = {
     body: CheckRequest;
+    headers?: {
+        /**
+         * Project ID (optional). Used only for project checks whose body omits `project-id`; a `project-id` in the body takes precedence. In a batch check this applies to each item. If neither is set, the default project is used when it is enabled; otherwise the check fails.
+         */
+        'x-project-id'?: string | null;
+    };
     path?: never;
     query?: never;
     url: '/management/v1/permissions/check';
@@ -6528,6 +6593,12 @@ export type SetNamespaceManagedAccessResponses = {
 
 export type GetProjectAccessData = {
     body?: never;
+    headers?: {
+        /**
+         * Optional project ID
+         */
+        'x-project-id'?: string | null;
+    };
     path?: never;
     query?: {
         /**
@@ -6555,6 +6626,12 @@ export type GetProjectAccessResponse2 = GetProjectAccessResponses[keyof GetProje
 
 export type GetProjectAssignmentsData = {
     body?: never;
+    headers?: {
+        /**
+         * Optional project ID
+         */
+        'x-project-id'?: string | null;
+    };
     path?: never;
     query?: {
         /**
@@ -6573,6 +6650,12 @@ export type GetProjectAssignmentsResponse2 = GetProjectAssignmentsResponses[keyo
 
 export type UpdateProjectAssignmentsData = {
     body: UpdateProjectAssignmentsRequest;
+    headers?: {
+        /**
+         * Optional project ID
+         */
+        'x-project-id'?: string | null;
+    };
     path?: never;
     query?: never;
     url: '/management/v1/permissions/project/assignments';
@@ -6624,7 +6707,7 @@ export type GetProjectAccessByIdData = {
     body?: never;
     path: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         project_id: string | null;
     };
@@ -6656,7 +6739,7 @@ export type GetProjectAssignmentsByIdData = {
     body?: never;
     path: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         project_id: string | null;
     };
@@ -6679,7 +6762,7 @@ export type UpdateProjectAssignmentsByIdData = {
     body: UpdateProjectAssignmentsRequest;
     path: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         project_id: string | null;
     };
@@ -7395,7 +7478,7 @@ export type DeleteProjectData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7423,7 +7506,7 @@ export type GetProjectData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7495,7 +7578,7 @@ export type GetProjectActionsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7531,7 +7614,7 @@ export type ListProjectGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7579,7 +7662,7 @@ export type ApplyProjectGrantsData = {
     body: ApplyGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7611,7 +7694,7 @@ export type GetProjectGrantablePrivilegesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7651,7 +7734,7 @@ export type RenameProjectData = {
     body: RenameProjectRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7677,7 +7760,7 @@ export type GetProjectTaskQueueConfigTaskLogCleanupData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7687,6 +7770,10 @@ export type GetProjectTaskQueueConfigTaskLogCleanupData = {
 };
 
 export type GetProjectTaskQueueConfigTaskLogCleanupErrors = {
+    /**
+     * This server has no queue of this name (`QueueNotFound`).
+     */
+    404: IcebergErrorResponse;
     '4XX': IcebergErrorResponse;
 };
 
@@ -7702,7 +7789,7 @@ export type SetProjectTaskQueueConfigTaskLogCleanupData = {
     body: SetTaskLogCleanupConfig;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7730,7 +7817,7 @@ export type GetProjectTaskDetailsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7762,7 +7849,7 @@ export type ControlProjectTasksData = {
     body: ControlTasksRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7790,7 +7877,7 @@ export type ListProjectTasksData = {
     body: ListProjectTasksRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7885,7 +7972,7 @@ export type ListRolesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). The deprecated `projectId` query parameter takes precedence over this header. If neither is set, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7940,7 +8027,7 @@ export type CreateRoleData = {
     body: CreateRoleRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). The deprecated `project-id` body field takes precedence over this header. If neither is set, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -7968,7 +8055,7 @@ export type DeleteRoleData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8008,7 +8095,7 @@ export type GetRoleData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8041,7 +8128,7 @@ export type UpdateRoleData = {
     body: UpdateRoleRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8074,7 +8161,7 @@ export type GetRoleActionsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8115,7 +8202,7 @@ export type ListRoleMemberOfData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8154,7 +8241,7 @@ export type ListRoleTransitiveMemberOfData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8197,7 +8284,7 @@ export type ListRoleMembersData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8240,7 +8327,7 @@ export type AddRoleMembersData = {
     body: AddRoleMembersRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8273,7 +8360,7 @@ export type ListRoleTransitiveMembersData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8320,7 +8407,7 @@ export type RemoveRoleMemberData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8388,7 +8475,7 @@ export type UpdateRoleSourceSystemData = {
     body: UpdateRoleSourceSystemRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8421,7 +8508,7 @@ export type SearchRoleData = {
     body: SearchRoleRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). The deprecated `project-id` body field takes precedence over this header. If neither is set, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8625,7 +8712,7 @@ export type ListTagDefinitionsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8668,7 +8755,7 @@ export type CreateTagDefinitionData = {
     body: CreateTagDefinitionRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8696,7 +8783,7 @@ export type DeleteTagDefinitionData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8729,7 +8816,7 @@ export type GetTagDefinitionData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8762,7 +8849,7 @@ export type UpdateTagDefinitionData = {
     body: UpdateTagDefinitionRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8793,6 +8880,12 @@ export type UpdateTagDefinitionResponse = UpdateTagDefinitionResponses[keyof Upd
 
 export type GetTagActionsData = {
     body?: never;
+    headers?: {
+        /**
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
+         */
+        'x-project-id'?: string | null;
+    };
     path: {
         tag_definition_id: string;
     };
@@ -8827,7 +8920,7 @@ export type ListTagAttachmentsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8891,7 +8984,7 @@ export type ListTagGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8944,7 +9037,7 @@ export type ApplyTagGrantsData = {
     body: ApplyGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -8981,7 +9074,7 @@ export type GetTagGrantablePrivilegesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9187,7 +9280,7 @@ export type ListUserRolesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9226,7 +9319,7 @@ export type ListUserTransitiveRolesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9267,6 +9360,12 @@ export type ListUserTransitiveRolesResponse = ListUserTransitiveRolesResponses[k
 
 export type ListWarehousesData = {
     body?: never;
+    headers?: {
+        /**
+         * Project ID (optional). The deprecated `projectId` query parameter takes precedence over this header. If neither is set, the default project is used when it is enabled; otherwise the request fails.
+         */
+        'x-project-id'?: string | null;
+    };
     path?: never;
     query?: {
         /**
@@ -9301,6 +9400,12 @@ export type ListWarehousesResponse2 = ListWarehousesResponses[keyof ListWarehous
 
 export type CreateWarehouseData = {
     body: CreateWarehouseRequest;
+    headers?: {
+        /**
+         * Project ID (optional). The deprecated `project-id` body field takes precedence over this header. If neither is set, the default project is used when it is enabled; otherwise the request fails.
+         */
+        'x-project-id'?: string | null;
+    };
     path?: never;
     query?: never;
     url: '/management/v1/warehouse';
@@ -9325,7 +9430,7 @@ export type ValidateWarehouseData = {
     body: CreateWarehouseRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). The deprecated `project-id` body field takes precedence over this header. If neither is set, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9628,7 +9733,7 @@ export type ListGenericTableGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9685,7 +9790,7 @@ export type ApplyGenericTableGrantsData = {
     body: ApplyGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9726,7 +9831,7 @@ export type GetGenericTableGrantablePrivilegesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9816,7 +9921,7 @@ export type ListGenericTableTagsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9861,7 +9966,7 @@ export type DeleteGenericTableTagData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9902,7 +10007,7 @@ export type SetGenericTableTagData = {
     body: SetTagRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9943,7 +10048,7 @@ export type ListWarehouseGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -9996,7 +10101,7 @@ export type ApplyWarehouseGrantsData = {
     body: ApplyGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10033,7 +10138,7 @@ export type GetWarehouseGrantablePrivilegesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10075,7 +10180,7 @@ export type ListWarehouseSubtreeGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10159,7 +10264,7 @@ export type RevokeWarehouseSubtreeGrantsData = {
     body: RevokeSubtreeGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10257,7 +10362,7 @@ export type ListNamespaceGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10314,7 +10419,7 @@ export type ApplyNamespaceGrantsData = {
     body: ApplyGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10355,7 +10460,7 @@ export type GetNamespaceGrantablePrivilegesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10398,7 +10503,7 @@ export type ListNamespaceSubtreeGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10486,7 +10591,7 @@ export type RevokeNamespaceSubtreeGrantsData = {
     body: RevokeSubtreeGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10603,7 +10708,7 @@ export type ListNamespaceTagsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10648,7 +10753,7 @@ export type DeleteNamespaceTagData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10689,7 +10794,7 @@ export type SetNamespaceTagData = {
     body: SetTagRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -10988,7 +11093,7 @@ export type ListColumnTagsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11025,7 +11130,7 @@ export type ListTableColumnTagsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11074,7 +11179,7 @@ export type DeleteTableColumnTagData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11119,7 +11224,7 @@ export type SetTableColumnTagData = {
     body: SetTagRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11164,7 +11269,7 @@ export type ListTableGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11221,7 +11326,7 @@ export type ApplyTableGrantsData = {
     body: ApplyGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11262,7 +11367,7 @@ export type GetTableGrantablePrivilegesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11352,7 +11457,7 @@ export type ListTableTagsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11397,7 +11502,7 @@ export type DeleteTableTagData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11438,7 +11543,7 @@ export type SetTableTagData = {
     body: SetTagRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11479,7 +11584,7 @@ export type ListWarehouseTagsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11520,7 +11625,7 @@ export type DeleteWarehouseTagData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11557,7 +11662,7 @@ export type SetWarehouseTagData = {
     body: SetTagRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11600,6 +11705,10 @@ export type GetTaskQueueConfigSoftDeletionData = {
 };
 
 export type GetTaskQueueConfigSoftDeletionErrors = {
+    /**
+     * This server has no queue of this name (`QueueNotFound`), or the warehouse does not exist.
+     */
+    404: IcebergErrorResponse;
     '4XX': IcebergErrorResponse;
 };
 
@@ -11645,6 +11754,10 @@ export type GetTaskQueueConfigTabularPurgeData = {
 };
 
 export type GetTaskQueueConfigTabularPurgeErrors = {
+    /**
+     * This server has no queue of this name (`QueueNotFound`), or the warehouse does not exist.
+     */
+    404: IcebergErrorResponse;
     '4XX': IcebergErrorResponse;
 };
 
@@ -11789,7 +11902,7 @@ export type ListViewGrantsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11846,7 +11959,7 @@ export type ApplyViewGrantsData = {
     body: ApplyGrantsRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11887,7 +12000,7 @@ export type GetViewGrantablePrivilegesData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -11977,7 +12090,7 @@ export type ListViewTagsData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -12022,7 +12135,7 @@ export type DeleteViewTagData = {
     body?: never;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
@@ -12063,7 +12176,7 @@ export type SetViewTagData = {
     body: SetTagRequest;
     headers?: {
         /**
-         * Project ID (optional; falls back to the default project if not provided)
+         * Project ID (optional). If omitted, the default project is used when it is enabled; otherwise the request fails.
          */
         'x-project-id'?: string | null;
     };
