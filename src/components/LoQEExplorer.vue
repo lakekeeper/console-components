@@ -82,12 +82,17 @@
 
     <!-- ── Main Layout ───────────────────────────────────────────── -->
     <div style="display: flex; height: calc(100% - 48px)">
-      <!-- Left Sidebar -->
-      <v-expand-x-transition>
+      <!-- Left Sidebar: folds by animating the wrapper's width, never by unmounting,
+           so the tree keeps its state and the editor grows instead of jumping. -->
+      <div
+        class="loqe-fold"
+        :class="{ 'loqe-fold--out': sidebarCollapsed, 'loqe-fold--dragging': isResizing }"
+        :style="{ width: sidebarCollapsed ? '0px' : sidebarWidth + 5 + 'px' }"
+        :inert="sidebarCollapsed || undefined">
         <div
-          v-if="!sidebarCollapsed"
-          :style="{ width: sidebarWidth + 'px', minWidth: '200px', maxWidth: '500px' }"
+          :style="{ width: sidebarWidth + 'px' }"
           style="
+            flex: 0 0 auto;
             height: 100%;
             display: flex;
             flex-direction: column;
@@ -154,6 +159,7 @@
                 <v-expansion-panel-title class="text-subtitle-2">
                   <v-icon size="small" class="mr-2">mdi-history</v-icon>
                   History
+                  <span class="text-caption text-medium-emphasis ml-2">all tabs</span>
                   <v-spacer />
                   <v-btn
                     v-if="loqe.store.queryHistory.length"
@@ -177,11 +183,19 @@
                           {{ entry.error ? 'mdi-close-circle' : 'mdi-check-circle' }}
                         </v-icon>
                       </template>
+                      <v-list-item-title
+                        v-if="entry.name"
+                        class="text-caption font-weight-medium text-truncate">
+                        {{ entry.name }}
+                      </v-list-item-title>
                       <v-list-item-title class="text-caption font-monospace text-truncate">
                         {{ entry.sql.substring(0, 80) }}{{ entry.sql.length > 80 ? '…' : '' }}
                       </v-list-item-title>
                       <v-list-item-subtitle class="text-caption">
                         {{ entry.rowCount }} rows · {{ entry.durationMs.toFixed(0) }}ms
+                        <template v-if="entry.tabId">
+                          · {{ tabNames.get(entry.tabId) ?? 'closed tab' }}
+                        </template>
                       </v-list-item-subtitle>
                     </v-list-item>
                   </v-list>
@@ -194,26 +208,25 @@
             </v-expansion-panels>
           </div>
         </div>
-      </v-expand-x-transition>
-      <!-- Resize Divider -->
-      <div
-        v-if="!sidebarCollapsed"
-        @mousedown="startSidebarResize"
-        style="
-          width: 5px;
-          cursor: col-resize;
-          user-select: none;
-          flex-shrink: 0;
-          transition: background 0.2s;
-        "
-        :style="{
-          background:
-            dividerHover || isResizing
-              ? 'rgb(var(--v-theme-primary))'
-              : 'rgba(var(--v-theme-on-surface), 0.12)',
-        }"
-        @mouseenter="dividerHover = true"
-        @mouseleave="dividerHover = false" />
+        <!-- Resize Divider -->
+        <div
+          @mousedown="startSidebarResize"
+          style="
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            flex-shrink: 0;
+            transition: background 0.2s;
+          "
+          :style="{
+            background:
+              dividerHover || isResizing
+                ? 'rgb(var(--v-theme-primary))'
+                : 'rgba(var(--v-theme-on-surface), 0.12)',
+          }"
+          @mouseenter="dividerHover = true"
+          @mouseleave="dividerHover = false" />
+      </div>
 
       <!-- Right: SQL Editor + Results -->
       <div style="flex: 1; height: 100%; overflow-y: auto; min-width: 0">
@@ -222,20 +235,6 @@
             <v-col cols="12">
               <v-card flat>
                 <v-card-text class="pa-3">
-                  <!-- Collapse toggle + info alert -->
-                  <div class="d-flex align-center mb-3">
-                    <v-btn
-                      :icon="
-                        sidebarCollapsed ? 'mdi-chevron-double-right' : 'mdi-chevron-double-left'
-                      "
-                      size="default"
-                      variant="tonal"
-                      color="primary"
-                      @click="sidebarCollapsed = !sidebarCollapsed"
-                      class="mr-3"></v-btn>
-                    <span class="text-subtitle-2">SQL Query</span>
-                  </div>
-
                   <!-- Not initialised hint -->
                   <v-alert
                     v-if="!loqe.isInitialized.value && !loqe.isInitializing.value"
@@ -251,128 +250,201 @@
                     </div>
                   </v-alert>
 
-                  <!-- SQL Tabs -->
-                  <v-tabs
-                    v-model="activeTabIndex"
-                    color="primary"
-                    class="mb-2"
-                    density="compact"
-                    show-arrows>
-                    <v-tab
-                      v-for="(tab, index) in currentLoqeTabs"
-                      :key="tab.id"
-                      :value="index"
-                      @click="handleTabClick(tab.id)">
-                      <span
-                        class="text-caption"
-                        @dblclick.stop="startRenameTab(tab.id, tab.name)"
-                        style="cursor: pointer">
-                        {{ tab.name }}
-                      </span>
-                      <v-icon size="x-small" class="ml-1" @click.stop="handleCloseTab(tab.id)">
-                        mdi-close
-                      </v-icon>
-                    </v-tab>
-                    <v-btn
-                      icon="mdi-plus"
-                      size="x-small"
-                      variant="text"
-                      class="ml-2"
-                      @click="handleAddTab"></v-btn>
-                  </v-tabs>
+                  <!-- Fold + query tabs: the tabs name what the editor holds -->
+                  <div class="loqe-tabs-row d-flex align-center">
+                    <v-tooltip
+                      location="bottom"
+                      :text="sidebarCollapsed ? 'Show explorer' : 'Hide explorer'">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-btn
+                          v-bind="tooltipProps"
+                          :icon="
+                            sidebarCollapsed
+                              ? 'mdi-chevron-double-right'
+                              : 'mdi-chevron-double-left'
+                          "
+                          size="small"
+                          variant="text"
+                          color="secondary"
+                          class="mr-1"
+                          @click="sidebarCollapsed = !sidebarCollapsed"></v-btn>
+                      </template>
+                    </v-tooltip>
+                    <v-tabs
+                      v-model="activeTabIndex"
+                      color="primary"
+                      density="compact"
+                      class="loqe-query-tabs flex-grow-1"
+                      style="min-width: 0"
+                      show-arrows>
+                      <v-tab
+                        v-for="(tab, index) in currentLoqeTabs"
+                        :key="tab.id"
+                        :value="index"
+                        class="text-none"
+                        @click="handleTabClick(tab.id)">
+                        <v-icon size="14" start>mdi-file-document-outline</v-icon>
+                        <span
+                          class="text-body-2"
+                          @dblclick.stop="startRenameTab(tab.id, tab.name)"
+                          style="cursor: pointer">
+                          {{ tab.name }}
+                        </span>
+                        <v-icon
+                          size="14"
+                          class="loqe-tab-close ml-2"
+                          :aria-label="`Close ${tab.name}`"
+                          @click.stop="handleCloseTab(tab.id)">
+                          mdi-close
+                        </v-icon>
+                      </v-tab>
+                      <v-tooltip location="bottom" text="New query">
+                        <template #activator="{ props: tooltipProps }">
+                          <v-btn
+                            v-bind="tooltipProps"
+                            icon="mdi-plus"
+                            size="small"
+                            variant="text"
+                            class="ml-1 align-self-center"
+                            aria-label="New query"
+                            @click="handleAddTab"></v-btn>
+                        </template>
+                      </v-tooltip>
+                    </v-tabs>
+                  </div>
 
-                  <!-- Tab actions toolbar -->
-                  <div
-                    class="d-flex align-center ga-1 py-1 px-1"
-                    style="border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.12)">
+                  <!-- Editor toolbar: what acts on the query -->
+                  <div class="loqe-editor-toolbar d-flex align-center ga-1">
+                    <v-tooltip
+                      v-for="action in editorActions"
+                      :key="action.label"
+                      location="bottom"
+                      :disabled="!action.hint"
+                      :text="action.hint">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-btn
+                          v-bind="tooltipProps"
+                          :prepend-icon="action.icon"
+                          density="comfortable"
+                          variant="text"
+                          class="text-none"
+                          :disabled="loqe.isInitializing.value"
+                          @click="action.run">
+                          {{ action.label }}
+                        </v-btn>
+                      </template>
+                    </v-tooltip>
+                    <v-divider vertical class="mx-1 align-self-center" style="height: 20px" />
                     <v-btn
+                      prepend-icon="mdi-pencil-outline"
+                      density="comfortable"
                       variant="text"
-                      size="small"
-                      @click="formatSQL"
-                      :disabled="loqe.isInitializing.value">
-                      <v-icon start size="small">mdi-auto-fix</v-icon>
-                      Format
-                    </v-btn>
-                    <v-btn
-                      variant="text"
-                      size="small"
-                      @click="copySQL"
-                      :disabled="loqe.isInitializing.value">
-                      <v-icon start size="small">mdi-content-copy</v-icon>
-                      Copy
-                    </v-btn>
-                    <v-btn
-                      variant="text"
-                      size="small"
-                      @click="sqlEditorRef?.clearContent()"
-                      :disabled="loqe.isInitializing.value">
-                      <v-icon start size="small">mdi-eraser</v-icon>
-                      Clear
-                    </v-btn>
-                    <v-divider vertical class="mx-1" style="height: 20px; align-self: center" />
-                    <v-btn
-                      variant="text"
-                      size="small"
+                      class="text-none"
                       @click="
                         startRenameTab(
                           currentLoqeTabs[activeTabIndex]?.id,
                           currentLoqeTabs[activeTabIndex]?.name,
                         )
                       ">
-                      <v-icon start size="small">mdi-pencil-outline</v-icon>
                       Rename
                     </v-btn>
                     <v-btn
+                      prepend-icon="mdi-close-box-multiple-outline"
+                      density="comfortable"
                       variant="text"
-                      size="small"
-                      @click="handleCloseOtherTabs(currentLoqeTabs[activeTabIndex]?.id)"
-                      :disabled="currentLoqeTabs.length <= 1">
-                      <v-icon start size="small">mdi-close-box-multiple</v-icon>
-                      Close Others
+                      class="text-none"
+                      :disabled="currentLoqeTabs.length <= 1"
+                      @click="handleCloseOtherTabs(currentLoqeTabs[activeTabIndex]?.id)">
+                      Close others
+                    </v-btn>
+                    <v-divider vertical class="mx-1 align-self-center" style="height: 20px" />
+                    <v-btn
+                      prepend-icon="mdi-keyboard-outline"
+                      density="comfortable"
+                      variant="text"
+                      class="text-none"
+                      @click="showShortcuts = true">
+                      Shortcuts
                     </v-btn>
                     <v-spacer />
                     <v-btn
                       v-if="loqe.isQuerying.value"
-                      variant="outlined"
-                      size="small"
+                      variant="tonal"
+                      density="comfortable"
                       color="error"
+                      class="text-none"
+                      title="Cancel (Esc)"
                       @click="loqe.cancelQuery()">
-                      <v-icon start size="small">mdi-stop</v-icon>
+                      <v-icon start>mdi-stop</v-icon>
                       Cancel
                     </v-btn>
-                    <v-btn
-                      v-else
-                      variant="flat"
-                      size="small"
-                      :color="sqlQuery.trim() ? 'primary' : undefined"
-                      @click="executeQuery"
-                      :disabled="!sqlQuery.trim() || loqe.isInitializing.value">
-                      <v-icon start size="small">mdi-play</v-icon>
-                      {{ hasSelection ? 'Run Selection' : 'Run' }}
-                    </v-btn>
+                    <v-tooltip v-else location="bottom" :text="runShortcutHint">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-btn
+                          v-bind="tooltipProps"
+                          variant="flat"
+                          density="comfortable"
+                          class="text-none"
+                          :color="sqlQuery.trim() ? 'primary' : undefined"
+                          @click="executeQuery()"
+                          :disabled="!sqlQuery.trim() || loqe.isInitializing.value">
+                          <v-icon start>mdi-play</v-icon>
+                          {{ hasSelection ? 'Run selection' : 'Run' }}
+                        </v-btn>
+                      </template>
+                    </v-tooltip>
                   </div>
 
-                  <!-- SQL Editor — fun loader while engine initialises -->
-                  <div
-                    v-if="loqe.isInitializing.value"
-                    class="loqe-skeleton-editor d-flex flex-column align-center justify-center"
-                    :style="{ minHeight: editorHeight + 'vh', overflow: 'hidden' }">
-                    <l-helix size="45" speed="2.5" color="rgb(var(--v-theme-primary))"></l-helix>
-                    <span class="text-caption text-medium-emphasis mt-4">
-                      Initialising DuckDB engine…
-                    </span>
+                  <!-- History of this tab's runs beside the editor -->
+                  <div class="d-flex" style="min-height: 0">
+                    <LoQEHistoryRail
+                      v-model:expanded="historyRailExpanded"
+                      :entries="tabHistory"
+                      :style="{ height: editorHeight + 'vh' }"
+                      @replace="replaceFromHistory"
+                      @open-new-tab="openHistoryInNewTab"
+                      @insert="insertFromHistory"
+                      @rename="loqe.store.renameHistoryEntry"
+                      @delete="loqe.store.removeHistoryEntry" />
+                    <div style="flex: 1 1 auto; min-width: 0">
+                      <!-- SQL Editor — fun loader while engine initialises -->
+                      <div
+                        v-if="loqe.isInitializing.value"
+                        class="loqe-skeleton-editor d-flex flex-column align-center justify-center"
+                        :style="{ minHeight: editorHeight + 'vh', overflow: 'hidden' }">
+                        <l-helix
+                          size="45"
+                          speed="2.5"
+                          color="rgb(var(--v-theme-primary))"></l-helix>
+                        <span class="text-caption text-medium-emphasis mt-4">
+                          Initialising DuckDB engine…
+                        </span>
+                      </div>
+                      <SqlEditor
+                        v-else
+                        ref="sqlEditorRef"
+                        v-model="sqlQuery"
+                        placeholder="SELECT 42 AS answer;"
+                        :schema="editorSchema"
+                        :fetch-completions="lazyFetchCompletions"
+                        :min-height="editorHeight + 'vh'"
+                        @click="updateCursorPosition"
+                        @keyup="updateCursorPosition"
+                        :running="loqe.isQuerying.value"
+                        @run="executeQuery()"
+                        @run-statement="runStatementAtCursor"
+                        @cancel="loqe.cancelQuery()" />
+                    </div>
                   </div>
-                  <SqlEditor
-                    v-else
-                    ref="sqlEditorRef"
-                    v-model="sqlQuery"
-                    placeholder="SELECT 42 AS answer;"
-                    :disabled="loqe.isQuerying.value"
-                    :schema="editorSchema"
-                    :fetch-completions="lazyFetchCompletions"
-                    :min-height="editorHeight + 'vh'"
-                    @click="updateCursorPosition"
-                    @keyup="updateCursorPosition" />
+
+                  <!-- Status bar: where the cursor is and what Run would do -->
+                  <div
+                    v-if="!loqe.isInitializing.value"
+                    class="loqe-status-bar d-flex align-center ga-3 text-caption">
+                    <span>Ln {{ cursorLineCol.line }}, Col {{ cursorLineCol.col }}</span>
+                    <span v-if="statementCount > 1">{{ statementCount }} statements</span>
+                    <span v-if="hasSelection">selection</span>
+                  </div>
 
                   <!-- Editor resize handle -->
                   <div
@@ -407,7 +479,7 @@
                   <div v-if="hasAnyResults" class="d-flex align-center ga-2 mt-2 mb-2">
                     <v-chip
                       v-if="activeResult"
-                      size="small"
+                      density="comfortable"
                       variant="tonal"
                       :color="activeResult.truncated ? 'warning' : undefined">
                       <span v-if="activeResult.truncated">
@@ -417,36 +489,41 @@
                       <span v-else>{{ activeResult.rowCount }} rows</span>
                       · {{ activeResult.executionTimeMs.toFixed(0) }}ms
                     </v-chip>
-                    <v-chip v-else-if="activeError" size="small" variant="tonal" color="error">
+                    <v-chip
+                      v-else-if="activeError"
+                      density="comfortable"
+                      variant="tonal"
+                      color="error">
                       Error
                     </v-chip>
                     <v-spacer />
                     <v-btn
                       variant="text"
-                      size="x-small"
+                      density="comfortable"
+                      class="text-none"
+                      prepend-icon="mdi-table-remove"
                       :disabled="!hasAnyResults"
                       @click="dropResults">
-                      <v-icon start size="small">mdi-table-remove</v-icon>
-                      Drop
+                      Clear results
                     </v-btn>
                     <v-btn
                       variant="text"
-                      size="x-small"
+                      density="comfortable"
+                      class="text-none"
+                      prepend-icon="mdi-download"
                       :disabled="!activeResult"
                       @click="downloadCSV">
-                      <v-icon start size="small">mdi-download</v-icon>
-                      CSV
+                      Download CSV
                     </v-btn>
                     <v-btn
                       variant="text"
-                      size="x-small"
+                      density="comfortable"
+                      class="text-none"
+                      :prepend-icon="showColumnDocs ? 'mdi-text-box' : 'mdi-text-box-outline'"
                       :disabled="!activeResult"
                       :loading="docsLoading"
                       :active="showColumnDocs"
                       @click="toggleColumnDocs">
-                      <v-icon start size="small">
-                        {{ showColumnDocs ? 'mdi-text-box' : 'mdi-text-box-outline' }}
-                      </v-icon>
                       Field docs
                     </v-btn>
                     <v-btn-toggle
@@ -455,13 +532,22 @@
                       mandatory
                       density="compact"
                       variant="outlined"
-                      rounded="0">
-                      <v-btn value="table" size="x-small">
-                        <v-icon start size="small">mdi-table</v-icon>
+                      divided
+                      rounded="lg"
+                      color="primary"
+                      class="loqe-view-toggle">
+                      <v-btn
+                        value="table"
+                        density="comfortable"
+                        class="text-none"
+                        prepend-icon="mdi-table">
                         Table
                       </v-btn>
-                      <v-btn value="chart" size="x-small">
-                        <v-icon start size="small">mdi-chart-bar</v-icon>
+                      <v-btn
+                        value="chart"
+                        density="comfortable"
+                        class="text-none"
+                        prepend-icon="mdi-chart-bar">
                         Chart
                       </v-btn>
                     </v-btn-toggle>
@@ -701,6 +787,34 @@
     </v-dialog>
 
     <!-- ── Rename Tab Dialog ─────────────────────────────────────── -->
+    <v-dialog v-model="showShortcuts" max-width="480">
+      <v-card>
+        <v-card-title class="text-subtitle-1 d-flex align-center py-3">
+          <v-icon color="secondary" class="mr-2">mdi-keyboard-outline</v-icon>
+          Keyboard shortcuts
+          <v-spacer />
+          <v-btn
+            icon="mdi-close"
+            size="small"
+            variant="text"
+            aria-label="Close"
+            @click="showShortcuts = false"></v-btn>
+        </v-card-title>
+        <v-card-text class="pt-0">
+          <v-table density="compact">
+            <tbody>
+              <tr v-for="row in shortcutRows" :key="row.action">
+                <td style="width: 40%; white-space: nowrap">
+                  <kbd class="loqe-kbd">{{ row.keys }}</kbd>
+                </td>
+                <td>{{ row.action }}</td>
+              </tr>
+            </tbody>
+          </v-table>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <v-dialog v-model="showRenameDialog" max-width="440">
       <v-card>
         <v-card-title class="text-subtitle-1 d-flex align-center py-3">
@@ -911,7 +1025,7 @@ import { useLoQEStore } from '../stores/loqe';
 import { useFunctions } from '../plugins/functions';
 import { stsDisabled } from '../common/vendedCredentials';
 import { Type } from '../common/enums';
-import type { LoQEQueryResult } from '../composables/loqe/types';
+import type { LoQEHistoryEntry, LoQEQueryResult } from '../composables/loqe/types';
 import {
   ident,
   isKeyword,
@@ -921,6 +1035,7 @@ import {
   literal,
   splitStatements,
   sql,
+  statementAt,
   tableIdent,
   userSql,
   type Sql,
@@ -942,6 +1057,8 @@ import SqlEditor from './SqlEditor.vue';
 import LoQENavigationTree from './LoQENavigationTree.vue';
 import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
 import EngineErrorAlert from './EngineErrorAlert.vue';
+import LoQEHistoryRail from './LoQEHistoryRail.vue';
+import { errorLocation, splitEngineError } from '../composables/loqe/queryError';
 import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
 import ReportBuilderPanel from './ReportBuilderPanel.vue';
@@ -998,7 +1115,15 @@ const hasSelection = ref(false);
 const editorSchema = ref<Record<string, any> | undefined>(undefined);
 
 /** Stable reference for the lazy completions callback */
-const lazyFetchCompletions = (qualifier: string) => loqe.fetchCompletions(qualifier);
+const lazyFetchCompletions = (qualifier: string) => loqe.fetchCompletionItems(qualifier);
+
+/** 1-based line and column of the cursor, for the status bar. */
+const cursorLineCol = computed(() => {
+  const before = sqlQuery.value.slice(0, cursorPosition.value);
+  const lineStart = before.lastIndexOf('\n') + 1;
+  return { line: before.split('\n').length, col: before.length - lineStart + 1 };
+});
+const statementCount = computed(() => splitStatements(userSql(sqlQuery.value)).length);
 
 // SQL Tabs
 const activeTabIndex = ref(0);
@@ -1079,6 +1204,117 @@ const queryResults = ref<ResultEntry[]>([]);
 const activeResultTab = ref(0);
 const activeView = ref<'table' | 'chart'>('table');
 const lastExecutedSql = ref('');
+/** Where the last run's source text starts in the editor, so result tabs highlight the right span. */
+const lastRunOffset = ref(0);
+
+const isMac = /Mac|iPhone|iPad/.test(navigator.platform);
+/** Key labels as this platform writes them. */
+const keys = isMac
+  ? {
+      run: '⌘↵',
+      runStatement: '⇧⌘↵',
+      format: '⇧⌥F',
+      complete: '⌘I or ⌃Space',
+      comment: '⌘/',
+      find: '⌘F',
+      nextMatch: '⌘D',
+    }
+  : {
+      run: 'Ctrl+Enter',
+      runStatement: 'Shift+Ctrl+Enter',
+      format: 'Shift+Alt+F',
+      complete: 'Ctrl+Space',
+      comment: 'Ctrl+/',
+      find: 'Ctrl+F',
+      nextMatch: 'Ctrl+D',
+    };
+const runShortcutHint = `${keys.run} run · ${keys.runStatement} run statement at cursor`;
+
+// ── Per-tab history rail ──────────────────────────────────────────────
+
+const activeTabId = computed(() => currentLoqeTabs.value[activeTabIndex.value]?.id);
+const tabHistory = computed(() =>
+  activeTabId.value ? loqe.store.historyForTab(activeTabId.value) : [],
+);
+const historyRailExpanded = computed({
+  get: () => loqe.store.historyRailExpanded,
+  set: (value: boolean) => (loqe.store.historyRailExpanded = value),
+});
+const tabNames = computed(() => new Map(currentLoqeTabs.value.map((t) => [t.id, t.name])));
+
+/** Put a past query in the editor in place of its text, to adjust before running; undo brings the old text back. */
+function replaceFromHistory(text: string) {
+  sqlQuery.value = text;
+}
+
+/**
+ * Open a past query in a new tab named after the run: the name it was given, or
+ * `History 2026-11-13 20:34:12` in the same form as other tab names. The tab is created holding the text: the
+ * editor follows the store's active tab, so setting the editor alone would be
+ * overwritten by the new tab's empty content.
+ */
+function openHistoryInNewTab(entry: LoQEHistoryEntry) {
+  const text = entry.sql;
+  const d = new Date(entry.executedAt);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const base =
+    `History ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
+    `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  const taken = new Set(currentLoqeTabs.value.map((t) => t.name));
+  const wanted = entry.name ?? base;
+  let name = wanted;
+  for (let n = 2; taken.has(name); n++) name = `${wanted} (${n})`;
+
+  const tab = visualStore.addSqlTab(LOQE_TAB_KEY);
+  visualStore.renameSqlTab(LOQE_TAB_KEY, tab.id, name);
+  visualStore.updateSqlTabContent(LOQE_TAB_KEY, tab.id, text);
+  activeTabIndex.value = currentLoqeTabs.value.length - 1;
+  sqlQuery.value = text;
+}
+
+function insertFromHistory(text: string) {
+  sqlEditorRef.value?.insertAtCursor?.(text);
+}
+
+/**
+ * Esc cancels a running query wherever the focus is — after a click on Run it
+ * sits on the button, not in the editor. The editor handles Esc itself (and
+ * marks the event handled); an open dialog or menu keeps Esc for closing.
+ */
+function cancelOnEscape(event: KeyboardEvent) {
+  if (event.key !== 'Escape' || event.defaultPrevented || !loqe.isQuerying.value) return;
+  if (document.querySelector('.v-overlay--active')) return;
+  loqe.cancelQuery();
+}
+onMounted(() => window.addEventListener('keydown', cancelOnEscape));
+onBeforeUnmount(() => window.removeEventListener('keydown', cancelOnEscape));
+
+/** The shortcuts sheet, one row per key. */
+const shortcutRows = [
+  { keys: keys.run, action: 'Run the selection, or everything' },
+  { keys: keys.runStatement, action: 'Run the statement at the cursor' },
+  { keys: 'Esc', action: 'Cancel the running query' },
+  { keys: keys.complete, action: 'Show suggestions' },
+  { keys: 'Tab / ↵', action: 'Accept a suggestion' },
+  { keys: keys.format, action: 'Format' },
+  { keys: keys.comment, action: 'Comment lines in or out' },
+  { keys: keys.find, action: 'Find and replace' },
+  { keys: keys.nextMatch, action: 'Add the next match to the selection' },
+  { keys: 'Esc, Tab', action: 'Leave the editor' },
+];
+const showShortcuts = ref(false);
+
+/** Icon buttons on the editor toolbar. */
+const editorActions = [
+  { label: 'Format', icon: 'mdi-auto-fix', hint: keys.format, run: () => formatSQL() },
+  { label: 'Copy', icon: 'mdi-content-copy', hint: '', run: () => copySQL() },
+  {
+    label: 'Clear',
+    icon: 'mdi-eraser',
+    hint: '',
+    run: () => sqlEditorRef.value?.clearContent(),
+  },
+];
 
 /** The currently visible result (driven by the active tab). */
 const activeResult = computed<LoQEQueryResult | null>(
@@ -1092,8 +1328,9 @@ const hasAnyResults = computed(() => queryResults.value.length > 0);
 // Highlight the corresponding statement in the editor when the user switches result tabs
 watch(activeResultTab, (idx) => {
   const entry = queryResults.value[idx];
+  const offset = lastRunOffset.value;
   if (entry && queryResults.value.length > 1) {
-    sqlEditorRef.value?.setSelection?.(entry.from, entry.to);
+    sqlEditorRef.value?.setSelection?.(offset + entry.from, offset + entry.to);
   }
 });
 
@@ -1322,12 +1559,22 @@ watch(
 
 // ── Handlers ──────────────────────────────────────────────────────────
 
-async function executeQuery() {
-  // If there is a selection in the editor, run only the selected text
-  const selectedText = sqlEditorRef.value?.getSelectedText?.() ?? '';
-  const textToRun = selectedText.trim() || sqlQuery.value.trim();
-  if (!textToRun) return;
-  lastExecutedSql.value = textToRun;
+/**
+ * Run `source` (the text and where it starts in the editor). Without one, run
+ * the selection, or the whole script when nothing is selected.
+ */
+async function executeQuery(source?: { text: string; from: number }) {
+  if (loqe.isQuerying.value || loqe.isInitializing.value) return;
+  if (!source) {
+    const selectedText = sqlEditorRef.value?.getSelectedText?.() ?? '';
+    source = selectedText.trim()
+      ? { text: selectedText, from: sqlEditorRef.value?.getSelectionRange?.().from ?? 0 }
+      : { text: sqlQuery.value, from: 0 };
+  }
+  const sourceText = source.text;
+  if (!sourceText.trim()) return;
+  lastExecutedSql.value = sourceText;
+  lastRunOffset.value = source.from;
 
   // Track which tab executed this query
   const activeTab = visualStore.getActiveSqlTab(LOQE_TAB_KEY);
@@ -1352,27 +1599,41 @@ async function executeQuery() {
 
   // Split input into individual statements, keeping track of positions
   // so we can highlight the relevant statement when the user clicks a tab.
-  const sourceText = selectedText || sqlQuery.value;
   const statements = splitStatements(userSql(sourceText));
+  const errorMarks: { from: number; to: number; message: string }[] = [];
+  sqlEditorRef.value?.setErrors?.([]);
 
   for (let i = 0; i < statements.length; i++) {
     const { sql: statement, from, to } = statements[i];
     const label = statements.length === 1 ? 'Result' : `Query ${i + 1}`;
     try {
-      const result = await loqe.query(statement);
+      const result = await loqe.query(statement, { tabId: activeTab?.id });
       queryResults.value.push({ label, result, error: null, from, to });
     } catch {
+      const message = loqe.error.value;
       queryResults.value.push({
         label,
         result: null,
-        error: loqe.error.value,
+        error: message,
         from,
         to,
       });
+      // Underline the spot DuckDB pointed at, where it pointed at one.
+      const loc = message ? errorLocation(message, sourceText.slice(from, to)) : null;
+      if (message && loc) {
+        const engine = splitEngineError(message).engineMessage ?? message;
+        errorMarks.push({
+          from: source.from + from + loc.from,
+          to: source.from + from + loc.to,
+          message: engine.split('\n')[0],
+        });
+      }
       // Reset loqe.error so it doesn't bleed into next statement
       loqe.error.value = null;
     }
   }
+
+  sqlEditorRef.value?.setErrors?.(errorMarks);
 
   // Show the last tab with results (or the last error tab)
   const lastSuccessIdx = queryResults.value.findLastIndex((r) => r.result !== null);
@@ -1844,6 +2105,17 @@ async function handleAutoAttachWarehouse(wh: {
   }
 }
 
+/**
+ * Run the statement holding the cursor. Between statements, the one before
+ * the cursor counts, as in other SQL editors; before the first, the first.
+ */
+function runStatementAtCursor() {
+  const cursor = sqlEditorRef.value?.getCursorPosition?.() ?? 0;
+  const statement = statementAt(userSql(sqlQuery.value), cursor);
+  if (!statement) return;
+  executeQuery({ text: sqlQuery.value.slice(statement.from, statement.to), from: statement.from });
+}
+
 function updateCursorPosition() {
   if (sqlEditorRef.value && typeof sqlEditorRef.value.getCursorPosition === 'function') {
     cursorPosition.value = sqlEditorRef.value.getCursorPosition();
@@ -2154,6 +2426,63 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* Editor chrome: one quiet row of tabs, one of actions, the editor, a status line. */
+/* Sidebar fold: width animates to zero over the fixed-width contents. */
+.loqe-fold {
+  display: flex;
+  flex: 0 0 auto;
+  height: 100%;
+  overflow: hidden;
+  transition: width 0.2s ease;
+}
+.loqe-fold--dragging {
+  transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .loqe-fold {
+    transition: none;
+  }
+}
+.loqe-tabs-row {
+  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+  margin-bottom: 6px;
+}
+.loqe-query-tabs :deep(.v-tab) {
+  letter-spacing: normal;
+  min-width: 0;
+}
+.loqe-tab-close {
+  opacity: 0.45;
+  border-radius: 4px;
+}
+.loqe-tab-close:hover {
+  opacity: 1;
+  background: rgba(var(--v-theme-on-surface), 0.08);
+}
+.loqe-editor-toolbar {
+  padding: 2px 0 6px;
+}
+.loqe-view-toggle {
+  height: 32px;
+  border-color: rgba(var(--v-theme-on-surface), 0.16);
+}
+.loqe-status-bar {
+  padding: 4px 6px 0;
+  color: rgba(var(--v-theme-on-surface), 0.6);
+  font-variant-numeric: tabular-nums;
+}
+.loqe-kbd {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.16);
+  background: rgba(var(--v-theme-on-surface), 0.04);
+  font-family: inherit;
+  font-size: 0.75em;
+  line-height: 1.6;
+  color: inherit;
+  opacity: 0.85;
+}
 /* Column description under the header name. Bounded and wrapping, so a long
    doc cannot push the rows out of a results pane the user is resizing. */
 .column-head {

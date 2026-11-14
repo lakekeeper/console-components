@@ -4,6 +4,7 @@ import {
   friendlyQueryError,
   isWriteStatement,
   splitEngineError,
+  errorLocation,
 } from './queryError';
 
 // friendlyQueryError explains unsupported ADLS operations and turns DuckDB-WASM's
@@ -257,5 +258,37 @@ describe('a status the catalog already stated', () => {
     const out = friendlyQueryError(original, RAW_403, [], sql) as Error;
 
     expect(splitEngineError(out.message).explanation).toContain(privilege);
+  });
+});
+
+describe('errorLocation', () => {
+  const at = (message: string, statement: string) => {
+    const loc = errorLocation(message, statement);
+    return loc && statement.slice(loc.from, loc.to);
+  };
+
+  it('finds the token under the caret', () => {
+    const msg =
+      'Parser Error: syntax error at or near "FORM"\n\nLINE 1: SELECT * FORM t\n                 ^';
+    expect(at(msg, 'SELECT * FORM t')).toBe('FORM');
+  });
+
+  it('counts lines and finds a quoted name', () => {
+    const statement = 'SELECT a,\n  "Bad Col"\nFROM t';
+    const msg =
+      'Binder Error: Referenced column "Bad Col" not found\n\nLINE 2:   "Bad Col"\n          ^';
+    expect(at(msg, statement)).toBe('"Bad Col"');
+  });
+
+  it('places the caret inside an excerpt DuckDB shortened', () => {
+    const statement = `SELECT ${'x, '.repeat(40)}nope FROM t`;
+    const excerpt = statement.slice(100, 140);
+    const caret = statement.indexOf('nope') - 100;
+    const msg = `Binder Error: nope\n\nLINE 1: ...${excerpt}...\n${' '.repeat(11 + caret)}^`;
+    expect(at(msg, statement)).toBe('nope');
+  });
+
+  it('is null without a position', () => {
+    expect(errorLocation('Catalog Error: Table t does not exist', 'SELECT 1')).toBeNull();
   });
 });

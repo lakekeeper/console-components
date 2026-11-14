@@ -296,3 +296,39 @@ export function isWriteStatement(sql: string | undefined): 'read' | 'write' {
     ? 'write'
     : 'read';
 }
+
+/**
+ * Where in `statement` DuckDB placed an error, from the `LINE n: …` excerpt and
+ * the `^` under it: the token at the caret, as offsets into `statement`. Null
+ * when the message carries no position or the excerpt can't be found.
+ *
+ * DuckDB shortens long lines to a window around the caret, marking cuts with
+ * `...`, so the excerpt is looked up in the line rather than trusted as its start.
+ */
+export function errorLocation(
+  message: string,
+  statement: string,
+): { from: number; to: number } | null {
+  const m = /LINE (\d+): (.*)\n( *)\^/.exec(message);
+  if (!m) return null;
+  const lineNo = Number(m[1]);
+  const lines = statement.split('\n');
+  if (lineNo < 1 || lineNo > lines.length) return null;
+
+  let excerpt = m[2];
+  let caret = m[3].length - `LINE ${m[1]}: `.length;
+  if (excerpt.startsWith('...')) {
+    excerpt = excerpt.slice(3);
+    caret -= 3;
+  }
+  excerpt = excerpt.replace(/\.\.\.$/, '');
+  const lineText = lines[lineNo - 1];
+  const at = lineText.indexOf(excerpt);
+  if (at < 0 || caret < 0) return null;
+
+  const col = at + caret;
+  const lineStart = lines.slice(0, lineNo - 1).reduce((n, l) => n + l.length + 1, 0);
+  const token = /^(?:"(?:[^"]|"")*"|'(?:[^']|'')*'|\w+|\S)/.exec(lineText.slice(col));
+  const from = lineStart + Math.min(col, lineText.length);
+  return { from, to: from + (token ? token[0].length : 0) };
+}

@@ -104,6 +104,17 @@
           :step="64"
           class="mb-3" />
 
+        <!-- Query history -->
+        <v-select
+          v-model="store.historyPerTab"
+          :items="HISTORY_PER_TAB_OPTIONS"
+          label="Runs kept per tab"
+          hint="Query history beside the editor. Older runs drop off; lowering this trims history now."
+          persistent-hint
+          variant="outlined"
+          density="comfortable"
+          class="mb-3" />
+
         <!-- Extension Repository URL -->
         <v-text-field
           v-model="store.extensionRepository"
@@ -177,6 +188,7 @@ import {
   useDuckDBSettingsStore,
   ROW_LIMIT_OPTIONS,
   TIMEOUT_OPTIONS,
+  HISTORY_PER_TAB_OPTIONS,
 } from '@/stores/duckdbSettings';
 
 export interface FreeMemoryResult {

@@ -2,6 +2,14 @@ import type { SqlConnection } from './SqlConnection';
 
 // ── Engine Configuration ──────────────────────────────────────────────
 
+/** A name the SQL editor can complete, with what it is. */
+export interface SqlCompletionItem {
+  name: string;
+  kind: 'catalog' | 'schema' | 'table' | 'view' | 'column';
+  /** For a column, its type, e.g. `VARCHAR`. */
+  detail?: string;
+}
+
 export interface LoQEConfig {
   /** Base URL prefix for locating DuckDB WASM/worker assets (e.g. '' or '/ui') */
   baseUrlPrefix: string;
@@ -72,6 +80,10 @@ export interface LoQEHistoryEntry {
   durationMs: number;
   rowCount: number;
   error?: string;
+  /** The LoQE query tab that ran it; absent for entries from before tabs had history. */
+  tabId?: string;
+  /** A name the user gave this run. */
+  name?: string;
 }
 
 export interface LoQEPersistedCatalog {
