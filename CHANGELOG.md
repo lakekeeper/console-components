@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.35.0](https://github.com/lakekeeper/console-components/compare/v0.34.0...v0.35.0) (2026-11-15)
+
+
+### Features
+
+* **ui:** drag tables, views and fields from the LoQE tree into the editor ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+* **ui:** LoQE History view: every run with its figures and the plan as it ran, as a graph and a list ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+* **ui:** LoQE keeps run history in IndexedDB, up to 10 000 runs ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+
+
+### Bug Fixes
+
+* **ui:** LoQE Cancel and Esc stop a running query, and the query timeout ends it ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+* **ui:** LoQE results show dates and times as DuckDB writes them ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+* **ui:** LoQE scripts show each statement's state, and Cancel stops the whole script ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+* **ui:** LoQE timestamps keep nanoseconds and microseconds at the ends of the calendar ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+* **ui:** namespace move permission checks send the destination the server requires ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+* **ui:** table column Analyze works on full-range numeric columns ([637bcc3](https://github.com/lakekeeper/console-components/commit/637bcc3c72762bae450090268bf34df7e9657ef6))
+
 ## [0.34.0](https://github.com/lakekeeper/console-components/compare/v0.33.0...v0.34.0) (2026-11-14)
 
 
