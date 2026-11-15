@@ -192,7 +192,7 @@
                 size="small"
                 variant="text"
                 aria-label="Close"
-                @click="selectedId = null" />
+                @click="closeDetails" />
             </div>
             <div class="text-caption text-medium-emphasis px-3 mb-3">
               {{ date(selected.executedAt) }} · {{ duration(selected.durationMs) }} ·
@@ -431,7 +431,7 @@ if (!['all', 'succeeded', 'failed'].includes(store.historyFilters.status)) {
 }
 
 const perTab = computed(() => Math.max(1, Math.round(settings.historyPerTab) || 50));
-const maxTotal = computed(() => Math.max(perTab.value, Math.round(settings.historyMax) || 1000));
+const maxTotal = computed(() => Math.max(1, Math.round(settings.historyMax) || 1000));
 
 const filtersSet = computed(
   () => !!filters.value.search || filters.value.status !== 'all' || !!filters.value.tab,
@@ -557,13 +557,13 @@ function closeOnOutside(event: PointerEvent) {
   if (!selectedId.value) return;
   const target = event.target as Element | null;
   if (target?.closest('.dsp, tbody tr, .v-overlay')) return;
-  selectedId.value = null;
+  closeDetails();
 }
 
 function closeOnEscape(event: KeyboardEvent) {
   if (event.key !== 'Escape' || !selectedId.value || event.defaultPrevented) return;
   if (document.querySelector('.v-overlay--active')) return;
-  selectedId.value = null;
+  closeDetails();
 }
 onMounted(() => window.addEventListener('keydown', closeOnEscape));
 onBeforeUnmount(() => window.removeEventListener('keydown', closeOnEscape));
@@ -572,11 +572,19 @@ function onRowClick(_event: unknown, row: { item: LoQEHistoryEntry }) {
   select(row.item);
 }
 
+/**
+ * Close the details, keeping a name being typed. Saved here, not left to the
+ * field's blur: a click outside closes on pointerdown, before the field blurs,
+ * and Esc never blurs it, so the draft would go with the selection.
+ */
+function closeDetails() {
+  saveName();
+  selectedId.value = null;
+}
+
 function select(entry: LoQEHistoryEntry) {
-  if (selectedId.value === entry.id) {
-    selectedId.value = null;
-    return;
-  }
+  if (selectedId.value === entry.id) return closeDetails();
+  saveName();
   selectedId.value = entry.id;
 }
 
@@ -587,9 +595,20 @@ watch(selected, (e, before) => {
   }
 });
 
+// A row opens its details by keyboard as by click: it takes focus, and Enter
+// or Space opens (or closes) them.
 const rowProps = ({ item }: { item: LoQEHistoryEntry }) => ({
   class: { 'lqh-row--active': item.id === selectedId.value },
   style: 'cursor: pointer',
+  tabindex: 0,
+  'aria-label': `${item.name || 'Untitled run'}, ${date(item.executedAt)}, ${item.error ? 'failed' : 'succeeded'}: show details`,
+  'aria-expanded': item.id === selectedId.value,
+  onKeydown: (event: KeyboardEvent) => {
+    if (event.target !== event.currentTarget) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    select(item);
+  },
 });
 
 function saveName() {
@@ -705,6 +724,10 @@ const errorText = (error: string) => error.trim().replace(/\n{3,}/g, '\n\n');
   white-space: nowrap;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
+}
+:deep(.lqh-table tbody tr:focus-visible) {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
 }
 :deep(.lqh-row--active) {
   background: rgba(var(--v-theme-primary), 0.08);

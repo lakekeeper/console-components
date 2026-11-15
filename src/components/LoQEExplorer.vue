@@ -1023,7 +1023,16 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, shallowRef, onMounted, onBeforeUnmount, inject, computed, watch } from 'vue';
+import {
+  reactive,
+  ref,
+  shallowRef,
+  onMounted,
+  onBeforeUnmount,
+  inject,
+  computed,
+  watch,
+} from 'vue';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
@@ -1647,20 +1656,27 @@ async function executeQuery(source?: { text: string; from: number }) {
 
   // Every statement gets its tab up front, so a script shows what is still to
   // come, and the view follows the one running rather than staying on the first.
-  queryResults.value = statements.map(({ from, to }, i) => ({
-    label: statements.length === 1 ? 'Result' : `Query ${i + 1}`,
-    result: null,
-    error: null,
-    from,
-    to,
-    state: 'waiting' as const,
-  }));
+  // The script keeps its own list: "Clear results" empties `queryResults`
+  // mid-run, and the remaining statements still run (and update entries no
+  // longer shown) rather than finding nothing at their index.
+  const entries = reactive<ResultEntry[]>(
+    statements.map(({ from, to }, i) => ({
+      label: statements.length === 1 ? 'Result' : `Query ${i + 1}`,
+      result: null,
+      error: null,
+      from,
+      to,
+      state: 'waiting' as const,
+    })),
+  );
+  queryResults.value = entries;
 
   for (let i = 0; i < statements.length; i++) {
     const { sql: statement, from, to } = statements[i];
-    const entry = queryResults.value[i];
+    const entry = entries[i];
+    const shown = queryResults.value === entries;
     entry.state = 'running';
-    activeResultTab.value = i;
+    if (shown) activeResultTab.value = i;
     try {
       entry.result = await loqe.query(statement, { tabId: activeTab?.id });
       entry.state = 'done';
@@ -1670,7 +1686,7 @@ async function executeQuery(source?: { text: string; from: number }) {
       entry.state = 'done';
       // Cancel stops the script, not only the statement it caught running.
       if (message && /query cancelled/i.test(message)) {
-        for (const rest of queryResults.value.slice(i + 1)) {
+        for (const rest of entries.slice(i + 1)) {
           rest.error = 'Not run: the script was cancelled.';
           rest.state = 'done';
         }
@@ -1694,9 +1710,11 @@ async function executeQuery(source?: { text: string; from: number }) {
 
   sqlEditorRef.value?.setErrors?.(errorMarks);
 
-  // Show the last tab with results (or the last error tab)
-  const lastSuccessIdx = queryResults.value.findLastIndex((r) => r.result !== null);
-  activeResultTab.value = lastSuccessIdx >= 0 ? lastSuccessIdx : queryResults.value.length - 1;
+  // Show the last tab with results (or the last error tab), unless they were cleared.
+  if (queryResults.value === entries) {
+    const lastSuccessIdx = entries.findLastIndex((r) => r.result !== null);
+    activeResultTab.value = lastSuccessIdx >= 0 ? lastSuccessIdx : entries.length - 1;
+  }
 
   refreshMemory();
 }
@@ -1710,6 +1728,7 @@ function handleTreeItemSelected(item: {
   namespaceId?: string;
   name: string;
   fieldPath?: string[];
+  fieldRole?: string;
 }) {
   const textToInsert = treeItemSql(item);
 

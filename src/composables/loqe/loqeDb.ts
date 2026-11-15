@@ -62,9 +62,12 @@ function run<T>(
             req.onsuccess = () => resolve(req.result);
             req.onerror = () => resolve(null);
           } else {
-            tx.oncomplete = () => resolve(null);
+            tx.oncomplete = () => resolve(true as T);
             tx.onerror = () => resolve(null);
           }
+          // An aborted transaction (quota, a closing database) fires neither
+          // success nor complete; settle anyway, as a failure.
+          tx.onabort = () => resolve(null);
         } catch {
           resolve(null);
         }
@@ -86,11 +89,15 @@ export function saveRun(entry: LoQEHistoryEntry): Promise<unknown> {
   return run(RUNS, 'readwrite', (s) => s.put(plain(entry)));
 }
 
-/** Write many runs in one transaction (moving the old localStorage history over). */
-export function saveRuns(entries: LoQEHistoryEntry[]): Promise<unknown> {
-  return run(RUNS, 'readwrite', (s) => {
+/**
+ * Write many runs in one transaction (moving the old localStorage history
+ * over). True once the transaction has committed, false otherwise.
+ */
+export async function saveRuns(entries: LoQEHistoryEntry[]): Promise<boolean> {
+  const done = await run<boolean>(RUNS, 'readwrite', (s) => {
     for (const e of entries) s.put(plain(e));
   });
+  return done === true;
 }
 
 export function deleteRuns(ids: string[]): Promise<unknown> {
@@ -123,13 +130,28 @@ export function clearPlans(): Promise<unknown> {
   return run(PLANS, 'readwrite', (s) => s.clear());
 }
 
-/** Drop plans whose run is no longer kept (left behind by an older version). */
-export async function prunePlans(keep: Set<string>): Promise<void> {
-  const keys = await run<IDBValidKey[]>(PLANS, 'readonly', (s) => s.getAllKeys());
-  if (!keys) return;
-  const stale = keys.map(String).filter((k) => !keep.has(k));
-  if (stale.length)
-    await run(PLANS, 'readwrite', (s) => {
-      for (const k of stale) s.delete(k);
-    });
+/**
+ * Drop plans whose run is no longer stored. The runs and the plans are read in
+ * the same transaction that deletes, so a run saved meanwhile keeps its plan.
+ */
+export async function prunePlans(): Promise<void> {
+  const db = await open();
+  if (!db) return;
+  await new Promise<void>((resolve) => {
+    try {
+      const tx = db.transaction([RUNS, PLANS], 'readwrite');
+      const runKeys = tx.objectStore(RUNS).getAllKeys();
+      const planKeys = tx.objectStore(PLANS).getAllKeys();
+      // Requests in a transaction complete in order: the runs are read by now.
+      planKeys.onsuccess = () => {
+        const runs = new Set((runKeys.result ?? []).map(String));
+        for (const k of planKeys.result) if (!runs.has(String(k))) tx.objectStore(PLANS).delete(k);
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+      tx.onabort = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
 }

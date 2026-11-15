@@ -14,6 +14,8 @@ import { parseRunProfile, type LoQERunProfile } from './runProfile';
 import type { PooledConnection } from './types';
 
 const QUERY_CANCELLED = 'Query cancelled.';
+/** How long a timed-out statement gets to stop after cancelSent(). */
+const CANCEL_SETTLE_MS = 5000;
 
 /**
  * A sent statement's result: its record batches as they streamed in. Kept as
@@ -32,6 +34,8 @@ async function readSent(
   statement: Sql,
   cancelled: () => boolean,
 ): Promise<SentResult> {
+  // Cancel pressed before the statement went out: do not send it at all.
+  if (cancelled()) throw new Error(QUERY_CANCELLED);
   const reader = await connection.send(statement);
   if (!reader) throw new Error('The query engine is not running. Reload the page.');
   // The schema is read on open and cleared when the stream ends, so take it now.
@@ -361,6 +365,8 @@ export class LoQEEngine {
     const pooled = await this.pool.acquire();
     this._activeConnection = pooled.connection;
     const profileFile = await this.startProfile(pooled);
+    /** Set when a timed-out statement would not let go of the connection. */
+    let stuck = false;
     let lastSql = '';
 
     try {
@@ -373,8 +379,22 @@ export class LoQEEngine {
         if (timeoutMs <= 0) return run;
         let timer: ReturnType<typeof setTimeout> | undefined;
         const timeout = new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
+          timer = setTimeout(async () => {
+            // Interrupt it, and keep the connection until the statement has
+            // let go of it: handed on still running, the next query on it
+            // would read this one's stream. cancelSent() only lands between
+            // DuckDB-WASM's polls of a pending query, so how long that takes
+            // is not promised — wait a bounded time, and past it retire the
+            // connection rather than reuse it.
             pooled.connection.cancelSent().catch(() => {});
+            const settled = await Promise.race([
+              run.then(
+                () => true,
+                () => true,
+              ),
+              new Promise<boolean>((done) => setTimeout(() => done(false), CANCEL_SETTLE_MS)),
+            ]);
+            if (!settled) stuck = true;
             reject(
               new Error(
                 `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
@@ -467,7 +487,12 @@ export class LoQEEngine {
     } finally {
       this._activeConnection = null;
       if (profileFile) this.db?.dropFile(profileFile).catch(() => {});
-      this.pool.release(pooled);
+      if (stuck) {
+        console.warn('[LoQE] a timed-out query did not stop; its connection is retired');
+        this.pool.discard(pooled);
+      } else {
+        this.pool.release(pooled);
+      }
     }
   }
 

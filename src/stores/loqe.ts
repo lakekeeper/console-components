@@ -17,23 +17,39 @@ import {
  * Survives page reloads so the engine can restore previously-installed
  * extensions and re-attach catalogs on next boot.
  */
+/** Where runs from before IndexedDB wait until they are written there. */
+const LEGACY_KEY = 'loqe-history-migration';
+
 /**
- * Runs that versions before IndexedDB kept in this store's localStorage copy,
- * taken out of it so they move over once and do not come back after a removal.
+ * Runs that versions before IndexedDB kept in this store's localStorage copy.
+ * They are moved, at once, into a key of their own: the persisted-state plugin
+ * rewrites `loqe` (without them) on the store's next change, and would erase
+ * them before IndexedDB had them. The key goes once they are written there
+ * (`dropLegacyHistory`), so they move over once and a removal stays removed.
  */
-function takeLegacyHistory(): LoQEHistoryEntry[] {
+function readLegacyHistory(): LoQEHistoryEntry[] {
   try {
+    const parked = JSON.parse(localStorage.getItem(LEGACY_KEY) ?? '[]');
+    const runs: LoQEHistoryEntry[] = Array.isArray(parked) ? parked : [];
     const raw = localStorage.getItem('loqe');
-    if (!raw) return [];
-    const saved = JSON.parse(raw);
-    const runs = Array.isArray(saved?.queryHistory) ? saved.queryHistory : [];
-    if ('queryHistory' in (saved ?? {})) {
+    const saved = raw ? JSON.parse(raw) : null;
+    if (saved && 'queryHistory' in saved) {
+      if (Array.isArray(saved.queryHistory)) runs.push(...saved.queryHistory);
+      localStorage.setItem(LEGACY_KEY, JSON.stringify(runs));
       delete saved.queryHistory;
       localStorage.setItem('loqe', JSON.stringify(saved));
     }
     return runs;
   } catch {
     return [];
+  }
+}
+
+function dropLegacyHistory() {
+  try {
+    localStorage.removeItem(LEGACY_KEY);
+  } catch {
+    // Storage unavailable: nothing was parked either.
   }
 }
 
@@ -59,12 +75,13 @@ export const useLoQEStore = defineStore(
 
     /**
      * Runs kept per query tab (a setting), so one busy tab cannot push every
-     * other tab's history out, and runs kept in all (a setting), the oldest
-     * dropping off first.
+     * other tab's history out, and runs kept in all (a setting, applied on its
+     * own: a per-tab limit above it does not raise it), the oldest dropping
+     * off first.
      */
     const settings = useDuckDBSettingsStore();
     const perTab = () => Math.max(1, Math.round(settings.historyPerTab) || 50);
-    const maxHistory = () => Math.max(perTab(), Math.round(settings.historyMax) || 1000);
+    const maxHistory = () => Math.max(1, Math.round(settings.historyMax) || 1000);
 
     /** Whether the per-tab history rail beside the editor shows times and rows. */
     const historyRailExpanded = ref(false);
@@ -151,33 +168,45 @@ export const useLoQEStore = defineStore(
       return queryHistory.value.filter((e) => e.tabId === tabId);
     }
 
+    /** Bumped by every clear, so a load still in flight does not bring runs back. */
+    let clears = 0;
+
     function clearHistory() {
+      clears++;
       queryHistory.value = [];
+      dropLegacyHistory();
       void clearRuns();
     }
 
     /**
-     * Read the kept runs from IndexedDB, once, at start. Runs that earlier
-     * versions kept in this store's localStorage copy move over the first
-     * time, and leave localStorage. Runs made before the read finished are
-     * kept: they were already written, and the merge goes by id.
+     * Read the kept runs from IndexedDB, once, at start, together with any runs
+     * an earlier version left in localStorage (read first, before anything is
+     * awaited, and dropped only once IndexedDB has them). Runs made before the
+     * read finished are kept: they were already written, and the merge goes by
+     * id. A clear while this runs wins: nothing read before it comes back.
      */
     async function loadHistory() {
+      const legacy = readLegacyHistory();
+      const clearsAtStart = clears;
       const stored = await loadRuns();
-      if (stored === null) {
-        // No IndexedDB (private window, blocked site data): this session only.
+      if (clears !== clearsAtStart) {
         historyLoaded.value = true;
         return;
       }
-      const legacy = takeLegacyHistory();
       const byId = new Map<string, LoQEHistoryEntry>();
-      for (const e of [...queryHistory.value, ...stored, ...legacy]) {
+      for (const e of [...queryHistory.value, ...(stored ?? []), ...legacy]) {
         if (e?.id && !byId.has(e.id)) byId.set(e.id, e);
       }
       queryHistory.value = [...byId.values()].sort((a, b) => b.executedAt - a.executedAt);
-      if (legacy.length) await saveRuns(legacy);
       trimHistory();
-      void prunePlans(new Set(queryHistory.value.map((e) => e.id)));
+      // No IndexedDB (private window, blocked site data): this session only,
+      // and the parked runs stay parked for a browser that has it.
+      if (stored !== null) {
+        const kept = new Set(queryHistory.value.map((e) => e.id));
+        const moving = legacy.filter((e) => kept.has(e.id));
+        if (!moving.length || (await saveRuns(moving))) dropLegacyHistory();
+        void prunePlans();
+      }
       historyLoaded.value = true;
     }
     void loadHistory();

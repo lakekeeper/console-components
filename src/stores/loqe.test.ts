@@ -76,4 +76,15 @@ describe('LoQE query history per tab', () => {
     expect(store.queryHistory).toHaveLength(100);
     expect(store.queryHistory[0].id).toBe('r399');
   });
+
+  it('applies the overall limit on its own, even below the per-tab limit', () => {
+    const store = useLoQEStore();
+    const settings = useDuckDBSettingsStore();
+    settings.historyPerTab = 1000;
+    settings.historyMax = 200;
+    for (let i = 0; i < 300; i++) store.addHistoryEntry(entry(`r${i}`, 'a'));
+    expect(store.queryHistory).toHaveLength(200);
+    expect(store.queryHistory[0].id).toBe('r299');
+    expect(store.queryHistory[199].id).toBe('r100');
+  });
 });

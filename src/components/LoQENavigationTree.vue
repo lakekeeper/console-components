@@ -463,6 +463,8 @@ const emit = defineEmits<{
       name: string;
       /** A field's name and those of the fields it is nested in, outermost first. */
       fieldPath?: string[];
+      /** Set on a list element or map key/value: nothing to insert for it. */
+      fieldRole?: string;
     },
   ): void;
   /** User expanded a warehouse that is not yet attached — request auto-attach */
@@ -552,6 +554,12 @@ interface TreeItem {
   retryOf?: string;
   /** Names from the top-level column down to this field. */
   fieldPath?: string[];
+  /**
+   * Set on a list's element, a map's key or value, and anything nested under
+   * them: labels for a role, not names a query can reference, so such a field
+   * is not inserted into the editor.
+   */
+  fieldRole?: 'element' | 'key' | 'value';
   parentType?: 'table' | 'view';
   parentName?: string;
   /** Storage profile type — only set on warehouse nodes. */
@@ -1270,6 +1278,7 @@ function makeFieldItem(
   field: any,
   namePath: string[] = [],
   ctx: FieldContext = EMPTY_FIELD_CONTEXT,
+  inRole?: TreeItem['fieldRole'],
 ): TreeItem {
   const path = [...namePath, field.name];
   const item: TreeItem = {
@@ -1288,8 +1297,10 @@ function makeFieldItem(
     parentName: parent.name,
     fieldPath: path,
   };
+  const role: TreeItem['fieldRole'] = field.role ?? inRole;
+  if (role) item.fieldRole = role;
 
-  const children = makeNestedFieldItems(parent, field.type, path, ctx);
+  const children = makeNestedFieldItems(parent, field.type, path, ctx, role);
   if (children.length) item.children = children;
   return item;
 }
@@ -1303,18 +1314,19 @@ function makeNestedFieldItems(
   type: any,
   path: string[],
   ctx: FieldContext,
+  inRole?: TreeItem['fieldRole'],
 ): TreeItem[] {
   if (!type || typeof type === 'string') return [];
 
   if (type.type === 'struct') {
-    return (type.fields ?? []).map((f: any) => makeFieldItem(parent, f, path, ctx));
+    return (type.fields ?? []).map((f: any) => makeFieldItem(parent, f, path, ctx, inRole));
   }
 
   if (type.type === 'list') {
     return [
       makeFieldItem(
         parent,
-        { id: `${path.join('.')}-element`, name: 'element', type: type.element },
+        { id: `${path.join('.')}-element`, name: 'element', type: type.element, role: 'element' },
         path,
         ctx,
       ),
@@ -1325,13 +1337,13 @@ function makeNestedFieldItems(
     return [
       makeFieldItem(
         parent,
-        { id: `${path.join('.')}-key`, name: 'key', type: type.key },
+        { id: `${path.join('.')}-key`, name: 'key', type: type.key, role: 'key' },
         path,
         ctx,
       ),
       makeFieldItem(
         parent,
-        { id: `${path.join('.')}-value`, name: 'value', type: type.value },
+        { id: `${path.join('.')}-value`, name: 'value', type: type.value, role: 'value' },
         path,
         ctx,
       ),
@@ -1817,6 +1829,7 @@ function handleInsertField(item: TreeItem) {
     // Nested fields insert their whole path — `"address"."street"` is what a
     // query needs, where `"street"` alone would not resolve.
     fieldPath: item.fieldPath,
+    fieldRole: item.fieldRole,
   });
 }
 
