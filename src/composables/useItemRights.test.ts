@@ -59,6 +59,17 @@ describe('useItemRights', () => {
     expect(rights.can(t, 'rename')).toBe(false);
   });
 
+  it('gives a namespace move check the destination the server requires', async () => {
+    batchCheckActions.mockResolvedValue([{ id: '0', allowed: true }]);
+    const rights = useItemRights();
+    const path = ['x', `n${n++}`];
+    await rights.ensure([{ kind: 'namespace', warehouseId: 'wh', namespace: path }], ['move']);
+    expect(batchCheckActions.mock.calls[0][0][0].operation.namespace.action).toEqual({
+      action: 'move',
+      destination: path,
+    });
+  });
+
   it('asks a namespace and a soft-deleted item in their own shapes', async () => {
     batchCheckActions.mockResolvedValue([{ id: '0', allowed: true }]);
     const rights = useItemRights();
