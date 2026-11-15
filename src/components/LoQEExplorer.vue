@@ -197,6 +197,35 @@
                           · {{ tabNames.get(entry.tabId) ?? 'closed tab' }}
                         </template>
                       </v-list-item-subtitle>
+                      <template #append>
+                        <v-menu location="end">
+                          <template #activator="{ props: menuProps }">
+                            <v-btn
+                              v-bind="menuProps"
+                              icon="mdi-dots-vertical"
+                              size="x-small"
+                              variant="text"
+                              :aria-label="`Actions for ${entry.name ?? 'this run'}`"
+                              @click.stop></v-btn>
+                          </template>
+                          <v-list density="compact">
+                            <!-- Only while the tab that ran it is still open. -->
+                            <v-list-item
+                              v-if="entry.tabId && tabNames.has(entry.tabId)"
+                              prepend-icon="mdi-arrow-right-bold-box-outline"
+                              :title="`Go to tab ${tabNames.get(entry.tabId)}`"
+                              @click="goToTab(entry.tabId)" />
+                            <v-list-item
+                              prepend-icon="mdi-tab-plus"
+                              title="Open in new tab"
+                              @click="openHistoryInNewTab(entry)" />
+                            <v-list-item
+                              prepend-icon="mdi-file-replace-outline"
+                              title="Replace editor text"
+                              @click="loadFromHistory(entry.sql)" />
+                          </v-list>
+                        </v-menu>
+                      </template>
                     </v-list-item>
                   </v-list>
                   <div v-else class="text-caption text-medium-emphasis pa-2">No queries yet</div>
@@ -1270,6 +1299,11 @@ function openHistoryInNewTab(entry: LoQEHistoryEntry) {
   visualStore.updateSqlTabContent(LOQE_TAB_KEY, tab.id, text);
   activeTabIndex.value = currentLoqeTabs.value.length - 1;
   sqlQuery.value = text;
+}
+
+/** Switch to the tab that ran a query, while it is still open, as a tab click does. */
+function goToTab(tabId: string) {
+  if (currentLoqeTabs.value.some((t) => t.id === tabId)) handleTabClick(tabId);
 }
 
 function insertFromHistory(text: string) {
