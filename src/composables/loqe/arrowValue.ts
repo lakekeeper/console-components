@@ -64,21 +64,54 @@ function formatDate(value: unknown): unknown {
   return Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : value;
 }
 
+/** `2024-07-01 12:34:56` in UTC, with a four-digit year and `(BC)` before year 1, as DuckDB writes it. */
+function utcClock(d: Date): string {
+  const year = d.getUTCFullYear();
+  const date =
+    `${pad(year > 0 ? year : 1 - year, 4)}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
+    `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`;
+  return year > 0 ? date : `${date} (BC)`;
+}
+
 /**
- * Arrow hands a TIMESTAMP over as fractional milliseconds since 1970, in UTC.
- * Written out in UTC (a TIMESTAMP has no zone, and showing it in the viewer's
- * would move the wall-clock time), with `+00` where the column has a zone.
+ * Fallback for a TIMESTAMP whose raw ticks cannot be read: Arrow's `get()`
+ * hands it over as fractional milliseconds since 1970, which keeps the
+ * microsecond only near the present. Written out in UTC (a TIMESTAMP has no
+ * zone, and showing it in the viewer's would move the wall-clock time), with
+ * `+00` where the column has a zone.
  */
 function formatTimestamp(value: unknown, zoned: boolean): unknown {
   const ms = value instanceof Date ? value.getTime() : Number(value);
   if (!Number.isFinite(ms)) return value;
   const whole = Math.floor(ms);
   const micros = (whole - Math.floor(whole / 1000) * 1000) * 1000 + Math.round((ms - whole) * 1000);
-  const d = new Date(whole);
-  const text =
-    `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ` +
-    `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}` +
-    fraction(micros);
+  const text = utcClock(new Date(whole)) + fraction(micros);
+  return zoned ? `${text}+00` : text;
+}
+
+/** Ticks per second and fraction digits per Arrow time unit: s, ms, µs, ns. */
+const TICKS_PER_SECOND = [1n, 1_000n, 1_000_000n, 1_000_000_000n];
+const FRACTION_DIGITS = [0, 3, 6, 9];
+
+/**
+ * A TIMESTAMP from its raw tick count, exact at every unit: nanoseconds keep
+ * all nine digits, and the year 9999 keeps its microseconds — both of which
+ * the float milliseconds from Arrow's `get()` lose.
+ */
+export function formatTimestampTicks(ticks: bigint, unit: number, zoned: boolean): string {
+  const perSecond = TICKS_PER_SECOND[unit] ?? 1_000_000n;
+  let seconds = ticks / perSecond;
+  let sub = ticks % perSecond;
+  // BigInt division truncates toward zero; a time before 1970 borrows a second.
+  if (sub < 0n) {
+    seconds -= 1n;
+    sub += perSecond;
+  }
+  const d = new Date(Number(seconds) * 1000);
+  if (!Number.isFinite(d.getTime())) return ticks.toString();
+  const digits = FRACTION_DIGITS[unit] ?? 6;
+  const frac = sub ? `.${sub.toString().padStart(digits, '0').replace(/0+$/, '')}` : '';
+  const text = utcClock(d) + frac;
   return zoned ? `${text}+00` : text;
 }
 
@@ -112,4 +145,54 @@ export function cellConverter(type: unknown): (value: unknown) => unknown {
     default:
       return plain;
   }
+}
+
+/** The parts of an Arrow vector a reader needs, so tests can hand in real or stand-in vectors. */
+interface ArrowChunk {
+  length: number;
+  values: unknown;
+  getValid(index: number): boolean;
+}
+export interface ArrowColumn {
+  get(index: number): unknown;
+  data?: readonly ArrowChunk[];
+}
+
+/**
+ * A timestamp's raw tick count at `index`: `null` for NULL, `undefined` when
+ * the vector does not keep its ticks as a BigInt64Array (then the caller falls
+ * back to `get()`). A sliced chunk's values are already sliced; only its
+ * validity bitmap carries the offset, which `getValid` applies.
+ */
+function rawTicks(column: ArrowColumn, index: number): bigint | null | undefined {
+  let local = index;
+  for (const chunk of column.data ?? []) {
+    if (local < chunk.length) {
+      if (!chunk.getValid(local)) return null;
+      return chunk.values instanceof BigInt64Array ? chunk.values[local] : undefined;
+    }
+    local -= chunk.length;
+  }
+  return undefined;
+}
+
+/**
+ * Like `cellConverter`, but reads the cell from its column, so a TIMESTAMP is
+ * formatted from its exact ticks rather than from `get()`'s lossy milliseconds.
+ */
+export function cellReader(
+  type: unknown,
+): (column: ArrowColumn | null | undefined, index: number) => unknown {
+  const convert = cellConverter(type);
+  const t = type as { typeId?: number; unit?: number; timezone?: string | null } | undefined;
+  if (t?.typeId !== ARROW_TIMESTAMP) return (column, index) => convert(column?.get(index));
+  const unit = t.unit ?? 2;
+  const zoned = !!t.timezone;
+  return (column, index) => {
+    if (!column) return undefined;
+    const ticks = rawTicks(column, index);
+    if (ticks === null) return null;
+    if (ticks === undefined) return convert(column.get(index));
+    return formatTimestampTicks(ticks, unit, zoned);
+  };
 }

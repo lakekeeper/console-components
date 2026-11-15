@@ -7,7 +7,7 @@ import { CatalogManager } from './CatalogManager';
 import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
 import { explainQueryFailure } from './queryError';
 import { createWorkerBootstrap } from './workerBootstrap';
-import { cellConverter } from './arrowValue';
+import { cellReader } from './arrowValue';
 import { ident, join, literal, splitStatements, sql, sqlText, type Sql } from './sql';
 import type { SqlConnection } from './SqlConnection';
 import { parseRunProfile, type LoQERunProfile } from './runProfile';
@@ -455,7 +455,7 @@ export class LoQEEngine {
       const BATCH_SIZE = 2000;
 
       // Per column, from its type: dates and times as text, structs as JSON.
-      const convert = result.schema.fields.map((f: any) => cellConverter(f.type));
+      const readCell = result.schema.fields.map((f: any) => cellReader(f.type));
       let read = 0;
       for (const batch of result.batches) {
         if (read >= rowsToRead) break;
@@ -464,7 +464,7 @@ export class LoQEEngine {
           for (let j = 0; j < columns.length; j++) {
             // Flattened here, at the boundary: an Arrow struct/map row is a proxy
             // that Vue's reactive() cannot wrap (see toPlainCellValue).
-            row.push(convert[j](batch.getChildAt(j)?.get(r)));
+            row.push(readCell[j](batch.getChildAt(j), r));
           }
           rows.push(row);
 

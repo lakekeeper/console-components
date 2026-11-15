@@ -81,7 +81,7 @@ export default defineConfig({
     dts({
       // Generate .d.ts files
       include: ['src/**/*.ts', 'src/**/*.vue'],
-      exclude: ['src/**/*.spec.ts', 'src/**/*.test.ts', 'src/**/*.stories.ts'],
+      exclude: ['src/**/*.spec.ts', 'src/**/*.test.ts', 'src/**/*.stories.ts', 'src/**/*ForTests.ts'],
       // Output directory for type declarations
       outDir: 'dist/types',
       //Don't bundle into single file - keep structure
