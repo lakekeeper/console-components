@@ -12,6 +12,7 @@ import { useVisualStore } from '../stores/visual';
 import { persistedCatalogKey } from './loqe/catalogIdentity';
 import { ident, literal, sql, sqlText, type Sql } from './loqe/sql';
 import type { SqlConnection } from './loqe/SqlConnection';
+import { savePlan } from './loqe/loqeDb';
 
 // ── DuckDB error rewriting ────────────────────────────────────────────
 
@@ -296,14 +297,17 @@ export function useLoQE(config: LoQEConfig) {
       const result = await engine.query(statement);
       lastResult.value = result;
 
+      const id = crypto.randomUUID();
       store.addHistoryEntry({
-        id: crypto.randomUUID(),
+        id,
         sql: text,
         executedAt: start,
         durationMs: result.executionTimeMs,
         rowCount: result.rowCount,
         ...(options.tabId ? { tabId: options.tabId } : {}),
+        ...(result.profile ? { stats: result.profile.stats } : {}),
       });
+      if (result.profile?.plan) void savePlan(id, result.profile.plan);
 
       return result;
     } catch (e) {

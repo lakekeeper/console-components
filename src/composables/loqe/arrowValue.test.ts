@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { reactive } from 'vue';
-import { toPlainCellValue } from './arrowValue';
+import { cellConverter, toPlainCellValue } from './arrowValue';
 
 /**
  * Stand-in for Arrow's StructRow: a proxy whose `isExtensible` trap disagrees
@@ -61,5 +61,35 @@ describe('toPlainCellValue', () => {
     // Flattened, the same value is safe.
     const flattened = toPlainCellValue(row);
     expect(() => reactive({ rows: [[flattened]] }).rows.map((r) => r[0])).not.toThrow();
+  });
+});
+
+describe('cellConverter', () => {
+  // Values and types as DuckDB-WASM 1.5 hands them over (checked against the engine).
+  it('writes a DATE as DuckDB does', () => {
+    expect(cellConverter({ typeId: 8, unit: 0 })(1719792000000)).toBe('2024-07-01');
+  });
+
+  it('keeps a TIMESTAMP in UTC, to the microsecond', () => {
+    const ts = cellConverter({ typeId: 10, unit: 2, timezone: null });
+    expect(ts(1719837296789.123)).toBe('2024-07-01 12:34:56.789123');
+    expect(ts(1719837296000)).toBe('2024-07-01 12:34:56');
+  });
+
+  it('marks a zoned TIMESTAMP as UTC', () => {
+    expect(cellConverter({ typeId: 10, unit: 2, timezone: 'UTC' })(1719830096000)).toBe(
+      '2024-07-01 10:34:56+00',
+    );
+  });
+
+  it('writes a TIME from its unit', () => {
+    expect(cellConverter({ typeId: 9, unit: 2 })(45296000000n)).toBe('12:34:56');
+    expect(cellConverter({ typeId: 9, unit: 2 })(45296500000n)).toBe('12:34:56.5');
+  });
+
+  it('passes NULL through, and other types to toPlainCellValue', () => {
+    expect(cellConverter({ typeId: 8 })(null)).toBeNull();
+    expect(cellConverter({ typeId: 2 })(42)).toBe(42);
+    expect(cellConverter(undefined)('x')).toBe('x');
   });
 });

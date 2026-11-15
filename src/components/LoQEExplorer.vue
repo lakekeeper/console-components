@@ -1,9 +1,14 @@
 <template>
-  <v-container fluid class="pa-0" style="height: 100%; overflow: hidden">
+  <!-- A column: title bar, view tabs, then the view, which takes what is left
+       (flex, not a subtracted constant, DESIGN.md "Height and scrolling"). -->
+  <v-container
+    fluid
+    class="pa-0"
+    style="height: 100%; overflow: hidden; display: flex; flex-direction: column">
     <!-- ── Top Status Bar ────────────────────────────────────────── -->
-    <v-toolbar flat color="transparent" class="border-b px-2">
+    <v-toolbar flat color="transparent" class="border-b px-2" style="flex: 0 0 auto">
       <div class="text-h6 d-flex align-center ga-2">
-        <v-icon>mdi-database-cog-outline</v-icon>
+        <v-icon>mdi-console</v-icon>
         LoQE
         <span class="text-caption text-medium-emphasis">Local Query Engine</span>
         <v-chip color="primary" size="x-small" variant="tonal" class="ml-2" label>
@@ -80,8 +85,24 @@
       </v-btn>
     </v-toolbar>
 
+    <!-- Two views of one page, as tabs like every other page in the console:
+         the editor, and every run from every tab. -->
+    <v-tabs
+      v-model="loqe.store.view"
+      class="border-b loqe-view-tabs"
+      style="flex: 0 0 auto"
+      aria-label="LoQE view">
+      <v-tab value="editor">Editor</v-tab>
+      <v-tab value="history">
+        History
+        <span v-if="loqe.store.queryHistory.length" class="text-medium-emphasis ml-2">
+          {{ loqe.store.queryHistory.length }}
+        </span>
+      </v-tab>
+    </v-tabs>
+
     <!-- ── Main Layout ───────────────────────────────────────────── -->
-    <div style="display: flex; height: calc(100% - 48px)">
+    <div v-show="loqe.store.view === 'editor'" style="display: flex; flex: 1 1 auto; min-height: 0">
       <!-- Left Sidebar: folds by animating the wrapper's width, never by unmounting,
            so the tree keeps its state and the editor grows instead of jumping. -->
       <div
@@ -150,58 +171,6 @@
                   </v-list>
                   <div v-else class="text-caption text-medium-emphasis pa-2">
                     No custom extensions installed
-                  </div>
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-
-              <!-- ── History Panel ─────────────────────────────────── -->
-              <v-expansion-panel value="history">
-                <v-expansion-panel-title class="text-subtitle-2">
-                  <v-icon size="small" class="mr-2">mdi-history</v-icon>
-                  History
-                  <span class="text-caption text-medium-emphasis ml-2">all tabs</span>
-                  <v-spacer />
-                  <v-btn
-                    v-if="loqe.store.queryHistory.length"
-                    icon="mdi-delete-outline"
-                    color="error"
-                    size="x-small"
-                    variant="text"
-                    @click.stop="loqe.store.clearHistory()"
-                    class="mr-2"></v-btn>
-                </v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  <v-list density="compact" v-if="loqe.store.queryHistory.length">
-                    <v-list-item
-                      v-for="entry in loqe.store.queryHistory.slice(0, 50)"
-                      :key="entry.id"
-                      @click="loadFromHistory(entry.sql)"
-                      class="text-caption"
-                      style="cursor: pointer">
-                      <template v-slot:prepend>
-                        <v-icon size="x-small" :color="entry.error ? 'error' : 'success'">
-                          {{ entry.error ? 'mdi-close-circle' : 'mdi-check-circle' }}
-                        </v-icon>
-                      </template>
-                      <v-list-item-title
-                        v-if="entry.name"
-                        class="text-caption font-weight-medium text-truncate">
-                        {{ entry.name }}
-                      </v-list-item-title>
-                      <v-list-item-title class="text-caption font-monospace text-truncate">
-                        {{ entry.sql.substring(0, 80) }}{{ entry.sql.length > 80 ? '…' : '' }}
-                      </v-list-item-title>
-                      <v-list-item-subtitle class="text-caption">
-                        {{ entry.rowCount }} rows · {{ entry.durationMs.toFixed(0) }}ms
-                        <template v-if="entry.tabId">
-                          · {{ tabNames.get(entry.tabId) ?? 'closed tab' }}
-                        </template>
-                      </v-list-item-subtitle>
-                    </v-list-item>
-                  </v-list>
-                  <div v-else class="text-caption text-medium-emphasis pa-2">No queries yet</div>
-                  <div class="text-caption text-medium-emphasis pa-2 pt-0">
-                    History keeps the last 200 queries.
                   </div>
                 </v-expansion-panel-text>
               </v-expansion-panel>
@@ -587,8 +556,25 @@
                       :value="idx"
                       size="small"
                       class="text-caption">
-                      <v-icon v-if="entry.error" size="x-small" color="error" class="mr-1">
-                        mdi-alert-circle
+                      <v-progress-circular
+                        v-if="entry.state === 'running'"
+                        indeterminate
+                        size="12"
+                        width="2"
+                        class="mr-1" />
+                      <v-icon
+                        v-else-if="entry.state === 'waiting'"
+                        size="x-small"
+                        class="mr-1 text-medium-emphasis">
+                        mdi-clock-outline
+                      </v-icon>
+                      <v-icon
+                        v-else
+                        size="x-small"
+                        :color="entry.error ? 'error' : 'success'"
+                        class="mr-1"
+                        :aria-label="entry.error ? 'Failed' : 'Succeeded'">
+                        {{ entry.error ? 'mdi-close-circle' : 'mdi-check-circle' }}
                       </v-icon>
                       {{ entry.label }}
                     </v-tab>
@@ -682,9 +668,10 @@
                     :sql="lastExecutedSql"
                     class="mt-2" />
 
-                  <!-- Query running state -->
+                  <!-- Query running state: on the statement that is running, not
+                       under another statement's result. -->
                   <v-card
-                    v-if="loqe.isQuerying.value"
+                    v-if="activeState === 'running'"
                     variant="outlined"
                     class="d-flex flex-column align-center justify-center pa-8">
                     <l-hourglass
@@ -692,6 +679,15 @@
                       speed="1.75"
                       color="rgb(var(--v-theme-primary))"></l-hourglass>
                     <span class="text-caption text-medium-emphasis mt-4">Running query…</span>
+                  </v-card>
+                  <v-card
+                    v-else-if="activeState === 'waiting'"
+                    variant="outlined"
+                    class="d-flex flex-column align-center justify-center pa-8 text-medium-emphasis">
+                    <v-icon size="32">mdi-clock-outline</v-icon>
+                    <span class="text-caption mt-2">
+                      Waits for the statements before it to finish.
+                    </span>
                   </v-card>
 
                   <!-- Empty state -->
@@ -706,6 +702,19 @@
           </v-row>
         </v-container>
       </div>
+    </div>
+
+    <!-- ── History view: every run, from every tab ─────────────────── -->
+    <div v-if="loqe.store.view === 'history'" style="flex: 1 1 auto; min-height: 0">
+      <LoQEHistoryView
+        :entries="loqe.store.queryHistory"
+        :tab-names="tabNames"
+        @go-to-tab="historyGoToTab"
+        @open-new-tab="historyOpenNewTab"
+        @replace="historyReplace"
+        @rename="loqe.store.renameHistoryEntry"
+        @delete="loqe.store.removeHistoryEntry"
+        @clear="loqe.store.clearHistory()" />
     </div>
 
     <!-- ── Install Extension Dialog ──────────────────────────────── -->
@@ -1014,7 +1023,16 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, shallowRef, onMounted, onBeforeUnmount, inject, computed, watch } from 'vue';
+import {
+  reactive,
+  ref,
+  shallowRef,
+  onMounted,
+  onBeforeUnmount,
+  inject,
+  computed,
+  watch,
+} from 'vue';
 import { useLoQE } from '../composables/useLoQE';
 import { useUserStore } from '../stores/user';
 import { useVisualStore } from '../stores/visual';
@@ -1058,6 +1076,8 @@ import LoQENavigationTree from './LoQENavigationTree.vue';
 import DuckDBSettingsDialog from './DuckDBSettingsDialog.vue';
 import EngineErrorAlert from './EngineErrorAlert.vue';
 import LoQEHistoryRail from './LoQEHistoryRail.vue';
+import LoQEHistoryView from './LoQEHistoryView.vue';
+import { treeItemSql } from '../composables/loqe/treeItemSql';
 import { errorLocation, splitEngineError } from '../composables/loqe/queryError';
 import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
@@ -1199,6 +1219,8 @@ interface ResultEntry {
   /** Character offset of the statement in the source text (for highlighting). */
   from: number;
   to: number;
+  /** Where a statement of a script stands: queued, running now, or finished. */
+  state: 'waiting' | 'running' | 'done';
 }
 const queryResults = ref<ResultEntry[]>([]);
 const activeResultTab = ref(0);
@@ -1272,6 +1294,29 @@ function openHistoryInNewTab(entry: LoQEHistoryEntry) {
   sqlQuery.value = text;
 }
 
+// ── History view → editor ───────────────────────────────────────────
+// Every action that puts a query in front of the reader also takes them to it.
+
+function historyGoToTab(tabId: string) {
+  loqe.store.view = 'editor';
+  goToTab(tabId);
+}
+
+function historyOpenNewTab(entry: LoQEHistoryEntry) {
+  loqe.store.view = 'editor';
+  openHistoryInNewTab(entry);
+}
+
+function historyReplace(sql: string) {
+  loqe.store.view = 'editor';
+  loadFromHistory(sql);
+}
+
+/** Switch to the tab that ran a query, while it is still open, as a tab click does. */
+function goToTab(tabId: string) {
+  if (currentLoqeTabs.value.some((t) => t.id === tabId)) handleTabClick(tabId);
+}
+
 function insertFromHistory(text: string) {
   sqlEditorRef.value?.insertAtCursor?.(text);
 }
@@ -1324,6 +1369,12 @@ const activeError = computed<string | null>(
   () => queryResults.value[activeResultTab.value]?.error ?? null,
 );
 const hasAnyResults = computed(() => queryResults.value.length > 0);
+/** The shown statement's state; `running` too while a run has no tab yet. */
+const activeState = computed<ResultEntry['state'] | null>(() => {
+  const entry = queryResults.value[activeResultTab.value];
+  if (entry) return entry.state;
+  return loqe.isQuerying.value ? 'running' : null;
+});
 
 // Highlight the corresponding statement in the editor when the user switches result tabs
 watch(activeResultTab, (idx) => {
@@ -1603,21 +1654,45 @@ async function executeQuery(source?: { text: string; from: number }) {
   const errorMarks: { from: number; to: number; message: string }[] = [];
   sqlEditorRef.value?.setErrors?.([]);
 
+  // Every statement gets its tab up front, so a script shows what is still to
+  // come, and the view follows the one running rather than staying on the first.
+  // The script keeps its own list: "Clear results" empties `queryResults`
+  // mid-run, and the remaining statements still run (and update entries no
+  // longer shown) rather than finding nothing at their index.
+  const entries = reactive<ResultEntry[]>(
+    statements.map(({ from, to }, i) => ({
+      label: statements.length === 1 ? 'Result' : `Query ${i + 1}`,
+      result: null,
+      error: null,
+      from,
+      to,
+      state: 'waiting' as const,
+    })),
+  );
+  queryResults.value = entries;
+
   for (let i = 0; i < statements.length; i++) {
     const { sql: statement, from, to } = statements[i];
-    const label = statements.length === 1 ? 'Result' : `Query ${i + 1}`;
+    const entry = entries[i];
+    const shown = queryResults.value === entries;
+    entry.state = 'running';
+    if (shown) activeResultTab.value = i;
     try {
-      const result = await loqe.query(statement, { tabId: activeTab?.id });
-      queryResults.value.push({ label, result, error: null, from, to });
+      entry.result = await loqe.query(statement, { tabId: activeTab?.id });
+      entry.state = 'done';
     } catch {
       const message = loqe.error.value;
-      queryResults.value.push({
-        label,
-        result: null,
-        error: message,
-        from,
-        to,
-      });
+      entry.error = message;
+      entry.state = 'done';
+      // Cancel stops the script, not only the statement it caught running.
+      if (message && /query cancelled/i.test(message)) {
+        for (const rest of entries.slice(i + 1)) {
+          rest.error = 'Not run: the script was cancelled.';
+          rest.state = 'done';
+        }
+        loqe.error.value = null;
+        break;
+      }
       // Underline the spot DuckDB pointed at, where it pointed at one.
       const loc = message ? errorLocation(message, sourceText.slice(from, to)) : null;
       if (message && loc) {
@@ -1635,9 +1710,11 @@ async function executeQuery(source?: { text: string; from: number }) {
 
   sqlEditorRef.value?.setErrors?.(errorMarks);
 
-  // Show the last tab with results (or the last error tab)
-  const lastSuccessIdx = queryResults.value.findLastIndex((r) => r.result !== null);
-  activeResultTab.value = lastSuccessIdx >= 0 ? lastSuccessIdx : queryResults.value.length - 1;
+  // Show the last tab with results (or the last error tab), unless they were cleared.
+  if (queryResults.value === entries) {
+    const lastSuccessIdx = entries.findLastIndex((r) => r.result !== null);
+    activeResultTab.value = lastSuccessIdx >= 0 ? lastSuccessIdx : entries.length - 1;
+  }
 
   refreshMemory();
 }
@@ -1651,20 +1728,9 @@ function handleTreeItemSelected(item: {
   namespaceId?: string;
   name: string;
   fieldPath?: string[];
+  fieldRole?: string;
 }) {
-  let textToInsert = '';
-
-  if (item.type === 'field') {
-    textToInsert = String(ident(...(item.fieldPath ?? [item.name])));
-  } else if (
-    (item.type === 'table' || item.type === 'view') &&
-    item.warehouseName &&
-    item.namespaceId
-  ) {
-    textToInsert = String(
-      buildTablePath(item as { warehouseName: string; namespaceId: string; name: string }),
-    );
-  }
+  const textToInsert = treeItemSql(item);
 
   if (textToInsert) {
     insertAtCursor(textToInsert);

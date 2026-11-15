@@ -1,3 +1,4 @@
+import type { LoQERunProfile, LoQERunStats } from './runProfile';
 import type { SqlConnection } from './SqlConnection';
 
 // ── Engine Configuration ──────────────────────────────────────────────
@@ -29,6 +30,8 @@ export interface LoQEQueryResult {
   /** True when the result was truncated to the row limit. */
   truncated: boolean;
   executionTimeMs: number;
+  /** DuckDB's profile of this run; null when it could not be read. */
+  profile?: LoQERunProfile | null;
 }
 
 // ── Catalog ───────────────────────────────────────────────────────────
@@ -84,6 +87,8 @@ export interface LoQEHistoryEntry {
   tabId?: string;
   /** A name the user gave this run. */
   name?: string;
+  /** What DuckDB's profiler measured; its plan is kept apart (loqeDb). */
+  stats?: LoQERunStats;
 }
 
 export interface LoQEPersistedCatalog {

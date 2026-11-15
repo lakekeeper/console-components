@@ -7,9 +7,53 @@ import { CatalogManager } from './CatalogManager';
 import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
 import { explainQueryFailure } from './queryError';
 import { createWorkerBootstrap } from './workerBootstrap';
-import { toPlainCellValue } from './arrowValue';
+import { cellReader } from './arrowValue';
 import { ident, join, literal, splitStatements, sql, sqlText, type Sql } from './sql';
 import type { SqlConnection } from './SqlConnection';
+import { parseRunProfile, type LoQERunProfile } from './runProfile';
+import type { PooledConnection } from './types';
+
+const QUERY_CANCELLED = 'Query cancelled.';
+/** How long a timed-out statement gets to stop after cancelSent(). */
+const CANCEL_SETTLE_MS = 5000;
+
+/**
+ * A sent statement's result: its record batches as they streamed in. Kept as
+ * batches rather than joined into one Arrow Table, because DuckDB-WASM ships its
+ * own apache-arrow, and a Table of ours would not take its batches.
+ */
+type SentResult = {
+  schema: { fields: Array<{ name: string; type?: unknown }> };
+  numRows: number;
+  batches: any[];
+};
+
+/** Send a statement and read its whole result, stopping early on cancel. */
+async function readSent(
+  connection: SqlConnection,
+  statement: Sql,
+  cancelled: () => boolean,
+): Promise<SentResult> {
+  // Cancel pressed before the statement went out: do not send it at all.
+  if (cancelled()) throw new Error(QUERY_CANCELLED);
+  const reader = await connection.send(statement);
+  if (!reader) throw new Error('The query engine is not running. Reload the page.');
+  // The schema is read on open and cleared when the stream ends, so take it now.
+  await reader.open();
+  const schema = reader.schema;
+  const batches: any[] = [];
+  for await (const batch of reader) {
+    if (cancelled()) {
+      await Promise.resolve(reader.cancel()).catch(() => {});
+      throw new Error(QUERY_CANCELLED);
+    }
+    batches.push(batch);
+  }
+  const numRows = batches.reduce((n, b) => n + b.numRows, 0);
+  // A statement with no result at all (DDL, CREATE TABLE AS) streams nothing,
+  // not even a schema; `query()` gave an empty table there, and so does this.
+  return { schema: schema ?? { fields: [] }, numRows, batches };
+}
 
 /**
  * Format an arbitrary thrown value for logging. DuckDB-WASM errors frequently
@@ -140,6 +184,10 @@ export class LoQEEngine {
   private installedExtensions = new Set<string>();
   private _activeConnection: SqlConnection | null = null;
   private _cancelRequested = false;
+  /** Connections with profiling switched on (false: it could not be). */
+  private _profiled = new WeakMap<SqlConnection, boolean>();
+  /** Names each run's profile file. */
+  private _profileSeq = 0;
   // Bundled (self-hosted) extension repository, resolved at init from the app
   // origin. Used by default so extensions load offline instead of from the CDN.
   private bundledExtensionRepo = '';
@@ -316,33 +364,58 @@ export class LoQEEngine {
     const start = performance.now();
     const pooled = await this.pool.acquire();
     this._activeConnection = pooled.connection;
+    const profileFile = await this.startProfile(pooled);
+    /** Set when a timed-out statement would not let go of the connection. */
+    let stuck = false;
+    let lastSql = '';
 
     try {
       // ── Timeout guardrail ─────────────────────────────────────────
-      const exec = async (q: Sql): Promise<any> => {
-        if (timeoutMs > 0) {
-          const queryPromise = pooled.connection.query(q);
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
-                      `You can increase the timeout in Settings.`,
-                  ),
-                ),
-              timeoutMs,
+      // Sent, not queried: only a sent statement stops on `cancelSent()`, so
+      // Cancel/Esc and the timeout end the query instead of waiting it out.
+      const exec = async (q: Sql): Promise<SentResult> => {
+        lastSql = sqlText(q);
+        const run = readSent(pooled.connection, q, () => this._cancelRequested);
+        if (timeoutMs <= 0) return run;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<never>((_, reject) => {
+          timer = setTimeout(async () => {
+            // Interrupt it, and keep the connection until the statement has
+            // let go of it: handed on still running, the next query on it
+            // would read this one's stream. cancelSent() only lands between
+            // DuckDB-WASM's polls of a pending query, so how long that takes
+            // is not promised — wait a bounded time, and past it retire the
+            // connection rather than reuse it.
+            pooled.connection.cancelSent().catch(() => {});
+            const settled = await Promise.race([
+              run.then(
+                () => true,
+                () => true,
+              ),
+              new Promise<boolean>((done) => setTimeout(() => done(false), CANCEL_SETTLE_MS)),
+            ]);
+            if (!settled) stuck = true;
+            reject(
+              new Error(
+                `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
+                  `You can increase the timeout in Settings.`,
+              ),
             );
-          });
-          return Promise.race([queryPromise, timeoutPromise]);
+          }, timeoutMs);
+        });
+        try {
+          return await Promise.race([run, timeout]);
+        } finally {
+          clearTimeout(timer);
         }
-        return pooled.connection.query(q);
       };
 
-      let result: any;
+      let result: SentResult;
       try {
         result = await exec(statement);
       } catch (err: any) {
+        // An interrupted statement fails with DuckDB's own wording; say what happened.
+        if (this._cancelRequested) throw new Error(QUERY_CANCELLED);
         // Log the failing statement and the FULL error — DuckDB's `.message` is
         // often empty (e.g. "Invalid Configuration Error:"), so dump everything.
         console.error(`[LoQE] query FAILED on SQL:\n${statement}\n`, describeError(err));
@@ -366,7 +439,7 @@ export class LoQEEngine {
       }
       const elapsed = performance.now() - start;
 
-      const columns = result.schema.fields.map((f: any) => f.name);
+      const columns: string[] = result.schema.fields.map((f: any) => f.name);
       const rows: any[][] = [];
       const totalRows = result.numRows;
       const rowsToRead = Math.min(totalRows, maxRows);
@@ -381,18 +454,24 @@ export class LoQEEngine {
       // main thread stays responsive during large result sets.
       const BATCH_SIZE = 2000;
 
-      for (let i = 0; i < rowsToRead; i++) {
-        const row: any[] = [];
-        for (let j = 0; j < result.numCols; j++) {
-          // Flattened here, at the boundary: an Arrow struct/map row is a proxy
-          // that Vue's reactive() cannot wrap (see toPlainCellValue).
-          row.push(toPlainCellValue(result.getChildAt(j)?.get(i)));
-        }
-        rows.push(row);
+      // Per column, from its type: dates and times as text, structs as JSON.
+      const readCell = result.schema.fields.map((f: any) => cellReader(f.type));
+      let read = 0;
+      for (const batch of result.batches) {
+        if (read >= rowsToRead) break;
+        for (let r = 0; r < batch.numRows && read < rowsToRead; r++, read++) {
+          const row: any[] = [];
+          for (let j = 0; j < columns.length; j++) {
+            // Flattened here, at the boundary: an Arrow struct/map row is a proxy
+            // that Vue's reactive() cannot wrap (see toPlainCellValue).
+            row.push(readCell[j](batch.getChildAt(j), r));
+          }
+          rows.push(row);
 
-        if (i > 0 && i % BATCH_SIZE === 0) {
-          await new Promise<void>((r) => setTimeout(r, 0));
-          if (this._cancelRequested) throw new Error('Query cancelled.');
+          if (read > 0 && read % BATCH_SIZE === 0) {
+            await new Promise<void>((res) => setTimeout(res, 0));
+            if (this._cancelRequested) throw new Error(QUERY_CANCELLED);
+          }
         }
       }
 
@@ -403,10 +482,76 @@ export class LoQEEngine {
         totalRowCount: totalRows,
         truncated: totalRows > maxRows,
         executionTimeMs: elapsed,
+        profile: profileFile ? await this.readProfile(profileFile, lastSql) : null,
       };
     } finally {
       this._activeConnection = null;
-      this.pool.release(pooled);
+      if (profileFile) this.db?.dropFile(profileFile).catch(() => {});
+      if (stuck) {
+        console.warn('[LoQE] a timed-out query did not stop; its connection is retired');
+        this.pool.discard(pooled);
+      } else {
+        this.pool.release(pooled);
+      }
+    }
+  }
+
+  /**
+   * Point this connection's profiler at a fresh in-memory file for the run
+   * about to start, switching profiling on first if it is not yet. Returns
+   * the file, or null when profiling is unavailable: a query never fails
+   * because its profile could not be taken.
+   *
+   * A file per run, dropped after it is read, because reusing one does not
+   * hold in DuckDB-WASM: a later profile overwrites it without truncating
+   * (a shorter one leaves the longer one's tail), and once a statement has
+   * failed the buffer starts with junk and further profiles are appended.
+   */
+  private async startProfile(pooled: PooledConnection): Promise<string | null> {
+    const conn = pooled.connection;
+    try {
+      if (!this._profiled.has(conn)) {
+        this._profiled.set(conn, false);
+        await conn.query(sql`PRAGMA enable_profiling = 'json'`);
+        // Writes too (INSERT, CREATE TABLE AS), not only SELECT.
+        await conn.query(sql`SET profiling_coverage = 'ALL'`);
+        this._profiled.set(conn, true);
+      }
+      if (!this._profiled.get(conn)) return null;
+      const file = `loqe-profile-${++this._profileSeq}.json`;
+      await this.db!.registerEmptyFileBuffer(file);
+      await conn.query(sql`SET profiling_output = ${literal(file)}`);
+      return file;
+    } catch (e) {
+      console.warn('[LoQE] profiling unavailable:', describeError(e));
+      return null;
+    }
+  }
+
+  /**
+   * Read the profile DuckDB wrote for the statement that just ran. A failed
+   * statement writes none, which leaves the setup statement's profile in the
+   * file: one naming another statement is dropped rather than shown as this run's.
+   */
+  private async readProfile(file: string, statement: string): Promise<LoQERunProfile | null> {
+    try {
+      const bytes = await this.db!.copyFileToBuffer(file);
+      const profile = parseRunProfile(new TextDecoder().decode(bytes));
+      if (!profile) {
+        console.info('[LoQE] no profile for this run: DuckDB wrote none, or not as JSON');
+        return null;
+      }
+      if (profile.queryName.trim() !== statement.trim()) {
+        console.info('[LoQE] profile dropped: it is of another statement', {
+          ran: statement.slice(0, 120),
+          profiled: profile.queryName.slice(0, 120),
+        });
+        return null;
+      }
+      return profile;
+    } catch (e) {
+      console.info('[LoQE] profile unreadable:', describeError(e));
+      return null;
     }
   }
 

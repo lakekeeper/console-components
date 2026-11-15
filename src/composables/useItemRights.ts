@@ -46,7 +46,11 @@ function operationOf(t: ItemTarget, action: string): any {
     return { warehouse: { action: act, 'warehouse-id': t.warehouseId } };
   }
   if (t.kind === 'namespace') {
-    return { namespace: { action: act, namespace: t.namespace, 'warehouse-id': t.warehouseId } };
+    // The server requires a destination for `move`. "May it move at all" is the
+    // question here, and the namespace's own path stands for "anywhere it may
+    // go"; the caller asks for room at the destination separately.
+    const nsAct = action === 'move' ? { action, destination: t.namespace } : act;
+    return { namespace: { action: nsAct, namespace: t.namespace, 'warehouse-id': t.warehouseId } };
   }
   // The check takes `table` / `table-id` for every tabular kind.
   const ident = t.id

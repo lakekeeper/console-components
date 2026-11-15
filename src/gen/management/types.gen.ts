@@ -4503,7 +4503,8 @@ export type SearchTabular = {
 
 export type SearchTabularRequest = {
     /**
-     * Name, UUID, or storage path of a table or view. A name is cut to 64 characters.
+     * Search string for fuzzy search.
+     * Length is truncated to 64 characters.
      */
     search: string;
 };

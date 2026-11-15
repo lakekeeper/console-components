@@ -71,6 +71,31 @@ export class ConnectionPool {
   }
 
   /**
+   * Take a leased connection out of the pool for good — one a statement would
+   * not let go of — and close it without waiting. A caller queued for a
+   * connection gets a new one in its place.
+   */
+  discard(pooled: PooledConnection): void {
+    this.pool = this.pool.filter((c) => c !== pooled);
+    pooled.connection.close().catch(() => {});
+    if (this._disposed || this.waitQueue.length === 0) return;
+    const resolve = this.waitQueue.shift()!;
+    SqlConnection.open(this.db).then(
+      (conn) => {
+        const fresh: PooledConnection = {
+          id: this.nextId++,
+          connection: conn,
+          inUse: true,
+          lastUsed: Date.now(),
+        };
+        this.pool.push(fresh);
+        resolve(fresh);
+      },
+      () => this.waitQueue.unshift(resolve),
+    );
+  }
+
+  /**
    * Close idle (not in-use) connections to free WASM / JS memory.
    * Active connections are left untouched.
    */

@@ -630,6 +630,7 @@ export {
   ROW_LIMIT_OPTIONS,
   TIMEOUT_OPTIONS,
   HISTORY_PER_TAB_OPTIONS,
+  HISTORY_MAX_OPTIONS,
 } from './stores/duckdbSettings';
 export type { DuckDBSettings } from './stores/duckdbSettings';
 export { default as DuckDBSettingsDialog } from './components/DuckDBSettingsDialog.vue';
