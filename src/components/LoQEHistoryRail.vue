@@ -23,159 +23,165 @@
         <template v-if="expanded">Runs in this tab show up here.</template>
       </div>
 
-      <v-menu
+      <button
         v-for="(entry, index) in entries"
         :key="entry.id"
-        :model-value="openId === entry.id"
+        type="button"
+        aria-haspopup="dialog"
+        :aria-expanded="openId === entry.id"
+        class="history-rail__item"
+        :class="{
+          'history-rail__item--last': index === entries.length - 1,
+          'history-rail__item--open': openId === entry.id,
+        }"
+        :aria-label="`${entry.name ?? 'Run'} ${date(entry.executedAt)}, ${outcome(entry)}`"
+        @click="openFor(entry, $event)">
+        <span
+          class="history-rail__dot"
+          :class="entry.error ? 'history-rail__dot--error' : 'history-rail__dot--ok'" />
+        <span v-if="expanded" class="history-rail__meta">
+          <!-- A named run leads with its name: it is the title, the date is detail. -->
+          <span v-if="entry.name" class="history-rail__name">
+            <v-icon size="12" class="mr-1">mdi-tag-outline</v-icon>
+            {{ entry.name }}
+          </span>
+          <span class="text-caption">{{ when(entry.executedAt) }}</span>
+          <span class="text-caption" :class="entry.error ? 'text-error' : 'text-medium-emphasis'">
+            {{ outcome(entry) }}
+          </span>
+          <span class="history-rail__sql">{{ oneLine(entry.sql) }}</span>
+        </span>
+      </button>
+
+      <!-- One menu for every run, opened beside the run clicked: a menu per run
+           would mount hundreds of components once a tab keeps a long history. -->
+      <v-menu
+        :model-value="!!openEntry"
+        :target="menuTarget"
         location="end top"
         offset="8"
         :close-on-content-click="false"
-        @update:model-value="(open) => toggle(entry, open)">
-        <template #activator="{ props: menuProps }">
-          <button
-            v-bind="menuProps"
-            type="button"
-            class="history-rail__item"
-            :class="{ 'history-rail__item--last': index === entries.length - 1 }"
-            :aria-label="`${entry.name ?? 'Run'} ${date(entry.executedAt)}, ${outcome(entry)}`">
-            <span
-              class="history-rail__dot"
-              :class="entry.error ? 'history-rail__dot--error' : 'history-rail__dot--ok'" />
-            <span v-if="expanded" class="history-rail__meta">
-              <!-- A named run leads with its name: it is the title, the date is detail. -->
-              <span v-if="entry.name" class="history-rail__name">
-                <v-icon size="12" class="mr-1">mdi-tag-outline</v-icon>
-                {{ entry.name }}
-              </span>
-              <span class="text-caption">{{ when(entry.executedAt) }}</span>
-              <span
-                class="text-caption"
-                :class="entry.error ? 'text-error' : 'text-medium-emphasis'">
-                {{ outcome(entry) }}
-              </span>
-              <span class="history-rail__sql">{{ oneLine(entry.sql) }}</span>
-            </span>
-          </button>
-        </template>
-
-        <!-- Wide enough for the four actions on one row; wraps only on a narrow screen. -->
-        <v-card width="640" max-width="calc(100vw - 32px)" class="history-rail__card">
-          <v-card-text class="pb-2">
-            <!-- A visible, labelled field: the name is editable, and says so. -->
-            <div class="d-flex align-center ga-2 mb-3">
-              <v-text-field
-                v-model="draftName"
-                label="Name"
-                placeholder="Untitled run"
-                persistent-placeholder
-                prepend-inner-icon="mdi-pencil-outline"
-                variant="outlined"
-                density="compact"
-                hide-details
-                class="history-rail__name-field"
-                aria-label="Run name"
-                @keydown.enter.prevent="saveName(entry)"
-                @blur="saveName(entry)" />
-              <v-btn
-                v-if="!confirmingRemove"
-                variant="text"
-                color="error"
-                class="text-none"
-                prepend-icon="mdi-delete-outline"
-                aria-label="Remove from history"
-                @click="confirmingRemove = true">
-                Remove
-              </v-btn>
-            </div>
-            <v-alert
-              v-if="confirmingRemove"
-              type="error"
-              variant="tonal"
-              density="compact"
-              class="mb-3"
-              role="alertdialog"
-              aria-label="Remove this run from history?">
-              <div class="d-flex align-center flex-wrap ga-2">
-                <span class="flex-grow-1">
-                  Remove this run from history? This cannot be undone.
-                </span>
+        @update:model-value="(open) => !open && close()">
+        <template v-if="openEntry">
+          <!-- Wide enough for the four actions on one row; wraps only on a narrow screen. -->
+          <v-card width="640" max-width="calc(100vw - 32px)" class="history-rail__card">
+            <v-card-text class="pb-2">
+              <!-- A visible, labelled field: the name is editable, and says so. -->
+              <div class="d-flex align-center ga-2 mb-3">
+                <v-text-field
+                  v-model="draftName"
+                  label="Name"
+                  placeholder="Untitled run"
+                  persistent-placeholder
+                  prepend-inner-icon="mdi-pencil-outline"
+                  variant="outlined"
+                  density="compact"
+                  hide-details
+                  class="history-rail__name-field"
+                  aria-label="Run name"
+                  @keydown.enter.prevent="saveName(openEntry)"
+                  @blur="saveName(openEntry)" />
                 <v-btn
-                  density="comfortable"
+                  v-if="!confirmingRemove"
                   variant="text"
-                  class="text-none"
-                  @click="confirmingRemove = false">
-                  Cancel
-                </v-btn>
-                <v-btn
-                  density="comfortable"
-                  variant="flat"
                   color="error"
                   class="text-none"
-                  aria-label="Confirm remove"
-                  @click="remove(entry)">
+                  prepend-icon="mdi-delete-outline"
+                  aria-label="Remove from history"
+                  @click="confirmingRemove = true">
                   Remove
                 </v-btn>
               </div>
-            </v-alert>
-            <div class="d-flex align-center ga-2 text-caption mb-2">
-              <v-icon size="14" :color="entry.error ? 'error' : 'success'">
-                {{ entry.error ? 'mdi-close-circle' : 'mdi-check-circle' }}
-              </v-icon>
-              <span>{{ date(entry.executedAt) }}</span>
-              <span class="text-medium-emphasis">
-                · {{ outcome(entry) }} · {{ entry.durationMs.toFixed(0) }}ms
-              </span>
-            </div>
-            <pre class="history-rail__card-sql" tabindex="0" aria-label="SQL of this run">{{
-              entry.sql.trim()
-            }}</pre>
-            <div v-if="entry.error" class="text-caption text-error mt-2 history-rail__error">
-              {{ firstLine(entry.error) }}
-            </div>
-          </v-card-text>
-          <v-card-actions class="flex-wrap ga-1 px-3 pb-3 pt-0">
-            <v-btn
-              density="comfortable"
-              variant="tonal"
-              color="primary"
-              class="text-none"
-              prepend-icon="mdi-file-replace-outline"
-              @click="act(() => emit('replace', entry.sql))">
-              Replace editor text
-            </v-btn>
-            <v-btn
-              density="comfortable"
-              variant="text"
-              class="text-none"
-              prepend-icon="mdi-tab-plus"
-              @click="act(() => emit('openNewTab', entry))">
-              Open in new tab
-            </v-btn>
-            <v-btn
-              density="comfortable"
-              variant="text"
-              class="text-none"
-              prepend-icon="mdi-text-box-plus-outline"
-              @click="act(() => emit('insert', entry.sql))">
-              Insert at cursor
-            </v-btn>
-            <v-btn
-              density="comfortable"
-              variant="text"
-              class="text-none"
-              prepend-icon="mdi-content-copy"
-              @click="act(() => copy(entry.sql))">
-              Copy
-            </v-btn>
-          </v-card-actions>
-        </v-card>
+              <v-alert
+                v-if="confirmingRemove"
+                type="error"
+                variant="tonal"
+                density="compact"
+                class="mb-3"
+                role="alertdialog"
+                aria-label="Remove this run from history?">
+                <div class="d-flex align-center flex-wrap ga-2">
+                  <span class="flex-grow-1">
+                    Remove this run from history? This cannot be undone.
+                  </span>
+                  <v-btn
+                    density="comfortable"
+                    variant="text"
+                    class="text-none"
+                    @click="confirmingRemove = false">
+                    Cancel
+                  </v-btn>
+                  <v-btn
+                    density="comfortable"
+                    variant="flat"
+                    color="error"
+                    class="text-none"
+                    aria-label="Confirm remove"
+                    @click="remove(openEntry)">
+                    Remove
+                  </v-btn>
+                </div>
+              </v-alert>
+              <div class="d-flex align-center ga-2 text-caption mb-2">
+                <v-icon size="14" :color="openEntry.error ? 'error' : 'success'">
+                  {{ openEntry.error ? 'mdi-close-circle' : 'mdi-check-circle' }}
+                </v-icon>
+                <span>{{ date(openEntry.executedAt) }}</span>
+                <span class="text-medium-emphasis">
+                  · {{ outcome(openEntry) }} · {{ openEntry.durationMs.toFixed(0) }}ms
+                </span>
+              </div>
+              <pre class="history-rail__card-sql" tabindex="0" aria-label="SQL of this run">{{
+                openEntry.sql.trim()
+              }}</pre>
+              <div v-if="openEntry.error" class="text-caption text-error mt-2 history-rail__error">
+                {{ firstLine(openEntry.error) }}
+              </div>
+            </v-card-text>
+            <v-card-actions class="flex-wrap ga-1 px-3 pb-3 pt-0">
+              <v-btn
+                density="comfortable"
+                variant="tonal"
+                color="primary"
+                class="text-none"
+                prepend-icon="mdi-file-replace-outline"
+                @click="act((e) => emit('replace', e.sql))">
+                Replace editor text
+              </v-btn>
+              <v-btn
+                density="comfortable"
+                variant="text"
+                class="text-none"
+                prepend-icon="mdi-tab-plus"
+                @click="act((e) => emit('openNewTab', e))">
+                Open in new tab
+              </v-btn>
+              <v-btn
+                density="comfortable"
+                variant="text"
+                class="text-none"
+                prepend-icon="mdi-text-box-plus-outline"
+                @click="act((e) => emit('insert', e.sql))">
+                Insert at cursor
+              </v-btn>
+              <v-btn
+                density="comfortable"
+                variant="text"
+                class="text-none"
+                prepend-icon="mdi-content-copy"
+                @click="act((e) => copy(e.sql))">
+                Copy
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </template>
       </v-menu>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { LoQEHistoryEntry } from '../composables/loqe/types';
 
 /**
@@ -207,15 +213,23 @@ const draftName = ref('');
 /** Remove asks once, in place: the first click arms it, the second removes. */
 const confirmingRemove = ref(false);
 
-function toggle(entry: LoQEHistoryEntry, open: boolean) {
+/** The run whose card is open, and the element its card opens beside. */
+const openEntry = computed(() => props.entries.find((e) => e.id === openId.value) ?? null);
+const menuTarget = ref<Element | undefined>();
+
+function openFor(entry: LoQEHistoryEntry, event: MouseEvent) {
+  if (openId.value === entry.id) return close();
+  if (openEntry.value) saveName(openEntry.value);
   confirmingRemove.value = false;
-  if (open) {
-    openId.value = entry.id;
-    draftName.value = entry.name ?? '';
-  } else if (openId.value === entry.id) {
-    saveName(entry);
-    openId.value = null;
-  }
+  menuTarget.value = event.currentTarget as Element;
+  openId.value = entry.id;
+  draftName.value = entry.name ?? '';
+}
+
+function close() {
+  if (openEntry.value) saveName(openEntry.value);
+  confirmingRemove.value = false;
+  openId.value = null;
 }
 
 function saveName(entry: LoQEHistoryEntry) {
@@ -223,12 +237,11 @@ function saveName(entry: LoQEHistoryEntry) {
   if (name !== (entry.name ?? '')) emit('rename', entry.id, name);
 }
 
-/** Run an action from the card, keeping a typed name, then close it. */
-function act(run: () => void) {
-  const entry = props.entries.find((e) => e.id === openId.value);
-  if (entry) saveName(entry);
-  openId.value = null;
-  run();
+/** Run an action on the open run, keeping a typed name, then close the card. */
+function act(run: (entry: LoQEHistoryEntry) => void) {
+  const entry = openEntry.value;
+  close();
+  if (entry) run(entry);
 }
 
 function remove(entry: LoQEHistoryEntry) {
@@ -418,5 +431,8 @@ async function copy(sql: string) {
 }
 .history-rail__error {
   word-break: break-word;
+}
+.history-rail__item--open {
+  background: rgba(var(--v-theme-primary), 0.08);
 }
 </style>

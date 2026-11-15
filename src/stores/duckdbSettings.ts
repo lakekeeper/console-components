@@ -72,10 +72,15 @@ export const DUCKDB_DEFAULTS = {
   extensionRepository: '',
   /** Query runs kept in history per query tab; older runs drop off. */
   historyPerTab: 50,
+  /** Query runs kept in history in all, across tabs; the oldest drop off. */
+  historyMax: 1000,
 };
 
 /** Presets for how many runs each query tab keeps in its history. */
-export const HISTORY_PER_TAB_OPTIONS: number[] = [10, 25, 50, 100];
+export const HISTORY_PER_TAB_OPTIONS: number[] = [10, 25, 50, 100, 250, 500, 1000];
+
+/** Presets for how many runs the whole history keeps (IndexedDB, per browser). */
+export const HISTORY_MAX_OPTIONS: number[] = [200, 500, 1000, 5000, 10000];
 
 /** Row count presets for the UI selector. */
 export const ROW_LIMIT_OPTIONS = [
@@ -100,6 +105,7 @@ export interface DuckDBSettings {
   maxResultSizeMB: number;
   extensionRepository: string;
   historyPerTab: number;
+  historyMax: number;
 }
 
 /**
@@ -120,6 +126,7 @@ export const useDuckDBSettingsStore = defineStore(
     const maxResultSizeMB = ref(DUCKDB_DEFAULTS.maxResultSizeMB);
     const extensionRepository = ref<string>(DUCKDB_DEFAULTS.extensionRepository);
     const historyPerTab = ref<number>(DUCKDB_DEFAULTS.historyPerTab);
+    const historyMax = ref<number>(DUCKDB_DEFAULTS.historyMax);
 
     // ── Getters ─────────────────────────────────────────────────────
 
@@ -137,6 +144,7 @@ export const useDuckDBSettingsStore = defineStore(
       maxResultSizeMB: maxResultSizeMB.value,
       extensionRepository: extensionRepository.value,
       historyPerTab: historyPerTab.value,
+      historyMax: historyMax.value,
     }));
 
     // ── Actions ─────────────────────────────────────────────────────
@@ -149,6 +157,7 @@ export const useDuckDBSettingsStore = defineStore(
       maxResultSizeMB.value = DUCKDB_DEFAULTS.maxResultSizeMB;
       extensionRepository.value = DUCKDB_DEFAULTS.extensionRepository;
       historyPerTab.value = DUCKDB_DEFAULTS.historyPerTab;
+      historyMax.value = DUCKDB_DEFAULTS.historyMax;
     }
 
     // ── Memory helpers ──────────────────────────────────────────────
@@ -254,6 +263,7 @@ export const useDuckDBSettingsStore = defineStore(
       maxResultSizeMB,
       extensionRepository,
       historyPerTab,
+      historyMax,
       // Getters
       queryTimeoutMs,
       settings,

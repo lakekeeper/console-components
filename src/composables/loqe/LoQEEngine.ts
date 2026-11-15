@@ -7,9 +7,11 @@ import { CatalogManager } from './CatalogManager';
 import { useDuckDBSettingsStore, DUCKDB_DEFAULTS } from '@/stores/duckdbSettings';
 import { explainQueryFailure } from './queryError';
 import { createWorkerBootstrap } from './workerBootstrap';
-import { toPlainCellValue } from './arrowValue';
+import { cellConverter } from './arrowValue';
 import { ident, join, literal, splitStatements, sql, sqlText, type Sql } from './sql';
 import type { SqlConnection } from './SqlConnection';
+import { parseRunProfile, type LoQERunProfile } from './runProfile';
+import type { PooledConnection } from './types';
 
 const QUERY_CANCELLED = 'Query cancelled.';
 
@@ -18,7 +20,11 @@ const QUERY_CANCELLED = 'Query cancelled.';
  * batches rather than joined into one Arrow Table, because DuckDB-WASM ships its
  * own apache-arrow, and a Table of ours would not take its batches.
  */
-type SentResult = { schema: { fields: Array<{ name: string }> }; numRows: number; batches: any[] };
+type SentResult = {
+  schema: { fields: Array<{ name: string; type?: unknown }> };
+  numRows: number;
+  batches: any[];
+};
 
 /** Send a statement and read its whole result, stopping early on cancel. */
 async function readSent(
@@ -174,6 +180,10 @@ export class LoQEEngine {
   private installedExtensions = new Set<string>();
   private _activeConnection: SqlConnection | null = null;
   private _cancelRequested = false;
+  /** Connections with profiling switched on (false: it could not be). */
+  private _profiled = new WeakMap<SqlConnection, boolean>();
+  /** Names each run's profile file. */
+  private _profileSeq = 0;
   // Bundled (self-hosted) extension repository, resolved at init from the app
   // origin. Used by default so extensions load offline instead of from the CDN.
   private bundledExtensionRepo = '';
@@ -350,12 +360,15 @@ export class LoQEEngine {
     const start = performance.now();
     const pooled = await this.pool.acquire();
     this._activeConnection = pooled.connection;
+    const profileFile = await this.startProfile(pooled);
+    let lastSql = '';
 
     try {
       // ── Timeout guardrail ─────────────────────────────────────────
       // Sent, not queried: only a sent statement stops on `cancelSent()`, so
       // Cancel/Esc and the timeout end the query instead of waiting it out.
       const exec = async (q: Sql): Promise<SentResult> => {
+        lastSql = sqlText(q);
         const run = readSent(pooled.connection, q, () => this._cancelRequested);
         if (timeoutMs <= 0) return run;
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -421,6 +434,8 @@ export class LoQEEngine {
       // main thread stays responsive during large result sets.
       const BATCH_SIZE = 2000;
 
+      // Per column, from its type: dates and times as text, structs as JSON.
+      const convert = result.schema.fields.map((f: any) => cellConverter(f.type));
       let read = 0;
       for (const batch of result.batches) {
         if (read >= rowsToRead) break;
@@ -429,7 +444,7 @@ export class LoQEEngine {
           for (let j = 0; j < columns.length; j++) {
             // Flattened here, at the boundary: an Arrow struct/map row is a proxy
             // that Vue's reactive() cannot wrap (see toPlainCellValue).
-            row.push(toPlainCellValue(batch.getChildAt(j)?.get(r)));
+            row.push(convert[j](batch.getChildAt(j)?.get(r)));
           }
           rows.push(row);
 
@@ -447,10 +462,71 @@ export class LoQEEngine {
         totalRowCount: totalRows,
         truncated: totalRows > maxRows,
         executionTimeMs: elapsed,
+        profile: profileFile ? await this.readProfile(profileFile, lastSql) : null,
       };
     } finally {
       this._activeConnection = null;
+      if (profileFile) this.db?.dropFile(profileFile).catch(() => {});
       this.pool.release(pooled);
+    }
+  }
+
+  /**
+   * Point this connection's profiler at a fresh in-memory file for the run
+   * about to start, switching profiling on first if it is not yet. Returns
+   * the file, or null when profiling is unavailable: a query never fails
+   * because its profile could not be taken.
+   *
+   * A file per run, dropped after it is read, because reusing one does not
+   * hold in DuckDB-WASM: a later profile overwrites it without truncating
+   * (a shorter one leaves the longer one's tail), and once a statement has
+   * failed the buffer starts with junk and further profiles are appended.
+   */
+  private async startProfile(pooled: PooledConnection): Promise<string | null> {
+    const conn = pooled.connection;
+    try {
+      if (!this._profiled.has(conn)) {
+        this._profiled.set(conn, false);
+        await conn.query(sql`PRAGMA enable_profiling = 'json'`);
+        // Writes too (INSERT, CREATE TABLE AS), not only SELECT.
+        await conn.query(sql`SET profiling_coverage = 'ALL'`);
+        this._profiled.set(conn, true);
+      }
+      if (!this._profiled.get(conn)) return null;
+      const file = `loqe-profile-${++this._profileSeq}.json`;
+      await this.db!.registerEmptyFileBuffer(file);
+      await conn.query(sql`SET profiling_output = ${literal(file)}`);
+      return file;
+    } catch (e) {
+      console.warn('[LoQE] profiling unavailable:', describeError(e));
+      return null;
+    }
+  }
+
+  /**
+   * Read the profile DuckDB wrote for the statement that just ran. A failed
+   * statement writes none, which leaves the setup statement's profile in the
+   * file: one naming another statement is dropped rather than shown as this run's.
+   */
+  private async readProfile(file: string, statement: string): Promise<LoQERunProfile | null> {
+    try {
+      const bytes = await this.db!.copyFileToBuffer(file);
+      const profile = parseRunProfile(new TextDecoder().decode(bytes));
+      if (!profile) {
+        console.info('[LoQE] no profile for this run: DuckDB wrote none, or not as JSON');
+        return null;
+      }
+      if (profile.queryName.trim() !== statement.trim()) {
+        console.info('[LoQE] profile dropped: it is of another statement', {
+          ran: statement.slice(0, 120),
+          profiled: profile.queryName.slice(0, 120),
+        });
+        return null;
+      }
+      return profile;
+    } catch (e) {
+      console.info('[LoQE] profile unreadable:', describeError(e));
+      return null;
     }
   }
 

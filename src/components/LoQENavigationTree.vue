@@ -283,6 +283,9 @@
                 item.type === 'status',
             }"
             :data-node-id="item.id"
+            :draggable="!!dragText(item)"
+            :title="dragText(item) ? 'Double-click or drag into the editor' : undefined"
+            @dragstart="onDragStart($event, item)"
             @dblclick.stop="handleRowDblClick(item)">
             <span
               v-if="item.type === 'load-more'"
@@ -433,6 +436,7 @@ import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
 import { logError, isForbiddenError } from '@/common/errorUtils';
 import type { AttachedCatalog } from '../composables/loqe/types';
+import { treeItemSql } from '../composables/loqe/treeItemSql';
 import type { SearchTabular } from '@/gen/management/types.gen';
 import { warehouseIconSpec, type IconSpec } from '@/common/storageIcon';
 import { usePinnedObjects, type PinnedObject } from '@/composables/usePinnedObjects';
@@ -1771,6 +1775,23 @@ function insertPin(pin: PinnedObject) {
 // ── Emit handlers ─────────────────────────────────────────────────────
 
 /** Double-click inserts, as in DataGrip/DBeaver; the row icon stays for discovery. */
+/** The SQL a table, view or field row carries when dragged; empty for other rows. */
+function dragText(item: TreeItem): string {
+  return treeItemSql({ ...item, warehouseName: item.warehouseName || '' });
+}
+
+/**
+ * Drag a table, view or field into the editor: it lands where it is dropped,
+ * as the same text a double-click inserts. The editor (CodeMirror) takes the
+ * plain text itself and shows where it will go while dragging.
+ */
+function onDragStart(event: DragEvent, item: TreeItem) {
+  const text = dragText(item);
+  if (!text || !event.dataTransfer) return;
+  event.dataTransfer.setData('text/plain', text);
+  event.dataTransfer.effectAllowed = 'copy';
+}
+
 function handleRowDblClick(item: TreeItem) {
   if (item.type === 'table' || item.type === 'view') handleInsertPath(item);
   else if (item.type === 'field') handleInsertField(item);

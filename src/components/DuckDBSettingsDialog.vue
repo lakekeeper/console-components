@@ -114,6 +114,15 @@
           variant="outlined"
           density="comfortable"
           class="mb-3" />
+        <v-select
+          v-model="store.historyMax"
+          :items="historyMaxItems"
+          label="Runs kept in all"
+          hint="Across every tab, in this browser only. The oldest runs and their plans drop off; lowering this trims history now."
+          persistent-hint
+          variant="outlined"
+          density="comfortable"
+          class="mb-3" />
 
         <!-- Extension Repository URL -->
         <v-text-field
@@ -189,6 +198,7 @@ import {
   ROW_LIMIT_OPTIONS,
   TIMEOUT_OPTIONS,
   HISTORY_PER_TAB_OPTIONS,
+  HISTORY_MAX_OPTIONS,
 } from '@/stores/duckdbSettings';
 
 export interface FreeMemoryResult {
@@ -278,4 +288,6 @@ async function handleFreeMemory() {
 onMounted(() => {
   refreshMemory();
 });
+
+const historyMaxItems = HISTORY_MAX_OPTIONS.map((n) => ({ title: n.toLocaleString(), value: n }));
 </script>
