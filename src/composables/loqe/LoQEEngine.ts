@@ -11,6 +11,40 @@ import { toPlainCellValue } from './arrowValue';
 import { ident, join, literal, splitStatements, sql, sqlText, type Sql } from './sql';
 import type { SqlConnection } from './SqlConnection';
 
+const QUERY_CANCELLED = 'Query cancelled.';
+
+/**
+ * A sent statement's result: its record batches as they streamed in. Kept as
+ * batches rather than joined into one Arrow Table, because DuckDB-WASM ships its
+ * own apache-arrow, and a Table of ours would not take its batches.
+ */
+type SentResult = { schema: { fields: Array<{ name: string }> }; numRows: number; batches: any[] };
+
+/** Send a statement and read its whole result, stopping early on cancel. */
+async function readSent(
+  connection: SqlConnection,
+  statement: Sql,
+  cancelled: () => boolean,
+): Promise<SentResult> {
+  const reader = await connection.send(statement);
+  if (!reader) throw new Error('The query engine is not running. Reload the page.');
+  // The schema is read on open and cleared when the stream ends, so take it now.
+  await reader.open();
+  const schema = reader.schema;
+  const batches: any[] = [];
+  for await (const batch of reader) {
+    if (cancelled()) {
+      await Promise.resolve(reader.cancel()).catch(() => {});
+      throw new Error(QUERY_CANCELLED);
+    }
+    batches.push(batch);
+  }
+  const numRows = batches.reduce((n, b) => n + b.numRows, 0);
+  // A statement with no result at all (DDL, CREATE TABLE AS) streams nothing,
+  // not even a schema; `query()` gave an empty table there, and so does this.
+  return { schema: schema ?? { fields: [] }, numRows, batches };
+}
+
 /**
  * Format an arbitrary thrown value for logging. DuckDB-WASM errors frequently
  * surface as `Error: Invalid Configuration Error:` with an EMPTY message — the
@@ -319,30 +353,36 @@ export class LoQEEngine {
 
     try {
       // ── Timeout guardrail ─────────────────────────────────────────
-      const exec = async (q: Sql): Promise<any> => {
-        if (timeoutMs > 0) {
-          const queryPromise = pooled.connection.query(q);
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
-                      `You can increase the timeout in Settings.`,
-                  ),
-                ),
-              timeoutMs,
+      // Sent, not queried: only a sent statement stops on `cancelSent()`, so
+      // Cancel/Esc and the timeout end the query instead of waiting it out.
+      const exec = async (q: Sql): Promise<SentResult> => {
+        const run = readSent(pooled.connection, q, () => this._cancelRequested);
+        if (timeoutMs <= 0) return run;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const timeout = new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            pooled.connection.cancelSent().catch(() => {});
+            reject(
+              new Error(
+                `Query timed out after ${settingsStore.queryTimeoutSeconds}s. ` +
+                  `You can increase the timeout in Settings.`,
+              ),
             );
-          });
-          return Promise.race([queryPromise, timeoutPromise]);
+          }, timeoutMs);
+        });
+        try {
+          return await Promise.race([run, timeout]);
+        } finally {
+          clearTimeout(timer);
         }
-        return pooled.connection.query(q);
       };
 
-      let result: any;
+      let result: SentResult;
       try {
         result = await exec(statement);
       } catch (err: any) {
+        // An interrupted statement fails with DuckDB's own wording; say what happened.
+        if (this._cancelRequested) throw new Error(QUERY_CANCELLED);
         // Log the failing statement and the FULL error — DuckDB's `.message` is
         // often empty (e.g. "Invalid Configuration Error:"), so dump everything.
         console.error(`[LoQE] query FAILED on SQL:\n${statement}\n`, describeError(err));
@@ -366,7 +406,7 @@ export class LoQEEngine {
       }
       const elapsed = performance.now() - start;
 
-      const columns = result.schema.fields.map((f: any) => f.name);
+      const columns: string[] = result.schema.fields.map((f: any) => f.name);
       const rows: any[][] = [];
       const totalRows = result.numRows;
       const rowsToRead = Math.min(totalRows, maxRows);
@@ -381,18 +421,22 @@ export class LoQEEngine {
       // main thread stays responsive during large result sets.
       const BATCH_SIZE = 2000;
 
-      for (let i = 0; i < rowsToRead; i++) {
-        const row: any[] = [];
-        for (let j = 0; j < result.numCols; j++) {
-          // Flattened here, at the boundary: an Arrow struct/map row is a proxy
-          // that Vue's reactive() cannot wrap (see toPlainCellValue).
-          row.push(toPlainCellValue(result.getChildAt(j)?.get(i)));
-        }
-        rows.push(row);
+      let read = 0;
+      for (const batch of result.batches) {
+        if (read >= rowsToRead) break;
+        for (let r = 0; r < batch.numRows && read < rowsToRead; r++, read++) {
+          const row: any[] = [];
+          for (let j = 0; j < columns.length; j++) {
+            // Flattened here, at the boundary: an Arrow struct/map row is a proxy
+            // that Vue's reactive() cannot wrap (see toPlainCellValue).
+            row.push(toPlainCellValue(batch.getChildAt(j)?.get(r)));
+          }
+          rows.push(row);
 
-        if (i > 0 && i % BATCH_SIZE === 0) {
-          await new Promise<void>((r) => setTimeout(r, 0));
-          if (this._cancelRequested) throw new Error('Query cancelled.');
+          if (read > 0 && read % BATCH_SIZE === 0) {
+            await new Promise<void>((res) => setTimeout(res, 0));
+            if (this._cancelRequested) throw new Error(QUERY_CANCELLED);
+          }
         }
       }
 

@@ -19,6 +19,15 @@ export class SqlConnection {
     return this.#raw.query(sqlText(statement));
   }
 
+  /**
+   * Run a statement step by step, so `cancelSent()` can interrupt it while it
+   * runs; `query()` runs it to the end in one call and cannot be stopped.
+   * The result arrives as a stream of record batches.
+   */
+  send(statement: Sql): ReturnType<AsyncDuckDBConnection['send']> {
+    return this.#raw.send(sqlText(statement), true);
+  }
+
   cancelSent(): Promise<boolean> {
     return this.#raw.cancelSent();
   }
