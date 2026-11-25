@@ -344,7 +344,12 @@ export class LoQEEngine {
    */
   static readonly MAX_RESULT_ROWS = DUCKDB_DEFAULTS.maxResultRows;
 
-  async query(statement: Sql): Promise<LoQEQueryResult> {
+  /**
+   * Run a statement. `maxRows` caps the rows materialized for this query only
+   * (default: the "Max result rows" setting); memory and timeout checks apply
+   * either way.
+   */
+  async query(statement: Sql, options: { maxRows?: number } = {}): Promise<LoQEQueryResult> {
     if (!this._isInitialized || !this._pool) {
       await this.initialize();
     }
@@ -357,7 +362,7 @@ export class LoQEEngine {
       throw new Error(memCheck.message);
     }
 
-    const maxRows = settingsStore.maxResultRows;
+    const maxRows = options.maxRows ?? settingsStore.maxResultRows;
     const timeoutMs = settingsStore.queryTimeoutMs;
 
     this._cancelRequested = false;

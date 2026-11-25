@@ -331,7 +331,6 @@ const csvDownload = useCsvDownload();
 // footer would otherwise push the table's bottom edge (and its horizontal
 // scrollbar) out of sight.
 const { paneRef, paneHeight, measurePane } = usePaneHeight(320);
-const PANE_MIN = 320;
 const PANE_GAP = 12;
 const boundedPaneHeight = ref<string | null>(null);
 
@@ -358,7 +357,9 @@ function boundToHost() {
   const hostRect = host.getBoundingClientRect();
   const padBottom = parseFloat(getComputedStyle(host).paddingBottom) || 0;
   const room = Math.round(hostRect.bottom - padBottom - el.getBoundingClientRect().top - PANE_GAP);
-  boundedPaneHeight.value = `${Math.max(PANE_MIN, Math.min(measured, room))}px`;
+  // The host's room wins over the pane's minimum: a pane taller than its host is
+  // clipped, scrollbar and all.
+  boundedPaneHeight.value = `${Math.max(0, Math.min(measured, room))}px`;
 }
 watch(paneHeight, () => nextTick(boundToHost), { immediate: true });
 
@@ -748,7 +749,11 @@ async function loadPreview() {
     // One row past the chosen limit is read only to learn whether the table
     // holds more; it is dropped again and the result marked as truncated.
     const limit = previewRowLimit.value;
-    const results = await loqe.query(sql`SELECT * FROM ${fromClause} LIMIT ${num(limit + 1)};`);
+    // The preview's own limit also caps what the engine materializes, so it does
+    // not depend on LoQE's "Max result rows".
+    const results = await loqe.query(sql`SELECT * FROM ${fromClause} LIMIT ${num(limit + 1)};`, {
+      maxRows: limit + 1,
+    });
     queryResults.value =
       results.rows.length > limit
         ? { ...results, rows: results.rows.slice(0, limit), rowCount: limit, truncated: true }
