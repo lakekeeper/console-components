@@ -526,8 +526,10 @@ const tableHeaders = computed(() => {
 });
 
 /** Zebra class by the row's place in the whole result (see the style block). */
-function stripeRow({ internalItem }: { internalItem: { index: number } }) {
-  return internalItem.index % 2 === 1 ? { class: 'preview-row--even' } : {};
+// `index` is the row's place in the displayed (sorted) list; the item's own
+// index is its place before sorting, so striping by it breaks after a sort.
+function stripeRow({ index }: { index: number }) {
+  return index % 2 === 1 ? { class: 'preview-row--even' } : {};
 }
 
 // A sideways trackpad swipe over the table moved nothing: the swipe reached the
