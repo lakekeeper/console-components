@@ -1,5 +1,7 @@
 <template>
-  <v-container fluid>
+  <!-- No bottom padding: the results pane bounds itself to the viewport, and
+       padding under it would push the page past the footer. -->
+  <v-container fluid class="pb-0">
     <!-- S3/GCS + HTTP Warning -->
     <v-alert v-if="showS3HttpWarning" type="warning" variant="tonal" class="mb-4" closable>
       <div class="text-body-1 font-weight-bold mb-2">Security Warning</div>
@@ -30,191 +32,237 @@
       </div>
     </v-alert>
 
-    <!-- Loading: a skeleton in the shape of the result, so the layout does not jump -->
-    <div v-if="isLoading">
-      <div class="d-flex align-center mb-3" role="status" aria-live="polite">
-        <v-progress-circular indeterminate size="16" width="2" class="mr-2"></v-progress-circular>
-        <span class="text-caption text-medium-emphasis">Running preview query…</span>
+    <!-- Always mounted, so usePaneHeight can observe it from the start; it only
+         takes the measured height once there are results to bound. -->
+    <div
+      ref="paneRef"
+      :class="{ 'd-flex flex-column': showResults }"
+      :style="showResults ? { height: boundedPaneHeight ?? '60vh', minHeight: 0 } : undefined">
+      <!-- Loading: a skeleton in the shape of the result, so the layout does not jump -->
+      <div v-if="isLoading">
+        <div class="d-flex align-center mb-3" role="status" aria-live="polite">
+          <v-progress-circular indeterminate size="16" width="2" class="mr-2"></v-progress-circular>
+          <span class="text-caption text-medium-emphasis">Running preview query…</span>
+        </div>
+        <v-card variant="outlined">
+          <v-skeleton-loader type="table-thead, table-tbody"></v-skeleton-loader>
+        </v-card>
       </div>
-      <v-card variant="outlined">
-        <v-skeleton-loader type="table-thead, table-tbody"></v-skeleton-loader>
-      </v-card>
-    </div>
 
-    <!-- Error State -->
-    <EngineErrorAlert
-      v-else-if="error"
-      :error="error"
-      title="Failed to load preview"
-      class="mb-4" />
+      <!-- Error State -->
+      <EngineErrorAlert
+        v-else-if="error"
+        :error="error"
+        title="Failed to load preview"
+        class="mb-4" />
 
-    <!-- Results -->
-    <div v-else-if="queryResults">
-      <!-- One toolbar: what is being read, from where, and what came back -->
-      <v-card variant="outlined" class="mb-4">
-        <div class="d-flex align-center flex-wrap ga-3 pa-3">
-          <div class="d-flex align-center text-truncate" style="min-width: 0">
-            <v-icon size="small" class="mr-2 text-medium-emphasis">mdi-table-eye</v-icon>
-            <span class="text-body-2 font-weight-medium text-truncate">{{ tableName }}</span>
-            <span class="text-caption text-medium-emphasis ml-2 text-truncate d-none d-sm-inline">
-              {{ resolvedWarehouseName }}.{{ namespaceDisplay }}
-            </span>
-          </div>
-
-          <!-- Branch selector -->
-          <v-select
-            v-if="branchOptions.length > 1"
-            v-model="selectedBranch"
-            :items="branchOptions"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 180px"
-            label="Branch"
-            no-data-text="No branches available"
-            prepend-inner-icon="mdi-source-branch"
-            @update:model-value="
-              selectedSnapshot = null;
-              loadPreview();
-            "></v-select>
-
-          <!-- Snapshot time travel -->
-          <v-select
-            v-if="allTimeTravelOptions.length > 1"
-            v-model="selectedSnapshot"
-            :items="allTimeTravelOptions"
-            density="compact"
-            variant="outlined"
-            hide-details
-            style="max-width: 400px; min-width: 280px"
-            label="Time Travel"
-            no-data-text="No snapshots available"
-            prepend-inner-icon="mdi-clock-outline"
-            clearable
-            @update:model-value="loadPreview"></v-select>
-
-          <v-spacer></v-spacer>
-
-          <span class="text-caption text-medium-emphasis">{{ resultSummary }}</span>
-          <v-tooltip
-            v-if="queryResults.truncated"
-            text="Preview reads the first 1,000 rows only"
-            location="top">
-            <template #activator="{ props: tipProps }">
-              <v-icon v-bind="tipProps" size="small" color="warning">
-                mdi-information-outline
-              </v-icon>
-            </template>
-          </v-tooltip>
-
-          <v-btn
-            icon="mdi-refresh"
-            size="small"
-            variant="text"
-            title="Reload preview"
-            @click="loadPreview"></v-btn>
-          <v-btn
-            size="small"
-            variant="outlined"
-            prepend-icon="mdi-download-outline"
-            :disabled="!csvDownload.isDownloadAvailable(queryResults)"
-            @click="downloadCSV">
-            CSV
-          </v-btn>
-          <!-- "Field docs", not "Docs": on its own the word reads as product
-               documentation. Pressed state is carried by the variant. -->
-          <v-btn
-            v-if="hasColumnDocs"
-            size="small"
-            :variant="showColumnDocs ? 'tonal' : 'outlined'"
-            :prepend-icon="showColumnDocs ? 'mdi-text-box' : 'mdi-text-box-outline'"
-            :title="
-              showColumnDocs
-                ? 'Hide field descriptions'
-                : 'Show the schema field description under each column'
-            "
-            @click="showColumnDocs = !showColumnDocs">
-            Field docs
-          </v-btn>
-        </div>
-      </v-card>
-
-      <!-- A readable table can still hold nothing: say so rather than "No data available" -->
-      <v-alert v-if="tableRows.length === 0" type="info" variant="tonal" prominent class="mb-4">
-        <div class="text-body-1 font-weight-bold mb-2">
-          <v-icon class="mr-2">mdi-table-off</v-icon>
-          {{ emptyResult.title }}
-        </div>
-        <div class="text-body-2">{{ emptyResult.detail }}</div>
-      </v-alert>
-
-      <!-- Results Table -->
-      <v-card v-else variant="outlined">
-        <v-data-table
-          :headers="tableHeaders"
-          :items="tableRows"
-          :items-per-page="1000"
-          hide-default-footer
-          density="compact"
-          class="preview-table"
-          fixed-header
-          height="50vh">
-          <template
-            v-for="h in tableHeaders"
-            :key="`header-${h.key}`"
-            #[`header.${h.key}`]="{ column, isSorted, getSortIcon }">
-            <div class="d-flex align-center ga-1">
-              <div class="d-flex flex-column column-head align-start">
-                <span class="d-flex align-center ga-1">
-                  {{ column.title }}
-                  <v-tooltip
-                    v-if="columnDocs[h.key] && !showColumnDocs"
-                    :text="columnDocs[h.key]"
-                    location="bottom"
-                    max-width="320">
-                    <template #activator="{ props: docProps }">
-                      <v-icon v-bind="docProps" size="x-small" class="doc-hint">
-                        mdi-information-outline
-                      </v-icon>
-                    </template>
-                  </v-tooltip>
-                </span>
-                <span v-if="columnTypes[h.key]" class="column-type">{{ columnTypes[h.key] }}</span>
-                <template v-if="showColumnDocs">
-                  <span v-if="columnDocs[h.key]" class="column-doc">{{ columnDocs[h.key] }}</span>
-                  <span v-else class="column-doc column-doc--empty">No docs available</span>
-                </template>
-              </div>
-              <v-icon
-                v-if="column.sortable"
-                size="x-small"
-                :class="isSorted(column) ? 'sort-icon sort-icon--active' : 'sort-icon'"
-                :icon="getSortIcon(column)"></v-icon>
+      <!-- Results -->
+      <div
+        v-else-if="queryResults"
+        class="d-flex flex-column"
+        style="flex: 1 1 auto; min-height: 0; min-width: 0">
+        <!-- One toolbar: what is being read, from where, and what came back -->
+        <v-card variant="outlined" class="mb-4" style="flex: 0 0 auto">
+          <div class="d-flex align-center flex-wrap ga-3 pa-3">
+            <div class="d-flex align-center text-truncate" style="min-width: 0">
+              <v-icon size="small" class="mr-2 text-medium-emphasis">mdi-table-eye</v-icon>
+              <span class="text-body-2 font-weight-medium text-truncate">{{ tableName }}</span>
+              <span class="text-caption text-medium-emphasis ml-2 text-truncate d-none d-sm-inline">
+                {{ resolvedWarehouseName }}.{{ namespaceDisplay }}
+              </span>
             </div>
-          </template>
-          <template v-for="h in tableHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
-            <span v-if="value === null || value === undefined" class="null-cell">NULL</span>
-            <CellValue v-else :value="value" @open="openCell(h.title, value)" />
-          </template>
-        </v-data-table>
-      </v-card>
 
-      <!-- Full-value / JSON viewer -->
-      <CellValueDialog v-model="cellDialog.open" :state="cellDialog" />
+            <!-- Branch selector -->
+            <v-select
+              v-if="branchOptions.length > 1"
+              v-model="selectedBranch"
+              :items="branchOptions"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 180px"
+              label="Branch"
+              no-data-text="No branches available"
+              prepend-inner-icon="mdi-source-branch"
+              @update:model-value="
+                selectedSnapshot = null;
+                loadPreview();
+              "></v-select>
+
+            <!-- Snapshot time travel -->
+            <v-select
+              v-if="allTimeTravelOptions.length > 1"
+              v-model="selectedSnapshot"
+              :items="allTimeTravelOptions"
+              density="compact"
+              variant="outlined"
+              hide-details
+              style="max-width: 400px; min-width: 280px"
+              label="Time Travel"
+              no-data-text="No snapshots available"
+              prepend-inner-icon="mdi-clock-outline"
+              clearable
+              @update:model-value="loadPreview"></v-select>
+
+            <v-spacer></v-spacer>
+
+            <!-- How many rows to read: small by default, so a wide table opens fast. -->
+            <v-select
+              v-model="previewRowLimit"
+              :items="PREVIEW_ROW_LIMITS"
+              density="compact"
+              variant="outlined"
+              hide-details
+              label="Max preview rows"
+              style="max-width: 170px; min-width: 160px"
+              @update:model-value="onRowLimitChange"></v-select>
+
+            <span class="text-caption text-medium-emphasis">{{ resultSummary }}</span>
+            <v-tooltip v-if="queryResults.truncated" :text="truncationHint" location="top">
+              <template #activator="{ props: tipProps }">
+                <v-icon v-bind="tipProps" size="small" color="warning">
+                  mdi-information-outline
+                </v-icon>
+              </template>
+            </v-tooltip>
+
+            <v-btn
+              icon="mdi-refresh"
+              size="small"
+              variant="text"
+              title="Reload preview"
+              @click="loadPreview"></v-btn>
+            <v-btn
+              size="small"
+              variant="outlined"
+              prepend-icon="mdi-download-outline"
+              :disabled="!csvDownload.isDownloadAvailable(queryResults)"
+              @click="downloadCSV">
+              CSV
+            </v-btn>
+            <!-- "Field docs", not "Docs": on its own the word reads as product
+               documentation. Pressed state is carried by the variant. -->
+            <v-btn
+              v-if="hasColumnDocs"
+              size="small"
+              :variant="showColumnDocs ? 'tonal' : 'outlined'"
+              :prepend-icon="showColumnDocs ? 'mdi-text-box' : 'mdi-text-box-outline'"
+              :title="
+                showColumnDocs
+                  ? 'Hide field descriptions'
+                  : 'Show the schema field description under each column'
+              "
+              @click="showColumnDocs = !showColumnDocs">
+              Field docs
+            </v-btn>
+          </div>
+        </v-card>
+
+        <!-- A readable table can still hold nothing: say so rather than "No data available" -->
+        <v-alert
+          v-if="queryResults.rows.length === 0"
+          type="info"
+          variant="tonal"
+          prominent
+          class="mb-4"
+          style="flex: 0 0 auto">
+          <div class="text-body-1 font-weight-bold mb-2">
+            <v-icon class="mr-2">mdi-table-off</v-icon>
+            {{ emptyResult.title }}
+          </div>
+          <div class="text-body-2">{{ emptyResult.detail }}</div>
+        </v-alert>
+
+        <!-- Results Table. Virtual: only the rows in view are in the DOM, so a wide
+           table costs a screenful of rows × its columns, not every row read.
+           The table is the scroller; the box around it only bounds it. -->
+        <v-card
+          v-else
+          variant="outlined"
+          class="d-flex flex-column"
+          style="flex: 1 1 auto; min-height: 0; min-width: 0; overflow: hidden">
+          <v-data-table-virtual
+            ref="tableRef"
+            :headers="tableHeaders"
+            :items="queryResults.rows"
+            density="compact"
+            class="preview-table"
+            item-height="36"
+            :row-props="stripeRow"
+            fixed-header
+            height="100%"
+            style="height: 100%">
+            <template
+              v-for="h in tableHeaders"
+              :key="`header-${h.key}`"
+              #[`header.${h.key}`]="{ column, isSorted, getSortIcon }">
+              <div class="d-flex align-center ga-1">
+                <div class="d-flex flex-column column-head align-start">
+                  <span class="d-flex align-center ga-1">
+                    {{ column.title }}
+                    <v-tooltip
+                      v-if="columnDocs[h.key] && !showColumnDocs"
+                      :text="columnDocs[h.key]"
+                      location="bottom"
+                      max-width="320">
+                      <template #activator="{ props: docProps }">
+                        <v-icon v-bind="docProps" size="x-small" class="doc-hint">
+                          mdi-information-outline
+                        </v-icon>
+                      </template>
+                    </v-tooltip>
+                  </span>
+                  <span v-if="columnTypes[h.key]" class="column-type">
+                    {{ columnTypes[h.key] }}
+                  </span>
+                  <template v-if="showColumnDocs">
+                    <span v-if="columnDocs[h.key]" class="column-doc">{{ columnDocs[h.key] }}</span>
+                    <span v-else class="column-doc column-doc--empty">No docs available</span>
+                  </template>
+                </div>
+                <v-icon
+                  v-if="column.sortable"
+                  size="x-small"
+                  :class="isSorted(column) ? 'sort-icon sort-icon--active' : 'sort-icon'"
+                  :icon="getSortIcon(column)"></v-icon>
+              </div>
+            </template>
+            <template v-for="h in tableHeaders" :key="h.key" #[`item.${h.key}`]="{ value }">
+              <span v-if="value === null || value === undefined" class="null-cell">NULL</span>
+              <CellValue v-else :value="value" @open="openCell(h.title, value)" />
+            </template>
+          </v-data-table-virtual>
+        </v-card>
+
+        <!-- Full-value / JSON viewer -->
+        <CellValueDialog v-model="cellDialog.open" :state="cellDialog" />
+      </div>
     </div>
   </v-container>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, toRef, watch, inject } from 'vue';
+import {
+  ref,
+  shallowRef,
+  computed,
+  onMounted,
+  onBeforeUnmount,
+  toRef,
+  watch,
+  inject,
+  nextTick,
+} from 'vue';
 import { useFunctions } from '@/plugins/functions';
 import { useUserStore } from '@/stores/user';
 import { useLoQE } from '@/composables/useLoQE';
+import type { LoQEQueryResult } from '@/composables/loqe/types';
 import { num, sql, tableIdent } from '@/composables/loqe/sql';
 import { useStorageValidation } from '@/composables/useStorageValidation';
 import { useCsvDownload } from '@/composables/useCsvDownload';
 import { useCellViewer } from '@/composables/useCellViewer';
 import { hasVendedCredentials, useVendedCredentials } from '@/composables/useVendedCredentials';
+import { usePaneHeight } from '@/common/paneHeight';
 import EngineErrorAlert from './EngineErrorAlert.vue';
 import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
@@ -278,6 +326,42 @@ const userStore = useUserStore();
 const loqe = useLoQE({ baseUrlPrefix: config.baseUrlPrefix });
 const csvDownload = useCsvDownload();
 
+// The results pane ends at the viewport, measured from its own top edge — or
+// earlier, where the host bounds it: a tab inside a card that stops short of the
+// footer would otherwise push the table's bottom edge (and its horizontal
+// scrollbar) out of sight.
+const { paneRef, paneHeight, measurePane } = usePaneHeight(320);
+const PANE_MIN = 320;
+const PANE_GAP = 12;
+const boundedPaneHeight = ref<string | null>(null);
+
+/** The nearest ancestor that clips or scrolls and has a fixed (not max-) height. */
+function boundingHost(el: HTMLElement): HTMLElement | null {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const cs = getComputedStyle(p);
+    // A max-height box is as tall as its content (this pane), so measuring it
+    // would feed the pane's own size back in; only fixed bounds count.
+    if (/(auto|scroll|hidden)/.test(cs.overflowY) && cs.maxHeight === 'none' && p.clientHeight > 0)
+      return p;
+  }
+  return null;
+}
+
+function boundToHost() {
+  const measured = paneHeight.value ? parseInt(paneHeight.value, 10) : NaN;
+  const el = (paneRef.value?.$el ?? paneRef.value) as HTMLElement | null;
+  const host = el ? boundingHost(el) : null;
+  if (!el || !host || !Number.isFinite(measured)) {
+    boundedPaneHeight.value = paneHeight.value;
+    return;
+  }
+  const hostRect = host.getBoundingClientRect();
+  const padBottom = parseFloat(getComputedStyle(host).paddingBottom) || 0;
+  const room = Math.round(hostRect.bottom - padBottom - el.getBoundingClientRect().top - PANE_GAP);
+  boundedPaneHeight.value = `${Math.max(PANE_MIN, Math.min(measured, room))}px`;
+}
+watch(paneHeight, () => nextTick(boundToHost), { immediate: true });
+
 // Namespace display: convert \x1F separators to dots
 const namespaceDisplay = computed(() => {
   const ns = props.namespaceId;
@@ -306,7 +390,9 @@ const loadedTable = ref<BigIntLoadTableResult | null>(null);
 
 const isLoading = ref(true);
 const error = ref<string | null>(null);
-const queryResults = ref<any>(null);
+// Shallow: a preview of a wide table is rows × columns cells, and none of them
+// change after the query returns. Deep reactivity would proxy every one.
+const queryResults = shallowRef<LoQEQueryResult | null>(null);
 const resolvedWarehouseName = ref<string | undefined>(undefined);
 const selectedSnapshot = ref<string | null>(null);
 const selectedBranch = ref<string>('main');
@@ -419,12 +505,14 @@ const showColumnDocs = ref(false);
 const isNumericColumn = (col: string) =>
   /^(int|long|float|double|decimal)/.test(columnTypes.value[col] ?? '');
 
-// Compute headers from results
+// Headers from the result. Rows stay the engine's plain arrays — no per-row
+// object keyed by column — and each header reads its cell by index.
 const tableHeaders = computed(() => {
   if (!queryResults.value?.columns) return [];
-  return queryResults.value.columns.map((col: string) => ({
+  return queryResults.value.columns.map((col: string, index: number) => ({
     title: col,
     key: col,
+    value: (row: unknown[]) => row[index],
     sortable: true,
     // Numbers read as a column when they share an edge and a tabular figure.
     align: (isNumericColumn(col) ? 'end' : 'start') as 'start' | 'end',
@@ -436,30 +524,96 @@ const tableHeaders = computed(() => {
   }));
 });
 
-// Compute rows from results
-const tableRows = computed(() => {
-  if (!queryResults.value?.rows) return [];
-  return queryResults.value.rows.map((row: any[]) => {
-    const obj: Record<string, any> = {};
-    queryResults.value.columns.forEach((col: string, index: number) => {
-      obj[col] = row[index];
+/** Zebra class by the row's place in the whole result (see the style block). */
+function stripeRow({ internalItem }: { internalItem: { index: number } }) {
+  return internalItem.index % 2 === 1 ? { class: 'preview-row--even' } : {};
+}
+
+// A sideways trackpad swipe over the table moved nothing: the swipe reached the
+// table, but its default scroll did not happen, while dragging the scrollbar
+// worked. So a mostly-horizontal wheel moves the table here; vertical wheels
+// stay with the browser and its smooth scrolling.
+const tableRef = ref<any>(null);
+let wheelTarget: HTMLElement | null = null;
+
+function onTableWheel(e: WheelEvent) {
+  const el = e.currentTarget as HTMLElement;
+  if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || el.scrollWidth <= el.clientWidth) return;
+  const max = el.scrollWidth - el.clientWidth;
+  const next = Math.min(max, Math.max(0, el.scrollLeft + e.deltaX));
+  if (next === el.scrollLeft) return;
+  el.scrollLeft = next;
+  e.preventDefault();
+}
+
+function bindTableWheel() {
+  const wrapper = (tableRef.value?.$el as HTMLElement | undefined)?.querySelector?.(
+    '.v-table__wrapper',
+  ) as HTMLElement | null;
+  if (wrapper === wheelTarget) return;
+  wheelTarget?.removeEventListener('wheel', onTableWheel);
+  wheelTarget = wrapper;
+  wheelTarget?.addEventListener('wheel', onTableWheel, { passive: false });
+}
+
+onBeforeUnmount(() => wheelTarget?.removeEventListener('wheel', onTableWheel));
+
+/** Whether the results pane is showing, and so takes the measured height. */
+const showResults = computed(() => !isLoading.value && !error.value && !!queryResults.value);
+
+// The pane gains its height when results arrive; measure once they are laid out.
+watch(showResults, (shown) => {
+  if (shown)
+    nextTick(() => {
+      measurePane();
+      boundToHost();
     });
-    return obj;
-  });
+  nextTick(bindTableWheel);
 });
 
 const formatMs = (ms: number) =>
   ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`;
 
-// "842 of 12,043 rows · 310 ms" — what came back, and what it cost
+// "First 10,000 rows · 310 ms" — what came back, and what it cost. The query
+// reads one row past the limit only to learn there are more, so the total is
+// not known and is not shown.
 const resultSummary = computed(() => {
   const r = queryResults.value;
   if (!r) return '';
   const rows = r.truncated
-    ? `${r.rowCount.toLocaleString()} of ${r.totalRowCount.toLocaleString()} rows`
+    ? `First ${r.rowCount.toLocaleString()} rows`
     : `${r.rowCount.toLocaleString()} ${r.rowCount === 1 ? 'row' : 'rows'}`;
   return typeof r.executionTimeMs === 'number' ? `${rows} · ${formatMs(r.executionTimeMs)}` : rows;
 });
+
+/** Why the preview stops where it does, and how to read past it. */
+const truncationHint = computed(
+  () =>
+    `Preview reads the first ${previewRowLimit.value.toLocaleString()} rows only. ` +
+    'Pick a larger number under "Max preview rows" to read more.',
+);
+
+// Rows the preview reads. Small by default so even a wide table opens fast; the
+// choice is remembered in this browser.
+const PREVIEW_ROW_LIMITS = [100, 250, 1000, 5000];
+const ROW_LIMIT_STORAGE_KEY = 'lakekeeper:table-preview-row-limit';
+function storedRowLimit(): number {
+  try {
+    const v = Number(localStorage.getItem(ROW_LIMIT_STORAGE_KEY));
+    return PREVIEW_ROW_LIMITS.includes(v) ? v : PREVIEW_ROW_LIMITS[0];
+  } catch {
+    return PREVIEW_ROW_LIMITS[0];
+  }
+}
+const previewRowLimit = ref<number>(storedRowLimit());
+function onRowLimitChange(v: number) {
+  try {
+    localStorage.setItem(ROW_LIMIT_STORAGE_KEY, String(v));
+  } catch {
+    /* storage unavailable: the choice holds for this page only */
+  }
+  loadPreview();
+}
 
 /**
  * Why the query came back empty. An unwritten table and a snapshot that
@@ -591,8 +745,14 @@ async function loadPreview() {
       ? sql`${tablePath} AT (VERSION => ${num(BigInt(selectedSnapshot.value))})`
       : tablePath;
 
-    const results = await loqe.query(sql`SELECT * FROM ${fromClause} LIMIT 1000;`);
-    queryResults.value = results;
+    // One row past the chosen limit is read only to learn whether the table
+    // holds more; it is dropped again and the result marked as truncated.
+    const limit = previewRowLimit.value;
+    const results = await loqe.query(sql`SELECT * FROM ${fromClause} LIMIT ${num(limit + 1)};`);
+    queryResults.value =
+      results.rows.length > limit
+        ? { ...results, rows: results.rows.slice(0, limit), rowCount: limit, truncated: true }
+        : results;
   } catch (err: any) {
     console.error('Failed to load table preview:', err);
     // loqe.error.value already contains the humanized error message
@@ -617,6 +777,7 @@ async function loadPreview() {
 }
 
 function downloadCSV() {
+  if (!queryResults.value) return;
   csvDownload.downloadCSV(queryResults.value, {
     baseFilename: `${props.tableName}_preview`,
   });
@@ -675,7 +836,10 @@ watch(
 
 /* Zebra striping + hover: both sit on the theme's on-surface colour, so they
    hold up in light and dark without a second palette. */
-.preview-table :deep(tbody tr:nth-child(even) td) {
+/* By the row's index in the result, not :nth-child — the virtual table keeps a
+   spacer row at the top of the body, and the rows it renders change as it
+   scrolls, so child position does not stay with a row. */
+.preview-table :deep(tbody tr.preview-row--even td) {
   background-color: rgba(var(--v-theme-on-surface), 0.02);
 }
 
@@ -711,6 +875,19 @@ watch(
 
 .column-head {
   min-width: 0;
+}
+
+/* The table keeps the card's width and scrolls inside it, both ways: without
+   this it grows to all its columns and the card only clips it. */
+.preview-table {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+.preview-table :deep(.v-table__wrapper) {
+  overflow: auto;
 }
 
 /* Quieter still than a real doc: absence should not compete with content */
