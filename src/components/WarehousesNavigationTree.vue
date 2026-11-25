@@ -67,12 +67,13 @@
          survives and comes back unchanged when the query is cleared. -->
     <div v-if="searchMode" class="tree-search__results" role="listbox">
       <div v-if="searchError" class="tree-search__note">
-        <v-icon size="x-small" color="warning">mdi-lock-outline</v-icon>
+        <v-icon v-if="searchForbidden" size="x-small" color="warning">mdi-lock-outline</v-icon>
+        <v-icon v-else size="x-small" color="error">mdi-alert-circle-outline</v-icon>
         {{ searchError }}
       </div>
       <template v-else>
         <div class="tree-search__summary">
-          <template v-if="!hasSearched || (isSearching && !searchResults.length)">
+          <template v-if="!hasSearched || (searchBusy && !searchResults.length)">
             Searching…
           </template>
           <template v-else>
@@ -80,10 +81,10 @@
             {{ searchWarehouseName }} · Esc to clear
           </template>
         </div>
-        <div v-if="hasSearched && !isSearching && !searchResults.length" class="tree-search__note">
+        <div v-if="hasSearched && !searchBusy && !searchResults.length" class="tree-search__note">
           No tables or views match “{{ searchText }}”
         </div>
-        <template v-for="(result, i) in orderedResults" :key="result.id">
+        <template v-for="(result, i) in orderedResults" :key="`${result.type}-${result.id}`">
           <div v-if="i === 0 && similarStart > 0" class="tree-search__group">Matches</div>
           <div v-if="i === similarStart && similarStart > 0" class="tree-search__group">
             Similar
@@ -93,7 +94,7 @@
             class="tree-search__row"
             :class="{
               'tree-search__row--active': i === activeIndex,
-              'tree-search__row--stale': isSearching,
+              'tree-search__row--stale': searchBusy,
             }"
             role="option"
             :aria-selected="i === activeIndex"
@@ -583,6 +584,7 @@ const {
   searching: isSearching,
   searched: hasSearched,
   error: searchError,
+  forbidden: searchForbidden,
   search: performSearch,
   dismiss: dismissSearch,
   clear: clearSearch,
@@ -594,6 +596,10 @@ const searchFieldRef = ref<{ focus: () => void; blur: () => void } | null>(null)
 const activeIndex = ref(-1);
 const resultEls: HTMLElement[] = [];
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
+// True while a debounced search is waiting to run: the results on screen belong
+// to the previous text, so they are dimmed and "no matches" is not claimed yet.
+const searchPending = ref(false);
+const searchBusy = computed(() => isSearching.value || searchPending.value);
 
 const searchText = computed(() => searchQuery.value?.trim() ?? '');
 // From two characters on, the results stand in for the tree; under that there
@@ -643,6 +649,7 @@ const similarStart = computed(() => searchGroups.value.exact.length);
 function cancelPendingSearch() {
   if (searchTimer) clearTimeout(searchTimer);
   searchTimer = undefined;
+  searchPending.value = false;
 }
 
 function runSearchNow() {
@@ -658,6 +665,7 @@ watch(searchQuery, () => {
     return;
   }
   searchTimer = setTimeout(runSearchNow, SEARCH_DEBOUNCE_MS);
+  searchPending.value = true;
 });
 
 // A fresh answer highlights its best hit, so Enter opens it.
@@ -908,7 +916,7 @@ async function retryLoad(status: TreeItem) {
 }
 
 // Expand tree to show the full path for a search result (warehouse → ns → subns → item)
-async function expandTreeToPath(warehouseId: string, namespacePath: string) {
+async function expandTreeToPath(warehouseId: string, namespacePath: string | string[]) {
   // 1. Find and expand the warehouse node. On the project-wide tree the target
   //    may sit past the first rendered page, so page up to it first.
   const warehouseNodeId = `warehouse-${warehouseId}`;
@@ -925,7 +933,8 @@ async function expandTreeToPath(warehouseId: string, namespacePath: string) {
   }
 
   // 2. Walk down the namespace path segments: e.g. "finance.sub.deep" → ["finance", "finance.sub", "finance.sub.deep"]
-  const segments = namespacePath.split('.');
+  // Segments as given when known (a segment may itself contain a dot).
+  const segments = Array.isArray(namespacePath) ? namespacePath : namespacePath.split('.');
   let currentPath = '';
 
   for (let i = 0; i < segments.length; i++) {
@@ -970,7 +979,10 @@ async function navigateToSearchResult(hit: WarehouseSearchHit) {
   // handle the error state.
 
   // Expand the tree to show the full path to this item
-  await expandTreeToPath(result.warehouseId, result.namespaceId);
+  await expandTreeToPath(
+    result.warehouseId,
+    hit.namespacePath?.length ? hit.namespacePath : result.namespaceId,
+  );
 
   // Save the expanded warehouse subtree to the warehouse-specific storage key
   // so the target page's tree instance picks up the expanded state

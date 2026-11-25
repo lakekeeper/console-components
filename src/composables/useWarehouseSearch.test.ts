@@ -51,6 +51,21 @@ describe('useWarehouseSearch', () => {
     await s.search();
     expect(s.results.value).toEqual([]);
     expect(s.error.value).toBe('Searching this warehouse is not allowed for you.');
+    expect(s.forbidden.value).toBe(true);
+  });
+
+  it('tells a failure apart from a refusal', async () => {
+    searchTabular.mockImplementation(async () => {
+      throw { error: { code: 500, message: 'boom' } };
+    });
+    const s = useWarehouseSearch('wh1');
+    s.query.value = 'x';
+    await s.search();
+    expect(s.forbidden.value).toBe(false);
+    expect(s.error.value).toMatch(/^Search failed: /);
+    s.dismiss();
+    expect(s.error.value).toBe('');
+    expect(s.forbidden.value).toBe(false);
   });
 
   it('does nothing without a warehouse or a query', async () => {

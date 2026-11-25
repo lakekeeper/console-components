@@ -34,6 +34,8 @@ export function useWarehouseSearch(warehouseId: MaybeRefOrGetter<string | null |
   const searching = ref(false);
   const searched = ref(false);
   const error = ref('');
+  /** Whether `error` is a refusal (403) rather than a failure. */
+  const forbidden = ref(false);
   // A slow answer for an older query must not replace a newer one.
   let seq = 0;
 
@@ -45,6 +47,7 @@ export function useWarehouseSearch(warehouseId: MaybeRefOrGetter<string | null |
     searching.value = true;
     searched.value = true;
     error.value = '';
+    forbidden.value = false;
     try {
       const response = await functions.searchTabularQuiet(id, { search: text });
       if (mine !== seq) return;
@@ -61,7 +64,8 @@ export function useWarehouseSearch(warehouseId: MaybeRefOrGetter<string | null |
       if (mine !== seq) return;
       logError('Warehouse search failed', e);
       results.value = [];
-      error.value = isForbiddenError(e)
+      forbidden.value = isForbiddenError(e);
+      error.value = forbidden.value
         ? 'Searching this warehouse is not allowed for you.'
         : `Search failed: ${errorMessage(e, 'unknown error')}`;
     } finally {
@@ -76,6 +80,7 @@ export function useWarehouseSearch(warehouseId: MaybeRefOrGetter<string | null |
     searched.value = false;
     results.value = [];
     error.value = '';
+    forbidden.value = false;
   }
 
   function clear() {
@@ -83,5 +88,5 @@ export function useWarehouseSearch(warehouseId: MaybeRefOrGetter<string | null |
     dismiss();
   }
 
-  return { query, results, searching, searched, error, search, dismiss, clear };
+  return { query, results, searching, searched, error, forbidden, search, dismiss, clear };
 }
