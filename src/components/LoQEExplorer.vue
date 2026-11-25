@@ -251,21 +251,44 @@
                         :key="tab.id"
                         :value="index"
                         class="text-none"
-                        @click="handleTabClick(tab.id)">
-                        <v-icon size="14" start>mdi-file-document-outline</v-icon>
+                        title="Double-click to rename"
+                        @click="handleTabClick(tab.id)"
+                        @contextmenu.prevent="openTabMenu($event, index, tab.id)">
+                        <v-icon
+                          size="14"
+                          class="loqe-tab-close mr-1"
+                          :aria-label="`Close ${tab.name}`"
+                          @click.stop="handleCloseTab(tab.id)">
+                          mdi-close
+                        </v-icon>
                         <span
                           class="text-body-2"
                           @dblclick.stop="startRenameTab(tab.id, tab.name)"
                           style="cursor: pointer">
                           {{ tab.name }}
                         </span>
-                        <v-icon
-                          size="14"
-                          class="loqe-tab-close ml-2"
-                          :aria-label="`Close ${tab.name}`"
-                          @click.stop="handleCloseTab(tab.id)">
-                          mdi-close
-                        </v-icon>
+                        <!-- This tab's actions; the tab becomes active first, so they act on it. -->
+                        <v-menu location="bottom start">
+                          <template #activator="{ props: menuProps }">
+                            <v-icon
+                              v-bind="menuProps"
+                              size="14"
+                              class="loqe-tab-menu ml-2"
+                              :aria-label="`Actions for ${tab.name}`"
+                              @click.stop="selectTab(index, tab.id)">
+                              mdi-dots-vertical
+                            </v-icon>
+                          </template>
+                          <v-list density="compact" min-width="200">
+                            <v-list-item
+                              v-for="item in tabActions"
+                              :key="item.title"
+                              :prepend-icon="item.icon"
+                              :title="item.title"
+                              :disabled="item.disabled()"
+                              @click="item.run()"></v-list-item>
+                          </v-list>
+                        </v-menu>
                       </v-tab>
                       <v-tooltip location="bottom" text="New query">
                         <template #activator="{ props: tooltipProps }">
@@ -280,62 +303,101 @@
                         </template>
                       </v-tooltip>
                     </v-tabs>
+                    <!-- Right-click a tab: the same menu as its ⋮. -->
+                    <v-menu v-model="tabMenu.open" :target="[tabMenu.x, tabMenu.y]">
+                      <v-list density="compact" min-width="200">
+                        <v-list-item
+                          v-for="item in tabActions"
+                          :key="item.title"
+                          :prepend-icon="item.icon"
+                          :title="item.title"
+                          :disabled="item.disabled()"
+                          @click="item.run()"></v-list-item>
+                      </v-list>
+                    </v-menu>
                   </div>
 
                   <!-- Editor toolbar: what acts on the query -->
                   <div class="loqe-editor-toolbar d-flex align-center ga-1">
-                    <v-tooltip
-                      v-for="action in editorActions"
-                      :key="action.label"
-                      location="bottom"
-                      :disabled="!action.hint"
-                      :text="action.hint">
+                    <!-- What is used all the time stays visible; .sql files are under SQL. -->
+                    <v-tooltip location="bottom" :text="`Format (${keys.format})`">
                       <template #activator="{ props: tooltipProps }">
                         <v-btn
                           v-bind="tooltipProps"
-                          :prepend-icon="action.icon"
+                          prepend-icon="mdi-auto-fix"
                           density="comfortable"
                           variant="text"
                           class="text-none"
                           :disabled="loqe.isInitializing.value"
-                          @click="action.run">
-                          {{ action.label }}
+                          @click="formatSQL()">
+                          Format
                         </v-btn>
                       </template>
                     </v-tooltip>
-                    <v-divider vertical class="mx-1 align-self-center" style="height: 20px" />
                     <v-btn
-                      prepend-icon="mdi-pencil-outline"
+                      prepend-icon="mdi-content-copy"
                       density="comfortable"
                       variant="text"
                       class="text-none"
-                      @click="
-                        startRenameTab(
-                          currentLoqeTabs[activeTabIndex]?.id,
-                          currentLoqeTabs[activeTabIndex]?.name,
-                        )
-                      ">
-                      Rename
+                      @click="copySQL()">
+                      Copy
                     </v-btn>
                     <v-btn
-                      prepend-icon="mdi-close-box-multiple-outline"
+                      prepend-icon="mdi-eraser"
                       density="comfortable"
                       variant="text"
                       class="text-none"
-                      :disabled="currentLoqeTabs.length <= 1"
-                      @click="handleCloseOtherTabs(currentLoqeTabs[activeTabIndex]?.id)">
-                      Close others
+                      :disabled="loqe.isInitializing.value || !sqlQuery.trim()"
+                      @click="sqlEditorRef?.clearContent()">
+                      Clear
                     </v-btn>
-                    <v-divider vertical class="mx-1 align-self-center" style="height: 20px" />
-                    <v-btn
-                      prepend-icon="mdi-keyboard-outline"
-                      density="comfortable"
-                      variant="text"
-                      class="text-none"
-                      @click="showShortcuts = true">
-                      Shortcuts
-                    </v-btn>
+                    <v-menu location="bottom start">
+                      <template #activator="{ props: menuProps }">
+                        <v-btn
+                          v-bind="menuProps"
+                          prepend-icon="mdi-file-document-outline"
+                          append-icon="mdi-menu-down"
+                          density="comfortable"
+                          variant="text"
+                          class="text-none">
+                          SQL
+                        </v-btn>
+                      </template>
+                      <v-list density="compact" min-width="240">
+                        <v-list-item
+                          prepend-icon="mdi-upload"
+                          title="Open .sql file…"
+                          subtitle="or drop it on the editor"
+                          @click="sqlFileInput?.click()"></v-list-item>
+                        <v-list-item
+                          prepend-icon="mdi-download"
+                          title="Download .sql"
+                          :disabled="!sqlQuery.trim()"
+                          @click="downloadTab"></v-list-item>
+                      </v-list>
+                    </v-menu>
+                    <!-- The picker behind "Open .sql file…"; one or more files, each its own tab. -->
+                    <input
+                      ref="sqlFileInput"
+                      type="file"
+                      accept=".sql,text/plain"
+                      multiple
+                      hidden
+                      aria-hidden="true"
+                      @change="onSqlFilesPicked" />
                     <v-spacer />
+                    <v-tooltip location="bottom" text="Keyboard shortcuts">
+                      <template #activator="{ props: tooltipProps }">
+                        <v-btn
+                          v-bind="tooltipProps"
+                          icon="mdi-keyboard-outline"
+                          aria-label="Keyboard shortcuts"
+                          size="small"
+                          variant="text"
+                          class="mr-1"
+                          @click="showShortcuts = true"></v-btn>
+                      </template>
+                    </v-tooltip>
                     <v-btn
                       v-if="loqe.isQuerying.value"
                       variant="tonal"
@@ -375,7 +437,12 @@
                       @insert="insertFromHistory"
                       @rename="loqe.store.renameHistoryEntry"
                       @delete="loqe.store.removeHistoryEntry" />
-                    <div style="flex: 1 1 auto; min-width: 0">
+                    <!-- A .sql file dropped anywhere here opens in a new tab (the editor
+                         hands its file drops over; text from the tree is inserted as before). -->
+                    <div
+                      style="flex: 1 1 auto; min-width: 0"
+                      @dragover="onFileDragOver"
+                      @drop="onFileDrop">
                       <!-- SQL Editor — fun loader while engine initialises -->
                       <div
                         v-if="loqe.isInitializing.value"
@@ -400,6 +467,8 @@
                         @click="updateCursorPosition"
                         @keyup="updateCursorPosition"
                         :running="loqe.isQuerying.value"
+                        file-drop
+                        @drop-files="openSqlFiles"
                         @run="executeQuery()"
                         @run-statement="runStatementAtCursor"
                         @cancel="loqe.cancelQuery()" />
@@ -413,6 +482,9 @@
                     <span>Ln {{ cursorLineCol.line }}, Col {{ cursorLineCol.col }}</span>
                     <span v-if="statementCount > 1">{{ statementCount }} statements</span>
                     <span v-if="hasSelection">selection</span>
+                    <span v-if="fileMessage" class="loqe-file-message" role="status">
+                      {{ fileMessage }}
+                    </span>
                   </div>
 
                   <!-- Editor resize handle -->
@@ -1078,6 +1150,14 @@ import EngineErrorAlert from './EngineErrorAlert.vue';
 import LoQEHistoryRail from './LoQEHistoryRail.vue';
 import LoQEHistoryView from './LoQEHistoryView.vue';
 import { treeItemSql } from '../composables/loqe/treeItemSql';
+import {
+  downloadText,
+  isSqlFile,
+  sqlFromFile,
+  tabFileName,
+  tabNameFromFile,
+  tabToSql,
+} from '../composables/loqe/sqlFile';
 import { errorLocation, splitEngineError } from '../composables/loqe/queryError';
 import CellValue from './CellValue.vue';
 import CellValueDialog from './CellValueDialog.vue';
@@ -1282,8 +1362,15 @@ function openHistoryInNewTab(entry: LoQEHistoryEntry) {
   const base =
     `History ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ` +
     `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  openInNewTab(entry.name ?? base, text);
+}
+
+/**
+ * A new tab holding `text`, named `wanted` or, when a tab has that name,
+ * `wanted (2)` and so on; it becomes the active tab.
+ */
+function openInNewTab(wanted: string, text: string) {
   const taken = new Set(currentLoqeTabs.value.map((t) => t.name));
-  const wanted = entry.name ?? base;
   let name = wanted;
   for (let n = 2; taken.has(name); n++) name = `${wanted} (${n})`;
 
@@ -1292,6 +1379,78 @@ function openHistoryInNewTab(entry: LoQEHistoryEntry) {
   visualStore.updateSqlTabContent(LOQE_TAB_KEY, tab.id, text);
   activeTabIndex.value = currentLoqeTabs.value.length - 1;
   sqlQuery.value = text;
+}
+
+// ── .sql files: download a tab, open files into tabs ─────────────────
+
+const sqlFileInput = ref<HTMLInputElement | null>(null);
+/** A short note in the status bar about files that were not opened; clears itself. */
+const fileMessage = ref('');
+let fileMessageTimer: ReturnType<typeof setTimeout> | undefined;
+/** Larger than any query; a file this big is data, not SQL to edit. */
+const MAX_SQL_FILE_BYTES = 5 * 1024 * 1024;
+
+function noteFiles(text: string) {
+  fileMessage.value = text;
+  clearTimeout(fileMessageTimer);
+  fileMessageTimer = setTimeout(() => (fileMessage.value = ''), 6000);
+}
+
+/** The active tab's SQL as `<tab-name>.sql`, the tab's name as a comment header. */
+function downloadTab() {
+  if (!sqlQuery.value.trim()) return;
+  const name = currentLoqeTabs.value[activeTabIndex.value]?.name ?? '';
+  downloadText(tabFileName(name), tabToSql(name, sqlQuery.value));
+}
+
+/**
+ * Open each `.sql` (or plain-text) file in a new tab named after the file,
+ * without the header LoQE writes on export. Other files are skipped with a
+ * note in the status bar.
+ */
+async function openSqlFiles(files: File[]) {
+  const skipped: string[] = [];
+  for (const file of files) {
+    if (!isSqlFile(file) || file.size > MAX_SQL_FILE_BYTES) {
+      skipped.push(file.name);
+      continue;
+    }
+    try {
+      openInNewTab(tabNameFromFile(file.name), sqlFromFile(await file.text()));
+    } catch {
+      skipped.push(file.name);
+    }
+  }
+  if (skipped.length) {
+    noteFiles(`Not opened: ${skipped.join(', ')}. Only .sql or plain-text files open as a query.`);
+  } else {
+    fileMessage.value = '';
+  }
+}
+
+async function onSqlFilesPicked(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files ?? []);
+  // Picking the same file again must fire `change` again.
+  input.value = '';
+  await openSqlFiles(files);
+}
+
+const hasFiles = (event: DragEvent) => !!event.dataTransfer?.types.includes('Files');
+
+/** Accept a file drag over the editor area, so the browser does not open the file itself. */
+function onFileDragOver(event: DragEvent) {
+  if (!hasFiles(event) || event.defaultPrevented) return;
+  event.preventDefault();
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+}
+
+/** A file dropped beside the editor (or while it loads); the editor handles drops on itself. */
+function onFileDrop(event: DragEvent) {
+  const files = event.dataTransfer?.files;
+  if (event.defaultPrevented || !files?.length) return;
+  event.preventDefault();
+  void openSqlFiles(Array.from(files));
 }
 
 // ── History view → editor ───────────────────────────────────────────
@@ -1349,15 +1508,36 @@ const shortcutRows = [
 ];
 const showShortcuts = ref(false);
 
-/** Icon buttons on the editor toolbar. */
-const editorActions = [
-  { label: 'Format', icon: 'mdi-auto-fix', hint: keys.format, run: () => formatSQL() },
-  { label: 'Copy', icon: 'mdi-content-copy', hint: '', run: () => copySQL() },
+// Right-click menu on a query tab. It acts on that tab, so the tab is selected first.
+const tabMenu = reactive({ open: false, x: 0, y: 0 });
+function selectTab(index: number, tabId: string) {
+  activeTabIndex.value = index;
+  handleTabClick(tabId);
+}
+function openTabMenu(e: MouseEvent, index: number, tabId: string) {
+  selectTab(index, tabId);
+  tabMenu.x = e.clientX;
+  tabMenu.y = e.clientY;
+  tabMenu.open = true;
+}
+function renameActiveTab() {
+  const tab = currentLoqeTabs.value[activeTabIndex.value];
+  if (tab) startRenameTab(tab.id, tab.name);
+}
+
+/** What a tab's menu (⋮ and right-click) offers; .sql download is under SQL. */
+const tabActions = [
   {
-    label: 'Clear',
-    icon: 'mdi-eraser',
-    hint: '',
-    run: () => sqlEditorRef.value?.clearContent(),
+    title: 'Rename',
+    icon: 'mdi-pencil-outline',
+    disabled: () => false,
+    run: () => renameActiveTab(),
+  },
+  {
+    title: 'Close other tabs',
+    icon: 'mdi-close-box-multiple-outline',
+    disabled: () => currentLoqeTabs.value.length <= 1,
+    run: () => handleCloseOtherTabs(currentLoqeTabs.value[activeTabIndex.value]?.id),
   },
 ];
 
@@ -2484,6 +2664,7 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
+  clearTimeout(fileMessageTimer);
   if (memoryPollTimer) {
     clearInterval(memoryPollTimer);
     memoryPollTimer = null;
@@ -2517,11 +2698,13 @@ onBeforeUnmount(() => {
   letter-spacing: normal;
   min-width: 0;
 }
-.loqe-tab-close {
+.loqe-tab-close,
+.loqe-tab-menu {
   opacity: 0.45;
   border-radius: 4px;
 }
-.loqe-tab-close:hover {
+.loqe-tab-close:hover,
+.loqe-tab-menu:hover {
   opacity: 1;
   background: rgba(var(--v-theme-on-surface), 0.08);
 }
@@ -2536,6 +2719,13 @@ onBeforeUnmount(() => {
   padding: 4px 6px 0;
   color: rgba(var(--v-theme-on-surface), 0.6);
   font-variant-numeric: tabular-nums;
+}
+.loqe-file-message {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgb(var(--v-theme-warning));
 }
 .loqe-kbd {
   display: inline-block;

@@ -80,6 +80,18 @@
           filtered
         </v-chip>
         <v-spacer />
+        <template v-if="checkedEntries.length">
+          <v-btn
+            variant="tonal"
+            color="primary"
+            class="text-none"
+            prepend-icon="mdi-download"
+            @click="downloadChecked">
+            Download {{ checkedEntries.length }}
+            {{ checkedEntries.length === 1 ? 'run' : 'runs' }} as .sql
+          </v-btn>
+          <v-btn variant="text" class="text-none" @click="checked = []">Clear selection</v-btn>
+        </template>
         <v-btn
           v-if="entries.length"
           variant="text"
@@ -97,7 +109,9 @@
           <v-data-table-virtual
             :headers="headers"
             :items="shown"
+            v-model="checked"
             item-value="id"
+            show-select
             density="compact"
             fixed-header
             height="100%"
@@ -163,6 +177,10 @@
                     prepend-icon="mdi-content-copy"
                     title="Copy SQL"
                     @click="copy(item.sql)" />
+                  <v-list-item
+                    prepend-icon="mdi-download"
+                    title="Download .sql"
+                    @click="download(item)" />
                 </v-list>
               </v-menu>
             </template>
@@ -331,6 +349,14 @@
                   @click="copy(selected.sql)">
                   Copy
                 </v-btn>
+                <v-btn
+                  density="comfortable"
+                  variant="text"
+                  class="text-none"
+                  prepend-icon="mdi-download"
+                  @click="download(selected)">
+                  Download .sql
+                </v-btn>
               </div>
               <pre class="lqh-details-sql" tabindex="0" aria-label="SQL of this run">{{
                 selected.sql.trim()
@@ -404,6 +430,13 @@ import LoQEPlanGraph from './LoQEPlanGraph.vue';
 import type { LoQEHistoryEntry } from '../composables/loqe/types';
 import type { LoQEPlanNode } from '../composables/loqe/runProfile';
 import { loadPlan } from '../composables/loqe/loqeDb';
+import {
+  downloadText,
+  runFileName,
+  runToSql,
+  runsFileName,
+  runsToSql,
+} from '../composables/loqe/sqlFile';
 import { useLoQEStore } from '../stores/loqe';
 import { useDuckDBSettingsStore } from '../stores/duckdbSettings';
 
@@ -628,7 +661,29 @@ const confirmClear = ref(false);
 function clearAll() {
   confirmClear.value = false;
   selectedId.value = null;
+  checked.value = [];
   emit('clear');
+}
+
+// ── Download as .sql ──
+/** Runs ticked for download, by id; a run removed since simply drops out. */
+const checked = ref<string[]>([]);
+const checkedEntries = computed(() => {
+  const ids = new Set(checked.value);
+  return props.entries.filter((e) => ids.has(e.id));
+});
+
+/** One run as a `.sql` file, its name and outcome as a comment header. */
+function download(e: LoQEHistoryEntry) {
+  saveName();
+  downloadText(runFileName(e), runToSql(e));
+}
+
+/** The ticked runs in one `.sql` file, each with its own header. */
+function downloadChecked() {
+  saveName();
+  const runs = checkedEntries.value;
+  if (runs.length) downloadText(runsFileName(runs), runsToSql(runs));
 }
 
 async function copy(sql: string) {
