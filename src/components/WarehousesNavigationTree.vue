@@ -1,7 +1,10 @@
 <template>
   <v-sheet class="d-flex flex-column" color="transparent" style="height: 100%; overflow: hidden">
-    <!-- One row: what to browse, then the two actions on it. Search only applies
-         to one warehouse, so it opens on demand instead of sitting there disabled. -->
+    <!-- What to browse, its refresh, then the warehouse-wide search under it.
+         The search is the backend's fuzzy search over one whole warehouse, so it
+         is there as soon as a warehouse is, and is the only search on the page
+         (DESIGN.md: narrowing is picking — it lives in the picker column). `/`
+         or the magnifier beside a folded tree's toggle brings it back. -->
     <v-sheet color="transparent" class="px-3 pt-2 pb-2 flex-shrink-0">
       <div class="d-flex align-center">
         <WarehousePicker
@@ -20,23 +23,6 @@
           <v-icon size="x-small" class="mr-1">mdi-warehouse</v-icon>
           <span class="text-truncate">{{ props.warehouseName || selectedSearchWarehouse }}</span>
         </div>
-        <!-- A disabled button gets no hover events, so the tooltip hangs off a wrapper. -->
-        <span class="d-inline-flex">
-          <v-btn
-            icon="mdi-magnify"
-            size="x-small"
-            variant="text"
-            :active="searchOpen"
-            :disabled="!searchWarehouseId"
-            @click="toggleSearch"></v-btn>
-          <v-tooltip activator="parent" location="bottom">
-            {{
-              searchWarehouseId
-                ? 'Search tables, views & generic tables'
-                : 'Pick a warehouse first to search it'
-            }}
-          </v-tooltip>
-        </span>
         <v-btn
           icon="mdi-refresh"
           size="x-small"
@@ -45,105 +31,111 @@
           title="Refresh warehouses"
           @click="refreshWarehouses"></v-btn>
       </div>
+
       <v-text-field
-        v-if="searchOpen && searchWarehouseId"
+        v-if="searchWarehouseId"
+        ref="searchFieldRef"
         v-model="searchQuery"
         density="compact"
         variant="outlined"
-        placeholder="Search tables, views, generic tables…"
+        placeholder="Search the whole warehouse…"
+        aria-label="Search the whole warehouse"
+        prepend-inner-icon="mdi-magnify"
         hide-details
         clearable
-        autofocus
-        class="filter-field mt-2"
+        persistent-clear
+        class="tree-search mt-2"
         :loading="isSearching"
-        @keyup.enter="performSearch"
-        @keydown.esc="closeSearch"
+        @keydown.down.prevent="moveActive(1)"
+        @keydown.up.prevent="moveActive(-1)"
+        @keydown.enter.prevent="onSearchEnter"
+        @keydown.esc.prevent="onSearchEsc"
         @click:clear="clearSearch">
-        <template #prepend-inner>
-          <v-icon size="x-small">mdi-magnify</v-icon>
-        </template>
-        <template #append-inner>
-          <v-btn
-            icon="mdi-arrow-right"
-            size="x-small"
-            variant="text"
-            :disabled="!searchQuery || isSearching"
-            @click="performSearch"
-            title="Search warehouse (fuzzy)"></v-btn>
+        <template v-if="!searchQuery" #append-inner>
+          <kbd class="tree-search__key" title="Press / to search">/</kbd>
         </template>
       </v-text-field>
+      <div v-else class="tree-search__hint mt-2">
+        <v-icon size="x-small">mdi-magnify</v-icon>
+        Pick a warehouse to search all of its tables and views
+      </div>
     </v-sheet>
     <v-divider class="border-opacity-25"></v-divider>
 
-    <!-- Search Results (shown above tree when results exist) -->
-    <v-sheet
-      v-if="hasSearched"
-      color="transparent"
-      class="flex-shrink-0"
-      style="height: 240px; overflow-y: auto">
-      <div v-if="isSearching" class="text-center py-3">
-        <v-progress-circular color="primary" indeterminate size="20"></v-progress-circular>
-        <div class="text-caption mt-1">Searching...</div>
+    <!-- While there is a query the results take the tree's place and the rest of
+         the column, with one scroll; the tree is only hidden, so its expansion
+         survives and comes back unchanged when the query is cleared. -->
+    <div v-if="searchMode" class="tree-search__results" role="listbox">
+      <div v-if="searchError" class="tree-search__note">
+        <v-icon size="x-small" color="warning">mdi-lock-outline</v-icon>
+        {{ searchError }}
       </div>
-      <div v-else-if="searchResults.length === 0" class="text-center py-3">
-        <v-icon class="text-medium-emphasis">mdi-table-search</v-icon>
-        <div class="text-caption mt-1 text-medium-emphasis">No results found</div>
-      </div>
-      <div v-else>
-        <div class="d-flex align-center px-3 pt-2">
-          <span class="text-caption text-medium-emphasis flex-grow-1">
-            {{ searchResults.length }} result(s)
-          </span>
-          <v-btn
-            icon="mdi-close"
-            size="x-small"
-            variant="text"
-            @click="dismissSearch"
-            title="Dismiss search results"></v-btn>
+      <template v-else>
+        <div class="tree-search__summary">
+          <template v-if="!hasSearched || (isSearching && !searchResults.length)">
+            Searching…
+          </template>
+          <template v-else>
+            {{ searchResults.length }} match{{ searchResults.length === 1 ? '' : 'es' }} in
+            {{ searchWarehouseName }} · Esc to clear
+          </template>
         </div>
-        <v-list density="compact" class="pa-2 pt-0 search-results-list" bg-color="transparent">
-          <v-list-item
-            v-for="result in searchResults"
-            :key="result.id"
-            density="compact"
-            class="search-result-item"
-            @click="navigateToSearchResult(result)">
-            <template #prepend>
-              <v-icon v-if="result.type === 'view'" size="small">mdi-eye-outline</v-icon>
-              <v-icon
-                v-else-if="result.type === 'table'"
-                size="small"
-                :title="`Iceberg ${result.type}`">
-                <v-img :src="icebergIcon" width="18" height="18" />
-              </v-icon>
-              <v-icon v-else size="small" class="text-medium-emphasis" title="Generic table">
-                mdi-alpha-g
-              </v-icon>
-            </template>
-            <v-list-item-title style="font-size: 0.8125rem">
-              {{ result.name }}
-            </v-list-item-title>
-            <v-list-item-subtitle class="text-caption">
-              {{ result.namespace }}
-            </v-list-item-subtitle>
-            <template #append>
-              <v-chip
-                v-if="result.distance !== null && result.distance !== undefined"
-                size="x-small"
-                :color="
-                  result.distance <= 0.2 ? 'success' : result.distance <= 0.5 ? 'warning' : 'error'
-                "
-                variant="flat">
-                {{ Math.round((1 - result.distance) * 100) }}%
-              </v-chip>
-            </template>
-          </v-list-item>
-        </v-list>
-      </div>
-      <v-divider class="border-opacity-25"></v-divider>
-    </v-sheet>
+        <div v-if="hasSearched && !isSearching && !searchResults.length" class="tree-search__note">
+          No tables or views match “{{ searchText }}”
+        </div>
+        <template v-for="(result, i) in orderedResults" :key="result.id">
+          <div v-if="i === 0 && similarStart > 0" class="tree-search__group">Matches</div>
+          <div v-if="i === similarStart && similarStart > 0" class="tree-search__group">
+            Similar
+          </div>
+          <div
+            :ref="(el) => setResultRef(el, i)"
+            class="tree-search__row"
+            :class="{
+              'tree-search__row--active': i === activeIndex,
+              'tree-search__row--stale': isSearching,
+            }"
+            role="option"
+            :aria-selected="i === activeIndex"
+            @mouseenter="activeIndex = i"
+            @mousedown.prevent
+            @click="openSearchResult(result)">
+            <img
+              v-if="result.type === 'table'"
+              :src="icebergIcon"
+              width="15"
+              height="15"
+              alt=""
+              class="tree-search__icon" />
+            <v-icon v-else-if="result.type === 'view'" size="x-small" class="tree-search__icon">
+              mdi-eye-outline
+            </v-icon>
+            <v-icon v-else size="x-small" class="tree-search__icon text-medium-emphasis">
+              mdi-alpha-g
+            </v-icon>
+            <span class="tree-search__text">
+              <span class="tree-search__name">
+                <template v-for="(part, j) in highlight(result.name)" :key="j">
+                  <strong v-if="part.match">{{ part.text }}</strong>
+                  <template v-else>{{ part.text }}</template>
+                </template>
+              </span>
+              <span class="tree-search__ns">{{ result.namespace }}</span>
+            </span>
+            <!-- The server's ranking, as the tree always showed it: 1 − distance. -->
+            <span
+              v-if="matchPercent(result) !== null"
+              class="tree-search__score"
+              title="Fuzzy match score">
+              {{ matchPercent(result) }}%
+            </span>
+          </div>
+        </template>
+      </template>
+    </div>
 
     <PinnedObjects
+      v-if="!searchMode"
       v-model:collapsed="pinsCollapsed"
       :pins="visiblePins"
       :icon-for="pinIcon"
@@ -151,11 +143,12 @@
       @open="openPin"
       @unpin="unpin" />
 
-    <!-- Tree View (always visible, filtered by text input) -->
+    <!-- Tree View (hidden, not unmounted, while search results stand in for it) -->
     <v-sheet
+      v-show="!searchMode"
       color="transparent"
       class="flex-grow-1 tree-scroller"
-      style="overflow-y: auto; overflow-x: auto">
+      style="overflow-y: auto; overflow-x: auto; min-height: 0">
       <v-treeview
         v-model:opened="openedItems"
         :items="visibleTreeItems"
@@ -348,13 +341,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch, computed, onBeforeUnmount } from 'vue';
+import { ref, onMounted, watch, computed, onBeforeUnmount, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
 import { useFunctions } from '@/plugins/functions';
 import { useVisualStore } from '@/stores/visual';
 import { Type } from '@/common/enums';
 import { logError, isForbiddenError, isNotFoundError } from '@/common/errorUtils';
-import type { SearchTabular } from '@/gen/management/types.gen';
+import { useWarehouseSearch, type WarehouseSearchHit } from '@/composables/useWarehouseSearch';
 import icebergIcon from '@/assets/iceberg.svg';
 import { warehouseIconSpec, type IconSpec } from '@/common/storageIcon';
 import { usePinnedObjects, type PinnedObject } from '@/composables/usePinnedObjects';
@@ -531,21 +524,7 @@ function isActiveItem(item: {
 const pageTokens = ref<
   Record<string, { namespaces?: string; tables?: string; views?: string; genericTables?: string }>
 >({});
-const searchQuery = ref('');
 const selectedSearchWarehouse = ref<string | null>(props.warehouseId || null);
-const isSearching = ref(false);
-const hasSearched = ref(false);
-const searchResults = ref<
-  {
-    id: string;
-    name: string;
-    namespace: string;
-    type: string;
-    distance: number | null;
-    warehouseId: string;
-    namespaceId: string;
-  }[]
->([]);
 
 // Get projectId from visual store
 const projectId = computed(() => visualStore.projectSelected['project-id']);
@@ -597,70 +576,195 @@ watch(selectedSearchWarehouse, (id) => {
   if (id && !props.warehouseId) ensureWarehouseRendered(id);
 });
 
-// Dismiss search results
-function dismissSearch() {
-  hasSearched.value = false;
-  searchResults.value = [];
+// Backend fuzzy search over the whole warehouse (useWarehouseSearch).
+const {
+  query: searchQuery,
+  results: searchResults,
+  searching: isSearching,
+  searched: hasSearched,
+  error: searchError,
+  search: performSearch,
+  dismiss: dismissSearch,
+  clear: clearSearch,
+} = useWarehouseSearch(searchWarehouseId);
+
+const SEARCH_MIN_CHARS = 2;
+const SEARCH_DEBOUNCE_MS = 300;
+const searchFieldRef = ref<{ focus: () => void; blur: () => void } | null>(null);
+const activeIndex = ref(-1);
+const resultEls: HTMLElement[] = [];
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+const searchText = computed(() => searchQuery.value?.trim() ?? '');
+// From two characters on, the results stand in for the tree; under that there
+// is nothing to rank on and the tree stays.
+const searchMode = computed(
+  () => !!searchWarehouseId.value && searchText.value.length >= SEARCH_MIN_CHARS,
+);
+
+const searchWarehouseName = computed(
+  () =>
+    props.warehouseName ||
+    warehouseNodes.value.get(searchWarehouseId.value ?? '')?.name ||
+    'this warehouse',
+);
+
+/** The server's score as the tree always showed it: 1 − distance, in percent. */
+function matchPercent(hit: WarehouseSearchHit): number | null {
+  if (hit.distance === null || hit.distance === undefined) return null;
+  return Math.max(0, Math.min(100, Math.round((1 - hit.distance) * 100)));
 }
 
-// Perform API search (fuzzy, requires warehouseId)
-async function performSearch() {
-  if (!searchQuery.value?.trim() || !searchWarehouseId.value) return;
+function byScore(a: WarehouseSearchHit, b: WarehouseSearchHit): number {
+  return (a.distance ?? Infinity) - (b.distance ?? Infinity);
+}
 
-  isSearching.value = true;
-  hasSearched.value = true;
-
-  try {
-    const response = await functions.searchTabular(searchWarehouseId.value, {
-      search: searchQuery.value.trim(),
-    });
-
-    searchResults.value = (response.tabulars || []).map((result: SearchTabular) => ({
-      id: result['tabular-id'].id,
-      name: result['tabular-name'],
-      namespace: result['namespace-name'].join('.'),
-      type: result['tabular-id'].type,
-      distance: result.distance ?? null,
-      warehouseId: searchWarehouseId.value!,
-      namespaceId: result['namespace-name'].join('.'),
-    }));
-  } catch (error: any) {
-    logError('Search failed', error);
-    searchResults.value = [];
-    visualStore.setSnackbarMsg({
-      function: 'searchTabular',
-      text: error?.error?.message || error?.message || 'Search failed',
-      ttl: 3000,
-      ts: Date.now(),
-      type: Type.ERROR,
-    });
-  } finally {
-    isSearching.value = false;
+/**
+ * Hits whose name or dotted namespace contains the text come first; the
+ * fuzzy-only ones ("Similar") after them. Each group best score first.
+ */
+const searchGroups = computed(() => {
+  const q = searchText.value.toLowerCase();
+  const exact: WarehouseSearchHit[] = [];
+  const similar: WarehouseSearchHit[] = [];
+  for (const hit of searchResults.value) {
+    const literal =
+      !!q && (hit.name.toLowerCase().includes(q) || hit.namespace.toLowerCase().includes(q));
+    (literal ? exact : similar).push(hit);
   }
+  return { exact: exact.sort(byScore), similar: similar.sort(byScore) };
+});
+
+const orderedResults = computed(() => [...searchGroups.value.exact, ...searchGroups.value.similar]);
+
+/** Index of the first "Similar" row; 0 means no exact hits, so no subheaders. */
+const similarStart = computed(() => searchGroups.value.exact.length);
+
+function cancelPendingSearch() {
+  if (searchTimer) clearTimeout(searchTimer);
+  searchTimer = undefined;
 }
 
-// Clear search results
-function clearSearch() {
-  searchQuery.value = '';
-  hasSearched.value = false;
-  searchResults.value = [];
+function runSearchNow() {
+  cancelPendingSearch();
+  if (searchText.value.length < SEARCH_MIN_CHARS) return;
+  performSearch();
 }
 
-const searchOpen = ref(false);
+watch(searchQuery, () => {
+  cancelPendingSearch();
+  if (searchText.value.length < SEARCH_MIN_CHARS) {
+    dismissSearch();
+    return;
+  }
+  searchTimer = setTimeout(runSearchNow, SEARCH_DEBOUNCE_MS);
+});
 
-function toggleSearch() {
-  if (searchOpen.value) closeSearch();
-  else searchOpen.value = true;
+// A fresh answer highlights its best hit, so Enter opens it.
+watch(orderedResults, (list) => {
+  resultEls.length = 0;
+  activeIndex.value = list.length ? 0 : -1;
+});
+
+function setResultRef(el: unknown, i: number) {
+  if (el instanceof HTMLElement) resultEls[i] = el;
 }
 
-function closeSearch() {
-  searchOpen.value = false;
+function moveActive(step: number) {
+  const n = orderedResults.value.length;
+  if (!searchMode.value || !n) return;
+  activeIndex.value = (activeIndex.value + step + n) % n;
+  resultEls[activeIndex.value]?.scrollIntoView({ block: 'nearest' });
+}
+
+function onSearchEnter() {
+  // Typed faster than the debounce: answer this text, not the previous one.
+  if (searchTimer || isSearching.value) {
+    runSearchNow();
+    return;
+  }
+  const hit = orderedResults.value[activeIndex.value];
+  if (searchMode.value && hit) openSearchResult(hit);
+  else runSearchNow();
+}
+
+function onSearchEsc() {
+  cancelPendingSearch();
   clearSearch();
+  searchFieldRef.value?.blur();
 }
 
-// Search is scoped to one warehouse; without one there is nothing to search.
-watch(searchWarehouseId, (id) => {
-  if (!id) closeSearch();
+// Clears the field first, so the tree is back before it is opened down to the hit.
+function openSearchResult(hit: WarehouseSearchHit) {
+  cancelPendingSearch();
+  clearSearch();
+  searchFieldRef.value?.blur();
+  navigateToSearchResult(hit);
+}
+
+/** The name split around the first case-insensitive occurrence of the query. */
+function highlight(name: string): { text: string; match: boolean }[] {
+  const q = searchText.value.toLowerCase();
+  const at = q ? name.toLowerCase().indexOf(q) : -1;
+  if (at < 0) return [{ text: name, match: false }];
+  return [
+    { text: name.slice(0, at), match: false },
+    { text: name.slice(at, at + q.length), match: true },
+    { text: name.slice(at + q.length), match: false },
+  ].filter((p) => p.text);
+}
+
+// Search is scoped to one warehouse; another one's results mean nothing here.
+watch(searchWarehouseId, () => {
+  cancelPendingSearch();
+  clearSearch();
+});
+
+/**
+ * Bring the search into view and focus it: unfold the tree first when the page
+ * folded it away, then wait for the unfold to lay the field out.
+ */
+function focusSearch() {
+  if (!searchWarehouseId.value) return;
+  const wasFolded = visualStore.isNavigationCollapsed;
+  visualStore.isNavigationCollapsed = false;
+  nextTick(() => {
+    searchFieldRef.value?.focus();
+    // v-expand-x-transition keeps the column hidden for its duration.
+    if (wasFolded) setTimeout(() => searchFieldRef.value?.focus(), 250);
+  });
+}
+
+// The magnifier beside a folded tree's toggle (EntityIdentityRow) asks for it.
+watch(
+  () => visualStore.treeSearchFocusRequest,
+  () => {
+    if (!props.pickable) focusSearch();
+  },
+);
+
+/** `/` anywhere except while typing, as on GitHub. Navigation trees only. */
+function onGlobalKeydown(e: KeyboardEvent) {
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || e.defaultPrevented) return;
+  const t = e.target as HTMLElement | null;
+  if (
+    t &&
+    (t.isContentEditable ||
+      ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName) ||
+      t.closest('.cm-editor, [contenteditable="true"]'))
+  )
+    return;
+  if (!searchWarehouseId.value) return;
+  e.preventDefault();
+  focusSearch();
+}
+
+onMounted(() => {
+  if (!props.pickable) window.addEventListener('keydown', onGlobalKeydown);
+});
+onBeforeUnmount(() => {
+  cancelPendingSearch();
+  window.removeEventListener('keydown', onGlobalKeydown);
 });
 
 /** Which mark a warehouse wears; shared with LoQE so the two trees cannot drift. */
@@ -859,14 +963,8 @@ function saveWarehouseSubtreeState(warehouseId: string) {
 }
 
 // Navigate to a search result
-async function navigateToSearchResult(result: {
-  id: string;
-  name: string;
-  namespace: string;
-  type: string;
-  warehouseId: string;
-  namespaceId: string;
-}) {
+async function navigateToSearchResult(hit: WarehouseSearchHit) {
+  const result = { ...hit, namespaceId: hit.namespace };
   // No permission pre-check: the detail page renders a friendly not-found /
   // forbidden alert inline, so we always navigate (or emit pick) and let it
   // handle the error state.
@@ -1959,26 +2057,120 @@ onBeforeUnmount(() => {
   line-height: 1.2 !important;
 }
 
-.filter-field :deep(.v-field) {
-  font-size: 0.75rem !important;
+/* Same size as the warehouse picker above it, so the column reads as one set of fields. */
+.tree-search :deep(.v-field) {
+  font-size: 0.875rem;
 }
 
-.filter-field :deep(.v-field__input) {
-  min-height: 28px !important;
-  padding: 4px 8px !important;
+.tree-search__key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border: 1px solid rgba(var(--v-theme-on-surface), 0.2);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 0.6875rem;
+  line-height: 1;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 
-.search-results-list :deep(.v-list-item) {
-  min-height: 36px !important;
-  border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
+.tree-search__hint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 4px;
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+/* The tree's place in the column: the rest of the height, one scroll. */
+.tree-search__results {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 4px;
+}
+
+.tree-search__summary {
+  padding: 6px 12px 4px;
+  font-size: 0.6875rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.tree-search__group {
+  padding: 6px 12px 2px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.tree-search__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.tree-search__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
   cursor: pointer;
+  min-width: 0;
 }
 
-.search-results-list :deep(.v-list-item:hover) {
-  background-color: rgba(var(--v-theme-primary), 0.1) !important;
+.tree-search__row--active {
+  background: rgba(var(--v-theme-primary), 0.1);
 }
 
-.search-result-item :deep(.v-list-item-subtitle) {
+/* An answer for the previous text, kept while the next one loads. */
+.tree-search__row--stale {
   opacity: 0.6;
+}
+
+.tree-search__icon {
+  flex: 0 0 auto;
+}
+
+.tree-search__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.tree-search__name {
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-search__score {
+  flex: 0 0 auto;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+}
+
+.tree-search__name strong {
+  font-weight: 600;
+}
+
+.tree-search__ns {
+  font-size: 0.6875rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
 }
 </style>
