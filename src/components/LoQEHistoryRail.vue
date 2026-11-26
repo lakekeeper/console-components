@@ -63,8 +63,8 @@
         :close-on-content-click="false"
         @update:model-value="(open) => !open && close()">
         <template v-if="openEntry">
-          <!-- Wide enough for the four actions on one row; wraps only on a narrow screen. -->
-          <v-card width="640" max-width="calc(100vw - 32px)" class="history-rail__card">
+          <!-- Wide enough for the actions on one row; wraps only on a narrow screen. -->
+          <v-card width="780" max-width="calc(100vw - 32px)" class="history-rail__card">
             <v-card-text class="pb-2">
               <!-- A visible, labelled field: the name is editable, and says so. -->
               <div class="d-flex align-center ga-2 mb-3">
@@ -172,6 +172,14 @@
                 @click="act((e) => copy(e.sql))">
                 Copy
               </v-btn>
+              <v-btn
+                density="comfortable"
+                variant="text"
+                class="text-none"
+                prepend-icon="mdi-download"
+                @click="act(download)">
+                Download .sql
+              </v-btn>
             </v-card-actions>
           </v-card>
         </template>
@@ -183,12 +191,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import type { LoQEHistoryEntry } from '../composables/loqe/types';
+import { downloadText, runFileName, runToSql } from '../composables/loqe/sqlFile';
 
 /**
  * One query tab's runs, newest first, as a timeline beside the editor. Narrow
  * it shows a dot per run; wide it adds the date and time, the outcome and the
  * SQL on one line. A run opens a card to put it back in the editor, open
- * it in a new tab, insert it, or copy it, and to name it or remove it; a click
+ * it in a new tab, insert it, copy it or download it as a `.sql` file, and to
+ * name it or remove it; a click
  * on the dot alone changes nothing.
  */
 const props = defineProps<{
@@ -277,6 +287,11 @@ const when = (ms: number) =>
     hour: '2-digit',
     minute: '2-digit',
   });
+
+/** Save the run as a `.sql` file, with its name and outcome as a comment header. */
+function download(entry: LoQEHistoryEntry) {
+  downloadText(runFileName(entry), runToSql(entry));
+}
 
 async function copy(sql: string) {
   try {
