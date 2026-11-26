@@ -14,6 +14,19 @@
       density="comfortable"
       :title="isNavigationCollapsed ? 'Show navigation tree' : 'Hide navigation tree'"
       @click="isNavigationCollapsed = !isNavigationCollapsed"></v-btn>
+    <!-- The tree holds the warehouse search; folded away, this is the way back
+         to it without hunting for the fold first. -->
+    <v-btn
+      v-if="collapsible && isNavigationCollapsed"
+      icon
+      size="small"
+      variant="text"
+      density="comfortable"
+      aria-label="Search this warehouse"
+      @click="visual.treeSearchFocusRequest++">
+      <v-icon>mdi-magnify</v-icon>
+      <v-tooltip activator="parent" location="bottom">Search this warehouse (/)</v-tooltip>
+    </v-btn>
 
     <!-- The glyph sits on a tinted tile rather than loose in the text: it is
          what the eye lands on first when the page changes, and a bare icon

@@ -62,6 +62,12 @@ const props = withDefaults(
     fetchCompletions?: (qualifier: string) => Promise<Array<string | SqlCompletionItem>>;
     /** A query is running: Esc in the editor emits `cancel`. */
     running?: boolean;
+    /**
+     * Files dropped onto the editor are handed over (`dropFiles`) instead of
+     * having their text inserted at the drop point. Dropped text, such as a
+     * name dragged from the navigation tree, is inserted as before.
+     */
+    fileDrop?: boolean;
   }>(),
   {
     placeholder: '',
@@ -72,6 +78,7 @@ const props = withDefaults(
     schema: undefined,
     fetchCompletions: undefined,
     running: false,
+    fileDrop: false,
   },
 );
 
@@ -85,6 +92,8 @@ const emit = defineEmits<{
   (e: 'runStatement'): void;
   /** Esc while `running`. */
   (e: 'cancel'): void;
+  /** Files dropped onto the editor, with `fileDrop` set. */
+  (e: 'dropFiles', files: File[]): void;
 }>();
 
 const editorContainer = ref<HTMLElement>();
@@ -703,6 +712,14 @@ onMounted(async () => {
         click: () => {
           emit('click');
           return false;
+        },
+        // Ahead of CodeMirror's own drop, which would insert a file's text.
+        drop: (event) => {
+          const files = event.dataTransfer?.files;
+          if (!props.fileDrop || !files?.length) return false;
+          event.preventDefault();
+          emit('dropFiles', Array.from(files));
+          return true;
         },
       }),
       readOnlyCompartment.of(EditorState.readOnly.of(props.disabled || props.readonly)),
