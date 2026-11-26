@@ -6,6 +6,9 @@ on:
       - main
       - main-*
   pull_request:
+  # The merge queue tests each queued PR on a temporary branch; the required
+  # Build check must run there too.
+  merge_group:
   workflow_dispatch:
 
 permissions:
@@ -23,7 +26,8 @@ jobs:
     runs-on: ${{ vars.RUNS_ON__AMD_XS || 'ubuntu-24.04' }}
     container:
       image: quay.io/vakamo/build-base:ubuntu-24-04
-    if: ${{ vars.RELEASE_PLEASE_ACTIVATED != '' }}
+    # Not on a merge-queue branch: releases come from pushes to main only.
+    if: ${{ vars.RELEASE_PLEASE_ACTIVATED != '' && github.event_name != 'merge_group' }}
     outputs:
       releases_created: ${{ steps.release.outputs.releases_created }}
       tag_name: ${{ steps.release.outputs['tag_name'] }}
