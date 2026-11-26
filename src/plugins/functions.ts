@@ -4734,6 +4734,30 @@ async function searchTabular(
   }
 }
 
+/**
+ * `searchTabular` without the snackbar: for a caller that says a refusal or a
+ * failure beside its own field (the warehouse search). A 401 still goes
+ * through the shared login handling.
+ */
+async function searchTabularQuiet(
+  warehouseId: string,
+  request: SearchTabularRequest,
+): Promise<SearchTabularResponse> {
+  try {
+    init();
+    const { data, error } = await mng.searchTabular({
+      client: mngClient.client,
+      path: { warehouse_id: warehouseId },
+      body: { search: request.search || '' },
+    });
+    if (error) throw error;
+    return (data as SearchTabularResponse) ?? { tabulars: [] };
+  } catch (error: any) {
+    handleError(error, 'searchTabular', false);
+    throw error;
+  }
+}
+
 async function getUser(userId: string, notify?: boolean): Promise<User> {
   try {
     init();
@@ -7387,6 +7411,7 @@ export function useFunctions(config?: any) {
     updateWarehouseAssignmentsById,
     searchRole,
     searchTabular,
+    searchTabularQuiet,
     listRoles,
     listRoleMembers,
     addRoleMembers,
