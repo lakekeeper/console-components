@@ -80,8 +80,10 @@
         </v-chip>
       </template>
       <template #item.actions="{ item }">
+        <!-- Admin-managed warehouses: Delete only for instance admins (the
+             server refuses everyone else with "spec locked"). -->
         <DeleteConfirmDialog
-          v-if="item.can_delete"
+          v-if="canOfferWarehouseDelete(item, item.can_delete, userStore.isInstanceAdmin)"
           type="warehouse"
           :name="item.name"
           @confirmed="deleteWarehouse(item.id)" />
@@ -112,6 +114,8 @@ import { useFunctions } from '@/plugins/functions';
 helix.register();
 import { useVisualStore } from '@/stores/visual';
 import { usePermissionStore } from '@/stores/permissions';
+import { useUserStore } from '@/stores/user';
+import { canOfferWarehouseDelete } from '@/common/warehouseManagedBy';
 import { useProjectPermissions, hasAction } from '@/composables/useCatalogPermissions';
 import { logError } from '@/common/errorUtils';
 import { Header } from '@/common/interfaces';
@@ -130,6 +134,7 @@ import { isAliyunOssEndpoint } from '@/common/storageIcon';
 const router = useRouter();
 const functions = useFunctions();
 const visual = useVisualStore();
+const userStore = useUserStore();
 const notify = true;
 
 const projectId = computed(() => visual.projectSelected['project-id']);
