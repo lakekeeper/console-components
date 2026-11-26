@@ -195,7 +195,11 @@
     <v-dialog v-model="confirmDialog" max-width="440">
       <v-card title="Confirm deletion of tag definition">
         <v-card-text>
-          <div class="ma-2">Please enter the name "{{ full.name }}" to confirm the deletion</div>
+          <div class="ma-2">
+            Please enter the name
+            <CopyableName :name="full.name" />
+            to confirm the deletion
+          </div>
           <v-text-field
             v-model="confirmName"
             label="Tag definition name"
@@ -249,6 +253,7 @@ import { useTagPermissions } from '../composables/useCatalogPermissions';
 import TagDefinitionDialog, { TagDefinitionInput } from './TagDefinitionDialog.vue';
 import TagPermissionsPanel from './TagPermissionsPanel.vue';
 import TagAttachmentsPanel from './TagAttachmentsPanel.vue';
+import CopyableName from './CopyableName.vue';
 import GrantsPanel from './GrantsPanel.vue';
 import { useGrantsSupported } from '../composables/useGrants';
 import { tagRefusal } from '../composables/useTagRights';

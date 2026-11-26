@@ -73,7 +73,7 @@
       <v-card-text>
         <p class="mb-3">
           This permanently deletes the {{ label }}
-          <strong class="font-mono">{{ tableName }}</strong>
+          <CopyableName :name="tableName" />
           from the catalog.
           <span class="text-error font-weight-bold">This cannot be undone.</span>
         </p>
@@ -112,6 +112,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useGenericTablePermissions, useConfig } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
 import MoveTabularDialog from './MoveTabularDialog.vue';
+import CopyableName from './CopyableName.vue';
 
 const props = defineProps<{
   warehouseId: string;

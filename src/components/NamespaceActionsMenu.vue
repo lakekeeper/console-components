@@ -82,7 +82,7 @@
       <v-card-text>
         <p class="mb-3">
           This deletes the namespace
-          <strong class="font-mono">{{ confirmTarget }}</strong>
+          <CopyableName :name="confirmTarget" />
           from the catalog.
           <span class="text-error font-weight-bold">This cannot be undone.</span>
         </p>
@@ -140,6 +140,7 @@ import { useNamespacePermissions, useConfig } from '@/composables/useCatalogPerm
 import { isForbiddenError, isNotFoundError } from '@/common/errorUtils';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
 import MoveNamespaceDialog from './MoveNamespaceDialog.vue';
+import CopyableName from './CopyableName.vue';
 import type { GetNamespaceResponse } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{
