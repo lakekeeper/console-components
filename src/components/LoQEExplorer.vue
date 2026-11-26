@@ -255,7 +255,7 @@
                         @click="handleTabClick(tab.id)"
                         @contextmenu.prevent="openTabMenu($event, index, tab.id)">
                         <v-icon
-                          size="14"
+                          size="18"
                           class="loqe-tab-close mr-1"
                           :aria-label="`Close ${tab.name}`"
                           @click.stop="handleCloseTab(tab.id)">
@@ -272,7 +272,7 @@
                           <template #activator="{ props: menuProps }">
                             <v-icon
                               v-bind="menuProps"
-                              size="14"
+                              size="18"
                               class="loqe-tab-menu ml-2"
                               :aria-label="`Actions for ${tab.name}`"
                               @click.stop="selectTab(index, tab.id)">
@@ -1409,23 +1409,32 @@ function downloadTab() {
  * note in the status bar.
  */
 async function openSqlFiles(files: File[]) {
-  const skipped: string[] = [];
+  // Each file keeps its own reason, so the note says what to change.
+  const tooBig: string[] = [];
+  const notSql: string[] = [];
+  const unreadable: string[] = [];
   for (const file of files) {
-    if (!isSqlFile(file) || file.size > MAX_SQL_FILE_BYTES) {
-      skipped.push(file.name);
+    if (!isSqlFile(file)) {
+      notSql.push(file.name);
+      continue;
+    }
+    if (file.size > MAX_SQL_FILE_BYTES) {
+      tooBig.push(file.name);
       continue;
     }
     try {
       openInNewTab(tabNameFromFile(file.name), sqlFromFile(await file.text()));
     } catch {
-      skipped.push(file.name);
+      unreadable.push(file.name);
     }
   }
-  if (skipped.length) {
-    noteFiles(`Not opened: ${skipped.join(', ')}. Only .sql or plain-text files open as a query.`);
-  } else {
-    fileMessage.value = '';
-  }
+  const notes = [
+    notSql.length && `${notSql.join(', ')}: only .sql or plain-text files open as a query`,
+    tooBig.length && `${tooBig.join(', ')}: larger than 5 MB`,
+    unreadable.length && `${unreadable.join(', ')}: could not be read`,
+  ].filter(Boolean);
+  if (notes.length) noteFiles(`Not opened: ${notes.join('; ')}.`);
+  else fileMessage.value = '';
 }
 
 async function onSqlFilesPicked(event: Event) {
@@ -2700,8 +2709,10 @@ onBeforeUnmount(() => {
 }
 .loqe-tab-close,
 .loqe-tab-menu {
-  opacity: 0.45;
+  opacity: 0.7;
   border-radius: 4px;
+  padding: 2px;
+  box-sizing: content-box;
 }
 .loqe-tab-close:hover,
 .loqe-tab-menu:hover {

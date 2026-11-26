@@ -74,11 +74,23 @@ export function tabToSql(name: string, sql: string): string {
   return block(n ? [`-- name: ${n}`] : [], sql);
 }
 
-/** Several runs in one file, oldest first, each with its own header, a blank line between. */
+/**
+ * A run's SQL ending in a statement delimiter. Unterminated SQL gets `;` on a
+ * line of its own, so a trailing `--` comment cannot swallow it.
+ */
+function terminated(sql: string): string {
+  const body = sql.trim();
+  return !body || body.endsWith(';') ? body : `${body}\n;`;
+}
+
+/**
+ * Several runs in one file, oldest first, each with its own header, a blank
+ * line between. Every run ends in `;`, so the file stays a valid script.
+ */
 export function runsToSql(runs: SqlFileRun[]): string {
   return [...runs]
     .sort((a, b) => a.executedAt - b.executedAt)
-    .map(runToSql)
+    .map((run) => runToSql({ ...run, sql: terminated(run.sql) }))
     .join('\n');
 }
 

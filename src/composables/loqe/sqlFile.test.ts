@@ -62,6 +62,20 @@ describe('several runs', () => {
     const later = { ...run, name: 'later', sql: 'SELECT 2;', executedAt: at + 60_000 };
     expect(runsToSql([later, run])).toBe(runToSql(run) + '\n' + runToSql(later));
   });
+
+  it('ends every run with a delimiter, so the file stays a valid script', () => {
+    const a = { ...run, name: 'a', sql: 'SELECT 1', executedAt: at };
+    const b = { ...run, name: 'b', sql: 'SELECT 2 -- two', executedAt: at + 60_000 };
+    const file = runsToSql([a, b]);
+    // On its own line, so the trailing comment of b cannot hide it.
+    expect(file).toContain('SELECT 1\n;\n');
+    expect(file).toContain('SELECT 2 -- two\n;\n');
+  });
+
+  it('leaves already terminated runs alone', () => {
+    const later = { ...run, name: 'later', sql: 'SELECT 2;', executedAt: at + 60_000 };
+    expect(runsToSql([run, later])).not.toContain('\n;\n');
+  });
 });
 
 describe('file names', () => {
