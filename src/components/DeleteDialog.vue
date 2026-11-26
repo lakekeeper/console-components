@@ -6,7 +6,11 @@
 
     <v-card :title="`Confirm deletion of ${props.type}`">
       <v-card-text>
-        <div class="ma-2">Please enter the name "{{ props.name }}" to confirm the deletion</div>
+        <div class="ma-2">
+          Please enter the name
+          <CopyableName :name="props.name" />
+          to confirm the deletion
+        </div>
         <v-text-field
           v-model="deleteName"
           :label="`Type ${capitalize(props.type)} Name`"
@@ -133,6 +137,7 @@
 
 <script lang="ts" setup>
 import { ref, reactive } from 'vue';
+import CopyableName from './CopyableName.vue';
 
 const deleteName = ref('');
 const expanded = ref(false);

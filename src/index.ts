@@ -51,6 +51,7 @@ import WarehouseStorageFormGCS from './components/WarehouseStorageFormGCS.vue';
 import WarehouseStorageJSON from './components/WarehouseStorageJSON.vue';
 import WarehouseValidationReport from './components/WarehouseValidationReport.vue';
 import DeleteConfirmDialog from './components/DeleteConfirmDialog.vue';
+import CopyableName from './components/CopyableName.vue';
 import WarehouseDetails from './components/WarehouseDetails.vue';
 import TaskManager from './components/TaskManager.vue';
 import TaskDetails from './components/TaskDetails.vue';
@@ -192,6 +193,7 @@ export {
   WarehouseStorageJSON,
   WarehouseValidationReport,
   DeleteConfirmDialog,
+  CopyableName,
   StatisticsDialog,
   StatisticsProject,
   StackedAreaChart,
@@ -528,6 +530,7 @@ const components = {
   WarehouseStorageJSON,
   WarehouseValidationReport,
   DeleteConfirmDialog,
+  CopyableName,
   StatisticsDialog,
   StatisticsProject,
   StackedAreaChart,

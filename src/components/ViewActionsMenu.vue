@@ -72,7 +72,7 @@
       <v-card-text>
         <p class="mb-3">
           This permanently deletes the view
-          <strong class="font-mono">{{ viewName }}</strong>
+          <CopyableName :name="viewName" />
           from the catalog.
           <span class="text-error font-weight-bold">This cannot be undone.</span>
         </p>
@@ -117,6 +117,7 @@ import { useFunctions } from '@/plugins/functions';
 import { useConfig, useViewPermissions } from '@/composables/useCatalogPermissions';
 import EntitySettingsDialog from './EntitySettingsDialog.vue';
 import MoveTabularDialog from './MoveTabularDialog.vue';
+import CopyableName from './CopyableName.vue';
 import type { LoadViewResult } from '@/gen/iceberg/types.gen';
 
 const props = defineProps<{

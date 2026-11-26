@@ -20,7 +20,11 @@
             Tick "{{ props.forceLabel }}" below, then confirm again.
           </div>
         </v-alert>
-        <div class="ma-2">Please enter the name "{{ props.name }}" to confirm the deletion</div>
+        <div class="ma-2">
+          Please enter the name
+          <CopyableName :name="props.name" />
+          to confirm the deletion
+        </div>
         <v-text-field
           v-model="deleteName"
           :label="`${capitalize(props.type)} Name`"
@@ -63,6 +67,7 @@
 
 <script lang="ts" setup>
 import { ref, watch } from 'vue';
+import CopyableName from './CopyableName.vue';
 
 const deleteName = ref('');
 

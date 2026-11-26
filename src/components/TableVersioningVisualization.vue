@@ -551,7 +551,7 @@
           </v-alert>
           <div class="text-body-2 mb-2">
             Type the branch name
-            <strong>"{{ deleteBranchName }}"</strong>
+            <CopyableName :name="deleteBranchName" />
             to confirm:
           </div>
           <v-text-field
@@ -797,7 +797,7 @@
           </v-alert>
           <div class="text-body-2 mb-2">
             Type the tag name
-            <strong>"{{ deleteTagName }}"</strong>
+            <CopyableName :name="deleteTagName" />
             to confirm:
           </div>
           <v-text-field
@@ -832,6 +832,7 @@ import { useDisplay } from 'vuetify';
 import type { LoadTableResult, Snapshot } from '../gen/iceberg/types.gen';
 import { useFunctions } from '../plugins/functions';
 import SnapshotCompare from './SnapshotCompare.vue';
+import CopyableName from './CopyableName.vue';
 
 // ─── Reactive chart height from viewport ─────────────────────────────────────
 const { height: viewportHeight } = useDisplay();
