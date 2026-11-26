@@ -284,8 +284,14 @@ export function useLoQE(config: LoQEConfig) {
     }
   }
 
-  /** Run a statement; `tabId` files its history entry under that query tab. */
-  async function query(statement: Sql, options: { tabId?: string } = {}): Promise<LoQEQueryResult> {
+  /**
+   * Run a statement; `tabId` files its history entry under that query tab, and
+   * `maxRows` overrides the "Max result rows" cap for this query only.
+   */
+  async function query(
+    statement: Sql,
+    options: { tabId?: string; maxRows?: number } = {},
+  ): Promise<LoQEQueryResult> {
     const text = sqlText(statement);
     if (!isInitialized.value) await initialize();
 
@@ -294,7 +300,7 @@ export function useLoQE(config: LoQEConfig) {
     const start = Date.now();
 
     try {
-      const result = await engine.query(statement);
+      const result = await engine.query(statement, { maxRows: options.maxRows });
       lastResult.value = result;
 
       const id = crypto.randomUUID();
