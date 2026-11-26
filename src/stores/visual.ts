@@ -77,6 +77,10 @@ export const useVisualStore = defineStore(
       tagsRefresh.value++;
     }
 
+    // Bumped to ask the warehouse navigation tree to unfold and focus its
+    // search (the magnifier beside a folded tree's toggle). Only changes count.
+    const treeSearchFocusRequest = ref(0);
+
     // Requested tab for namespace detail page (set by navigation tree context menu)
     const requestedNamespaceTab = ref<string | null>(null);
 
@@ -502,6 +506,7 @@ export const useVisualStore = defineStore(
       bumpTagsRefresh,
       requestedNamespaceTab,
       requestedWarehouseSettings,
+      treeSearchFocusRequest,
       warehouseTreeState,
       grantsExplorerSelection,
       grantsReviewSelection,
