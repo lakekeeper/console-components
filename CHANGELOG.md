@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.36.0](https://github.com/lakekeeper/console-components/compare/v0.35.0...v0.36.0) (2026-11-26)
+
+
+### Features
+
+* **ui:** choose how many rows the table preview reads ([4a89657](https://github.com/lakekeeper/console-components/commit/4a89657f0cc75306a8566facf9f13482f24e63a7))
+* **ui:** copy the name in delete confirmations with one click ([e8f68bf](https://github.com/lakekeeper/console-components/commit/e8f68bfd075423bb223089997fdf35ed4adeb58d))
+* **ui:** export and import LoQE queries as .sql files ([465c04d](https://github.com/lakekeeper/console-components/commit/465c04dd277d704a45968f6ef7a00475f1f8c7b8))
+* **ui:** leaner LoQE editor toolbar with an SQL menu and per-tab actions ([465c04d](https://github.com/lakekeeper/console-components/commit/465c04dd277d704a45968f6ef7a00475f1f8c7b8))
+* **ui:** search results replace the tree, ranked by exact match then similarity ([7bfa84a](https://github.com/lakekeeper/console-components/commit/7bfa84a4195351a595b6cab95a4ba104c1083f91))
+* **ui:** warehouse-wide search always visible in the navigation tree ([7bfa84a](https://github.com/lakekeeper/console-components/commit/7bfa84a4195351a595b6cab95a4ba104c1083f91))
+
+
+### Bug Fixes
+
+* **ui:** hide delete on managed warehouses from non-instance admins ([9d1e6ae](https://github.com/lakekeeper/console-components/commit/9d1e6aef4a679405febbbedccfdb1edfd284c82c))
+* **ui:** render the table preview virtually so wide tables stay fast ([4a89657](https://github.com/lakekeeper/console-components/commit/4a89657f0cc75306a8566facf9f13482f24e63a7))
+* **ui:** table preview stays inside its card and scrolls sideways with the trackpad ([4a89657](https://github.com/lakekeeper/console-components/commit/4a89657f0cc75306a8566facf9f13482f24e63a7))
+
 ## [0.35.0](https://github.com/lakekeeper/console-components/compare/v0.34.0...v0.35.0) (2026-11-15)
 
 
